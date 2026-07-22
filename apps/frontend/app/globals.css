@@ -149,3 +149,23 @@ p {
   color: #14532d;
   padding: 0.875rem 1rem;
 }
+
+.foundation-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.foundation-list li,
+.member-panel {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.member-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
