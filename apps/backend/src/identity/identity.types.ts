@@ -37,6 +37,7 @@ export type AuditEventType =
   | 'organization.member.add'
   | 'organization.member.update'
   | 'organization.member.remove';
+export type AuditEventType = 'auth.register' | 'auth.login_success' | 'auth.login_failed' | 'auth.logout' | 'profile.update';
 
 export interface AuditLog {
   readonly id: string;

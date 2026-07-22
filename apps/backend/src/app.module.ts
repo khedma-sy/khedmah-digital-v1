@@ -7,6 +7,9 @@ import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [IdentityModule, OrganizationsModule],
+
+@Module({
+  imports: [IdentityModule],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]
 })
