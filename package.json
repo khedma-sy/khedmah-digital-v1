@@ -1,0 +1,22 @@
+{
+  "name": "khedmah-digital-v1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Khedmah Digital V1 production platform foundation workspace.",
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "node --test tests/**/*.test.mjs",
+    "start:backend": "npm --workspace apps/backend run start",
+    "dev:backend": "npm --workspace apps/backend run dev",
+    "dev:frontend": "npm --workspace apps/frontend run dev",
+    "test:workspaces": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  }
+}
