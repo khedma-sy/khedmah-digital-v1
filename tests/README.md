@@ -1,5 +1,12 @@
 # Tests
 
-Test implementation is reserved for approved future missions.
+Mission 007 initializes the platform foundation test structure.
 
-Mission 000B validates repository documentation presence and safety only.
+Included:
+
+- Static platform foundation verification.
+- Backend health endpoint contract verification.
+- Frontend Arabic-first RTL foundation verification.
+- Infrastructure/database preparation-only verification.
+
+No product feature tests are introduced.

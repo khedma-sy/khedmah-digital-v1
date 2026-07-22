@@ -2,4 +2,4 @@
 
 Shared packages are reserved for approved future missions.
 
-No runtime package implementation is included in Mission 000B.
+Mission 007 creates no shared runtime packages.
