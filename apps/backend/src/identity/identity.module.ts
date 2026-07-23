@@ -9,6 +9,5 @@ import { UsersController } from './users.controller';
   controllers: [AuthController, UsersController],
   providers: [IdentityRepository, IdentityService, SessionTokenService],
   exports: [IdentityService, IdentityRepository]
-  providers: [IdentityRepository, IdentityService, SessionTokenService]
 })
 export class IdentityModule {}
