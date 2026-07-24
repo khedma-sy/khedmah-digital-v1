@@ -1,0 +1,15 @@
+export const AuditSecurityPolicy = Object.freeze({
+  separateFromLogging: true,
+  separateFromAnalytics: true,
+  separateFromDatabase: true,
+  separateFromAuthorization: true,
+  storesSecretsCredentialsPasswordsTokens: false,
+  storesPrivateUserInformation: false,
+  exposesAuditInformationPublicly: false,
+  implementsSurveillanceSystem: false,
+  implementsUserTrackingSystem: false,
+  implementsSocialActivityTracking: false,
+  implementsRankingAuditEngine: false,
+  implementsAdvertisingAnalyticsSystem: false,
+  implementsPaymentAuditSystem: false,
+});
