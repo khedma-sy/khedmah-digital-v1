@@ -98,6 +98,7 @@ test('approved module directories preserve governed placeholder or foundation st
   const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   assert.deepEqual(modules.sort(), approvedModules.toSorted());
 
+  const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog', 'locations', 'trust_verification', 'relationships', 'audit', 'analytics'];
   const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog', 'locations', 'trust_verification', 'relationships', 'audit'];
 
   for (const moduleName of approvedModules) {
@@ -109,6 +110,12 @@ test('approved module directories preserve governed placeholder or foundation st
     }
 
     const doc = await read(`backend/modules/${moduleName}/README.md`);
+    assert.match(doc, /Mission 0(5[159]|60|61|62|63|64) Boundary/);
+    assert.match(doc, /Module Responsibility|Service Domain Foundation|Location Domain Foundation|Trust Domain Foundation|Relationship Domain Foundation|Audit Module Foundation|Analytics Module Foundation|Domain Concepts/);
+    assert.match(doc, /Ownership Boundary|Ownership Decisions|Metadata Decision|Metric Definition Decisions|Domain Concepts/);
+    assert.match(doc, /Allowed Dependencies|Dependency Rules/);
+    assert.match(doc, /Forbidden Dependencies|Forbidden dependencies/);
+    assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers|does not implement API routes|does not implement audit storage|does not implement event tracking systems/);
     assert.match(doc, /Mission 0(5[159]|60|61|62|63) Boundary/);
     assert.match(doc, /Module Responsibility|Service Domain Foundation|Location Domain Foundation|Trust Domain Foundation|Relationship Domain Foundation|Audit Module Foundation|Domain Concepts/);
     assert.match(doc, /Ownership Boundary|Ownership Decisions|Metadata Decision|Domain Concepts/);
