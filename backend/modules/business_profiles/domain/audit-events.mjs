@@ -1,0 +1,11 @@
+export const BusinessProfileAuditEvent = Object.freeze({
+  BUSINESS_PROFILE_CREATED: 'BUSINESS_PROFILE_CREATED',
+  BUSINESS_PROFILE_UPDATED: 'BUSINESS_PROFILE_UPDATED',
+  BUSINESS_PROFILE_STATUS_CHANGED: 'BUSINESS_PROFILE_STATUS_CHANGED',
+  BUSINESS_PROFILE_ARCHIVED: 'BUSINESS_PROFILE_ARCHIVED',
+  BUSINESS_PROFILE_OWNERSHIP_CHANGED: 'BUSINESS_PROFILE_OWNERSHIP_CHANGED',
+});
+
+export function isBusinessProfileAuditEventName(value) {
+  return Object.values(BusinessProfileAuditEvent).includes(value) && /^[A-Z][A-Z0-9_]+$/.test(value);
+}
