@@ -101,6 +101,7 @@ test('approved module directories contain README placeholders only', async () =>
   for (const moduleName of approvedModules) {
     const entries = await readdir(new URL(`../backend/modules/${moduleName}`, import.meta.url));
     if (['identity', 'users'].includes(moduleName)) {
+    if (moduleName === 'identity') {
       assert.deepEqual(entries, ['README.md', 'api', 'application', 'domain', 'repositories', 'schemas', 'tests']);
     } else {
       assert.deepEqual(entries, ['README.md'], `${moduleName} should contain README.md only`);
