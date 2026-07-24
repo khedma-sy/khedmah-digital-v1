@@ -10,9 +10,9 @@ const approvedModules = [
   'identity',
   'users',
   'profiles',
-  'organizations',
-  'business_profiles',
   'professional_profiles',
+  'business_profiles',
+  'organizations',
   'service_catalog',
   'locations',
   'trust_verification',
@@ -20,6 +20,7 @@ const approvedModules = [
   'audit',
   'analytics',
 ];
+const foundationModules = new Set(approvedModules);
 
 test('backend foundation structure and README exist', async () => {
   assert.equal(exists('backend/README.md'), true);
@@ -77,9 +78,9 @@ test('configuration, database, migrations, shared, and test foundations preserve
   assert.match(database, /migrations/);
 
   const migrations = await read('backend/migrations/README.md');
-  assert.match(migrations, /Migrations will be introduced later/);
+  assert.match(migrations, /001_core_identity_accounts\.sql/);
   assert.match(migrations, /Mission 048/);
-  assert.match(migrations, /No database tables/);
+  assert.match(migrations, /002 through 004 are not present/);
 
   const shared = await read('backend/shared/README.md');
   assert.match(shared, /technical and domain-neutral/);
@@ -98,12 +99,11 @@ test('approved module directories preserve governed placeholder or foundation st
   const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   assert.deepEqual(modules.sort(), approvedModules.toSorted());
 
-  const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog', 'locations', 'trust_verification', 'relationships', 'audit', 'analytics'];
-  const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog', 'locations', 'trust_verification', 'relationships', 'audit'];
+  assert.deepEqual([...foundationModules], approvedModules, 'every approved module must retain foundation coverage');
 
   for (const moduleName of approvedModules) {
     const entries = await readdir(new URL(`../backend/modules/${moduleName}`, import.meta.url));
-    if (foundationModules.includes(moduleName)) {
+    if (foundationModules.has(moduleName)) {
       assert.deepEqual(entries.sort(), ['README.md', 'api', 'application', 'domain', 'repositories', 'schemas', 'tests'].sort());
     } else {
       assert.deepEqual(entries, ['README.md'], `${moduleName} should contain README.md only until implementation is authorized`);
@@ -116,12 +116,6 @@ test('approved module directories preserve governed placeholder or foundation st
     assert.match(doc, /Allowed Dependencies|Dependency Rules/);
     assert.match(doc, /Forbidden Dependencies|Forbidden dependencies/);
     assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers|does not implement API routes|does not implement audit storage|does not implement event tracking systems/);
-    assert.match(doc, /Mission 0(5[159]|60|61|62|63) Boundary/);
-    assert.match(doc, /Module Responsibility|Service Domain Foundation|Location Domain Foundation|Trust Domain Foundation|Relationship Domain Foundation|Audit Module Foundation|Domain Concepts/);
-    assert.match(doc, /Ownership Boundary|Ownership Decisions|Metadata Decision|Domain Concepts/);
-    assert.match(doc, /Allowed Dependencies|Dependency Rules/);
-    assert.match(doc, /Forbidden Dependencies|Forbidden dependencies/);
-    assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers|does not implement API routes|does not implement audit storage/);
   }
 });
 test('kill-critical backend structure excludes forbidden modules and runtime artifacts', async () => {
