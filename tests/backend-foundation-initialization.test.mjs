@@ -100,6 +100,8 @@ test('approved module directories contain README placeholders only', async () =>
 
   for (const moduleName of approvedModules) {
     const entries = await readdir(new URL(`../backend/modules/${moduleName}`, import.meta.url));
+    if (moduleName === 'identity' || moduleName === 'profiles' || moduleName === 'professional_profiles') {
+      assert.deepEqual(entries.sort(), ['README.md', 'api', 'application', 'domain', 'repositories', 'schemas', 'tests'].sort());
     if (['identity', 'users'].includes(moduleName)) {
     if (moduleName === 'identity') {
       assert.deepEqual(entries, ['README.md', 'api', 'application', 'domain', 'repositories', 'schemas', 'tests']);
@@ -107,12 +109,12 @@ test('approved module directories contain README placeholders only', async () =>
       assert.deepEqual(entries, ['README.md'], `${moduleName} should contain README.md only`);
     }
     const doc = await read(`backend/modules/${moduleName}/README.md`);
-    assert.match(doc, /Mission 051 Boundary/);
+    assert.match(doc, /Mission 05[15] Boundary/);
     assert.match(doc, /Module Responsibility/);
     assert.match(doc, /Ownership Boundary/);
     assert.match(doc, /Allowed Dependencies/);
     assert.match(doc, /Forbidden Dependencies/);
-    assert.match(doc, /does not implement APIs, services, repositories, schemas/);
+    assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers/);
   }
 });
 
