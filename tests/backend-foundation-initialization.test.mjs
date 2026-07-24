@@ -98,6 +98,7 @@ test('approved module directories preserve governed placeholder or foundation st
   const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   assert.deepEqual(modules.sort(), approvedModules.toSorted());
 
+  const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog', 'locations', 'trust_verification', 'relationships'];
   const foundationModules = ['identity', 'users', 'profiles', 'professional_profiles', 'business_profiles', 'organizations', 'service_catalog'];
 
   for (const moduleName of approvedModules) {
@@ -109,6 +110,8 @@ test('approved module directories preserve governed placeholder or foundation st
     }
 
     const doc = await read(`backend/modules/${moduleName}/README.md`);
+    assert.match(doc, /Mission 0(5[159]|60|61|62) Boundary/);
+    assert.match(doc, /Module Responsibility|Service Domain Foundation|Location Domain Foundation|Trust Domain Foundation|Relationship Domain Foundation/);
     assert.match(doc, /Mission 05[159] Boundary/);
     assert.match(doc, /Module Responsibility|Service Domain Foundation/);
     assert.match(doc, /Ownership Boundary|Ownership Decisions/);

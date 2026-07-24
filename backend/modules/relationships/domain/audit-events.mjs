@@ -1,0 +1,11 @@
+export const RelationshipAuditEvent = Object.freeze({
+  RELATIONSHIP_CREATED: 'RELATIONSHIP_CREATED',
+  RELATIONSHIP_UPDATED: 'RELATIONSHIP_UPDATED',
+  RELATIONSHIP_STATUS_CHANGED: 'RELATIONSHIP_STATUS_CHANGED',
+  OWNERSHIP_REFERENCE_CHANGED: 'OWNERSHIP_REFERENCE_CHANGED',
+  RELATIONSHIP_ARCHIVED: 'RELATIONSHIP_ARCHIVED',
+});
+
+export function isRelationshipAuditEventName(value) {
+  return Object.values(RelationshipAuditEvent).includes(value);
+}
