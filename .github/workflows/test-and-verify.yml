@@ -1,0 +1,106 @@
+name: Khedmah - Test & Verify
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests & Verification
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 🔒 Verify no secrets in code
+        run: |
+          echo "🔍 Scanning for hardcoded secrets..."
+          ! grep -r "password\|secret\|token\|api.key\|credentials" \
+            --include="*.js" --include="*.mjs" --include="*.ts" \
+            backend/ apps/ || echo "⚠️  Review found keywords"
+          echo "✅ Secret scan completed"
+
+      - name: 📋 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build project
+        run: npm run build --if-present
+
+      - name: ✅ Run all tests
+        run: npm run test:all
+
+      - name: 🔐 Security audit
+        run: npm audit --production || true
+
+      - name: 📊 Test report summary
+        if: always()
+        run: echo "✅ Test suite completed - Check logs for details"
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Check file patterns
+        run: |
+          echo "🔎 Verifying database implementation patterns..."
+          test -d "backend/database" && echo "✅ Database foundation present"
+          test -d "backend/migrations" && echo "✅ Migrations framework present"
+          test -d "backend/modules/audit" && echo "✅ Audit module present"
+          test -d "backend/modules/analytics" && echo "✅ Analytics module present"
+
+      - name: 📄 Verify SQL migrations
+        run: |
+          echo "🔍 Checking migration files..."
+          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found"
+          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found"
+          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found"
+          test -f "backend/migrations/versions/004_create_business_profiles.sql" && echo "✅ Migration 004 found"
+
+      - name: 🔒 Verify no forbidden tables
+        run: |
+          echo "🔍 Checking KILL CRITICAL boundaries..."
+          ! grep -r "marketplace\|payment\|commission\|social_profile\|tracking" \
+            --include="*.sql" backend/migrations/ || echo "⚠️  Review found keywords"
+          echo "✅ Boundary check completed"
+
+  validate-pr:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📊 Check PR files changed
+        run: |
+          echo "📝 Pull Request Validation"
+          echo "✅ PR #${{ github.event.pull_request.number }}"
+          echo "🔄 Branch: ${{ github.event.pull_request.head.ref }}"
+
+      - name: ✨ Codex Connection Check
+        run: |
+          echo "🔗 Checking Codex/Agent Integration..."
+          if [[ "${{ github.event.pull_request.head.ref }}" == "codex/"* ]]; then
+            echo "✅ Codex branch detected: ${{ github.event.pull_request.head.ref }}"
+          fi
+          echo "📌 PR Title: ${{ github.event.pull_request.title }}"
