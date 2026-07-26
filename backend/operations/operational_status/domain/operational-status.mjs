@@ -13,6 +13,7 @@ const freezeSnapshot = (snapshot) => Object.freeze({
   history: Object.freeze(snapshot.history.map((entry) => Object.freeze({ ...entry, auditReferences: Object.freeze([...entry.auditReferences]) }))),
   approvalOutcomes: Object.freeze((snapshot.approvalOutcomes ?? []).map((entry) => Object.freeze({ ...entry }))),
   publicationOutcomes: Object.freeze((snapshot.publicationOutcomes ?? []).map((entry) => Object.freeze({ ...entry }))),
+  visibilityOutcomes: Object.freeze((snapshot.visibilityOutcomes ?? []).map((entry) => Object.freeze({ ...entry }))),
 });
 
 const historyEntry = (snapshot, previousStatus, currentStatus, transitionTimestamp, transitionEvidenceReference, auditReferences) => Object.freeze({
@@ -54,6 +55,7 @@ export function createOperationalStatus(input, { existingStatusIdentifiers = [] 
     history: [],
     approvalOutcomes: [],
     publicationOutcomes: [],
+    visibilityOutcomes: [],
   };
   const creation = historyEntry(base, null, OperationalStatus.CREATED, input.transitionTimestamp, input.transitionEvidenceReference, input.auditReferences ?? []);
   return freezeSnapshot({ ...base, version: 1, history: [creation] });
@@ -107,6 +109,32 @@ export function associatePublicationOutcome(snapshot, association) {
     auditReference: requireText(association.auditReference, OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'auditReference'),
   });
   return freezeSnapshot({ ...snapshot, version: snapshot.version + 1, publicationOutcomes: [...snapshot.publicationOutcomes, outcome] });
+}
+
+// OP-002C associates policy-controlled visibility without adding presentation,
+// profile, discovery, or search data to the Operational Status.
+export function associateVisibilityOutcome(snapshot, association) {
+  if (snapshot.currentStatus !== OperationalStatus.READY_FOR_APPROVAL ||
+      !snapshot.publicationOutcomes.some((entry) => entry.publicationReference === association?.publicationReference && entry.outcome === 'PUBLISHED')) {
+    throw new OperationalStatusValidationError(OperationalStatusErrorCode.INVALID_TRANSITION, 'Visibility outcome requires a valid published association.');
+  }
+  if (association.businessCaseReference !== snapshot.association.businessCaseReference ||
+      association.decisionReference !== snapshot.association.currentDecisionReference ||
+      association.correlationIdentifier !== snapshot.correlationIdentifier) {
+    throw new OperationalStatusValidationError(OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'Visibility outcome must remain associated with the published case, Decision, and correlation identifier.');
+  }
+  const visibilityReference = requireText(association.visibilityReference, OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'visibilityReference');
+  if (snapshot.visibilityOutcomes.some((entry) => entry.visibilityReference === visibilityReference)) {
+    throw new OperationalStatusValidationError(OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'Visibility outcome is already associated with this Operational Status.');
+  }
+  const outcome = Object.freeze({
+    visibilityReference,
+    publicationReference: association.publicationReference,
+    outcome: requireText(association.outcome, OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'outcome'),
+    recordedAt: requireText(association.recordedAt, OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'recordedAt'),
+    auditReference: requireText(association.auditReference, OperationalStatusErrorCode.ASSOCIATION_MISMATCH, 'auditReference'),
+  });
+  return freezeSnapshot({ ...snapshot, version: snapshot.version + 1, visibilityOutcomes: [...snapshot.visibilityOutcomes, outcome] });
 }
 
 export function transitionOperationalStatus(snapshot, nextStatus, transition) {
