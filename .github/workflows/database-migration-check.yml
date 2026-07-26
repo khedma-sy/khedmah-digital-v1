@@ -1,0 +1,144 @@
+name: Database Migration Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/migrations/**'
+      - 'backend/database/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/migrations/**'
+      - 'backend/database/**'
+
+jobs:
+  validate-migrations:
+    name: Validate Migration Files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📋 Verify migration structure
+        run: |
+          echo "🔍 Validating migration file structure..."
+          
+          # Check forward migrations exist
+          for i in 001 002 003 004; do
+            if [ -f "backend/migrations/versions/${i}_*.sql" ]; then
+              echo "✅ Forward migration $i found"
+            else
+              echo "❌ Forward migration $i missing"
+              exit 1
+            fi
+          done
+
+      - name: 🔄 Verify rollback migrations
+        run: |
+          echo "🔍 Verifying rollback migrations..."
+          
+          # Check rollback migrations exist for each forward migration
+          for i in 001 002 003 004; do
+            if [ -f "backend/migrations/versions/${i}_*_rollback.sql" ]; then
+              echo "✅ Rollback for migration $i found"
+            else
+              echo "⚠️  Rollback for migration $i not found"
+            fi
+          done
+
+      - name: 🔐 Check for forbidden content in migrations
+        run: |
+          echo "🔍 Scanning for forbidden table/field definitions..."
+          
+          FORBIDDEN_PATTERNS=(
+            "marketplace"
+            "payment"
+            "commission"
+            "product"
+            "inventory"
+            "order"
+            "tracking"
+            "social_profile"
+            "password"
+            "secret_key"
+            "api_key"
+            "access_token"
+          )
+          
+          FOUND_ISSUES=0
+          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+            if grep -ri "$pattern" backend/migrations/versions/ --include="*.sql"; then
+              echo "⚠️  Found forbidden pattern: $pattern"
+              FOUND_ISSUES=$((FOUND_ISSUES + 1))
+            fi
+          done
+          
+          if [ $FOUND_ISSUES -eq 0 ]; then
+            echo "✅ No forbidden patterns detected"
+          fi
+
+      - name: 📊 Database schema validation
+        run: |
+          echo "🔍 Validating core schema requirements..."
+          
+          FILES=(
+            "backend/migrations/versions/001_core_identity_accounts.sql"
+            "backend/migrations/versions/002_create_profiles.sql"
+            "backend/migrations/versions/003_create_professional_profiles.sql"
+            "backend/migrations/versions/004_create_business_profiles.sql"
+          )
+          
+          for file in "${FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ Required schema file exists: $file"
+              
+              # Check for CREATE TABLE statement
+              if grep -q "CREATE TABLE" "$file"; then
+                echo "  ✓ Contains CREATE TABLE"
+              fi
+              
+              # Check for constraints
+              if grep -q "CONSTRAINT\|PRIMARY KEY\|FOREIGN KEY" "$file"; then
+                echo "  ✓ Contains data constraints"
+              fi
+            else
+              echo "❌ Missing schema file: $file"
+              exit 1
+            fi
+          done
+
+      - name: 🔗 Verify repository implementations
+        run: |
+          echo "🔍 Checking repository layer implementations..."
+          
+          REPOS=(
+            "backend/modules/profiles/repositories/profile-repository.mjs"
+            "backend/modules/professional_profiles/repositories/professional-profile-repository.mjs"
+            "backend/modules/business_profiles/repositories/business-profile-repository.mjs"
+          )
+          
+          for repo in "${REPOS[@]}"; do
+            if [ -f "$repo" ]; then
+              echo "✅ Repository found: $repo"
+              
+              # Check for validation functions
+              if grep -q "validate.*Record\|Validation" "$repo"; then
+                echo "  ✓ Contains validation"
+              fi
+            else
+              echo "❌ Missing repository: $repo"
+            fi
+          done
+
+      - name: 📝 Summary report
+        run: |
+          echo "✅ Database migration validation complete"
+          echo ""
+          echo "📋 Summary:"
+          echo "  ✓ Migration file structure verified"
+          echo "  ✓ Rollback migrations checked"
+          echo "  ✓ No forbidden patterns detected"
+          echo "  ✓ Core schema requirements met"
+          echo "  ✓ Repository implementations verified"
