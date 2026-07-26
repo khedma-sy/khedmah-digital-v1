@@ -1,0 +1,21 @@
+export class BusinessPublicationError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'BusinessPublicationError';
+    this.code = code;
+    this.details = Object.freeze({ ...details });
+  }
+}
+
+export const BusinessPublicationErrorCode = Object.freeze({
+  MISSING_APPROVAL: 'MISSING_BUSINESS_APPROVAL',
+  INVALID_APPROVAL_OUTCOME: 'INVALID_APPROVAL_OUTCOME',
+  MISSING_BUSINESS_CASE: 'MISSING_BUSINESS_CASE',
+  INVALID_OPERATIONAL_STATUS: 'INVALID_OPERATIONAL_STATUS',
+  UNAUTHORIZED_ROLE: 'UNAUTHORIZED_PUBLICATION_ROLE',
+  POLICY_VIOLATION: 'PUBLICATION_POLICY_VIOLATION',
+  DUPLICATE_PUBLICATION: 'DUPLICATE_BUSINESS_PUBLICATION',
+  INVALID_REQUEST: 'INVALID_PUBLICATION_REQUEST',
+  INVALID_TRANSITION: 'INVALID_PUBLICATION_TRANSITION',
+});
+
