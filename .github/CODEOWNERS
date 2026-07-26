@@ -1,0 +1,22 @@
+# Khedmah Digital V1 - Code Owners
+# This file defines default reviewers for repository areas
+
+# All files
+* @khedma-sy
+
+# Backend core and database
+/backend/database/ @khedma-sy
+/backend/migrations/ @khedma-sy
+/backend/core/ @khedma-sy
+
+# Business modules
+/backend/modules/audit/ @khedma-sy
+/backend/modules/analytics/ @khedma-sy
+/backend/modules/profiles/ @khedma-sy
+
+# Tests
+/tests/ @khedma-sy
+
+# Configuration
+/.github/ @khedma-sy
+/package.json @khedma-sy
