@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
@@ -13,9 +13,9 @@ import { validateAddMember, validateCreateOrganization, validateUpdateMember, va
 @Injectable()
 export class OrganizationService {
   constructor(
-    private readonly organizations: OrganizationRepository,
-    private readonly identity: IdentityService,
-    private readonly identityRepository: IdentityRepository
+    @Inject(OrganizationRepository) private readonly organizations: OrganizationRepository,
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository
   ) {}
 
   create(cookieHeader: string | undefined, request: CreateOrganizationRequest): PublicOrganization {

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { PlatformLogger } from '../logging/platform-logger';
@@ -11,9 +11,9 @@ import { validateRecordAnalyticsEvent } from './analytics.validation';
 @Injectable()
 export class AnalyticsService {
   constructor(
-    private readonly analytics: AnalyticsRepository,
-    private readonly identityRepository: IdentityRepository,
-    private readonly logger: PlatformLogger
+    @Inject(AnalyticsRepository) private readonly analytics: AnalyticsRepository,
+    @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository,
+    @Inject(PlatformLogger) private readonly logger: PlatformLogger
   ) {}
 
   recordEvent(request: RecordAnalyticsEventRequest): PublicAnalyticsEventReceipt {
