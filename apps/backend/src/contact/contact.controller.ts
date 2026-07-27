@@ -1,10 +1,10 @@
-import { Body, Controller, Headers, Param, Post } from '@nestjs/common';
+import { Body, Controller, Headers, Inject, Param, Post } from '@nestjs/common';
 import { ContactService } from './contact.service';
 import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
 
 @Controller('businesses/:businessProfileId')
 export class ContactController {
-  constructor(private readonly contactService: ContactService) {}
+  constructor(@Inject(ContactService) private readonly contactService: ContactService) {}
 
   @Post('inquiries')
   submitInquiry(

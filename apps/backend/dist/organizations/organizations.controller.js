@@ -116,6 +116,7 @@ __decorate([
 ], OrganizationsController.prototype, "removeMember", null);
 exports.OrganizationsController = OrganizationsController = __decorate([
     (0, common_1.Controller)('organizations'),
+    __param(0, (0, common_1.Inject)(organization_service_1.OrganizationService)),
     __metadata("design:paramtypes", [organization_service_1.OrganizationService])
 ], OrganizationsController);
 //# sourceMappingURL=organizations.controller.js.map

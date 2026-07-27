@@ -48,6 +48,7 @@ __decorate([
 ], ContactController.prototype, "trackContactClick", null);
 exports.ContactController = ContactController = __decorate([
     (0, common_1.Controller)('businesses/:businessProfileId'),
+    __param(0, (0, common_1.Inject)(contact_service_1.ContactService)),
     __metadata("design:paramtypes", [contact_service_1.ContactService])
 ], ContactController);
 //# sourceMappingURL=contact.controller.js.map

@@ -34,6 +34,7 @@ __decorate([
 ], AnalyticsController.prototype, "recordEvent", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics/events'),
+    __param(0, (0, common_1.Inject)(analytics_service_1.AnalyticsService)),
     __metadata("design:paramtypes", [analytics_service_1.AnalyticsService])
 ], AnalyticsController);
 //# sourceMappingURL=analytics.controller.js.map

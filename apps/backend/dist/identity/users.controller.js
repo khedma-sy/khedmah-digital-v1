@@ -46,6 +46,7 @@ __decorate([
 ], UsersController.prototype, "updateProfile", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
+    __param(0, (0, common_1.Inject)(identity_service_1.IdentityService)),
     __metadata("design:paramtypes", [identity_service_1.IdentityService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

@@ -78,6 +78,7 @@ __decorate([
 ], AuthController.prototype, "session", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
+    __param(0, (0, common_1.Inject)(identity_service_1.IdentityService)),
     __metadata("design:paramtypes", [identity_service_1.IdentityService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

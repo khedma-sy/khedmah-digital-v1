@@ -20,9 +20,9 @@ class ContactAccessError extends common_1.ForbiddenException {
     }
 }
 exports.ContactAccessError = ContactAccessError;
-class ContactRateLimitError extends common_1.TooManyRequestsException {
+class ContactRateLimitError extends common_1.HttpException {
     constructor() {
-        super('Contact rate limit exceeded.');
+        super('Contact rate limit exceeded.', common_1.HttpStatus.TOO_MANY_REQUESTS);
     }
 }
 exports.ContactRateLimitError = ContactRateLimitError;

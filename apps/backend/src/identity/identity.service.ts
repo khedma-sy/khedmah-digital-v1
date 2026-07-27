@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { LoginRequest, RegisterRequest, UpdateProfileRequest } from './dto/auth.dto';
 import { IdentityRepository } from './identity.repository';
@@ -17,8 +17,8 @@ export interface AuthResult {
 @Injectable()
 export class IdentityService {
   constructor(
-    private readonly repository: IdentityRepository,
-    private readonly sessionTokens: SessionTokenService
+    @Inject(IdentityRepository) private readonly repository: IdentityRepository,
+    @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
   ) {}
 
   register(request: RegisterRequest): AuthResult {
