@@ -1,6 +1,5 @@
 import { combineValidationResults, validateAllowedValue, validatePattern, validateRequiredFields } from '../../../core/validation/validators.mjs';
 import { createDatabaseError, DatabaseErrorCode } from '../../../database/errors/database-errors.mjs';
-import { ProfileErrorCode, createProfileError } from '../../profiles/domain/errors.mjs';
 import { ProfileType } from '../../profiles/domain/profile-types.mjs';
 import { BusinessProfileErrorCode, createBusinessProfileError } from '../domain/errors.mjs';
 import { BusinessStatus, BusinessType, BusinessVisibility } from '../domain/business-types.mjs';
@@ -43,7 +42,7 @@ export function validateBusinessProfilePersistenceRecord(input) {
 
 export function validateBusinessBaseProfileType(profileType) {
   const valid = profileType === ProfileType.BUSINESS;
-  return Object.freeze({ valid, errors: Object.freeze(valid ? [] : [{ field: 'profileType', code: ProfileErrorCode.PROFILE_REFERENCE_INVALID, message: 'Business persistence requires a business base profile.' }]) });
+  return Object.freeze({ valid, errors: Object.freeze(valid ? [] : [{ field: 'profileType', code: BusinessProfileErrorCode.PROFILE_REFERENCE_INVALID, message: 'Business persistence requires a business base profile.' }]) });
 }
 
 export function assertUniqueBusinessProfileOwnership(records = []) {
@@ -76,7 +75,7 @@ export function createBusinessProfileRepository({ databaseClient } = {}) {
       return createBusinessProfileError(BusinessProfileErrorCode.BUSINESS_PROFILE_DUPLICATE, 'A business profile already exists for this base profile.', { profileIdentifier });
     },
     createProfileReferenceError(profileIdentifier) {
-      return createProfileError(ProfileErrorCode.PROFILE_REFERENCE_INVALID, 'Business profile reference is invalid.', { profileIdentifier });
+      return createBusinessProfileError(BusinessProfileErrorCode.PROFILE_REFERENCE_INVALID, 'Business profile reference is invalid.', { profileIdentifier });
     },
     createDatabaseValidationError(metadata = {}) {
       return createDatabaseError(DatabaseErrorCode.DATABASE_VALIDATION_ERROR, 'Business profile database validation failed.', metadata);
