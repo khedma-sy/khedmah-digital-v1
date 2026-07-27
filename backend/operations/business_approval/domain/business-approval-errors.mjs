@@ -1,0 +1,22 @@
+export class BusinessApprovalError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'BusinessApprovalError';
+    this.code = code;
+    this.details = Object.freeze({ ...details });
+  }
+}
+
+export const BusinessApprovalErrorCode = Object.freeze({
+  MISSING_BUSINESS_CASE: 'MISSING_BUSINESS_CASE',
+  MISSING_REGISTRATION: 'MISSING_REGISTRATION',
+  MISSING_VERIFICATION: 'MISSING_VERIFICATION',
+  MISSING_DECISION: 'MISSING_DECISION',
+  INVALID_OPERATIONAL_STATUS: 'INVALID_OPERATIONAL_STATUS',
+  UNAUTHORIZED_ROLE: 'UNAUTHORIZED_APPROVAL_ROLE',
+  POLICY_VIOLATION: 'APPROVAL_POLICY_VIOLATION',
+  DUPLICATE_APPROVAL: 'DUPLICATE_BUSINESS_APPROVAL',
+  INVALID_TRANSITION: 'INVALID_APPROVAL_TRANSITION',
+  INVALID_APPROVAL: 'INVALID_BUSINESS_APPROVAL',
+});
+

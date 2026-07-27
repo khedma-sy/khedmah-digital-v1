@@ -1,0 +1,21 @@
+export class BusinessVisibilityError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'BusinessVisibilityError';
+    this.code = code;
+    this.details = Object.freeze({ ...details });
+  }
+}
+
+export const BusinessVisibilityErrorCode = Object.freeze({
+  MISSING_PUBLICATION: 'MISSING_BUSINESS_PUBLICATION',
+  INVALID_PUBLICATION: 'INVALID_BUSINESS_PUBLICATION',
+  MISSING_BUSINESS_CASE: 'MISSING_BUSINESS_CASE',
+  MISSING_OPERATIONAL_STATUS: 'MISSING_OPERATIONAL_STATUS',
+  UNAUTHORIZED_ROLE: 'UNAUTHORIZED_VISIBILITY_ROLE',
+  POLICY_VIOLATION: 'VISIBILITY_POLICY_VIOLATION',
+  DUPLICATE_VISIBILITY: 'DUPLICATE_VISIBILITY_RECORD',
+  INVALID_REQUEST: 'INVALID_VISIBILITY_REQUEST',
+  INVALID_TRANSITION: 'INVALID_VISIBILITY_TRANSITION',
+});
+

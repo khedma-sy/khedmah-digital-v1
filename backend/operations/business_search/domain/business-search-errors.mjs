@@ -1,0 +1,21 @@
+export class BusinessSearchError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'BusinessSearchError';
+    this.code = code;
+    this.details = Object.freeze({ ...details });
+  }
+}
+
+export const BusinessSearchErrorCode = Object.freeze({
+  MISSING_DISCOVERY: 'MISSING_PUBLIC_DISCOVERY',
+  MISSING_PUBLIC_PROFILE: 'MISSING_PUBLIC_BUSINESS_PROFILE',
+  INVALID_VISIBILITY: 'INVALID_BUSINESS_VISIBILITY',
+  INVALID_PUBLICATION: 'INVALID_BUSINESS_PUBLICATION',
+  DUPLICATE_SEARCH: 'DUPLICATE_BUSINESS_SEARCH_RECORD',
+  UNAUTHORIZED_SEARCH: 'UNAUTHORIZED_BUSINESS_SEARCH',
+  POLICY_VIOLATION: 'BUSINESS_SEARCH_POLICY_VIOLATION',
+  INVALID_REQUEST: 'INVALID_BUSINESS_SEARCH_REQUEST',
+  INVALID_TRANSITION: 'INVALID_BUSINESS_SEARCH_TRANSITION',
+});
+

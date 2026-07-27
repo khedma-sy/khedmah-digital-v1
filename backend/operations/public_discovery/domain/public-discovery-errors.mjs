@@ -1,0 +1,21 @@
+export class PublicDiscoveryError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'PublicDiscoveryError';
+    this.code = code;
+    this.details = Object.freeze({ ...details });
+  }
+}
+
+export const PublicDiscoveryErrorCode = Object.freeze({
+  MISSING_PUBLIC_PROFILE: 'MISSING_PUBLIC_BUSINESS_PROFILE',
+  MISSING_VISIBILITY: 'MISSING_BUSINESS_VISIBILITY',
+  INVALID_VISIBILITY: 'INVALID_BUSINESS_VISIBILITY',
+  INVALID_PUBLICATION: 'INVALID_BUSINESS_PUBLICATION',
+  DUPLICATE_DISCOVERY: 'DUPLICATE_PUBLIC_DISCOVERY',
+  UNAUTHORIZED_EXPOSURE: 'UNAUTHORIZED_DISCOVERY_EXPOSURE',
+  POLICY_VIOLATION: 'DISCOVERY_POLICY_VIOLATION',
+  INVALID_REQUEST: 'INVALID_DISCOVERY_REQUEST',
+  INVALID_TRANSITION: 'INVALID_DISCOVERY_TRANSITION',
+});
+
