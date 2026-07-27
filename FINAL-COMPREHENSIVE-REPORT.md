@@ -1,5 +1,7 @@
 # 📊 COMPREHENSIVE FINAL REPORT - PR #15 MERGE & CODEX INTEGRATION
 
+> **Superseded status (2026-07-27):** This historical merge report is not a current release-readiness authority. Its production-ready and synchronization claims are superseded by the approved MVP definition and the latest Alpha release-gate report under `docs/reports/`.
+
 **تاريخ التقرير:** 26 يوليو 2026  
 **الساعة:** 21:55 UTC  
 **الحالة:** ✅ اكتمل بنجاح كامل

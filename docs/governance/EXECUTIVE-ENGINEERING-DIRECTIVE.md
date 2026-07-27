@@ -14,3 +14,9 @@ Khedmah Digital V1 must be rebuilt from an approved documentation foundation bef
 ## Foundation State
 
 Mission 000B restores repository structure and source-of-truth documents only.
+
+## Current Delivery State
+
+The foundation state is a historical prerequisite. The council directive dated 2026-07-27 authorizes implementation and remediation only within the [Khedmah Digital MVP Definition](../product/KHEDMAH-DIGITAL-MVP-DEFINITION.md).
+
+This authorization does not permit new reserved modules, broad dependency upgrades, production infrastructure, or any capability outside the approved MVP. Alpha requires an independent release-gate decision supported by evidence.
