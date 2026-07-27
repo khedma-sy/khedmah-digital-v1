@@ -11,3 +11,7 @@ This directory contains the Khedmah Digital V1 source-of-truth documentation.
 - [Contracts](contracts/DOMAIN-CONTRACTS.md)
 - [Operations](operations/DEFINITION-OF-DONE.md)
 - [Decisions](decisions/README.md)
+
+## Executive audit reports
+
+- [Mission-027 repository governance finalization and synchronization](audits/MISSION-027-REPOSITORY-GOVERNANCE-FINALIZATION.md)
