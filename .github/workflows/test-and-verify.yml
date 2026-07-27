@@ -27,60 +27,64 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: 🔒 Verify no secrets in code
+      - name: 🔒 Scan for hardcoded secrets (advisory, non-blocking)
         run: |
-          echo "🔍 Scanning for hardcoded secrets..."
-          ! grep -r "password\|secret\|token\|api.key\|credentials" \
+          echo "🔍 Scanning source files for secret-like keywords..."
+          if grep -r "password\|secret\|token\|api.key\|credentials" \
             --include="*.js" --include="*.mjs" --include="*.ts" \
-            backend/ apps/ || echo "⚠️  Review found keywords"
-          echo "✅ Secret scan completed"
+            backend/ apps/ 2>/dev/null; then
+            echo "⚠️  Review: above matches may contain sensitive patterns."
+            echo "    Manual review required before release."
+          else
+            echo "✅ No secret-like patterns found in source files."
+          fi
 
       - name: 📋 Install dependencies
         run: npm ci
 
       - name: 🏗️ Build project
-        run: npm run build --if-present
+        run: npm run build
 
       - name: ✅ Run all tests
-        run: npm run test:all
+        run: npm test
 
-      - name: 🔐 Security audit
-        run: npm audit --production || true
-
-      - name: 📊 Test report summary
-        if: always()
-        run: echo "✅ Test suite completed - Check logs for details"
+      - name: 🔐 Security audit (advisory, non-blocking)
+        run: |
+          echo "🔍 Running npm security audit..."
+          npm audit --production || echo "⚠️  Audit found issues — review before release. Not a blocking gate in this environment."
 
   code-quality:
     name: Code Quality Checks
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔍 Check file patterns
+      - name: 🔍 Check executable directory structure
         run: |
-          echo "🔎 Verifying database implementation patterns..."
-          test -d "backend/database" && echo "✅ Database foundation present"
-          test -d "backend/migrations" && echo "✅ Migrations framework present"
-          test -d "backend/modules/audit" && echo "✅ Audit module present"
-          test -d "backend/modules/analytics" && echo "✅ Analytics module present"
+          echo "🔎 Verifying key directory structure..."
+          test -d "apps/backend" && echo "✅ apps/backend (executable backend host) present" || { echo "❌ apps/backend missing"; exit 1; }
+          test -d "apps/frontend" && echo "✅ apps/frontend (executable frontend) present" || { echo "❌ apps/frontend missing"; exit 1; }
+          test -d "backend/migrations/versions" && echo "✅ backend/migrations/versions (governed migrations) present" || { echo "❌ backend/migrations/versions missing"; exit 1; }
 
-      - name: 📄 Verify SQL migrations
+      - name: 📄 Verify approved SQL migrations (001-003 only)
         run: |
-          echo "🔍 Checking migration files..."
-          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found"
-          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found"
-          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found"
-          test -f "backend/migrations/versions/004_create_business_profiles.sql" && echo "✅ Migration 004 found"
+          echo "🔍 Checking approved migration files..."
+          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found" || { echo "❌ Migration 001 missing"; exit 1; }
+          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found" || { echo "❌ Migration 002 missing"; exit 1; }
+          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found" || { echo "❌ Migration 003 missing"; exit 1; }
+          echo "ℹ️  Migration 004 is not approved — it must not be created until contracts are reviewed."
 
-      - name: 🔒 Verify no forbidden tables
+      - name: 🔒 Verify no forbidden tables in migrations
         run: |
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          ! grep -r "marketplace\|payment\|commission\|social_profile\|tracking" \
-            --include="*.sql" backend/migrations/ || echo "⚠️  Review found keywords"
-          echo "✅ Boundary check completed"
+          if grep -r "marketplace\|payment\|commission\|social_profile\|tracking" \
+            --include="*.sql" backend/migrations/; then
+            echo "❌ Forbidden boundary keywords found in migrations"
+            exit 1
+          fi
+          echo "✅ Boundary check passed"
 
   validate-pr:
     name: PR Validation
@@ -96,11 +100,4 @@ jobs:
           echo "📝 Pull Request Validation"
           echo "✅ PR #${{ github.event.pull_request.number }}"
           echo "🔄 Branch: ${{ github.event.pull_request.head.ref }}"
-
-      - name: ✨ Codex Connection Check
-        run: |
-          echo "🔗 Checking Codex/Agent Integration..."
-          if [[ "${{ github.event.pull_request.head.ref }}" == "codex/"* ]]; then
-            echo "✅ Codex branch detected: ${{ github.event.pull_request.head.ref }}"
-          fi
           echo "📌 PR Title: ${{ github.event.pull_request.title }}"
