@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Patch } from '@nestjs/common';
 import { UpdateProfileRequest } from './dto/auth.dto';
 import { IdentityService } from './identity.service';
 import { PublicUserProfile } from './identity.types';
@@ -10,7 +10,7 @@ interface UserResponse {
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(@Inject(IdentityService) private readonly identityService: IdentityService) {}
 
   @Get('me')
   me(@Headers('cookie') cookieHeader: string | undefined): UserResponse {

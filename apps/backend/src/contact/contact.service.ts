@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
@@ -16,12 +16,12 @@ import { validateBusinessProfileId, validateSubmitContactInquiry, validateTrackC
 @Injectable()
 export class ContactService {
   constructor(
-    private readonly contacts: ContactRepository,
-    private readonly identity: IdentityService,
-    private readonly identityRepository: IdentityRepository,
-    private readonly rateLimits: ContactRateLimitService,
-    private readonly abuse: ContactAbuseService,
-    private readonly logger: PlatformLogger
+    @Inject(ContactRepository) private readonly contacts: ContactRepository,
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository,
+    @Inject(ContactRateLimitService) private readonly rateLimits: ContactRateLimitService,
+    @Inject(ContactAbuseService) private readonly abuse: ContactAbuseService,
+    @Inject(PlatformLogger) private readonly logger: PlatformLogger
   ) {}
 
   submitInquiry(cookieHeader: string | undefined, businessProfileIdValue: string, request: SubmitContactInquiryRequest): PublicContactInquiryReceipt {

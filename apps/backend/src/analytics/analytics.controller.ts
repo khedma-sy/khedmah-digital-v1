@@ -1,10 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { RecordAnalyticsEventRequest } from './dto/analytics.dto';
 
 @Controller('analytics/events')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(@Inject(AnalyticsService) private readonly analyticsService: AnalyticsService) {}
 
   @Post()
   recordEvent(@Body() body: RecordAnalyticsEventRequest) {

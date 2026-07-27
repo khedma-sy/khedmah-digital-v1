@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 
 export class ContactValidationError extends BadRequestException {
   constructor() {
@@ -18,8 +18,8 @@ export class ContactAccessError extends ForbiddenException {
   }
 }
 
-export class ContactRateLimitError extends TooManyRequestsException {
+export class ContactRateLimitError extends HttpException {
   constructor() {
-    super('Contact rate limit exceeded.');
+    super('Contact rate limit exceeded.', HttpStatus.TOO_MANY_REQUESTS);
   }
 }

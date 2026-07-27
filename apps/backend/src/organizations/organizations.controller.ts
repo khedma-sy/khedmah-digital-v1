@@ -1,10 +1,10 @@
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Inject, Param, Patch, Post } from '@nestjs/common';
 import { AddOrganizationMemberRequest, CreateOrganizationRequest, UpdateOrganizationMemberRequest, UpdateOrganizationRequest } from './dto/organization.dto';
 import { OrganizationService } from './organization.service';
 
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(@Inject(OrganizationService) private readonly organizationService: OrganizationService) {}
 
   @Post()
   create(@Headers('cookie') cookieHeader: string | undefined, @Body() body: CreateOrganizationRequest) {

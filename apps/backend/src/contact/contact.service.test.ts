@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { HttpStatus } from '@nestjs/common';
 import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactRateLimitError, ContactValidationError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
@@ -95,4 +96,12 @@ test('rate limit preparation exists for contact inquiries', () => {
     () => service.submitInquiry(cookieHeader, 'approved-business', { ...validInquiry, message: 'أرغب في معرفة تفاصيل الخدمة المتاحة لديكم مرة إضافية.' }),
     ContactRateLimitError
   );
+});
+
+test('ContactRateLimitError carries HTTP 429 status and safe message', () => {
+  const error = new ContactRateLimitError();
+
+  assert.equal(error.getStatus(), HttpStatus.TOO_MANY_REQUESTS);
+  assert.equal(error.getStatus(), 429);
+  assert.equal(error.message, 'Contact rate limit exceeded.');
 });

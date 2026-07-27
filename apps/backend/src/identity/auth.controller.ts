@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Post, Res, UnauthorizedException } from '@nestjs/common';
 import type { Response } from 'express';
 import { LoginRequest, RegisterRequest } from './dto/auth.dto';
 import { IdentityService } from './identity.service';
@@ -11,7 +11,7 @@ interface AuthResponse {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(@Inject(IdentityService) private readonly identityService: IdentityService) {}
 
   @Post('register')
   register(@Body() body: RegisterRequest, @Res({ passthrough: true }) response: Response): AuthResponse {
