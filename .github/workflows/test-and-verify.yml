@@ -27,17 +27,30 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: 🔒 Scan for hardcoded secrets (advisory, non-blocking)
+      - name: 🔒 Reject hardcoded sensitive assignments
         run: |
-          echo "🔍 Scanning source files for secret-like keywords..."
-          if grep -r "password\|secret\|token\|api.key\|credentials" \
-            --include="*.js" --include="*.mjs" --include="*.ts" \
-            backend/ apps/ 2>/dev/null; then
-            echo "⚠️  Review: above matches may contain sensitive patterns."
-            echo "    Manual review required before release."
-          else
-            echo "✅ No secret-like patterns found in source files."
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          pattern = re.compile(
+              r'''(?i)(api[_-]?key|secret[_-]?key|access[_-]?token|private[_-]?key|password)\s*[:=]\s*['\"][^'\"]{8,}['\"]'''
+          )
+          findings = []
+          suffixes = {'.js', '.mjs', '.ts', '.tsx', '.sql', '.yml', '.yaml', '.json'}
+          for root in map(Path, ('backend', 'apps', 'infra')):
+              for path in root.rglob('*'):
+                  if not path.is_file() or path.suffix not in suffixes:
+                      continue
+                  if {'node_modules', '.next', 'dist'} & set(path.parts) or '.test.' in path.name:
+                      continue
+                  for line_number, line in enumerate(path.read_text(errors='ignore').splitlines(), 1):
+                      if pattern.search(line):
+                          findings.append(f'{path}:{line_number}')
+          if findings:
+              raise SystemExit('Potential hardcoded sensitive assignments:\n' + '\n'.join(findings))
+          print('No hardcoded sensitive assignments detected.')
+          PY
 
       - name: 📋 Install dependencies
         run: npm ci
@@ -46,7 +59,10 @@ jobs:
         run: npm run build
 
       - name: ✅ Run all tests
-        run: npm test
+        run: npm run test:all
+
+      - name: 🔐 Security audit
+        run: npm audit --omit=dev --audit-level=high
 
       - name: 🔐 Security audit (advisory, non-blocking)
         run: |
@@ -70,6 +86,11 @@ jobs:
 
       - name: 📄 Verify approved SQL migrations (001-003 only)
         run: |
+          set -euo pipefail
+          echo "🔍 Checking migration files..."
+          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found"
+          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found"
+          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found"
           echo "🔍 Checking approved migration files..."
           test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found" || { echo "❌ Migration 001 missing"; exit 1; }
           test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found" || { echo "❌ Migration 002 missing"; exit 1; }
@@ -78,13 +99,17 @@ jobs:
 
       - name: 🔒 Verify no forbidden tables in migrations
         run: |
+          set -euo pipefail
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          if grep -r "marketplace\|payment\|commission\|social_profile\|tracking" \
-            --include="*.sql" backend/migrations/; then
-            echo "❌ Forbidden boundary keywords found in migrations"
+          forbidden='marketplace|payments?|commissions?|products?|inventory|orders?|tracking|social_profiles?'
+          if grep -Eirn \
+            --include='*.sql' \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
+            backend/migrations/versions; then
+            echo "❌ Forbidden MVP table definition detected"
             exit 1
           fi
-          echo "✅ Boundary check passed"
+          echo "✅ Boundary check completed"
 
   validate-pr:
     name: PR Validation
@@ -96,8 +121,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 📊 Check PR files changed
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           echo "📝 Pull Request Validation"
-          echo "✅ PR #${{ github.event.pull_request.number }}"
-          echo "🔄 Branch: ${{ github.event.pull_request.head.ref }}"
-          echo "📌 PR Title: ${{ github.event.pull_request.title }}"
+          echo "✅ PR #${PR_NUMBER}"
+          echo "🔄 Branch: ${PR_BRANCH}"
+
+      - name: ✨ Codex Connection Check
+        env:
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "🔗 Checking Codex/Agent Integration..."
+          if [[ "${PR_BRANCH}" == "codex/"* ]]; then
+            echo "✅ Codex branch detected: ${PR_BRANCH}"
+          fi
+          echo "📌 PR Title: ${PR_TITLE}"

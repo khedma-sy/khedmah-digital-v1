@@ -2,15 +2,18 @@ name: Database Migration Validation
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'backend/migrations/**'
       - 'backend/database/**'
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'backend/migrations/**'
       - 'backend/database/**'
+
+permissions:
+  contents: read
 
 jobs:
   validate-migrations:
@@ -18,112 +21,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 📋 Verify approved migration structure
+      - name: Verify governed migration pairs
+        shell: bash
         run: |
-          echo "🔍 Validating approved migration file structure..."
-          # Only migrations 001-003 are approved; 004 is not yet approved.
-          for i in 001 002 003; do
-            found=false
-            for f in backend/migrations/versions/${i}_*.sql; do
-              if [ -f "$f" ]; then
-                echo "✅ Forward migration $i found: $f"
-                found=true
-                break
-              fi
-            done
-            if [ "$found" = "false" ]; then
-              echo "❌ Forward migration $i missing"
-              exit 1
-            fi
-          done
-          echo "✅ All approved forward migrations present (001-003)"
-
-      - name: 🔄 Verify rollback migrations
-        run: |
-          echo "🔍 Verifying rollback migrations..."
-          for i in 001 002 003; do
-            found=false
-            for f in backend/migrations/versions/${i}_*_rollback.sql; do
-              if [ -f "$f" ]; then
-                echo "✅ Rollback for migration $i found: $f"
-                found=true
-                break
-              fi
-            done
-            if [ "$found" = "false" ]; then
-              echo "⚠️  Rollback for migration $i not found"
-            fi
-          done
-
-      - name: 🔐 Check for forbidden content in migrations
-        run: |
-          echo "🔍 Scanning for forbidden table/field definitions..."
-
-          FORBIDDEN_PATTERNS=(
-            "marketplace"
-            "payment"
-            "commission"
-            "product"
-            "inventory"
-            "order"
-            "tracking"
-            "social_profile"
-            "password"
-            "secret_key"
-            "api_key"
-            "access_token"
+          set -euo pipefail
+          migrations=(
+            001_core_identity_accounts
+            002_create_profiles
+            003_create_professional_profiles
           )
 
-          FOUND_ISSUES=0
-          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
-            if grep -ri "$pattern" backend/migrations/versions/ --include="*.sql"; then
-              echo "⚠️  Found forbidden pattern: $pattern"
-              FOUND_ISSUES=$((FOUND_ISSUES + 1))
-            fi
+          for migration in "${migrations[@]}"; do
+            forward="backend/migrations/versions/${migration}.sql"
+            rollback="backend/migrations/versions/${migration}_rollback.sql"
+            test -f "$forward"
+            test -f "$rollback"
+            grep -q 'CREATE TABLE' "$forward"
+            echo "Verified migration pair: $migration"
           done
 
-          if [ $FOUND_ISSUES -eq 0 ]; then
-            echo "✅ No forbidden patterns detected"
+      - name: Reject ungoverned migration versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$RUNNER_TEMP/expected-migrations.txt"
+          actual="$RUNNER_TEMP/actual-migrations.txt"
+
+          printf '%s\n' \
+            001_core_identity_accounts.sql \
+            001_core_identity_accounts_rollback.sql \
+            002_create_profiles.sql \
+            002_create_profiles_rollback.sql \
+            003_create_professional_profiles.sql \
+            003_create_professional_profiles_rollback.sql \
+            | sort > "$expected"
+          find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
+            -printf '%f\n' | sort > "$actual"
+
+          diff -u "$expected" "$actual"
+
+      - name: Enforce MVP table boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden='marketplace|payments?|commissions?|products?|inventory|orders?|tracking|social_profiles?'
+          if grep -Eirn \
+            --include='*.sql' \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
+            backend/migrations/versions; then
+            echo 'Forbidden MVP table definition detected.' >&2
+            exit 1
           fi
 
-      - name: 📊 Database schema validation
+      - name: Validate migration constraints
+        shell: bash
         run: |
-          echo "🔍 Validating approved schema files (001-003 only)..."
-          # Migration 004 (business profiles) is not yet approved.
-          FILES=(
-            "backend/migrations/versions/001_core_identity_accounts.sql"
-            "backend/migrations/versions/002_create_profiles.sql"
-            "backend/migrations/versions/003_create_professional_profiles.sql"
-          )
-
-          for file in "${FILES[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✅ Required schema file exists: $file"
-              if grep -q "CREATE TABLE" "$file"; then
-                echo "  ✓ Contains CREATE TABLE"
-              fi
-              if grep -q "CONSTRAINT\|PRIMARY KEY\|FOREIGN KEY" "$file"; then
-                echo "  ✓ Contains data constraints"
-              fi
-            else
-              echo "❌ Missing schema file: $file"
-              exit 1
-            fi
+          set -euo pipefail
+          for file in backend/migrations/versions/[0-9][0-9][0-9]_*.sql; do
+            [[ "$file" == *_rollback.sql ]] && continue
+            grep -Eq 'CONSTRAINT|PRIMARY KEY|FOREIGN KEY' "$file"
+            echo "Verified constraints: $file"
           done
-
-      - name: 📝 Summary report
-        run: |
-          echo "✅ Database migration validation complete"
-          echo ""
-          echo "📋 Summary:"
-          echo "  ✓ Approved migration file structure verified (001-003)"
-          echo "  ✓ Rollback migrations checked"
-          echo "  ✓ No forbidden patterns detected"
-          echo "  ✓ Core schema requirements met"
-          echo ""
-          echo "⚠️  NOTE: Migration 004 (business profiles) is not approved."
-          echo "  Do not create it until contracts and privacy requirements are approved."
-          echo "  infra/database SQL is quarantined legacy and must not be executed."

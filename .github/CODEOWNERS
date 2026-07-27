@@ -5,6 +5,7 @@
 * @khedma-sy
 
 # Backend core and database
+/apps/backend/ @khedma-sy
 /backend/database/ @khedma-sy
 /backend/migrations/ @khedma-sy
 /backend/core/ @khedma-sy
@@ -14,9 +15,18 @@
 /backend/modules/analytics/ @khedma-sy
 /backend/modules/profiles/ @khedma-sy
 
+# Frontend application
+/apps/frontend/ @khedma-sy
+
 # Tests
 /tests/ @khedma-sy
 
 # Configuration
 /.github/ @khedma-sy
 /package.json @khedma-sy
+
+# Governance and release evidence
+/docs/governance/ @khedma-sy
+/docs/operations/ @khedma-sy
+/docs/product/ @khedma-sy
+/docs/reports/ @khedma-sy
