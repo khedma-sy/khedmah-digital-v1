@@ -1,5 +1,7 @@
 # Repository Governance Status
 
+> **Historical snapshot and supersession notice:** This report records the local evidence available on 2026-07-27. The later [Canonical Authority Model](CANONICAL-AUTHORITY-MODEL.md) governs all new reporting. Missing GitHub access must now be classified as canonical verification pending or remote verification unavailable, not as affirmative evidence of a merge or repository defect.
+
 **تاريخ التحقق:** 2026-07-27  
 **النطاق المحلي:** الفرع `work` عند الالتزام `926b525` قبل إعداد هذا التقرير  
 **الحكم العام:** **غير مكتمل حوكمياً — لا يوجد دليل كافٍ لاعتماد الدمج أو المزامنة المركزية**

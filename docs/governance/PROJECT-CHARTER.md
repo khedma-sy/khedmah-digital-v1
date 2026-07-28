@@ -6,7 +6,7 @@ Establish Khedmah Digital V1 as a controlled, Arabic-first business growth platf
 
 ## Repository Role
 
-The repository is the permanent source of truth for approved governance, product, architecture, domain, operations, and vision documentation.
+The approved GitHub repository's `main` branch is the permanent technical source of truth for governance, product, architecture, domain, operations, vision, and implementation artifacts, under the Executive Council authority defined by the [Canonical Authority Model](CANONICAL-AUTHORITY-MODEL.md). A workspace or checkout is a verification surface and does not supersede canonical `main`.
 
 ## V1 Success Criteria
 

@@ -4,6 +4,8 @@
 
 Khedmah Digital V1 must be rebuilt from an approved documentation foundation before implementation proceeds.
 
+Repository and reporting evidence must follow the [Canonical Authority Model](CANONICAL-AUTHORITY-MODEL.md). Executive Council decisions govern authorization, and the approved GitHub repository's `main` governs technical repository state; local checkout limitations must not be reported as canonical repository defects.
+
 ## Engineering Constraints
 
 - Do not expand V1 scope.
