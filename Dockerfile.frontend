@@ -1,0 +1,23 @@
+FROM node:20-slim AS build
+WORKDIR /workspace
+
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
+RUN npm ci
+
+COPY apps/frontend apps/frontend
+RUN npm --workspace apps/frontend run build
+
+FROM node:20-slim AS runtime
+ENV NODE_ENV=production \
+    PORT=8080 \
+    HOSTNAME=0.0.0.0
+WORKDIR /workspace
+
+COPY --from=build --chown=node:node /workspace/apps/frontend/.next/standalone ./
+COPY --from=build --chown=node:node /workspace/apps/frontend/.next/static apps/frontend/.next/static
+USER node
+EXPOSE 8080
+CMD ["node", "apps/frontend/server.js"]
+
