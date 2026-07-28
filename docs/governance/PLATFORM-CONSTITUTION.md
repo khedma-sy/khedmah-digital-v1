@@ -8,7 +8,7 @@ Khedmah Digital V1 is governed as an Arabic-first business growth platform. The 
 
 1. Arabic-first product direction is mandatory.
 2. V1 scope is protected from uncontrolled expansion.
-3. Documentation is the source of truth before implementation.
+3. Project truth follows the [Canonical Authority Model](CANONICAL-AUTHORITY-MODEL.md): Executive Council authority, then the approved GitHub repository's `main`, followed by merge and Pull Request provenance. Documentation governs implementation only when it is approved and reachable from canonical `main`.
 4. Future modules remain reserved until explicitly approved.
 5. `أنا مع خدمة` remains a brand/community direction and must not be converted into unapproved V1 implementation scope.
 6. Architecture, contracts, roadmap, and operations documents must remain consistent.
