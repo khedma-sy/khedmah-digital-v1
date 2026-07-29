@@ -29,6 +29,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
+    - name: Validate Google production files
+      run: npm run validate:google
+
     - name: Build
       run: npm run build --if-present
     

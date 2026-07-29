@@ -16,3 +16,7 @@ This directory contains the Khedmah Digital V1 source-of-truth documentation.
 - [Operations](operations/DEFINITION-OF-DONE.md)
 - [Decisions](decisions/README.md)
 - [Reports](reports/repository-governance-closure-audit-2026-07-27.md)
+
+## Google production foundation
+
+See [Google production integration](google/README.md) for the disabled-by-default infrastructure and launch runbooks.

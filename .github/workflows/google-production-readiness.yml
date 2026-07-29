@@ -1,0 +1,44 @@
+name: Google production readiness
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+permissions: { contents: read }
+jobs:
+  validate-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run validate:google
+  production-secret-gate:
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block release unless all production values are injected
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          GOOGLE_OAUTH_WEB_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_WEB_CLIENT_ID }}
+          GOOGLE_OAUTH_ANDROID_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_ANDROID_CLIENT_ID }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+          GOOGLE_OAUTH_ALLOWED_AUDIENCES: ${{ vars.GOOGLE_OAUTH_ALLOWED_AUDIENCES }}
+          GOOGLE_MAPS_BROWSER_API_KEY: ${{ secrets.GOOGLE_MAPS_BROWSER_API_KEY }}
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+          GOOGLE_MAPS_SERVER_API_KEY: ${{ secrets.GOOGLE_MAPS_SERVER_API_KEY }}
+          GOOGLE_MAPS_ALLOWED_WEB_ORIGINS: ${{ vars.GOOGLE_MAPS_ALLOWED_WEB_ORIGINS }}
+          GOOGLE_MAPS_ANDROID_PACKAGE: ${{ vars.GOOGLE_MAPS_ANDROID_PACKAGE }}
+          GOOGLE_MAPS_ANDROID_SHA1: ${{ secrets.GOOGLE_MAPS_ANDROID_SHA1 }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
+        run: node scripts/validate-google-config.mjs --production
+      - run: echo "Readiness passed; deployment remains separately approved."
