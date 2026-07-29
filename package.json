@@ -15,7 +15,8 @@
     "start:backend": "npm --workspace apps/backend run start",
     "dev:backend": "npm --workspace apps/backend run dev",
     "dev:frontend": "npm --workspace apps/frontend run dev",
-    "test:workspaces": "npm run test --workspaces --if-present"
+    "test:workspaces": "npm run test --workspaces --if-present",
+    "validate:google": "node scripts/validate-google-config.mjs"
   },
   "engines": {
     "node": ">=20.11.0",
