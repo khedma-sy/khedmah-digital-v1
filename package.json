@@ -11,7 +11,7 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test:all",
     "test:all": "node tests/run-all-tests.mjs",
-    "test:root": "node --test tests/**/*.test.mjs",
+    "test:root": "node scripts/run-matched-tests.mjs tests/**/*.test.mjs",
     "start:backend": "npm --workspace apps/backend run start",
     "dev:backend": "npm --workspace apps/backend run dev",
     "dev:frontend": "npm --workspace apps/frontend run dev",
