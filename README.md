@@ -23,3 +23,8 @@ The documentation foundation remains the prerequisite and source of truth. The c
 ## Current Boundary
 
 Runnable backend and frontend foundations exist under `apps/`, alongside canonical contracts and foundations under `backend/`. Their presence does not imply production readiness. Alpha remains blocked until the acceptance criteria and release gates in the MVP definition pass. Reserved and post-MVP modules remain documentation-only.
+
+
+## Firebase SDK integration
+
+Web and Android use the existing Firebase production project through centralized, environment-only configuration. See the [Firebase SDK integration guide](docs/google/firebase-sdk-integration.md) and [integration report](docs/reports/firebase-sdk-integration-report.md). No Firebase or Google Cloud resource is created by this integration.

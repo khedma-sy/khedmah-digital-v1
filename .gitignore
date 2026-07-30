@@ -44,3 +44,24 @@ out/
 *.db
 *.sqlite
 *.sqlite3
+
+# Secrets and local Google/Firebase credentials. Only empty contracts are tracked.
+.env.*
+!.env.example
+!.env.production
+infra/secrets/*
+!infra/secrets/README.md
+!infra/secrets/required-secrets.yaml
+!infra/secrets/secret-provider.ts
+**/service-account*.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/.secret-manager-cache/
+
+# Restricted live-production certification evidence
+artifacts/live-certification/
+
+# Android local/build state
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/local.properties

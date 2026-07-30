@@ -25,3 +25,8 @@ Not implemented:
 - Analytics features.
 - Khedmah Connect.
 - Community features.
+
+
+## Firebase
+
+The modular client is centralized in [`lib/firebase`](lib/firebase/). Provide the `NEXT_PUBLIC_FIREBASE_*` contract at build time. Import services from `lib/firebase`; do not initialize another app or duplicate configuration. Messaging remains preparation-only.
