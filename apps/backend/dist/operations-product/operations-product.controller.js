@@ -1,0 +1,82 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OperationsProductController = void 0;
+const common_1 = require("@nestjs/common");
+const operations_product_dto_1 = require("./dto/operations-product.dto");
+const operations_product_service_1 = require("./operations-product.service");
+let OperationsProductController = class OperationsProductController {
+    service;
+    constructor(service) {
+        this.service = service;
+    }
+    overview(cookie) { return { operationsProduct: this.service.overview(cookie) }; }
+    inventory(cookie) { return { resources: this.service.inventory(cookie) }; }
+    history(cookie) { return this.service.histories(cookie); }
+    requestChange(cookie, body) { return { change: this.service.requestChange(cookie, body) }; }
+    createIncident(cookie, body) { return { incident: this.service.createIncident(cookie, body) }; }
+    rollback(cookie, body) { return { change: this.service.rollback(cookie, body) }; }
+};
+exports.OperationsProductController = OperationsProductController;
+__decorate([
+    (0, common_1.Get)('overview'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "overview", null);
+__decorate([
+    (0, common_1.Get)('inventory'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "inventory", null);
+__decorate([
+    (0, common_1.Get)('history'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "history", null);
+__decorate([
+    (0, common_1.Post)('changes'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, operations_product_dto_1.CreateOperationsChangeRequest]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "requestChange", null);
+__decorate([
+    (0, common_1.Post)('incidents'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, operations_product_dto_1.CreateIncidentRequest]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "createIncident", null);
+__decorate([
+    (0, common_1.Post)('rollbacks'),
+    __param(0, (0, common_1.Headers)('cookie')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, operations_product_dto_1.RollbackRequest]),
+    __metadata("design:returntype", void 0)
+], OperationsProductController.prototype, "rollback", null);
+exports.OperationsProductController = OperationsProductController = __decorate([
+    (0, common_1.Controller)('admin/operations-product'),
+    __param(0, (0, common_1.Inject)(operations_product_service_1.OperationsProductService)),
+    __metadata("design:paramtypes", [operations_product_service_1.OperationsProductService])
+], OperationsProductController);
+//# sourceMappingURL=operations-product.controller.js.map

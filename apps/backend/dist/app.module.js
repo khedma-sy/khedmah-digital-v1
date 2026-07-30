@@ -15,12 +15,13 @@ const health_service_1 = require("./health.service");
 const identity_module_1 = require("./identity/identity.module");
 const platform_logger_1 = require("./logging/platform-logger");
 const organizations_module_1 = require("./organizations/organizations.module");
+const operations_product_module_1 = require("./operations-product/operations-product.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [identity_module_1.IdentityModule, organizations_module_1.OrganizationsModule, contact_module_1.ContactModule, analytics_module_1.AnalyticsModule],
+        imports: [identity_module_1.IdentityModule, organizations_module_1.OrganizationsModule, contact_module_1.ContactModule, analytics_module_1.AnalyticsModule, operations_product_module_1.OperationsProductModule],
         controllers: [health_controller_1.HealthController],
         providers: [health_service_1.HealthService, platform_logger_1.PlatformLogger]
     })
