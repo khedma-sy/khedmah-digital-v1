@@ -2,7 +2,8 @@ name: Google production readiness
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+    
 permissions: { contents: read }
 jobs:
   validate-files:
@@ -13,12 +14,22 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run validate:google
+      - run: npm run validate:firebase
+      - run: npm run verify:firebase-secrets
+      - run: npm run validate:operations
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
     environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17, cache: gradle }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
+      - run: npm ci
       - name: Block release unless all production values are injected
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
@@ -40,5 +51,38 @@ jobs:
           FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
           FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
-        run: node scripts/validate-google-config.mjs --production
+          OPERATIONS_PRODUCT_ROLE_BINDINGS: ${{ secrets.OPERATIONS_PRODUCT_ROLE_BINDINGS }}
+          GOOGLE_LOGGING_ENABLED: ${{ vars.GOOGLE_LOGGING_ENABLED }}
+          GOOGLE_MONITORING_ENABLED: ${{ vars.GOOGLE_MONITORING_ENABLED }}
+          GOOGLE_ERROR_REPORTING_ENABLED: ${{ vars.GOOGLE_ERROR_REPORTING_ENABLED }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          node scripts/verify-firebase-github-secrets.mjs
+          printf '%s' "$FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 --decode > apps/android/app/google-services.json
+          chmod 600 apps/android/app/google-services.json
+          node scripts/validate-google-config.mjs --production
+          npm run validate:firebase:production
+          npm run validate:operations:production
+      - name: Build Web with protected Firebase configuration
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+        run: npm --workspace apps/frontend run build
+      - name: Build Android with protected Firebase configuration
+        run: npm run build:android
+      - name: Remove reconstructed Android configuration
+        if: always()
+        run: rm -f apps/android/app/google-services.json
       - run: echo "Readiness passed; deployment remains separately approved."

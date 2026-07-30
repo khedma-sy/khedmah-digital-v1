@@ -1,0 +1,69 @@
+steps:
+  - id: validate
+    name: node:20
+    entrypoint: npm
+    args: [ci]
+  - id: test
+    name: node:20
+    entrypoint: npm
+    args: [run, test:workspaces]
+  - id: build-backend-image
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, Dockerfile.backend, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}', .]
+  - id: build-frontend-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.frontend
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}
+      - -t
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_IMAGE_TAG}'
+      - .
+  - id: push-backend
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}']
+  - id: push-frontend
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_IMAGE_TAG}']
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: [run, deploy, '${_BACKEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --quiet]
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: [run, deploy, '${_FRONTEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_IMAGE_TAG}', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --quiet]
+substitutions:
+  _REGION: me-central1
+  _AR_REPOSITORY: khedmah-production
+  _BACKEND_SERVICE: khedmah-backend
+  _FRONTEND_SERVICE: khedmah-frontend
+  _RUNTIME_SERVICE_ACCOUNT: khedmah-v1-runtime@$PROJECT_ID.iam.gserviceaccount.com
+  _IMAGE_TAG: manual
+  _NEXT_PUBLIC_FIREBASE_API_KEY: ''
+  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ''
+  _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ''
+  _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ''
+  _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ''
+  _NEXT_PUBLIC_FIREBASE_APP_ID: ''
+  _NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ''
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: MUST_MATCH
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_IMAGE_TAG}'

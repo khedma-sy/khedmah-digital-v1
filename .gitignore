@@ -6,9 +6,10 @@ node_modules/
 # Testing
 /coverage
 
-# Production
+# Production — compiled output (all depths)
 /build
 /dist
+**/dist/
 *.tsbuildinfo
 
 # Misc
@@ -57,3 +58,11 @@ infra/secrets/*
 **/google-services.json
 **/GoogleService-Info.plist
 **/.secret-manager-cache/
+
+# Restricted live-production certification evidence
+artifacts/live-certification/
+
+# Android local/build state
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/local.properties

@@ -8,3 +8,8 @@
 6. اختبر Auth وStorage بالمحاكيات. اختبر FCM بأجهزة اختبار دون بيانات عميل.
 
 Analytics وCrashlytics يتطلبان consent واضحاً وسياسة احتفاظ. Authentication لا يفعّل موفر Google قبل إكمال OAuth. Cloud Storage لا يفتح أي مسار عاماً.
+
+
+## Implemented SDK boundary
+
+The approved existing-project integration is documented in [Firebase SDK Integration](firebase-sdk-integration.md). It supersedes any setup wording that could imply creating a project: this mission does not create or modify Firebase Console resources.

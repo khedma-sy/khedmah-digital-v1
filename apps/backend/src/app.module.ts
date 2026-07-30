@@ -6,9 +6,10 @@ import { HealthService } from './health.service';
 import { IdentityModule } from './identity/identity.module';
 import { PlatformLogger } from './logging/platform-logger';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { OperationsProductModule } from './operations-product/operations-product.module';
 
 @Module({
-  imports: [IdentityModule, OrganizationsModule, ContactModule, AnalyticsModule],
+  imports: [IdentityModule, OrganizationsModule, ContactModule, AnalyticsModule, OperationsProductModule],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]
 })

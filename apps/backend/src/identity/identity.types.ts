@@ -42,7 +42,10 @@ export type AuditEventType =
   | 'contact.inquiry.abuse_blocked'
   | 'contact.click.tracked'
   | 'contact.click.rate_limited'
-  | 'analytics.event.recorded';
+  | 'analytics.event.recorded'
+  | 'operations.change.requested'
+  | 'operations.rollback.requested'
+  | 'operations.incident.created';
 
 export interface AuditLog {
   readonly id: string;

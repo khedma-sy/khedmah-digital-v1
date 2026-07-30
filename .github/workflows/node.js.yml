@@ -32,6 +32,9 @@ jobs:
     - name: Validate Google production files
       run: npm run validate:google
 
+    - name: Validate Firebase SDK integration
+      run: npm run validate:firebase
+
     - name: Build
       run: npm run build --if-present
     
