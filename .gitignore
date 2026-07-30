@@ -6,9 +6,10 @@ node_modules/
 # Testing
 /coverage
 
-# Production
+# Production — compiled output (all depths)
 /build
 /dist
+**/dist/
 *.tsbuildinfo
 
 # Misc
