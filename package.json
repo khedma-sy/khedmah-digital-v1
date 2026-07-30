@@ -15,7 +15,16 @@
     "start:backend": "npm --workspace apps/backend run start",
     "dev:backend": "npm --workspace apps/backend run dev",
     "dev:frontend": "npm --workspace apps/frontend run dev",
-    "test:workspaces": "npm run test --workspaces --if-present"
+    "test:workspaces": "npm run test --workspaces --if-present",
+    "validate:google": "node scripts/validate-google-config.mjs",
+    "validate:operations": "node scripts/validate-operations-readiness.mjs",
+    "validate:operations:production": "node scripts/validate-operations-readiness.mjs --production",
+    "validate:firebase": "node scripts/validate-firebase-integration.mjs",
+    "validate:firebase:production": "node scripts/validate-firebase-integration.mjs --production",
+    "verify:firebase-secrets": "node scripts/audit-firebase-secret-usage.mjs",
+    "build:android": "bash scripts/build-android.sh",
+    "validate:deployments": "node scripts/validate-preview-staging.mjs",
+    "validate:operator": "node scripts/validate-production-operator.mjs"
   },
   "engines": {
     "node": ">=20.11.0",

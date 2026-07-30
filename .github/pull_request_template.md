@@ -44,8 +44,16 @@
 ## 🚀 Deployment Notes
 <!-- Any special deployment instructions? -->
 
-## 📸 Screenshots
-<!-- Add screenshots if applicable -->
+## 🔎 Preview Review
+
+- Preview URL: _added automatically by the PR Preview workflow_
+- Executed tests: _added automatically_
+- Review guide: [Owner Review Guide](../docs/deployment/OWNER-REVIEW-GUIDE.md)
+
+## 📸 Screenshots — Before / After
+
+- Before: _uploaded automatically from Staging_
+- After: _uploaded automatically from the PR Preview_
 
 ## 🤝 Additional Context
 <!-- Any other context about the PR? -->

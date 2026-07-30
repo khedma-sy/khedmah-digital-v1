@@ -1,0 +1,41 @@
+steps:
+  - id: validate
+    name: node:20
+    entrypoint: npm
+    args: [ci]
+  - id: test
+    name: node:20
+    entrypoint: npm
+    args: [run, test:workspaces]
+  - id: build-backend-image
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, Dockerfile.backend, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$SHORT_SHA', .]
+  - id: build-frontend-image
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, Dockerfile.frontend, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$SHORT_SHA', .]
+  - id: push-backend
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$SHORT_SHA']
+  - id: push-frontend
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$SHORT_SHA']
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: [run, deploy, '${_BACKEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$SHORT_SHA', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --quiet]
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: [run, deploy, '${_FRONTEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$SHORT_SHA', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --quiet]
+substitutions:
+  _REGION: me-central1
+  _AR_REPOSITORY: khedmah-production
+  _BACKEND_SERVICE: khedmah-backend
+  _FRONTEND_SERVICE: khedmah-frontend
+  _RUNTIME_SERVICE_ACCOUNT: khedmah-v1-runtime@$PROJECT_ID.iam.gserviceaccount.com
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: MUST_MATCH
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$SHORT_SHA'

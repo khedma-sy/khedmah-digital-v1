@@ -1,0 +1,29 @@
+name: Production Operator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  authenticate:
+    name: Verify Google Cloud authentication
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify authenticated production project
+        run: |
+          gcloud auth list
+          gcloud config list project
+          gcloud projects describe "${{ vars.GOOGLE_CLOUD_PROJECT }}"

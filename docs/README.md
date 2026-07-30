@@ -16,3 +16,24 @@ This directory contains the Khedmah Digital V1 source-of-truth documentation.
 - [Operations](operations/DEFINITION-OF-DONE.md)
 - [Decisions](decisions/README.md)
 - [Reports](reports/repository-governance-closure-audit-2026-07-27.md)
+
+## Google production foundation
+
+See [Google production integration](google/README.md) for the disabled-by-default infrastructure and launch runbooks.
+
+## Operations Product
+
+See the [Operations Product operating model](operations-product/README.md), its [architecture decision](decisions/ADR-003-OPERATIONS-PRODUCT-DIVISION.md), and [governance register](governance/OPERATIONS-PRODUCT-GOVERNANCE-REGISTER.md).
+
+
+## Preview and Staging
+
+See the [Preview/Staging architecture](deployment/PREVIEW-STAGING-ARCHITECTURE.md), [deployment flow](deployment/DEPLOYMENT-FLOW.md), and [owner review guide](deployment/OWNER-REVIEW-GUIDE.md).
+
+## Current production assessment
+
+The current post-merge decision, evidence boundary, activation gaps, roadmap, certification scores, and risk register are maintained in the [2026-07-30 Post-Merge Production Integration Assessment](reports/post-merge-production-integration-assessment-2026-07-30.md).
+
+The latest live activation attempt stopped at its mandatory prerequisite gate. Its evidence index and blocked decision are recorded in the [2026-07-30 Live Production Runtime Activation package](reports/live-production-runtime-activation-2026-07-30/README.md).
+
+The secure GitHub Actions production operator design, controls, workflow inventory, and readiness blockers are maintained in the [Production Operator evidence package](operations/production-operator/README.md).
