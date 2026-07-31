@@ -44,12 +44,26 @@ jobs:
       backend_url: ${{ steps.deploy.outputs.backend_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check GCP credentials
+        id: gcp-check
+        env:
+          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [ -n "$GCP_WI" ]; then
+            echo "has_gcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gcp=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cloud deployment"
+          fi
       - uses: google-github-actions/auth@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Validate environment isolation
+        if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
           DEPLOYMENT_ENVIRONMENT: preview
           DEVELOPMENT_GOOGLE_CLOUD_PROJECT: ${{ vars.DEVELOPMENT_GOOGLE_CLOUD_PROJECT }}
@@ -63,6 +77,7 @@ jobs:
         run: node scripts/validate-environment-separation.mjs
       - id: deploy
         name: Deploy isolated PR services
+        if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
@@ -71,7 +86,7 @@ jobs:
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
         run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
   review-evidence:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''
     needs: deploy-preview
     runs-on: ubuntu-latest
     steps:
@@ -116,12 +131,26 @@ jobs:
     environment: preview
     steps:
       - uses: actions/checkout@v4
+      - name: Check GCP credentials
+        id: gcp-check
+        env:
+          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [ -n "$GCP_WI" ]; then
+            echo "has_gcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gcp=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cleanup"
+          fi
       - uses: google-github-actions/auth@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Delete PR Cloud Run services
+        if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
