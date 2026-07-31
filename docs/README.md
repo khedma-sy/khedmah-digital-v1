@@ -25,7 +25,6 @@ See [Google production integration](google/README.md) for the disabled-by-defaul
 
 See the [Operations Product operating model](operations-product/README.md), its [architecture decision](decisions/ADR-003-OPERATIONS-PRODUCT-DIVISION.md), and [governance register](governance/OPERATIONS-PRODUCT-GOVERNANCE-REGISTER.md).
 
-
 ## Preview and Staging
 
 See the [Preview/Staging architecture](deployment/PREVIEW-STAGING-ARCHITECTURE.md), [deployment flow](deployment/DEPLOYMENT-FLOW.md), and [owner review guide](deployment/OWNER-REVIEW-GUIDE.md).
