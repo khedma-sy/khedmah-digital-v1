@@ -1,5 +1,3 @@
-# Environment Separation
+# Environment separation
 
-Mission 007 creates environment separation placeholders only.
-
-No production deployment, cloud resources, secrets, credentials, tokens, API keys, passwords, or production URLs are included.
+The platform contract requires four isolated identities: Development → Preview → Staging → Production. Each must have a unique Google Cloud project and Firebase project. Preview and Staging require distinct service accounts, Secret Manager values, Artifact Registry repositories, Cloud Run services, data, quotas, and logs. `scripts/validate-environment-separation.mjs` rejects missing or duplicated project identities. No deployment script in this layer accepts Production as a target.

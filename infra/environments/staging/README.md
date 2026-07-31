@@ -1,5 +1,3 @@
-# Staging Environment Placeholder
+# Staging environment
 
-Staging preparation includes repeatable container builds through [`cloudbuild.staging.yaml`](../../../cloudbuild.staging.yaml) and direct Cloud Run CLI deployment commands in the [Google Cloud staging deployment runbook](../../../docs/operations/GOOGLE-CLOUD-STAGING-DEPLOYMENT.md).
-
-No secrets, credentials, tokens, API keys, passwords, fixed project identifiers, or deployed URLs are stored here. Database provisioning, migration execution, and production infrastructure remain outside this boundary.
+Staging uses dedicated Google Cloud and Firebase projects, Artifact Registry, service accounts, Secret Manager values, Cloud Run services, and GitHub `staging` environment. It is production-like but contains test-only data and no production credentials. Pushes to the approved `develop` branch pass all quality gates before automatic redeployment. Cloud Run revisions retain deployment history and allow explicit rollback.

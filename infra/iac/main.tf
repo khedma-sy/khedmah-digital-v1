@@ -24,6 +24,8 @@ locals {
     "firebasestorage.googleapis.com",
     "geocoding-backend.googleapis.com",
     "identitytoolkit.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
     "logging.googleapis.com",
     "maps-android-backend.googleapis.com",
     "maps-backend.googleapis.com",
@@ -32,13 +34,20 @@ locals {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
+    "sts.googleapis.com",
   ])
   deployer_roles = toset([
     "roles/artifactregistry.writer",
     "roles/cloudbuild.builds.editor",
+    "roles/firebase.viewer",
+    "roles/iam.securityReviewer",
     "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountViewer",
     "roles/logging.logWriter",
+    "roles/logging.viewer",
+    "roles/monitoring.viewer",
     "roles/run.admin",
+    "roles/secretmanager.viewer",
   ])
 }
 

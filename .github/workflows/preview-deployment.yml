@@ -1,0 +1,158 @@
+name: PR Preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  quality-gates:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Tests
+        run: npm run test:all
+      - name: Lint and type checks
+        run: npm run lint --workspaces --if-present
+      - name: Security
+        run: npm audit --omit=dev --audit-level=high
+      - name: Firebase validation
+        run: npm run validate:firebase
+      - name: Google Cloud validation
+        run: npm run validate:google
+      - name: Preview and staging contract validation
+        run: npm run validate:deployments
+      - name: Secret usage validation
+        run: npm run verify:firebase-secrets
+  deploy-preview:
+    if: github.event.action != 'closed'
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    environment: preview
+    outputs:
+      frontend_url: ${{ steps.deploy.outputs.frontend_url }}
+      backend_url: ${{ steps.deploy.outputs.backend_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check GCP credentials
+        id: gcp-check
+        env:
+          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [ -n "$GCP_WI" ]; then
+            echo "has_gcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gcp=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cloud deployment"
+          fi
+      - uses: google-github-actions/auth@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+      - name: Validate environment isolation
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          DEPLOYMENT_ENVIRONMENT: preview
+          DEVELOPMENT_GOOGLE_CLOUD_PROJECT: ${{ vars.DEVELOPMENT_GOOGLE_CLOUD_PROJECT }}
+          PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          STAGING_GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          DEVELOPMENT_FIREBASE_PROJECT_ID: ${{ vars.DEVELOPMENT_FIREBASE_PROJECT_ID }}
+          PREVIEW_FIREBASE_PROJECT_ID: ${{ vars.PREVIEW_FIREBASE_PROJECT_ID }}
+          STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
+          PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
+        run: node scripts/validate-environment-separation.mjs
+      - id: deploy
+        name: Deploy isolated PR services
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
+  review-evidence:
+    if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Capture before and after screenshots
+        env:
+          BEFORE_URL: ${{ vars.STAGING_FRONTEND_URL }}
+          AFTER_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
+        run: |
+          test -n "$BEFORE_URL" && test -n "$AFTER_URL"
+          npx --yes playwright@1.55.0 install --with-deps chromium
+          npx --yes playwright@1.55.0 screenshot --full-page "$BEFORE_URL" before.png
+          npx --yes playwright@1.55.0 screenshot --full-page "$AFTER_URL" after.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-${{ github.event.pull_request.number }}-screenshots
+          path: |
+            before.png
+            after.png
+          retention-days: 14
+      - name: Publish owner review guide
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
+          BACKEND_URL: ${{ needs.deploy-preview.outputs.backend_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number, per_page: 100 });
+            const changed = files.map(file => `- \`${file.filename}\``).join('\n');
+            const body = `## 🔎 Preview Review\n\n### Summary\nAutomated preview for PR #${context.issue.number}.\n\n### What changed\n${changed}\n\n### Testing / Executed tests\n✅ Build · ✅ Tests · ✅ Lint/types · ✅ Security · ✅ Firebase · ✅ Google Cloud · ✅ Health checks\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots\n[Download Before / After screenshots from this workflow run](${process.env.RUN_URL})\n\n### Owner review guide\n1. Open the preview URL.\n2. Check Arabic RTL layout and changed paths.\n3. Compare the Before and After screenshots.\n4. Exercise the exact flows described in the PR.\n5. Record approval or defects before merge.\n`;
+            const marker = '## 🔎 Preview Review';
+            const comments = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number });
+            const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+  cleanup-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check GCP credentials
+        id: gcp-check
+        env:
+          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [ -n "$GCP_WI" ]; then
+            echo "has_gcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gcp=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cleanup"
+          fi
+      - uses: google-github-actions/auth@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+      - name: Delete PR Cloud Run services
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: scripts/deployment/cleanup-preview.sh "${{ github.event.pull_request.number }}"

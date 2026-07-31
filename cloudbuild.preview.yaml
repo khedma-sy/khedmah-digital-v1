@@ -23,7 +23,7 @@ steps:
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/backend:${_IMAGE_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:${_IMAGE_TAG}'
-substitutions: { _REGION: me-central1, _REPOSITORY: khedmah-staging, _IMAGE_TAG: manual }
+substitutions: { _REGION: me-central1, _REPOSITORY: khedmah-preview, _IMAGE_TAG: manual }
 availableSecrets:
   secretManager:
     - versionName: projects/$PROJECT_ID/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest

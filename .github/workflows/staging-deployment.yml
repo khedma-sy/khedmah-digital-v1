@@ -1,0 +1,63 @@
+name: Staging Deployment
+on:
+  push:
+    branches: [develop]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: staging
+  cancel-in-progress: false
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:all
+      - run: npm run lint --workspaces --if-present
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run validate:firebase
+      - run: npm run validate:google
+      - run: npm run validate:deployments
+      - run: npm run verify:firebase-secrets
+  deploy-staging:
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate environment isolation
+        env:
+          DEPLOYMENT_ENVIRONMENT: staging
+          DEVELOPMENT_GOOGLE_CLOUD_PROJECT: ${{ vars.DEVELOPMENT_GOOGLE_CLOUD_PROJECT }}
+          PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          STAGING_GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          DEVELOPMENT_FIREBASE_PROJECT_ID: ${{ vars.DEVELOPMENT_FIREBASE_PROJECT_ID }}
+          PREVIEW_FIREBASE_PROJECT_ID: ${{ vars.PREVIEW_FIREBASE_PROJECT_ID }}
+          STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
+          PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
+        run: node scripts/validate-environment-separation.mjs
+      - id: deploy
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          ARTIFACT_REPOSITORY: ${{ vars.STAGING_ARTIFACT_REPOSITORY }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: scripts/deployment/deploy-cloud-run-environment.sh staging "${GITHUB_SHA}"
+      - name: Record deployment summary
+        run: |
+          echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend: ${{ steps.deploy.outputs.frontend_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend health: ${{ steps.deploy.outputs.backend_url }}/api/v1/health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Revision: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"

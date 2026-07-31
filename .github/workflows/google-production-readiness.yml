@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
-    
+
 permissions: { contents: read }
 jobs:
   validate-files:

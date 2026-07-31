@@ -47,3 +47,12 @@ variable "runtime_secret_names" {
     "OPERATIONS_PRODUCT_ROLE_BINDINGS",
   ]
 }
+
+variable "github_repository" {
+  type        = string
+  description = "Approved GitHub repository in owner/name format for production OIDC trust."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
+    error_message = "github_repository must use owner/name format."
+  }
+}

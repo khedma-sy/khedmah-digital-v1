@@ -22,7 +22,9 @@
     "validate:firebase": "node scripts/validate-firebase-integration.mjs",
     "validate:firebase:production": "node scripts/validate-firebase-integration.mjs --production",
     "verify:firebase-secrets": "node scripts/audit-firebase-secret-usage.mjs",
-    "build:android": "bash scripts/build-android.sh"
+    "build:android": "bash scripts/build-android.sh",
+    "validate:deployments": "node scripts/validate-preview-staging.mjs",
+    "validate:operator": "node scripts/validate-production-operator.mjs"
   },
   "engines": {
     "node": ">=20.11.0",
