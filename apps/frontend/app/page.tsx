@@ -7,9 +7,14 @@ export default function Home() {
         <p className="eyebrow">Khedmah Digital V1</p>
         <h1>منصة خدمة الرقمية</h1>
         <p>
-          تم تهيئة أساس الواجهة فقط لدعم الاتجاه العربي أولاً واتجاه الكتابة من اليمين إلى اليسار.
+          منصة الأعمال الرقمية العربية — ابدأ بإنشاء حسابك أو تسجيل الدخول لإدارة منظمتك.
         </p>
-                <Link className="foundation-action operations-link" href="/admin/operations-product">Operations Product</Link>
+        <nav aria-label="روابط المنصة" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+          <Link className="foundation-action" href="/auth/login">تسجيل الدخول</Link>
+          <Link className="foundation-action" href="/auth/register">إنشاء حساب</Link>
+          <Link className="foundation-action" href="/organizations">منظماتي</Link>
+          <Link className="foundation-action operations-link" href="/admin">لوحة الإدارة</Link>
+        </nav>
       </section>
     </main>
   );

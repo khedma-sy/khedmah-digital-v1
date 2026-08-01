@@ -1,19 +1,33 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { api } from '../../../lib/api-client';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function submitRegistration(event: FormEvent<HTMLFormElement>) {
+  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setIsLoading(true);
-    window.setTimeout(() => {
+
+    const form = event.currentTarget;
+    const displayName = (form.elements.namedItem('displayName') as HTMLInputElement).value;
+    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+
+    try {
+      await api.auth.register(email, password, displayName);
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'يرجى إدخال بيانات صحيحة لإكمال إنشاء الحساب.');
+    } finally {
       setIsLoading(false);
-      setError('يرجى إدخال بيانات صحيحة لإكمال إنشاء الحساب.');
-    }, 250);
+    }
   }
 
   return (
@@ -37,6 +51,10 @@ export default function RegisterPage() {
         <button className="foundation-action" type="submit" aria-busy={isLoading} disabled={isLoading}>
           {isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
         </button>
+        <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+          لديك حساب بالفعل؟{' '}
+          <Link href="/auth/login">تسجيل الدخول</Link>
+        </p>
       </form>
     </main>
   );
