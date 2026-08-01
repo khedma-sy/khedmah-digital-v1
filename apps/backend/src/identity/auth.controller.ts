@@ -14,32 +14,32 @@ export class AuthController {
   constructor(@Inject(IdentityService) private readonly identityService: IdentityService) {}
 
   @Post('register')
-  register(@Body() body: RegisterRequest, @Res({ passthrough: true }) response: Response): AuthResponse {
-    const result = this.identityService.register(body);
+  async register(@Body() body: RegisterRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
+    const result = await this.identityService.register(body);
     attachSessionCookie(response, result.sessionToken);
 
     return { user: result.user };
   }
 
   @Post('login')
-  login(@Body() body: LoginRequest, @Res({ passthrough: true }) response: Response): AuthResponse {
-    const result = this.identityService.login(body);
+  async login(@Body() body: LoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
+    const result = await this.identityService.login(body);
     attachSessionCookie(response, result.sessionToken);
 
     return { user: result.user };
   }
 
   @Post('logout')
-  logout(@Headers('cookie') cookieHeader: string | undefined, @Res({ passthrough: true }) response: Response) {
-    this.identityService.logout(readSessionToken(cookieHeader));
+  async logout(@Headers('cookie') cookieHeader: string | undefined, @Res({ passthrough: true }) response: Response) {
+    await this.identityService.logout(readSessionToken(cookieHeader));
     clearSessionCookie(response);
 
     return { status: 'ok' as const };
   }
 
   @Get('session')
-  session(@Headers('cookie') cookieHeader: string | undefined): AuthResponse {
-    const user = this.identityService.getSession(readSessionToken(cookieHeader));
+  async session(@Headers('cookie') cookieHeader: string | undefined): Promise<AuthResponse> {
+    const user = await this.identityService.getSession(readSessionToken(cookieHeader));
     if (!user) {
       throw new UnauthorizedException('Authentication required.');
     }

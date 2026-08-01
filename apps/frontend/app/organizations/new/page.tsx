@@ -1,19 +1,31 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { api } from '../../../lib/api-client';
 
 export default function CreateOrganizationPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function createOrganization(event: FormEvent<HTMLFormElement>) {
+  async function createOrganization(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setIsLoading(true);
-    window.setTimeout(() => {
+
+    const form = event.currentTarget;
+    const name = (form.elements.namedItem('name') as HTMLInputElement).value;
+
+    try {
+      await api.organizations.create(name);
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'يرجى إدخال اسم منظمة صحيح.');
+    } finally {
       setIsLoading(false);
-      setError('يرجى إدخال اسم منظمة صحيح.');
-    }, 250);
+    }
   }
 
   return (
@@ -29,6 +41,9 @@ export default function CreateOrganizationPage() {
         <button className="foundation-action" type="submit" aria-busy={isLoading} disabled={isLoading}>
           {isLoading ? 'جاري الإنشاء...' : 'إنشاء المنظمة'}
         </button>
+        <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <Link href="/organizations">العودة إلى منظماتي</Link>
+        </p>
       </form>
     </main>
   );

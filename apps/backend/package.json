@@ -7,14 +7,16 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "dev": "tsx src/main.ts",
-    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx src/**/*.test.ts"
+    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx --node-arg=--test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.28",
     "@nestjs/core": "^11.1.28",
     "@nestjs/platform-express": "^11.1.28",
+    "@types/pg": "^8.20.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },

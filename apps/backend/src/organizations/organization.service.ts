@@ -18,8 +18,8 @@ export class OrganizationService {
     @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository
   ) {}
 
-  create(cookieHeader: string | undefined, request: CreateOrganizationRequest): PublicOrganization {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
+  async create(cookieHeader: string | undefined, request: CreateOrganizationRequest): Promise<PublicOrganization> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateOrganization(request);
     const now = new Date().toISOString();
     const organization: Organization = {
@@ -39,30 +39,31 @@ export class OrganizationService {
       updatedAt: now
     };
 
-    this.organizations.saveOrganization(organization);
-    this.organizations.saveMember(ownerMember);
-    this.audit('organization.create', actor.id);
+    await this.organizations.saveOrganization(organization);
+    await this.organizations.saveMember(ownerMember);
+    await this.audit('organization.create', actor.id);
 
     return this.toPublicOrganization(organization);
   }
 
-  listMine(cookieHeader: string | undefined): PublicOrganization[] {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    return this.organizations.listOrganizationsForUser(actor.id).map((organization) => this.toPublicOrganization(organization));
+  async listMine(cookieHeader: string | undefined): Promise<PublicOrganization[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const orgs = await this.organizations.listOrganizationsForUser(actor.id);
+    return Promise.all(orgs.map((organization) => this.toPublicOrganization(organization)));
   }
 
-  getDetails(cookieHeader: string | undefined, organizationId: string): PublicOrganization {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireActiveMember(organization.id, actor.id);
+  async getDetails(cookieHeader: string | undefined, organizationId: string): Promise<PublicOrganization> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireActiveMember(organization.id, actor.id);
 
     return this.toPublicOrganization(organization);
   }
 
-  update(cookieHeader: string | undefined, organizationId: string, request: UpdateOrganizationRequest): PublicOrganization {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireOwner(organization.id, actor.id);
+  async update(cookieHeader: string | undefined, organizationId: string, request: UpdateOrganizationRequest): Promise<PublicOrganization> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireOwner(organization.id, actor.id);
     const input = validateUpdateOrganization(request);
     const updated: Organization = {
       ...organization,
@@ -70,30 +71,31 @@ export class OrganizationService {
       updatedAt: new Date().toISOString()
     };
 
-    this.organizations.saveOrganization(updated);
-    this.audit('organization.update', actor.id);
+    await this.organizations.saveOrganization(updated);
+    await this.audit('organization.update', actor.id);
 
     return this.toPublicOrganization(updated);
   }
 
-  listMembers(cookieHeader: string | undefined, organizationId: string): PublicOrganizationMember[] {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireActiveMember(organization.id, actor.id);
+  async listMembers(cookieHeader: string | undefined, organizationId: string): Promise<PublicOrganizationMember[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireActiveMember(organization.id, actor.id);
+    const members = await this.organizations.listMembers(organization.id);
 
-    return this.organizations.listMembers(organization.id).map((member) => this.toPublicMember(member));
+    return members.map((member) => this.toPublicMember(member));
   }
 
-  addMember(cookieHeader: string | undefined, organizationId: string, request: AddOrganizationMemberRequest): PublicOrganizationMember {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireOwner(organization.id, actor.id);
+  async addMember(cookieHeader: string | undefined, organizationId: string, request: AddOrganizationMemberRequest): Promise<PublicOrganizationMember> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireOwner(organization.id, actor.id);
     const input = validateAddMember(request);
-    if (!this.identityRepository.findAccountById(input.userId)) {
+    if (!await this.identityRepository.findAccountById(input.userId)) {
       throw new OrganizationAccessError();
     }
 
-    const existing = this.organizations.findMemberByOrganizationAndUser(organization.id, input.userId);
+    const existing = await this.organizations.findMemberByOrganizationAndUser(organization.id, input.userId);
     const now = new Date().toISOString();
     const member: OrganizationMember = existing
       ? { ...existing, role: input.role, status: 'active', updatedAt: now }
@@ -107,17 +109,17 @@ export class OrganizationService {
           updatedAt: now
         };
 
-    this.organizations.saveMember(member);
-    this.audit('organization.member.add', actor.id);
+    await this.organizations.saveMember(member);
+    await this.audit('organization.member.add', actor.id);
 
     return this.toPublicMember(member);
   }
 
-  updateMember(cookieHeader: string | undefined, organizationId: string, memberId: string, request: UpdateOrganizationMemberRequest): PublicOrganizationMember {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireOwner(organization.id, actor.id);
-    const member = this.requireMember(memberId, organization.id);
+  async updateMember(cookieHeader: string | undefined, organizationId: string, memberId: string, request: UpdateOrganizationMemberRequest): Promise<PublicOrganizationMember> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireOwner(organization.id, actor.id);
+    const member = await this.requireMember(memberId, organization.id);
     const input = validateUpdateMember(request);
     const updated: OrganizationMember = {
       ...member,
@@ -130,29 +132,29 @@ export class OrganizationService {
       throw new OrganizationAccessError();
     }
 
-    this.organizations.saveMember(updated);
-    this.audit('organization.member.update', actor.id);
+    await this.organizations.saveMember(updated);
+    await this.audit('organization.member.update', actor.id);
 
     return this.toPublicMember(updated);
   }
 
-  removeMember(cookieHeader: string | undefined, organizationId: string, memberId: string): { readonly status: 'ok' } {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const organization = this.requireOrganization(organizationId);
-    this.requireOwner(organization.id, actor.id);
-    const member = this.requireMember(memberId, organization.id);
+  async removeMember(cookieHeader: string | undefined, organizationId: string, memberId: string): Promise<{ readonly status: 'ok' }> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const organization = await this.requireOrganization(organizationId);
+    await this.requireOwner(organization.id, actor.id);
+    const member = await this.requireMember(memberId, organization.id);
     if (member.userId === organization.ownerUserId) {
       throw new OrganizationAccessError();
     }
 
-    this.organizations.saveMember({ ...member, status: 'removed', updatedAt: new Date().toISOString() });
-    this.audit('organization.member.remove', actor.id);
+    await this.organizations.saveMember({ ...member, status: 'removed', updatedAt: new Date().toISOString() });
+    await this.audit('organization.member.remove', actor.id);
 
     return { status: 'ok' };
   }
 
-  private requireOrganization(id: string): Organization {
-    const organization = this.organizations.findOrganization(id);
+  private async requireOrganization(id: string): Promise<Organization> {
+    const organization = await this.organizations.findOrganization(id);
     if (!organization) {
       throw new OrganizationNotFoundError();
     }
@@ -160,8 +162,8 @@ export class OrganizationService {
     return organization;
   }
 
-  private requireActiveMember(organizationId: string, userId: string): OrganizationMember {
-    const member = this.organizations.findMemberByOrganizationAndUser(organizationId, userId);
+  private async requireActiveMember(organizationId: string, userId: string): Promise<OrganizationMember> {
+    const member = await this.organizations.findMemberByOrganizationAndUser(organizationId, userId);
     if (!member || member.status !== 'active') {
       throw new OrganizationAccessError();
     }
@@ -169,8 +171,8 @@ export class OrganizationService {
     return member;
   }
 
-  private requireOwner(organizationId: string, userId: string): OrganizationMember {
-    const member = this.requireActiveMember(organizationId, userId);
+  private async requireOwner(organizationId: string, userId: string): Promise<OrganizationMember> {
+    const member = await this.requireActiveMember(organizationId, userId);
     if (member.role !== 'owner') {
       throw new OrganizationAccessError();
     }
@@ -178,8 +180,8 @@ export class OrganizationService {
     return member;
   }
 
-  private requireMember(memberId: string, organizationId: string): OrganizationMember {
-    const member = this.organizations.findMember(memberId);
+  private async requireMember(memberId: string, organizationId: string): Promise<OrganizationMember> {
+    const member = await this.organizations.findMember(memberId);
     if (!member || member.organizationId !== organizationId) {
       throw new OrganizationNotFoundError();
     }
@@ -187,12 +189,12 @@ export class OrganizationService {
     return member;
   }
 
-  private toPublicOrganization(organization: Organization): PublicOrganization {
+  private async toPublicOrganization(organization: Organization): Promise<PublicOrganization> {
     return {
       id: organization.id,
       name: organization.name,
       ownerUserId: organization.ownerUserId,
-      memberCount: this.organizations.countActiveMembers(organization.id)
+      memberCount: await this.organizations.countActiveMembers(organization.id)
     };
   }
 
@@ -206,9 +208,9 @@ export class OrganizationService {
     };
   }
 
-  private audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId: string): void {
+  private audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId: string): Promise<void> {
     const requestContext = getRequestContext();
-    this.identityRepository.appendAuditLog(eventType, {
+    return this.identityRepository.appendAuditLog(eventType, {
       actorUserId,
       requestId: requestContext?.requestId,
       correlationId: requestContext?.correlationId

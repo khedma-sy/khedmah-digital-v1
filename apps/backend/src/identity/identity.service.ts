@@ -21,9 +21,9 @@ export class IdentityService {
     @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
   ) {}
 
-  register(request: RegisterRequest): AuthResult {
+  async register(request: RegisterRequest): Promise<AuthResult> {
     const input = validateRegisterRequest(request);
-    if (this.repository.findAccountByEmail(input.email)) {
+    if (await this.repository.findAccountByEmail(input.email)) {
       throw new ConflictException('Account already exists.');
     }
 
@@ -45,47 +45,47 @@ export class IdentityService {
       updatedAt: now
     };
 
-    this.repository.saveAccount(account);
-    this.repository.saveProfile(profile);
-    this.audit('auth.register', userId);
+    await this.repository.saveAccount(account);
+    await this.repository.saveProfile(profile);
+    await this.audit('auth.register', userId);
 
     return this.createSession(account, profile);
   }
 
-  login(request: LoginRequest): AuthResult {
+  async login(request: LoginRequest): Promise<AuthResult> {
     const input = validateLoginRequest(request);
-    const account = this.repository.findAccountByEmail(input.email);
+    const account = await this.repository.findAccountByEmail(input.email);
 
     if (!account || account.status !== 'active' || !verifyPassword(input.password, account.passwordHash)) {
-      this.audit('auth.login_failed');
+      await this.audit('auth.login_failed');
       throw new SafeAuthenticationError();
     }
 
-    const profile = this.repository.findProfile(account.id);
+    const profile = await this.repository.findProfile(account.id);
     if (!profile) {
       throw new UnauthorizedException('Session could not be established.');
     }
 
-    this.audit('auth.login_success', account.id);
+    await this.audit('auth.login_success', account.id);
     return this.createSession(account, profile);
   }
 
-  logout(sessionToken: string | undefined): void {
-    const session = this.findSession(sessionToken);
+  async logout(sessionToken: string | undefined): Promise<void> {
+    const session = await this.findSession(sessionToken);
     if (session) {
-      this.repository.revokeSession(session.id);
-      this.audit('auth.logout', session.userId);
+      await this.repository.revokeSession(session.id);
+      await this.audit('auth.logout', session.userId);
     }
   }
 
-  getSession(sessionToken: string | undefined): PublicUserProfile | undefined {
-    const session = this.findSession(sessionToken);
+  async getSession(sessionToken: string | undefined): Promise<PublicUserProfile | undefined> {
+    const session = await this.findSession(sessionToken);
     if (!session) {
       return undefined;
     }
 
-    const account = this.repository.findAccountById(session.userId);
-    const profile = this.repository.findProfile(session.userId);
+    const account = await this.repository.findAccountById(session.userId);
+    const profile = await this.repository.findProfile(session.userId);
     if (!account || !profile || account.status !== 'active') {
       return undefined;
     }
@@ -93,8 +93,8 @@ export class IdentityService {
     return this.toPublicProfile(account, profile);
   }
 
-  getCurrentUser(sessionToken: string | undefined): PublicUserProfile {
-    const user = this.getSession(sessionToken);
+  async getCurrentUser(sessionToken: string | undefined): Promise<PublicUserProfile> {
+    const user = await this.getSession(sessionToken);
     if (!user) {
       throw new UnauthorizedException('Authentication required.');
     }
@@ -102,11 +102,11 @@ export class IdentityService {
     return user;
   }
 
-  updateProfile(sessionToken: string | undefined, request: UpdateProfileRequest): PublicUserProfile {
-    const currentUser = this.getCurrentUser(sessionToken);
+  async updateProfile(sessionToken: string | undefined, request: UpdateProfileRequest): Promise<PublicUserProfile> {
+    const currentUser = await this.getCurrentUser(sessionToken);
     const input = validateUpdateProfileRequest(request);
-    const account = this.repository.findAccountById(currentUser.id);
-    const existingProfile = this.repository.findProfile(currentUser.id);
+    const account = await this.repository.findAccountById(currentUser.id);
+    const existingProfile = await this.repository.findProfile(currentUser.id);
     if (!account || !existingProfile) {
       throw new UnauthorizedException('Authentication required.');
     }
@@ -118,15 +118,15 @@ export class IdentityService {
       updatedAt: now
     };
 
-    this.repository.saveProfile(profile);
-    this.audit('profile.update', account.id);
+    await this.repository.saveProfile(profile);
+    await this.audit('profile.update', account.id);
 
     return this.toPublicProfile(account, profile);
   }
 
-  private createSession(account: UserAccount, profile: UserProfile): AuthResult {
+  private async createSession(account: UserAccount, profile: UserProfile): Promise<AuthResult> {
     const sessionToken = this.sessionTokens.createToken();
-    this.repository.saveSession({
+    await this.repository.saveSession({
       id: randomUUID(),
       userId: account.id,
       tokenHash: this.sessionTokens.hashToken(sessionToken),
@@ -140,7 +140,7 @@ export class IdentityService {
     };
   }
 
-  private findSession(sessionToken: string | undefined) {
+  private async findSession(sessionToken: string | undefined) {
     if (!sessionToken) {
       return undefined;
     }
@@ -160,9 +160,9 @@ export class IdentityService {
     };
   }
 
-  private audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId?: string): void {
+  private async audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId?: string): Promise<void> {
     const requestContext = getRequestContext();
-    this.repository.appendAuditLog(eventType, {
+    await this.repository.appendAuditLog(eventType, {
       actorUserId,
       requestId: requestContext?.requestId,
       correlationId: requestContext?.correlationId

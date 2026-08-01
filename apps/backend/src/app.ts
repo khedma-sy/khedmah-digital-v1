@@ -14,6 +14,10 @@ export async function createBackendApp() {
 
   app.useLogger(logger);
   app.use(createRequestContextMiddleware(logger));
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    credentials: true
+  });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
     new ValidationPipe({

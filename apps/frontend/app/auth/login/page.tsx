@@ -1,19 +1,32 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { api } from '../../../lib/api-client';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function submitLogin(event: FormEvent<HTMLFormElement>) {
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setIsLoading(true);
-    window.setTimeout(() => {
+
+    const form = event.currentTarget;
+    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+
+    try {
+      await api.auth.login(email, password);
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.');
+    } finally {
       setIsLoading(false);
-      setError('تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.');
-    }, 250);
+    }
   }
 
   return (
@@ -33,6 +46,10 @@ export default function LoginPage() {
         <button className="foundation-action" type="submit" aria-busy={isLoading} disabled={isLoading}>
           {isLoading ? 'جاري الدخول...' : 'دخول'}
         </button>
+        <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+          ليس لديك حساب؟{' '}
+          <Link href="/auth/register">إنشاء حساب</Link>
+        </p>
       </form>
     </main>
   );

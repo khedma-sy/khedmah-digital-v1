@@ -13,12 +13,12 @@ export class UsersController {
   constructor(@Inject(IdentityService) private readonly identityService: IdentityService) {}
 
   @Get('me')
-  me(@Headers('cookie') cookieHeader: string | undefined): UserResponse {
-    return { user: this.identityService.getCurrentUser(readSessionToken(cookieHeader)) };
+  async me(@Headers('cookie') cookieHeader: string | undefined): Promise<UserResponse> {
+    return { user: await this.identityService.getCurrentUser(readSessionToken(cookieHeader)) };
   }
 
   @Patch('me/profile')
-  updateProfile(@Headers('cookie') cookieHeader: string | undefined, @Body() body: UpdateProfileRequest): UserResponse {
-    return { user: this.identityService.updateProfile(readSessionToken(cookieHeader), body) };
+  async updateProfile(@Headers('cookie') cookieHeader: string | undefined, @Body() body: UpdateProfileRequest): Promise<UserResponse> {
+    return { user: await this.identityService.updateProfile(readSessionToken(cookieHeader), body) };
   }
 }
