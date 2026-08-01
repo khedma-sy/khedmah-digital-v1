@@ -27,7 +27,7 @@ export class AnalyticsService {
       correlationId: requestContext?.correlationId
     };
 
-    this.analytics.saveEvent(event);
+    await this.analytics.saveEvent(event);
     await this.auditRecordedEvent();
     this.logRecordedEvent(event);
 

@@ -9,7 +9,7 @@ import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactAccessError, ContactRateLimitError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
 import { ContactRepository } from './contact.repository';
-import { ContactActionEvent, ContactBusinessProfileSnapshot, ContactInquiry, PublicContactActionReceipt, PublicContactInquiryReceipt } from './contact.types';
+import { BusinessProfileTrustStatus, BusinessProfileVisibility, ContactActionEvent, ContactBusinessProfileSnapshot, ContactInquiry, PublicContactActionReceipt, PublicContactInquiryReceipt } from './contact.types';
 import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
 import { validateBusinessProfileId, validateSubmitContactInquiry, validateTrackContactClick } from './contact.validation';
 
@@ -27,7 +27,7 @@ export class ContactService {
   async submitInquiry(cookieHeader: string | undefined, businessProfileIdValue: string, request: SubmitContactInquiryRequest): Promise<PublicContactInquiryReceipt> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
-    const business = this.requirePublicApprovedBusiness(businessProfileId);
+    const business = await this.requirePublicApprovedBusiness(businessProfileId);
     const input = validateSubmitContactInquiry(request);
     const rateLimit = this.rateLimits.check(`inquiry:${actor.id}:${business.id}`);
 
@@ -56,7 +56,7 @@ export class ContactService {
       correlationId: requestContext?.correlationId
     };
 
-    this.contacts.saveContactInquiry(inquiry);
+    await this.contacts.saveContactInquiry(inquiry);
     await this.audit('contact.inquiry.submitted', actor.id);
     this.logContactEvent('contact_inquiry_submitted', business.id);
 
@@ -66,7 +66,7 @@ export class ContactService {
   async trackContactClick(cookieHeader: string | undefined, businessProfileIdValue: string, request: TrackContactClickRequest): Promise<PublicContactActionReceipt> {
     const actor = await this.identity.getSession(readSessionToken(cookieHeader));
     const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
-    const business = this.requirePublicApprovedBusiness(businessProfileId);
+    const business = await this.requirePublicApprovedBusiness(businessProfileId);
     validateTrackContactClick(request);
     const rateLimit = this.rateLimits.check(`contact-click:${actor?.id ?? 'anonymous'}:${business.id}`);
 
@@ -87,7 +87,7 @@ export class ContactService {
       correlationId: requestContext?.correlationId
     };
 
-    this.contacts.saveContactAction(event);
+    await this.contacts.saveContactAction(event);
     await this.audit('contact.click.tracked', actor?.id);
     this.logContactEvent('contact_click_tracked', business.id);
 
@@ -99,8 +99,11 @@ export class ContactService {
     };
   }
 
-  private requirePublicApprovedBusiness(businessProfileId: string): ContactBusinessProfileSnapshot {
-    const business = this.contacts.findBusinessProfileSnapshot(businessProfileId);
+  private async requirePublicApprovedBusiness(businessProfileId: string): Promise<ContactBusinessProfileSnapshot> {
+    const snapshot = await this.contacts.findBusinessProfileSnapshot(businessProfileId);
+    const business: ContactBusinessProfileSnapshot | undefined = snapshot
+      ? { id: snapshot.id, visibility: snapshot.visibility as BusinessProfileVisibility, trustStatus: snapshot.trustStatus as BusinessProfileTrustStatus, ownerUserId: snapshot.ownerUserId }
+      : undefined;
     if (!business || business.visibility !== 'public' || business.trustStatus !== 'approved') {
       throw new ContactBusinessUnavailableError();
     }

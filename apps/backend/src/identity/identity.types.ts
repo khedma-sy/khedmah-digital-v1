@@ -45,7 +45,15 @@ export type AuditEventType =
   | 'analytics.event.recorded'
   | 'operations.change.requested'
   | 'operations.rollback.requested'
-  | 'operations.incident.created';
+  | 'operations.incident.created'
+  | 'business_profile.create'
+  | 'business_profile.update'
+  | 'business_profile.trust_status.update'
+  | 'professional_profile.create'
+  | 'professional_profile.update'
+  | 'service.create'
+  | 'service.update'
+  | 'service.delete';
 
 export interface AuditLog {
   readonly id: string;
