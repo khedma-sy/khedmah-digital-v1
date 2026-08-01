@@ -1,7 +1,17 @@
 import { IdentityValidationError } from './identity.errors';
 import { LoginRequest, RegisterRequest, UpdateProfileRequest } from './dto/auth.dto';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidEmail(email: string): boolean {
+  if (email.length > 254) return false;
+  const atIndex = email.indexOf('@');
+  if (atIndex < 1 || atIndex !== email.lastIndexOf('@')) return false;
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex + 1);
+  if (local.length > 64 || domain.length < 3) return false;
+  const dotIndex = domain.lastIndexOf('.');
+  if (dotIndex < 1 || dotIndex === domain.length - 1) return false;
+  return !/\s/.test(email);
+}
 
 export function normalizeEmail(value: unknown): string {
   if (typeof value !== 'string') {
@@ -9,7 +19,7 @@ export function normalizeEmail(value: unknown): string {
   }
 
   const email = value.trim().toLowerCase();
-  if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+  if (!isValidEmail(email)) {
     throw new IdentityValidationError();
   }
 
