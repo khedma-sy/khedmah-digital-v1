@@ -16,7 +16,7 @@ export class AnalyticsService {
     @Inject(PlatformLogger) private readonly logger: PlatformLogger
   ) {}
 
-  recordEvent(request: RecordAnalyticsEventRequest): PublicAnalyticsEventReceipt {
+  async recordEvent(request: RecordAnalyticsEventRequest): Promise<PublicAnalyticsEventReceipt> {
     const input = validateRecordAnalyticsEvent(request);
     const requestContext = getRequestContext();
     const event: AnalyticsEventRecord = {
@@ -28,7 +28,7 @@ export class AnalyticsService {
     };
 
     this.analytics.saveEvent(event);
-    this.auditRecordedEvent();
+    await this.auditRecordedEvent();
     this.logRecordedEvent(event);
 
     return {
@@ -40,9 +40,9 @@ export class AnalyticsService {
     };
   }
 
-  private auditRecordedEvent(): void {
+  private async auditRecordedEvent(): Promise<void> {
     const requestContext = getRequestContext();
-    this.identityRepository.appendAuditLog('analytics.event.recorded', {
+    await this.identityRepository.appendAuditLog('analytics.event.recorded', {
       requestId: requestContext?.requestId,
       correlationId: requestContext?.correlationId
     });

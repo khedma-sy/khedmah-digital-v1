@@ -7,7 +7,7 @@ export class AnalyticsController {
   constructor(@Inject(AnalyticsService) private readonly analyticsService: AnalyticsService) {}
 
   @Post()
-  recordEvent(@Body() body: RecordAnalyticsEventRequest) {
-    return { analyticsEvent: this.analyticsService.recordEvent(body) };
+  async recordEvent(@Body() body: RecordAnalyticsEventRequest) {
+    return { analyticsEvent: await this.analyticsService.recordEvent(body) };
   }
 }

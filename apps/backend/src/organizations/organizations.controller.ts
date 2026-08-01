@@ -7,47 +7,47 @@ export class OrganizationsController {
   constructor(@Inject(OrganizationService) private readonly organizationService: OrganizationService) {}
 
   @Post()
-  create(@Headers('cookie') cookieHeader: string | undefined, @Body() body: CreateOrganizationRequest) {
-    return { organization: this.organizationService.create(cookieHeader, body) };
+  async create(@Headers('cookie') cookieHeader: string | undefined, @Body() body: CreateOrganizationRequest) {
+    return { organization: await this.organizationService.create(cookieHeader, body) };
   }
 
   @Get('my')
-  mine(@Headers('cookie') cookieHeader: string | undefined) {
-    return { organizations: this.organizationService.listMine(cookieHeader) };
+  async mine(@Headers('cookie') cookieHeader: string | undefined) {
+    return { organizations: await this.organizationService.listMine(cookieHeader) };
   }
 
   @Get(':id')
-  details(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { organization: this.organizationService.getDetails(cookieHeader, id) };
+  async details(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { organization: await this.organizationService.getDetails(cookieHeader, id) };
   }
 
   @Patch(':id')
-  update(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: UpdateOrganizationRequest) {
-    return { organization: this.organizationService.update(cookieHeader, id, body) };
+  async update(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: UpdateOrganizationRequest) {
+    return { organization: await this.organizationService.update(cookieHeader, id, body) };
   }
 
   @Get(':id/members')
-  members(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { members: this.organizationService.listMembers(cookieHeader, id) };
+  async members(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { members: await this.organizationService.listMembers(cookieHeader, id) };
   }
 
   @Post(':id/members')
-  addMember(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: AddOrganizationMemberRequest) {
-    return { member: this.organizationService.addMember(cookieHeader, id, body) };
+  async addMember(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: AddOrganizationMemberRequest) {
+    return { member: await this.organizationService.addMember(cookieHeader, id, body) };
   }
 
   @Patch(':id/members/:memberId')
-  updateMember(
+  async updateMember(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
     @Body() body: UpdateOrganizationMemberRequest
   ) {
-    return { member: this.organizationService.updateMember(cookieHeader, id, memberId, body) };
+    return { member: await this.organizationService.updateMember(cookieHeader, id, memberId, body) };
   }
 
   @Delete(':id/members/:memberId')
-  removeMember(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Param('memberId') memberId: string) {
+  async removeMember(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Param('memberId') memberId: string) {
     return this.organizationService.removeMember(cookieHeader, id, memberId);
   }
 }

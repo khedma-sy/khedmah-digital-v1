@@ -7,20 +7,20 @@ export class ContactController {
   constructor(@Inject(ContactService) private readonly contactService: ContactService) {}
 
   @Post('inquiries')
-  submitInquiry(
+  async submitInquiry(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('businessProfileId') businessProfileId: string,
     @Body() body: SubmitContactInquiryRequest
   ) {
-    return { inquiry: this.contactService.submitInquiry(cookieHeader, businessProfileId, body) };
+    return { inquiry: await this.contactService.submitInquiry(cookieHeader, businessProfileId, body) };
   }
 
   @Post('contact-click')
-  trackContactClick(
+  async trackContactClick(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('businessProfileId') businessProfileId: string,
     @Body() body: TrackContactClickRequest
   ) {
-    return { contactAction: this.contactService.trackContactClick(cookieHeader, businessProfileId, body) };
+    return { contactAction: await this.contactService.trackContactClick(cookieHeader, businessProfileId, body) };
   }
 }

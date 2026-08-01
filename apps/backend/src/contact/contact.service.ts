@@ -24,20 +24,20 @@ export class ContactService {
     @Inject(PlatformLogger) private readonly logger: PlatformLogger
   ) {}
 
-  submitInquiry(cookieHeader: string | undefined, businessProfileIdValue: string, request: SubmitContactInquiryRequest): PublicContactInquiryReceipt {
-    const actor = this.identity.getCurrentUser(readSessionToken(cookieHeader));
+  async submitInquiry(cookieHeader: string | undefined, businessProfileIdValue: string, request: SubmitContactInquiryRequest): Promise<PublicContactInquiryReceipt> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
     const business = this.requirePublicApprovedBusiness(businessProfileId);
     const input = validateSubmitContactInquiry(request);
     const rateLimit = this.rateLimits.check(`inquiry:${actor.id}:${business.id}`);
 
     if (!rateLimit.allowed) {
-      this.audit('contact.inquiry.rate_limited', actor.id);
+      await this.audit('contact.inquiry.rate_limited', actor.id);
       throw new ContactRateLimitError();
     }
 
     if (this.abuse.shouldBlockInquiry(input)) {
-      this.audit('contact.inquiry.abuse_blocked', actor.id);
+      await this.audit('contact.inquiry.abuse_blocked', actor.id);
       throw new ContactAccessError();
     }
 
@@ -57,21 +57,21 @@ export class ContactService {
     };
 
     this.contacts.saveContactInquiry(inquiry);
-    this.audit('contact.inquiry.submitted', actor.id);
+    await this.audit('contact.inquiry.submitted', actor.id);
     this.logContactEvent('contact_inquiry_submitted', business.id);
 
     return this.toPublicInquiryReceipt(inquiry);
   }
 
-  trackContactClick(cookieHeader: string | undefined, businessProfileIdValue: string, request: TrackContactClickRequest): PublicContactActionReceipt {
-    const actor = this.identity.getSession(readSessionToken(cookieHeader));
+  async trackContactClick(cookieHeader: string | undefined, businessProfileIdValue: string, request: TrackContactClickRequest): Promise<PublicContactActionReceipt> {
+    const actor = await this.identity.getSession(readSessionToken(cookieHeader));
     const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
     const business = this.requirePublicApprovedBusiness(businessProfileId);
     validateTrackContactClick(request);
     const rateLimit = this.rateLimits.check(`contact-click:${actor?.id ?? 'anonymous'}:${business.id}`);
 
     if (!rateLimit.allowed) {
-      this.audit('contact.click.rate_limited', actor?.id);
+      await this.audit('contact.click.rate_limited', actor?.id);
       throw new ContactRateLimitError();
     }
 
@@ -88,7 +88,7 @@ export class ContactService {
     };
 
     this.contacts.saveContactAction(event);
-    this.audit('contact.click.tracked', actor?.id);
+    await this.audit('contact.click.tracked', actor?.id);
     this.logContactEvent('contact_click_tracked', business.id);
 
     return {
@@ -117,9 +117,9 @@ export class ContactService {
     };
   }
 
-  private audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId?: string): void {
+  private async audit(eventType: Parameters<IdentityRepository['appendAuditLog']>[0], actorUserId?: string): Promise<void> {
     const requestContext = getRequestContext();
-    this.identityRepository.appendAuditLog(eventType, {
+    await this.identityRepository.appendAuditLog(eventType, {
       actorUserId,
       requestId: requestContext?.requestId,
       correlationId: requestContext?.correlationId
