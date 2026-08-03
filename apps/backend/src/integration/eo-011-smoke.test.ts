@@ -260,7 +260,7 @@ test('e2e smoke: register → login → create business → search → logout', 
 
   // 3. Create business profile
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = '{}';
-  const business = await businessService.create(undefined, {
+  const business = await businessService.create(`khedmah_session=${login.sessionToken}`, {
     name: 'مطعم التجربة',
     categoryCode: 'restaurant',
     cityCode: 'damascus',
