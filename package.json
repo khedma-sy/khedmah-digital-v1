@@ -24,7 +24,9 @@
     "verify:firebase-secrets": "node scripts/audit-firebase-secret-usage.mjs",
     "build:android": "bash scripts/build-android.sh",
     "validate:deployments": "node scripts/validate-preview-staging.mjs",
-    "validate:operator": "node scripts/validate-production-operator.mjs"
+    "validate:operator": "node scripts/validate-production-operator.mjs",
+    "validate:database": "node scripts/validate-database-readiness.mjs",
+    "validate:production-readiness": "npm run validate:database && npm run validate:google && npm run validate:firebase && npm run validate:operations"
   },
   "engines": {
     "node": ">=20.11.0",

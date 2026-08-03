@@ -160,5 +160,29 @@ export class IdentityRepository {
       createdAt: r.created_at.toISOString()
     };
   }
+
+  async hasAdminAccount(): Promise<boolean> {
+    const rows = await this.db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM admin_roles WHERE role = 'bootstrap_admin' LIMIT 1`
+    );
+    return parseInt(rows[0]?.count ?? '0', 10) > 0;
+  }
+
+  async saveAdminRole(userId: string, role: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO admin_roles (id, user_id, role, granted_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id, role) DO NOTHING`,
+      [randomUUID(), userId, role]
+    );
+  }
+
+  async findAdminRoles(userId: string): Promise<readonly string[]> {
+    const rows = await this.db.query<{ role: string }>(
+      `SELECT role FROM admin_roles WHERE user_id = $1`,
+      [userId]
+    );
+    return rows.map((r) => r.role);
+  }
 }
 

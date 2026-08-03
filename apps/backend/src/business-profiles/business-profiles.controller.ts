@@ -140,5 +140,20 @@ export class BusinessProfilesController {
   async getTrustHistory(@Param('id') id: string) {
     return { history: await this.businessProfiles.getTrustHistory('business', id) };
   }
+
+  @Post(':id/approve')
+  async approve(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { business: await this.businessProfiles.approveVerification(cookieHeader, id) };
+  }
+
+  @Post(':id/suspend')
+  async suspend(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason?: string }) {
+    return { business: await this.businessProfiles.suspendBusiness(cookieHeader, id, body.reason ?? '') };
+  }
+
+  @Post(':id/reactivate')
+  async reactivate(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { business: await this.businessProfiles.reactivateBusiness(cookieHeader, id) };
+  }
 }
 
