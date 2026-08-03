@@ -79,7 +79,7 @@ export class BusinessProfileRepository {
         profile.lat ?? null,
         profile.lng ?? null,
         profile.addressAr ?? null,
-        profile.isFeatured,
+        profile.isFeatured ?? false,
         profile.featuredAt ?? null,
         profile.createdAt,
         profile.updatedAt
