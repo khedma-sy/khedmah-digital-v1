@@ -21,6 +21,9 @@ export interface UpdateBusinessProfileRequest {
   readonly categoryCode?: unknown;
   readonly cityCode?: unknown;
   readonly countryCode?: unknown;
+  readonly lat?: unknown;
+  readonly lng?: unknown;
+  readonly addressAr?: unknown;
 }
 
 export interface UpdateTrustStatusRequest {

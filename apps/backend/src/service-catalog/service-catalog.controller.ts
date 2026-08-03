@@ -11,6 +11,11 @@ export class ServiceCatalogController {
     return { service: await this.services.create(cookieHeader, body) };
   }
 
+  @Get('featured')
+  async getFeatured() {
+    return { services: await this.services.getFeatured() };
+  }
+
   @Get('search')
   async search(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('page') page?: string) {
     const query: SearchServicesRequest = { q, categoryCode, page };

@@ -93,7 +93,7 @@ export default function ServiceCatalogPage() {
 
         {/* Loading skeleton */}
         {isLoading && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
+          <div aria-busy="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="skeleton skeleton-card" style={{ height: '11rem' }} />
             ))}

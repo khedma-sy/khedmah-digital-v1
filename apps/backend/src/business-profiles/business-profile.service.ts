@@ -5,7 +5,7 @@ import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE, BUSINESS_PROFILE_NOT_FOUND_MESSAGE } from './business-profile.errors';
 import { BusinessProfileRepository } from './business-profile.repository';
-import { PublicBusinessProfile, BusinessProfile } from './business-profile.types';
+import { BusinessBranch, BusinessProfile, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
 import { CreateBusinessProfileRequest, SearchBusinessProfilesRequest, UpdateBusinessProfileRequest, UpdateTrustStatusRequest } from './dto/business-profile.dto';
 import { validateBusinessProfileSearch, validateCreateBusinessProfile, validateUpdateBusinessProfile, validateUpdateTrustStatus } from './business-profile.validation';
 
@@ -37,6 +37,7 @@ export class BusinessProfileService {
       categoryCode: input.categoryCode,
       cityCode: input.cityCode,
       countryCode: input.countryCode,
+      isFeatured: false,
       createdAt: now,
       updatedAt: now
     };
@@ -79,6 +80,9 @@ export class BusinessProfileService {
       categoryCode: input.categoryCode ?? profile.categoryCode,
       cityCode: input.cityCode ?? profile.cityCode,
       countryCode: input.countryCode ?? profile.countryCode,
+      lat: input.lat === undefined ? profile.lat : input.lat,
+      lng: input.lng === undefined ? profile.lng : input.lng,
+      addressAr: input.addressAr === undefined ? profile.addressAr : input.addressAr,
       updatedAt: new Date().toISOString()
     };
 
@@ -92,7 +96,21 @@ export class BusinessProfileService {
     const profile = await this.requireProfile(id);
     const input = validateUpdateTrustStatus(request);
     const updatedAt = new Date().toISOString();
+
     await this.repository.updateTrustStatus(profile.id, input.trustStatus, updatedAt);
+
+    // Record trust history
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.trustStatus,
+      newStatus: input.trustStatus,
+      changedBy: actor.id,
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
     return this.toPublic({ ...profile, trustStatus: input.trustStatus, updatedAt });
   }
 
@@ -110,6 +128,114 @@ export class BusinessProfileService {
       total,
       page: input.page
     };
+  }
+
+  async getFeatured(): Promise<PublicBusinessProfile[]> {
+    const profiles = await this.repository.listFeatured(6);
+    return profiles.map((p) => this.toPublic(p));
+  }
+
+  async getRecentlyAdded(): Promise<PublicBusinessProfile[]> {
+    const profiles = await this.repository.listRecentlyAdded(10);
+    return profiles.map((p) => this.toPublic(p));
+  }
+
+  // --- Media ---
+  async addMediaAsset(cookieHeader: string | undefined, entityId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(entityId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
+    await this.repository.saveMediaAsset(full);
+    return full;
+  }
+
+  async getMediaAssets(entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
+    return this.repository.listMediaAssets(entityType, entityId, assetType);
+  }
+
+  async deleteMediaAsset(cookieHeader: string | undefined, businessId: string, assetId: string): Promise<void> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.repository.deleteMediaAsset(assetId);
+  }
+
+  // --- Opening Hours ---
+  async setOpeningHours(cookieHeader: string | undefined, businessId: string, hours: Omit<OpeningHours, 'id'>[]): Promise<OpeningHours[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    const saved: OpeningHours[] = [];
+    for (const h of hours) {
+      const entry: OpeningHours = { ...h, id: randomUUID() };
+      await this.repository.saveOpeningHours(entry);
+      saved.push(entry);
+    }
+    return saved;
+  }
+
+  async getOpeningHours(businessId: string): Promise<OpeningHours[]> {
+    return this.repository.listOpeningHours(businessId);
+  }
+
+  // --- Branches ---
+  async addBranch(cookieHeader: string | undefined, businessId: string, branch: Omit<BusinessBranch, 'id' | 'businessProfileId'>): Promise<BusinessBranch> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    const full: BusinessBranch = { ...branch, id: randomUUID(), businessProfileId: businessId };
+    await this.repository.saveBranch(full);
+    return full;
+  }
+
+  async getBranches(businessId: string): Promise<BusinessBranch[]> {
+    return this.repository.listBranches(businessId);
+  }
+
+  // --- Social Links ---
+  async setSocialLink(cookieHeader: string | undefined, businessId: string, platform: string, url: string): Promise<BusinessSocialLink> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    const link: BusinessSocialLink = { id: randomUUID(), businessProfileId: businessId, platform, url };
+    await this.repository.saveSocialLink(link);
+    return link;
+  }
+
+  async getSocialLinks(businessId: string): Promise<BusinessSocialLink[]> {
+    return this.repository.listSocialLinks(businessId);
+  }
+
+  async deleteSocialLink(cookieHeader: string | undefined, businessId: string, linkId: string): Promise<void> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.repository.deleteSocialLink(linkId);
+  }
+
+  // --- Verification ---
+  async requestVerification(cookieHeader: string | undefined, entityType: 'business' | 'professional', entityId: string): Promise<VerificationRequest> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const req: VerificationRequest = {
+      id: randomUUID(),
+      entityType,
+      entityId,
+      requesterId: actor.id,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await this.repository.saveVerificationRequest(req);
+    return req;
+  }
+
+  async getVerificationStatus(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
+    return this.repository.findVerificationRequest(entityType, entityId);
+  }
+
+  async getTrustHistory(entityType: string, entityId: string): Promise<TrustHistoryEntry[]> {
+    return this.repository.listTrustHistory(entityType, entityId);
   }
 
   private async requireProfile(id: string): Promise<BusinessProfile> {
@@ -134,7 +260,13 @@ export class BusinessProfileService {
       website: profile.website,
       categoryCode: profile.categoryCode,
       cityCode: profile.cityCode,
-      countryCode: profile.countryCode
+      countryCode: profile.countryCode,
+      lat: profile.lat,
+      lng: profile.lng,
+      addressAr: profile.addressAr,
+      isFeatured: profile.isFeatured,
+      createdAt: profile.createdAt
     };
   }
 }
+

@@ -103,7 +103,10 @@ export function validateUpdateBusinessProfile(request: UpdateBusinessProfileRequ
     visibility: request.visibility === undefined ? undefined : visibility(request.visibility),
     categoryCode: request.categoryCode === undefined ? undefined : requiredString(request.categoryCode, 'categoryCode', 2, 50),
     cityCode: request.cityCode === undefined ? undefined : requiredString(request.cityCode, 'cityCode', 2, 50),
-    countryCode: request.countryCode === undefined ? undefined : requiredString(request.countryCode, 'countryCode', 2, 10)
+    countryCode: request.countryCode === undefined ? undefined : requiredString(request.countryCode, 'countryCode', 2, 10),
+    lat: request.lat === undefined ? undefined : (typeof request.lat === 'number' ? request.lat : undefined),
+    lng: request.lng === undefined ? undefined : (typeof request.lng === 'number' ? request.lng : undefined),
+    addressAr: request.addressAr === undefined ? undefined : optionalString(request.addressAr, 'addressAr', 500)
   };
 
   if (Object.values(payload).every((value) => value === undefined)) {

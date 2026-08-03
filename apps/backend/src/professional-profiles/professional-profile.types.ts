@@ -11,6 +11,8 @@ export interface ProfessionalProfile {
   readonly cityCode: string;
   readonly countryCode: string;
   readonly skills: readonly string[];
+  readonly isFeatured: boolean;
+  readonly featuredAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -25,4 +27,6 @@ export interface PublicProfessionalProfile {
   readonly cityCode: string;
   readonly countryCode: string;
   readonly skills: readonly string[];
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
 }

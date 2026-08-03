@@ -170,6 +170,112 @@ CREATE TABLE IF NOT EXISTS service_listings (
 
 CREATE INDEX IF NOT EXISTS service_listings_owner_idx ON service_listings(owner_id, owner_type);
 CREATE INDEX IF NOT EXISTS service_listings_category_idx ON service_listings(category_code, status);
+
+-- Phase A: Media
+CREATE TABLE IF NOT EXISTS media_assets (
+  id           TEXT PRIMARY KEY,
+  entity_type  TEXT NOT NULL,
+  entity_id    TEXT NOT NULL,
+  asset_type   TEXT NOT NULL CHECK (asset_type IN ('logo','cover','gallery','profile_image','service_image')),
+  url          TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  mime_type    TEXT NOT NULL,
+  size_bytes   INTEGER NOT NULL DEFAULT 0,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS media_assets_entity_idx ON media_assets(entity_type, entity_id, asset_type);
+
+-- Phase B: Opening hours
+CREATE TABLE IF NOT EXISTS business_opening_hours (
+  id                  TEXT PRIMARY KEY,
+  business_profile_id TEXT NOT NULL,
+  day_of_week         INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  open_time           TEXT NOT NULL,
+  close_time          TEXT NOT NULL,
+  is_closed           BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS opening_hours_business_idx ON business_opening_hours(business_profile_id);
+
+-- Phase B: Branches
+CREATE TABLE IF NOT EXISTS business_branches (
+  id                  TEXT PRIMARY KEY,
+  business_profile_id TEXT NOT NULL,
+  name_ar             TEXT NOT NULL,
+  name_en             TEXT,
+  address_ar          TEXT,
+  phone               TEXT,
+  city_code           TEXT NOT NULL,
+  lat                 NUMERIC,
+  lng                 NUMERIC,
+  is_main             BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS business_branches_business_idx ON business_branches(business_profile_id);
+
+-- Phase B: Social media links
+CREATE TABLE IF NOT EXISTS business_social_links (
+  id                  TEXT PRIMARY KEY,
+  business_profile_id TEXT NOT NULL,
+  platform            TEXT NOT NULL,
+  url                 TEXT NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS social_links_business_idx ON business_social_links(business_profile_id);
+
+-- Phase C: Verification requests
+CREATE TABLE IF NOT EXISTS verification_requests (
+  id              TEXT PRIMARY KEY,
+  entity_type     TEXT NOT NULL CHECK (entity_type IN ('business','professional')),
+  entity_id       TEXT NOT NULL,
+  requester_id    TEXT NOT NULL REFERENCES user_accounts(id),
+  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  notes           TEXT,
+  reviewed_by     TEXT REFERENCES user_accounts(id),
+  reviewed_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS verification_requests_entity_idx ON verification_requests(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS verification_requests_status_idx ON verification_requests(status);
+
+-- Phase C: Trust history
+CREATE TABLE IF NOT EXISTS trust_history (
+  id            TEXT PRIMARY KEY,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT NOT NULL,
+  old_status    TEXT,
+  new_status    TEXT NOT NULL,
+  changed_by    TEXT REFERENCES user_accounts(id),
+  reason        TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS trust_history_entity_idx ON trust_history(entity_type, entity_id);
+
+-- Phase D: Featured flags
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
+ALTER TABLE professional_directory_profiles ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE professional_directory_profiles ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
+ALTER TABLE service_listings ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE service_listings ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
+
+-- Phase D: Trending searches
+CREATE TABLE IF NOT EXISTS trending_searches (
+  id          TEXT PRIMARY KEY,
+  query       TEXT NOT NULL,
+  count       INTEGER NOT NULL DEFAULT 1,
+  last_seen   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (query)
+);
+
+-- Phase B: Location on business profiles
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lat NUMERIC;
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lng NUMERIC;
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS address_ar TEXT;
 `;
 
 @Injectable()

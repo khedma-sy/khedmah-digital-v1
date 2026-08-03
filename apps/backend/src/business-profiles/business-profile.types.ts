@@ -18,6 +18,11 @@ export interface BusinessProfile {
   readonly categoryCode: string;
   readonly cityCode: string;
   readonly countryCode: string;
+  readonly lat?: number;
+  readonly lng?: number;
+  readonly addressAr?: string;
+  readonly isFeatured: boolean;
+  readonly featuredAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -36,4 +41,75 @@ export interface PublicBusinessProfile {
   readonly categoryCode: string;
   readonly cityCode: string;
   readonly countryCode: string;
+  readonly lat?: number;
+  readonly lng?: number;
+  readonly addressAr?: string;
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
+}
+
+export interface MediaAsset {
+  readonly id: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image';
+  readonly url: string;
+  readonly storagePath: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly sortOrder: number;
+  readonly createdAt: string;
+}
+
+export interface OpeningHours {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly dayOfWeek: number;
+  readonly openTime: string;
+  readonly closeTime: string;
+  readonly isClosed: boolean;
+}
+
+export interface BusinessBranch {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly nameAr: string;
+  readonly nameEn?: string;
+  readonly addressAr?: string;
+  readonly phone?: string;
+  readonly cityCode: string;
+  readonly lat?: number;
+  readonly lng?: number;
+  readonly isMain: boolean;
+}
+
+export interface BusinessSocialLink {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly platform: string;
+  readonly url: string;
+}
+
+export interface VerificationRequest {
+  readonly id: string;
+  readonly entityType: 'business' | 'professional';
+  readonly entityId: string;
+  readonly requesterId: string;
+  readonly status: 'pending' | 'approved' | 'rejected';
+  readonly notes?: string;
+  readonly reviewedBy?: string;
+  readonly reviewedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TrustHistoryEntry {
+  readonly id: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly oldStatus?: string;
+  readonly newStatus: string;
+  readonly changedBy?: string;
+  readonly reason?: string;
+  readonly createdAt: string;
 }

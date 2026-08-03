@@ -13,6 +13,8 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly city_code: string;
   readonly country_code: string;
   readonly skills: string[];
+  readonly is_featured: boolean;
+  readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -57,7 +59,7 @@ export class ProfessionalProfileRepository {
 
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        WHERE id = $1
        LIMIT 1`,
@@ -68,7 +70,7 @@ export class ProfessionalProfileRepository {
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        WHERE user_id = $1
        LIMIT 1`,
@@ -96,12 +98,24 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        ${where}
-       ORDER BY created_at DESC
+       ORDER BY is_featured DESC, created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
+    );
+    return rows.map((row) => this.map(row));
+  }
+
+  async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
+    const rows = await this.db.query<ProfessionalProfileRow>(
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_directory_profiles
+       WHERE is_featured = TRUE
+       ORDER BY featured_at DESC
+       LIMIT $1`,
+      [limit]
     );
     return rows.map((row) => this.map(row));
   }
@@ -118,8 +132,27 @@ export class ProfessionalProfileRepository {
       cityCode: row.city_code,
       countryCode: row.country_code,
       skills: row.skills,
+      isFeatured: row.is_featured ?? false,
+      featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };
   }
 }
+
+
+interface ProfessionalProfileRow extends Record<string, unknown> {
+  readonly id: string;
+  readonly user_id: string;
+  readonly headline_ar: string;
+  readonly headline_en: string | null;
+  readonly bio_ar: string | null;
+  readonly bio_en: string | null;
+  readonly availability: string;
+  readonly city_code: string;
+  readonly country_code: string;
+  readonly skills: string[];
+  readonly created_at: Date;
+  readonly updated_at: Date;
+}
+

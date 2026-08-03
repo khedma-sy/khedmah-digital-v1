@@ -44,6 +44,7 @@ export class ProfessionalProfileService {
           cityCode: input.cityCode,
           countryCode: input.countryCode,
           skills: input.skills,
+          isFeatured: false,
           createdAt: now,
           updatedAt: now
         };
@@ -80,6 +81,11 @@ export class ProfessionalProfileService {
     };
   }
 
+  async getFeatured(): Promise<PublicProfessionalProfile[]> {
+    const profiles = await this.repository.listFeatured(6);
+    return profiles.map((p) => this.toPublic(p));
+  }
+
   private toPublic(profile: ProfessionalProfile): PublicProfessionalProfile {
     return {
       id: profile.id,
@@ -90,7 +96,9 @@ export class ProfessionalProfileService {
       availability: profile.availability,
       cityCode: profile.cityCode,
       countryCode: profile.countryCode,
-      skills: profile.skills
+      skills: [...profile.skills],
+      isFeatured: profile.isFeatured,
+      createdAt: profile.createdAt
     };
   }
 }

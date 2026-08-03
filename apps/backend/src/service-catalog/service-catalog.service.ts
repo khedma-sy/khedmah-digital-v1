@@ -58,6 +58,7 @@ export class ServiceCatalogService {
       priceCurrency: input.priceCurrency,
       priceType: input.priceType,
       status: 'active',
+      isFeatured: false,
       createdAt: now,
       updatedAt: now
     };
@@ -138,6 +139,11 @@ export class ServiceCatalogService {
     };
   }
 
+  async getFeatured(): Promise<PublicServiceListing[]> {
+    const services = await this.repository.listFeatured(6);
+    return services.map((s) => this.toPublic(s));
+  }
+
   private async requireService(id: string): Promise<ServiceListing> {
     const service = await this.repository.findById(id);
     if (!service) {
@@ -177,7 +183,9 @@ export class ServiceCatalogService {
       price: service.price,
       priceCurrency: service.priceCurrency,
       priceType: service.priceType,
-      status: service.status
+      status: service.status,
+      isFeatured: service.isFeatured,
+      createdAt: service.createdAt
     };
   }
 }

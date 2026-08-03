@@ -11,6 +11,11 @@ export class ProfessionalProfilesController {
     return { professional: await this.professionals.createOrUpdate(cookieHeader, body) };
   }
 
+  @Get('featured')
+  async getFeatured() {
+    return { professionals: await this.professionals.getFeatured() };
+  }
+
   @Get('me')
   async getMine(@Headers('cookie') cookieHeader: string | undefined) {
     return { professional: await this.professionals.getMine(cookieHeader) };
