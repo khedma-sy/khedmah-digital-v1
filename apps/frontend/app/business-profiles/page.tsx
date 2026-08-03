@@ -15,20 +15,15 @@ export default function BusinessProfilesPage() {
     setIsLoading(true);
     setError('');
     try {
-      const data = await api.businessProfiles.listMine();
-      setBusinessProfiles(data.businessProfiles);
+      const data = await api.businesses.listMine();
+      setBusinessProfiles(data.businesses);
     } catch (err) {
       const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
       if (statusCode === 401) {
         router.push('/auth/login');
         return;
       }
-      if (statusCode === 404 || statusCode === 501) {
-        setBusinessProfiles([]);
-        setError('واجهة ملفات الأعمال قيد الربط الخلفي حالياً.');
-      } else {
-        setError(err instanceof Error ? err.message : 'تعذر تحميل ملفات الأعمال.');
-      }
+      setError(err instanceof Error ? err.message : 'تعذر تحميل ملفات الأعمال.');
     } finally {
       setIsLoading(false);
     }
@@ -40,34 +35,49 @@ export default function BusinessProfilesPage() {
   }, []);
 
   return (
-    <main id="foundation-content" className="identity-shell" aria-label="ملفات الأعمال">
-      <section className="identity-card">
-        <p className="eyebrow">Khedmah Digital V1</p>
-        <h1>ملفات الأعمال</h1>
-        <p>طبقة عرض ملفات الأعمال ضمن EO-009.</p>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={loadBusinessProfiles}>
-            {isLoading ? 'جاري التحديث...' : 'تحديث القائمة'}
-          </button>
-          <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
-          <Link className="foundation-action" href="/service-catalog">دليل الخدمات</Link>
-          <Link className="foundation-action" href="/locations">المواقع</Link>
-          <Link className="foundation-action" href="/search">البحث</Link>
+    <main id="foundation-content" className="operations-shell" aria-label="ملفات الأعمال">
+      <header className="operations-header">
+        <div>
+          <p className="eyebrow">خدمة الرقمية</p>
+          <h1>ملفات الأعمال</h1>
+          <p>إدارة ملفات أعمالك وربطها بالخدمات العامة المعتمدة.</p>
         </div>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-        {businessProfiles.length === 0 && !isLoading ? (
-          <p style={{ marginTop: '1rem' }}>لا توجد ملفات أعمال حالياً.</p>
-        ) : (
-          <ul className="foundation-list" aria-label="قائمة ملفات الأعمال">
-            {businessProfiles.map((profile) => (
-              <li key={profile.id}>
-                <strong>{profile.displayName}</strong>
-                <p>{profile.categoryRef} · {profile.status} · {profile.visibility}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link href="/business-profiles/new" className="foundation-action" style={{ marginBlockStart: 0 }}>+ إنشاء ملف عمل</Link>
+          <Link href="/service-catalog" className="foundation-action" style={{ marginBlockStart: 0 }}>دليل الخدمات</Link>
+          <Link href="/search" className="foundation-action" style={{ marginBlockStart: 0 }}>البحث</Link>
+        </nav>
+      </header>
+
+      {error ? <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p> : null}
+
+      {isLoading ? (
+        <p style={{ padding: '2rem', color: '#52606d' }}>جاري التحميل...</p>
+      ) : businessProfiles.length === 0 ? (
+        <article className="operations-panel" style={{ maxWidth: '32rem' }}>
+          <div className="panel-heading"><h2>لا توجد ملفات أعمال</h2></div>
+          <p>لم تُنشئ أي ملف عمل بعد.</p>
+          <Link href="/business-profiles/new" className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none' }}>إنشاء أول ملف</Link>
+        </article>
+      ) : (
+        <div className="operations-grid">
+          {businessProfiles.map((profile) => (
+            <article className="operations-panel" key={profile.id}>
+              <div className="panel-heading">
+                <h2>{profile.name}</h2>
+                <span className="status-badge">{profile.trustStatus === 'approved' ? '✓ معتمد' : profile.trustStatus === 'suspended' ? '✗ موقوف' : '⏳ قيد المراجعة'}</span>
+              </div>
+              <p>{profile.descriptionAr ?? 'لا يوجد وصف.'}</p>
+              <p style={{ fontSize: '0.875rem', color: '#52606d' }}>
+                {profile.categoryCode} · {profile.cityCode} · {profile.visibility === 'public' ? 'عام' : 'خاص'}
+              </p>
+              <Link href={`/business-profiles/${profile.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center' }}>
+                عرض الملف
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

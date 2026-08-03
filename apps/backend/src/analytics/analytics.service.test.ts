@@ -24,10 +24,18 @@ async function createService() {
       actor_user_id TEXT, request_id TEXT, correlation_id TEXT,
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id TEXT PRIMARY KEY, event_type TEXT NOT NULL,
+      entity_type TEXT NOT NULL, entity_id TEXT NOT NULL,
+      occurred_at TIMESTAMPTZ NOT NULL, anonymous_id TEXT,
+      session_reference TEXT, metadata JSONB NOT NULL DEFAULT '{}',
+      request_id TEXT, correlation_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
-  await pool.query('TRUNCATE audit_logs');
+  await pool.query('TRUNCATE analytics_events, audit_logs');
 
-  const repository = new AnalyticsRepository();
+  const repository = new AnalyticsRepository(pool);
   const identityRepository = new IdentityRepository(pool);
   const logger = new PlatformLogger();
   logger.log = () => undefined;
@@ -55,7 +63,7 @@ test('allowed event types are accepted', async () => {
     assert.equal(receipt.eventType, eventType);
   }
 
-  assert.equal(repository.listEvents().length, allowed.length);
+  assert.equal((await repository.listEvents()).length, allowed.length);
 });
 
 test('unknown events are rejected', async () => {
@@ -90,7 +98,7 @@ test('safe metadata is stored with a privacy-safe receipt', async () => {
     anonymousId: 'anon-1',
     metadata: { source: 'public_profile', result_position: 1, has_filter: true }
   });
-  const stored = repository.findEvent(receipt.id);
+  const stored = await repository.findEvent(receipt.id);
 
   assert.ok(stored);
   assert.deepEqual(stored.metadata, { source: 'public_profile', result_position: 1, has_filter: true });

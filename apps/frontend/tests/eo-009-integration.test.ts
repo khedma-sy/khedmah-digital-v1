@@ -19,14 +19,11 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
   assert.match(locations, /المواقع/);
   assert.match(search, /البحث/);
 
-  assert.match(businessProfiles, /aria-busy/);
-  assert.match(professionalProfiles, /aria-busy/);
+  assert.match(businessProfiles, /role="alert"/);
+  assert.match(professionalProfiles, /role="alert"/);
   assert.match(serviceCatalog, /aria-busy/);
   assert.match(locations, /aria-busy/);
   assert.match(search, /aria-busy/);
-
-  assert.match(businessProfiles, /role="alert"/);
-  assert.match(professionalProfiles, /role="alert"/);
   assert.match(serviceCatalog, /role="alert"/);
   assert.match(locations, /role="alert"/);
   assert.match(search, /role="alert"/);
@@ -47,15 +44,15 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
 test('EO-009 frontend API client exposes integration endpoints', async () => {
   const client = await read('lib/api-client.ts');
 
-  assert.match(client, /businessProfiles:/);
-  assert.match(client, /professionalProfiles:/);
-  assert.match(client, /serviceCatalog:/);
+  assert.match(client, /businesses:/);
+  assert.match(client, /professionals:/);
+  assert.match(client, /services:/);
   assert.match(client, /locations:/);
   assert.match(client, /search:/);
 
-  assert.match(client, /\/business-profiles\/my/);
-  assert.match(client, /\/professional-profiles\/my/);
-  assert.match(client, /\/service-catalog\/my/);
-  assert.match(client, /\/locations\/my/);
-  assert.match(client, /\/search\/businesses/);
+  assert.match(client, /\/businesses\/my/);
+  assert.match(client, /\/professionals\/me/);
+  assert.match(client, /\/services\/search/);
+  assert.match(client, /\/locations\/cities/);
+  assert.match(client, /\/search\?/);
 });

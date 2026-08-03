@@ -1,34 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicServiceCatalogEntry } from '../../lib/api-client';
+import { api, PublicServiceListing } from '../../lib/api-client';
 
 export default function ServiceCatalogPage() {
-  const router = useRouter();
-  const [services, setServices] = useState<PublicServiceCatalogEntry[]>([]);
+  const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [categoryCode, setCategoryCode] = useState('');
 
-  async function loadServices() {
+  async function loadServices(nextCategoryCode = categoryCode) {
     setIsLoading(true);
     setError('');
     try {
-      const data = await api.serviceCatalog.listMine();
+      const data = await api.services.search({ categoryCode: nextCategoryCode || undefined });
       setServices(data.services);
     } catch (err) {
-      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
-      if (statusCode === 401) {
-        router.push('/auth/login');
-        return;
-      }
-      if (statusCode === 404 || statusCode === 501) {
-        setServices([]);
-        setError('واجهة دليل الخدمات قيد الربط الخلفي حالياً.');
-      } else {
-        setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات.');
-      }
+      setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات.');
     } finally {
       setIsLoading(false);
     }
@@ -44,15 +33,33 @@ export default function ServiceCatalogPage() {
       <section className="identity-card">
         <p className="eyebrow">Khedmah Digital V1</p>
         <h1>دليل الخدمات</h1>
-        <p>عرض خدمات الأعمال والمهنيين ضمن EO-009.</p>
+        <p>عرض الخدمات العامة الصالحة للظهور من ملفات الأعمال والملفات المهنية المؤهلة.</p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={loadServices}>
+          <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={() => void loadServices()}>
             {isLoading ? 'جاري التحديث...' : 'تحديث القائمة'}
           </button>
           <Link className="foundation-action" href="/business-profiles">ملفات الأعمال</Link>
           <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
           <Link className="foundation-action" href="/locations">المواقع</Link>
         </div>
+        <label style={{ display: 'grid', gap: '0.35rem', marginTop: '1rem' }}>
+          تصفية حسب التصنيف
+          <input
+            type="text"
+            value={categoryCode}
+            onChange={(event) => setCategoryCode(event.target.value)}
+            placeholder="restaurant"
+          />
+        </label>
+        <button
+          className="foundation-action"
+          type="button"
+          aria-busy={isLoading}
+          disabled={isLoading}
+          onClick={() => void loadServices(categoryCode)}
+        >
+          تطبيق التصفية
+        </button>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
         {services.length === 0 && !isLoading ? (
           <p style={{ marginTop: '1rem' }}>لا توجد خدمات حالياً.</p>
@@ -60,8 +67,8 @@ export default function ServiceCatalogPage() {
           <ul className="foundation-list" aria-label="قائمة الخدمات">
             {services.map((service) => (
               <li key={service.id}>
-                <strong>{service.title}</strong>
-                <p>{service.serviceType} · {service.status} · {service.visibility}</p>
+                <strong>{service.titleAr}</strong>
+                <p>{service.categoryCode} · {service.priceType} · {service.status}</p>
               </li>
             ))}
           </ul>

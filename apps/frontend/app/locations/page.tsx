@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicLocationRecord } from '../../lib/api-client';
+import { api, City, Country } from '../../lib/api-client';
 
 export default function LocationsPage() {
-  const router = useRouter();
-  const [locations, setLocations] = useState<PublicLocationRecord[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -15,20 +14,14 @@ export default function LocationsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const data = await api.locations.listMine();
-      setLocations(data.locations);
+      const [citiesData, countriesData] = await Promise.all([
+        api.locations.cities(),
+        api.locations.countries()
+      ]);
+      setCities(citiesData.cities);
+      setCountries(countriesData.countries);
     } catch (err) {
-      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
-      if (statusCode === 401) {
-        router.push('/auth/login');
-        return;
-      }
-      if (statusCode === 404 || statusCode === 501) {
-        setLocations([]);
-        setError('واجهة المواقع قيد الربط الخلفي حالياً.');
-      } else {
-        setError(err instanceof Error ? err.message : 'تعذر تحميل المواقع.');
-      }
+      setError(err instanceof Error ? err.message : 'تعذر تحميل المواقع.');
     } finally {
       setIsLoading(false);
     }
@@ -55,17 +48,32 @@ export default function LocationsPage() {
           <Link className="foundation-action" href="/search">البحث</Link>
         </div>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
-        {locations.length === 0 && !isLoading ? (
-          <p style={{ marginTop: '1rem' }}>لا توجد مواقع حالياً.</p>
-        ) : (
-          <ul className="foundation-list" aria-label="قائمة المواقع">
-            {locations.map((location) => (
-              <li key={location.id}>
-                <strong>{location.label}</strong>
-                <p>{location.locationType} · {location.status} · {location.visibility}</p>
-              </li>
-            ))}
-          </ul>
+        {cities.length === 0 && countries.length === 0 && !isLoading ? <p style={{ marginTop: '1rem' }}>لا توجد مواقع حالياً.</p> : null}
+        {cities.length > 0 && (
+          <div>
+            <h2>المدن</h2>
+            <ul className="foundation-list" aria-label="قائمة المدن">
+              {cities.map((city) => (
+                <li key={city.code}>
+                  <strong>{city.nameAr}</strong>
+                  <p>{city.nameEn} · {city.countryCode}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {countries.length > 0 && (
+          <div>
+            <h2>الدول</h2>
+            <ul className="foundation-list" aria-label="قائمة الدول">
+              {countries.map((country) => (
+                <li key={country.code}>
+                  <strong>{country.nameAr}</strong>
+                  <p>{country.nameEn} · {country.code}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
     </main>
