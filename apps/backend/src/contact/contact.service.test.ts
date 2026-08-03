@@ -46,23 +46,62 @@ async function createFixture() {
       actor_user_id TEXT, request_id TEXT, correlation_id TEXT,
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS business_profiles (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL,
+      description_ar TEXT, description_en TEXT,
+      owner_user_id TEXT NOT NULL REFERENCES user_accounts(id),
+      organization_id TEXT,
+      visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('public','private')),
+      trust_status TEXT NOT NULL DEFAULT 'pending' CHECK (trust_status IN ('pending','approved','suspended')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
+      phone TEXT, email TEXT, website TEXT,
+      category_code TEXT NOT NULL, city_code TEXT NOT NULL, country_code TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS contact_inquiries (
+      id TEXT PRIMARY KEY,
+      business_profile_id TEXT NOT NULL,
+      submitter_user_id TEXT NOT NULL REFERENCES user_accounts(id),
+      name TEXT NOT NULL, contact_email TEXT NOT NULL, message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'submitted',
+      request_id TEXT, correlation_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS contact_actions (
+      id TEXT PRIMARY KEY,
+      business_profile_id TEXT NOT NULL,
+      actor_user_id TEXT,
+      action_type TEXT NOT NULL,
+      request_id TEXT, correlation_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
-  await pool.query('TRUNCATE audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE contact_actions, contact_inquiries, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());
-  const contacts = new ContactRepository();
+  const contacts = new ContactRepository(pool);
   const logger = new PlatformLogger();
   logger.log = () => undefined;
   const service = new ContactService(contacts, identity, identityRepository, new ContactRateLimitService(), new ContactAbuseService(), logger);
   const registration = await identity.register({ email: 'user@example.com', password: 'very-secure-password', displayName: 'زائر خدمة' });
   const cookieHeader = `khedmah_session=${registration.sessionToken}`;
 
-  contacts.saveBusinessProfileSnapshot({ id: 'approved-business', visibility: 'public', trustStatus: 'approved', ownerUserId: 'owner-user' });
-  contacts.saveBusinessProfileSnapshot({ id: 'private-business', visibility: 'private', trustStatus: 'approved', ownerUserId: 'owner-user' });
-  contacts.saveBusinessProfileSnapshot({ id: 'suspended-business', visibility: 'public', trustStatus: 'suspended', ownerUserId: 'owner-user' });
+  await pool.query(
+    `INSERT INTO user_accounts (id, email, password_hash, status, created_at, updated_at)
+     VALUES ('owner-user', 'owner@biz.example', 'placeholder-hash', 'active', NOW(), NOW())
+     ON CONFLICT (id) DO NOTHING`
+  );
+  await pool.query(
+    `INSERT INTO business_profiles (id, name, owner_user_id, visibility, trust_status, status, category_code, city_code, country_code, created_at, updated_at)
+     VALUES
+       ('approved-business', 'معمل الاختبار', 'owner-user', 'public', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
+       ('private-business', 'عمل خاص', 'owner-user', 'private', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
+       ('suspended-business', 'عمل موقوف', 'owner-user', 'public', 'suspended', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW())
+     ON CONFLICT (id) DO NOTHING`
+  );
 
-  return { contacts, identityRepository, service, cookieHeader };
+  return { contacts, identityRepository, service, cookieHeader, pool };
 }
 
 const validInquiry = {
@@ -77,7 +116,7 @@ test('approved business accepts inquiry and creates an audit event', async () =>
 
   assert.equal(receipt.businessProfileId, 'approved-business');
   assert.equal(receipt.status, 'submitted');
-  assert.equal(contacts.listContactInquiries().length, 1);
+  assert.equal((await contacts.listContactInquiries('approved-business')).length, 1);
   const logs = await identityRepository.listAuditLogs();
   assert.ok(logs.some((event) => event.eventType === 'contact.inquiry.submitted'));
 });
@@ -114,12 +153,13 @@ test('validation works for inquiry payloads', async () => {
 });
 
 test('contact click tracking records contact intent only', async () => {
-  const { contacts, service, cookieHeader } = await createFixture();
+  const { pool, service, cookieHeader } = await createFixture();
   const receipt = await service.trackContactClick(cookieHeader, 'approved-business', { source: 'profile' });
 
   assert.equal(receipt.businessProfileId, 'approved-business');
   assert.equal(receipt.actionType, 'contact_click');
-  assert.equal(contacts.listContactActions().length, 1);
+  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_actions');
+  assert.equal(rows[0].count, '1');
   assert.deepEqual(Object.keys(receipt).sort(), ['actionType', 'businessProfileId', 'id', 'trackedAt']);
 });
 
