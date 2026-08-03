@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicProfessionalProfile, PublicServiceListing } from '../../../lib/api-client';
+import { api, MediaAsset, PublicProfessionalProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
 
 const CITY_LABELS: Record<string, string> = {
   damascus: 'دمشق',
@@ -26,18 +26,27 @@ export default function ProfessionalProfileDetailPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
+  const [media, setMedia] = useState<MediaAsset[]>([]);
+  const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [trustHistory, setTrustHistory] = useState<TrustHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileData, serviceData] = await Promise.all([
+        const [profileData, serviceData, mediaData, verData, histData] = await Promise.all([
           api.professionals.getProfile(id),
-          api.services.listForOwner(id, 'professional').catch(() => ({ services: [] }))
+          api.services.listForOwner(id, 'professional').catch(() => ({ services: [] })),
+          api.professionals.getMedia(id).catch(() => ({ assets: [] })),
+          api.professionals.getVerificationStatus(id).catch(() => ({ status: null })),
+          api.professionals.getTrustHistory(id).catch(() => ({ history: [] }))
         ]);
         setProfile(profileData.professional);
         setServices(serviceData.services);
+        setMedia(mediaData.assets);
+        setVerification(verData.status);
+        setTrustHistory(histData.history);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'تعذر التحميل.');
       } finally {
@@ -79,6 +88,8 @@ export default function ProfessionalProfileDetailPage() {
 
   const cityLabel = CITY_LABELS[profile.cityCode] ?? profile.cityCode;
   const activeServices = services.filter((s) => s.status === 'active');
+  const profileImage = media.find((a) => a.assetType === 'profile_image');
+  const gallery = media.filter((a) => a.assetType === 'gallery');
 
   return (
     <main id="foundation-content" className="page-shell" aria-label="الملف المهني">
@@ -93,10 +104,13 @@ export default function ProfessionalProfileDetailPage() {
           <div style={{ position: 'relative', paddingTop: '3.5rem', paddingRight: '1.5rem' }}>
             <div
               className="profile-avatar"
-              aria-hidden="true"
-              style={{ position: 'absolute', top: '-2.5rem', right: '1.5rem', fontSize: '1.75rem', background: '#e0f2fe', color: '#0369a1' }}
+              aria-hidden={!!profileImage}
+              style={{ position: 'absolute', top: '-2.5rem', right: '1.5rem', fontSize: '1.75rem', background: '#e0f2fe', color: '#0369a1', overflow: 'hidden' }}
             >
-              {profile.headlineAr.charAt(0)}
+              {profileImage
+                ? <img src={profileImage.url} alt="صورة الملف المهني" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : profile.headlineAr.charAt(0)
+              }
             </div>
           </div>
 
@@ -127,6 +141,21 @@ export default function ProfessionalProfileDetailPage() {
           </div>
         </div>
 
+        {/* Verification status */}
+        {verification && (
+          <div style={{ background: verification.status === 'approved' ? 'var(--accent-light)' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem 1.25rem', marginBlockEnd: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>
+              {verification.status === 'approved' ? '✅' : verification.status === 'rejected' ? '❌' : '⏳'}
+            </span>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9375rem' }}>
+                {verification.status === 'approved' ? 'الملف موثّق' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}
+              </p>
+              {verification.notes && <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>{verification.notes}</p>}
+            </div>
+          </div>
+        )}
+
         {/* Bio */}
         {(profile.bioAr || profile.bioEn) && (
           <div className="section-card">
@@ -150,6 +179,23 @@ export default function ProfessionalProfileDetailPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Gallery */}
+        {gallery.length > 0 && (
+          <section aria-label="معرض الصور" style={{ marginBlockEnd: '1.5rem' }}>
+            <h2 style={{ marginBlockEnd: '1rem' }}>الصور ({gallery.length})</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.75rem' }}>
+              {gallery.map((img) => (
+                <img
+                  key={img.id}
+                  src={img.url}
+                  alt="صورة من المعرض"
+                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid var(--border)' }}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Services */}
@@ -192,7 +238,28 @@ export default function ProfessionalProfileDetailPage() {
             <p>لم يُضف هذا المهني خدمات بعد.</p>
           </div>
         )}
+
+        {/* Trust history */}
+        {trustHistory.length > 0 && (
+          <section aria-label="سجل الثقة" style={{ marginBlockEnd: '1.5rem' }}>
+            <div className="section-card">
+              <h2>سجل الثقة</h2>
+              <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+                {trustHistory.map((entry) => (
+                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.875rem' }}>
+                    <span>
+                      {entry.oldStatus ? `${entry.oldStatus} → ` : ''}{entry.newStatus}
+                      {entry.reason && <span style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>· {entry.reason}</span>}
+                    </span>
+                    <span style={{ color: 'var(--muted)' }}>{new Date(entry.createdAt).toLocaleDateString('ar-SY')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
 }
+

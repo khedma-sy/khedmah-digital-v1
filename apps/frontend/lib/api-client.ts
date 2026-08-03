@@ -384,6 +384,9 @@ export const api = {
     },
     getVerificationStatus(id: string) {
       return request<{ status: VerificationRequest | null }>(`/professionals/${id}/verification-status`);
+    },
+    getTrustHistory(id: string) {
+      return request<{ history: TrustHistoryEntry[] }>(`/professionals/${id}/trust-history`);
     }
   },
   services: {
@@ -410,6 +413,15 @@ export const api = {
     },
     getFeatured() {
       return request<{ services: PublicServiceListing[] }>('/services/featured');
+    },
+    addMedia(id: string, data: { url: string; storagePath: string; mimeType: string; sizeBytes?: number }) {
+      return request<{ asset: MediaAsset }>(`/services/${id}/media`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    getMedia(id: string) {
+      return request<{ assets: MediaAsset[] }>(`/services/${id}/media`);
     },
     search(params: { q?: string; categoryCode?: string; page?: number }) {
       const qs = new URLSearchParams();

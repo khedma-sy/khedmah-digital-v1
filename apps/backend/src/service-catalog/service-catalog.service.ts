@@ -3,6 +3,7 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nest
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
+import { MediaAsset } from '../business-profiles/business-profile.types';
 import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
 import { SERVICE_ACCESS_DENIED_MESSAGE, SERVICE_NOT_FOUND_MESSAGE } from './service-catalog.errors';
 import { ServiceCatalogRepository } from './service-catalog.repository';
@@ -158,6 +159,18 @@ export class ServiceCatalogService {
       throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
     }
     return service;
+  }
+
+  async addMediaAsset(cookieHeader: string | undefined, serviceId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    await this.requireOwnedService(serviceId, actor.id);
+    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
+    await this.businessProfiles.saveMediaAsset(full);
+    return full;
+  }
+
+  async getMediaAssets(serviceId: string, assetType?: string): Promise<MediaAsset[]> {
+    return this.businessProfiles.listMediaAssets('service', serviceId, assetType);
   }
 
   private async verifyOwnership(ownerType: ServiceListing['ownerType'], ownerId: string, actorUserId: string): Promise<boolean> {

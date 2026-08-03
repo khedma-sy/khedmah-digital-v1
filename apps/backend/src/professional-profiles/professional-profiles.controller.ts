@@ -36,4 +36,45 @@ export class ProfessionalProfilesController {
   async getProfile(@Param('id') id: string) {
     return { professional: await this.professionals.getProfile(id) };
   }
+
+  // --- Media ---
+  @Post(':id/media')
+  async addMedia(
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() body: { assetType: string; url: string; storagePath: string; mimeType: string; sizeBytes?: number; sortOrder?: number }
+  ) {
+    const asset = await this.professionals.addMediaAsset(cookieHeader, id, {
+      entityType: 'professional',
+      entityId: id,
+      assetType: body.assetType as 'profile_image' | 'gallery',
+      url: body.url,
+      storagePath: body.storagePath,
+      mimeType: body.mimeType,
+      sizeBytes: body.sizeBytes ?? 0,
+      sortOrder: body.sortOrder ?? 0
+    });
+    return { asset };
+  }
+
+  @Get(':id/media')
+  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
+    return { assets: await this.professionals.getMediaAssets(id, assetType) };
+  }
+
+  // --- Verification ---
+  @Post(':id/verification-request')
+  async requestVerification(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { request: await this.professionals.requestVerification(cookieHeader, id) };
+  }
+
+  @Get(':id/verification-status')
+  async getVerificationStatus(@Param('id') id: string) {
+    return { status: await this.professionals.getVerificationStatus(id) ?? null };
+  }
+
+  @Get(':id/trust-history')
+  async getTrustHistory(@Param('id') id: string) {
+    return { history: await this.professionals.getTrustHistory(id) };
+  }
 }
