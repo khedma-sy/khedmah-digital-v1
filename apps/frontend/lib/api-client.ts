@@ -17,6 +17,45 @@ export interface PublicOrganization {
   readonly memberCount: number;
 }
 
+export interface PublicBusinessProfile {
+  readonly id: string;
+  readonly displayName: string;
+  readonly categoryRef: string;
+  readonly visibility: 'public' | 'private' | 'internal';
+  readonly status: string;
+}
+
+export interface PublicProfessionalProfile {
+  readonly id: string;
+  readonly displayName: string;
+  readonly professionalType: string;
+  readonly visibility: 'public' | 'private' | 'internal';
+  readonly status: string;
+}
+
+export interface PublicServiceCatalogEntry {
+  readonly id: string;
+  readonly title: string;
+  readonly serviceType: string;
+  readonly visibility: 'public' | 'private' | 'internal';
+  readonly status: string;
+}
+
+export interface PublicLocationRecord {
+  readonly id: string;
+  readonly label: string;
+  readonly locationType: string;
+  readonly visibility: 'public' | 'private' | 'internal';
+  readonly status: string;
+}
+
+export interface PublicDiscoveryResult {
+  readonly businessName: string;
+  readonly businessCategoryReference: string;
+  readonly businessDescription: string;
+  readonly businessLocationReference: string;
+}
+
 export interface ApiError {
   readonly message: string;
   readonly statusCode: number;
@@ -75,6 +114,32 @@ export const api = {
     },
     listMine() {
       return request<{ organizations: PublicOrganization[] }>('/organizations/my');
+    }
+  },
+  businessProfiles: {
+    listMine() {
+      return request<{ businessProfiles: PublicBusinessProfile[] }>('/business-profiles/my');
+    }
+  },
+  professionalProfiles: {
+    listMine() {
+      return request<{ professionalProfiles: PublicProfessionalProfile[] }>('/professional-profiles/my');
+    }
+  },
+  serviceCatalog: {
+    listMine() {
+      return request<{ services: PublicServiceCatalogEntry[] }>('/service-catalog/my');
+    }
+  },
+  locations: {
+    listMine() {
+      return request<{ locations: PublicLocationRecord[] }>('/locations/my');
+    }
+  },
+  search: {
+    businesses(term: string) {
+      const query = new URLSearchParams({ term });
+      return request<{ results: PublicDiscoveryResult[] }>(`/search/businesses?${query.toString()}`);
     }
   }
 };

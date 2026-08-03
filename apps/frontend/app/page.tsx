@@ -13,6 +13,11 @@ export default function Home() {
           <Link className="foundation-action" href="/auth/login">تسجيل الدخول</Link>
           <Link className="foundation-action" href="/auth/register">إنشاء حساب</Link>
           <Link className="foundation-action" href="/organizations">منظماتي</Link>
+          <Link className="foundation-action" href="/business-profiles">ملفات الأعمال</Link>
+          <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
+          <Link className="foundation-action" href="/service-catalog">دليل الخدمات</Link>
+          <Link className="foundation-action" href="/locations">المواقع</Link>
+          <Link className="foundation-action" href="/search">البحث</Link>
           <Link className="foundation-action operations-link" href="/admin">لوحة الإدارة</Link>
         </nav>
       </section>
