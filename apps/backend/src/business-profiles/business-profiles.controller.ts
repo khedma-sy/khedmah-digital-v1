@@ -140,5 +140,26 @@ export class BusinessProfilesController {
   async getTrustHistory(@Param('id') id: string) {
     return { history: await this.businessProfiles.getTrustHistory('business', id) };
   }
+
+  // --- Suspension / Reactivation ---
+  @Patch(':id/suspend')
+  async suspend(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason?: string }) {
+    return { profile: await this.businessProfiles.suspend(cookieHeader, id, body.reason) };
+  }
+
+  @Patch(':id/reactivate')
+  async reactivate(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason?: string }) {
+    return { profile: await this.businessProfiles.reactivate(cookieHeader, id, body.reason) };
+  }
+
+  // --- Verification review (admin) ---
+  @Patch(':id/verification-review')
+  async reviewVerification(
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() body: { decision: 'approved' | 'rejected'; notes?: string }
+  ) {
+    return { request: await this.businessProfiles.reviewVerification(cookieHeader, 'business', id, body.decision, body.notes) };
+  }
 }
 

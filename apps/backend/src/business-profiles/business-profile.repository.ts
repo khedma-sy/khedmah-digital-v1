@@ -174,6 +174,15 @@ export class BusinessProfileRepository {
     );
   }
 
+  async updateStatus(id: string, status: 'active' | 'suspended', updatedAt: string): Promise<void> {
+    await this.db.query(
+      `UPDATE business_profiles
+       SET status = $2, updated_at = $3
+       WHERE id = $1`,
+      [id, status, updatedAt]
+    );
+  }
+
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
       `INSERT INTO media_assets (id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at)

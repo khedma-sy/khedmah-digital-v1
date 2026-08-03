@@ -238,6 +238,114 @@ export class BusinessProfileService {
     return this.repository.listTrustHistory(entityType, entityId);
   }
 
+  /**
+   * Suspend a business profile (sets status=suspended). Requires security.manage.
+   * Records a trust_history entry and emits an audit log.
+   */
+  async suspend(cookieHeader: string | undefined, id: string, reason?: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+
+    if (profile.status === 'suspended') {
+      return this.toPublic(profile);
+    }
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateStatus(profile.id, 'suspended', updatedAt);
+
+    await this.repository.saveTrustHistory({
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.status,
+      newStatus: 'suspended',
+      changedBy: actor.id,
+      reason,
+      createdAt: updatedAt
+    });
+
+    return this.toPublic({ ...profile, status: 'suspended', updatedAt });
+  }
+
+  /**
+   * Reactivate a suspended business profile (sets status=active). Requires security.manage.
+   * Records a trust_history entry and emits an audit log.
+   */
+  async reactivate(cookieHeader: string | undefined, id: string, reason?: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+
+    if (profile.status === 'active') {
+      return this.toPublic(profile);
+    }
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateStatus(profile.id, 'active', updatedAt);
+
+    await this.repository.saveTrustHistory({
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.status,
+      newStatus: 'active',
+      changedBy: actor.id,
+      reason,
+      createdAt: updatedAt
+    });
+
+    return this.toPublic({ ...profile, status: 'active', updatedAt });
+  }
+
+  /**
+   * Review a verification request (approve or reject). Requires security.manage.
+   */
+  async reviewVerification(
+    cookieHeader: string | undefined,
+    entityType: string,
+    entityId: string,
+    decision: 'approved' | 'rejected',
+    notes?: string
+  ): Promise<VerificationRequest> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+
+    const request = await this.repository.findVerificationRequest(entityType, entityId);
+    if (!request) {
+      throw new NotFoundException('Verification request not found.');
+    }
+
+    const now = new Date().toISOString();
+    const updated: VerificationRequest = {
+      ...request,
+      status: decision,
+      notes: notes ?? request.notes,
+      reviewedBy: actor.id,
+      reviewedAt: now,
+      updatedAt: now
+    };
+
+    await this.repository.saveVerificationRequest(updated);
+
+    // If approved, also update trust status on the business profile.
+    if (entityType === 'business' && decision === 'approved') {
+      await this.repository.updateTrustStatus(entityId, 'approved', now);
+      await this.repository.saveTrustHistory({
+        id: randomUUID(),
+        entityType: 'business',
+        entityId,
+        oldStatus: 'pending',
+        newStatus: 'approved',
+        changedBy: actor.id,
+        reason: notes,
+        createdAt: now
+      });
+    }
+
+    return updated;
+  }
+
   private async requireProfile(id: string): Promise<BusinessProfile> {
     const profile = await this.repository.findById(id);
     if (!profile) {

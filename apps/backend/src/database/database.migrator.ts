@@ -276,6 +276,28 @@ CREATE TABLE IF NOT EXISTS trending_searches (
 ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lat NUMERIC;
 ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lng NUMERIC;
 ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS address_ar TEXT;
+
+-- WP-01: Bootstrap admin completion tracking (one-time initialization guard)
+CREATE TABLE IF NOT EXISTS bootstrap_completions (
+  id             TEXT PRIMARY KEY,
+  completed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  admin_user_id  TEXT NOT NULL
+);
+
+-- WP-02: Email verification tokens
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
+  token_hash   TEXT NOT NULL UNIQUE,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  used_at      TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS email_verifications_user_idx ON email_verifications(user_id);
+CREATE INDEX IF NOT EXISTS email_verifications_token_idx ON email_verifications(token_hash);
+
+-- WP-02: Add email_verified column to user_accounts
+ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
 `;
 
 @Injectable()
