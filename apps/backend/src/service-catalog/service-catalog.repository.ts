@@ -173,7 +173,7 @@ export class ServiceCatalogRepository {
         ))
         OR
         (sl.owner_type = 'professional' AND EXISTS (
-          SELECT 1 FROM professional_profiles pp WHERE pp.id = sl.owner_id
+          SELECT 1 FROM professional_directory_profiles pp WHERE pp.id = sl.owner_id
         ))
       )`
     ];

@@ -15,12 +15,16 @@ export default function SearchPage() {
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSearch(event: React.FormEvent) {
+    event.preventDefault();
     setIsLoading(true);
     setError('');
     try {
-      const results = await api.search.query({ q: q || undefined, cityCode: cityCode || undefined, categoryCode: categoryCode || undefined });
+      const results = await api.search.query({
+        q: q || undefined,
+        cityCode: cityCode || undefined,
+        categoryCode: categoryCode || undefined
+      });
       setBusinesses(results.businesses);
       setServices(results.services);
       setTotal(results.total);
@@ -38,23 +42,27 @@ export default function SearchPage() {
         <div>
           <p className="eyebrow">خدمة الرقمية</p>
           <h1>البحث</h1>
-          <p>ابحث عن الأعمال والخدمات.</p>
+          <p>ابحث عن ملفات الأعمال والخدمات العامة المعتمدة.</p>
         </div>
         <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Link href="/" className="foundation-action" style={{ marginBlockStart: 0 }}>الرئيسية</Link>
-          <Link href="/businesses" className="foundation-action" style={{ marginBlockStart: 0 }}>الأعمال</Link>
-          <Link href="/professionals" className="foundation-action" style={{ marginBlockStart: 0 }}>المهنيون</Link>
+          <Link href="/business-profiles" className="foundation-action" style={{ marginBlockStart: 0 }}>ملفات الأعمال</Link>
+          <Link href="/professional-profiles" className="foundation-action" style={{ marginBlockStart: 0 }}>الملفات المهنية</Link>
+          <Link href="/service-catalog" className="foundation-action" style={{ marginBlockStart: 0 }}>دليل الخدمات</Link>
         </nav>
       </header>
 
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--border)' }}>
+      <form
+        onSubmit={handleSearch}
+        style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--border)' }}
+      >
         <div style={{ flex: '2 1 200px', display: 'grid', gap: '0.35rem' }}>
           <label htmlFor="q" style={{ fontWeight: 700, fontSize: '0.875rem' }}>كلمة البحث</label>
           <input
             id="q"
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(event) => setQ(event.target.value)}
             placeholder="مطعم، نجار، محامي..."
             style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
           />
@@ -65,18 +73,18 @@ export default function SearchPage() {
             id="city"
             type="text"
             value={cityCode}
-            onChange={(e) => setCityCode(e.target.value)}
+            onChange={(event) => setCityCode(event.target.value)}
             placeholder="damascus"
             style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
           />
         </div>
         <div style={{ flex: '1 1 140px', display: 'grid', gap: '0.35rem' }}>
-          <label htmlFor="cat" style={{ fontWeight: 700, fontSize: '0.875rem' }}>التصنيف</label>
+          <label htmlFor="category" style={{ fontWeight: 700, fontSize: '0.875rem' }}>التصنيف</label>
           <input
-            id="cat"
+            id="category"
             type="text"
             value={categoryCode}
-            onChange={(e) => setCategoryCode(e.target.value)}
+            onChange={(event) => setCategoryCode(event.target.value)}
             placeholder="restaurant"
             style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
           />
@@ -103,19 +111,19 @@ export default function SearchPage() {
       )}
 
       {businesses.length > 0 && (
-        <section aria-label="الأعمال">
-          <h2 style={{ fontSize: '1.25rem', marginBlockEnd: '0.75rem' }}>الأعمال ({businesses.length})</h2>
+        <section aria-label="ملفات الأعمال">
+          <h2 style={{ fontSize: '1.25rem', marginBlockEnd: '0.75rem' }}>ملفات الأعمال ({businesses.length})</h2>
           <div className="operations-grid" style={{ marginBlockEnd: '2rem' }}>
-            {businesses.map((b) => (
-              <article className="operations-panel" key={b.id}>
+            {businesses.map((business) => (
+              <article className="operations-panel" key={business.id}>
                 <div className="panel-heading">
-                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{b.name}</h3>
-                  <span className="status-badge">{b.categoryCode}</span>
+                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{business.name}</h3>
+                  <span className="status-badge">{business.categoryCode}</span>
                 </div>
-                <p>{b.descriptionAr ?? 'لا يوجد وصف.'}</p>
-                <p style={{ fontSize: '0.875rem', color: '#52606d' }}>{b.cityCode} · {b.countryCode}</p>
-                <Link href={`/businesses/${b.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center' }}>
-                  عرض الصفحة
+                <p>{business.descriptionAr ?? 'لا يوجد وصف.'}</p>
+                <p style={{ fontSize: '0.875rem', color: '#52606d' }}>{business.cityCode} · {business.countryCode}</p>
+                <Link href={`/business-profiles/${business.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center' }}>
+                  عرض الملف
                 </Link>
               </article>
             ))}
@@ -127,16 +135,16 @@ export default function SearchPage() {
         <section aria-label="الخدمات">
           <h2 style={{ fontSize: '1.25rem', marginBlockEnd: '0.75rem' }}>الخدمات ({services.length})</h2>
           <div className="operations-grid">
-            {services.map((s) => (
-              <article className="operations-panel" key={s.id}>
+            {services.map((service) => (
+              <article className="operations-panel" key={service.id}>
                 <div className="panel-heading">
-                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{s.titleAr}</h3>
-                  <span className="status-badge">{s.priceType}</span>
+                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{service.titleAr}</h3>
+                  <span className="status-badge">{service.priceType}</span>
                 </div>
-                <p>{s.descriptionAr ?? 'لا يوجد وصف.'}</p>
-                {s.price != null && (
+                <p>{service.descriptionAr ?? 'لا يوجد وصف.'}</p>
+                {service.price != null && (
                   <p style={{ fontWeight: 700, color: 'var(--accent)' }}>
-                    {s.price} {s.priceCurrency ?? 'SYP'}
+                    {service.price} {service.priceCurrency ?? 'SYP'}
                   </p>
                 )}
               </article>

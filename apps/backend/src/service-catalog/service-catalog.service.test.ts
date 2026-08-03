@@ -60,7 +60,7 @@ async function createFixture() {
       category_code TEXT NOT NULL, city_code TEXT NOT NULL, country_code TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE TABLE IF NOT EXISTS professional_profiles (
+    CREATE TABLE IF NOT EXISTS professional_directory_profiles (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL UNIQUE REFERENCES user_accounts(id),
       headline_ar TEXT NOT NULL, headline_en TEXT,
@@ -83,7 +83,7 @@ async function createFixture() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('TRUNCATE service_listings, professional_profiles, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE service_listings, professional_directory_profiles, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());

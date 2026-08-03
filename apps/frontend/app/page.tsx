@@ -12,10 +12,12 @@ export default function Home() {
         <nav aria-label="روابط المنصة" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
           <Link className="foundation-action" href="/auth/login">تسجيل الدخول</Link>
           <Link className="foundation-action" href="/auth/register">إنشاء حساب</Link>
-          <Link className="foundation-action" href="/search">البحث</Link>
-          <Link className="foundation-action" href="/businesses">صفحات الأعمال</Link>
-          <Link className="foundation-action" href="/professionals">الملف المهني</Link>
           <Link className="foundation-action" href="/organizations">منظماتي</Link>
+          <Link className="foundation-action" href="/business-profiles">ملفات الأعمال</Link>
+          <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
+          <Link className="foundation-action" href="/service-catalog">دليل الخدمات</Link>
+          <Link className="foundation-action" href="/locations">المواقع</Link>
+          <Link className="foundation-action" href="/search">البحث</Link>
           <Link className="foundation-action operations-link" href="/admin">لوحة الإدارة</Link>
         </nav>
       </section>

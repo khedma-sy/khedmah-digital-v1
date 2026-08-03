@@ -133,7 +133,7 @@ CREATE INDEX IF NOT EXISTS business_profiles_visibility_trust_idx ON business_pr
 CREATE INDEX IF NOT EXISTS business_profiles_category_idx ON business_profiles(category_code);
 CREATE INDEX IF NOT EXISTS business_profiles_city_idx ON business_profiles(city_code);
 
-CREATE TABLE IF NOT EXISTS professional_profiles (
+CREATE TABLE IF NOT EXISTS professional_directory_profiles (
   id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL UNIQUE REFERENCES user_accounts(id),
   headline_ar  TEXT NOT NULL,
@@ -148,8 +148,8 @@ CREATE TABLE IF NOT EXISTS professional_profiles (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS professional_profiles_user_idx ON professional_profiles(user_id);
-CREATE INDEX IF NOT EXISTS professional_profiles_city_idx ON professional_profiles(city_code, availability);
+CREATE INDEX IF NOT EXISTS professional_directory_profiles_user_idx ON professional_directory_profiles(user_id);
+CREATE INDEX IF NOT EXISTS professional_directory_profiles_city_idx ON professional_directory_profiles(city_code, availability);
 
 CREATE TABLE IF NOT EXISTS service_listings (
   id             TEXT PRIMARY KEY,

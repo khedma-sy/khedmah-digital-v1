@@ -171,9 +171,16 @@ export const api = {
       return request<{ businesses: PublicBusinessProfile[]; total: number }>(`/businesses/search?${qs}`);
     },
     update(id: string, data: Partial<{
-      name: string; descriptionAr: string; descriptionEn: string;
-      phone: string; email: string; website: string; visibility: string;
-      categoryCode: string; cityCode: string; countryCode: string;
+      name: string;
+      descriptionAr: string;
+      descriptionEn: string;
+      phone: string;
+      email: string;
+      website: string;
+      visibility: string;
+      categoryCode: string;
+      cityCode: string;
+      countryCode: string;
     }>) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}`, {
         method: 'PATCH',
@@ -215,7 +222,7 @@ export const api = {
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.availability) qs.set('availability', params.availability);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ professionals: PublicProfessionalProfile[]; total: number }>(`/professionals/search?${qs}`);
+      return request<{ professionals: PublicProfessionalProfile[]; page: number }>(`/professionals/search?${qs}`);
     }
   },
   services: {

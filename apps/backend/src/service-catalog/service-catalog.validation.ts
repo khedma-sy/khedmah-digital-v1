@@ -2,8 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import { CreateServiceRequest, ListOwnerServicesRequest, SearchServicesRequest, UpdateServiceRequest } from './dto/service-catalog.dto';
 import { ServiceOwnerType, ServicePriceCurrency, ServicePriceType, ServiceStatus } from './service-catalog.types';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function requiredString(value: unknown, field: string, min: number, max: number): string {
   if (typeof value !== 'string') {
     throw new BadRequestException(`${field} must be a string.`);
@@ -70,11 +68,15 @@ function validatePositiveNumber(value: unknown): number | undefined {
   return value;
 }
 
-function validateUuid(value: unknown, field: string): string {
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value.trim())) {
-    throw new BadRequestException(`${field} must be a valid UUID.`);
+function validateIdentifier(value: unknown, field: string): string {
+  if (typeof value !== 'string') {
+    throw new BadRequestException(`${field} must be a string.`);
   }
-  return value.trim();
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > 128) {
+    throw new BadRequestException(`${field} must be a non-empty identifier with at most 128 characters.`);
+  }
+  return normalized;
 }
 
 function validatePage(value: unknown): number {
@@ -98,9 +100,9 @@ export function validateCreateServiceRequest(request: CreateServiceRequest) {
     price: validatePositiveNumber(request.price),
     priceCurrency: request.priceCurrency === undefined ? 'SYP' as const : validateCurrency(request.priceCurrency),
     priceType: request.priceType === undefined ? 'negotiable' as const : validatePriceType(request.priceType),
-    ownerId: validateUuid(request.ownerId, 'ownerId'),
+    ownerId: validateIdentifier(request.ownerId, 'ownerId'),
     ownerType: validateOwnerType(request.ownerType),
-    ownerUserId: validateUuid(request.ownerUserId, 'ownerUserId')
+    ownerUserId: validateIdentifier(request.ownerUserId, 'ownerUserId')
   };
 }
 

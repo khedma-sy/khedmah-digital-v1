@@ -67,11 +67,13 @@ export default function AdminPage() {
 
       <nav className="admin-navigation" aria-label="التنقل الإداري">
         <Link href="/">الرئيسية</Link>
-        <Link href="/search">البحث</Link>
-        <Link href="/businesses">صفحات الأعمال</Link>
-        <Link href="/professionals">الملف المهني</Link>
         <Link href="/organizations">المنظمات</Link>
         <Link href="/users/me">الملف الأساسي</Link>
+        <Link href="/business-profiles">ملفات الأعمال</Link>
+        <Link href="/professional-profiles">الملفات المهنية</Link>
+        <Link href="/service-catalog">دليل الخدمات</Link>
+        <Link href="/locations">المواقع</Link>
+        <Link href="/search">البحث</Link>
         <Link href="/admin/operations-product">Operations Product</Link>
       </nav>
 
@@ -124,6 +126,7 @@ export default function AdminPage() {
 
       <div style={{ padding: '1.5rem', display: 'flex', gap: '0.75rem' }}>
         <Link href="/organizations/new" className="foundation-action">إنشاء منظمة جديدة</Link>
+        <Link href="/business-profiles" className="foundation-action">ملفات الأعمال</Link>
         <button
           type="button"
           onClick={handleLogout}

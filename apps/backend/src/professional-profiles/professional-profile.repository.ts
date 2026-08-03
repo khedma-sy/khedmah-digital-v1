@@ -23,7 +23,7 @@ export class ProfessionalProfileRepository {
 
   async save(profile: ProfessionalProfile): Promise<void> {
     await this.db.query(
-      `INSERT INTO professional_profiles (
+      `INSERT INTO professional_directory_profiles (
          id, user_id, headline_ar, headline_en, bio_ar, bio_en,
          availability, city_code, country_code, skills, created_at, updated_at
        )
@@ -58,7 +58,7 @@ export class ProfessionalProfileRepository {
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
-       FROM professional_profiles
+       FROM professional_directory_profiles
        WHERE id = $1
        LIMIT 1`,
       [id]
@@ -69,7 +69,7 @@ export class ProfessionalProfileRepository {
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
-       FROM professional_profiles
+       FROM professional_directory_profiles
        WHERE user_id = $1
        LIMIT 1`,
       [userId]
@@ -97,7 +97,7 @@ export class ProfessionalProfileRepository {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
-       FROM professional_profiles
+       FROM professional_directory_profiles
        ${where}
        ORDER BY created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
