@@ -17,7 +17,6 @@ export interface ProfessionalProfile {
 
 export interface PublicProfessionalProfile {
   readonly id: string;
-  readonly userId: string;
   readonly headlineAr: string;
   readonly headlineEn?: string;
   readonly bioAr?: string;

@@ -32,7 +32,7 @@ export default function NewBusinessPage() {
         cityCode,
         countryCode
       });
-      router.push(`/businesses/${result.business.id}`);
+      router.push('/businesses');
     } catch (err) {
       if (err instanceof Error && (err as Error & { statusCode?: number }).statusCode === 401) {
         router.push('/auth/login');

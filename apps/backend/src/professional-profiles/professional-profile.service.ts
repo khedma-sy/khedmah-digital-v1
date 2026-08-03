@@ -83,7 +83,6 @@ export class ProfessionalProfileService {
   private toPublic(profile: ProfessionalProfile): PublicProfessionalProfile {
     return {
       id: profile.id,
-      userId: profile.userId,
       headlineAr: profile.headlineAr,
       headlineEn: profile.headlineEn,
       bioAr: profile.bioAr,

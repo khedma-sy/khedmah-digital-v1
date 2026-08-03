@@ -24,12 +24,9 @@ interface BusinessProfileRow extends Record<string, unknown> {
 
 @Injectable()
 export class BusinessProfileRepository {
-  private schemaPromise?: Promise<void>;
-
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
   async save(profile: BusinessProfile): Promise<void> {
-    await this.ensureSchema();
     await this.db.query(
       `INSERT INTO business_profiles (
          id, name, description_ar, description_en, owner_user_id, organization_id,
@@ -75,7 +72,6 @@ export class BusinessProfileRepository {
   }
 
   async findById(id: string): Promise<BusinessProfile | undefined> {
-    await this.ensureSchema();
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code, created_at, updated_at
@@ -88,7 +84,6 @@ export class BusinessProfileRepository {
   }
 
   async listForUser(userId: string): Promise<BusinessProfile[]> {
-    await this.ensureSchema();
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code, created_at, updated_at
@@ -101,7 +96,6 @@ export class BusinessProfileRepository {
   }
 
   async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
-    await this.ensureSchema();
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
@@ -116,7 +110,6 @@ export class BusinessProfileRepository {
   }
 
   async countPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string }): Promise<number> {
-    await this.ensureSchema();
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM business_profiles ${where}`,
@@ -126,7 +119,6 @@ export class BusinessProfileRepository {
   }
 
   async updateTrustStatus(id: string, trustStatus: BusinessProfileTrustStatus, updatedAt: string): Promise<void> {
-    await this.ensureSchema();
     await this.db.query(
       `UPDATE business_profiles
        SET trust_status = $2, updated_at = $3
@@ -180,38 +172,4 @@ export class BusinessProfileRepository {
     };
   }
 
-  private async ensureSchema(): Promise<void> {
-    if (!this.schemaPromise) {
-      this.schemaPromise = this.initializeSchema();
-    }
-    await this.schemaPromise;
-  }
-
-  private async initializeSchema(): Promise<void> {
-    await this.db.query(`
-      CREATE TABLE IF NOT EXISTS business_profiles (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description_ar TEXT,
-        description_en TEXT,
-        owner_user_id TEXT NOT NULL REFERENCES user_accounts(id),
-        organization_id TEXT REFERENCES organizations(id),
-        visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('public','private')),
-        trust_status TEXT NOT NULL DEFAULT 'pending' CHECK (trust_status IN ('pending','approved','suspended')),
-        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
-        phone TEXT,
-        email TEXT,
-        website TEXT,
-        category_code TEXT NOT NULL,
-        city_code TEXT NOT NULL,
-        country_code TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS business_profiles_owner_idx ON business_profiles(owner_user_id)`);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS business_profiles_visibility_trust_idx ON business_profiles(visibility, trust_status)`);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS business_profiles_category_idx ON business_profiles(category_code)`);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS business_profiles_city_idx ON business_profiles(city_code)`);
-  }
 }

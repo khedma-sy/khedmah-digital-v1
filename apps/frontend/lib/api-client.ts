@@ -22,7 +22,6 @@ export interface PublicBusinessProfile {
   readonly name: string;
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
-  readonly ownerUserId: string;
   readonly visibility: 'public' | 'private';
   readonly trustStatus: 'pending' | 'approved' | 'suspended';
   readonly status: 'active' | 'suspended';
@@ -36,7 +35,6 @@ export interface PublicBusinessProfile {
 
 export interface PublicProfessionalProfile {
   readonly id: string;
-  readonly userId: string;
   readonly headlineAr: string;
   readonly headlineEn?: string;
   readonly bioAr?: string;

@@ -19,12 +19,9 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
 
 @Injectable()
 export class ProfessionalProfileRepository {
-  private schemaPromise?: Promise<void>;
-
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
   async save(profile: ProfessionalProfile): Promise<void> {
-    await this.ensureSchema();
     await this.db.query(
       `INSERT INTO professional_profiles (
          id, user_id, headline_ar, headline_en, bio_ar, bio_en,
@@ -59,7 +56,6 @@ export class ProfessionalProfileRepository {
   }
 
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
-    await this.ensureSchema();
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
        FROM professional_profiles
@@ -71,7 +67,6 @@ export class ProfessionalProfileRepository {
   }
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
-    await this.ensureSchema();
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
        FROM professional_profiles
@@ -83,7 +78,6 @@ export class ProfessionalProfileRepository {
   }
 
   async listPublic(filters: { cityCode?: string; availability?: string; q?: string }, limit = 20, offset = 0): Promise<ProfessionalProfile[]> {
-    await this.ensureSchema();
     const clauses: string[] = [];
     const params: unknown[] = [];
 
@@ -127,33 +121,5 @@ export class ProfessionalProfileRepository {
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };
-  }
-
-  private async ensureSchema(): Promise<void> {
-    if (!this.schemaPromise) {
-      this.schemaPromise = this.initializeSchema();
-    }
-    await this.schemaPromise;
-  }
-
-  private async initializeSchema(): Promise<void> {
-    await this.db.query(`
-      CREATE TABLE IF NOT EXISTS professional_profiles (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL UNIQUE REFERENCES user_accounts(id),
-        headline_ar TEXT NOT NULL,
-        headline_en TEXT,
-        bio_ar TEXT,
-        bio_en TEXT,
-        availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available','busy','unavailable')),
-        city_code TEXT NOT NULL,
-        country_code TEXT NOT NULL,
-        skills TEXT[] NOT NULL DEFAULT '{}',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS professional_profiles_user_idx ON professional_profiles(user_id)`);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS professional_profiles_city_idx ON professional_profiles(city_code, availability)`);
   }
 }

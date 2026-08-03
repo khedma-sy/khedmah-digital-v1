@@ -21,12 +21,9 @@ interface ServiceListingRow extends Record<string, unknown> {
 
 @Injectable()
 export class ServiceCatalogRepository {
-  private schemaPromise?: Promise<void>;
-
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
   async save(service: ServiceListing): Promise<void> {
-    await this.ensureSchema();
     await this.db.query(
       `INSERT INTO service_listings (
          id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
@@ -64,7 +61,6 @@ export class ServiceCatalogRepository {
   }
 
   async findById(id: string): Promise<ServiceListing | undefined> {
-    await this.ensureSchema();
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
               category_code, price, price_currency, price_type, status, created_at, updated_at
@@ -77,7 +73,6 @@ export class ServiceCatalogRepository {
   }
 
   async listForOwner(ownerId: string, ownerType: ServiceOwnerType): Promise<ServiceListing[]> {
-    await this.ensureSchema();
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
               category_code, price, price_currency, price_type, status, created_at, updated_at
@@ -90,7 +85,6 @@ export class ServiceCatalogRepository {
   }
 
   async listActive(filters: { categoryCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
-    await this.ensureSchema();
     const clauses = ["status = 'active'"];
     const params: unknown[] = [];
     if (filters.categoryCode) {
@@ -114,7 +108,6 @@ export class ServiceCatalogRepository {
   }
 
   async countActive(filters: { categoryCode?: string; q?: string }): Promise<number> {
-    await this.ensureSchema();
     const clauses = ["status = 'active'"];
     const params: unknown[] = [];
     if (filters.categoryCode) {
@@ -133,7 +126,6 @@ export class ServiceCatalogRepository {
   }
 
   async findAndVerifyOwnership(id: string, ownerId: string): Promise<ServiceListing | undefined> {
-    await this.ensureSchema();
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
               category_code, price, price_currency, price_type, status, created_at, updated_at
@@ -143,6 +135,58 @@ export class ServiceCatalogRepository {
       [id, ownerId]
     );
     return rows[0] ? this.map(rows[0]) : undefined;
+  }
+
+  async listPublicEligible(filters: { categoryCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
+    const { whereClauses, params } = this.publicEligibleWhere(filters);
+    const rows = await this.db.query<ServiceListingRow>(
+      `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
+              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.created_at, sl.updated_at
+       FROM service_listings sl
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY sl.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+    return rows.map((row) => this.map(row));
+  }
+
+  async countPublicEligible(filters: { categoryCode?: string; q?: string }): Promise<number> {
+    const { whereClauses, params } = this.publicEligibleWhere(filters);
+    const rows = await this.db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM service_listings sl WHERE ${whereClauses.join(' AND ')}`,
+      params
+    );
+    return Number.parseInt(rows[0]?.count ?? '0', 10);
+  }
+
+  private publicEligibleWhere(filters: { categoryCode?: string; q?: string }) {
+    const whereClauses: string[] = [
+      "sl.status = 'active'",
+      `(
+        (sl.owner_type = 'business' AND EXISTS (
+          SELECT 1 FROM business_profiles bp
+          WHERE bp.id = sl.owner_id
+            AND bp.visibility = 'public'
+            AND bp.trust_status = 'approved'
+            AND bp.status = 'active'
+        ))
+        OR
+        (sl.owner_type = 'professional' AND EXISTS (
+          SELECT 1 FROM professional_profiles pp WHERE pp.id = sl.owner_id
+        ))
+      )`
+    ];
+    const params: unknown[] = [];
+    if (filters.categoryCode) {
+      params.push(filters.categoryCode);
+      whereClauses.push(`sl.category_code = $${params.length}`);
+    }
+    if (filters.q) {
+      params.push(`%${filters.q}%`);
+      whereClauses.push(`(sl.title_ar ILIKE $${params.length} OR sl.title_en ILIKE $${params.length})`);
+    }
+    return { whereClauses, params };
   }
 
   private map(row: ServiceListingRow): ServiceListing {
@@ -164,33 +208,4 @@ export class ServiceCatalogRepository {
     };
   }
 
-  private async ensureSchema(): Promise<void> {
-    if (!this.schemaPromise) {
-      this.schemaPromise = this.initializeSchema();
-    }
-    await this.schemaPromise;
-  }
-
-  private async initializeSchema(): Promise<void> {
-    await this.db.query(`
-      CREATE TABLE IF NOT EXISTS service_listings (
-        id TEXT PRIMARY KEY,
-        owner_type TEXT NOT NULL CHECK (owner_type IN ('business','professional')),
-        owner_id TEXT NOT NULL,
-        title_ar TEXT NOT NULL,
-        title_en TEXT,
-        description_ar TEXT,
-        description_en TEXT,
-        category_code TEXT NOT NULL,
-        price NUMERIC,
-        price_currency TEXT DEFAULT 'SYP',
-        price_type TEXT NOT NULL DEFAULT 'negotiable' CHECK (price_type IN ('fixed','hourly','negotiable')),
-        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS service_listings_owner_idx ON service_listings(owner_id, owner_type)`);
-    await this.db.query(`CREATE INDEX IF NOT EXISTS service_listings_category_idx ON service_listings(category_code, status)`);
-  }
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
+import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE, BUSINESS_PROFILE_NOT_FOUND_MESSAGE } from './business-profile.errors';
 import { BusinessProfileRepository } from './business-profile.repository';
 import { PublicBusinessProfile, BusinessProfile } from './business-profile.types';
@@ -12,7 +13,8 @@ import { validateBusinessProfileSearch, validateCreateBusinessProfile, validateU
 export class BusinessProfileService {
   constructor(
     @Inject(BusinessProfileRepository) private readonly repository: BusinessProfileRepository,
-    @Inject(IdentityService) private readonly identity: IdentityService
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
   ) {}
 
   async create(cookieHeader: string | undefined, request: CreateBusinessProfileRequest): Promise<PublicBusinessProfile> {
@@ -85,7 +87,8 @@ export class BusinessProfileService {
   }
 
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {
-    await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
     const profile = await this.requireProfile(id);
     const input = validateUpdateTrustStatus(request);
     const updatedAt = new Date().toISOString();
@@ -123,7 +126,6 @@ export class BusinessProfileService {
       name: profile.name,
       descriptionAr: profile.descriptionAr,
       descriptionEn: profile.descriptionEn,
-      ownerUserId: profile.ownerUserId,
       visibility: profile.visibility,
       trustStatus: profile.trustStatus,
       status: profile.status,

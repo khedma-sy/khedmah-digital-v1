@@ -67,6 +67,9 @@ export default function AdminPage() {
 
       <nav className="admin-navigation" aria-label="التنقل الإداري">
         <Link href="/">الرئيسية</Link>
+        <Link href="/search">البحث</Link>
+        <Link href="/businesses">صفحات الأعمال</Link>
+        <Link href="/professionals">الملف المهني</Link>
         <Link href="/organizations">المنظمات</Link>
         <Link href="/users/me">الملف الأساسي</Link>
         <Link href="/admin/operations-product">Operations Product</Link>

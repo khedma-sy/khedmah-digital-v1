@@ -127,8 +127,8 @@ export class ServiceCatalogService {
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [services, total] = await Promise.all([
-      this.repository.listActive({ q: input.q, categoryCode: input.categoryCode }, limit, offset),
-      this.repository.countActive({ q: input.q, categoryCode: input.categoryCode })
+      this.repository.listPublicEligible({ q: input.q, categoryCode: input.categoryCode }, limit, offset),
+      this.repository.countPublicEligible({ q: input.q, categoryCode: input.categoryCode })
     ]);
 
     return {

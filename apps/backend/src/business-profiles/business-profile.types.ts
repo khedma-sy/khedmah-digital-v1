@@ -27,7 +27,6 @@ export interface PublicBusinessProfile {
   readonly name: string;
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
-  readonly ownerUserId: string;
   readonly visibility: BusinessProfileVisibility;
   readonly trustStatus: BusinessProfileTrustStatus;
   readonly status: BusinessProfileStatus;
