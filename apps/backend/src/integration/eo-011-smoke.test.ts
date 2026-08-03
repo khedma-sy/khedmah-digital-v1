@@ -129,6 +129,24 @@ const INLINE_DDL = `
     status TEXT NOT NULL DEFAULT 'active', city_code TEXT, country_code TEXT NOT NULL DEFAULT 'SY',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  CREATE TABLE IF NOT EXISTS service_listings (
+    id TEXT PRIMARY KEY,
+    owner_type TEXT NOT NULL CHECK (owner_type IN ('business','professional')),
+    owner_id TEXT NOT NULL,
+    title_ar TEXT NOT NULL,
+    title_en TEXT,
+    description_ar TEXT,
+    description_en TEXT,
+    category_code TEXT NOT NULL,
+    price NUMERIC,
+    price_currency TEXT DEFAULT 'SYP',
+    price_type TEXT NOT NULL DEFAULT 'negotiable' CHECK (price_type IN ('fixed','hourly','negotiable')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    featured_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `;
 
 async function setupFixture() {
@@ -136,7 +154,7 @@ async function setupFixture() {
   await pool.query(INLINE_DDL);
   await pool.query(`
     TRUNCATE trust_history, verification_requests, business_social_links, business_branches,
-    business_opening_hours, business_media_assets, business_profiles, email_verifications,
+    business_opening_hours, business_media_assets, business_profiles, service_listings, email_verifications,
     admin_roles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE
   `);
   const identityRepo = new IdentityRepository(pool);
