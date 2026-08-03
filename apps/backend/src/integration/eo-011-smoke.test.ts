@@ -129,6 +129,22 @@ const INLINE_DDL = `
     status TEXT NOT NULL DEFAULT 'active', city_code TEXT, country_code TEXT NOT NULL DEFAULT 'SY',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  CREATE TABLE IF NOT EXISTS professional_directory_profiles (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE REFERENCES user_accounts(id),
+    headline_ar TEXT NOT NULL,
+    headline_en TEXT,
+    bio_ar TEXT,
+    bio_en TEXT,
+    availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available','busy','unavailable')),
+    city_code TEXT NOT NULL,
+    country_code TEXT NOT NULL,
+    skills TEXT[] NOT NULL DEFAULT '{}',
+    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    featured_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS service_listings (
     id TEXT PRIMARY KEY,
     owner_type TEXT NOT NULL CHECK (owner_type IN ('business','professional')),
