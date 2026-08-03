@@ -62,6 +62,17 @@ async function createFixture() {
       is_featured BOOLEAN NOT NULL DEFAULT FALSE, featured_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS trust_history (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      old_status TEXT,
+      new_status TEXT NOT NULL,
+      changed_by TEXT REFERENCES user_accounts(id),
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS trust_history_entity_idx ON trust_history(entity_type, entity_id);
   `);
   await pool.query('TRUNCATE business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
 
