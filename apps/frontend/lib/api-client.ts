@@ -31,6 +31,11 @@ export interface PublicBusinessProfile {
   readonly categoryCode: string;
   readonly cityCode: string;
   readonly countryCode: string;
+  readonly lat?: number;
+  readonly lng?: number;
+  readonly addressAr?: string;
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
 }
 
 export interface PublicProfessionalProfile {
@@ -43,6 +48,8 @@ export interface PublicProfessionalProfile {
   readonly cityCode: string;
   readonly countryCode: string;
   readonly skills: string[];
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
 }
 
 export interface PublicServiceListing {
@@ -58,6 +65,72 @@ export interface PublicServiceListing {
   readonly priceCurrency?: string;
   readonly priceType: 'fixed' | 'hourly' | 'negotiable';
   readonly status: 'active' | 'inactive';
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
+}
+
+export interface MediaAsset {
+  readonly id: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image';
+  readonly url: string;
+  readonly storagePath: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly sortOrder: number;
+  readonly createdAt: string;
+}
+
+export interface OpeningHours {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly dayOfWeek: number;
+  readonly openTime: string;
+  readonly closeTime: string;
+  readonly isClosed: boolean;
+}
+
+export interface BusinessBranch {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly nameAr: string;
+  readonly nameEn?: string;
+  readonly addressAr?: string;
+  readonly phone?: string;
+  readonly cityCode: string;
+  readonly lat?: number;
+  readonly lng?: number;
+  readonly isMain: boolean;
+}
+
+export interface BusinessSocialLink {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly platform: string;
+  readonly url: string;
+}
+
+export interface VerificationRequest {
+  readonly id: string;
+  readonly entityType: 'business' | 'professional';
+  readonly entityId: string;
+  readonly requesterId: string;
+  readonly status: 'pending' | 'approved' | 'rejected';
+  readonly notes?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TrustHistoryEntry {
+  readonly id: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly oldStatus?: string;
+  readonly newStatus: string;
+  readonly changedBy?: string;
+  readonly reason?: string;
+  readonly createdAt: string;
 }
 
 export interface City {
@@ -75,6 +148,7 @@ export interface Country {
 
 export interface SearchResults {
   readonly businesses: PublicBusinessProfile[];
+  readonly professionals: PublicProfessionalProfile[];
   readonly services: PublicServiceListing[];
   readonly total: number;
 }
@@ -162,6 +236,12 @@ export const api = {
     getPublic(id: string) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}`);
     },
+    getFeatured() {
+      return request<{ businesses: PublicBusinessProfile[] }>('/businesses/featured');
+    },
+    getRecentlyAdded() {
+      return request<{ businesses: PublicBusinessProfile[] }>('/businesses/recently-added');
+    },
     search(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
@@ -181,6 +261,9 @@ export const api = {
       categoryCode: string;
       cityCode: string;
       countryCode: string;
+      lat: number;
+      lng: number;
+      addressAr: string;
     }>) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}`, {
         method: 'PATCH',
@@ -192,6 +275,63 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ trustStatus })
       });
+    },
+    // Media
+    addMedia(id: string, data: { assetType: string; url: string; storagePath: string; mimeType: string; sizeBytes?: number; sortOrder?: number }) {
+      return request<{ asset: MediaAsset }>(`/businesses/${id}/media`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    getMedia(id: string, assetType?: string) {
+      const qs = assetType ? `?assetType=${assetType}` : '';
+      return request<{ assets: MediaAsset[] }>(`/businesses/${id}/media${qs}`);
+    },
+    deleteMedia(id: string, assetId: string) {
+      return request<{ status: string }>(`/businesses/${id}/media/${assetId}`, { method: 'DELETE' });
+    },
+    // Opening hours
+    setOpeningHours(id: string, hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed?: boolean }>) {
+      return request<{ hours: OpeningHours[] }>(`/businesses/${id}/opening-hours`, {
+        method: 'POST',
+        body: JSON.stringify({ hours })
+      });
+    },
+    getOpeningHours(id: string) {
+      return request<{ hours: OpeningHours[] }>(`/businesses/${id}/opening-hours`);
+    },
+    // Branches
+    addBranch(id: string, data: { nameAr: string; nameEn?: string; addressAr?: string; phone?: string; cityCode: string; lat?: number; lng?: number; isMain?: boolean }) {
+      return request<{ branch: BusinessBranch }>(`/businesses/${id}/branches`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    getBranches(id: string) {
+      return request<{ branches: BusinessBranch[] }>(`/businesses/${id}/branches`);
+    },
+    // Social links
+    setSocialLink(id: string, platform: string, url: string) {
+      return request<{ link: BusinessSocialLink }>(`/businesses/${id}/social-links`, {
+        method: 'POST',
+        body: JSON.stringify({ platform, url })
+      });
+    },
+    getSocialLinks(id: string) {
+      return request<{ links: BusinessSocialLink[] }>(`/businesses/${id}/social-links`);
+    },
+    deleteSocialLink(id: string, linkId: string) {
+      return request<{ status: string }>(`/businesses/${id}/social-links/${linkId}`, { method: 'DELETE' });
+    },
+    // Verification
+    requestVerification(id: string) {
+      return request<{ request: VerificationRequest }>(`/businesses/${id}/verification-request`, { method: 'POST' });
+    },
+    getVerificationStatus(id: string) {
+      return request<{ status: VerificationRequest | null }>(`/businesses/${id}/verification-status`);
+    },
+    getTrustHistory(id: string) {
+      return request<{ history: TrustHistoryEntry[] }>(`/businesses/${id}/trust-history`);
     }
   },
   professionals: {
@@ -216,6 +356,9 @@ export const api = {
     getProfile(id: string) {
       return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}`);
     },
+    getFeatured() {
+      return request<{ professionals: PublicProfessionalProfile[] }>('/professionals/featured');
+    },
     search(params: { q?: string; cityCode?: string; availability?: string; page?: number }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
@@ -223,6 +366,27 @@ export const api = {
       if (params.availability) qs.set('availability', params.availability);
       if (params.page) qs.set('page', String(params.page));
       return request<{ professionals: PublicProfessionalProfile[]; page: number }>(`/professionals/search?${qs}`);
+    },
+    // Media
+    addMedia(id: string, data: { assetType: string; url: string; storagePath: string; mimeType: string; sizeBytes?: number }) {
+      return request<{ asset: MediaAsset }>(`/professionals/${id}/media`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    getMedia(id: string, assetType?: string) {
+      const qs = assetType ? `?assetType=${assetType}` : '';
+      return request<{ assets: MediaAsset[] }>(`/professionals/${id}/media${qs}`);
+    },
+    // Verification
+    requestVerification(id: string) {
+      return request<{ request: VerificationRequest }>(`/professionals/${id}/verification-request`, { method: 'POST' });
+    },
+    getVerificationStatus(id: string) {
+      return request<{ status: VerificationRequest | null }>(`/professionals/${id}/verification-status`);
+    },
+    getTrustHistory(id: string) {
+      return request<{ history: TrustHistoryEntry[] }>(`/professionals/${id}/trust-history`);
     }
   },
   services: {
@@ -246,6 +410,18 @@ export const api = {
     },
     listForOwner(ownerId: string, ownerType: string) {
       return request<{ services: PublicServiceListing[] }>(`/services/owner/${ownerId}?ownerType=${ownerType}`);
+    },
+    getFeatured() {
+      return request<{ services: PublicServiceListing[] }>('/services/featured');
+    },
+    addMedia(id: string, data: { url: string; storagePath: string; mimeType: string; sizeBytes?: number }) {
+      return request<{ asset: MediaAsset }>(`/services/${id}/media`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    getMedia(id: string) {
+      return request<{ assets: MediaAsset[] }>(`/services/${id}/media`);
     },
     search(params: { q?: string; categoryCode?: string; page?: number }) {
       const qs = new URLSearchParams();

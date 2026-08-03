@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
 
+function TrustBadge({ status }: { status: string }) {
+  if (status === 'approved') return <span className="badge badge-approved">✓ معتمد</span>;
+  if (status === 'suspended') return <span className="badge badge-suspended">✗ موقوف</span>;
+  return <span className="badge badge-pending">⏳ قيد المراجعة</span>;
+}
+
 export default function BusinessProfilesPage() {
   const router = useRouter();
   const [businessProfiles, setBusinessProfiles] = useState<PublicBusinessProfile[]>([]);
@@ -35,49 +41,77 @@ export default function BusinessProfilesPage() {
   }, []);
 
   return (
-    <main id="foundation-content" className="operations-shell" aria-label="ملفات الأعمال">
-      <header className="operations-header">
-        <div>
-          <p className="eyebrow">خدمة الرقمية</p>
-          <h1>ملفات الأعمال</h1>
-          <p>إدارة ملفات أعمالك وربطها بالخدمات العامة المعتمدة.</p>
-        </div>
-        <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Link href="/business-profiles/new" className="foundation-action" style={{ marginBlockStart: 0 }}>+ إنشاء ملف عمل</Link>
-          <Link href="/service-catalog" className="foundation-action" style={{ marginBlockStart: 0 }}>دليل الخدمات</Link>
-          <Link href="/search" className="foundation-action" style={{ marginBlockStart: 0 }}>البحث</Link>
-        </nav>
-      </header>
+    <main id="foundation-content" className="page-shell" aria-label="ملفات الأعمال">
+      <div className="page-content">
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem' }}>
+          <div>
+            <p className="eyebrow">خدمة الرقمية</p>
+            <h1 style={{ margin: '0 0 0.35rem', fontSize: 'clamp(1.75rem, 5vw, 3rem)' }}>ملفات الأعمال</h1>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '1rem' }}>إدارة ملفات أعمالك وعرضها للعملاء.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <Link href="/business-profiles/new" className="filter-action" style={{ textDecoration: 'none' }}>+ إنشاء ملف</Link>
+            <Link href="/search?type=business" className="filter-action-secondary" style={{ textDecoration: 'none' }}>تصفح الأعمال</Link>
+          </div>
+        </header>
 
-      {error ? <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p> : null}
+        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
 
-      {isLoading ? (
-        <p style={{ padding: '2rem', color: '#52606d' }}>جاري التحميل...</p>
-      ) : businessProfiles.length === 0 ? (
-        <article className="operations-panel" style={{ maxWidth: '32rem' }}>
-          <div className="panel-heading"><h2>لا توجد ملفات أعمال</h2></div>
-          <p>لم تُنشئ أي ملف عمل بعد.</p>
-          <Link href="/business-profiles/new" className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none' }}>إنشاء أول ملف</Link>
-        </article>
-      ) : (
-        <div className="operations-grid">
-          {businessProfiles.map((profile) => (
-            <article className="operations-panel" key={profile.id}>
-              <div className="panel-heading">
-                <h2>{profile.name}</h2>
-                <span className="status-badge">{profile.trustStatus === 'approved' ? '✓ معتمد' : profile.trustStatus === 'suspended' ? '✗ موقوف' : '⏳ قيد المراجعة'}</span>
-              </div>
-              <p>{profile.descriptionAr ?? 'لا يوجد وصف.'}</p>
-              <p style={{ fontSize: '0.875rem', color: '#52606d' }}>
-                {profile.categoryCode} · {profile.cityCode} · {profile.visibility === 'public' ? 'عام' : 'خاص'}
-              </p>
-              <Link href={`/business-profiles/${profile.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center' }}>
-                عرض الملف
-              </Link>
-            </article>
-          ))}
-        </div>
-      )}
+        {isLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton skeleton-card" />
+            ))}
+          </div>
+        ) : businessProfiles.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-icon" aria-hidden="true">🏢</span>
+            <h2>لا توجد ملفات أعمال</h2>
+            <p>لم تُنشئ أي ملف عمل بعد. أنشئ ملفك الأول وابدأ ظهورك على المنصة.</p>
+            <Link href="/business-profiles/new" className="filter-action" style={{ textDecoration: 'none', marginTop: '0.5rem' }}>
+              إنشاء أول ملف
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+            {businessProfiles.map((profile) => (
+              <article className="card" key={profile.id}>
+                <div className="card-body">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <h2 className="card-title">{profile.name}</h2>
+                    <TrustBadge status={profile.trustStatus} />
+                  </div>
+                  <p className="card-meta">
+                    {profile.categoryCode} · {profile.cityCode} ·{' '}
+                    {profile.visibility === 'public' ? 'عام' : 'خاص'}
+                  </p>
+                  {profile.descriptionAr && (
+                    <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {profile.descriptionAr}
+                    </p>
+                  )}
+                  {(profile.phone || profile.email) && (
+                    <p className="card-meta" style={{ marginTop: '0.35rem' }}>
+                      {profile.phone && `📞 ${profile.phone}`}
+                      {profile.phone && profile.email && ' · '}
+                      {profile.email && `✉ ${profile.email}`}
+                    </p>
+                  )}
+                </div>
+                <div className="card-footer">
+                  <Link
+                    href={`/business-profiles/${profile.id}`}
+                    className="foundation-action"
+                    style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                  >
+                    عرض الملف
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

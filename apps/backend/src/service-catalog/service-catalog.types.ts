@@ -16,6 +16,8 @@ export interface ServiceListing {
   readonly priceCurrency?: ServicePriceCurrency;
   readonly priceType: ServicePriceType;
   readonly status: ServiceStatus;
+  readonly isFeatured: boolean;
+  readonly featuredAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -33,4 +35,6 @@ export interface PublicServiceListing {
   readonly priceCurrency?: ServicePriceCurrency;
   readonly priceType: ServicePriceType;
   readonly status: ServiceStatus;
+  readonly isFeatured: boolean;
+  readonly createdAt: string;
 }

@@ -11,6 +11,11 @@ export class ServiceCatalogController {
     return { service: await this.services.create(cookieHeader, body) };
   }
 
+  @Get('featured')
+  async getFeatured() {
+    return { services: await this.services.getFeatured() };
+  }
+
   @Get('search')
   async search(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('page') page?: string) {
     const query: SearchServicesRequest = { q, categoryCode, page };
@@ -36,5 +41,30 @@ export class ServiceCatalogController {
   @Delete(':id')
   async delete(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return await this.services.delete(cookieHeader, id);
+  }
+
+  // --- Media ---
+  @Post(':id/media')
+  async addMedia(
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() body: { url: string; storagePath: string; mimeType: string; sizeBytes?: number; sortOrder?: number }
+  ) {
+    const asset = await this.services.addMediaAsset(cookieHeader, id, {
+      entityType: 'service',
+      entityId: id,
+      assetType: 'service_image' as const,
+      url: body.url,
+      storagePath: body.storagePath,
+      mimeType: body.mimeType,
+      sizeBytes: body.sizeBytes ?? 0,
+      sortOrder: body.sortOrder ?? 0
+    });
+    return { asset };
+  }
+
+  @Get(':id/media')
+  async getMedia(@Param('id') id: string) {
+    return { assets: await this.services.getMediaAssets(id) };
   }
 }

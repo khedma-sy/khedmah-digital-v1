@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { ProfessionalProfile } from './professional-profile.types';
+import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
 
 interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly id: string;
@@ -13,6 +13,8 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly city_code: string;
   readonly country_code: string;
   readonly skills: string[];
+  readonly is_featured: boolean;
+  readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -57,7 +59,7 @@ export class ProfessionalProfileRepository {
 
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        WHERE id = $1
        LIMIT 1`,
@@ -68,7 +70,7 @@ export class ProfessionalProfileRepository {
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        WHERE user_id = $1
        LIMIT 1`,
@@ -96,12 +98,24 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, created_at, updated_at
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
        FROM professional_directory_profiles
        ${where}
-       ORDER BY created_at DESC
+       ORDER BY is_featured DESC, created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
+    );
+    return rows.map((row) => this.map(row));
+  }
+
+  async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
+    const rows = await this.db.query<ProfessionalProfileRow>(
+      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_directory_profiles
+       WHERE is_featured = TRUE
+       ORDER BY featured_at DESC
+       LIMIT $1`,
+      [limit]
     );
     return rows.map((row) => this.map(row));
   }
@@ -118,8 +132,77 @@ export class ProfessionalProfileRepository {
       cityCode: row.city_code,
       countryCode: row.country_code,
       skills: row.skills,
+      isFeatured: row.is_featured ?? false,
+      featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };
   }
+
+  async saveMediaAsset(asset: MediaAsset): Promise<void> {
+    await this.db.query(
+      `INSERT INTO media_assets (id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET url = EXCLUDED.url, sort_order = EXCLUDED.sort_order`,
+      [asset.id, asset.entityType, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
+    );
+  }
+
+  async listMediaAssets(entityId: string, assetType?: string): Promise<MediaAsset[]> {
+    const params: unknown[] = ['professional', entityId];
+    let assetTypeClause = '';
+    if (assetType) {
+      params.push(assetType);
+      assetTypeClause = `AND asset_type = $${params.length}`;
+    }
+    const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; asset_type: string; url: string; storage_path: string; mime_type: string; size_bytes: number; sort_order: number; created_at: Date }>(
+      `SELECT id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at
+       FROM media_assets
+       WHERE entity_type = $1 AND entity_id = $2 ${assetTypeClause}
+       ORDER BY sort_order ASC, created_at ASC`,
+      params
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      entityType: r.entity_type,
+      entityId: r.entity_id,
+      assetType: r.asset_type as MediaAsset['assetType'],
+      url: r.url,
+      storagePath: r.storage_path,
+      mimeType: r.mime_type,
+      sizeBytes: r.size_bytes,
+      sortOrder: r.sort_order,
+      createdAt: r.created_at.toISOString()
+    }));
+  }
+
+  async saveVerificationRequest(req: VerificationRequest): Promise<void> {
+    await this.db.query(
+      `INSERT INTO verification_requests (id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at`,
+      [req.id, req.entityType, req.entityId, req.requesterId, req.status, req.notes ?? null, null, null, req.createdAt, req.updatedAt]
+    );
+  }
+
+  async findVerificationRequest(entityId: string): Promise<VerificationRequest | undefined> {
+    const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; requester_id: string; status: string; notes: string | null; created_at: Date; updated_at: Date }>(
+      `SELECT id, entity_type, entity_id, requester_id, status, notes, created_at, updated_at
+       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+      ['professional', entityId]
+    );
+    if (!rows[0]) return undefined;
+    const r = rows[0];
+    return { id: r.id, entityType: r.entity_type as 'professional', entityId: r.entity_id, requesterId: r.requester_id, status: r.status as VerificationRequest['status'], notes: r.notes ?? undefined, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() };
+  }
+
+  async listTrustHistory(entityId: string): Promise<TrustHistoryEntry[]> {
+    const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; old_status: string | null; new_status: string; changed_by: string | null; reason: string | null; created_at: Date }>(
+      `SELECT id, entity_type, entity_id, old_status, new_status, changed_by, reason, created_at
+       FROM trust_history WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC`,
+      ['professional', entityId]
+    );
+    return rows.map((r) => ({ id: r.id, entityType: r.entity_type, entityId: r.entity_id, oldStatus: r.old_status ?? undefined, newStatus: r.new_status, changedBy: r.changed_by ?? undefined, reason: r.reason ?? undefined, createdAt: r.created_at.toISOString() }));
+  }
 }
+

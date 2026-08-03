@@ -15,6 +15,8 @@ interface ServiceListingRow extends Record<string, unknown> {
   readonly price_currency: string | null;
   readonly price_type: string;
   readonly status: string;
+  readonly is_featured: boolean;
+  readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -160,6 +162,19 @@ export class ServiceCatalogRepository {
     return Number.parseInt(rows[0]?.count ?? '0', 10);
   }
 
+  async listFeatured(limit = 6): Promise<ServiceListing[]> {
+    const rows = await this.db.query<ServiceListingRow>(
+      `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
+              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
+       FROM service_listings sl
+       WHERE sl.status = 'active' AND sl.is_featured = TRUE
+       ORDER BY sl.featured_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return rows.map((row) => this.map(row));
+  }
+
   private publicEligibleWhere(filters: { categoryCode?: string; q?: string }) {
     const whereClauses: string[] = [
       "sl.status = 'active'",
@@ -203,6 +218,8 @@ export class ServiceCatalogRepository {
       priceCurrency: row.price_currency === null ? undefined : row.price_currency as ServiceListing['priceCurrency'],
       priceType: row.price_type as ServiceListing['priceType'],
       status: row.status as ServiceListing['status'],
+      isFeatured: row.is_featured ?? false,
+      featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };

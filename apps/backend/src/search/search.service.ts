@@ -40,7 +40,12 @@ export class SearchService {
         website: profile.website,
         categoryCode: profile.categoryCode,
         cityCode: profile.cityCode,
-        countryCode: profile.countryCode
+        countryCode: profile.countryCode,
+        lat: profile.lat,
+        lng: profile.lng,
+        addressAr: profile.addressAr,
+        isFeatured: profile.isFeatured,
+        createdAt: profile.createdAt
       }));
       total += profileTotal;
     }
@@ -62,7 +67,9 @@ export class SearchService {
         price: service.price,
         priceCurrency: service.priceCurrency,
         priceType: service.priceType,
-        status: service.status
+        status: service.status,
+        isFeatured: service.isFeatured,
+        createdAt: service.createdAt
       }));
       total += listingTotal;
     }
