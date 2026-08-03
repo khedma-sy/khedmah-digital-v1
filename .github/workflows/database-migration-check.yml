@@ -32,6 +32,9 @@ jobs:
             001_core_identity_accounts
             002_create_profiles
             003_create_professional_profiles
+            004_analytics_and_contact
+            005_email_verifications_and_admin_roles
+            006_media_assets
           )
 
           for migration in "${migrations[@]}"; do
@@ -57,6 +60,12 @@ jobs:
             002_create_profiles_rollback.sql \
             003_create_professional_profiles.sql \
             003_create_professional_profiles_rollback.sql \
+            004_analytics_and_contact.sql \
+            004_analytics_and_contact_rollback.sql \
+            005_email_verifications_and_admin_roles.sql \
+            005_email_verifications_and_admin_roles_rollback.sql \
+            006_media_assets.sql \
+            006_media_assets_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
