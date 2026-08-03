@@ -116,6 +116,7 @@ test('service owned by non-public business is not returned in public search', as
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
@@ -150,6 +151,7 @@ test('service owned by approved public business is returned in public search', a
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
@@ -184,6 +186,7 @@ test('public service projection does not include owner user identifier', async (
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
