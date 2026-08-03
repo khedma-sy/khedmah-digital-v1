@@ -58,6 +58,8 @@ async function createFixture() {
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
       phone TEXT, email TEXT, website TEXT,
       category_code TEXT NOT NULL, city_code TEXT NOT NULL, country_code TEXT NOT NULL,
+      lat NUMERIC, lng NUMERIC, address_ar TEXT,
+      is_featured BOOLEAN NOT NULL DEFAULT FALSE, featured_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS professional_directory_profiles (
@@ -114,6 +116,7 @@ test('service owned by non-public business is not returned in public search', as
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
@@ -148,6 +151,7 @@ test('service owned by approved public business is returned in public search', a
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
@@ -182,6 +186,7 @@ test('public service projection does not include owner user identifier', async (
     categoryCode: 'test',
     cityCode: 'damascus',
     countryCode: 'SY',
+    isFeatured: false,
     createdAt: now,
     updatedAt: now
   });
