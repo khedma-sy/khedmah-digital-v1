@@ -7,6 +7,7 @@ import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { IdentityModule } from './identity/identity.module';
 import { LocationsModule } from './locations/locations.module';
+import { MediaModule } from './media/media.module';
 import { PlatformLogger } from './logging/platform-logger';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OperationsProductModule } from './operations-product/operations-product.module';
@@ -26,7 +27,8 @@ import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
     ProfessionalProfilesModule,
     ServiceCatalogModule,
     LocationsModule,
-    SearchModule
+    SearchModule,
+    MediaModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

@@ -53,7 +53,11 @@ export type AuditEventType =
   | 'professional_profile.update'
   | 'service.create'
   | 'service.update'
-  | 'service.delete';
+  | 'service.delete'
+  | 'admin.bootstrap'
+  | 'email.verification.requested'
+  | 'email.verification.confirmed'
+  | 'email.verification.expired';
 
 export interface AuditLog {
   readonly id: string;
