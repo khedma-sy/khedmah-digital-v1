@@ -1,33 +1,103 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { api, PublicBusinessProfile, PublicServiceListing } from '../../lib/api-client';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
 
-export default function SearchPage() {
-  const [q, setQ] = useState('');
-  const [cityCode, setCityCode] = useState('');
-  const [categoryCode, setCategoryCode] = useState('');
-  const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
-  const [services, setServices] = useState<PublicServiceListing[]>([]);
-  const [total, setTotal] = useState(0);
+const CITIES = [
+  { code: 'damascus', label: 'دمشق' },
+  { code: 'aleppo', label: 'حلب' },
+  { code: 'homs', label: 'حمص' },
+  { code: 'latakia', label: 'اللاذقية' },
+  { code: 'hama', label: 'حماة' },
+  { code: 'deir-ez-zor', label: 'دير الزور' },
+  { code: 'tartus', label: 'طرطوس' },
+];
+
+const CATEGORIES = [
+  { code: 'restaurant', label: 'مطعم' },
+  { code: 'shop', label: 'محل' },
+  { code: 'workshop', label: 'ورشة' },
+  { code: 'service_business', label: 'خدمات' },
+  { code: 'doctor', label: 'طبيب' },
+  { code: 'lawyer', label: 'محامي' },
+  { code: 'engineer', label: 'مهندس' },
+  { code: 'consultant', label: 'مستشار' },
+  { code: 'freelancer', label: 'مستقل' },
+];
+
+function trustLabel(status: string) {
+  if (status === 'approved') return <span className="badge badge-approved">✓ معتمد</span>;
+  if (status === 'suspended') return <span className="badge badge-suspended">✗ موقوف</span>;
+  return <span className="badge badge-pending">⏳ قيد المراجعة</span>;
+}
+
+function availLabel(av: string) {
+  if (av === 'available') return <span className="badge badge-available">🟢 متاح</span>;
+  if (av === 'busy') return <span className="badge badge-busy">🟡 مشغول</span>;
+  return <span className="badge badge-unavailable">🔴 غير متاح</span>;
+}
+
+function priceLabel(type: string) {
+  if (type === 'fixed') return 'سعر ثابت';
+  if (type === 'hourly') return 'بالساعة';
+  return 'قابل للتفاوض';
+}
+
+type TabType = 'all' | 'business' | 'professional' | 'service';
+
+function SearchContent() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const [q, setQ] = useState(params.get('q') ?? '');
+  const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
+  const [categoryCode, setCategoryCode] = useState(params.get('categoryCode') ?? '');
+  const [tab, setTab] = useState<TabType>((params.get('type') as TabType) ?? 'all');
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
 
-  async function handleSearch(event: React.FormEvent) {
-    event.preventDefault();
+  const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
+  const [professionals, setProfessionals] = useState<PublicProfessionalProfile[]>([]);
+  const [services, setServices] = useState<PublicServiceListing[]>([]);
+  const [total, setTotal] = useState(0);
+
+  const PAGE_SIZE = 12;
+
+  async function doSearch(overrides?: { tab?: TabType; page?: number }) {
+    const activeTab = overrides?.tab ?? tab;
+    const activePage = overrides?.page ?? page;
     setIsLoading(true);
     setError('');
     try {
-      const results = await api.search.query({
-        q: q || undefined,
-        cityCode: cityCode || undefined,
-        categoryCode: categoryCode || undefined
-      });
-      setBusinesses(results.businesses);
-      setServices(results.services);
-      setTotal(results.total);
+      if (activeTab === 'professional') {
+        const data = await api.professionals.search({ q: q || undefined, cityCode: cityCode || undefined, page: activePage });
+        setProfessionals(data.professionals);
+        setBusinesses([]);
+        setServices([]);
+        setTotal(data.professionals.length);
+      } else if (activeTab === 'service') {
+        const data = await api.services.search({ q: q || undefined, categoryCode: categoryCode || undefined, page: activePage });
+        setServices(data.services);
+        setBusinesses([]);
+        setProfessionals([]);
+        setTotal(data.total);
+      } else if (activeTab === 'business') {
+        const data = await api.businesses.search({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: cityCode || undefined, page: activePage });
+        setBusinesses(data.businesses);
+        setServices([]);
+        setProfessionals([]);
+        setTotal(data.total);
+      } else {
+        const data = await api.search.query({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: cityCode || undefined, page: activePage, type: activeTab });
+        setBusinesses(data.businesses);
+        setServices(data.services);
+        setProfessionals([]);
+        setTotal(data.total);
+      }
       setSearched(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر البحث.');
@@ -36,128 +106,262 @@ export default function SearchPage() {
     }
   }
 
+  function handleSearch(event: React.FormEvent) {
+    event.preventDefault();
+    setPage(1);
+    void doSearch({ page: 1 });
+  }
+
+  function handleTabChange(nextTab: TabType) {
+    setTab(nextTab);
+    setPage(1);
+    if (searched) void doSearch({ tab: nextTab, page: 1 });
+  }
+
+  function handlePage(nextPage: number) {
+    setPage(nextPage);
+    void doSearch({ page: nextPage });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Auto-search when arriving via URL params (from homepage links)
+  useEffect(() => {
+    const urlQ = params.get('q');
+    const urlCity = params.get('cityCode');
+    const urlCat = params.get('categoryCode');
+    const urlType = params.get('type') as TabType | null;
+    if (urlQ || urlCity || urlCat || urlType) {
+      if (urlQ) setQ(urlQ);
+      if (urlCity) setCityCode(urlCity);
+      if (urlCat) setCategoryCode(urlCat);
+      if (urlType) setTab(urlType);
+      void doSearch({ tab: urlType ?? 'all', page: 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   return (
-    <main id="foundation-content" className="operations-shell" aria-label="البحث العام">
-      <header className="operations-header">
-        <div>
+    <main id="foundation-content" className="page-shell">
+      <div className="page-content">
+        <header style={{ marginBlockEnd: '1.5rem' }}>
           <p className="eyebrow">خدمة الرقمية</p>
-          <h1>البحث</h1>
-          <p>ابحث عن ملفات الأعمال والخدمات العامة المعتمدة.</p>
-        </div>
-        <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Link href="/" className="foundation-action" style={{ marginBlockStart: 0 }}>الرئيسية</Link>
-          <Link href="/business-profiles" className="foundation-action" style={{ marginBlockStart: 0 }}>ملفات الأعمال</Link>
-          <Link href="/professional-profiles" className="foundation-action" style={{ marginBlockStart: 0 }}>الملفات المهنية</Link>
-          <Link href="/service-catalog" className="foundation-action" style={{ marginBlockStart: 0 }}>دليل الخدمات</Link>
+          <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)', margin: '0 0 0.5rem' }}>البحث والاستكشاف</h1>
+          <p style={{ color: 'var(--muted)', fontSize: '1rem', margin: 0 }}>ابحث عن الأعمال، المهنيين، والخدمات في سوريا</p>
+        </header>
+
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="filter-bar" role="search" aria-label="نموذج البحث">
+          <div className="filter-group" style={{ flex: '2 1 180px' }}>
+            <label htmlFor="q">كلمة البحث</label>
+            <input
+              id="q"
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="مطعم، نجار، محامي..."
+            />
+          </div>
+          <div className="filter-group" style={{ flex: '1 1 130px' }}>
+            <label htmlFor="city">المدينة</label>
+            <select id="city" value={cityCode} onChange={(e) => setCityCode(e.target.value)}>
+              <option value="">كل المدن</option>
+              {CITIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
+          </div>
+          <div className="filter-group" style={{ flex: '1 1 130px' }}>
+            <label htmlFor="cat">التصنيف</label>
+            <select id="cat" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)}>
+              <option value="">كل التصنيفات</option>
+              {CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+            <button type="submit" className="filter-action" aria-busy={isLoading} disabled={isLoading}>
+              {isLoading ? 'جاري...' : 'بحث'}
+            </button>
+            {(q || cityCode || categoryCode) && (
+              <button
+                type="button"
+                className="filter-action-secondary"
+                onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); }}
+              >
+                مسح
+              </button>
+            )}
+          </div>
+        </form>
+
+        {/* Type tabs */}
+        <nav className="type-tabs" aria-label="نوع النتائج">
+          {([['all', 'الكل'], ['business', 'أعمال'], ['professional', 'مهنيون'], ['service', 'خدمات']] as [TabType, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`type-tab${tab === value ? ' active' : ''}`}
+              onClick={() => handleTabChange(value)}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
-      </header>
 
-      <form
-        onSubmit={handleSearch}
-        style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--border)' }}
-      >
-        <div style={{ flex: '2 1 200px', display: 'grid', gap: '0.35rem' }}>
-          <label htmlFor="q" style={{ fontWeight: 700, fontSize: '0.875rem' }}>كلمة البحث</label>
-          <input
-            id="q"
-            type="text"
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder="مطعم، نجار، محامي..."
-            style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
-          />
-        </div>
-        <div style={{ flex: '1 1 140px', display: 'grid', gap: '0.35rem' }}>
-          <label htmlFor="city" style={{ fontWeight: 700, fontSize: '0.875rem' }}>المدينة</label>
-          <input
-            id="city"
-            type="text"
-            value={cityCode}
-            onChange={(event) => setCityCode(event.target.value)}
-            placeholder="damascus"
-            style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
-          />
-        </div>
-        <div style={{ flex: '1 1 140px', display: 'grid', gap: '0.35rem' }}>
-          <label htmlFor="category" style={{ fontWeight: 700, fontSize: '0.875rem' }}>التصنيف</label>
-          <input
-            id="category"
-            type="text"
-            value={categoryCode}
-            onChange={(event) => setCategoryCode(event.target.value)}
-            placeholder="restaurant"
-            style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem 1rem', font: 'inherit' }}
-          />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <button
-            type="submit"
-            className="foundation-action"
-            style={{ marginBlockStart: 0 }}
-            aria-busy={isLoading}
-            disabled={isLoading}
-          >
-            {isLoading ? 'جاري البحث...' : 'بحث'}
-          </button>
-        </div>
-      </form>
+        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
 
-      {error ? <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p> : null}
-
-      {searched && (
-        <p style={{ marginBlockEnd: '1rem', color: '#52606d' }}>
-          تم العثور على {total} نتيجة
-        </p>
-      )}
-
-      {businesses.length > 0 && (
-        <section aria-label="ملفات الأعمال">
-          <h2 style={{ fontSize: '1.25rem', marginBlockEnd: '0.75rem' }}>ملفات الأعمال ({businesses.length})</h2>
-          <div className="operations-grid" style={{ marginBlockEnd: '2rem' }}>
-            {businesses.map((business) => (
-              <article className="operations-panel" key={business.id}>
-                <div className="panel-heading">
-                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{business.name}</h3>
-                  <span className="status-badge">{business.categoryCode}</span>
-                </div>
-                <p>{business.descriptionAr ?? 'لا يوجد وصف.'}</p>
-                <p style={{ fontSize: '0.875rem', color: '#52606d' }}>{business.cityCode} · {business.countryCode}</p>
-                <Link href={`/business-profiles/${business.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center' }}>
-                  عرض الملف
-                </Link>
-              </article>
+        {/* Loading skeleton */}
+        {isLoading && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="skeleton skeleton-card" />
             ))}
           </div>
-        </section>
-      )}
+        )}
 
-      {services.length > 0 && (
-        <section aria-label="الخدمات">
-          <h2 style={{ fontSize: '1.25rem', marginBlockEnd: '0.75rem' }}>الخدمات ({services.length})</h2>
-          <div className="operations-grid">
-            {services.map((service) => (
-              <article className="operations-panel" key={service.id}>
-                <div className="panel-heading">
-                  <h3 style={{ margin: 0, fontSize: '1.125rem' }}>{service.titleAr}</h3>
-                  <span className="status-badge">{service.priceType}</span>
+        {/* Results */}
+        {!isLoading && searched && (
+          <>
+            <p className="result-count">تم العثور على {total} نتيجة{page > 1 ? ` · الصفحة ${page}` : ''}</p>
+
+            {/* Businesses */}
+            {businesses.length > 0 && (
+              <section aria-label="ملفات الأعمال" style={{ marginBlockEnd: '2rem' }}>
+                {tab === 'all' && <div className="section-header"><h2>ملفات الأعمال ({businesses.length})</h2></div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+                  {businesses.map((b) => (
+                    <article className="card" key={b.id}>
+                      <div className="card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <h3 className="card-title">{b.name}</h3>
+                          {trustLabel(b.trustStatus)}
+                        </div>
+                        <p className="card-meta">{CATEGORIES.find((c) => c.code === b.categoryCode)?.label ?? b.categoryCode} · {CITIES.find((c) => c.code === b.cityCode)?.label ?? b.cityCode}</p>
+                        {b.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.descriptionAr}</p>}
+                      </div>
+                      <div className="card-footer">
+                        <Link href={`/business-profiles/${b.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+                          عرض الملف
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                <p>{service.descriptionAr ?? 'لا يوجد وصف.'}</p>
-                {service.price != null && (
-                  <p style={{ fontWeight: 700, color: 'var(--accent)' }}>
-                    {service.price} {service.priceCurrency ?? 'SYP'}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
+              </section>
+            )}
 
-      {searched && businesses.length === 0 && services.length === 0 && (
-        <p style={{ textAlign: 'center', padding: '2rem', color: '#52606d' }}>
-          لا توجد نتائج. جرّب كلمة بحث مختلفة.
-        </p>
-      )}
+            {/* Professionals */}
+            {professionals.length > 0 && (
+              <section aria-label="المهنيون" style={{ marginBlockEnd: '2rem' }}>
+                {tab === 'all' && <div className="section-header"><h2>المهنيون ({professionals.length})</h2></div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+                  {professionals.map((p) => (
+                    <article className="card" key={p.id}>
+                      <div className="card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <h3 className="card-title">{p.headlineAr}</h3>
+                          {availLabel(p.availability)}
+                        </div>
+                        <p className="card-meta">{CITIES.find((c) => c.code === p.cityCode)?.label ?? p.cityCode} · {p.countryCode}</p>
+                        {p.skills.length > 0 && (
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                            {p.skills.slice(0, 4).map((s) => <span key={s} className="skill-tag">{s}</span>)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="card-footer">
+                        <Link href={`/professional-profiles/${p.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+                          عرض الملف
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Services */}
+            {services.length > 0 && (
+              <section aria-label="الخدمات" style={{ marginBlockEnd: '2rem' }}>
+                {tab === 'all' && <div className="section-header"><h2>الخدمات ({services.length})</h2></div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+                  {services.map((s) => (
+                    <article className="card" key={s.id}>
+                      <div className="card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <h3 className="card-title">{s.titleAr}</h3>
+                          <span className="badge badge-pending" style={{ whiteSpace: 'nowrap' }}>{priceLabel(s.priceType)}</span>
+                        </div>
+                        <p className="card-meta">{CATEGORIES.find((c) => c.code === s.categoryCode)?.label ?? s.categoryCode}</p>
+                        {s.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.descriptionAr}</p>}
+                        {s.price != null && (
+                          <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.25rem 0 0' }}>
+                            {s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Empty state */}
+            {businesses.length === 0 && professionals.length === 0 && services.length === 0 && (
+              <div className="empty-state">
+                <span className="empty-state-icon" aria-hidden="true">🔍</span>
+                <h2>لا توجد نتائج</h2>
+                <p>جرّب كلمة بحث مختلفة أو قم بتوسيع نطاق البحث.</p>
+                <button type="button" className="filter-action" onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); }}>
+                  مسح الفلاتر
+                </button>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <nav className="pagination" aria-label="الصفحات">
+                <button type="button" className="page-btn" disabled={page <= 1} onClick={() => handlePage(page - 1)}>
+                  ‹ السابق
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
+                  <button key={p} type="button" className={`page-btn${p === page ? ' active' : ''}`} onClick={() => handlePage(p)}>
+                    {p}
+                  </button>
+                ))}
+                <button type="button" className="page-btn" disabled={page >= totalPages} onClick={() => handlePage(page + 1)}>
+                  التالي ›
+                </button>
+              </nav>
+            )}
+          </>
+        )}
+
+        {/* Initial state before search */}
+        {!searched && !isLoading && (
+          <div className="empty-state" style={{ paddingTop: '3rem' }}>
+            <span className="empty-state-icon" aria-hidden="true">🗺</span>
+            <h2>ابدأ البحث</h2>
+            <p>أدخل كلمة بحث أو اختر مدينة وتصنيفاً للعثور على الأعمال والمهنيين.</p>
+          </div>
+        )}
+      </div>
     </main>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <main id="foundation-content" className="page-shell">
+        <div className="page-content">
+          <div className="skeleton skeleton-heading" style={{ marginBlock: '1.5rem' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem', marginTop: '2rem' }}>
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton skeleton-card" />)}
+          </div>
+        </div>
+      </main>
+    }>
+      <SearchContent />
+    </Suspense>
   );
 }

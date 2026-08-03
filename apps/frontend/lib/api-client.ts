@@ -75,6 +75,7 @@ export interface Country {
 
 export interface SearchResults {
   readonly businesses: PublicBusinessProfile[];
+  readonly professionals: PublicProfessionalProfile[];
   readonly services: PublicServiceListing[];
   readonly total: number;
 }
