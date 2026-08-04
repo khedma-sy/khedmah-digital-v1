@@ -52,5 +52,6 @@ export class RateLimitMiddleware implements NestMiddleware {
 }
 
 export function createRateLimitMiddleware(scope: string, windowMs?: number, max?: number) {
-  return new RateLimitMiddleware(scope, windowMs, max);
+  const middleware = new RateLimitMiddleware(scope, windowMs, max);
+  return middleware.use.bind(middleware);
 }
