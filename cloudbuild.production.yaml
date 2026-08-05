@@ -4,9 +4,45 @@ steps:
     entrypoint: npm
     args: [ci]
   - id: test
-    name: node:20
-    entrypoint: npm
-    args: [run, test:workspaces]
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -euo
+      - pipefail
+      - -c
+      - |
+        # Start an isolated PostgreSQL container for tests only.
+        # The credentials below are ephemeral, test-only, and grant no production access.
+        docker run --rm -d \
+          --name pg-test \
+          --network host \
+          -e POSTGRES_DB=khedmah_test \
+          -e POSTGRES_USER=khedmah_test \
+          -e POSTGRES_PASSWORD=khedmah_test_secret \
+          postgres:16-alpine
+
+        # Wait until PostgreSQL is ready (fail hard after 30 s).
+        TRIES=0
+        until docker exec pg-test pg_isready -U khedmah_test -d khedmah_test; do
+          TRIES=$((TRIES + 1))
+          if [ "$TRIES" -ge 30 ]; then
+            echo "ERROR: PostgreSQL test instance did not become ready within 30 seconds." >&2
+            docker logs pg-test >&2
+            docker stop pg-test || true
+            exit 1
+          fi
+          sleep 1
+        done
+
+        # Install dependencies (node_modules may not persist across steps).
+        npm ci
+
+        # Run workspace tests with the isolated test DATABASE_URL only.
+        export DATABASE_URL="postgresql://khedmah_test:khedmah_test_secret@127.0.0.1:5432/khedmah_test"
+        npm run test:workspaces
+
+        # Tear down the test database container.
+        docker stop pg-test || true
   - id: build-backend-image
     name: gcr.io/cloud-builders/docker
     args: [build, -f, Dockerfile.backend, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$COMMIT_SHA', -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_RELEASE_ALIAS}', .]
