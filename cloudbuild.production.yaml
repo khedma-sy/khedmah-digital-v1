@@ -42,7 +42,23 @@ steps:
   - id: deploy-backend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
-    args: [run, deploy, '${_BACKEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --quiet]
+    args:
+      - run
+      - deploy
+      - '${_BACKEND_SERVICE}'
+      - --image
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_IMAGE_TAG}'
+      - --region
+      - '${_REGION}'
+      - --platform
+      - managed
+      - --service-account
+      - '${_RUNTIME_SERVICE_ACCOUNT}'
+      - --add-cloudsql-instances
+      - '${_CLOUD_SQL_INSTANCE}'
+      - --set-env-vars
+      - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE}'
+      - --quiet
   - id: deploy-frontend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
@@ -54,6 +70,7 @@ substitutions:
   _FRONTEND_SERVICE: khedmah-frontend
   _RUNTIME_SERVICE_ACCOUNT: khedmah-v1-runtime@$PROJECT_ID.iam.gserviceaccount.com
   _IMAGE_TAG: manual
+  _CLOUD_SQL_INSTANCE: ''
   _NEXT_PUBLIC_FIREBASE_API_KEY: ''
   _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ''
   _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ''

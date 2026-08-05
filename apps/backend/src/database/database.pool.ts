@@ -19,12 +19,29 @@ export class DatabasePool implements OnModuleInit {
       throw new Error('DATABASE_URL environment variable is required.');
     }
 
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-      max: 10,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000
-    });
+    // When running on Cloud Run with a Cloud SQL instance attached, the Cloud
+    // SQL Auth Proxy exposes the instance via a Unix domain socket.  Using the
+    // TCP host from DATABASE_URL would fail because the proxy only listens on
+    // the socket path.  Override the host/port with the socket path and disable
+    // SSL (the proxy handles encryption over the socket channel).
+    const cloudSqlInstance = process.env.CLOUD_SQL_INSTANCE_CONNECTION_NAME;
+    const poolOptions: import('pg').PoolConfig = cloudSqlInstance
+      ? {
+          connectionString: databaseUrl,
+          host: `/cloudsql/${cloudSqlInstance}`,
+          ssl: false,
+          max: 10,
+          idleTimeoutMillis: 30_000,
+          connectionTimeoutMillis: 10_000
+        }
+      : {
+          connectionString: databaseUrl,
+          max: 10,
+          idleTimeoutMillis: 30_000,
+          connectionTimeoutMillis: 5_000
+        };
+
+    this.pool = new Pool(poolOptions);
 
     this.pool.on('error', (err) => {
       this.logger.error('Unexpected database pool error', err.message);
