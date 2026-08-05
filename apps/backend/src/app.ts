@@ -16,7 +16,7 @@ export async function createBackendApp() {
   app.useLogger(logger);
   app.use(createRequestContextMiddleware(logger));
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN ?? 'https://frontend-774201339973.europe-west1.run.app',
     credentials: true
   });
   app.setGlobalPrefix('api/v1');
