@@ -24,8 +24,8 @@ steps:
         # Wait until PostgreSQL is ready (fail hard after 30 s).
         TRIES=0
         until docker exec pg-test pg_isready -U khedmah_test -d khedmah_test; do
-          TRIES=$((TRIES + 1))
-          if [ "$TRIES" -ge 30 ]; then
+          TRIES=$$((TRIES + 1))
+          if [ "$$TRIES" -ge 30 ]; then
             echo "ERROR: PostgreSQL test instance did not become ready within 30 seconds." >&2
             docker logs pg-test >&2
             docker stop pg-test || true
