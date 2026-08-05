@@ -20,26 +20,33 @@ export class DatabasePool implements OnModuleInit {
     }
 
     // When running on Cloud Run with a Cloud SQL instance attached, the Cloud
-    // SQL Auth Proxy exposes the instance via a Unix domain socket.  Using the
-    // TCP host from DATABASE_URL would fail because the proxy only listens on
-    // the socket path.  Override the host/port with the socket path and disable
-    // SSL (the proxy handles encryption over the socket channel).
+    // SQL Auth Proxy exposes the instance via a Unix domain socket.  node-postgres
+    // merges parse(connectionString) over the explicit config object, which means
+    // a `host` override is silently overwritten by the TCP host in DATABASE_URL.
+    // To guarantee the Unix socket path is used, we must NOT pass connectionString
+    // and instead supply individual connection fields extracted from DATABASE_URL.
     const cloudSqlInstance = process.env.CLOUD_SQL_INSTANCE_CONNECTION_NAME;
-    const poolOptions: import('pg').PoolConfig = cloudSqlInstance
-      ? {
-          connectionString: databaseUrl,
-          host: `/cloudsql/${cloudSqlInstance}`,
-          ssl: false,
-          max: 10,
-          idleTimeoutMillis: 30_000,
-          connectionTimeoutMillis: 10_000
-        }
-      : {
-          connectionString: databaseUrl,
-          max: 10,
-          idleTimeoutMillis: 30_000,
-          connectionTimeoutMillis: 5_000
-        };
+    let poolOptions: import('pg').PoolConfig;
+    if (cloudSqlInstance) {
+      const parsed = new URL(databaseUrl);
+      poolOptions = {
+        host: `/cloudsql/${cloudSqlInstance}`,
+        user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+        password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+        database: parsed.pathname ? parsed.pathname.replace(/^\//, '') : undefined,
+        ssl: false,
+        max: 10,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 10_000,
+      };
+    } else {
+      poolOptions = {
+        connectionString: databaseUrl,
+        max: 10,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 5_000,
+      };
+    }
 
     this.pool = new Pool(poolOptions);
 
