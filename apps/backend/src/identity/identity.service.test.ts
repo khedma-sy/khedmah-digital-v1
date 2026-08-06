@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Pool } from 'pg';
 import { UnauthorizedException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { createTestPool } from '../database/test-pool';
 import { IdentityRepository } from './identity.repository';
 import { IdentityService } from './identity.service';
 import { SessionTokenService } from './security/session-token.service';
 
 
-const rawPool = new Pool({ host: process.env.PGHOST ?? "127.0.0.1", port: parseInt(process.env.PGPORT ?? "5432", 10), user: process.env.PGUSER ?? "khedmah", password: process.env.PGPASSWORD, database: process.env.PGDATABASE ?? "khedmah_dev" });
+const rawPool = createTestPool();
 
 async function setup(): Promise<{ repository: IdentityRepository; service: IdentityService }> {
   const pool = DatabasePool.fromPool(rawPool);

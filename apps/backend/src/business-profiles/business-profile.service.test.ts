@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Pool } from 'pg';
 import { ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { createTestPool } from '../database/test-pool';
 import { BusinessProfileRepository } from './business-profile.repository';
 import { BusinessProfileService } from './business-profile.service';
 import { IdentityRepository } from '../identity/identity.repository';
@@ -10,13 +10,7 @@ import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 
-const rawPool = new Pool({
-  host: process.env.PGHOST ?? '127.0.0.1',
-  port: parseInt(process.env.PGPORT ?? '5432', 10),
-  user: process.env.PGUSER ?? 'khedmah',
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE ?? 'khedmah_dev'
-});
+const rawPool = createTestPool();
 
 async function createFixture() {
   const pool = DatabasePool.fromPool(rawPool);
