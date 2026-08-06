@@ -38,7 +38,7 @@ steps:
           --network cloudbuild \
           -v /workspace:/workspace \
           -w /workspace \
-          -e DATABASE_URL="******pg-test:5432/khedmah_test" \
+          -e DATABASE_URL="postgresql://khedmah_test:khedmah_test_secret@pg-test:5432/khedmah_test" \
           node:20 \
           bash -euo pipefail -c "npm ci && npm run test:workspaces"
   - id: build-backend-image
