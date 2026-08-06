@@ -98,7 +98,7 @@ substitutions:
   _AR_REPOSITORY: khedmah-digital
   _BACKEND_SERVICE: backend
   _FRONTEND_SERVICE: frontend
-  _RUNTIME_SERVICE_ACCOUNT: khedmah-v1-runtime@$PROJECT_ID.iam.gserviceaccount.com
+  _RUNTIME_SERVICE_ACCOUNT: khedmah-v1-runtime@project-94512a0e-1a5e-4bdb-87f.iam.gserviceaccount.com
   _RELEASE_ALIAS: production
   _CLOUD_SQL_INSTANCE: project-94512a0e-1a5e-4bdb-87f:europe-west1:khedmah-v1-db
   _NEXT_PUBLIC_API_URL: https://backend-774201339973.europe-west1.run.app
