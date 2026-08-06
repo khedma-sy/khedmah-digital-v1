@@ -1,20 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Pool } from 'pg';
 import { DatabasePool } from '../database/database.pool';
+import { createTestPool } from '../database/test-pool';
 import { AnalyticsValidationError } from './analytics.errors';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsService } from './analytics.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { PlatformLogger } from '../logging/platform-logger';
 
-const rawPool = new Pool({
-  host: process.env.PGHOST ?? '127.0.0.1',
-  port: parseInt(process.env.PGPORT ?? '5432', 10),
-  user: process.env.PGUSER ?? 'khedmah',
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE ?? 'khedmah_dev'
-});
+const rawPool = createTestPool();
 
 async function createService() {
   const pool = DatabasePool.fromPool(rawPool);

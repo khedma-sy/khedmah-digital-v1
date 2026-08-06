@@ -10,8 +10,8 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Pool } from 'pg';
 import { DatabasePool } from '../database/database.pool';
+import { createTestPool } from '../database/test-pool';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
@@ -24,13 +24,7 @@ import { RateLimitMiddleware } from '../middleware/rate-limit.middleware';
 import { SearchService } from '../search/search.service';
 import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 
-const rawPool = new Pool({
-  host: process.env.PGHOST ?? '127.0.0.1',
-  port: parseInt(process.env.PGPORT ?? '5432', 10),
-  user: process.env.PGUSER ?? 'khedmah',
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE ?? 'khedmah_dev'
-});
+const rawPool = createTestPool();
 
 const INLINE_DDL = `
   CREATE TABLE IF NOT EXISTS user_accounts (
