@@ -84,16 +84,30 @@ steps:
       - pipefail
       - -c
       - |
-        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:*"
-        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:*"
-        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend" \
-          --include-tags \
-          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
-          --location="${_REGION}"
-        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend" \
-          --include-tags \
-          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
-          --location="${_REGION}"
+        verify_image_tag() {
+          image="$$1"
+          tag="$$2"
+          if [ -z "$$tag" ]; then
+            echo "ERROR: Missing required tag for $$image" >&2
+            exit 1
+          fi
+          actual_tags="$$(gcloud artifacts docker tags list "$$image" \
+            --location="${_REGION}" \
+            --format='value(tag)')"
+          if ! printf '%s\n' "$$actual_tags" | grep -F -x -- "$$tag" >/dev/null; then
+            echo "ERROR: Missing Artifact Registry tag $$image:$$tag" >&2
+            exit 1
+          fi
+          echo "Verified $$image:$$tag"
+        }
+
+        BACKEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend"
+        FRONTEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend"
+
+        verify_image_tag "$$BACKEND_IMAGE" "${COMMIT_SHA}"
+        verify_image_tag "$$BACKEND_IMAGE" "${_RELEASE_ALIAS}"
+        verify_image_tag "$$FRONTEND_IMAGE" "${COMMIT_SHA}"
+        verify_image_tag "$$FRONTEND_IMAGE" "${_RELEASE_ALIAS}"
   - id: deploy-backend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
