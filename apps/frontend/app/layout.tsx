@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
+import { AuthNavigation } from './auth-navigation';
 import './globals.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
@@ -59,12 +60,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <nav className="global-nav" aria-label="التنقل الرئيسي">
           <Link href="/" className="global-nav-brand">خدمة الرقمية</Link>
           <div className="global-nav-links">
-            <Link href="/search">البحث</Link>
-            <Link href="/businesses/new" style={{ display: 'none' }} aria-hidden="true">.</Link>
-            <Link href="/business-profiles">أعمالي</Link>
-            <Link href="/professional-profiles">ملفي</Link>
-            <Link href="/service-catalog">الخدمات</Link>
-            <Link href="/auth/login" className="nav-cta">دخول</Link>
+            <AuthNavigation />
           </div>
         </nav>
         {children}

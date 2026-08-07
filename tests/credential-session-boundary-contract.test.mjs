@@ -6,7 +6,7 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('Mission 069J documents current credential session and cookie runtime accurately', async () => {
   const doc = await read('docs/contracts/CREDENTIAL-SESSION-BOUNDARY-CONTRACT.md');
-  for (const value of ['PBKDF2-SHA512', '120,000 iterations', 'SHA-256 token hash', 'One hour', 'HTTP-only', 'SameSite Strict']) assert.match(doc, new RegExp(value));
+  for (const value of ['PBKDF2-SHA512', '120,000 iterations', 'SHA-256 token hash', 'One hour', 'HTTP-only', 'SameSite None', 'SameSite Strict']) assert.match(doc, new RegExp(value));
   assert.match(doc, /no NestJS guard, Passport strategy, or authentication middleware/);
   assert.match(doc, /Refresh token.*Not implemented/);
 });

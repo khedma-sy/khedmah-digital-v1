@@ -22,7 +22,7 @@ export default function RegisterPage() {
 
     try {
       await api.auth.register(email, password, displayName);
-      router.push('/organizations');
+      router.push('/welcome');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'يرجى إدخال بيانات صحيحة لإكمال إنشاء الحساب.');
     } finally {
