@@ -87,6 +87,10 @@ steps:
         verify_image_tag() {
           image="$$1"
           tag="$$2"
+          if [ -z "$$tag" ]; then
+            echo "ERROR: Missing required tag for $$image" >&2
+            exit 1
+          fi
           actual_tags="$$(gcloud artifacts docker tags list "$$image" \
             --location="${_REGION}" \
             --format='value(tag)')"
