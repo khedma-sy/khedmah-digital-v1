@@ -44,6 +44,12 @@ steps:
   - id: build-backend-image
     name: gcr.io/cloud-builders/docker
     args: [build, -f, Dockerfile.backend, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$COMMIT_SHA', -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_RELEASE_ALIAS}', .]
+  - id: push-backend-image
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:$COMMIT_SHA']
+  - id: push-backend-release-alias
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:${_RELEASE_ALIAS}']
   - id: build-frontend-image
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -64,6 +70,30 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="$$FIREBASE_MEASUREMENT_ID" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$COMMIT_SHA" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_RELEASE_ALIAS}" .
+  - id: push-frontend-image
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$COMMIT_SHA']
+  - id: push-frontend-release-alias
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_RELEASE_ALIAS}']
+  - id: verify-artifact-registry-images
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -euo
+      - pipefail
+      - -c
+      - |
+        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:*"
+        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:*"
+        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend" \
+          --include-tags \
+          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
+          --location="${_REGION}"
+        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend" \
+          --include-tags \
+          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
+          --location="${_REGION}"
   - id: deploy-backend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
