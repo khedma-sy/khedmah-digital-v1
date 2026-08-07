@@ -3,6 +3,10 @@ import type { Response } from 'express';
 const COOKIE_NAME = 'khedmah_session';
 const MAX_AGE_SECONDS = 60 * 60;
 
+function sessionCookieSameSite(): 'none' | 'strict' {
+  return process.env.NODE_ENV === 'production' ? 'none' : 'strict';
+}
+
 export function readSessionToken(cookieHeader: string | undefined): string | undefined {
   if (!cookieHeader) {
     return undefined;
@@ -20,7 +24,7 @@ export function readSessionToken(cookieHeader: string | undefined): string | und
 export function attachSessionCookie(response: Response, token: string): void {
   response.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: sessionCookieSameSite(),
     secure: process.env.NODE_ENV === 'production',
     maxAge: MAX_AGE_SECONDS * 1000,
     path: '/api/v1'
@@ -30,7 +34,7 @@ export function attachSessionCookie(response: Response, token: string): void {
 export function clearSessionCookie(response: Response): void {
   response.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: sessionCookieSameSite(),
     secure: process.env.NODE_ENV === 'production',
     path: '/api/v1'
   });
