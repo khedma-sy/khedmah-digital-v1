@@ -92,7 +92,6 @@ steps:
             exit 1
           fi
           actual_tags="$$(gcloud artifacts docker tags list "$$image" \
-            --location="${_REGION}" \
             --format='value(tag)')"
           if ! printf '%s\n' "$$actual_tags" | grep -F -x -- "$$tag" >/dev/null; then
             echo "ERROR: Missing Artifact Registry tag $$image:$$tag" >&2
