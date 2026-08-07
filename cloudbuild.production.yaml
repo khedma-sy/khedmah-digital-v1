@@ -84,16 +84,29 @@ steps:
       - pipefail
       - -c
       - |
-        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend:*"
-        docker images "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:*"
-        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend" \
+      verify_image_tag() {
+        image="$$1"
+        tag="$$2"
+        version="$$(gcloud artifacts docker images list "$$image" \
           --include-tags \
-          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
-          --location="${_REGION}"
-        gcloud artifacts docker images list "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend" \
-          --include-tags \
-          --filter="tags:${COMMIT_SHA} OR tags:${_RELEASE_ALIAS}" \
-          --location="${_REGION}"
+          --filter="tags:$$tag" \
+          --location="${_REGION}" \
+          --format='value(version)' \
+          --limit=1)"
+        if [ -z "$$version" ]; then
+          echo "ERROR: Missing Artifact Registry tag $$image:$$tag" >&2
+          exit 1
+        fi
+        echo "Verified $$image:$$tag -> $$version"
+      }
+
+      BACKEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend"
+      FRONTEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend"
+
+      verify_image_tag "$$BACKEND_IMAGE" "${COMMIT_SHA}"
+      verify_image_tag "$$BACKEND_IMAGE" "${_RELEASE_ALIAS}"
+      verify_image_tag "$$FRONTEND_IMAGE" "${COMMIT_SHA}"
+      verify_image_tag "$$FRONTEND_IMAGE" "${_RELEASE_ALIAS}"
   - id: deploy-backend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
