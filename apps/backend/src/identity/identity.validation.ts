@@ -27,7 +27,7 @@ export function normalizeEmail(value: unknown): string {
 }
 
 export function validatePassword(value: unknown): string {
-  if (typeof value !== 'string' || value.length < 12 || value.length > 128) {
+  if (typeof value !== 'string' || value.length < 8 || value.length > 128) {
     throw new IdentityValidationError();
   }
 

@@ -20,7 +20,7 @@ test('identity screens include validation, loading, and error states', async () 
   assert.match(login, /required/);
   assert.match(login, /role="alert"/);
   assert.match(login, /aria-busy/);
-  assert.match(register, /minLength=\{12\}/);
+  assert.match(register, /minLength=\{8\}/);
   assert.match(register, /جاري إنشاء الحساب/);
   assert.match(profile, /role="status"/);
 });
