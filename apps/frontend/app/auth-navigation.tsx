@@ -5,6 +5,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../lib/api-client';
 
+function DiscoveryLinks() {
+  return (
+    <>
+      <Link href="/search" className="nav-discovery">البحث</Link>
+      <Link href="/service-catalog" className="nav-discovery">الخدمات</Link>
+      <Link href="/locations" className="nav-discovery">المواقع</Link>
+    </>
+  );
+}
+
 export function AuthNavigation() {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,13 +50,23 @@ export function AuthNavigation() {
   }
 
   if (user === null) {
-    return <Link href="/auth/login" className="nav-cta">دخول</Link>;
+    return (
+      <div className="nav-session" data-auth-state="guest">
+        <DiscoveryLinks />
+        <Link href="/auth/login" className="nav-cta">دخول</Link>
+        <Link href="/auth/register" className="nav-register">إنشاء حساب</Link>
+      </div>
+    );
   }
 
   return (
-    <div className="nav-authenticated">
-      <Link href="/users/me" className="nav-cta">{user.profile.displayName}</Link>
-      <button type="button" onClick={logout}>تسجيل الخروج</button>
+    <div className="nav-session" data-auth-state="authenticated">
+      <DiscoveryLinks />
+      <Link href="/business-profiles">أعمالي</Link>
+      <Link href="/organizations">منظماتي</Link>
+      <Link href="/users/me">الملف الشخصي</Link>
+      <Link href="/users/me" className="nav-cta nav-user">{user.profile.displayName}</Link>
+      <button className="nav-logout" type="button" onClick={logout}>تسجيل الخروج</button>
     </div>
   );
 }

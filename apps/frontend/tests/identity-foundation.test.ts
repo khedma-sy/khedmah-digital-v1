@@ -26,12 +26,26 @@ test('identity screens include validation, loading, and error states', async () 
   assert.match(profile, /role="status"/);
 });
 
-test('global navigation reflects the current authenticated user and supports logout', async () => {
+test('global navigation separates guest discovery from authenticated account actions', async () => {
   const navigation = await readFile(new URL('../app/auth-navigation.tsx', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');
 
   assert.match(layout, /<AuthNavigation \/>/);
   assert.match(navigation, /api\.auth\.session\(\)/);
+  assert.match(navigation, /data-auth-state="guest"/);
+  assert.match(navigation, /href="\/search"/);
+  assert.match(navigation, /href="\/service-catalog"/);
+  assert.match(navigation, /href="\/locations"/);
+  assert.match(navigation, /href="\/auth\/login"/);
+  assert.match(navigation, /href="\/auth\/register"/);
+  assert.match(navigation, /data-auth-state="authenticated"/);
+  assert.match(navigation, /user\.profile\.displayName/);
+  assert.match(navigation, /href="\/users\/me"/);
+  assert.match(navigation, /href="\/business-profiles"/);
+  assert.match(navigation, /href="\/organizations"/);
+  assert.match(navigation, /الملف الشخصي/);
+  assert.match(navigation, /أعمالي/);
+  assert.match(navigation, /منظماتي/);
   assert.match(navigation, /user\.profile\.displayName/);
   assert.match(navigation, /href="\/users\/me"/);
   assert.match(navigation, /api\.auth\.logout\(\)/);
