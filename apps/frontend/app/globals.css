@@ -258,6 +258,7 @@ p {
   padding: 0.4rem 0.75rem;
 }
 .nav-session button:hover { color: var(--accent-dark); }
+.nav-authenticated button:hover { color: var(--accent-dark); }
 .nav-auth-loading { width: 5rem; height: 2rem; }
 @media (max-width: 38rem) {
   .nav-session .nav-discovery,
