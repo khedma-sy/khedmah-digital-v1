@@ -60,6 +60,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <nav className="global-nav" aria-label="التنقل الرئيسي">
           <Link href="/" className="global-nav-brand">خدمة الرقمية</Link>
           <div className="global-nav-links">
+            <Link href="/search">البحث</Link>
+            <Link href="/businesses/new" style={{ display: 'none' }} aria-hidden="true">.</Link>
+            <Link href="/business-profiles">أعمالي</Link>
+            <Link href="/professional-profiles">ملفي</Link>
+            <Link href="/service-catalog">الخدمات</Link>
             <AuthNavigation />
           </div>
         </nav>
