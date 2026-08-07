@@ -45,7 +45,7 @@ export default function RegisterPage() {
         </label>
         <label>
           كلمة المرور
-          <input name="password" type="password" autoComplete="new-password" required minLength={12} />
+          <input name="password" type="password" autoComplete="new-password" required minLength={8} />
         </label>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
         <button className="foundation-action" type="submit" aria-busy={isLoading} disabled={isLoading}>
