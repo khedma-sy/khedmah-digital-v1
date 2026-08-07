@@ -87,17 +87,14 @@ steps:
         verify_image_tag() {
           image="$$1"
           tag="$$2"
-          version="$$(gcloud artifacts docker images list "$$image" \
-            --include-tags \
-            --filter="tags:$$tag" \
+          actual_tags="$$(gcloud artifacts docker tags list "$$image" \
             --location="${_REGION}" \
-            --format='value(version)' \
-            --limit=1)"
-          if [ -z "$$version" ]; then
+            --format='value(tag)')"
+          if ! printf '%s\n' "$$actual_tags" | grep -F -x -- "$$tag" >/dev/null; then
             echo "ERROR: Missing Artifact Registry tag $$image:$$tag" >&2
             exit 1
           fi
-          echo "Verified $$image:$$tag -> $$version"
+          echo "Verified $$image:$$tag"
         }
 
         BACKEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend"
