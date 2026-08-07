@@ -38,7 +38,7 @@ The current password policy does not enforce the canonical non-common-password r
 | Session lifetime | One hour |
 | Session validation | Hash presented token, locate unrevoked and unexpired session, then load active account/profile |
 | Revocation | Set `revokedAt` on the in-memory session |
-| Cookie | HTTP-only, SameSite Strict, secure in production, `/api/v1` path, one-hour max age |
+| Cookie | HTTP-only, SameSite None and secure in production for the credentialed cross-site frontend, SameSite Strict outside production, `/api/v1` path, one-hour max age |
 | Refresh token | Not implemented |
 | Durable session store | Not implemented |
 
@@ -296,4 +296,3 @@ The boundary itself is ready for a future adapter implementation, subject to the
 6. **Bounded In-Memory Adapter Implementation:** only after gates 1–3, adapt existing in-memory behavior without database or API changes.
 
 **Durable credential/session persistence and production authentication remain unauthorized.**
-

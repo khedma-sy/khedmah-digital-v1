@@ -20,7 +20,21 @@ test('identity screens include validation, loading, and error states', async () 
   assert.match(login, /required/);
   assert.match(login, /role="alert"/);
   assert.match(login, /aria-busy/);
+  assert.match(login, /minLength=\{8\}/);
   assert.match(register, /minLength=\{8\}/);
   assert.match(register, /جاري إنشاء الحساب/);
   assert.match(profile, /role="status"/);
+});
+
+test('global navigation reflects the current authenticated user and supports logout', async () => {
+  const navigation = await readFile(new URL('../app/auth-navigation.tsx', import.meta.url), 'utf8');
+  const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');
+
+  assert.match(layout, /<AuthNavigation \/>/);
+  assert.match(navigation, /api\.auth\.session\(\)/);
+  assert.match(navigation, /user\.profile\.displayName/);
+  assert.match(navigation, /href="\/users\/me"/);
+  assert.match(navigation, /api\.auth\.logout\(\)/);
+  assert.match(navigation, /تسجيل الخروج/);
+  assert.match(navigation, />دخول<\/Link>/);
 });

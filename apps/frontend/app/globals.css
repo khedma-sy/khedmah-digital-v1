@@ -242,6 +242,19 @@ p {
   padding: 0.4rem 1rem;
 }
 .global-nav-links .nav-cta:hover { background: var(--accent-dark); color: var(--surface); }
+.nav-authenticated { display: flex; align-items: center; gap: 0.25rem; }
+.nav-authenticated button {
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+}
+.nav-authenticated button:hover { color: var(--accent-dark); }
+.nav-auth-loading { width: 5rem; height: 2rem; }
 @media (max-width: 38rem) {
   .global-nav-links a:not(.nav-cta) { display: none; }
 }
