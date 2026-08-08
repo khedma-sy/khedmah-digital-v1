@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BrandHero } from './components/brand-hero';
 import { AudienceCard, DiscoveryCard, TrustBadge } from './components/platform-cards';
+import { serviceCategories } from '../lib/platform-data';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 
@@ -27,10 +28,15 @@ export default function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <BrandHero />
 
-      <section className="live-section" aria-labelledby="discovery-title">
+      <section className="category-band" aria-labelledby="categories-title">
+        <div className="section-intro"><p className="eyebrow">مدينة الخدمات الرقمية</p><h2 id="categories-title">كل ما تحتاجه، أقرب مما تتخيل</h2><p>ثمانية قطاعات أساسية تجمع احتياجات الحياة والأعمال في مكان واحد.</p></div>
+        <div className="service-city-grid">{serviceCategories.map((category) => <Link href={`/search?q=${encodeURIComponent(category.name)}`} className={`service-city-card service-${category.color}`} key={category.name}><span className="service-city-icon">{category.icon}</span><h3>{category.name}</h3><p>{category.description}</p><span className="service-arrow">←</span></Link>)}</div>
+      </section>
+
+      <section className="live-section presence-section" aria-labelledby="discovery-title">
         <div className="live-section-heading">
-          <div><p className="eyebrow">ابدأ الاكتشاف</p><h2 id="discovery-title">كل ما تحتاجه في منصة واحدة</h2></div>
-          <p>طرق واضحة للوصول إلى مقدم الخدمة المناسب، أينما كنت.</p>
+          <div><p className="eyebrow">حضورك الرقمي يبدأ هنا</p><h2 id="discovery-title">ملف واحد. فرص بلا حدود.</h2></div>
+          <p>سواء كنت مهنياً مستقلاً أو صاحب عمل، امنح نشاطك واجهة احترافية تصل بها إلى عملاء جدد.</p>
         </div>
         <div className="experience-grid experience-grid-four">
           <DiscoveryCard icon="🏢" title="الأعمال" description="اكتشف الشركات والمتاجر ومقدمي الخدمات." href="/search?type=business" />
@@ -39,6 +45,10 @@ export default function Home() {
           <DiscoveryCard icon="⌖" title="المواقع" description="استكشف الخدمات والأعمال حسب الموقع." href="/locations" />
         </div>
       </section>
+
+      <section className="growth-section" aria-labelledby="growth-title"><div className="growth-copy"><p className="eyebrow">من فيسبوك إلى منصة أعمال حقيقية</p><h2 id="growth-title">حوّل متابعيك إلى عملاء</h2><p>انقل نشاطك من المنشورات المتفرقة إلى حضور رقمي احترافي يمكن اكتشافه ومشاركته والثقة به.</p><div className="growth-steps"><span><b>01</b> انضم كشريك</span><span><b>02</b> أنشئ حضورك</span><span><b>03</b> شارك ملفك</span><span><b>04</b> استقبل العملاء</span></div><Link href="/auth/register" className="experience-action">ابدأ مجاناً</Link></div><div className="share-preview"><div className="share-profile"><span className="profile-monogram">م</span><div><small>ملف أعمال موثّق</small><strong>محمصة الياسمين</strong><p>قهوة مختصة · دمشق</p></div><span className="verified">✓</span></div><div className="share-link">khedmah.digital/p/yasmin <b>مشاركة</b></div><div className="viral-stamp">أنا مع خدمة <span>#</span></div></div></section>
+
+      <section className="plans-foundation" aria-labelledby="plans-title"><div className="section-intro"><p className="eyebrow">خطط تنمو معك</p><h2 id="plans-title">ابدأ اليوم، وتطوّر غداً</h2></div><div className="plans-grid"><article><span>مجاني</span><h3>حضور أساسي</h3><p>ملف عام، خدمات، موقع، صور وتواصل.</p></article><article className="featured-plan"><span>Premium</span><h3>ظهور أقوى</h3><p>تمييز في النتائج، تحليلات وأدوات ترويج.</p></article><article><span>Business</span><h3>نمو الأعمال</h3><p>حملات، تقارير وإدارة حضور متقدم.</p></article></div><p className="future-note">الخطط المدفوعة قادمة — لا توجد مدفوعات في الإصدار الحالي.</p></section>
 
       <section className="live-section live-trust" aria-labelledby="trust-title">
         <div>
