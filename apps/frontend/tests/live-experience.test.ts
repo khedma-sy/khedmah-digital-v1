@@ -43,7 +43,8 @@ test('navigation avoids duplicate links and interactions respect reduced motion'
 
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 1);
-  assert.match(layout, /brand-symbol">KD/);
+  assert.match(layout, /className="brand-dock"/);
+  assert.match(layout, /أنا مع خدمة/);
   assert.match(register, /name="city"/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
@@ -58,6 +59,6 @@ test('approved actions use the unified icon and interaction system', async () =>
   assert.match(icon, /viewBox="0 0 24 24"/);
   assert.match(navigation, /aria-busy=\{isLoggingOut\}/);
   assert.match(navigation, /nav-action-error/);
-  assert.match(hero, /PlatformAction href="#province-map"/);
+  assert.match(hero, /PlatformAction href="\/search"/);
   assert.doesNotMatch(hero, /انضم كشريك/);
 });

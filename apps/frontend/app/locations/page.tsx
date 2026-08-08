@@ -35,9 +35,9 @@ export default function LocationsPage() {
   return (
     <main id="foundation-content" className="identity-shell" aria-label="المواقع">
       <section className="identity-card">
-        <p className="eyebrow">Khedmah Digital V1</p>
-        <h1>المواقع</h1>
-        <p>إدارة المواقع المرتبطة بالملفات والخدمات.</p>
+        <p className="eyebrow">أنا مع خدمة</p>
+        <h1>دليل المدن</h1>
+        <p>اعثر على الأعمال والمهنيين والخدمات المتاحة في مدينتك، من دون خريطة معقدة.</p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={loadLocations}>
             {isLoading ? 'جاري التحديث...' : 'تحديث القائمة'}

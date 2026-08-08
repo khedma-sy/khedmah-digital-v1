@@ -37,7 +37,7 @@ export default function RegisterPage() {
   return (
     <main id="foundation-content" className="identity-shell" aria-label="إنشاء حساب">
       <form className="identity-card" onSubmit={submitRegistration} noValidate>
-        <p className="eyebrow">Khedmah Digital V1</p>
+        <p className="eyebrow">KHEDMA DIGITAL · أنا مع خدمة</p>
         <h1>إنشاء حساب</h1>
         <label>
           الاسم الظاهر

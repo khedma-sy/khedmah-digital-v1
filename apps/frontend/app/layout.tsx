@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import './globals.css';
 
@@ -57,15 +56,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
-        <nav className="global-nav" aria-label="التنقل الرئيسي">
-          <Link href="/" className="global-nav-brand" aria-label="خدمة ديجتل — الرئيسية"><span className="brand-symbol">KD</span><span><b>KHEDMA</b><small>DIGITAL</small></span></Link>
-          <div className="global-nav-links">
-            <Link href="/">الرئيسية</Link>
-            <Link href="/#province-map">المحافظات</Link>
-            <AuthNavigation />
-          </div>
-        </nav>
         {children}
+        <aside className="brand-dock" aria-label="روابط المنصة السريعة">
+          <a href="/" className="dock-brand" aria-label="خدمة ديجتل — الرئيسية"><b>KD</b><span>أنا مع خدمة</span></a>
+          <AuthNavigation />
+        </aside>
       </body>
     </html>
   );

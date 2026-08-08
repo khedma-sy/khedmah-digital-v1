@@ -767,3 +767,56 @@ p {
   .platform-action,.platform-icon { transition:none; }
   .platform-action:hover,.platform-action:hover .platform-icon { transform:none; }
 }
+
+/* ── Unified KD visual system: content-first, no top bar ── */
+:root {
+  --background: #06152f;
+  --foreground: #eef6ff;
+  --surface: #0b2145;
+  --accent: #168cff;
+  --accent-light: #102e59;
+  --accent-dark: #75c2ff;
+  --border: rgb(105 184 255 / 22%);
+  --muted: #9db4d2;
+}
+body { background: radial-gradient(circle at 80% 0, #0c3771 0, #06152f 34rem); }
+.brand-dock {
+  position: fixed; z-index: 120; inset-inline: 50%; bottom: 1rem; transform: translateX(50%);
+  width: min(calc(100% - 2rem), 70rem); min-height: 3.8rem; display: flex; align-items: center;
+  justify-content: space-between; gap: .8rem; border: 1px solid rgb(105 184 255 / 28%);
+  border-radius: 1.2rem; background: rgb(3 17 40 / 86%); padding: .55rem .7rem;
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 35%); backdrop-filter: blur(20px);
+}
+.dock-brand { display: flex; align-items: center; gap: .65rem; color: white; text-decoration: none; white-space: nowrap; }
+.dock-brand b { width: 2.55rem; aspect-ratio: 1; display: grid; place-items: center; border-radius: .8rem; background: linear-gradient(145deg,#2297ff,#0750aa); box-shadow: 0 0 1.3rem rgb(22 140 255 / 35%); direction:ltr; }
+.dock-brand span { color: #73c2ff; font-weight: 900; }
+.brand-dock .nav-session { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.brand-dock .nav-session a,.brand-dock .nav-session button { min-height: 2.65rem; display: inline-flex; align-items: center; gap: .35rem; border-radius: .7rem; color: #d8e9ff; text-decoration: none; white-space: nowrap; padding: .5rem .75rem; }
+.brand-dock .nav-session a:hover,.brand-dock .nav-session button:hover { background: rgb(22 140 255 / 16%); color: white; }
+.brand-dock .nav-cta { background: #147cf0; color: white !important; }
+.brand-dock .nav-register { border: 1px solid #3978b8; }
+.brand-dock .nav-session button { border: 0; background: transparent; font: inherit; cursor:pointer; }
+
+.live-hero { min-height: 100vh; grid-template-columns: minmax(25rem,1.05fr) minmax(23rem,.95fr); padding-bottom: 8rem; }
+.live-network { position: relative; z-index: 2; min-height: 33rem; display: grid; place-items: center; align-content: center; gap: 1.5rem; border: 1px solid rgb(84 166 255 / 20%); border-radius: 2rem; background: radial-gradient(circle at center,rgb(22 140 255 / 18%),transparent 52%),rgb(5 25 57 / 55%); overflow: hidden; }
+.network-orbit { position: relative; width: min(78%,24rem); aspect-ratio: 1; display:grid; place-items:center; }
+.orbit { position:absolute; inset:5%; border:1px solid rgb(72 170 255 / 30%); border-radius:50%; animation:orbitSpin 12s linear infinite; }
+.orbit::before { content:""; position:absolute; top:10%; left:12%; width:.7rem; aspect-ratio:1; border-radius:50%; background:#30dca0; box-shadow:0 0 1rem #30dca0; }
+.orbit-two { inset:20%; animation-direction:reverse; animation-duration:8s; border-style:dashed; }
+.network-core { width:8.5rem; aspect-ratio:1; display:grid; place-items:center; border-radius:2.2rem; background:linear-gradient(145deg,#198fff,#0754ba); color:white; text-align:center; font-size:1.35rem; line-height:1.3; box-shadow:0 0 0 1rem rgb(22 140 255 / 7%),0 0 4rem rgb(22 140 255 / 40%); animation:coreFloat 3s ease-in-out infinite; }
+.signal { position:absolute; width:1rem; aspect-ratio:1; border-radius:50%; background:#78caff; box-shadow:0 0 1rem #198fff; animation:signalPulse 2s ease-out infinite; }.signal-one{top:12%;right:26%}.signal-two{bottom:20%;left:8%;animation-delay:.6s}.signal-three{top:46%;left:2%;animation-delay:1.2s}
+.network-feed { width:min(88%,28rem); display:grid; gap:.55rem; }.network-feed p { display:flex; align-items:center; gap:.65rem; border:1px solid rgb(93 177 255 / 14%); border-radius:.8rem; background:rgb(255 255 255 / 4%); padding:.6rem .8rem; color:#b9d0eb; font-size:.82rem; animation:feedIn 4s ease-in-out infinite; }.network-feed p:nth-child(2){animation-delay:.4s}.network-feed p:nth-child(3){animation-delay:.8s}.network-feed span{width:.45rem;aspect-ratio:1;border-radius:50%;background:#30dca0;box-shadow:0 0 .7rem #30dca0}.network-caption{color:#78caff;font-size:.82rem}
+@keyframes orbitSpin { to { transform:rotate(360deg) } } @keyframes coreFloat { 50% { transform:translateY(-.55rem) } } @keyframes signalPulse { 70%,100% { box-shadow:0 0 0 1.2rem rgb(22 140 255 / 0%)} } @keyframes feedIn { 0%,100%{opacity:.55;transform:translateX(1rem)} 35%,75%{opacity:1;transform:none} }
+
+.identity-shell { min-height:100vh; padding:clamp(2rem,7vw,6rem) 1rem 7rem; background:radial-gradient(circle at 70% 10%,#0c3e7d,#06152f 45%); }
+.identity-card { width:min(100%,42rem); gap:1.25rem; border-color:var(--border); background:linear-gradient(145deg,rgb(13 43 86 / 92%),rgb(5 25 56 / 95%)); box-shadow:0 2rem 5rem rgb(0 0 0 / 28%); }
+.identity-card::before { content:"KD  ·  أنا مع خدمة"; color:#70c2ff; direction:ltr; font-weight:900; letter-spacing:.08em; }
+.identity-card h1 { color:white; font-size:clamp(2.2rem,7vw,4.5rem); }
+.identity-card label,.identity-card h2,.identity-card strong { color:#eef6ff; }.identity-card p { color:#b5c9e2; }
+.identity-card input,.identity-card select,.filter-group input,.filter-group select { border-color:var(--border); background:rgb(255 255 255 / 6%); color:white; }
+.identity-card option { color:#102033; }.foundation-action { display:inline-flex; align-items:center; justify-content:center; min-height:2.9rem; margin:0; background:linear-gradient(135deg,#168cff,#0d67d8); color:white; text-decoration:none; box-shadow:0 .65rem 1.5rem rgb(9 101 217 / 22%); }
+.foundation-list li,.member-panel { border-color:var(--border); background:rgb(255 255 255 / 4%); }
+.live-home { padding-bottom:5rem; }
+@media(max-width:64rem){.live-hero{grid-template-columns:1fr}.live-network{min-height:28rem}}
+@media(max-width:48rem){.brand-dock{inset-inline:.65rem;bottom:.65rem;width:auto;transform:none}.dock-brand span{display:none}.brand-dock .nav-discovery{display:none}.live-hero{padding-bottom:7rem}.live-network{min-height:24rem}.network-feed{display:none}}
+@media(prefers-reduced-motion:reduce){.orbit,.network-core,.signal,.network-feed p{animation:none}}
