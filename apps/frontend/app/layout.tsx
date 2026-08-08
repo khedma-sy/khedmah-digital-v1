@@ -62,6 +62,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="global-nav-links">
             <Link href="/">الرئيسية</Link>
             <Link href="/#province-map">المحافظات</Link>
+          <Link href="/" className="global-nav-brand"><span className="brand-symbol">K</span><span><b>KHEDMA</b><small>DIGITAL</small></span></Link>
+          <div className="global-nav-links">
+            <Link href="/">الرئيسية</Link><Link href="/#province-map">المحافظات</Link><Link href="/service-catalog">الخدمات</Link>
+            <Link href="/businesses/new" style={{ display: 'none' }} aria-hidden="true">.</Link>
+            <Link href="/business-profiles">أعمالي</Link>
+            <Link href="/professional-profiles">ملفي</Link>
             <AuthNavigation />
           </div>
         </nav>
