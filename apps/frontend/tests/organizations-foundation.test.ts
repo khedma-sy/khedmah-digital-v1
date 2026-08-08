@@ -7,7 +7,8 @@ test('organization screens render Arabic-first labels and loading states', async
   const create = await readFile(new URL('../app/organizations/new/page.tsx', import.meta.url), 'utf8');
   const details = await readFile(new URL('../app/organizations/[id]/page.tsx', import.meta.url), 'utf8');
 
-  assert.match(list, /منظماتي/);
+  assert.match(list, /مساحة الأعمال/);
+  assert.match(list, /تجمع فريقك وملفات أعمالك/);
   assert.match(create, /إنشاء منظمة/);
   assert.match(details, /تفاصيل المنظمة/);
   assert.match(list, /aria-busy/);

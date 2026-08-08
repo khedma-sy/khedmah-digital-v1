@@ -42,11 +42,11 @@ export default function OrganizationsPage() {
   }
 
   return (
-    <main id="foundation-content" className="identity-shell" aria-label="منظماتي">
+    <main id="foundation-content" className="identity-shell" aria-label="مساحة الأعمال">
       <section className="identity-card">
         <p className="eyebrow">Khedmah Digital V1</p>
-        <h1>منظماتي</h1>
-        <p>إدارة منظماتك وعضوياتك.</p>
+        <h1>مساحة الأعمال</h1>
+        <p>أنشئ جهة عمل تجمع فريقك وملفات أعمالك في مساحة واحدة. تظهر هنا الجهات التي تملكها أو تشارك في إدارتها.</p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={loadOrganizations}>
             {isLoading ? 'جاري التحديث...' : 'تحديث القائمة'}

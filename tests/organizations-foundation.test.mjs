@@ -31,7 +31,8 @@ test('organization frontend creates only list, create, and details pages', async
   const create = await read('apps/frontend/app/organizations/new/page.tsx');
   const details = await read('apps/frontend/app/organizations/[id]/page.tsx');
 
-  assert.match(list, /منظماتي/);
+  assert.match(list, /مساحة الأعمال/);
+  assert.match(list, /تجمع فريقك وملفات أعمالك/);
   assert.match(create, /إنشاء المنظمة/);
   assert.match(details, /تفاصيل المنظمة/);
   assert.doesNotMatch(`${list}\n${create}\n${details}`, /business profile|marketplace|payments|messaging|analytics/i);
