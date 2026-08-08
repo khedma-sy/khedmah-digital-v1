@@ -52,7 +52,7 @@ async function createFixture() {
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
       phone TEXT, email TEXT, website TEXT,
       category_code TEXT NOT NULL, city_code TEXT NOT NULL, country_code TEXT NOT NULL,
-      lat NUMERIC, lng NUMERIC, address_ar TEXT,
+      latitude NUMERIC, longitude NUMERIC, address_ar TEXT,
       is_featured BOOLEAN NOT NULL DEFAULT FALSE, featured_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
