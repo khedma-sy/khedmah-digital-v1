@@ -12,8 +12,17 @@ const BUSINESS_STEPS = ['أضف شعار عملك', 'أضف خدماتك', 'حد
 export default function WelcomePage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
+  const [cityName, setCityName] = useState('');
 
   useEffect(() => {
+    const welcome = sessionStorage.getItem('khedmah.welcome');
+    if (welcome) {
+      try {
+        setCityName((JSON.parse(welcome) as { cityName?: string }).cityName ?? '');
+      } catch {
+        sessionStorage.removeItem('khedmah.welcome');
+      }
+    }
     void api.auth.session().then(({ user: currentUser }) => setUser(currentUser)).catch(() => router.replace('/auth/login'));
   }, [router]);
 
@@ -25,6 +34,7 @@ export default function WelcomePage() {
         <p className="eyebrow">KHEDMA DIGITAL</p>
         <h1>مرحباً بك في خدمة ديجتل، {user.profile.displayName}</h1>
         <p>اختر المسار الذي يناسبك وابدأ بناء حضورك الرقمي خطوة بخطوة.</p>
+        {cityName ? <div className="city-welcome" role="status" aria-live="polite"><span className="city-welcome-pulse" /><div><strong>أهلاً {user.profile.displayName}، أصبحت ضمن شبكة {cityName}</strong><small>هذا الإشعار خاص بك؛ لن ننشر اسمك أو موقعك دون موافقتك.</small></div></div> : null}
       </header>
       <div className="welcome-grid">
         <section className="welcome-track">

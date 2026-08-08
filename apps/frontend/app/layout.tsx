@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} — دليل الأعمال`,
     description: 'منصة الأعمال الرقمية العربية — اكتشف الأعمال والمهنيين والخدمات.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'خدمة الرقمية' }]
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'خدمة ديجتل' }]
   },
   twitter: {
     card: 'summary_large_image',
@@ -58,6 +58,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           الانتقال إلى المحتوى
         </a>
         <nav className="global-nav" aria-label="التنقل الرئيسي">
+          <Link href="/" className="global-nav-brand" aria-label="خدمة ديجتل — الرئيسية"><span className="brand-symbol">KD</span><span><b>KHEDMA</b><small>DIGITAL</small></span></Link>
+          <div className="global-nav-links">
+            <Link href="/">الرئيسية</Link>
+            <Link href="/#province-map">المحافظات</Link>
           <Link href="/" className="global-nav-brand"><span className="brand-symbol">K</span><span><b>KHEDMA</b><small>DIGITAL</small></span></Link>
           <div className="global-nav-links">
             <Link href="/">الرئيسية</Link><Link href="/#province-map">المحافظات</Link><Link href="/service-catalog">الخدمات</Link>

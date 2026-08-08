@@ -9,6 +9,9 @@ This directory contains the Khedmah Digital V1 source-of-truth documentation.
 - [Repository Governance Status](governance/REPOSITORY-GOVERNANCE-STATUS.md)
 - [Repository Merge Policy](governance/REPOSITORY-MERGE-POLICY.md)
 - [Product](product/V1-SCOPE.md)
+- [Live Platform Information Architecture](product/LIVE-PLATFORM-INFORMATION-ARCHITECTURE.md)
+- [Interaction System Engineering and Design Audit](reports/khedmah-interaction-system-audit-2026-08-08.md)
+- [IQ10000 Interface Execution Report](reports/iq10000-interface-execution-2026-08-08.md)
 - [MVP Definition](product/KHEDMAH-DIGITAL-MVP-DEFINITION.md)
 - [Vision](vision/STRATEGIC-BLUEPRINT.md)
 - [Architecture](architecture/SYSTEM-ARCHITECTURE-OVERVIEW.md)
@@ -16,6 +19,7 @@ This directory contains the Khedmah Digital V1 source-of-truth documentation.
 - [Operations](operations/DEFINITION-OF-DONE.md)
 - [Decisions](decisions/README.md)
 - [Reports](reports/repository-governance-closure-audit-2026-07-27.md)
+- [Live Platform Next-Merge Issue Register](reports/live-platform-next-merge-issues-2026-08-08.md)
 
 ## Google production foundation
 
