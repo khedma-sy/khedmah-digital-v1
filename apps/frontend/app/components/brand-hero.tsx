@@ -1,8 +1,6 @@
 import { SyriaMap } from './syria-map';
 import { PlatformAction } from './platform-action';
 import { PlatformIcon } from './platform-icon';
-import Link from 'next/link';
-import { SyriaMap } from './syria-map';
 
 export function BrandHero() {
   return (
