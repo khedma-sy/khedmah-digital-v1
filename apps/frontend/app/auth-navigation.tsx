@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../lib/api-client';
+import { PlatformIcon } from './components/platform-icon';
 
 function DiscoveryLinks() {
   return (
@@ -19,6 +20,8 @@ export function AuthNavigation() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -37,11 +40,16 @@ export function AuthNavigation() {
   }, [pathname]);
 
   async function logout() {
+    setIsLoggingOut(true);
+    setLogoutError('');
     try {
       await api.auth.logout();
-    } finally {
       setUser(null);
       router.replace('/');
+    } catch {
+      setLogoutError('تعذر تسجيل الخروج. حاول مرة أخرى.');
+    } finally {
+      setIsLoggingOut(false);
     }
   }
 
@@ -53,8 +61,8 @@ export function AuthNavigation() {
     return (
       <div className="nav-session" data-auth-state="guest">
         <DiscoveryLinks />
-        <Link href="/auth/login" className="nav-cta">دخول</Link>
-        <Link href="/auth/register" className="nav-register">إنشاء حساب</Link>
+        <Link href="/auth/login" className="nav-cta"><PlatformIcon name="lock" size={17}/>دخول</Link>
+        <Link href="/auth/register" className="nav-register"><PlatformIcon name="userPlus" size={17}/>إنشاء حساب</Link>
       </div>
     );
   }
@@ -64,9 +72,9 @@ export function AuthNavigation() {
       <DiscoveryLinks />
       <Link href="/business-profiles">أعمالي</Link>
       <Link href="/organizations">منظماتي</Link>
-      <Link href="/users/me">الملف الشخصي</Link>
-      <Link href="/users/me" className="nav-cta nav-user">{user.profile.displayName}</Link>
-      <button className="nav-logout" type="button" onClick={logout}>تسجيل الخروج</button>
+      <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>
+      <button className="nav-logout" type="button" onClick={logout} disabled={isLoggingOut} aria-busy={isLoggingOut}><PlatformIcon name="logout" size={17}/>{isLoggingOut ? 'جاري الخروج...' : 'تسجيل الخروج'}</button>
+      {logoutError ? <span className="nav-action-error" role="alert">{logoutError}</span> : null}
     </div>
   );
 }
