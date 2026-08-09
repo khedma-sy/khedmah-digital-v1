@@ -158,6 +158,13 @@ export interface ApiError {
   readonly statusCode: number;
 }
 
+export interface ContactInquiryReceipt {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly status: 'submitted';
+  readonly createdAt: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
@@ -332,6 +339,12 @@ export const api = {
     },
     getTrustHistory(id: string) {
       return request<{ history: TrustHistoryEntry[] }>(`/businesses/${id}/trust-history`);
+    },
+    submitInquiry(id: string, data: { name: string; contactEmail: string; message: string }) {
+      return request<{ inquiry: ContactInquiryReceipt }>(`/businesses/${id}/inquiries`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
     }
   },
   professionals: {
