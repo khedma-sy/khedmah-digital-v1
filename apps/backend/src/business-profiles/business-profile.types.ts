@@ -22,6 +22,10 @@ export interface BusinessProfile {
   readonly lng?: number;
   readonly addressAr?: string;
   readonly isFeatured: boolean;
+  readonly serviceRadius?: number;
+  readonly availability?: 'available' | 'busy' | 'unavailable';
+  readonly rating?: number;
+  readonly responseSpeedMinutes?: number;
   readonly featuredAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -45,6 +49,12 @@ export interface PublicBusinessProfile {
   readonly lng?: number;
   readonly addressAr?: string;
   readonly isFeatured: boolean;
+  readonly serviceRadius?: number;
+  readonly availability?: 'available' | 'busy' | 'unavailable';
+  readonly rating?: number;
+  readonly responseSpeedMinutes?: number;
+  readonly distanceKm?: number;
+  readonly matchScore?: number;
   readonly createdAt: string;
 }
 

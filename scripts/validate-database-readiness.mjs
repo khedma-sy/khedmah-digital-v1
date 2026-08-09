@@ -28,6 +28,10 @@ const EXPECTED_MIGRATIONS = [
   '005_email_verifications_and_admin_roles_rollback.sql',
   '006_media_assets.sql',
   '006_media_assets_rollback.sql',
+  '007_v2_marketplace.sql',
+  '007_v2_marketplace_rollback.sql',
+  '008_provider_service_radius.sql',
+  '008_provider_service_radius_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = [
@@ -83,7 +87,7 @@ for (const filename of EXPECTED_MIGRATIONS) {
   const filepath = join(MIGRATIONS_DIR, filename);
   if (!existsSync(filepath)) continue;
   const content = readFileSync(filepath, 'utf8');
-  check(`${filename} has CREATE TABLE`, content.includes('CREATE TABLE'));
+  check(`${filename} has schema DDL`, /\b(?:CREATE|ALTER)\s+TABLE\b/.test(content));
   const rollbackFile = filename.replace('.sql', '_rollback.sql');
   const rollbackPath = join(MIGRATIONS_DIR, rollbackFile);
   check(`${filename} has rollback script`, existsSync(rollbackPath));

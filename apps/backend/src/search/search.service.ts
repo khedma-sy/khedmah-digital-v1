@@ -6,6 +6,7 @@ import { PublicServiceListing } from '../service-catalog/service-catalog.types';
 import { PublicSearchRequest } from './dto/search.dto';
 import { SearchResults } from './search.types';
 import { validatePublicSearchRequest } from './search.validation';
+import { rankProviders } from './provider-ranking';
 
 @Injectable()
 export class SearchService {
@@ -23,11 +24,13 @@ export class SearchService {
     let total = 0;
 
     if (input.type === 'all' || input.type === 'business') {
+      const businessLimit = input.map ? 200 : limit;
+      const businessOffset = input.map ? 0 : offset;
       const [profiles, profileTotal] = await Promise.all([
-        this.businessProfiles.listPublicApproved({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode }, limit, offset),
-        this.businessProfiles.countPublicApproved({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode })
+        this.businessProfiles.listPublicApproved({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode, boundaries: input.boundaries }, businessLimit, businessOffset),
+        this.businessProfiles.countPublicApproved({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode, boundaries: input.boundaries })
       ]);
-      businesses = profiles.map((profile) => ({
+      businesses = rankProviders(profiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
         descriptionAr: profile.descriptionAr,
@@ -45,8 +48,12 @@ export class SearchService {
         lng: profile.lng,
         addressAr: profile.addressAr,
         isFeatured: profile.isFeatured,
+        serviceRadius: profile.serviceRadius,
+        availability: profile.availability,
+        rating: profile.rating,
+        responseSpeedMinutes: profile.responseSpeedMinutes,
         createdAt: profile.createdAt
-      }));
+      })), input.q, input.latitude !== undefined && input.longitude !== undefined ? { latitude: input.latitude, longitude: input.longitude } : undefined);
       total += profileTotal;
     }
 
