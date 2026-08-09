@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { PlatformIcon } from './components/platform-icon';
+import { KHEDMAH_HERO_IMAGE } from '../lib/brand-hero-image';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 export const metadata: Metadata = { title: 'الرئيسية — خدمة ديجتل', description: 'ابحث عن الخدمات الموثوقة حولك.', alternates: { canonical: SITE_URL } };
 
-const categories = [
-  ['home', 'خدمات منزلية', 'service_business'], ['car', 'سيارات', 'workshop'], ['briefcase', 'خدمات أعمال', 'consultant'],
-  ['car', 'نقل ومواصلات', 'freelancer'], ['tools', 'صيانة', 'service_business']
-] as const;
+export const metadata: Metadata = {
+  title: 'خدمة ديجتل — تحت مظلة واحدة',
+  description: 'اكتشف الخدمات ومقدميها في المحافظات السورية تحت مظلة خدمة ديجتل.',
+  alternates: { canonical: SITE_URL }
+};
 
 export default function Home() {
   return (
