@@ -9,7 +9,7 @@ import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactAccessError, ContactRateLimitError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
 import { ContactRepository } from './contact.repository';
-import { BusinessProfileTrustStatus, BusinessProfileVisibility, ContactActionEvent, ContactBusinessProfileSnapshot, ContactInquiry, PublicContactActionReceipt, PublicContactInquiryReceipt } from './contact.types';
+import { BusinessProfileTrustStatus, BusinessProfileVisibility, ContactActionEvent, ContactBusinessProfileSnapshot, ContactInquiry, ProviderContactInquiry, PublicContactActionReceipt, PublicContactInquiryReceipt } from './contact.types';
 import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
 import { validateBusinessProfileId, validateSubmitContactInquiry, validateTrackContactClick } from './contact.validation';
 
@@ -97,6 +97,29 @@ export class ContactService {
       actionType: event.actionType,
       trackedAt: event.createdAt
     };
+  }
+
+  async listReceivedInquiries(cookieHeader: string | undefined, businessProfileIdValue: string): Promise<ProviderContactInquiry[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
+    const business = await this.contacts.findBusinessProfileSnapshot(businessProfileId);
+    if (!business) {
+      throw new ContactBusinessUnavailableError();
+    }
+    if (business.ownerUserId !== actor.id) {
+      throw new ContactAccessError();
+    }
+
+    const inquiries = await this.contacts.listContactInquiries(businessProfileId);
+    return inquiries.map((inquiry) => ({
+      id: inquiry.id,
+      businessProfileId: inquiry.businessProfileId,
+      name: inquiry.name,
+      contactEmail: inquiry.contactEmail,
+      message: inquiry.message,
+      status: inquiry.status,
+      createdAt: inquiry.createdAt
+    }));
   }
 
   private async requirePublicApprovedBusiness(businessProfileId: string): Promise<ContactBusinessProfileSnapshot> {

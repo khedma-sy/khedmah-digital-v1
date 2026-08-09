@@ -100,11 +100,11 @@ export default function BusinessProfilesPage() {
                 </div>
                 <div className="card-footer">
                   <Link
-                    href={`/business-profiles/${profile.id}`}
+                    href={`/business-profiles/${profile.id}/manage`}
                     className="foundation-action"
                     style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                   >
-                    عرض الملف
+                    إدارة الملف
                   </Link>
                 </div>
               </article>

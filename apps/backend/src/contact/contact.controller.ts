@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Post } from '@nestjs/common';
 import { ContactService } from './contact.service';
 import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
 
@@ -13,6 +13,14 @@ export class ContactController {
     @Body() body: SubmitContactInquiryRequest
   ) {
     return { inquiry: await this.contactService.submitInquiry(cookieHeader, businessProfileId, body) };
+  }
+
+  @Get('inquiries')
+  async listReceivedInquiries(
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Param('businessProfileId') businessProfileId: string
+  ) {
+    return { inquiries: await this.contactService.listReceivedInquiries(cookieHeader, businessProfileId) };
   }
 
   @Post('contact-click')

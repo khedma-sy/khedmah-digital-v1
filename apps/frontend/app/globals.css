@@ -30,6 +30,10 @@ body {
   font-family: Arial, "Noto Sans Arabic", sans-serif;
 }
 
+body:has(.discovery-home) .dock-brand {
+  display: none;
+}
+
 .skip-link {
   position: absolute;
   inset-block-start: 1rem;

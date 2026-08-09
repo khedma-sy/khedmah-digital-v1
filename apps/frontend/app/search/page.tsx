@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
+import { PlatformIcon } from '../components/platform-icon';
 
 const CITIES = [
   { code: 'damascus', label: 'دمشق' },
@@ -28,15 +29,15 @@ const CATEGORIES = [
 ];
 
 function trustLabel(status: string) {
-  if (status === 'approved') return <span className="badge badge-approved">✓ معتمد</span>;
-  if (status === 'suspended') return <span className="badge badge-suspended">✗ موقوف</span>;
-  return <span className="badge badge-pending">⏳ قيد المراجعة</span>;
+  if (status === 'approved') return <span className="badge badge-approved"><PlatformIcon name="check" size={14} /> معتمد</span>;
+  if (status === 'suspended') return <span className="badge badge-suspended"><PlatformIcon name="close" size={14} /> موقوف</span>;
+  return <span className="badge badge-pending">قيد المراجعة</span>;
 }
 
 function availLabel(av: string) {
-  if (av === 'available') return <span className="badge badge-available">🟢 متاح</span>;
-  if (av === 'busy') return <span className="badge badge-busy">🟡 مشغول</span>;
-  return <span className="badge badge-unavailable">🔴 غير متاح</span>;
+  if (av === 'available') return <span className="badge badge-available">متاح</span>;
+  if (av === 'busy') return <span className="badge badge-busy">مشغول</span>;
+  return <span className="badge badge-unavailable">غير متاح</span>;
 }
 
 function priceLabel(type: string) {
@@ -179,7 +180,8 @@ function SearchContent() {
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             <button type="submit" className="filter-action" aria-busy={isLoading} disabled={isLoading}>
-              {isLoading ? 'جاري...' : 'بحث'}
+              {!isLoading && <PlatformIcon name="search" size={18} />}
+              {isLoading ? 'جاري البحث...' : 'بحث'}
             </button>
             {(q || cityCode || categoryCode) && (
               <button
@@ -240,7 +242,7 @@ function SearchContent() {
                       </div>
                       <div className="card-footer">
                         <Link href={`/business-profiles/${b.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض الملف
+                          عرض الملف <PlatformIcon name="arrow" size={16} />
                         </Link>
                       </div>
                     </article>
@@ -270,7 +272,7 @@ function SearchContent() {
                       </div>
                       <div className="card-footer">
                         <Link href={`/professional-profiles/${p.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض الملف
+                          عرض الملف <PlatformIcon name="arrow" size={16} />
                         </Link>
                       </div>
                     </article>
@@ -299,6 +301,15 @@ function SearchContent() {
                           </p>
                         )}
                       </div>
+                      <div className="card-footer">
+                        <Link
+                          href={s.ownerType === 'business' ? `/business-profiles/${s.ownerId}` : `/professional-profiles/${s.ownerId}`}
+                          className="foundation-action"
+                          style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'flex', fontSize: '0.875rem', padding: '0.5rem 1rem', gap: '0.4rem' }}
+                        >
+                          عرض مقدم الخدمة <PlatformIcon name="arrow" size={16} />
+                        </Link>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -308,7 +319,7 @@ function SearchContent() {
             {/* Empty state */}
             {businesses.length === 0 && professionals.length === 0 && services.length === 0 && (
               <div className="empty-state">
-                <span className="empty-state-icon" aria-hidden="true">🔍</span>
+                <span className="empty-state-icon" aria-hidden="true"><PlatformIcon name="search" size={42} /></span>
                 <h2>لا توجد نتائج</h2>
                 <p>جرّب كلمة بحث مختلفة أو قم بتوسيع نطاق البحث.</p>
                 <button type="button" className="filter-action" onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); }}>
@@ -339,7 +350,7 @@ function SearchContent() {
         {/* Initial state before search */}
         {!searched && !isLoading && (
           <div className="empty-state" style={{ paddingTop: '3rem' }}>
-            <span className="empty-state-icon" aria-hidden="true">🗺</span>
+            <span className="empty-state-icon" aria-hidden="true"><PlatformIcon name="pin" size={42} /></span>
             <h2>ابدأ البحث</h2>
             <p>أدخل كلمة بحث أو اختر مدينة وتصنيفاً للعثور على الأعمال والمهنيين.</p>
           </div>

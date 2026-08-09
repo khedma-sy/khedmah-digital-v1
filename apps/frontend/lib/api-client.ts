@@ -158,6 +158,23 @@ export interface ApiError {
   readonly statusCode: number;
 }
 
+export interface ContactInquiryReceipt {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly status: 'submitted';
+  readonly createdAt: string;
+}
+
+export interface ProviderContactInquiry {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly name: string;
+  readonly contactEmail: string;
+  readonly message: string;
+  readonly status: 'submitted';
+  readonly createdAt: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
@@ -332,6 +349,15 @@ export const api = {
     },
     getTrustHistory(id: string) {
       return request<{ history: TrustHistoryEntry[] }>(`/businesses/${id}/trust-history`);
+    },
+    submitInquiry(id: string, data: { name: string; contactEmail: string; message: string }) {
+      return request<{ inquiry: ContactInquiryReceipt }>(`/businesses/${id}/inquiries`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    listReceivedInquiries(id: string) {
+      return request<{ inquiries: ProviderContactInquiry[] }>(`/businesses/${id}/inquiries`);
     }
   },
   professionals: {
@@ -410,6 +436,12 @@ export const api = {
     },
     listForOwner(ownerId: string, ownerType: string) {
       return request<{ services: PublicServiceListing[] }>(`/services/owner/${ownerId}?ownerType=${ownerType}`);
+    },
+    update(id: string, data: Partial<{ titleAr: string; descriptionAr: string; categoryCode: string; price: number; priceCurrency: string; priceType: string; status: string }>) {
+      return request<{ service: PublicServiceListing }>(`/services/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
     },
     getFeatured() {
       return request<{ services: PublicServiceListing[] }>('/services/featured');

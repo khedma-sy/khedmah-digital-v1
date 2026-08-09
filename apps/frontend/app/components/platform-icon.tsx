@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -8,7 +8,9 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   pin: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
   arrow: <path d="M19 12H5m6-6-6 6 6 6"/>,
-  logout: <><path d="M10 4H5v16h5M14 8l4 4-4 4m4-4H9"/></>
+  logout: <><path d="M10 4H5v16h5M14 8l4 4-4 4m4-4H9"/></>,
+  check: <path d="m5 12 4 4L19 6"/>,
+  close: <path d="m6 6 12 12M18 6 6 18"/>
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {

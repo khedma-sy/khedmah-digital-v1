@@ -34,9 +34,9 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   const organizations = await read('app/organizations/page.tsx');
   const admin = await read('app/admin/page.tsx');
 
-  for (const href of ['/service-catalog', '/locations', '/search']) {
-    assert.match(home, new RegExp(`href=\\"${href}`));
-  }
+  assert.match(home, /action="\/search"/);
+  assert.match(home, /href="\/search\?type=business"/);
+  assert.match(home, /name="cityCode"/);
 
   for (const href of ['/business-profiles', '/professional-profiles', '/service-catalog', '/locations', '/search']) {
     assert.match(organizations, new RegExp(`href=\\"${href}\\"`));
