@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
+import { ContactInquiryForm } from './contact-inquiry-form';
 
 const CATEGORY_LABELS: Record<string, string> = {
   restaurant: 'مطعم',
@@ -215,6 +216,9 @@ export default function BusinessProfilePage() {
 
             {/* Action bar */}
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+              {business.visibility === 'public' && business.trustStatus === 'approved' && (
+                <ContactInquiryForm businessProfileId={business.id} businessName={business.name} />
+              )}
               <button type="button" onClick={() => router.back()} className="filter-action-secondary">← رجوع</button>
               {business.phone && (
                 <a href={`tel:${business.phone}`} className="filter-action-secondary" style={{ textDecoration: 'none' }}>📞 اتصل</a>
@@ -414,5 +418,4 @@ export default function BusinessProfilePage() {
     </main>
   );
 }
-
 
