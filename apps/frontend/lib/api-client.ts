@@ -36,6 +36,12 @@ export interface PublicBusinessProfile {
   readonly addressAr?: string;
   readonly isFeatured: boolean;
   readonly createdAt: string;
+  readonly serviceRadius?: number;
+  readonly availability?: 'available' | 'busy' | 'unavailable';
+  readonly rating?: number;
+  readonly responseSpeedMinutes?: number;
+  readonly distanceKm?: number;
+  readonly matchScore?: number;
 }
 
 export interface PublicProfessionalProfile {
@@ -472,13 +478,22 @@ export const api = {
     }
   },
   search: {
-    query(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number; type?: string }) {
+    query(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number; type?: string; map?: boolean; boundaries?: { south: number; west: number; north: number; east: number }; latitude?: number; longitude?: number }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
       if (params.type) qs.set('type', params.type);
+      if (params.map) qs.set('map', 'true');
+      if (params.boundaries) {
+        qs.set('south', String(params.boundaries.south));
+        qs.set('west', String(params.boundaries.west));
+        qs.set('north', String(params.boundaries.north));
+        qs.set('east', String(params.boundaries.east));
+      }
+      if (params.latitude !== undefined) qs.set('latitude', String(params.latitude));
+      if (params.longitude !== undefined) qs.set('longitude', String(params.longitude));
       return request<SearchResults>(`/search?${qs}`);
     }
   }

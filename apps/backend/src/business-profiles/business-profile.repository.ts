@@ -25,6 +25,10 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
+  readonly service_radius?: string;
+  readonly availability?: string;
+  readonly rating?: string;
+  readonly response_speed_minutes?: number;
 }
 
 @Injectable()
@@ -91,8 +95,12 @@ export class BusinessProfileRepository {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at
-       FROM business_profiles
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
        WHERE id = $1
        LIMIT 1`,
       [id]
@@ -104,8 +112,12 @@ export class BusinessProfileRepository {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at
-       FROM business_profiles
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
        WHERE owner_user_id = $1
        ORDER BY created_at DESC`,
       [userId]
@@ -113,13 +125,17 @@ export class BusinessProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
+  async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at
-       FROM business_profiles
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
        ${where}
        ORDER BY is_featured DESC, created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -132,8 +148,12 @@ export class BusinessProfileRepository {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at
-       FROM business_profiles
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
        WHERE visibility = 'public' AND trust_status = 'approved' AND status = 'active' AND is_featured = TRUE
        ORDER BY featured_at DESC
        LIMIT $1`,
@@ -146,8 +166,12 @@ export class BusinessProfileRepository {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at
-       FROM business_profiles
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
        WHERE visibility = 'public' AND trust_status = 'approved' AND status = 'active'
        ORDER BY created_at DESC
        LIMIT $1`,
@@ -156,7 +180,7 @@ export class BusinessProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async countPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string }): Promise<number> {
+  async countPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }): Promise<number> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM business_profiles ${where}`,
@@ -314,7 +338,7 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, entityType: r.entity_type, entityId: r.entity_id, oldStatus: r.old_status ?? undefined, newStatus: r.new_status, changedBy: r.changed_by ?? undefined, reason: r.reason ?? undefined, createdAt: r.created_at.toISOString() }));
   }
 
-  private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string }) {
+  private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }) {
     const clauses = ["visibility = 'public'", "trust_status = 'approved'", "status = 'active'"];
     const params: unknown[] = [];
 
@@ -328,7 +352,12 @@ export class BusinessProfileRepository {
     }
     if (filters.q) {
       params.push(`%${filters.q}%`);
-      clauses.push(`name ILIKE $${params.length}`);
+      clauses.push(`(name ILIKE $${params.length} OR COALESCE(description_ar, '') ILIKE $${params.length} OR COALESCE(description_en, '') ILIKE $${params.length} OR category_code ILIKE $${params.length})`);
+    }
+    if (filters.boundaries) {
+      params.push(filters.boundaries.south, filters.boundaries.north, filters.boundaries.west, filters.boundaries.east);
+      clauses.push(`lat BETWEEN $${params.length - 3} AND $${params.length - 2}`);
+      clauses.push(`lng BETWEEN $${params.length - 1} AND $${params.length}`);
     }
 
     return {
@@ -360,7 +389,11 @@ export class BusinessProfileRepository {
       isFeatured: row.is_featured,
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
+      updatedAt: row.updated_at.toISOString(),
+      serviceRadius: Number(row.service_radius ?? 25),
+      availability: (row.availability ?? 'available') as BusinessProfile['availability'],
+      rating: Number(row.rating ?? 0),
+      responseSpeedMinutes: Number(row.response_speed_minutes ?? 1440)
     };
   }
 

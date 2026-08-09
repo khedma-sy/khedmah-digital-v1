@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
 import { ContactInquiryForm } from './contact-inquiry-form';
+import { ProviderQrAction } from './provider-qr-action';
 
 const CATEGORY_LABELS: Record<string, string> = {
   restaurant: 'مطعم',
@@ -229,6 +230,7 @@ export default function BusinessProfilePage() {
               {business.website && (
                 <a href={business.website} target="_blank" rel="noopener noreferrer" className="filter-action-secondary" style={{ textDecoration: 'none' }}>🌐 الموقع</a>
               )}
+              <ProviderQrAction providerName={business.name} />
               <button type="button" onClick={handleShare} className="filter-action-secondary" style={{ position: 'relative' }}>
                 🔗 مشاركة
                 {shareMsg && <span style={{ position: 'absolute', top: '-2rem', right: 0, background: 'var(--foreground)', color: 'var(--surface)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{shareMsg}</span>}
