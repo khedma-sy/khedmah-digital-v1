@@ -68,3 +68,13 @@ test('approved actions use the unified SVG icon system', async () => {
   assert.match(home, /PlatformIcon/);
   assert.doesNotMatch(home, /[🏢👤📍🔍✨✦⌖]/u);
 });
+
+test('service discovery always leads to the real provider profile', async () => {
+  const search = await read('app/search/page.tsx');
+
+  assert.match(search, /s\.ownerType === 'business'/);
+  assert.match(search, /`\/business-profiles\/\$\{s\.ownerId\}`/);
+  assert.match(search, /`\/professional-profiles\/\$\{s\.ownerId\}`/);
+  assert.match(search, /عرض مقدم الخدمة/);
+  assert.doesNotMatch(search, /[🔍🗺🟢🟡🔴]/u);
+});

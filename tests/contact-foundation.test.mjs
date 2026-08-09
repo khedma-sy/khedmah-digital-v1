@@ -9,6 +9,7 @@ test('contact backend exposes only approved inquiry and contact click endpoints'
 
   assert.match(controller, /@Controller\('businesses\/:businessProfileId'\)/);
   assert.match(controller, /@Post\('inquiries'\)/);
+  assert.match(controller, /@Get\('inquiries'\)/);
   assert.match(controller, /@Post\('contact-click'\)/);
   assert.doesNotMatch(controller, /message|chat|conversation|marketplace|payment|advertising|ranking|recommendation|community/i);
 });
@@ -24,6 +25,8 @@ test('contact service enforces approval, validation, audit, abuse, rate limit, a
   assert.match(service, /trustStatus !== 'approved'/);
   assert.match(service, /contact\.inquiry\.submitted/);
   assert.match(service, /toPublicInquiryReceipt/);
+  assert.match(service, /business\.ownerUserId !== actor\.id/);
+  assert.match(service, /listContactInquiries/);
   assert.match(validation, /EMAIL_PATTERN/);
   assert.match(rateLimit, /RateLimitDecision/);
   assert.match(abuse, /shouldBlockInquiry/);

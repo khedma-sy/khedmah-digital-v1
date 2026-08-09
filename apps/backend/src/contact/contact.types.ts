@@ -30,6 +30,16 @@ export interface PublicContactInquiryReceipt {
   readonly createdAt: string;
 }
 
+export interface ProviderContactInquiry {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly name: string;
+  readonly contactEmail: string;
+  readonly message: string;
+  readonly status: ContactInquiryStatus;
+  readonly createdAt: string;
+}
+
 export interface ContactActionEvent {
   readonly id: string;
   readonly businessProfileId: string;
