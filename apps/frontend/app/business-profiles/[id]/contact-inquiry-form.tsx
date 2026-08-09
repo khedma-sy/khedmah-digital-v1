@@ -1,94 +1,138 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { api } from '../../../lib/api-client';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { api, ContactInquiryReceipt } from '../../../lib/api-client';
+import styles from './contact-inquiry-form.module.css';
 
 interface ContactInquiryFormProps {
   readonly businessProfileId: string;
   readonly businessName: string;
 }
 
+type SubmissionState = 'idle' | 'submitting' | 'submitted';
+
+function inquiryErrorMessage(error: unknown): string {
+  const statusCode = error instanceof Error
+    ? (error as Error & { statusCode?: number }).statusCode
+    : undefined;
+
+  if (statusCode === 401) return 'سجّل الدخول أولاً لإرسال طلب الخدمة.';
+  if (statusCode === 403) return 'تعذر قبول هذا الطلب. راجع محتواه ثم حاول مرة أخرى.';
+  if (statusCode === 404) return 'ملف العمل غير متاح لاستقبال الطلبات حالياً.';
+  if (statusCode === 429) return 'تم إرسال عدة طلبات خلال وقت قصير. يرجى المحاولة لاحقاً.';
+  return 'تعذر إرسال الطلب الآن. لم يتم تسجيل طلبك؛ حاول مرة أخرى.';
+}
+
 export function ContactInquiryForm({ businessProfileId, businessName }: ContactInquiryFormProps) {
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
+  const [receipt, setReceipt] = useState<ContactInquiryReceipt | null>(null);
   const [error, setError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) nameInputRef.current?.focus();
+  }, [isOpen]);
+
+  function openForm() {
+    setError('');
+    setIsOpen(true);
+  }
+
+  function closeForm() {
+    setIsOpen(false);
+    requestAnimationFrame(() => openButtonRef.current?.focus());
+  }
+
+  function resetForm() {
+    setName('');
+    setContactEmail('');
+    setMessage('');
+    setReceipt(null);
+    setError('');
+    setSubmissionState('idle');
+    requestAnimationFrame(() => nameInputRef.current?.focus());
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submissionState === 'submitting') return;
+
     setError('');
-    setIsSubmitting(true);
+    setSubmissionState('submitting');
 
     try {
-      await api.businesses.submitInquiry(businessProfileId, { name, contactEmail, message });
-      setSubmitted(true);
-    } catch (err) {
-      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
-      if (statusCode === 401) {
-        setError('سجّل الدخول أولاً لإرسال طلب الخدمة.');
-      } else if (statusCode === 429) {
-        setError('تم إرسال عدة طلبات خلال وقت قصير. يرجى المحاولة لاحقاً.');
-      } else {
-        setError('تعذر إرسال الطلب الآن. راجع البيانات وحاول مرة أخرى.');
-      }
-    } finally {
-      setIsSubmitting(false);
+      const result = await api.businesses.submitInquiry(businessProfileId, {
+        name: name.trim(),
+        contactEmail: contactEmail.trim(),
+        message: message.trim()
+      });
+      setReceipt(result.inquiry);
+      setSubmissionState('submitted');
+    } catch (submissionError) {
+      setError(inquiryErrorMessage(submissionError));
+      setSubmissionState('idle');
     }
   }
 
-  if (!isOpen) {
-    return (
-      <button type="button" className="service-request-button" onClick={() => setIsOpen(true)}>
+  return (
+    <div className={styles.experience}>
+      <button ref={openButtonRef} type="button" className={styles.primaryButton} onClick={openForm} aria-expanded={isOpen} aria-controls="contact-inquiry-panel">
         اطلب الخدمة
       </button>
-    );
-  }
 
-  if (submitted) {
-    return (
-      <section className="inquiry-success" aria-live="polite" aria-labelledby="inquiry-success-title">
-        <span className="inquiry-success-icon" aria-hidden="true">✓</span>
-        <div>
-          <h2 id="inquiry-success-title">تم إرسال طلبك بنجاح</h2>
-          <p>وصل استفسارك إلى {businessName}. لا يُعد الإرسال تأكيداً للحجز أو موعداً لتقديم الخدمة.</p>
-        </div>
-      </section>
-    );
-  }
+      {isOpen && (
+        <section id="contact-inquiry-panel" className={styles.panel} aria-labelledby="inquiry-title">
+          {submissionState === 'submitted' && receipt ? (
+            <div className={styles.success} role="status" aria-live="polite">
+              <span className={styles.successIcon} aria-hidden="true">✓</span>
+              <div>
+                <p className={styles.kicker}>تم تسجيل الاستفسار</p>
+                <h2 id="inquiry-title">تم إرسال طلبك بنجاح</h2>
+                <p>وصل استفسارك إلى {businessName}. لا يُعد الإرسال تأكيداً للحجز أو موعداً لتقديم الخدمة.</p>
+                <p className={styles.receipt}>رقم المتابعة: <bdi>{receipt.id}</bdi></p>
+                <div className={styles.successActions}>
+                  <button type="button" className={styles.secondaryButton} onClick={resetForm}>إرسال استفسار آخر</button>
+                  <button type="button" className={styles.textButton} onClick={closeForm}>إغلاق</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <header className={styles.heading}>
+                <div>
+                  <p className={styles.kicker}>تواصل حقيقي ومباشر</p>
+                  <h2 id="inquiry-title">اطلب الخدمة من {businessName}</h2>
+                  <p>اشرح احتياجك بوضوح ليتمكن مقدم الخدمة من التواصل معك.</p>
+                </div>
+                <button type="button" className={styles.closeButton} onClick={closeForm} aria-label="إغلاق نموذج طلب الخدمة">×</button>
+              </header>
 
-  return (
-    <section className="inquiry-panel" aria-labelledby="inquiry-title">
-      <div className="inquiry-heading">
-        <div>
-          <p className="eyebrow">تواصل حقيقي ومباشر</p>
-          <h2 id="inquiry-title">اطلب الخدمة من {businessName}</h2>
-          <p>أرسل تفاصيل احتياجك وبيانات التواصل ليتمكن مقدم الخدمة من الرد عليك.</p>
-        </div>
-        <button type="button" className="inquiry-close" onClick={() => setIsOpen(false)} aria-label="إغلاق نموذج طلب الخدمة">×</button>
-      </div>
+              <form className={styles.form} onSubmit={handleSubmit} aria-busy={submissionState === 'submitting'}>
+                <label htmlFor="inquiry-name">الاسم</label>
+                <input ref={nameInputRef} id="inquiry-name" name="name" value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={120} autoComplete="name" required />
 
-      <form className="inquiry-form" onSubmit={handleSubmit}>
-        <label>
-          الاسم
-          <input name="name" value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={100} autoComplete="name" required />
-        </label>
-        <label>
-          البريد الإلكتروني
-          <input name="contactEmail" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} type="email" maxLength={254} autoComplete="email" required />
-        </label>
-        <label>
-          ما الخدمة التي تحتاجها؟
-          <textarea name="message" value={message} onChange={(event) => setMessage(event.target.value)} minLength={10} maxLength={2000} rows={5} required />
-        </label>
-        <p className="inquiry-privacy">تُستخدم بياناتك لهذا الاستفسار فقط، ولن تظهر علناً في ملف العمل.</p>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <button type="submit" className="service-request-button" disabled={isSubmitting}>
-          {isSubmitting ? 'جارٍ إرسال الطلب…' : 'إرسال طلب الخدمة'}
-        </button>
-      </form>
-    </section>
+                <label htmlFor="inquiry-email">البريد الإلكتروني</label>
+                <input id="inquiry-email" name="contactEmail" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} type="email" minLength={3} maxLength={254} autoComplete="email" dir="ltr" required />
+
+                <label htmlFor="inquiry-message">ما الخدمة التي تحتاجها؟</label>
+                <textarea id="inquiry-message" name="message" value={message} onChange={(event) => setMessage(event.target.value)} minLength={10} maxLength={2000} rows={5} aria-describedby="inquiry-message-help inquiry-privacy" required />
+                <p id="inquiry-message-help" className={styles.help}>اكتب 10 أحرف على الأقل، وتجنب إدخال كلمات المرور أو البيانات الحساسة.</p>
+
+                <p id="inquiry-privacy" className={styles.privacy}>تُستخدم بياناتك لهذا الاستفسار فقط، ولن تظهر علناً في ملف العمل.</p>
+                {error && <p className={styles.error} role="alert">{error}</p>}
+                <button type="submit" className={styles.primaryButton} disabled={submissionState === 'submitting'}>
+                  {submissionState === 'submitting' ? 'جارٍ إرسال الطلب…' : 'إرسال طلب الخدمة'}
+                </button>
+              </form>
+            </>
+          )}
+        </section>
+      )}
+    </div>
   );
 }

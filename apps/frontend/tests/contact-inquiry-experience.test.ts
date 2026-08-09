@@ -12,6 +12,8 @@ test('business profile offers the approved Arabic service request journey', asyn
   assert.match(page, /business\.trustStatus === 'approved'/);
   assert.match(form, /اطلب الخدمة/);
   assert.match(form, /api\.businesses\.submitInquiry/);
+  assert.match(form, /aria-expanded=\{isOpen\}/);
+  assert.match(form, /aria-busy=\{submissionState === 'submitting'\}/);
 });
 
 test('contact inquiry reports honest success without promising fulfillment', async () => {
@@ -20,6 +22,8 @@ test('contact inquiry reports honest success without promising fulfillment', asy
   assert.match(form, /تم إرسال طلبك بنجاح/);
   assert.match(form, /لا يُعد الإرسال تأكيداً للحجز أو موعداً لتقديم الخدمة/);
   assert.match(form, /لن تظهر علناً/);
+  assert.match(form, /رقم المتابعة/);
+  assert.match(form, /لم يتم تسجيل طلبك/);
 });
 
 test('frontend reuses the existing contact inquiry endpoint', async () => {
@@ -27,4 +31,14 @@ test('frontend reuses the existing contact inquiry endpoint', async () => {
 
   assert.match(client, /`\/businesses\/\$\{id\}\/inquiries`/);
   assert.doesNotMatch(client, /chat|message-index|mongodb/i);
+});
+
+test('contact inquiry UI is isolated in a co-located CSS module', async () => {
+  const form = await read('../app/business-profiles/[id]/contact-inquiry-form.tsx');
+  const styles = await read('../app/business-profiles/[id]/contact-inquiry-form.module.css');
+  const globals = await read('../app/globals.css');
+
+  assert.match(form, /contact-inquiry-form\.module\.css/);
+  assert.match(styles, /\.panel/);
+  assert.doesNotMatch(globals, /\.inquiry-panel|\.service-request-button/);
 });
