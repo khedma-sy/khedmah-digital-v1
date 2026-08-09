@@ -7,15 +7,13 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 test('homepage presents the approved five-second discovery hierarchy', async () => {
   const home = await read('app/page.tsx');
 
-  assert.match(home, /KHEDMA/);
-  assert.match(home, /خدماتك أقرب/);
-  assert.match(home, /ابحث عن خدمة/);
-  assert.match(home, /استكشف ملفات الأعمال/);
-  assert.match(home, /أضف ملف عملك/);
-  assert.match(home, /name="cityCode"/);
-  assert.match(home, /PlatformIcon name="search"/);
-  assert.match(home, /PlatformIcon name="grid"/);
-  assert.match(home, /PlatformIcon name="pin"/);
+  assert.match(home, /خدمة ديجتل/);
+  assert.match(home, /تحت مظلة واحدة/);
+  assert.match(home, /ابدأ الآن/);
+  assert.match(home, /إنشاء حساب/);
+  assert.match(home, /KHEDMAH_HERO_IMAGE/);
+  assert.match(home, /PlatformIcon name="arrow"/);
+  assert.match(home, /PlatformIcon name="userPlus"/);
 });
 
 test('homepage removes competing marketing and decorative concepts', async () => {
@@ -25,13 +23,13 @@ test('homepage removes competing marketing and decorative concepts', async () =>
     assert.doesNotMatch(home, new RegExp(forbidden));
   }
   assert.equal((home.match(/className=\{styles\.primaryAction\}/g) ?? []).length, 1);
-  assert.equal((home.match(/className=\{styles\.secondaryAction\}/g) ?? []).length, 2);
+  assert.equal((home.match(/className=\{styles\.secondaryAction\}/g) ?? []).length, 1);
 });
 
 test('homepage is mobile-first and supports system themes and controlled motion', async () => {
   const styles = await read('app/home.module.css');
 
-  assert.match(styles, /@media \(min-width: 48rem\)/);
+  assert.match(styles, /@media \(max-width: 56rem\)/);
   assert.match(styles, /@media \(prefers-color-scheme: dark\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(styles, /animation:/);
@@ -46,7 +44,7 @@ test('registration opens a protected, personalized welcome experience', async ()
   assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
   assert.match(welcome, /مرحباً بك في خدمة ديجتل/);
   assert.match(welcome, /لن ننشر اسمك أو موقعك دون موافقتك/);
-  assert.match(welcome, /<ShareAction/);
+  assert.match(welcome, /completeOnboarding/);
 });
 
 test('navigation avoids duplicate links and interactions respect reduced motion', async () => {
