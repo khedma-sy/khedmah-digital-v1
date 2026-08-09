@@ -6,6 +6,7 @@ import { KHEDMAH_HERO_IMAGE } from '../lib/brand-hero-image';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
+export const metadata: Metadata = { title: 'الرئيسية — خدمة ديجتل', description: 'ابحث عن الخدمات الموثوقة حولك.', alternates: { canonical: SITE_URL } };
 
 export const metadata: Metadata = {
   title: 'خدمة ديجتل — تحت مظلة واحدة',
