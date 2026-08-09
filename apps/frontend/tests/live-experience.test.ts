@@ -10,8 +10,8 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
   assert.match(home, /KHEDMA/);
   assert.match(home, /خدماتك أقرب/);
   assert.match(home, /ابحث عن خدمة/);
-  assert.match(home, /استكشف ملفات الأعمال/);
-  assert.match(home, /أضف ملف عملك/);
+  assert.match(home, /اكتشف الخدمات/);
+  assert.match(home, /خدمات منزلية/);
   assert.match(home, /name="cityCode"/);
   assert.match(home, /PlatformIcon name="search"/);
   assert.match(home, /PlatformIcon name="grid"/);
@@ -46,7 +46,7 @@ test('registration opens a protected, personalized welcome experience', async ()
   assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
   assert.match(welcome, /مرحباً بك في خدمة ديجتل/);
   assert.match(welcome, /لن ننشر اسمك أو موقعك دون موافقتك/);
-  assert.match(welcome, /<ShareAction/);
+  assert.match(welcome, /completeOnboarding/);
 });
 
 test('navigation avoids duplicate links and interactions respect reduced motion', async () => {

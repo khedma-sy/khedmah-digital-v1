@@ -3,24 +3,20 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
+import { PlatformIcon } from '../components/platform-icon';
 
 const CATEGORIES = [
-  { code: '', label: 'الكل' },
-  { code: 'restaurant', label: 'مطاعم' },
-  { code: 'shop', label: 'محلات' },
-  { code: 'workshop', label: 'ورش' },
-  { code: 'service_business', label: 'خدمات' },
-  { code: 'doctor', label: 'طبيب' },
-  { code: 'lawyer', label: 'محامي' },
-  { code: 'engineer', label: 'مهندس' },
-  { code: 'consultant', label: 'مستشار' },
-  { code: 'freelancer', label: 'مستقل' },
+  { code: '', label: 'كل الخدمات' },
+  { code: 'service_business', label: 'خدمات منزلية' },
+  { code: 'workshop', label: 'صيانة وسيارات' },
+  { code: 'consultant', label: 'خدمات أعمال' },
+  { code: 'freelancer', label: 'مهنيون مستقلون' }
 ];
 
-function PriceTypeLabel({ type }: { type: string }) {
-  if (type === 'fixed') return <span className="badge badge-approved">سعر ثابت</span>;
-  if (type === 'hourly') return <span className="badge badge-pending">بالساعة</span>;
-  return <span className="badge badge-unavailable">قابل للتفاوض</span>;
+function providerHref(service: PublicServiceListing) {
+  return service.ownerType === 'business'
+    ? `/business-profiles/${service.ownerId}`
+    : `/professional-profiles/${service.ownerId}`;
 }
 
 export default function ServiceCatalogPage() {
@@ -28,133 +24,72 @@ export default function ServiceCatalogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
-  const [total, setTotal] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
 
-  async function loadServices(catCode = activeCategory) {
+  async function loadServices(categoryCode: string) {
     setIsLoading(true);
     setError('');
     try {
-      const data = await api.services.search({ categoryCode: catCode || undefined });
+      const data = await api.services.search({ categoryCode: categoryCode || undefined });
       setServices(data.services);
-      setTotal(data.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات.');
+      setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات. حاول مرة أخرى.');
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadServices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const requested = new URLSearchParams(window.location.search).get('category') ?? '';
+    const initialCategory = CATEGORIES.some(({ code }) => code === requested) ? requested : '';
+    setActiveCategory(initialCategory);
+    void loadServices(initialCategory);
   }, []);
 
-  function handleCategory(code: string) {
-    setActiveCategory(code);
-    void loadServices(code);
+  function selectCategory(categoryCode: string) {
+    setActiveCategory(categoryCode);
+    setShowFilters(false);
+    window.history.replaceState(null, '', categoryCode ? `/service-catalog?category=${categoryCode}` : '/service-catalog');
+    void loadServices(categoryCode);
   }
 
+  const title = CATEGORIES.find(({ code }) => code === activeCategory)?.label ?? 'دليل الخدمات';
+
   return (
-    <main id="foundation-content" className="page-shell" aria-label="دليل الخدمات">
-      <div className="page-content">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem' }}>
-          <div>
-            <p className="eyebrow">خدمة الرقمية</p>
-            <h1 style={{ margin: '0 0 0.35rem', fontSize: 'clamp(1.75rem, 5vw, 3rem)' }}>دليل الخدمات</h1>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '1rem' }}>
-              تصفح الخدمات المتاحة من الأعمال والمهنيين المعتمدين.
-            </p>
-          </div>
-          <Link href="/business-profiles/new" className="filter-action" style={{ textDecoration: 'none' }}>
-            + أضف خدمة
-          </Link>
+    <main id="foundation-content" className="catalog-experience" aria-label="دليل الخدمات">
+      <div className="catalog-phone">
+        <header className="catalog-header">
+          <Link href="/" aria-label="العودة إلى الرئيسية"><PlatformIcon name="arrow" /></Link>
+          <h1>{title}</h1>
+          <button type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /></button>
         </header>
 
-        {/* Category filter tabs */}
-        <nav className="type-tabs" aria-label="تصفية الخدمات">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.code}
-              type="button"
-              className={`type-tab${activeCategory === cat.code ? ' active' : ''}`}
-              onClick={() => handleCategory(cat.code)}
-              disabled={isLoading}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </nav>
+        {showFilters ? (
+          <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
+            {CATEGORIES.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.label}</button>)}
+          </nav>
+        ) : null}
 
-        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
+        <p className="catalog-intro">اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة.</p>
 
-        {!isLoading && services.length > 0 && (
-          <p className="result-count">{total} خدمة متاحة</p>
-        )}
+        {error ? <div className="catalog-state" role="alert"><p>{error}</p><button type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</button></div> : null}
+        {isLoading ? <div className="catalog-results" aria-busy="true" aria-label="جاري تحميل الخدمات">{Array.from({ length: 4 }, (_, index) => <div className="catalog-skeleton" key={index} />)}</div> : null}
 
-        {/* Loading skeleton */}
-        {isLoading && (
-          <div aria-busy="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="skeleton skeleton-card" style={{ height: '11rem' }} />
-            ))}
-          </div>
-        )}
-
-        {/* Services grid */}
-        {!isLoading && services.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
+        {!isLoading && !error && services.length > 0 ? (
+          <section className="catalog-results" aria-label={`${services.length} خدمة متاحة`}>
             {services.map((service) => (
-              <article className="card" key={service.id}>
-                <div className="card-body">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                    <h2 className="card-title">{service.titleAr}</h2>
-                    <PriceTypeLabel type={service.priceType} />
-                  </div>
-                  <p className="card-meta">
-                    {CATEGORIES.find((c) => c.code === service.categoryCode)?.label ?? service.categoryCode} ·{' '}
-                    {service.ownerType === 'business' ? 'عمل' : 'مهني'}
-                  </p>
-                  {service.descriptionAr && (
-                    <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {service.descriptionAr}
-                    </p>
-                  )}
-                  {service.price != null && (
-                    <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.5rem 0 0' }}>
-                      {service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}
-                    </p>
-                  )}
-                </div>
-                <div className="card-footer">
-                  <Link
-                    href={service.ownerType === 'business' ? `/business-profiles/${service.ownerId}` : `/professional-profiles/${service.ownerId}`}
-                    style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none' }}
-                  >
-                    عرض الملف ←
-                  </Link>
-                </div>
+              <article className="catalog-service" key={service.id}>
+                <span className="catalog-service-icon"><PlatformIcon name="tools" /></span>
+                <div><h2>{service.titleAr}</h2>{service.descriptionAr ? <p>{service.descriptionAr}</p> : null}<small>{service.ownerType === 'business' ? 'مقدم أعمال' : 'مهني'}</small></div>
+                <Link href={providerHref(service)} aria-label={`عرض مقدم خدمة ${service.titleAr}`}><PlatformIcon name="arrow" /></Link>
               </article>
             ))}
-          </div>
-        )}
+          </section>
+        ) : null}
 
-        {/* Empty state */}
-        {!isLoading && services.length === 0 && (
-          <div className="empty-state">
-            <span className="empty-state-icon" aria-hidden="true">🛠</span>
-            <h2>لا توجد خدمات</h2>
-            <p>
-              {activeCategory
-                ? 'لا توجد خدمات في هذا التصنيف حالياً.'
-                : 'لم يُضف أحد خدمات بعد.'}
-            </p>
-            {activeCategory && (
-              <button type="button" className="filter-action" onClick={() => handleCategory('')}>
-                عرض كل الخدمات
-              </button>
-            )}
-          </div>
-        )}
+        {!isLoading && !error && services.length === 0 ? <div className="catalog-state"><PlatformIcon name="search" size={30} /><h2>لا توجد خدمات متاحة حالياً</h2><p>جرّب تصنيفاً آخر أو ارجع لاحقاً.</p><button type="button" onClick={() => selectCategory('')}>عرض كل الخدمات</button></div> : null}
+
+        <nav className="catalog-bottom" aria-label="التنقل الرئيسي"><Link href="/users/me"><PlatformIcon name="user"/><span>حسابي</span></Link><Link href="/"><PlatformIcon name="home"/><span>الرئيسية</span></Link><Link href="/service-catalog" aria-current="page"><PlatformIcon name="grid"/><span>الدليل</span></Link></nav>
       </div>
     </main>
   );
