@@ -3,7 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { KHEDMAH_HERO_IMAGE } from '../lib/brand-hero-image';
 import { PlatformIcon } from './components/platform-icon';
-import { KHEDMAH_HERO_IMAGE } from '../lib/brand-hero-image';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
