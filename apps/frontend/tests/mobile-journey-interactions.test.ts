@@ -12,9 +12,8 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   ]);
 
   assert.match(welcome, /onClick=\{completeOnboarding\}/);
-  assert.match(home, /href="\/users\/me"/);
   assert.match(home, /href="\/service-catalog"/);
-  assert.match(home, /action="\/search"/);
+  assert.match(home, /href="\/auth\/register"/);
   assert.match(catalog, /href="\/" aria-label="العودة إلى الرئيسية"/);
   assert.match(catalog, /onClick=\{\(\) => setShowFilters/);
   assert.match(catalog, /selectCategory\(category\.code\)/);
@@ -40,8 +39,8 @@ test('all journey icons use the shared SVG icon system', async () => {
     read('app/components/platform-icon.tsx')
   ]);
 
-  for (const icon of ['user', 'menu', 'filter']) assert.match(icons, new RegExp(`${icon}:`));
-  assert.match(home, /aria-label="حسابي"/);
-  assert.match(home, /PlatformIcon name="menu"/);
+  for (const icon of ['arrow', 'userPlus', 'filter']) assert.match(icons, new RegExp(`${icon}:`));
+  assert.match(home, /PlatformIcon name="arrow"/);
+  assert.match(home, /PlatformIcon name="userPlus"/);
   assert.match(catalog, /PlatformIcon name="filter"/);
 });

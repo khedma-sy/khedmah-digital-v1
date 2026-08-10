@@ -6,8 +6,8 @@ command -v gradle >/dev/null || {
   exit 3
 }
 installed_gradle_version="$(gradle --version | awk '/^Gradle / { print $2; exit }')"
-[[ "$installed_gradle_version" == "$required_gradle_version" ]] || {
-  echo "Gradle ${required_gradle_version} is required; found ${installed_gradle_version:-unknown}." >&2
+[[ "$(printf '%s\n%s\n' "$required_gradle_version" "$installed_gradle_version" | sort -V | head -n1)" == "$required_gradle_version" ]] || {
+  echo "Gradle ${required_gradle_version} or newer is required; found ${installed_gradle_version:-unknown}." >&2
   exit 4
 }
 [[ -n "${JAVA_HOME:-}" ]] || {
