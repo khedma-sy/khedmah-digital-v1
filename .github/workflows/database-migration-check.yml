@@ -35,6 +35,8 @@ jobs:
             004_analytics_and_contact
             005_email_verifications_and_admin_roles
             006_media_assets
+            007_v2_marketplace
+            008_provider_service_radius
           )
 
           for migration in "${migrations[@]}"; do
@@ -42,7 +44,7 @@ jobs:
             rollback="backend/migrations/versions/${migration}_rollback.sql"
             test -f "$forward"
             test -f "$rollback"
-            grep -q 'CREATE TABLE' "$forward"
+            grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             echo "Verified migration pair: $migration"
           done
 
@@ -66,6 +68,10 @@ jobs:
             005_email_verifications_and_admin_roles_rollback.sql \
             006_media_assets.sql \
             006_media_assets_rollback.sql \
+            007_v2_marketplace.sql \
+            007_v2_marketplace_rollback.sql \
+            008_provider_service_radius.sql \
+            008_provider_service_radius_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
