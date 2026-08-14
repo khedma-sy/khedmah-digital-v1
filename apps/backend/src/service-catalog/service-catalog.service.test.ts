@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
 import { ServiceCatalogRepository } from './service-catalog.repository';
@@ -13,6 +13,7 @@ import { SessionTokenService } from '../identity/security/session-token.service'
 const rawPool = createTestPool();
 
 async function createFixture() {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`

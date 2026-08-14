@@ -37,6 +37,13 @@ jobs:
             006_media_assets
             007_v2_marketplace
             008_provider_service_radius
+            009_canonical_identity_runtime
+            010_canonical_runtime_domains
+            011_canonical_media_contract
+            012_nearby_preferences
+            013_nearby_notifications_read_state
+            014_supplier_discovery
+            015_contact_target_contract
             016_contact_submission_idempotency
           )
 
@@ -73,6 +80,20 @@ jobs:
             007_v2_marketplace_rollback.sql \
             008_provider_service_radius.sql \
             008_provider_service_radius_rollback.sql \
+            009_canonical_identity_runtime.sql \
+            009_canonical_identity_runtime_rollback.sql \
+            010_canonical_runtime_domains.sql \
+            010_canonical_runtime_domains_rollback.sql \
+            011_canonical_media_contract.sql \
+            011_canonical_media_contract_rollback.sql \
+            012_nearby_preferences.sql \
+            012_nearby_preferences_rollback.sql \
+            013_nearby_notifications_read_state.sql \
+            013_nearby_notifications_read_state_rollback.sql \
+            014_supplier_discovery.sql \
+            014_supplier_discovery_rollback.sql \
+            015_contact_target_contract.sql \
+            015_contact_target_contract_rollback.sql \
             016_contact_submission_idempotency.sql \
             016_contact_submission_idempotency_rollback.sql \
             | sort > "$expected"

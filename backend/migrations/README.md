@@ -1,24 +1,36 @@
-# Backend Migration Framework Foundation
+# Canonical database migrations
 
-## Mission 066 Foundation and Mission 067 Implementation Status
+`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version from `001` through `016`.
 
-Mission 048 rollback rules remain the governing migration safety baseline. Mission 067 explicitly authorized `versions/001_core_identity_accounts.sql` and its paired rollback. Migrations 002 through 004 are not present in this repository state, so the dependency chain is incomplete and Migration 005 is not ready to be introduced.
+Migrations are never executed by application startup. Startup performs read-only PostgreSQL catalog verification and fails with `CANONICAL_SCHEMA_INCOMPATIBLE` when the installed schema does not meet the required canonical level.
 
+## Lineage
 
-This folder contains the migration framework foundation and explicitly approved implementation migrations. It defines migration naming, versioning, execution planning, rollback compatibility, and safety rules. It does not contain seed scripts, production migration execution, production deployment, credentials, tokens, secrets, or database URLs.
+| Version | Contract |
+|---|---|
+| 001 | Core account identity — `001_core_identity_accounts.sql` |
+| 002 | Base profiles |
+| 003 | Professional profile identity |
+| 004 | Business prerequisite, Analytics, and Contact foundation |
+| 005 | Email verification and administrative roles |
+| 006 | Private-owner media storage |
+| 007 | Historical provider/V2 extension |
+| 008 | Canonical provider service-radius alias |
+| 009 | Runtime credentials, sessions, profile locale, and audit log |
+| 010 | Organizations, authorization, locations, Professional runtime projection, and supporting provider structures |
+| 011 | Unified media presentation fields on `media_assets` |
+| 012 | Nearby saved-location preferences |
+| 013 | Nearby notification ownership, idempotency, and read state |
+| 014 | Discovery-only Supplier capabilities |
+| 015 | Business XOR Professional Contact target and tracking state |
+| 016 | Submitter-scoped Contact submission idempotency |
 
-## Migration Naming Convention
+## Safety rules
 
-Migration files must use `NNN_lowercase_snake_case.sql`, where `NNN` is a three-digit version such as `001`, `002`, or `066`.
-
-## Migration Execution Structure
-
-Migration execution must follow: validate name, read plan, apply forward, verify forward, prepare rollback, and verify rollback.
-
-## Rollback Compatibility
-
-Every migration must have a rollback plan, forward verification, and rollback verification before execution. Repository inclusion does not imply automatic or production execution.
-
-## Forbidden Migration Scope
-
-Marketplace, payment, order, commission, advertising, ranking, social graph, tracking, and other unapproved table migrations remain forbidden. Profile, professional profile, business profile, and organization migrations require their own explicit implementation missions and complete dependency predecessors.
+- Mission 048 rollback and environment-separation principles remain governing safety requirements.
+- Apply forward migrations in numeric order only.
+- Validate the entire forward/rollback manifest before applying anything.
+- Never store credentials, connection strings, tokens, or production URLs in migration files.
+- Never apply or patch migrations at application startup.
+- Run destructive integration tests only with `ALLOW_DESTRUCTIVE_DB_TESTS=true`, a disposable database ending in `_test` or `_ci`, and successful `current_database()` verification.
+- Repository inclusion is not evidence that migrations were applied to any external environment.

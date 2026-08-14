@@ -6,7 +6,9 @@ export type ContactActionType = 'contact_click';
 export interface ContactBusinessProfileSnapshot {
   readonly id: string;
   readonly visibility: BusinessProfileVisibility;
+  readonly moderationStatus: string;
   readonly trustStatus: BusinessProfileTrustStatus;
+  readonly status: string;
   readonly ownerUserId: string;
 }
 

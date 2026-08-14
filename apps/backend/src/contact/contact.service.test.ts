@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HttpStatus } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactIdempotencyConflictError, ContactRateLimitError, ContactValidationError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
@@ -16,6 +16,7 @@ import { PlatformLogger } from '../logging/platform-logger';
 const rawPool = createTestPool();
 
 async function createFixture() {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`

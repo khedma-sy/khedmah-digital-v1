@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { BusinessProfileRepository } from './business-profile.repository';
 import { BusinessProfileService } from './business-profile.service';
 import { IdentityRepository } from '../identity/identity.repository';
@@ -13,6 +13,7 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 const rawPool = createTestPool();
 
 async function createFixture() {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`
