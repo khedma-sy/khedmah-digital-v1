@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '../../../lib/api-client';
 import { useSyrianCities } from '../../../lib/use-syrian-cities';
+import { useCategories } from '../../../lib/use-categories';
 
 export default function NewBusinessProfilePage() {
   const router = useRouter();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
+  const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const [name, setName] = useState('');
   const [descriptionAr, setDescriptionAr] = useState('');
   const [phone, setPhone] = useState('');
@@ -70,8 +72,12 @@ export default function NewBusinessProfilePage() {
           </label>
           <label>
             التصنيف *
-            <input type="text" value={categoryCode} onChange={(event) => setCategoryCode(event.target.value)} required placeholder="مثال: restaurant, plumber, lawyer" />
+            <select value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)} required>
+              <option value="">اختر تصنيفاً معتمداً</option>
+              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
+            </select>
           </label>
+          {categoriesError && <p className="form-error" role="status">{categoriesError} <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <label>
               المدينة *
@@ -109,7 +115,7 @@ export default function NewBusinessProfilePage() {
             الموقع الإلكتروني
             <input type="url" value={website} onChange={(event) => setWebsite(event.target.value)} placeholder="https://example.com" />
           </label>
-          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || !!citiesError || !cityCode} style={{ marginBlockStart: 0 }}>
+          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || categoriesLoading || !!citiesError || !!categoriesError || !cityCode || !categoryCode} style={{ marginBlockStart: 0 }}>
             {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء الملف'}
           </button>
         </form>

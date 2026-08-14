@@ -5,21 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
 import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
+import { useCategories } from '../../lib/use-categories';
 import { PlatformIcon } from '../components/platform-icon';
 
 
-
-const CATEGORIES = [
-  { code: 'restaurant', label: 'مطعم' },
-  { code: 'shop', label: 'محل' },
-  { code: 'workshop', label: 'ورشة' },
-  { code: 'service_business', label: 'خدمات' },
-  { code: 'doctor', label: 'طبيب' },
-  { code: 'lawyer', label: 'محامي' },
-  { code: 'engineer', label: 'مهندس' },
-  { code: 'consultant', label: 'مستشار' },
-  { code: 'freelancer', label: 'مستقل' },
-];
 
 function trustLabel(status: string) {
   if (status === 'approved') return <span className="badge badge-approved"><PlatformIcon name="check" size={14} /> معتمد</span>;
@@ -45,6 +34,7 @@ function SearchContent() {
   const router = useRouter();
   const params = useSearchParams();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
+  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
 
   const [q, setQ] = useState(params.get('q') ?? '');
   const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
@@ -184,9 +174,9 @@ function SearchContent() {
           </div>
           <div className="filter-group" style={{ flex: '1 1 130px' }}>
             <label htmlFor="cat">التصنيف</label>
-            <select id="cat" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)}>
+            <select id="cat" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(e) => setCategoryCode(e.target.value)}>
               <option value="">كل التصنيفات</option>
-              {CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -249,7 +239,7 @@ function SearchContent() {
                           <h3 className="card-title">{b.name}</h3>
                           {trustLabel(b.trustStatus)}
                         </div>
-                        <p className="card-meta">{CATEGORIES.find((c) => c.code === b.categoryCode)?.label ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
+                        <p className="card-meta">{categories.find((category) => category.code === b.categoryCode)?.nameAr ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
                         {b.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.descriptionAr}</p>}
                       </div>
                       <div className="card-footer">
@@ -305,7 +295,7 @@ function SearchContent() {
                           <h3 className="card-title">{s.titleAr}</h3>
                           <span className="badge badge-pending" style={{ whiteSpace: 'nowrap' }}>{priceLabel(s.priceType)}</span>
                         </div>
-                        <p className="card-meta">{CATEGORIES.find((c) => c.code === s.categoryCode)?.label ?? s.categoryCode}</p>
+                        <p className="card-meta">{categories.find((category) => category.code === s.categoryCode)?.nameAr ?? s.categoryCode}</p>
                         {s.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.descriptionAr}</p>}
                         {s.price != null && (
                           <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.25rem 0 0' }}>

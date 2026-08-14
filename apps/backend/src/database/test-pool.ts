@@ -50,7 +50,8 @@ const CANONICAL_MIGRATIONS = [
   '013_nearby_notifications_read_state',
   '014_supplier_discovery',
   '015_contact_target_contract',
-  '016_contact_submission_idempotency'
+  '016_contact_submission_idempotency',
+  '017_category_taxonomy_contract'
 ] as const;
 
 let canonicalSchemaSetup: Promise<void> | undefined;

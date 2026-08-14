@@ -97,6 +97,7 @@ async function createFixture() {
   const registration = await identity.register({ email: 'user@example.com', password: 'very-secure-password', displayName: 'زائر خدمة' });
   const cookieHeader = `khedmah_session=${registration.sessionToken}`;
 
+  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
   await pool.query(
     `INSERT INTO user_accounts (id, email, password_hash, status, created_at, updated_at)
      VALUES ('owner-user', 'owner@biz.example', 'placeholder-hash', 'active', NOW(), NOW())

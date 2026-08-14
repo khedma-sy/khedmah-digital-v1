@@ -3,6 +3,7 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nest
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
+import { CategoryService } from '../categories/category.service';
 import { BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE, BUSINESS_PROFILE_NOT_FOUND_MESSAGE } from './business-profile.errors';
 import { BusinessProfileRepository } from './business-profile.repository';
 import { BusinessBranch, BusinessProfile, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
@@ -14,12 +15,14 @@ export class BusinessProfileService {
   constructor(
     @Inject(BusinessProfileRepository) private readonly repository: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
-    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService,
+    @Inject(CategoryService) private readonly categories: CategoryService
   ) {}
 
   async create(cookieHeader: string | undefined, request: CreateBusinessProfileRequest): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateBusinessProfile(request);
+    await this.categories.assertActiveCategory(input.categoryCode);
     const now = new Date().toISOString();
     const profile: BusinessProfile = {
       id: randomUUID(),
@@ -69,6 +72,7 @@ export class BusinessProfileService {
     }
 
     const input = validateUpdateBusinessProfile(request);
+    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,
@@ -117,6 +121,7 @@ export class BusinessProfileService {
 
   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
     const input = validateBusinessProfileSearch(request);
+    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [profiles, total] = await Promise.all([

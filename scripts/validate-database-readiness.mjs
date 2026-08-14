@@ -48,6 +48,8 @@ const EXPECTED_MIGRATIONS = [
   '015_contact_target_contract_rollback.sql',
   '016_contact_submission_idempotency.sql',
   '016_contact_submission_idempotency_rollback.sql',
+  '017_category_taxonomy_contract.sql',
+  '017_category_taxonomy_contract_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = [

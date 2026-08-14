@@ -1,0 +1,994 @@
+From 6b059be007f819ef0c32c0d17c3ec5d70de6e611 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Fri, 14 Aug 2026 12:36:01 +0000
+Subject: [PATCH] feat(categories): establish canonical taxonomy authority
+
+---
+ .../workflows/database-migration-check.yml    |  3 ++
+ apps/backend/src/app.module.ts                |  2 +
+ .../business-profile.service.test.ts          |  6 ++-
+ .../business-profile.service.ts               |  7 +++-
+ .../business-profiles.module.ts               |  3 +-
+ .../src/categories/category.controller.ts     | 13 ++++++
+ .../backend/src/categories/category.module.ts | 11 +++++
+ .../src/categories/category.repository.ts     | 32 +++++++++++++++
+ .../src/categories/category.service.test.ts   | 21 ++++++++++
+ .../src/categories/category.service.ts        | 26 ++++++++++++
+ apps/backend/src/categories/category.types.ts |  9 ++++
+ .../src/categories/category.validation.ts     | 10 +++++
+ .../src/contact/contact.service.test.ts       |  1 +
+ .../src/database/database.migrator.test.ts    |  7 ++--
+ .../backend/src/database/database.migrator.ts |  8 +++-
+ apps/backend/src/database/test-pool.ts        |  3 +-
+ .../src/integration/eo-011-smoke.test.ts      |  6 ++-
+ .../service-catalog/service-catalog.module.ts |  3 +-
+ .../service-catalog.service.test.ts           |  6 ++-
+ .../service-catalog.service.ts                |  7 +++-
+ .../business-profiles/[id]/manage/page.tsx    | 12 ++----
+ .../app/business-profiles/new/page.tsx        | 10 ++++-
+ apps/frontend/app/search/page.tsx             | 22 +++-------
+ apps/frontend/app/service-catalog/page.tsx    | 20 ++++-----
+ apps/frontend/lib/api-client.ts               | 12 ++++++
+ apps/frontend/lib/use-categories.ts           | 20 +++++++++
+ backend/migrations/README.md                  |  3 +-
+ .../017_category_taxonomy_contract.sql        | 27 ++++++++++++
+ ...17_category_taxonomy_contract_rollback.sql |  4 ++
+ scripts/validate-database-readiness.mjs       |  2 +
+ ...backend-foundation-initialization.test.mjs |  2 +-
+ ...onical-migration-lineage-contract.test.mjs |  4 +-
+ tests/category-canonical-contract.test.mjs    | 41 +++++++++++++++++++
+ ...tact-inquiry-idempotency-contract.test.mjs |  2 +-
+ ...ase-migration-workflow-governance.test.mjs |  4 +-
+ 35 files changed, 312 insertions(+), 57 deletions(-)
+ create mode 100644 apps/backend/src/categories/category.controller.ts
+ create mode 100644 apps/backend/src/categories/category.module.ts
+ create mode 100644 apps/backend/src/categories/category.repository.ts
+ create mode 100644 apps/backend/src/categories/category.service.test.ts
+ create mode 100644 apps/backend/src/categories/category.service.ts
+ create mode 100644 apps/backend/src/categories/category.types.ts
+ create mode 100644 apps/backend/src/categories/category.validation.ts
+ create mode 100644 apps/frontend/lib/use-categories.ts
+ create mode 100644 backend/migrations/versions/017_category_taxonomy_contract.sql
+ create mode 100644 backend/migrations/versions/017_category_taxonomy_contract_rollback.sql
+ create mode 100644 tests/category-canonical-contract.test.mjs
+
+diff --git a/.github/workflows/database-migration-check.yml b/.github/workflows/database-migration-check.yml
+index 9598295..abbd633 100644
+--- a/.github/workflows/database-migration-check.yml
++++ b/.github/workflows/database-migration-check.yml
+@@ -45,6 +45,7 @@ jobs:
+             014_supplier_discovery
+             015_contact_target_contract
+             016_contact_submission_idempotency
++            017_category_taxonomy_contract
+           )
+ 
+           for migration in "${migrations[@]}"; do
+@@ -96,6 +97,8 @@ jobs:
+             015_contact_target_contract_rollback.sql \
+             016_contact_submission_idempotency.sql \
+             016_contact_submission_idempotency_rollback.sql \
++            017_category_taxonomy_contract.sql \
++            017_category_taxonomy_contract_rollback.sql \
+             | sort > "$expected"
+           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
+             -printf '%f\n' | sort > "$actual"
+diff --git a/apps/backend/src/app.module.ts b/apps/backend/src/app.module.ts
+index 0f806ad..e2d9acb 100644
+--- a/apps/backend/src/app.module.ts
++++ b/apps/backend/src/app.module.ts
+@@ -1,6 +1,7 @@
+ import { Module } from '@nestjs/common';
+ import { AnalyticsModule } from './analytics/analytics.module';
+ import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
++import { CategoryModule } from './categories/category.module';
+ import { ContactModule } from './contact/contact.module';
+ import { DatabaseModule } from './database/database.module';
+ import { HealthController } from './health.controller';
+@@ -18,6 +19,7 @@ import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
+ @Module({
+   imports: [
+     DatabaseModule,
++    CategoryModule,
+     IdentityModule,
+     OrganizationsModule,
+     ContactModule,
+diff --git a/apps/backend/src/business-profiles/business-profile.service.test.ts b/apps/backend/src/business-profiles/business-profile.service.test.ts
+index 0b95245..70231dd 100644
+--- a/apps/backend/src/business-profiles/business-profile.service.test.ts
++++ b/apps/backend/src/business-profiles/business-profile.service.test.ts
+@@ -9,6 +9,8 @@ import { IdentityRepository } from '../identity/identity.repository';
+ import { IdentityService } from '../identity/identity.service';
+ import { SessionTokenService } from '../identity/security/session-token.service';
+ import { OperationsRbacService } from '../operations-product/operations-rbac.service';
++import { CategoryRepository } from '../categories/category.repository';
++import { CategoryService } from '../categories/category.service';
+ 
+ const rawPool = createTestPool();
+ 
+@@ -75,8 +77,10 @@ async function createFixture() {
+   const identity = new IdentityService(identityRepository, new SessionTokenService());
+   const businessRepo = new BusinessProfileRepository(pool);
+   const rbac = new OperationsRbacService();
++  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
++  const categories = new CategoryService(new CategoryRepository(pool));
+ 
+-  const service = new BusinessProfileService(businessRepo, identity, rbac);
++  const service = new BusinessProfileService(businessRepo, identity, rbac, categories);
+ 
+   const ownerReg = await identity.register({ email: 'owner@example.com', password: 'securepass123', displayName: 'مالك' });
+   const ownerCookie = `khedmah_session=${ownerReg.sessionToken}`;
+diff --git a/apps/backend/src/business-profiles/business-profile.service.ts b/apps/backend/src/business-profiles/business-profile.service.ts
+index d66461e..82ced4b 100644
+--- a/apps/backend/src/business-profiles/business-profile.service.ts
++++ b/apps/backend/src/business-profiles/business-profile.service.ts
+@@ -3,6 +3,7 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nest
+ import { IdentityService } from '../identity/identity.service';
+ import { readSessionToken } from '../identity/session-cookie';
+ import { OperationsRbacService } from '../operations-product/operations-rbac.service';
++import { CategoryService } from '../categories/category.service';
+ import { BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE, BUSINESS_PROFILE_NOT_FOUND_MESSAGE } from './business-profile.errors';
+ import { BusinessProfileRepository } from './business-profile.repository';
+ import { BusinessBranch, BusinessProfile, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+@@ -14,12 +15,14 @@ export class BusinessProfileService {
+   constructor(
+     @Inject(BusinessProfileRepository) private readonly repository: BusinessProfileRepository,
+     @Inject(IdentityService) private readonly identity: IdentityService,
+-    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
++    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService,
++    @Inject(CategoryService) private readonly categories: CategoryService
+   ) {}
+ 
+   async create(cookieHeader: string | undefined, request: CreateBusinessProfileRequest): Promise<PublicBusinessProfile> {
+     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+     const input = validateCreateBusinessProfile(request);
++    await this.categories.assertActiveCategory(input.categoryCode);
+     const now = new Date().toISOString();
+     const profile: BusinessProfile = {
+       id: randomUUID(),
+@@ -69,6 +72,7 @@ export class BusinessProfileService {
+     }
+ 
+     const input = validateUpdateBusinessProfile(request);
++    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+     const updated: BusinessProfile = {
+       ...profile,
+       name: input.name ?? profile.name,
+@@ -117,6 +121,7 @@ export class BusinessProfileService {
+ 
+   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
+     const input = validateBusinessProfileSearch(request);
++    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+     const limit = 20;
+     const offset = (input.page - 1) * limit;
+     const [profiles, total] = await Promise.all([
+diff --git a/apps/backend/src/business-profiles/business-profiles.module.ts b/apps/backend/src/business-profiles/business-profiles.module.ts
+index 5d4a26a..8ffca4f 100644
+--- a/apps/backend/src/business-profiles/business-profiles.module.ts
++++ b/apps/backend/src/business-profiles/business-profiles.module.ts
+@@ -1,12 +1,13 @@
+ import { Module } from '@nestjs/common';
+ import { IdentityModule } from '../identity/identity.module';
++import { CategoryModule } from '../categories/category.module';
+ import { OperationsProductModule } from '../operations-product/operations-product.module';
+ import { BusinessProfilesController } from './business-profiles.controller';
+ import { BusinessProfileRepository } from './business-profile.repository';
+ import { BusinessProfileService } from './business-profile.service';
+ 
+ @Module({
+-  imports: [IdentityModule, OperationsProductModule],
++  imports: [IdentityModule, OperationsProductModule, CategoryModule],
+   controllers: [BusinessProfilesController],
+   providers: [BusinessProfileRepository, BusinessProfileService],
+   exports: [BusinessProfileRepository]
+diff --git a/apps/backend/src/categories/category.controller.ts b/apps/backend/src/categories/category.controller.ts
+new file mode 100644
+index 0000000..2b9bf33
+--- /dev/null
++++ b/apps/backend/src/categories/category.controller.ts
+@@ -0,0 +1,13 @@
++import { Controller, Get, Inject, Param } from '@nestjs/common';
++import { CategoryService } from './category.service';
++
++@Controller('categories')
++export class CategoryController {
++  constructor(@Inject(CategoryService) private readonly categories: CategoryService) {}
++
++  @Get()
++  async list() { return { categories: await this.categories.listActive() }; }
++
++  @Get(':code')
++  async get(@Param('code') code: string) { return { category: await this.categories.getActive(code) }; }
++}
+diff --git a/apps/backend/src/categories/category.module.ts b/apps/backend/src/categories/category.module.ts
+new file mode 100644
+index 0000000..47f78c5
+--- /dev/null
++++ b/apps/backend/src/categories/category.module.ts
+@@ -0,0 +1,11 @@
++import { Module } from '@nestjs/common';
++import { CategoryController } from './category.controller';
++import { CategoryRepository } from './category.repository';
++import { CategoryService } from './category.service';
++
++@Module({
++  controllers: [CategoryController],
++  providers: [CategoryRepository, CategoryService],
++  exports: [CategoryService]
++})
++export class CategoryModule {}
+diff --git a/apps/backend/src/categories/category.repository.ts b/apps/backend/src/categories/category.repository.ts
+new file mode 100644
+index 0000000..15e8c31
+--- /dev/null
++++ b/apps/backend/src/categories/category.repository.ts
+@@ -0,0 +1,32 @@
++import { Inject, Injectable } from '@nestjs/common';
++import { DatabasePool } from '../database/database.pool';
++import { Category } from './category.types';
++
++interface CategoryRow extends Record<string, unknown> {
++  code: string; name_ar: string; name_en: string | null; status: 'active' | 'inactive'; sort_order: number;
++}
++
++@Injectable()
++export class CategoryRepository {
++  constructor(@Inject(DatabasePool) private readonly pool: DatabasePool) {}
++
++  async listActive(): Promise<Category[]> {
++    const rows = await this.pool.query<CategoryRow>(
++      `SELECT code, name_ar, name_en, status, sort_order FROM categories
++       WHERE status = 'active' ORDER BY sort_order, name_ar, code`
++    );
++    return rows.map(toCategory);
++  }
++
++  async findActiveByCode(code: string): Promise<Category | undefined> {
++    const [row] = await this.pool.query<CategoryRow>(
++      `SELECT code, name_ar, name_en, status, sort_order FROM categories
++       WHERE code = $1 AND status = 'active'`, [code]
++    );
++    return row ? toCategory(row) : undefined;
++  }
++}
++
++function toCategory(row: CategoryRow): Category {
++  return { code: row.code, nameAr: row.name_ar, nameEn: row.name_en ?? undefined, status: row.status, sortOrder: row.sort_order };
++}
+diff --git a/apps/backend/src/categories/category.service.test.ts b/apps/backend/src/categories/category.service.test.ts
+new file mode 100644
+index 0000000..ce3fc66
+--- /dev/null
++++ b/apps/backend/src/categories/category.service.test.ts
+@@ -0,0 +1,21 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { BadRequestException, NotFoundException } from '@nestjs/common';
++import { CategoryService } from './category.service';
++
++const active = { code: 'maintenance', nameAr: 'الصيانة', status: 'active' as const, sortOrder: 1 };
++
++test('Category API authority lists and resolves active canonical categories', async () => {
++  const repository = { listActive: async () => [active], findActiveByCode: async (code: string) => code === active.code ? active : undefined };
++  const service = new CategoryService(repository as never);
++  assert.deepEqual(await service.listActive(), [active]);
++  assert.deepEqual(await service.getActive('maintenance'), active);
++});
++
++test('Category authority rejects malformed, inactive, and unknown codes', async () => {
++  const repository = { listActive: async () => [], findActiveByCode: async () => undefined };
++  const service = new CategoryService(repository as never);
++  await assert.rejects(() => service.assertActiveCategory('Not Canonical'), BadRequestException);
++  await assert.rejects(() => service.assertActiveCategory('inactive'), BadRequestException);
++  await assert.rejects(() => service.getActive('unknown'), NotFoundException);
++});
+diff --git a/apps/backend/src/categories/category.service.ts b/apps/backend/src/categories/category.service.ts
+new file mode 100644
+index 0000000..65a1331
+--- /dev/null
++++ b/apps/backend/src/categories/category.service.ts
+@@ -0,0 +1,26 @@
++import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
++import { CategoryRepository } from './category.repository';
++import { Category } from './category.types';
++import { validateCategoryCode } from './category.validation';
++
++@Injectable()
++export class CategoryService {
++  constructor(@Inject(CategoryRepository) private readonly repository: CategoryRepository) {}
++
++  listActive(): Promise<Category[]> { return this.repository.listActive(); }
++
++  async getActive(codeValue: unknown): Promise<Category> {
++    const code = validateCategoryCode(codeValue);
++    const category = await this.repository.findActiveByCode(code);
++    if (!category) throw new NotFoundException('Category was not found.');
++    return category;
++  }
++
++  async assertActiveCategory(codeValue: unknown): Promise<string> {
++    const code = validateCategoryCode(codeValue);
++    if (!await this.repository.findActiveByCode(code)) {
++      throw new BadRequestException('categoryCode must identify an active canonical category.');
++    }
++    return code;
++  }
++}
+diff --git a/apps/backend/src/categories/category.types.ts b/apps/backend/src/categories/category.types.ts
+new file mode 100644
+index 0000000..67339b1
+--- /dev/null
++++ b/apps/backend/src/categories/category.types.ts
+@@ -0,0 +1,9 @@
++export type CategoryStatus = 'active' | 'inactive';
++
++export interface Category {
++  readonly code: string;
++  readonly nameAr: string;
++  readonly nameEn?: string;
++  readonly status: CategoryStatus;
++  readonly sortOrder: number;
++}
+diff --git a/apps/backend/src/categories/category.validation.ts b/apps/backend/src/categories/category.validation.ts
+new file mode 100644
+index 0000000..2be5637
+--- /dev/null
++++ b/apps/backend/src/categories/category.validation.ts
+@@ -0,0 +1,10 @@
++import { BadRequestException } from '@nestjs/common';
++
++export function validateCategoryCode(value: unknown): string {
++  if (typeof value !== 'string') throw new BadRequestException('categoryCode must be a string.');
++  const code = value.trim();
++  if (!/^[a-z][a-z0-9_]{1,49}$/.test(code)) {
++    throw new BadRequestException('categoryCode must be a canonical lowercase category code.');
++  }
++  return code;
++}
+diff --git a/apps/backend/src/contact/contact.service.test.ts b/apps/backend/src/contact/contact.service.test.ts
+index 7c2a6e2..0bdb97f 100644
+--- a/apps/backend/src/contact/contact.service.test.ts
++++ b/apps/backend/src/contact/contact.service.test.ts
+@@ -97,6 +97,7 @@ async function createFixture() {
+   const registration = await identity.register({ email: 'user@example.com', password: 'very-secure-password', displayName: 'زائر خدمة' });
+   const cookieHeader = `khedmah_session=${registration.sessionToken}`;
+ 
++  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
+   await pool.query(
+     `INSERT INTO user_accounts (id, email, password_hash, status, created_at, updated_at)
+      VALUES ('owner-user', 'owner@biz.example', 'placeholder-hash', 'active', NOW(), NOW())
+diff --git a/apps/backend/src/database/database.migrator.test.ts b/apps/backend/src/database/database.migrator.test.ts
+index 64209c7..91a904e 100644
+--- a/apps/backend/src/database/database.migrator.test.ts
++++ b/apps/backend/src/database/database.migrator.test.ts
+@@ -12,8 +12,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name
+ const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
+   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
+ 
+-test('canonical schema 016 passes when every contract anchor is present', () => {
+-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '016');
++test('canonical schema 017 passes when every contract anchor is present', () => {
++  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '017');
+   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
+ });
+ 
+@@ -25,12 +25,13 @@ for (const scenario of [
+   ['missing notification read state', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'nearby_notifications' && a.name === 'read_at'],
+   ['missing supplier anchor', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'supplier_capabilities' && a.name === 'coverage_location_identifier'],
+   ['missing 016 idempotency uniqueness', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'contact_submission_idempotency_submitter_key_unique'],
++  ['missing 017 Category authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'categories_code_format_check'],
+   ['014-equivalent schema missing 015 index', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'contact_inquiries_professional_created_idx']
+ ] as const) {
+   test(`${scenario[0]} fails closed without exposing credentials`, () => {
+     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
+       assert.ok(error instanceof CanonicalSchemaError);
+-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=016 missing=/);
++      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=017 missing=/);
+       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
+       return true;
+     });
+diff --git a/apps/backend/src/database/database.migrator.ts b/apps/backend/src/database/database.migrator.ts
+index 1f62875..f2698bc 100644
+--- a/apps/backend/src/database/database.migrator.ts
++++ b/apps/backend/src/database/database.migrator.ts
+@@ -1,7 +1,7 @@
+ import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+ import { DatabasePool } from './database.pool';
+ 
+-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '016';
++export const REQUIRED_CANONICAL_SCHEMA_VERSION = '017';
+ 
+ export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
+ 
+@@ -60,6 +60,12 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
+   table('idempotency', '016', 'contact_submission_idempotency'),
+   ...['submitter_user_id', 'idempotency_key', 'inquiry_id', 'payload_fingerprint', 'created_at'].map((name) => column('idempotency', '016', 'contact_submission_idempotency', name)),
+   constraint('idempotency', '016', 'contact_submission_idempotency', 'contact_submission_idempotency_submitter_key_unique'),
++  table('categories', '017', 'categories'),
++  ...['code', 'name_ar', 'name_en', 'status', 'sort_order'].map((name) => column('categories', '017', 'categories', name)),
++  constraint('categories', '017', 'categories', 'categories_code_format_check'),
++  constraint('categories', '017', 'business_profiles', 'business_profiles_category_code_fk'),
++  constraint('categories', '017', 'service_listings', 'service_listings_category_code_fk'),
++  index('categories', '017', 'categories', 'categories_public_order_idx'),
+   table('supplier', '014', 'supplier_capabilities'),
+   ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name))
+ ];
+diff --git a/apps/backend/src/database/test-pool.ts b/apps/backend/src/database/test-pool.ts
+index 1921424..7e74d38 100644
+--- a/apps/backend/src/database/test-pool.ts
++++ b/apps/backend/src/database/test-pool.ts
+@@ -50,7 +50,8 @@ const CANONICAL_MIGRATIONS = [
+   '013_nearby_notifications_read_state',
+   '014_supplier_discovery',
+   '015_contact_target_contract',
+-  '016_contact_submission_idempotency'
++  '016_contact_submission_idempotency',
++  '017_category_taxonomy_contract'
+ ] as const;
+ 
+ let canonicalSchemaSetup: Promise<void> | undefined;
+diff --git a/apps/backend/src/integration/eo-011-smoke.test.ts b/apps/backend/src/integration/eo-011-smoke.test.ts
+index b6a9d4e..3973e46 100644
+--- a/apps/backend/src/integration/eo-011-smoke.test.ts
++++ b/apps/backend/src/integration/eo-011-smoke.test.ts
+@@ -17,6 +17,8 @@ import { IdentityService } from '../identity/identity.service';
+ import { SessionTokenService } from '../identity/security/session-token.service';
+ import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
+ import { BusinessProfileService } from '../business-profiles/business-profile.service';
++import { CategoryRepository } from '../categories/category.repository';
++import { CategoryService } from '../categories/category.service';
+ import { OperationsRbacService } from '../operations-product/operations-rbac.service';
+ import { EmailVerificationService } from '../identity/email/email-verification.service';
+ import { BootstrapAdminService } from '../identity/bootstrap/bootstrap-admin.service';
+@@ -174,7 +176,9 @@ async function setupFixture() {
+   const identityService = new IdentityService(identityRepo, sessionTokens);
+   const businessRepo = new BusinessProfileRepository(pool);
+   const rbac = new OperationsRbacService();
+-  const businessService = new BusinessProfileService(businessRepo, identityService, rbac);
++  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
++  const categories = new CategoryService(new CategoryRepository(pool));
++  const businessService = new BusinessProfileService(businessRepo, identityService, rbac, categories);
+   const serviceCatalogRepo = new ServiceCatalogRepository(pool);
+   const searchService = new SearchService(businessRepo, serviceCatalogRepo);
+   const emailVerificationService = new EmailVerificationService(pool, identityRepo);
+diff --git a/apps/backend/src/service-catalog/service-catalog.module.ts b/apps/backend/src/service-catalog/service-catalog.module.ts
+index 105c46a..c227032 100644
+--- a/apps/backend/src/service-catalog/service-catalog.module.ts
++++ b/apps/backend/src/service-catalog/service-catalog.module.ts
+@@ -1,5 +1,6 @@
+ import { Module } from '@nestjs/common';
+ import { BusinessProfilesModule } from '../business-profiles/business-profiles.module';
++import { CategoryModule } from '../categories/category.module';
+ import { IdentityModule } from '../identity/identity.module';
+ import { ProfessionalProfilesModule } from '../professional-profiles/professional-profiles.module';
+ import { ServiceCatalogController } from './service-catalog.controller';
+@@ -7,7 +8,7 @@ import { ServiceCatalogRepository } from './service-catalog.repository';
+ import { ServiceCatalogService } from './service-catalog.service';
+ 
+ @Module({
+-  imports: [IdentityModule, BusinessProfilesModule, ProfessionalProfilesModule],
++  imports: [IdentityModule, BusinessProfilesModule, ProfessionalProfilesModule, CategoryModule],
+   controllers: [ServiceCatalogController],
+   providers: [ServiceCatalogRepository, ServiceCatalogService],
+   exports: [ServiceCatalogRepository]
+diff --git a/apps/backend/src/service-catalog/service-catalog.service.test.ts b/apps/backend/src/service-catalog/service-catalog.service.test.ts
+index c5063c2..c610575 100644
+--- a/apps/backend/src/service-catalog/service-catalog.service.test.ts
++++ b/apps/backend/src/service-catalog/service-catalog.service.test.ts
+@@ -6,6 +6,8 @@ import { BusinessProfileRepository } from '../business-profiles/business-profile
+ import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
+ import { ServiceCatalogRepository } from './service-catalog.repository';
+ import { ServiceCatalogService } from './service-catalog.service';
++import { CategoryRepository } from '../categories/category.repository';
++import { CategoryService } from '../categories/category.service';
+ import { IdentityRepository } from '../identity/identity.repository';
+ import { IdentityService } from '../identity/identity.service';
+ import { SessionTokenService } from '../identity/security/session-token.service';
+@@ -87,7 +89,9 @@ async function createFixture() {
+   const businessRepo = new BusinessProfileRepository(pool);
+   const professionalRepo = new ProfessionalProfileRepository(pool);
+   const serviceRepo = new ServiceCatalogRepository(pool);
+-  const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo);
++  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('test', 'اختبار') ON CONFLICT (code) DO NOTHING`);
++  const categories = new CategoryService(new CategoryRepository(pool));
++  const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo, categories);
+ 
+   const ownerReg = await identity.register({ email: 'owner-svc@example.com', password: 'securepass123', displayName: 'مالك' });
+   const cookie = `khedmah_session=${ownerReg.sessionToken}`;
+diff --git a/apps/backend/src/service-catalog/service-catalog.service.ts b/apps/backend/src/service-catalog/service-catalog.service.ts
+index 4da3c51..818fa0e 100644
+--- a/apps/backend/src/service-catalog/service-catalog.service.ts
++++ b/apps/backend/src/service-catalog/service-catalog.service.ts
+@@ -5,6 +5,7 @@ import { readSessionToken } from '../identity/session-cookie';
+ import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
+ import { MediaAsset } from '../business-profiles/business-profile.types';
+ import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
++import { CategoryService } from '../categories/category.service';
+ import { SERVICE_ACCESS_DENIED_MESSAGE, SERVICE_NOT_FOUND_MESSAGE } from './service-catalog.errors';
+ import { ServiceCatalogRepository } from './service-catalog.repository';
+ import { PublicServiceListing, ServiceListing } from './service-catalog.types';
+@@ -17,12 +18,14 @@ export class ServiceCatalogService {
+     @Inject(ServiceCatalogRepository) private readonly repository: ServiceCatalogRepository,
+     @Inject(IdentityService) private readonly identity: IdentityService,
+     @Inject(BusinessProfileRepository) private readonly businessProfiles: BusinessProfileRepository,
+-    @Inject(ProfessionalProfileRepository) private readonly professionalProfiles: ProfessionalProfileRepository
++    @Inject(ProfessionalProfileRepository) private readonly professionalProfiles: ProfessionalProfileRepository,
++    @Inject(CategoryService) private readonly categories: CategoryService
+   ) {}
+ 
+   async create(cookieHeader: string | undefined, request: CreateServiceRequest): Promise<PublicServiceListing> {
+     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+     const input = validateCreateServiceRequest(request);
++    await this.categories.assertActiveCategory(input.categoryCode);
+     if (actor.id != input.ownerUserId) {
+       throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
+     }
+@@ -99,6 +102,7 @@ export class ServiceCatalogService {
+     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+     const service = await this.requireOwnedService(id, actor.id);
+     const input = validateUpdateServiceRequest(request);
++    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+     const updated: ServiceListing = {
+       ...service,
+       titleAr: input.titleAr ?? service.titleAr,
+@@ -126,6 +130,7 @@ export class ServiceCatalogService {
+ 
+   async search(request: SearchServicesRequest): Promise<{ readonly services: PublicServiceListing[]; readonly total: number; readonly page: number; }> {
+     const input = validateServiceSearchRequest(request);
++    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+     const limit = 20;
+     const offset = (input.page - 1) * limit;
+     const [services, total] = await Promise.all([
+diff --git a/apps/frontend/app/business-profiles/[id]/manage/page.tsx b/apps/frontend/app/business-profiles/[id]/manage/page.tsx
+index 5ededb5..9810ce6 100644
+--- a/apps/frontend/app/business-profiles/[id]/manage/page.tsx
++++ b/apps/frontend/app/business-profiles/[id]/manage/page.tsx
+@@ -6,12 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
+ import { api, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile } from '../../../../lib/api-client';
+ import { PlatformIcon } from '../../../components/platform-icon';
+ import styles from './provider-core.module.css';
+-
+-const CATEGORIES = [
+-  ['restaurant', 'مطاعم'], ['shop', 'محلات'], ['workshop', 'ورش'],
+-  ['service_business', 'خدمات'], ['doctor', 'طب'], ['lawyer', 'محاماة'],
+-  ['engineer', 'هندسة'], ['consultant', 'استشارات'], ['freelancer', 'عمل مستقل']
+-] as const;
++import { useCategories } from '../../../../lib/use-categories';
+ 
+ export default function ManageBusinessProfilePage() {
+   const { id } = useParams<{ id: string }>();
+@@ -27,7 +22,8 @@ export default function ManageBusinessProfilePage() {
+   const [error, setError] = useState('');
+   const [titleAr, setTitleAr] = useState('');
+   const [descriptionAr, setDescriptionAr] = useState('');
+-  const [categoryCode, setCategoryCode] = useState('service_business');
++  const [categoryCode, setCategoryCode] = useState('');
++  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
+   const [priceType, setPriceType] = useState('negotiable');
+   const [price, setPrice] = useState('');
+ 
+@@ -137,7 +133,7 @@ export default function ManageBusinessProfilePage() {
+             <label>اسم الخدمة<input value={titleAr} onChange={(event) => setTitleAr(event.target.value)} minLength={2} maxLength={200} required /></label>
+             <label>وصف مختصر<textarea value={descriptionAr} onChange={(event) => setDescriptionAr(event.target.value)} maxLength={2000} rows={4} /></label>
+             <div className={styles.formGrid}>
+-              <label>التصنيف<select value={categoryCode} onChange={(event) => setCategoryCode(event.target.value)}>{CATEGORIES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
++              <label>التصنيف<select value={categoryCode} disabled={categoriesLoading || !!categoriesError} required onChange={(event) => setCategoryCode(event.target.value)}><option value="">اختر تصنيفاً</option>{categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</select></label>
+               <label>طريقة السعر<select value={priceType} onChange={(event) => setPriceType(event.target.value)}><option value="negotiable">قابل للتفاوض</option><option value="fixed">سعر ثابت</option><option value="hourly">بالساعة</option></select></label>
+             </div>
+             {priceType !== 'negotiable' && <label>السعر بالليرة السورية<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} min="1" step="1" required /></label>}
+diff --git a/apps/frontend/app/business-profiles/new/page.tsx b/apps/frontend/app/business-profiles/new/page.tsx
+index 885e6cf..72cc0b0 100644
+--- a/apps/frontend/app/business-profiles/new/page.tsx
++++ b/apps/frontend/app/business-profiles/new/page.tsx
+@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
+ import { useState } from 'react';
+ import { api } from '../../../lib/api-client';
+ import { useSyrianCities } from '../../../lib/use-syrian-cities';
++import { useCategories } from '../../../lib/use-categories';
+ 
+ export default function NewBusinessProfilePage() {
+   const router = useRouter();
+   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
++  const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
+   const [name, setName] = useState('');
+   const [descriptionAr, setDescriptionAr] = useState('');
+   const [phone, setPhone] = useState('');
+@@ -70,8 +72,12 @@ export default function NewBusinessProfilePage() {
+           </label>
+           <label>
+             التصنيف *
+-            <input type="text" value={categoryCode} onChange={(event) => setCategoryCode(event.target.value)} required placeholder="مثال: restaurant, plumber, lawyer" />
++            <select value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)} required>
++              <option value="">اختر تصنيفاً معتمداً</option>
++              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
++            </select>
+           </label>
++          {categoriesError && <p className="form-error" role="status">{categoriesError} <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></p>}
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+             <label>
+               المدينة *
+@@ -109,7 +115,7 @@ export default function NewBusinessProfilePage() {
+             الموقع الإلكتروني
+             <input type="url" value={website} onChange={(event) => setWebsite(event.target.value)} placeholder="https://example.com" />
+           </label>
+-          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || !!citiesError || !cityCode} style={{ marginBlockStart: 0 }}>
++          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || categoriesLoading || !!citiesError || !!categoriesError || !cityCode || !categoryCode} style={{ marginBlockStart: 0 }}>
+             {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء الملف'}
+           </button>
+         </form>
+diff --git a/apps/frontend/app/search/page.tsx b/apps/frontend/app/search/page.tsx
+index 1abfe60..d0f4271 100644
+--- a/apps/frontend/app/search/page.tsx
++++ b/apps/frontend/app/search/page.tsx
+@@ -5,22 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
+ import { Suspense, useEffect, useState } from 'react';
+ import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
+ import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
++import { useCategories } from '../../lib/use-categories';
+ import { PlatformIcon } from '../components/platform-icon';
+ 
+ 
+ 
+-const CATEGORIES = [
+-  { code: 'restaurant', label: 'مطعم' },
+-  { code: 'shop', label: 'محل' },
+-  { code: 'workshop', label: 'ورشة' },
+-  { code: 'service_business', label: 'خدمات' },
+-  { code: 'doctor', label: 'طبيب' },
+-  { code: 'lawyer', label: 'محامي' },
+-  { code: 'engineer', label: 'مهندس' },
+-  { code: 'consultant', label: 'مستشار' },
+-  { code: 'freelancer', label: 'مستقل' },
+-];
+-
+ function trustLabel(status: string) {
+   if (status === 'approved') return <span className="badge badge-approved"><PlatformIcon name="check" size={14} /> معتمد</span>;
+   if (status === 'suspended') return <span className="badge badge-suspended"><PlatformIcon name="close" size={14} /> موقوف</span>;
+@@ -45,6 +34,7 @@ function SearchContent() {
+   const router = useRouter();
+   const params = useSearchParams();
+   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
++  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
+ 
+   const [q, setQ] = useState(params.get('q') ?? '');
+   const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
+@@ -184,9 +174,9 @@ function SearchContent() {
+           </div>
+           <div className="filter-group" style={{ flex: '1 1 130px' }}>
+             <label htmlFor="cat">التصنيف</label>
+-            <select id="cat" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)}>
++            <select id="cat" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(e) => setCategoryCode(e.target.value)}>
+               <option value="">كل التصنيفات</option>
+-              {CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
++              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
+             </select>
+           </div>
+           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+@@ -249,7 +239,7 @@ function SearchContent() {
+                           <h3 className="card-title">{b.name}</h3>
+                           {trustLabel(b.trustStatus)}
+                         </div>
+-                        <p className="card-meta">{CATEGORIES.find((c) => c.code === b.categoryCode)?.label ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
++                        <p className="card-meta">{categories.find((category) => category.code === b.categoryCode)?.nameAr ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
+                         {b.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.descriptionAr}</p>}
+                       </div>
+                       <div className="card-footer">
+@@ -305,7 +295,7 @@ function SearchContent() {
+                           <h3 className="card-title">{s.titleAr}</h3>
+                           <span className="badge badge-pending" style={{ whiteSpace: 'nowrap' }}>{priceLabel(s.priceType)}</span>
+                         </div>
+-                        <p className="card-meta">{CATEGORIES.find((c) => c.code === s.categoryCode)?.label ?? s.categoryCode}</p>
++                        <p className="card-meta">{categories.find((category) => category.code === s.categoryCode)?.nameAr ?? s.categoryCode}</p>
+                         {s.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.descriptionAr}</p>}
+                         {s.price != null && (
+                           <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.25rem 0 0' }}>
+diff --git a/apps/frontend/app/service-catalog/page.tsx b/apps/frontend/app/service-catalog/page.tsx
+index bbee330..3662033 100644
+--- a/apps/frontend/app/service-catalog/page.tsx
++++ b/apps/frontend/app/service-catalog/page.tsx
+@@ -4,14 +4,7 @@ import Link from 'next/link';
+ import { useEffect, useState } from 'react';
+ import { api, PublicServiceListing } from '../../lib/api-client';
+ import { PlatformIcon } from '../components/platform-icon';
+-
+-const CATEGORIES = [
+-  { code: '', label: 'كل الخدمات' },
+-  { code: 'service_business', label: 'خدمات منزلية' },
+-  { code: 'workshop', label: 'صيانة وسيارات' },
+-  { code: 'consultant', label: 'خدمات أعمال' },
+-  { code: 'freelancer', label: 'مهنيون مستقلون' }
+-];
++import { useCategories } from '../../lib/use-categories';
+ 
+ function providerHref(service: PublicServiceListing) {
+   return service.ownerType === 'business'
+@@ -25,6 +18,7 @@ export default function ServiceCatalogPage() {
+   const [error, setError] = useState('');
+   const [activeCategory, setActiveCategory] = useState('');
+   const [showFilters, setShowFilters] = useState(false);
++  const { categories, error: categoriesError } = useCategories();
+ 
+   async function loadServices(categoryCode: string) {
+     setIsLoading(true);
+@@ -41,10 +35,10 @@ export default function ServiceCatalogPage() {
+ 
+   useEffect(() => {
+     const requested = new URLSearchParams(window.location.search).get('category') ?? '';
+-    const initialCategory = CATEGORIES.some(({ code }) => code === requested) ? requested : '';
++    const initialCategory = categories.some(({ code }) => code === requested) ? requested : '';
+     setActiveCategory(initialCategory);
+     void loadServices(initialCategory);
+-  }, []);
++  }, [categories]);
+ 
+   function selectCategory(categoryCode: string) {
+     setActiveCategory(categoryCode);
+@@ -53,7 +47,7 @@ export default function ServiceCatalogPage() {
+     void loadServices(categoryCode);
+   }
+ 
+-  const title = CATEGORIES.find(({ code }) => code === activeCategory)?.label ?? 'دليل الخدمات';
++  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
+ 
+   return (
+     <main id="foundation-content" className="catalog-experience" aria-label="دليل الخدمات">
+@@ -66,11 +60,13 @@ export default function ServiceCatalogPage() {
+ 
+         {showFilters ? (
+           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
+-            {CATEGORIES.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.label}</button>)}
++            <button type="button" className={activeCategory === '' ? 'active' : ''} onClick={() => selectCategory('')}>كل الخدمات</button>
++            {categories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
+           </nav>
+         ) : null}
+ 
+         <p className="catalog-intro">اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة.</p>
++        {categoriesError ? <p className="form-error" role="status">{categoriesError}</p> : null}
+ 
+         {error ? <div className="catalog-state" role="alert"><p>{error}</p><button type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</button></div> : null}
+         {isLoading ? <div className="catalog-results" aria-busy="true" aria-label="جاري تحميل الخدمات">{Array.from({ length: 4 }, (_, index) => <div className="catalog-skeleton" key={index} />)}</div> : null}
+diff --git a/apps/frontend/lib/api-client.ts b/apps/frontend/lib/api-client.ts
+index 559ef35..8d41602 100644
+--- a/apps/frontend/lib/api-client.ts
++++ b/apps/frontend/lib/api-client.ts
+@@ -44,6 +44,14 @@ export interface PublicBusinessProfile {
+   readonly matchScore?: number;
+ }
+ 
++export interface Category {
++  readonly code: string;
++  readonly nameAr: string;
++  readonly nameEn?: string;
++  readonly status: 'active';
++  readonly sortOrder: number;
++}
++
+ export interface PublicProfessionalProfile {
+   readonly id: string;
+   readonly headlineAr: string;
+@@ -253,6 +261,10 @@ export const api = {
+       return request<{ organizations: PublicOrganization[] }>('/organizations/my');
+     }
+   },
++  categories: {
++    list() { return request<{ categories: Category[] }>('/categories'); },
++    get(code: string) { return request<{ category: Category }>(`/categories/${encodeURIComponent(code)}`); }
++  },
+   businesses: {
+     create(data: {
+       name: string;
+diff --git a/apps/frontend/lib/use-categories.ts b/apps/frontend/lib/use-categories.ts
+new file mode 100644
+index 0000000..6a5e385
+--- /dev/null
++++ b/apps/frontend/lib/use-categories.ts
+@@ -0,0 +1,20 @@
++'use client';
++
++import { useCallback, useEffect, useState } from 'react';
++import { api, Category } from './api-client';
++
++export function useCategories() {
++  const [categories, setCategories] = useState<Category[]>([]);
++  const [isLoading, setIsLoading] = useState(true);
++  const [error, setError] = useState('');
++
++  const load = useCallback(async () => {
++    setIsLoading(true); setError('');
++    try { setCategories((await api.categories.list()).categories); }
++    catch { setError('تعذر تحميل التصنيفات المعتمدة.'); }
++    finally { setIsLoading(false); }
++  }, []);
++
++  useEffect(() => { void load(); }, [load]);
++  return { categories, isLoading, error, retry: load };
++}
+diff --git a/backend/migrations/README.md b/backend/migrations/README.md
+index c5b08d2..2002db3 100644
+--- a/backend/migrations/README.md
++++ b/backend/migrations/README.md
+@@ -1,6 +1,6 @@
+ # Canonical database migrations
+ 
+-`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version from `001` through `016`.
++`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version from `001` through `017`.
+ 
+ Migrations are never executed by application startup. Startup performs read-only PostgreSQL catalog verification and fails with `CANONICAL_SCHEMA_INCOMPATIBLE` when the installed schema does not meet the required canonical level.
+ 
+@@ -24,6 +24,7 @@ Migrations are never executed by application startup. Startup performs read-only
+ | 014 | Discovery-only Supplier capabilities |
+ | 015 | Business XOR Professional Contact target and tracking state |
+ | 016 | Submitter-scoped Contact submission idempotency |
++| 017 | Canonical platform-governed Category taxonomy and Business/Service references |
+ 
+ ## Safety rules
+ 
+diff --git a/backend/migrations/versions/017_category_taxonomy_contract.sql b/backend/migrations/versions/017_category_taxonomy_contract.sql
+new file mode 100644
+index 0000000..d50b0b3
+--- /dev/null
++++ b/backend/migrations/versions/017_category_taxonomy_contract.sql
+@@ -0,0 +1,27 @@
++-- SEQ-02I: canonical, platform-governed Category authority.
++-- No seed rows are introduced: taxonomy records require an explicit governed source.
++CREATE TABLE categories (
++  code TEXT PRIMARY KEY,
++  name_ar TEXT NOT NULL,
++  name_en TEXT,
++  status TEXT NOT NULL DEFAULT 'active',
++  sort_order INTEGER NOT NULL DEFAULT 0,
++  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  CONSTRAINT categories_code_format_check CHECK (code ~ '^[a-z][a-z0-9_]{1,49}$'),
++  CONSTRAINT categories_name_ar_not_blank_check CHECK (BTRIM(name_ar) <> ''),
++  CONSTRAINT categories_status_check CHECK (status IN ('active', 'inactive')),
++  CONSTRAINT categories_sort_order_check CHECK (sort_order >= 0)
++);
++
++CREATE INDEX categories_public_order_idx ON categories(status, sort_order, code);
++
++-- Existing installations may contain legacy free-text values. NOT VALID preserves
++-- upgrade safety while enforcing canonical references for every new/updated row.
++ALTER TABLE business_profiles
++  ADD CONSTRAINT business_profiles_category_code_fk
++  FOREIGN KEY (category_code) REFERENCES categories(code) ON UPDATE CASCADE NOT VALID;
++
++ALTER TABLE service_listings
++  ADD CONSTRAINT service_listings_category_code_fk
++  FOREIGN KEY (category_code) REFERENCES categories(code) ON UPDATE CASCADE NOT VALID;
+diff --git a/backend/migrations/versions/017_category_taxonomy_contract_rollback.sql b/backend/migrations/versions/017_category_taxonomy_contract_rollback.sql
+new file mode 100644
+index 0000000..7d71126
+--- /dev/null
++++ b/backend/migrations/versions/017_category_taxonomy_contract_rollback.sql
+@@ -0,0 +1,4 @@
++-- SEQ-02I rollback: remove Category references before their canonical authority.
++ALTER TABLE service_listings DROP CONSTRAINT IF EXISTS service_listings_category_code_fk;
++ALTER TABLE business_profiles DROP CONSTRAINT IF EXISTS business_profiles_category_code_fk;
++DROP TABLE IF EXISTS categories;
+diff --git a/scripts/validate-database-readiness.mjs b/scripts/validate-database-readiness.mjs
+index c220ec5..c48d630 100644
+--- a/scripts/validate-database-readiness.mjs
++++ b/scripts/validate-database-readiness.mjs
+@@ -48,6 +48,8 @@ const EXPECTED_MIGRATIONS = [
+   '015_contact_target_contract_rollback.sql',
+   '016_contact_submission_idempotency.sql',
+   '016_contact_submission_idempotency_rollback.sql',
++  '017_category_taxonomy_contract.sql',
++  '017_category_taxonomy_contract_rollback.sql',
+ ];
+ 
+ const REQUIRED_ENV_KEYS = [
+diff --git a/tests/backend-foundation-initialization.test.mjs b/tests/backend-foundation-initialization.test.mjs
+index 2fcc5ca..c072793 100644
+--- a/tests/backend-foundation-initialization.test.mjs
++++ b/tests/backend-foundation-initialization.test.mjs
+@@ -80,7 +80,7 @@ test('configuration, database, migrations, shared, and test foundations preserve
+   const migrations = await read('backend/migrations/README.md');
+   assert.match(migrations, /001_core_identity_accounts\.sql/);
+   assert.match(migrations, /Mission 048/);
+-  assert.match(migrations, /every version from `001` through `016`/);
++  assert.match(migrations, /every version from `001` through `017`/);
+   assert.match(migrations, /never executed by application startup/);
+ 
+   const shared = await read('backend/shared/README.md');
+diff --git a/tests/canonical-migration-lineage-contract.test.mjs b/tests/canonical-migration-lineage-contract.test.mjs
+index 48b8450..9b16549 100644
+--- a/tests/canonical-migration-lineage-contract.test.mjs
++++ b/tests/canonical-migration-lineage-contract.test.mjs
+@@ -5,9 +5,9 @@ import test from 'node:test';
+ const migrationsUrl = new URL('../backend/migrations/versions/', import.meta.url);
+ const read = (name) => readFile(new URL(name, migrationsUrl), 'utf8');
+ 
+-test('canonical migrations form one governed forward and rollback lineage through 016', async () => {
++test('canonical migrations form one governed forward and rollback lineage through 017', async () => {
+   const files = await readdir(migrationsUrl);
+-  for (let version = 1; version <= 16; version += 1) {
++  for (let version = 1; version <= 17; version += 1) {
+     const prefix = String(version).padStart(3, '0');
+     const forward = files.filter((name) => name.startsWith(`${prefix}_`) && !name.endsWith('_rollback.sql'));
+     const rollback = files.filter((name) => name.startsWith(`${prefix}_`) && name.endsWith('_rollback.sql'));
+diff --git a/tests/category-canonical-contract.test.mjs b/tests/category-canonical-contract.test.mjs
+new file mode 100644
+index 0000000..0f0753d
+--- /dev/null
++++ b/tests/category-canonical-contract.test.mjs
+@@ -0,0 +1,41 @@
++import assert from 'node:assert/strict';
++import { readFile } from 'node:fs/promises';
++import test from 'node:test';
++
++const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
++
++test('Migration 017 owns canonical Category authority without fake seeds', async () => {
++  const sql = await read('backend/migrations/versions/017_category_taxonomy_contract.sql');
++  assert.match(sql, /CREATE TABLE categories/);
++  assert.match(sql, /categories_code_format_check/);
++  assert.match(sql, /business_profiles_category_code_fk/);
++  assert.match(sql, /service_listings_category_code_fk/);
++  assert.doesNotMatch(sql, /INSERT\s+INTO\s+categories/i);
++});
++
++test('Migration 017 rollback removes references before Category authority', async () => {
++  const rollback = await read('backend/migrations/versions/017_category_taxonomy_contract_rollback.sql');
++  const serviceFk = rollback.indexOf('service_listings_category_code_fk');
++  const categoryTable = rollback.indexOf('DROP TABLE IF EXISTS categories');
++  assert.ok(serviceFk >= 0 && categoryTable > serviceFk);
++});
++
++test('Business and Service writes use the shared active Category authority', async () => {
++  const [business, services] = await Promise.all([
++    read('apps/backend/src/business-profiles/business-profile.service.ts'),
++    read('apps/backend/src/service-catalog/service-catalog.service.ts')
++  ]);
++  assert.match(business, /categories\.assertActiveCategory/);
++  assert.match(services, /categories\.assertActiveCategory/);
++});
++
++test('frontend Category choices come from the canonical API', async () => {
++  const [hook, businessPage, catalogPage] = await Promise.all([
++    read('apps/frontend/lib/use-categories.ts'),
++    read('apps/frontend/app/business-profiles/new/page.tsx'),
++    read('apps/frontend/app/service-catalog/page.tsx')
++  ]);
++  assert.match(hook, /api\.categories\.list/);
++  assert.match(businessPage, /useCategories/);
++  assert.match(catalogPage, /useCategories/);
++});
+diff --git a/tests/contact-inquiry-idempotency-contract.test.mjs b/tests/contact-inquiry-idempotency-contract.test.mjs
+index 0fbf3d4..e1da872 100644
+--- a/tests/contact-inquiry-idempotency-contract.test.mjs
++++ b/tests/contact-inquiry-idempotency-contract.test.mjs
+@@ -28,6 +28,6 @@ test('Contact repository binds inquiry and idempotency marker in one transaction
+ 
+ test('startup requires the critical Migration 016 uniqueness anchor', async () => {
+   const migrator = await read('apps/backend/src/database/database.migrator.ts');
+-  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '016'/);
++  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '017'/);
+   assert.match(migrator, /contact_submission_idempotency_submitter_key_unique/);
+ });
+diff --git a/tests/database-migration-workflow-governance.test.mjs b/tests/database-migration-workflow-governance.test.mjs
+index b115966..16fd69b 100644
+--- a/tests/database-migration-workflow-governance.test.mjs
++++ b/tests/database-migration-workflow-governance.test.mjs
+@@ -4,7 +4,7 @@ import test from 'node:test';
+ 
+ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+ 
+-test('database migration workflow governs every canonical pair through 016', async () => {
++test('database migration workflow governs every canonical pair through 017', async () => {
+   const workflow = await read('.github/workflows/database-migration-check.yml');
+ 
+   const names = [
+@@ -13,7 +13,7 @@ test('database migration workflow governs every canonical pair through 016', asy
+     '007_v2_marketplace', '008_provider_service_radius', '009_canonical_identity_runtime',
+     '010_canonical_runtime_domains', '011_canonical_media_contract', '012_nearby_preferences',
+     '013_nearby_notifications_read_state', '014_supplier_discovery', '015_contact_target_contract',
+-    '016_contact_submission_idempotency'
++    '016_contact_submission_idempotency', '017_category_taxonomy_contract'
+   ];
+   for (const name of names) {
+     assert.match(workflow, new RegExp(`^\\s+${name}$`, 'm'));
+-- 
+2.43.0
+

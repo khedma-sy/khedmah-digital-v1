@@ -6,6 +6,8 @@ import { BusinessProfileRepository } from '../business-profiles/business-profile
 import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
 import { ServiceCatalogRepository } from './service-catalog.repository';
 import { ServiceCatalogService } from './service-catalog.service';
+import { CategoryRepository } from '../categories/category.repository';
+import { CategoryService } from '../categories/category.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
@@ -87,7 +89,9 @@ async function createFixture() {
   const businessRepo = new BusinessProfileRepository(pool);
   const professionalRepo = new ProfessionalProfileRepository(pool);
   const serviceRepo = new ServiceCatalogRepository(pool);
-  const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo);
+  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('test', 'اختبار') ON CONFLICT (code) DO NOTHING`);
+  const categories = new CategoryService(new CategoryRepository(pool));
+  const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo, categories);
 
   const ownerReg = await identity.register({ email: 'owner-svc@example.com', password: 'securepass123', displayName: 'مالك' });
   const cookie = `khedmah_session=${ownerReg.sessionToken}`;
