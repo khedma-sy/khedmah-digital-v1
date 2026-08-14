@@ -10,6 +10,7 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly owner_user_id: string;
   readonly organization_id: string | null;
   readonly visibility: string;
+  readonly moderation_status: string;
   readonly trust_status: string;
   readonly status: string;
   readonly phone: string | null;
@@ -39,11 +40,11 @@ export class BusinessProfileRepository {
     await this.db.query(
       `INSERT INTO business_profiles (
          id, name, description_ar, description_en, owner_user_id, organization_id,
-         visibility, trust_status, status, phone, email, website,
+         visibility, moderation_status, trust_status, status, phone, email, website,
          category_code, city_code, country_code, lat, lng, address_ar,
          is_featured, featured_at, created_at, updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          description_ar = EXCLUDED.description_ar,
@@ -72,6 +73,7 @@ export class BusinessProfileRepository {
         profile.ownerUserId,
         profile.organizationId ?? null,
         profile.visibility,
+        profile.moderationStatus,
         profile.trustStatus,
         profile.status,
         profile.phone ?? null,
@@ -93,7 +95,7 @@ export class BusinessProfileRepository {
 
   async findById(id: string): Promise<BusinessProfile | undefined> {
     const rows = await this.db.query<BusinessProfileRow>(
-      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
@@ -110,7 +112,7 @@ export class BusinessProfileRepository {
 
   async listForUser(userId: string): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
-      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
@@ -128,7 +130,7 @@ export class BusinessProfileRepository {
   async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(
-      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
@@ -146,7 +148,7 @@ export class BusinessProfileRepository {
 
   async listFeatured(limit = 6): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
-      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
@@ -154,7 +156,7 @@ export class BusinessProfileRepository {
               to_jsonb(b)->>'rating' AS rating,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
-       WHERE visibility = 'public' AND trust_status = 'approved' AND status = 'active' AND is_featured = TRUE
+       WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active' AND is_featured = TRUE
        ORDER BY featured_at DESC
        LIMIT $1`,
       [limit]
@@ -164,7 +166,7 @@ export class BusinessProfileRepository {
 
   async listRecentlyAdded(limit = 10): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
-      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, trust_status,
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code, city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
@@ -172,7 +174,7 @@ export class BusinessProfileRepository {
               to_jsonb(b)->>'rating' AS rating,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
-       WHERE visibility = 'public' AND trust_status = 'approved' AND status = 'active'
+       WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active'
        ORDER BY created_at DESC
        LIMIT $1`,
       [limit]
@@ -200,24 +202,28 @@ export class BusinessProfileRepository {
 
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
-      `INSERT INTO media_assets (id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET url = EXCLUDED.url, sort_order = EXCLUDED.sort_order`,
+      `INSERT INTO media_assets
+         (id, owner_user_id, owner_type, owner_id, filename, mime_type, size_bytes, visibility,
+          storage_key, public_url, asset_type, sort_order, created_at, updated_at)
+       SELECT $1, b.owner_user_id, 'business_profile', $3, $1, $7, $8, 'public', $6, $5, $4, $9, $10, $10
+       FROM business_profiles b WHERE b.id = $3
+       ON CONFLICT (id) DO UPDATE SET public_url = EXCLUDED.public_url, sort_order = EXCLUDED.sort_order`,
       [asset.id, asset.entityType, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
     );
   }
 
   async listMediaAssets(entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
-    const params: unknown[] = [entityType, entityId];
+    const params: unknown[] = [entityType === 'business' ? 'business_profile' : entityType, entityId];
     let assetTypeClause = '';
     if (assetType) {
       params.push(assetType);
       assetTypeClause = `AND asset_type = $${params.length}`;
     }
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; asset_type: string; url: string; storage_path: string; mime_type: string; size_bytes: number; sort_order: number; created_at: Date }>(
-      `SELECT id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at
+      `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
+              public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE entity_type = $1 AND entity_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -339,7 +345,7 @@ export class BusinessProfileRepository {
   }
 
   private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }) {
-    const clauses = ["visibility = 'public'", "trust_status = 'approved'", "status = 'active'"];
+    const clauses = ["visibility = 'public'", "moderation_status = 'approved'", "trust_status = 'approved'", "status = 'active'"];
     const params: unknown[] = [];
 
     if (filters.categoryCode) {
@@ -375,6 +381,7 @@ export class BusinessProfileRepository {
       ownerUserId: row.owner_user_id,
       organizationId: row.organization_id ?? undefined,
       visibility: row.visibility as BusinessProfile['visibility'],
+      moderationStatus: row.moderation_status as BusinessProfile['moderationStatus'],
       trustStatus: row.trust_status as BusinessProfile['trustStatus'],
       status: row.status as BusinessProfile['status'],
       phone: row.phone ?? undefined,

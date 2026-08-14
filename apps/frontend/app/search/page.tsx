@@ -4,17 +4,10 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
+import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
 import { PlatformIcon } from '../components/platform-icon';
 
-const CITIES = [
-  { code: 'damascus', label: 'دمشق' },
-  { code: 'aleppo', label: 'حلب' },
-  { code: 'homs', label: 'حمص' },
-  { code: 'latakia', label: 'اللاذقية' },
-  { code: 'hama', label: 'حماة' },
-  { code: 'deir-ez-zor', label: 'دير الزور' },
-  { code: 'tartus', label: 'طرطوس' },
-];
+
 
 const CATEGORIES = [
   { code: 'restaurant', label: 'مطعم' },
@@ -51,12 +44,13 @@ type TabType = 'all' | 'business' | 'professional' | 'service';
 function SearchContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
 
   const [q, setQ] = useState(params.get('q') ?? '');
   const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
   const [categoryCode, setCategoryCode] = useState(params.get('categoryCode') ?? '');
   const [tab, setTab] = useState<TabType>((params.get('type') as TabType) ?? 'all');
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => Math.max(1, Number(params.get('page')) || 1));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
@@ -68,14 +62,25 @@ function SearchContent() {
 
   const PAGE_SIZE = 12;
 
-  async function doSearch(overrides?: { tab?: TabType; page?: number }) {
+  function updateCanonicalUrl(nextCityCode = cityCode, nextPage = page) {
+    const next = new URLSearchParams();
+    if (q) next.set('q', q);
+    if (nextCityCode) next.set('cityCode', nextCityCode);
+    if (categoryCode) next.set('categoryCode', categoryCode);
+    if (tab !== 'all') next.set('type', tab);
+    if (nextPage > 1) next.set('page', String(nextPage));
+    router.replace(next.size ? `/search?${next.toString()}` : '/search');
+  }
+
+  async function doSearch(overrides?: { tab?: TabType; page?: number; cityCode?: string }) {
     const activeTab = overrides?.tab ?? tab;
     const activePage = overrides?.page ?? page;
+    const activeCityCode = overrides?.cityCode ?? cityCode;
     setIsLoading(true);
     setError('');
     try {
       if (activeTab === 'professional') {
-        const data = await api.professionals.search({ q: q || undefined, cityCode: cityCode || undefined, page: activePage });
+        const data = await api.professionals.search({ q: q || undefined, cityCode: activeCityCode || undefined, page: activePage });
         setProfessionals(data.professionals);
         setBusinesses([]);
         setServices([]);
@@ -87,13 +92,13 @@ function SearchContent() {
         setProfessionals([]);
         setTotal(data.total);
       } else if (activeTab === 'business') {
-        const data = await api.businesses.search({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: cityCode || undefined, page: activePage });
+        const data = await api.businesses.search({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: activeCityCode || undefined, page: activePage });
         setBusinesses(data.businesses);
         setServices([]);
         setProfessionals([]);
         setTotal(data.total);
       } else {
-        const data = await api.search.query({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: cityCode || undefined, page: activePage, type: activeTab });
+        const data = await api.search.query({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: activeCityCode || undefined, page: activePage, type: activeTab });
         setBusinesses(data.businesses);
         setServices(data.services);
         setProfessionals([]);
@@ -110,6 +115,7 @@ function SearchContent() {
   function handleSearch(event: React.FormEvent) {
     event.preventDefault();
     setPage(1);
+    updateCanonicalUrl(cityCode, 1);
     void doSearch({ page: 1 });
   }
 
@@ -121,6 +127,7 @@ function SearchContent() {
 
   function handlePage(nextPage: number) {
     setPage(nextPage);
+    updateCanonicalUrl(cityCode, nextPage);
     void doSearch({ page: nextPage });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -128,18 +135,22 @@ function SearchContent() {
   // Auto-search when arriving via URL params (from homepage links)
   useEffect(() => {
     const urlQ = params.get('q');
-    const urlCity = params.get('cityCode');
+    const rawCity = params.get('cityCode');
+    const urlCity = canonicalCityCode(rawCity, cities);
     const urlCat = params.get('categoryCode');
     const urlType = params.get('type') as TabType | null;
+    const urlPage = Math.max(1, Number(params.get('page')) || 1);
     if (urlQ || urlCity || urlCat || urlType) {
       if (urlQ) setQ(urlQ);
-      if (urlCity) setCityCode(urlCity);
+      setCityCode(urlCity);
       if (urlCat) setCategoryCode(urlCat);
       if (urlType) setTab(urlType);
-      void doSearch({ tab: urlType ?? 'all', page: 1 });
+      setPage(urlPage);
+      void doSearch({ tab: urlType ?? 'all', page: urlPage, cityCode: urlCity });
     }
+    if (rawCity && cities.length > 0 && !urlCity) router.replace('/search');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cities, params]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -166,9 +177,9 @@ function SearchContent() {
           </div>
           <div className="filter-group" style={{ flex: '1 1 130px' }}>
             <label htmlFor="city">المدينة</label>
-            <select id="city" value={cityCode} onChange={(e) => setCityCode(e.target.value)}>
+            <select id="city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(e) => { const next = e.target.value; setCityCode(next); setPage(1); updateCanonicalUrl(next, 1); }}>
               <option value="">كل المدن</option>
-              {CITIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+              {cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}
             </select>
           </div>
           <div className="filter-group" style={{ flex: '1 1 130px' }}>
@@ -187,13 +198,14 @@ function SearchContent() {
               <button
                 type="button"
                 className="filter-action-secondary"
-                onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); }}
+                onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }}
               >
                 مسح
               </button>
             )}
           </div>
         </form>
+        {citiesError && <p className="form-error" role="status">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></p>}
 
         {/* Type tabs */}
         <nav className="type-tabs" aria-label="نوع النتائج">
@@ -237,7 +249,7 @@ function SearchContent() {
                           <h3 className="card-title">{b.name}</h3>
                           {trustLabel(b.trustStatus)}
                         </div>
-                        <p className="card-meta">{CATEGORIES.find((c) => c.code === b.categoryCode)?.label ?? b.categoryCode} · {CITIES.find((c) => c.code === b.cityCode)?.label ?? b.cityCode}</p>
+                        <p className="card-meta">{CATEGORIES.find((c) => c.code === b.categoryCode)?.label ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
                         {b.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.descriptionAr}</p>}
                       </div>
                       <div className="card-footer">
@@ -263,7 +275,7 @@ function SearchContent() {
                           <h3 className="card-title">{p.headlineAr}</h3>
                           {availLabel(p.availability)}
                         </div>
-                        <p className="card-meta">{CITIES.find((c) => c.code === p.cityCode)?.label ?? p.cityCode} · {p.countryCode}</p>
+                        <p className="card-meta">{cityLabel(p.cityCode, cities)} · {p.countryCode}</p>
                         {p.skills.length > 0 && (
                           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
                             {p.skills.slice(0, 4).map((s) => <span key={s} className="skill-tag">{s}</span>)}
@@ -322,7 +334,7 @@ function SearchContent() {
                 <span className="empty-state-icon" aria-hidden="true"><PlatformIcon name="search" size={42} /></span>
                 <h2>لا توجد نتائج</h2>
                 <p>جرّب كلمة بحث مختلفة أو قم بتوسيع نطاق البحث.</p>
-                <button type="button" className="filter-action" onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); }}>
+                <button type="button" className="filter-action" onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }}>
                   مسح الفلاتر
                 </button>
               </div>

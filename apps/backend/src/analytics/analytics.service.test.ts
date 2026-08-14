@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { AnalyticsValidationError } from './analytics.errors';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsService } from './analytics.service';
@@ -11,6 +11,7 @@ import { PlatformLogger } from '../logging/platform-logger';
 const rawPool = createTestPool();
 
 async function createService() {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS audit_logs (

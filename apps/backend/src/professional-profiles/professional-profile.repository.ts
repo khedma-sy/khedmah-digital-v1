@@ -25,12 +25,15 @@ export class ProfessionalProfileRepository {
 
   async save(profile: ProfessionalProfile): Promise<void> {
     await this.db.query(
-      `INSERT INTO professional_directory_profiles (
-         id, user_id, headline_ar, headline_en, bio_ar, bio_en,
+      `INSERT INTO professional_profiles (
+         professional_profile_identifier, profile_identifier, user_identifier, profession_type,
+         lifecycle_status, visibility, moderation_status, headline_ar, headline_en, bio_ar, bio_en,
          availability, city_code, country_code, skills, created_at, updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       ON CONFLICT (id) DO UPDATE SET
+       SELECT $1, p.profile_identifier, $2, 'freelancer', 'active', 'private', 'pending',
+              $3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+       FROM profiles p WHERE p.user_identifier = $2
+       ON CONFLICT (professional_profile_identifier) DO UPDATE SET
          headline_ar = EXCLUDED.headline_ar,
          headline_en = EXCLUDED.headline_en,
          bio_ar = EXCLUDED.bio_ar,
@@ -59,20 +62,27 @@ export class ProfessionalProfileRepository {
 
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
-       FROM professional_directory_profiles
-       WHERE id = $1
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_profiles
+       WHERE professional_profile_identifier = $1
        LIMIT 1`,
       [id]
     );
     return rows[0] ? this.map(rows[0]) : undefined;
   }
 
+  async findContactEligibility(id: string): Promise<{ visibility: 'public' | 'private' | 'internal'; moderationStatus: 'approved' | 'pending' | 'rejected' | 'suspended'; lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived' } | undefined> {
+    const rows = await this.db.query<{ visibility: 'public' | 'private' | 'internal'; moderation_status: 'approved' | 'pending' | 'rejected' | 'suspended'; lifecycle_status: 'created' | 'pending' | 'active' | 'suspended' | 'archived' }>(
+      `SELECT visibility, moderation_status, lifecycle_status FROM professional_profiles
+       WHERE professional_profile_identifier = $1 LIMIT 1`, [id]);
+    return rows[0] ? { visibility: rows[0].visibility, moderationStatus: rows[0].moderation_status, lifecycleStatus: rows[0].lifecycle_status } : undefined;
+  }
+
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
-       FROM professional_directory_profiles
-       WHERE user_id = $1
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_profiles
+       WHERE user_identifier = $1
        LIMIT 1`,
       [userId]
     );
@@ -98,9 +108,9 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
-       FROM professional_directory_profiles
-       ${where}
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_profiles
+       ${where ? `${where} AND` : 'WHERE'} visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY is_featured DESC, created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
@@ -110,9 +120,9 @@ export class ProfessionalProfileRepository {
 
   async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
-       FROM professional_directory_profiles
-       WHERE is_featured = TRUE
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_profiles
+       WHERE is_featured = TRUE AND visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY featured_at DESC
        LIMIT $1`,
       [limit]
@@ -141,24 +151,28 @@ export class ProfessionalProfileRepository {
 
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
-      `INSERT INTO media_assets (id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET url = EXCLUDED.url, sort_order = EXCLUDED.sort_order`,
+      `INSERT INTO media_assets
+         (id, owner_user_id, owner_type, owner_id, filename, mime_type, size_bytes, visibility,
+          storage_key, public_url, asset_type, sort_order, created_at, updated_at)
+       SELECT $1, p.user_identifier, 'professional_profile', $3, $1, $7, $8, 'public', $6, $5, $4, $9, $10, $10
+       FROM professional_profiles p WHERE p.professional_profile_identifier = $3
+       ON CONFLICT (id) DO UPDATE SET public_url = EXCLUDED.public_url, sort_order = EXCLUDED.sort_order`,
       [asset.id, asset.entityType, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
     );
   }
 
   async listMediaAssets(entityId: string, assetType?: string): Promise<MediaAsset[]> {
-    const params: unknown[] = ['professional', entityId];
+    const params: unknown[] = ['professional_profile', entityId];
     let assetTypeClause = '';
     if (assetType) {
       params.push(assetType);
       assetTypeClause = `AND asset_type = $${params.length}`;
     }
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; asset_type: string; url: string; storage_path: string; mime_type: string; size_bytes: number; sort_order: number; created_at: Date }>(
-      `SELECT id, entity_type, entity_id, asset_type, url, storage_path, mime_type, size_bytes, sort_order, created_at
+      `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
+              public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE entity_type = $1 AND entity_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -205,4 +219,3 @@ export class ProfessionalProfileRepository {
     return rows.map((r) => ({ id: r.id, entityType: r.entity_type, entityId: r.entity_id, oldStatus: r.old_status ?? undefined, newStatus: r.new_status, changedBy: r.changed_by ?? undefined, reason: r.reason ?? undefined, createdAt: r.created_at.toISOString() }));
   }
 }
-

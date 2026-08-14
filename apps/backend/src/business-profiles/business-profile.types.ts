@@ -1,5 +1,6 @@
 export type BusinessProfileVisibility = 'public' | 'private';
 export type BusinessProfileTrustStatus = 'pending' | 'approved' | 'suspended';
+export type BusinessProfileModerationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 export type BusinessProfileStatus = 'active' | 'suspended';
 
 export interface BusinessProfile {
@@ -10,6 +11,7 @@ export interface BusinessProfile {
   readonly ownerUserId: string;
   readonly organizationId?: string;
   readonly visibility: BusinessProfileVisibility;
+  readonly moderationStatus: BusinessProfileModerationStatus;
   readonly trustStatus: BusinessProfileTrustStatus;
   readonly status: BusinessProfileStatus;
   readonly phone?: string;
@@ -37,6 +39,7 @@ export interface PublicBusinessProfile {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly visibility: BusinessProfileVisibility;
+  readonly moderationStatus: BusinessProfileModerationStatus;
   readonly trustStatus: BusinessProfileTrustStatus;
   readonly status: BusinessProfileStatus;
   readonly phone?: string;

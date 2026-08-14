@@ -1,28 +1,40 @@
-/**
- * Creates a pg Pool for use in backend tests.
- *
- * Resolution order:
- *   1. DATABASE_URL — used as-is (connectionString) when set.
- *   2. Individual PG* env vars (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
- *
- * This ensures backend tests connect to the correct host in CI environments
- * (e.g. Cloud Build) where DATABASE_URL points to a sidecar container such as
- * `pg-test:5432` rather than `127.0.0.1:5432`.
- */
 import { Pool } from 'pg';
 
-export function createTestPool(): Pool {
-  const databaseUrl = process.env.DATABASE_URL;
+const SAFE_DATABASE_NAME = /^[a-z0-9_]*(?:_test|_ci)$/;
+const FORBIDDEN_DATABASE_NAMES = new Set(['postgres', 'template0', 'template1', 'khedmah', 'khedmah_dev', 'khedmah_prod', 'production']);
 
-  if (databaseUrl) {
-    return new Pool({ connectionString: databaseUrl });
+export function createTestPool(): Pool {
+  if (process.env.ALLOW_DESTRUCTIVE_DB_TESTS !== 'true') {
+    throw new Error('DESTRUCTIVE_DB_TESTS_DISABLED: set ALLOW_DESTRUCTIVE_DB_TESTS=true for an approved disposable database.');
   }
 
-  return new Pool({
-    host: process.env.PGHOST ?? '127.0.0.1',
-    port: parseInt(process.env.PGPORT ?? '5432', 10),
-    user: process.env.PGUSER ?? 'khedmah',
-    password: process.env.PGPASSWORD,
-    database: process.env.PGDATABASE ?? 'khedmah_dev',
-  });
+  const databaseUrl = process.env.DATABASE_URL;
+  const databaseName = databaseUrl
+    ? decodeURIComponent(new URL(databaseUrl).pathname.replace(/^\//, ''))
+    : (process.env.PGDATABASE ?? '');
+
+  assertSafeDisposableDatabaseName(databaseName);
+
+  return databaseUrl
+    ? new Pool({ connectionString: databaseUrl })
+    : new Pool({
+        host: process.env.PGHOST ?? '127.0.0.1',
+        port: Number.parseInt(process.env.PGPORT ?? '5432', 10),
+        user: process.env.PGUSER ?? 'khedmah',
+        password: process.env.PGPASSWORD,
+        database: databaseName
+      });
+}
+
+export async function verifyTestDatabase(pool: Pool): Promise<void> {
+  const result = await pool.query<{ database_name: string }>('SELECT current_database() AS database_name');
+  const databaseName = result.rows[0]?.database_name ?? '';
+  assertSafeDisposableDatabaseName(databaseName);
+}
+
+export function assertSafeDisposableDatabaseName(databaseName: string): void {
+  const normalized = databaseName.toLowerCase();
+  if (!SAFE_DATABASE_NAME.test(normalized) || FORBIDDEN_DATABASE_NAMES.has(normalized)) {
+    throw new Error(`UNSAFE_DESTRUCTIVE_DATABASE_TARGET: ${normalized || '<missing>'}`);
+  }
 }

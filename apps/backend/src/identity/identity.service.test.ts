@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { UnauthorizedException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { IdentityRepository } from './identity.repository';
 import { IdentityService } from './identity.service';
 import { SessionTokenService } from './security/session-token.service';
@@ -11,6 +11,7 @@ import { SessionTokenService } from './security/session-token.service';
 const rawPool = createTestPool();
 
 async function setup(): Promise<{ repository: IdentityRepository; service: IdentityService }> {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`

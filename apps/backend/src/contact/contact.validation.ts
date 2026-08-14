@@ -7,6 +7,7 @@ const MAX_EMAIL_LENGTH = 254;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_SOURCE_LENGTH = 80;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 
 function validateTrimmedString(value: unknown, minLength: number, maxLength: number): string {
   if (typeof value !== 'string') {
@@ -23,6 +24,12 @@ function validateTrimmedString(value: unknown, minLength: number, maxLength: num
 
 export function validateBusinessProfileId(value: unknown): string {
   return validateTrimmedString(value, 1, MAX_BUSINESS_PROFILE_ID_LENGTH);
+}
+
+export function validateIdempotencyKey(value: unknown): string {
+  const key = validateTrimmedString(value, 16, 128);
+  if (!IDEMPOTENCY_KEY_PATTERN.test(key)) throw new ContactValidationError();
+  return key;
 }
 
 export function validateSubmitContactInquiry(request: SubmitContactInquiryRequest) {

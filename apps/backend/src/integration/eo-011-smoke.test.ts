@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, verifyTestDatabase } from '../database/test-pool';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
@@ -160,6 +160,7 @@ const INLINE_DDL = `
 `;
 
 async function setupFixture() {
+  await verifyTestDatabase(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
   await pool.query(INLINE_DDL);
   await pool.query(`

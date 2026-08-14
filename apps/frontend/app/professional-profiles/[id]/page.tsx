@@ -4,26 +4,15 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, MediaAsset, PublicProfessionalProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
+import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
 
-const CITY_LABELS: Record<string, string> = {
-  damascus: 'دمشق',
-  aleppo: 'حلب',
-  homs: 'حمص',
-  latakia: 'اللاذقية',
-  hama: 'حماة',
-  tartus: 'طرطوس',
-  'deir-ez-zor': 'دير الزور',
-};
 
-function AvailBadge({ av }: { av: string }) {
-  if (av === 'available') return <span className="badge badge-available">🟢 متاح للعمل</span>;
-  if (av === 'busy') return <span className="badge badge-busy">🟡 مشغول</span>;
-  return <span className="badge badge-unavailable">🔴 غير متاح</span>;
-}
 
 export default function ProfessionalProfileDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { cities } = useSyrianCities();
   const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
@@ -86,7 +75,7 @@ export default function ProfessionalProfileDetailPage() {
     );
   }
 
-  const cityLabel = CITY_LABELS[profile.cityCode] ?? profile.cityCode;
+  const localizedCity = cityLabel(profile.cityCode, cities);
   const activeServices = services.filter((s) => s.status === 'active');
   const profileImage = media.find((a) => a.assetType === 'profile_image');
   const gallery = media.filter((a) => a.assetType === 'gallery');
@@ -124,13 +113,18 @@ export default function ProfessionalProfileDetailPage() {
                   </p>
                 )}
                 <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-                  📍 {cityLabel} · {profile.countryCode.toUpperCase()}
+                  📍 {localizedCity} · {profile.countryCode.toUpperCase()}
                 </p>
               </div>
-              <AvailBadge av={profile.availability} />
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+              {profile.contactEligibility?.eligible && (
+                <ContactInquiryForm
+                  target={{ type: 'professional', id: profile.id }}
+                  providerName={profile.headlineAr}
+                />
+              )}
               <button type="button" onClick={() => router.back()} className="filter-action-secondary">
                 ← رجوع
               </button>
@@ -210,18 +204,10 @@ export default function ProfessionalProfileDetailPage() {
                   <div className="card-body">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                       <h3 className="card-title">{service.titleAr}</h3>
-                      <span className="badge badge-pending" style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
-                        {service.priceType === 'fixed' ? 'سعر ثابت' : service.priceType === 'hourly' ? 'بالساعة' : 'قابل للتفاوض'}
-                      </span>
                     </div>
                     {service.descriptionAr && (
                       <p style={{ color: 'var(--muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
                         {service.descriptionAr}
-                      </p>
-                    )}
-                    {service.price != null && (
-                      <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.5rem 0 0' }}>
-                        {service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}
                       </p>
                     )}
                   </div>
@@ -262,4 +248,3 @@ export default function ProfessionalProfileDetailPage() {
     </main>
   );
 }
-

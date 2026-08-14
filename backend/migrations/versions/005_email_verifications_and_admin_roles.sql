@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS email_verifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES core_user_accounts(user_identifier) ON DELETE CASCADE,
   email TEXT NOT NULL,
   token_hash TEXT NOT NULL UNIQUE,
   expires_at TIMESTAMPTZ NOT NULL,
@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS email_verifications_created_idx ON email_verification
 
 CREATE TABLE IF NOT EXISTS admin_roles (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES core_user_accounts(user_identifier) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('bootstrap_admin', 'platform_admin', 'moderator')),
   granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT admin_roles_user_role_unique UNIQUE (user_id, role)

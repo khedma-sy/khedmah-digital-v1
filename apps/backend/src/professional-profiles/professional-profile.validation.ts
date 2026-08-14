@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { CreateProfessionalProfileRequest, SearchProfessionalProfilesRequest, UpdateProfessionalProfileRequest } from './dto/professional-profile.dto';
 import { ProfessionalAvailability } from './professional-profile.types';
+import { isSyrianCityCode } from '../locations/locations.service';
 
 function requiredString(value: unknown, field: string, min: number, max: number): string {
   if (typeof value !== 'string') {
@@ -70,6 +71,12 @@ function validatePage(value: unknown): number {
   return parsed;
 }
 
+function validateCityCode(value: unknown): string {
+  const cityCode = requiredString(value, 'cityCode', 2, 50);
+  if (!isSyrianCityCode(cityCode)) throw new BadRequestException('cityCode must identify a supported Syrian city.');
+  return cityCode;
+}
+
 export function validateProfessionalProfileUpsert(request: CreateProfessionalProfileRequest | UpdateProfessionalProfileRequest) {
   return {
     headlineAr: requiredString(request.headlineAr, 'headlineAr', 2, 200),
@@ -77,7 +84,7 @@ export function validateProfessionalProfileUpsert(request: CreateProfessionalPro
     bioAr: optionalString(request.bioAr, 'bioAr', 2000),
     bioEn: optionalString(request.bioEn, 'bioEn', 2000),
     availability: request.availability === undefined ? 'available' as const : validateAvailability(request.availability),
-    cityCode: requiredString(request.cityCode, 'cityCode', 2, 50),
+    cityCode: validateCityCode(request.cityCode),
     countryCode: requiredString(request.countryCode, 'countryCode', 2, 10),
     skills: validateSkills(request.skills)
   };
@@ -86,7 +93,7 @@ export function validateProfessionalProfileUpsert(request: CreateProfessionalPro
 export function validateProfessionalProfileSearch(request: SearchProfessionalProfilesRequest) {
   return {
     q: request.q === undefined ? undefined : optionalString(request.q, 'q', 200),
-    cityCode: request.cityCode === undefined ? undefined : optionalString(request.cityCode, 'cityCode', 50),
+    cityCode: request.cityCode === undefined ? undefined : validateCityCode(request.cityCode),
     availability: request.availability === undefined ? undefined : validateAvailability(request.availability),
     page: validatePage(request.page)
   };

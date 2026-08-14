@@ -29,6 +29,7 @@ export class BusinessProfileService {
       ownerUserId: actor.id,
       organizationId: undefined,
       visibility: 'private',
+      moderationStatus: 'pending',
       trustStatus: 'pending',
       status: 'active',
       phone: input.phone,
@@ -54,7 +55,7 @@ export class BusinessProfileService {
 
   async getPublic(id: string): Promise<PublicBusinessProfile> {
     const profile = await this.requireProfile(id);
-    if (profile.visibility !== 'public' || profile.trustStatus !== 'approved' || profile.status !== 'active') {
+    if (profile.visibility !== 'public' || profile.moderationStatus !== 'approved' || profile.trustStatus !== 'approved' || profile.status !== 'active') {
       throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
     }
     return this.toPublic(profile);
@@ -313,6 +314,7 @@ export class BusinessProfileService {
       descriptionAr: profile.descriptionAr,
       descriptionEn: profile.descriptionEn,
       visibility: profile.visibility,
+      moderationStatus: profile.moderationStatus,
       trustStatus: profile.trustStatus,
       status: profile.status,
       phone: profile.phone,
@@ -329,4 +331,3 @@ export class BusinessProfileService {
     };
   }
 }
-

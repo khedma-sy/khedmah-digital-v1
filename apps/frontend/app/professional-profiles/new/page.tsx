@@ -3,15 +3,16 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicProfessionalProfile } from '../../../lib/api-client';
+import { useSyrianCities } from '../../../lib/use-syrian-cities';
 
 export default function NewProfessionalProfilePage() {
   const router = useRouter();
+  const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
   const [headlineAr, setHeadlineAr] = useState('');
   const [headlineEn, setHeadlineEn] = useState('');
   const [bioAr, setBioAr] = useState('');
   const [availability, setAvailability] = useState<'available' | 'busy' | 'unavailable'>('available');
-  const [cityCode, setCityCode] = useState('damascus');
-  const [countryCode, setCountryCode] = useState('SY');
+  const [cityCode, setCityCode] = useState('');
   const [skillsInput, setSkillsInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +28,6 @@ export default function NewProfessionalProfilePage() {
           setBioAr(profile.bioAr ?? '');
           setAvailability(profile.availability);
           setCityCode(profile.cityCode);
-          setCountryCode(profile.countryCode);
           setSkillsInput(profile.skills.join('، '));
         }
       } catch {
@@ -50,7 +50,7 @@ export default function NewProfessionalProfilePage() {
         bioAr: bioAr || undefined,
         availability,
         cityCode,
-        countryCode,
+        countryCode: 'SY',
         skills: skills.length ? skills : undefined
       });
       router.push('/professional-profiles');
@@ -103,40 +103,24 @@ export default function NewProfessionalProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <label>
               المدينة *
-              <select value={cityCode} onChange={(event) => setCityCode(event.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}>
-                <option value="damascus">دمشق</option>
-                <option value="aleppo">حلب</option>
-                <option value="homs">حمص</option>
-                <option value="latakia">اللاذقية</option>
-                <option value="hama">حماة</option>
-                <option value="deir-ez-zor">دير الزور</option>
-                <option value="tartus">طرطوس</option>
-                <option value="idlib">إدلب</option>
-                <option value="raqqa">الرقة</option>
-                <option value="daraa">درعا</option>
+              <select value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setCityCode(event.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}>
+                <option value="">اختر مدينة</option>
+                {cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}
               </select>
             </label>
             <label>
               الدولة *
-              <select value={countryCode} onChange={(event) => setCountryCode(event.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}>
+              <select value="SY" disabled style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}>
                 <option value="SY">سوريا</option>
-                <option value="SA">السعودية</option>
-                <option value="AE">الإمارات</option>
-                <option value="JO">الأردن</option>
-                <option value="LB">لبنان</option>
-                <option value="EG">مصر</option>
-                <option value="IQ">العراق</option>
-                <option value="TR">تركيا</option>
-                <option value="DE">ألمانيا</option>
-                <option value="SE">السويد</option>
               </select>
             </label>
           </div>
+          {citiesError && <p className="form-error" role="status">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></p>}
           <label>
             المهارات (مفصولة بفواصل)
             <input type="text" value={skillsInput} onChange={(event) => setSkillsInput(event.target.value)} placeholder="JavaScript، React، Node.js" />
           </label>
-          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting} style={{ marginBlockStart: 0 }}>
+          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || !!citiesError || !cityCode} style={{ marginBlockStart: 0 }}>
             {isSubmitting ? 'جاري الحفظ...' : 'حفظ الملف'}
           </button>
         </form>
