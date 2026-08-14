@@ -29,6 +29,12 @@ export interface PublicProfessionalProfile {
   readonly skills: readonly string[];
   readonly isFeatured: boolean;
   readonly createdAt: string;
+  readonly contactEligibility?: {
+    readonly visibility: 'public' | 'private' | 'internal';
+    readonly moderationStatus: 'approved' | 'pending' | 'rejected' | 'suspended';
+    readonly lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived';
+    readonly eligible: boolean;
+  };
 }
 
 export interface MediaAsset {

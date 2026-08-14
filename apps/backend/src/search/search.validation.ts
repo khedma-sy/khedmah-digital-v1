@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { PublicSearchRequest } from './dto/search.dto';
+import { isSyrianCityCode } from '../locations/locations.service';
 
 export type PublicSearchType = 'business' | 'service' | 'all';
 
@@ -41,6 +42,12 @@ function validateType(value: unknown): PublicSearchType {
   throw new BadRequestException("type must be one of 'business', 'service', or 'all'.");
 }
 
+function optionalCityCode(value: unknown): string | undefined {
+  const cityCode = optionalString(value, 'cityCode', 50);
+  if (cityCode && !isSyrianCityCode(cityCode)) throw new BadRequestException('cityCode must identify a supported Syrian city.');
+  return cityCode;
+}
+
 export function validatePublicSearchRequest(request: PublicSearchRequest) {
   const map = request.map === 'true' || request.map === true;
   const coordinates = [request.latitude, request.longitude].map((value) => value === undefined ? undefined : Number(value));
@@ -69,7 +76,7 @@ export function validatePublicSearchRequest(request: PublicSearchRequest) {
   return {
     q: optionalString(request.q, 'q', 200),
     categoryCode: optionalString(request.categoryCode, 'categoryCode', 50),
-    cityCode: optionalString(request.cityCode, 'cityCode', 50),
+    cityCode: optionalCityCode(request.cityCode),
     page: validatePage(request.page),
     type: validateType(request.type), map, boundaries,
     latitude: coordinates[0], longitude: coordinates[1]

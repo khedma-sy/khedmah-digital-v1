@@ -68,6 +68,13 @@ export class ProfessionalProfileRepository {
     return rows[0] ? this.map(rows[0]) : undefined;
   }
 
+  async findContactEligibility(id: string): Promise<{ visibility: 'public' | 'private' | 'internal'; moderationStatus: 'approved' | 'pending' | 'rejected' | 'suspended'; lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived' } | undefined> {
+    const rows = await this.db.query<{ visibility: 'public' | 'private' | 'internal'; moderation_status: 'approved' | 'pending' | 'rejected' | 'suspended'; lifecycle_status: 'created' | 'pending' | 'active' | 'suspended' | 'archived' }>(
+      `SELECT visibility, moderation_status, lifecycle_status FROM professional_profiles
+       WHERE professional_profile_identifier = $1 LIMIT 1`, [id]);
+    return rows[0] ? { visibility: rows[0].visibility, moderationStatus: rows[0].moderation_status, lifecycleStatus: rows[0].lifecycle_status } : undefined;
+  }
+
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT id, user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
@@ -205,4 +212,3 @@ export class ProfessionalProfileRepository {
     return rows.map((r) => ({ id: r.id, entityType: r.entity_type, entityId: r.entity_id, oldStatus: r.old_status ?? undefined, newStatus: r.new_status, changedBy: r.changed_by ?? undefined, reason: r.reason ?? undefined, createdAt: r.created_at.toISOString() }));
   }
 }
-

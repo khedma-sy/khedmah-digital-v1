@@ -4,7 +4,7 @@ import { HttpStatus } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool } from '../database/test-pool';
 import { ContactAbuseService } from './contact-abuse.service';
-import { ContactBusinessUnavailableError, ContactRateLimitError, ContactValidationError } from './contact.errors';
+import { ContactBusinessUnavailableError, ContactIdempotencyConflictError, ContactRateLimitError, ContactValidationError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
 import { ContactRepository } from './contact.repository';
 import { ContactService } from './contact.service';
@@ -56,23 +56,36 @@ async function createFixture() {
     );
     CREATE TABLE IF NOT EXISTS contact_inquiries (
       id TEXT PRIMARY KEY,
-      business_profile_id TEXT NOT NULL,
+      business_profile_id TEXT,
+      professional_profile_id TEXT,
       submitter_user_id TEXT NOT NULL REFERENCES user_accounts(id),
       name TEXT NOT NULL, contact_email TEXT NOT NULL, message TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'submitted',
+      status TEXT NOT NULL DEFAULT 'submitted', tracking_status TEXT NOT NULL DEFAULT 'submitted',
       request_id TEXT, correlation_id TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CHECK ((business_profile_id IS NOT NULL) <> (professional_profile_id IS NOT NULL))
+    );
+    CREATE TABLE IF NOT EXISTS professional_profiles (
+      professional_profile_identifier TEXT PRIMARY KEY, user_identifier TEXT NOT NULL,
+      visibility TEXT NOT NULL, moderation_status TEXT NOT NULL, lifecycle_status TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS contact_submission_idempotency (
+      submitter_user_id TEXT NOT NULL, idempotency_key TEXT NOT NULL, inquiry_id TEXT NOT NULL REFERENCES contact_inquiries(id) ON DELETE CASCADE,
+      payload_fingerprint CHAR(64) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT contact_submission_idempotency_submitter_key_unique UNIQUE (submitter_user_id, idempotency_key),
+      CONSTRAINT contact_submission_idempotency_inquiry_unique UNIQUE (inquiry_id)
     );
     CREATE TABLE IF NOT EXISTS contact_actions (
       id TEXT PRIMARY KEY,
-      business_profile_id TEXT NOT NULL,
+      business_profile_id TEXT,
+      professional_profile_id TEXT,
       actor_user_id TEXT,
       action_type TEXT NOT NULL,
       request_id TEXT, correlation_id TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('TRUNCATE contact_actions, contact_inquiries, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE contact_actions, contact_submission_idempotency, contact_inquiries, professional_profiles, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());
@@ -88,6 +101,9 @@ async function createFixture() {
      VALUES ('owner-user', 'owner@biz.example', 'placeholder-hash', 'active', NOW(), NOW())
      ON CONFLICT (id) DO NOTHING`
   );
+  await pool.query(`INSERT INTO professional_profiles
+    (professional_profile_identifier, user_identifier, visibility, moderation_status, lifecycle_status)
+    VALUES ('professional-profile-1', 'owner-user', 'public', 'approved', 'active')`);
   await pool.query(
     `INSERT INTO business_profiles (id, name, owner_user_id, visibility, trust_status, status, category_code, city_code, country_code, created_at, updated_at)
      VALUES
@@ -108,7 +124,7 @@ const validInquiry = {
 
 test('approved business accepts inquiry and creates an audit event', async () => {
   const { contacts, identityRepository, service, cookieHeader } = await createFixture();
-  const receipt = await service.submitInquiry(cookieHeader, 'approved-business', validInquiry);
+  const receipt = await service.submitInquiry(cookieHeader, { type: 'business', id: 'approved-business' }, validInquiry, 'idem-approved-0001');
 
   assert.equal(receipt.businessProfileId, 'approved-business');
   assert.equal(receipt.status, 'submitted');
@@ -120,30 +136,77 @@ test('approved business accepts inquiry and creates an audit event', async () =>
 test('non-public business rejects inquiry', async () => {
   const { service, cookieHeader } = await createFixture();
 
-  await assert.rejects(() => service.submitInquiry(cookieHeader, 'private-business', validInquiry), ContactBusinessUnavailableError);
+  await assert.rejects(() => service.submitInquiry(cookieHeader, { type: 'business', id: 'private-business' }, validInquiry, 'idem-private-00001'), ContactBusinessUnavailableError);
 });
 
 test('suspended business rejects inquiry', async () => {
   const { service, cookieHeader } = await createFixture();
 
-  await assert.rejects(() => service.submitInquiry(cookieHeader, 'suspended-business', validInquiry), ContactBusinessUnavailableError);
+  await assert.rejects(() => service.submitInquiry(cookieHeader, { type: 'business', id: 'suspended-business' }, validInquiry, 'idem-suspended-01'), ContactBusinessUnavailableError);
 });
 
 test('private data is not exposed in inquiry receipt', async () => {
   const { service, cookieHeader } = await createFixture();
-  const receipt = await service.submitInquiry(cookieHeader, 'approved-business', validInquiry);
+  const receipt = await service.submitInquiry(cookieHeader, { type: 'business', id: 'approved-business' }, validInquiry, 'idem-approved-0001');
 
-  assert.deepEqual(Object.keys(receipt).sort(), ['businessProfileId', 'createdAt', 'id', 'status']);
+  assert.deepEqual(Object.keys(receipt).sort(), ['businessProfileId', 'createdAt', 'id', 'status', 'targetType', 'trackingStatus']);
   assert.equal('contactEmail' in receipt, false);
   assert.equal('message' in receipt, false);
   assert.equal('ownerUserId' in receipt, false);
+});
+
+test('same retry and concurrent double submit return one canonical receipt', async () => {
+  const { service, cookieHeader, pool } = await createFixture();
+  const target = { type: 'business' as const, id: 'approved-business' };
+  const [first, retry] = await Promise.all([
+    service.submitInquiry(cookieHeader, target, validInquiry, 'idem-concurrent-0001'),
+    service.submitInquiry(cookieHeader, target, validInquiry, 'idem-concurrent-0001')
+  ]);
+  assert.deepEqual(retry, first);
+  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_inquiries');
+  assert.equal(rows[0].count, '1');
+});
+
+test('conflicting reuse is denied while a different key creates a legal second inquiry', async () => {
+  const { service, cookieHeader, pool } = await createFixture();
+  const target = { type: 'business' as const, id: 'approved-business' };
+  await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-conflict-00001');
+  await assert.rejects(
+    service.submitInquiry(cookieHeader, target, { ...validInquiry, message: `${validInquiry.message} تغيير` }, 'idem-conflict-00001'),
+    ContactIdempotencyConflictError
+  );
+  await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-different-0001');
+  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_inquiries');
+  assert.equal(rows[0].count, '2');
+});
+
+test('Professional target uses the same idempotency contract', async () => {
+  const { service, cookieHeader } = await createFixture();
+  const target = { type: 'professional' as const, id: 'professional-profile-1' };
+  const first = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-professional-01');
+  const retry = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-professional-01');
+  assert.equal(first.id, retry.id);
+  assert.equal(first.professionalProfileId, target.id);
+});
+
+test('same opaque key is isolated by authenticated submitter', async () => {
+  const { service, identityRepository, cookieHeader, pool } = await createFixture();
+  const secondIdentity = new IdentityService(identityRepository, new SessionTokenService());
+  const registration = await secondIdentity.register({ email: 'second@example.com', password: 'very-secure-password', displayName: 'مستخدم ثان' });
+  const secondCookie = `khedmah_session=${registration.sessionToken}`;
+  const target = { type: 'business' as const, id: 'approved-business' };
+  const first = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-shared-users-01');
+  const second = await service.submitInquiry(secondCookie, target, validInquiry, 'idem-shared-users-01');
+  assert.notEqual(first.id, second.id);
+  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_inquiries');
+  assert.equal(rows[0].count, '2');
 });
 
 test('validation works for inquiry payloads', async () => {
   const { service, cookieHeader } = await createFixture();
 
   await assert.rejects(
-    () => service.submitInquiry(cookieHeader, 'approved-business', { name: 'س', contactEmail: 'not-email', message: 'قصير' }),
+    () => service.submitInquiry(cookieHeader, { type: 'business', id: 'approved-business' }, { name: 'س', contactEmail: 'not-email', message: 'قصير' }, 'idem-invalid-00001'),
     ContactValidationError
   );
 });
@@ -163,11 +226,11 @@ test('rate limit preparation exists for contact inquiries', async () => {
   const { service, cookieHeader } = await createFixture();
 
   for (let index = 0; index < 10; index += 1) {
-    await service.submitInquiry(cookieHeader, 'approved-business', { ...validInquiry, message: `أرغب في معرفة تفاصيل الخدمة المتاحة لديكم رقم ${index}.` });
+    await service.submitInquiry(cookieHeader, { type: 'business', id: 'approved-business' }, { ...validInquiry, message: `أرغب في معرفة تفاصيل الخدمة المتاحة لديكم رقم ${index}.` }, `idem-rate-limit-${index.toString().padStart(4, '0')}`);
   }
 
   await assert.rejects(
-    () => service.submitInquiry(cookieHeader, 'approved-business', { ...validInquiry, message: 'أرغب في معرفة تفاصيل الخدمة المتاحة لديكم مرة إضافية.' }),
+    () => service.submitInquiry(cookieHeader, { type: 'business', id: 'approved-business' }, { ...validInquiry, message: 'أرغب في معرفة تفاصيل الخدمة المتاحة لديكم مرة إضافية.' }, 'idem-rate-limit-extra'),
     ContactRateLimitError
   );
 });

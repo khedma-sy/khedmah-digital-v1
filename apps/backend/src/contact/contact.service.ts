@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
@@ -6,12 +6,12 @@ import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { PlatformLogger } from '../logging/platform-logger';
 import { ContactAbuseService } from './contact-abuse.service';
-import { ContactBusinessUnavailableError, ContactAccessError, ContactRateLimitError } from './contact.errors';
+import { ContactBusinessUnavailableError, ContactAccessError, ContactIdempotencyConflictError, ContactRateLimitError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
 import { ContactRepository } from './contact.repository';
 import { BusinessProfileTrustStatus, BusinessProfileVisibility, ContactActionEvent, ContactBusinessProfileSnapshot, ContactInquiry, ProviderContactInquiry, PublicContactActionReceipt, PublicContactInquiryReceipt } from './contact.types';
-import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
-import { validateBusinessProfileId, validateSubmitContactInquiry, validateTrackContactClick } from './contact.validation';
+import { ContactTarget, SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
+import { validateBusinessProfileId, validateIdempotencyKey, validateSubmitContactInquiry, validateTrackContactClick } from './contact.validation';
 
 @Injectable()
 export class ContactService {
@@ -24,12 +24,22 @@ export class ContactService {
     @Inject(PlatformLogger) private readonly logger: PlatformLogger
   ) {}
 
-  async submitInquiry(cookieHeader: string | undefined, businessProfileIdValue: string, request: SubmitContactInquiryRequest): Promise<PublicContactInquiryReceipt> {
+  async submitInquiry(cookieHeader: string | undefined, targetValue: ContactTarget, request: SubmitContactInquiryRequest, idempotencyKeyValue: unknown): Promise<PublicContactInquiryReceipt> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
-    const business = await this.requirePublicApprovedBusiness(businessProfileId);
+    const target: ContactTarget = { ...targetValue, id: validateBusinessProfileId(targetValue.id) };
     const input = validateSubmitContactInquiry(request);
-    const rateLimit = this.rateLimits.check(`inquiry:${actor.id}:${business.id}`);
+    const idempotencyKey = validateIdempotencyKey(idempotencyKeyValue);
+    const payloadFingerprint = createHash('sha256').update(JSON.stringify({ target, ...input })).digest('hex');
+
+    const prior = await this.contacts.findIdempotentInquiry(actor.id, idempotencyKey);
+    if (prior) {
+      if (prior.payloadFingerprint !== payloadFingerprint) throw new ContactIdempotencyConflictError();
+      return this.toPublicInquiryReceipt(prior.inquiry);
+    }
+
+    await this.requireAvailableTarget(target);
+
+    const rateLimit = this.rateLimits.check(`inquiry:${actor.id}:${target.type}:${target.id}`);
 
     if (!rateLimit.allowed) {
       await this.audit('contact.inquiry.rate_limited', actor.id);
@@ -45,22 +55,27 @@ export class ContactService {
     const now = new Date().toISOString();
     const inquiry: ContactInquiry = {
       id: randomUUID(),
-      businessProfileId: business.id,
+      businessProfileId: target.type === 'business' ? target.id : undefined,
+      professionalProfileId: target.type === 'professional' ? target.id : undefined,
       submitterUserId: actor.id,
       name: input.name,
       contactEmail: input.contactEmail,
       message: input.message,
       status: 'submitted',
+      trackingStatus: 'submitted',
       createdAt: now,
       requestId: requestContext?.requestId,
       correlationId: requestContext?.correlationId
     };
 
-    await this.contacts.saveContactInquiry(inquiry);
-    await this.audit('contact.inquiry.submitted', actor.id);
-    this.logContactEvent('contact_inquiry_submitted', business.id);
+    const saved = await this.contacts.createIdempotentInquiry(inquiry, idempotencyKey, payloadFingerprint);
+    if (saved.payloadFingerprint !== payloadFingerprint) throw new ContactIdempotencyConflictError();
+    if (saved.created) {
+      await this.audit('contact.inquiry.submitted', actor.id);
+      this.logContactEvent('contact_inquiry_submitted', target.id);
+    }
 
-    return this.toPublicInquiryReceipt(inquiry);
+    return this.toPublicInquiryReceipt(saved.inquiry);
   }
 
   async trackContactClick(cookieHeader: string | undefined, businessProfileIdValue: string, request: TrackContactClickRequest): Promise<PublicContactActionReceipt> {
@@ -113,12 +128,25 @@ export class ContactService {
     const inquiries = await this.contacts.listContactInquiries(businessProfileId);
     return inquiries.map((inquiry) => ({
       id: inquiry.id,
-      businessProfileId: inquiry.businessProfileId,
+      businessProfileId: inquiry.businessProfileId!,
       name: inquiry.name,
       contactEmail: inquiry.contactEmail,
       message: inquiry.message,
       status: inquiry.status,
       createdAt: inquiry.createdAt
+    }));
+  }
+
+  async listReceivedProfessionalInquiries(cookieHeader: string | undefined, professionalProfileIdValue: string): Promise<ProviderContactInquiry[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const professionalProfileId = validateBusinessProfileId(professionalProfileIdValue);
+    const professional = await this.contacts.findProfessionalProfileSnapshot(professionalProfileId);
+    if (!professional || professional.userIdentifier !== actor.id) throw new ContactAccessError();
+    const inquiries = await this.contacts.listProfessionalContactInquiries(professionalProfileId);
+    return inquiries.map((inquiry) => ({
+      id: inquiry.id, professionalProfileId: inquiry.professionalProfileId,
+      name: inquiry.name, contactEmail: inquiry.contactEmail, message: inquiry.message,
+      status: inquiry.status, createdAt: inquiry.createdAt
     }));
   }
 
@@ -134,11 +162,25 @@ export class ContactService {
     return business;
   }
 
+  private async requireAvailableTarget(target: ContactTarget): Promise<void> {
+    if (target.type === 'business') {
+      await this.requirePublicApprovedBusiness(target.id);
+      return;
+    }
+    const professional = await this.contacts.findProfessionalProfileSnapshot(target.id);
+    if (!professional || professional.visibility !== 'public' || professional.moderationStatus !== 'approved' || professional.lifecycleStatus !== 'active') {
+      throw new ContactBusinessUnavailableError();
+    }
+  }
+
   private toPublicInquiryReceipt(inquiry: ContactInquiry): PublicContactInquiryReceipt {
     return {
       id: inquiry.id,
-      businessProfileId: inquiry.businessProfileId,
+      targetType: inquiry.professionalProfileId ? 'professional' : 'business',
+      ...(inquiry.businessProfileId ? { businessProfileId: inquiry.businessProfileId } : {}),
+      ...(inquiry.professionalProfileId ? { professionalProfileId: inquiry.professionalProfileId } : {}),
       status: inquiry.status,
+      trackingStatus: inquiry.trackingStatus,
       createdAt: inquiry.createdAt
     };
   }

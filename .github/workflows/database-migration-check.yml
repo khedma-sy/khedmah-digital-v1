@@ -37,6 +37,7 @@ jobs:
             006_media_assets
             007_v2_marketplace
             008_provider_service_radius
+            016_contact_submission_idempotency
           )
 
           for migration in "${migrations[@]}"; do
@@ -72,6 +73,8 @@ jobs:
             007_v2_marketplace_rollback.sql \
             008_provider_service_radius.sql \
             008_provider_service_radius_rollback.sql \
+            016_contact_submission_idempotency.sql \
+            016_contact_submission_idempotency_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
