@@ -5,9 +5,9 @@ import test from 'node:test';
 const migrationsUrl = new URL('../backend/migrations/versions/', import.meta.url);
 const read = (name) => readFile(new URL(name, migrationsUrl), 'utf8');
 
-test('canonical migrations form one governed forward and rollback lineage through 016', async () => {
+test('canonical migrations form one governed forward and rollback lineage through 017', async () => {
   const files = await readdir(migrationsUrl);
-  for (let version = 1; version <= 16; version += 1) {
+  for (let version = 1; version <= 17; version += 1) {
     const prefix = String(version).padStart(3, '0');
     const forward = files.filter((name) => name.startsWith(`${prefix}_`) && !name.endsWith('_rollback.sql'));
     const rollback = files.filter((name) => name.startsWith(`${prefix}_`) && name.endsWith('_rollback.sql'));

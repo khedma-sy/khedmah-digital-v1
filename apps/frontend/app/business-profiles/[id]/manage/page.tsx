@@ -6,12 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile } from '../../../../lib/api-client';
 import { PlatformIcon } from '../../../components/platform-icon';
 import styles from './provider-core.module.css';
-
-const CATEGORIES = [
-  ['restaurant', 'مطاعم'], ['shop', 'محلات'], ['workshop', 'ورش'],
-  ['service_business', 'خدمات'], ['doctor', 'طب'], ['lawyer', 'محاماة'],
-  ['engineer', 'هندسة'], ['consultant', 'استشارات'], ['freelancer', 'عمل مستقل']
-] as const;
+import { useCategories } from '../../../../lib/use-categories';
 
 export default function ManageBusinessProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +22,8 @@ export default function ManageBusinessProfilePage() {
   const [error, setError] = useState('');
   const [titleAr, setTitleAr] = useState('');
   const [descriptionAr, setDescriptionAr] = useState('');
-  const [categoryCode, setCategoryCode] = useState('service_business');
+  const [categoryCode, setCategoryCode] = useState('');
+  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const [priceType, setPriceType] = useState('negotiable');
   const [price, setPrice] = useState('');
 
@@ -137,7 +133,7 @@ export default function ManageBusinessProfilePage() {
             <label>اسم الخدمة<input value={titleAr} onChange={(event) => setTitleAr(event.target.value)} minLength={2} maxLength={200} required /></label>
             <label>وصف مختصر<textarea value={descriptionAr} onChange={(event) => setDescriptionAr(event.target.value)} maxLength={2000} rows={4} /></label>
             <div className={styles.formGrid}>
-              <label>التصنيف<select value={categoryCode} onChange={(event) => setCategoryCode(event.target.value)}>{CATEGORIES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+              <label>التصنيف<select value={categoryCode} disabled={categoriesLoading || !!categoriesError} required onChange={(event) => setCategoryCode(event.target.value)}><option value="">اختر تصنيفاً</option>{categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</select></label>
               <label>طريقة السعر<select value={priceType} onChange={(event) => setPriceType(event.target.value)}><option value="negotiable">قابل للتفاوض</option><option value="fixed">سعر ثابت</option><option value="hourly">بالساعة</option></select></label>
             </div>
             {priceType !== 'negotiable' && <label>السعر بالليرة السورية<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} min="1" step="1" required /></label>}

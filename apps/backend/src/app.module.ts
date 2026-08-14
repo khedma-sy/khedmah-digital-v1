@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
+import { CategoryModule } from './categories/category.module';
 import { ContactModule } from './contact/contact.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
@@ -18,6 +19,7 @@ import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
 @Module({
   imports: [
     DatabaseModule,
+    CategoryModule,
     IdentityModule,
     OrganizationsModule,
     ContactModule,

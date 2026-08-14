@@ -44,6 +44,14 @@ export interface PublicBusinessProfile {
   readonly matchScore?: number;
 }
 
+export interface Category {
+  readonly code: string;
+  readonly nameAr: string;
+  readonly nameEn?: string;
+  readonly status: 'active';
+  readonly sortOrder: number;
+}
+
 export interface PublicProfessionalProfile {
   readonly id: string;
   readonly headlineAr: string;
@@ -252,6 +260,10 @@ export const api = {
     listMine() {
       return request<{ organizations: PublicOrganization[] }>('/organizations/my');
     }
+  },
+  categories: {
+    list() { return request<{ categories: Category[] }>('/categories'); },
+    get(code: string) { return request<{ category: Category }>(`/categories/${encodeURIComponent(code)}`); }
   },
   businesses: {
     create(data: {

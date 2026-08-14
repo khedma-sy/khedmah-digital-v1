@@ -5,6 +5,7 @@ import { readSessionToken } from '../identity/session-cookie';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { MediaAsset } from '../business-profiles/business-profile.types';
 import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
+import { CategoryService } from '../categories/category.service';
 import { SERVICE_ACCESS_DENIED_MESSAGE, SERVICE_NOT_FOUND_MESSAGE } from './service-catalog.errors';
 import { ServiceCatalogRepository } from './service-catalog.repository';
 import { PublicServiceListing, ServiceListing } from './service-catalog.types';
@@ -17,12 +18,14 @@ export class ServiceCatalogService {
     @Inject(ServiceCatalogRepository) private readonly repository: ServiceCatalogRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
     @Inject(BusinessProfileRepository) private readonly businessProfiles: BusinessProfileRepository,
-    @Inject(ProfessionalProfileRepository) private readonly professionalProfiles: ProfessionalProfileRepository
+    @Inject(ProfessionalProfileRepository) private readonly professionalProfiles: ProfessionalProfileRepository,
+    @Inject(CategoryService) private readonly categories: CategoryService
   ) {}
 
   async create(cookieHeader: string | undefined, request: CreateServiceRequest): Promise<PublicServiceListing> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateServiceRequest(request);
+    await this.categories.assertActiveCategory(input.categoryCode);
     if (actor.id != input.ownerUserId) {
       throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
     }
@@ -99,6 +102,7 @@ export class ServiceCatalogService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const service = await this.requireOwnedService(id, actor.id);
     const input = validateUpdateServiceRequest(request);
+    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const updated: ServiceListing = {
       ...service,
       titleAr: input.titleAr ?? service.titleAr,
@@ -126,6 +130,7 @@ export class ServiceCatalogService {
 
   async search(request: SearchServicesRequest): Promise<{ readonly services: PublicServiceListing[]; readonly total: number; readonly page: number; }> {
     const input = validateServiceSearchRequest(request);
+    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [services, total] = await Promise.all([

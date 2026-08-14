@@ -9,6 +9,8 @@ import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
+import { CategoryRepository } from '../categories/category.repository';
+import { CategoryService } from '../categories/category.service';
 
 const rawPool = createTestPool();
 
@@ -75,8 +77,10 @@ async function createFixture() {
   const identity = new IdentityService(identityRepository, new SessionTokenService());
   const businessRepo = new BusinessProfileRepository(pool);
   const rbac = new OperationsRbacService();
+  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
+  const categories = new CategoryService(new CategoryRepository(pool));
 
-  const service = new BusinessProfileService(businessRepo, identity, rbac);
+  const service = new BusinessProfileService(businessRepo, identity, rbac, categories);
 
   const ownerReg = await identity.register({ email: 'owner@example.com', password: 'securepass123', displayName: 'مالك' });
   const ownerCookie = `khedmah_session=${ownerReg.sessionToken}`;

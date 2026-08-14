@@ -4,14 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { PlatformIcon } from '../components/platform-icon';
-
-const CATEGORIES = [
-  { code: '', label: 'كل الخدمات' },
-  { code: 'service_business', label: 'خدمات منزلية' },
-  { code: 'workshop', label: 'صيانة وسيارات' },
-  { code: 'consultant', label: 'خدمات أعمال' },
-  { code: 'freelancer', label: 'مهنيون مستقلون' }
-];
+import { useCategories } from '../../lib/use-categories';
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -25,6 +18,7 @@ export default function ServiceCatalogPage() {
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const { categories, error: categoriesError } = useCategories();
 
   async function loadServices(categoryCode: string) {
     setIsLoading(true);
@@ -41,10 +35,10 @@ export default function ServiceCatalogPage() {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('category') ?? '';
-    const initialCategory = CATEGORIES.some(({ code }) => code === requested) ? requested : '';
+    const initialCategory = categories.some(({ code }) => code === requested) ? requested : '';
     setActiveCategory(initialCategory);
     void loadServices(initialCategory);
-  }, []);
+  }, [categories]);
 
   function selectCategory(categoryCode: string) {
     setActiveCategory(categoryCode);
@@ -53,7 +47,7 @@ export default function ServiceCatalogPage() {
     void loadServices(categoryCode);
   }
 
-  const title = CATEGORIES.find(({ code }) => code === activeCategory)?.label ?? 'دليل الخدمات';
+  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
 
   return (
     <main id="foundation-content" className="catalog-experience" aria-label="دليل الخدمات">
@@ -66,11 +60,13 @@ export default function ServiceCatalogPage() {
 
         {showFilters ? (
           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
-            {CATEGORIES.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.label}</button>)}
+            <button type="button" className={activeCategory === '' ? 'active' : ''} onClick={() => selectCategory('')}>كل الخدمات</button>
+            {categories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
           </nav>
         ) : null}
 
         <p className="catalog-intro">اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة.</p>
+        {categoriesError ? <p className="form-error" role="status">{categoriesError}</p> : null}
 
         {error ? <div className="catalog-state" role="alert"><p>{error}</p><button type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</button></div> : null}
         {isLoading ? <div className="catalog-results" aria-busy="true" aria-label="جاري تحميل الخدمات">{Array.from({ length: 4 }, (_, index) => <div className="catalog-skeleton" key={index} />)}</div> : null}
