@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { CreateBusinessProfileRequest, SearchBusinessProfilesRequest, UpdateBusinessProfileRequest, UpdateTrustStatusRequest } from './dto/business-profile.dto';
 import { BusinessProfileTrustStatus, BusinessProfileVisibility } from './business-profile.types';
+import { isSyrianCityCode } from '../locations/locations.service';
 
 function requiredString(value: unknown, field: string, min: number, max: number): string {
   if (typeof value !== 'string') {
@@ -67,6 +68,12 @@ function optionalCode(value: unknown, field: string, max: number): string | unde
   return optionalString(value, field, max);
 }
 
+function requiredCityCode(value: unknown): string {
+  const cityCode = requiredString(value, 'cityCode', 2, 50);
+  if (!isSyrianCityCode(cityCode)) throw new BadRequestException('cityCode must identify a supported Syrian city.');
+  return cityCode;
+}
+
 function validatePage(value: unknown): number {
   if (value === undefined) {
     return 1;
@@ -87,7 +94,7 @@ export function validateCreateBusinessProfile(request: CreateBusinessProfileRequ
     email: optionalEmail(request.email),
     website: optionalString(request.website, 'website', 500),
     categoryCode: requiredString(request.categoryCode, 'categoryCode', 2, 50),
-    cityCode: requiredString(request.cityCode, 'cityCode', 2, 50),
+    cityCode: requiredCityCode(request.cityCode),
     countryCode: requiredString(request.countryCode, 'countryCode', 2, 10)
   };
 }
@@ -102,7 +109,7 @@ export function validateUpdateBusinessProfile(request: UpdateBusinessProfileRequ
     website: request.website === undefined ? undefined : optionalString(request.website, 'website', 500),
     visibility: request.visibility === undefined ? undefined : visibility(request.visibility),
     categoryCode: request.categoryCode === undefined ? undefined : requiredString(request.categoryCode, 'categoryCode', 2, 50),
-    cityCode: request.cityCode === undefined ? undefined : requiredString(request.cityCode, 'cityCode', 2, 50),
+    cityCode: request.cityCode === undefined ? undefined : requiredCityCode(request.cityCode),
     countryCode: request.countryCode === undefined ? undefined : requiredString(request.countryCode, 'countryCode', 2, 10),
     lat: request.lat === undefined ? undefined : (typeof request.lat === 'number' ? request.lat : undefined),
     lng: request.lng === undefined ? undefined : (typeof request.lng === 'number' ? request.lng : undefined),
@@ -124,7 +131,7 @@ export function validateBusinessProfileSearch(request: SearchBusinessProfilesReq
   return {
     q: optionalCode(request.q, 'q', 200),
     categoryCode: optionalCode(request.categoryCode, 'categoryCode', 50),
-    cityCode: optionalCode(request.cityCode, 'cityCode', 50),
+    cityCode: request.cityCode === undefined ? undefined : requiredCityCode(request.cityCode),
     page: validatePage(request.page)
   };
 }

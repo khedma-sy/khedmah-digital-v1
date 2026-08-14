@@ -67,7 +67,15 @@ export class ProfessionalProfileService {
     if (!profile) {
       throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
     }
-    return this.toPublic(profile);
+    const publicProfile = this.toPublic(profile);
+    const eligibility = await this.repository.findContactEligibility(id);
+    return eligibility ? {
+      ...publicProfile,
+      contactEligibility: {
+        ...eligibility,
+        eligible: eligibility.visibility === 'public' && eligibility.moderationStatus === 'approved' && eligibility.lifecycleStatus === 'active'
+      }
+    } : publicProfile;
   }
 
   async search(request: SearchProfessionalProfilesRequest): Promise<{ readonly professionals: PublicProfessionalProfile[]; readonly page: number; }> {

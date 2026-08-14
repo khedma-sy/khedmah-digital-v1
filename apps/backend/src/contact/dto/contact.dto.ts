@@ -4,6 +4,10 @@ export interface SubmitContactInquiryRequest {
   readonly message?: unknown;
 }
 
+export type ContactTarget =
+  | { readonly type: 'business'; readonly id: string }
+  | { readonly type: 'professional'; readonly id: string };
+
 export interface TrackContactClickRequest {
   readonly source?: unknown;
 }

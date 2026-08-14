@@ -32,6 +32,8 @@ const EXPECTED_MIGRATIONS = [
   '007_v2_marketplace_rollback.sql',
   '008_provider_service_radius.sql',
   '008_provider_service_radius_rollback.sql',
+  '016_contact_submission_idempotency.sql',
+  '016_contact_submission_idempotency_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = [

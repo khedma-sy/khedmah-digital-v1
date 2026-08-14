@@ -1,282 +1,98 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS user_accounts (
-  id         TEXT PRIMARY KEY,
-  email      TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '016';
 
-CREATE TABLE IF NOT EXISTS user_profiles (
-  user_id      TEXT PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE,
-  display_name TEXT NOT NULL,
-  locale       TEXT NOT NULL DEFAULT 'ar',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
-CREATE TABLE IF NOT EXISTS user_sessions (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
-  token_hash  TEXT NOT NULL UNIQUE,
-  expires_at  TIMESTAMPTZ NOT NULL,
-  revoked_at  TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+export interface SchemaAnchor {
+  domain: string;
+  migration: string;
+  kind: SchemaAnchorKind;
+  table: string;
+  name: string;
+}
 
-CREATE INDEX IF NOT EXISTS user_sessions_token_hash_idx ON user_sessions(token_hash);
-CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions(user_id);
+const table = (domain: string, migration: string, name: string): SchemaAnchor =>
+  ({ domain, migration, kind: 'table', table: name, name });
+const column = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
+  ({ domain, migration, kind: 'column', table: tableName, name });
+const constraint = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
+  ({ domain, migration, kind: 'constraint', table: tableName, name });
+const index = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
+  ({ domain, migration, kind: 'index', table: tableName, name });
 
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id              TEXT PRIMARY KEY,
-  event_type      TEXT NOT NULL,
-  actor_user_id   TEXT,
-  request_id      TEXT,
-  correlation_id  TEXT,
-  occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+/**
+ * Deliberately small contract surface: identity/ownership, public eligibility,
+ * lifecycle integrity, idempotency and the final 015 contact discriminator.
+ * It is not intended to be an exhaustive database performance audit.
+ */
+export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
+  table('identity', '001', 'core_user_accounts'),
+  ...['user_identifier', 'identity_reference', 'account_status', 'lifecycle_status'].map((name) => column('identity', '001', 'core_user_accounts', name)),
+  table('profiles', '002', 'profiles'),
+  ...['profile_identifier', 'user_identifier', 'lifecycle_status', 'visibility'].map((name) => column('profiles', '002', 'profiles', name)),
+  table('professional', '003', 'professional_profiles'),
+  ...['professional_profile_identifier', 'user_identifier', 'visibility', 'moderation_status', 'lifecycle_status'].map((name) => column('professional', '003', 'professional_profiles', name)),
+  constraint('professional', '003', 'professional_profiles', 'professional_profiles_lifecycle_status_check'),
+  table('contact', '004', 'contact_inquiries'),
+  ...['business_profile_id', 'professional_profile_id', 'status', 'tracking_status', 'created_at'].map((name) => column('contact', '015', 'contact_inquiries', name)),
+  constraint('contact', '015', 'contact_inquiries', 'contact_inquiries_exactly_one_target_check'),
+  constraint('contact', '015', 'contact_inquiries', 'contact_inquiries_tracking_status_check'),
+  index('contact', '015', 'contact_inquiries', 'contact_inquiries_professional_created_idx'),
+  table('contact', '004', 'contact_action_events'),
+  table('sessions', '009', 'identity_sessions'),
+  ...['session_identifier', 'user_identifier', 'token_hash', 'expires_at', 'revoked_at'].map((name) => column('sessions', '009', 'identity_sessions', name)),
+  table('business', '010', 'business_profiles'),
+  ...['visibility', 'moderation_status', 'trust_status', 'status'].map((name) => column('business', '010', 'business_profiles', name)),
+  table('locations', '010', 'locations'),
+  table('organizations', '010', 'organizations'),
+  table('authorization', '010', 'roles'),
+  table('authorization', '010', 'permissions'),
+  table('media', '011', 'media_assets'),
+  table('nearby', '012', 'nearby_preferences'),
+  ...['user_identifier', 'coverage_radius', 'location_identifier'].map((name) => column('nearby', '012', 'nearby_preferences', name)),
+  table('notifications', '013', 'nearby_notifications'),
+  ...['notification_identifier', 'user_identifier', 'idempotency_key', 'read_at'].map((name) => column('notifications', '013', 'nearby_notifications', name)),
+  index('notifications', '013', 'nearby_notifications', 'nearby_notifications_user_idempotency_idx'),
+  table('idempotency', '016', 'contact_submission_idempotency'),
+  ...['submitter_user_id', 'idempotency_key', 'inquiry_id', 'payload_fingerprint', 'created_at'].map((name) => column('idempotency', '016', 'contact_submission_idempotency', name)),
+  constraint('idempotency', '016', 'contact_submission_idempotency', 'contact_submission_idempotency_submitter_key_unique'),
+  table('supplier', '014', 'supplier_capabilities'),
+  ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name))
+];
 
-CREATE INDEX IF NOT EXISTS audit_logs_event_type_idx ON audit_logs(event_type);
+interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }
 
-CREATE TABLE IF NOT EXISTS organizations (
-  id             TEXT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  owner_user_id  TEXT NOT NULL REFERENCES user_accounts(id),
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+export class CanonicalSchemaError extends Error {
+  constructor(anchor: SchemaAnchor) {
+    super(`CANONICAL_SCHEMA_INCOMPATIBLE required=${REQUIRED_CANONICAL_SCHEMA_VERSION} missing=${anchor.domain}:${anchor.kind}:${anchor.table}.${anchor.name} introduced=${anchor.migration}`);
+    this.name = 'CanonicalSchemaError';
+  }
+}
 
-CREATE TABLE IF NOT EXISTS organization_members (
-  id              TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id         TEXT NOT NULL REFERENCES user_accounts(id),
-  role            TEXT NOT NULL CHECK (role IN ('owner','member')),
-  status          TEXT NOT NULL CHECK (status IN ('active','removed')),
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (organization_id, user_id)
-);
+export function verifyCanonicalSchema(rows: readonly CatalogRow[]): void {
+  const present = new Set(rows.map(({ kind, table_name, name }) => `${kind}:${table_name}:${name}`));
+  const missing = CANONICAL_SCHEMA_ANCHORS.find(({ kind, table: tableName, name }) => !present.has(`${kind}:${tableName}:${name}`));
+  if (missing) throw new CanonicalSchemaError(missing);
+}
 
-CREATE INDEX IF NOT EXISTS org_members_user_id_idx ON organization_members(user_id);
-CREATE INDEX IF NOT EXISTS org_members_org_id_idx ON organization_members(organization_id);
-
-CREATE TABLE IF NOT EXISTS contact_inquiries (
-  id                  TEXT PRIMARY KEY,
-  business_profile_id TEXT NOT NULL,
-  submitter_user_id   TEXT NOT NULL REFERENCES user_accounts(id),
-  name                TEXT NOT NULL,
-  contact_email       TEXT NOT NULL,
-  message             TEXT NOT NULL,
-  status              TEXT NOT NULL DEFAULT 'submitted',
-  request_id          TEXT,
-  correlation_id      TEXT,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS contact_inquiries_business_idx ON contact_inquiries(business_profile_id);
-
-CREATE TABLE IF NOT EXISTS contact_actions (
-  id                  TEXT PRIMARY KEY,
-  business_profile_id TEXT NOT NULL,
-  actor_user_id       TEXT,
-  action_type         TEXT NOT NULL,
-  request_id          TEXT,
-  correlation_id      TEXT,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS contact_actions_business_idx ON contact_actions(business_profile_id);
-
-CREATE TABLE IF NOT EXISTS analytics_events (
-  id                TEXT PRIMARY KEY,
-  event_type        TEXT NOT NULL,
-  entity_type       TEXT NOT NULL,
-  entity_id         TEXT NOT NULL,
-  occurred_at       TIMESTAMPTZ NOT NULL,
-  anonymous_id      TEXT,
-  session_reference TEXT,
-  metadata          JSONB NOT NULL DEFAULT '{}',
-  request_id        TEXT,
-  correlation_id    TEXT,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS analytics_events_entity_idx ON analytics_events(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS analytics_events_type_idx ON analytics_events(event_type);
-
-CREATE TABLE IF NOT EXISTS business_profiles (
-  id              TEXT PRIMARY KEY,
-  name            TEXT NOT NULL,
-  description_ar  TEXT,
-  description_en  TEXT,
-  owner_user_id   TEXT NOT NULL REFERENCES user_accounts(id),
-  organization_id TEXT REFERENCES organizations(id),
-  visibility      TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('public','private')),
-  trust_status    TEXT NOT NULL DEFAULT 'pending' CHECK (trust_status IN ('pending','approved','suspended')),
-  status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
-  phone           TEXT,
-  email           TEXT,
-  website         TEXT,
-  category_code   TEXT NOT NULL,
-  city_code       TEXT NOT NULL,
-  country_code    TEXT NOT NULL,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS business_profiles_owner_idx ON business_profiles(owner_user_id);
-CREATE INDEX IF NOT EXISTS business_profiles_visibility_trust_idx ON business_profiles(visibility, trust_status);
-CREATE INDEX IF NOT EXISTS business_profiles_category_idx ON business_profiles(category_code);
-CREATE INDEX IF NOT EXISTS business_profiles_city_idx ON business_profiles(city_code);
-
-CREATE TABLE IF NOT EXISTS professional_directory_profiles (
-  id           TEXT PRIMARY KEY,
-  user_id      TEXT NOT NULL UNIQUE REFERENCES user_accounts(id),
-  headline_ar  TEXT NOT NULL,
-  headline_en  TEXT,
-  bio_ar       TEXT,
-  bio_en       TEXT,
-  availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available','busy','unavailable')),
-  city_code    TEXT NOT NULL,
-  country_code TEXT NOT NULL,
-  skills       TEXT[] NOT NULL DEFAULT '{}',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS professional_directory_profiles_user_idx ON professional_directory_profiles(user_id);
-CREATE INDEX IF NOT EXISTS professional_directory_profiles_city_idx ON professional_directory_profiles(city_code, availability);
-
-CREATE TABLE IF NOT EXISTS service_listings (
-  id             TEXT PRIMARY KEY,
-  owner_type     TEXT NOT NULL CHECK (owner_type IN ('business','professional')),
-  owner_id       TEXT NOT NULL,
-  title_ar       TEXT NOT NULL,
-  title_en       TEXT,
-  description_ar TEXT,
-  description_en TEXT,
-  category_code  TEXT NOT NULL,
-  price          NUMERIC,
-  price_currency TEXT DEFAULT 'SYP',
-  price_type     TEXT NOT NULL DEFAULT 'negotiable' CHECK (price_type IN ('fixed','hourly','negotiable')),
-  status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS service_listings_owner_idx ON service_listings(owner_id, owner_type);
-CREATE INDEX IF NOT EXISTS service_listings_category_idx ON service_listings(category_code, status);
-
--- Phase A: Media
-CREATE TABLE IF NOT EXISTS media_assets (
-  id           TEXT PRIMARY KEY,
-  entity_type  TEXT NOT NULL,
-  entity_id    TEXT NOT NULL,
-  asset_type   TEXT NOT NULL CHECK (asset_type IN ('logo','cover','gallery','profile_image','service_image')),
-  url          TEXT NOT NULL,
-  storage_path TEXT NOT NULL,
-  mime_type    TEXT NOT NULL,
-  size_bytes   INTEGER NOT NULL DEFAULT 0,
-  sort_order   INTEGER NOT NULL DEFAULT 0,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS media_assets_entity_idx ON media_assets(entity_type, entity_id, asset_type);
-
--- Phase B: Opening hours
-CREATE TABLE IF NOT EXISTS business_opening_hours (
-  id                  TEXT PRIMARY KEY,
-  business_profile_id TEXT NOT NULL,
-  day_of_week         INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-  open_time           TEXT NOT NULL,
-  close_time          TEXT NOT NULL,
-  is_closed           BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS opening_hours_business_idx ON business_opening_hours(business_profile_id);
-
--- Phase B: Branches
-CREATE TABLE IF NOT EXISTS business_branches (
-  id                  TEXT PRIMARY KEY,
-  business_profile_id TEXT NOT NULL,
-  name_ar             TEXT NOT NULL,
-  name_en             TEXT,
-  address_ar          TEXT,
-  phone               TEXT,
-  city_code           TEXT NOT NULL,
-  lat                 NUMERIC,
-  lng                 NUMERIC,
-  is_main             BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS business_branches_business_idx ON business_branches(business_profile_id);
-
--- Phase B: Social media links
-CREATE TABLE IF NOT EXISTS business_social_links (
-  id                  TEXT PRIMARY KEY,
-  business_profile_id TEXT NOT NULL,
-  platform            TEXT NOT NULL,
-  url                 TEXT NOT NULL,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS social_links_business_idx ON business_social_links(business_profile_id);
-
--- Phase C: Verification requests
-CREATE TABLE IF NOT EXISTS verification_requests (
-  id              TEXT PRIMARY KEY,
-  entity_type     TEXT NOT NULL CHECK (entity_type IN ('business','professional')),
-  entity_id       TEXT NOT NULL,
-  requester_id    TEXT NOT NULL REFERENCES user_accounts(id),
-  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
-  notes           TEXT,
-  reviewed_by     TEXT REFERENCES user_accounts(id),
-  reviewed_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS verification_requests_entity_idx ON verification_requests(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS verification_requests_status_idx ON verification_requests(status);
-
--- Phase C: Trust history
-CREATE TABLE IF NOT EXISTS trust_history (
-  id            TEXT PRIMARY KEY,
-  entity_type   TEXT NOT NULL,
-  entity_id     TEXT NOT NULL,
-  old_status    TEXT,
-  new_status    TEXT NOT NULL,
-  changed_by    TEXT REFERENCES user_accounts(id),
-  reason        TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS trust_history_entity_idx ON trust_history(entity_type, entity_id);
-
--- Phase D: Featured flags
-ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
-ALTER TABLE professional_directory_profiles ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE professional_directory_profiles ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
-ALTER TABLE service_listings ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE service_listings ADD COLUMN IF NOT EXISTS featured_at TIMESTAMPTZ;
-
--- Phase D: Trending searches
-CREATE TABLE IF NOT EXISTS trending_searches (
-  id          TEXT PRIMARY KEY,
-  query       TEXT NOT NULL,
-  count       INTEGER NOT NULL DEFAULT 1,
-  last_seen   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (query)
-);
-
--- Phase B: Location on business profiles
-ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lat NUMERIC;
-ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS lng NUMERIC;
-ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS address_ar TEXT;
-`;
+const CATALOG_QUERY = `
+SELECT 'table' AS kind, c.relname AS table_name, c.relname AS name
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p')
+UNION ALL
+SELECT 'column', c.table_name, c.column_name
+FROM information_schema.columns c WHERE c.table_schema = current_schema()
+UNION ALL
+SELECT 'constraint', c.relname, con.conname
+FROM pg_catalog.pg_constraint con JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema()
+UNION ALL
+SELECT 'index', t.relname, i.relname
+FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid = x.indrelid
+JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+WHERE n.nspname = current_schema()`;
 
 @Injectable()
 export class DatabaseMigrator implements OnModuleInit {
@@ -285,7 +101,8 @@ export class DatabaseMigrator implements OnModuleInit {
   constructor(@Inject(DatabasePool) private readonly pool: DatabasePool) {}
 
   async onModuleInit(): Promise<void> {
-    await this.pool.query(SCHEMA_SQL);
-    this.logger.log('Database schema applied.');
+    const rows = await this.pool.query<CatalogRow>(CATALOG_QUERY);
+    verifyCanonicalSchema(rows);
+    this.logger.log(`Canonical database schema ${REQUIRED_CANONICAL_SCHEMA_VERSION} verified.`);
   }
 }
