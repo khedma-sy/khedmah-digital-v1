@@ -23,3 +23,9 @@ export class ContactRateLimitError extends HttpException {
     super('Contact rate limit exceeded.', HttpStatus.TOO_MANY_REQUESTS);
   }
 }
+
+export class ContactIdempotencyConflictError extends HttpException {
+  constructor() {
+    super('Idempotency key was already used for a different contact request.', HttpStatus.CONFLICT);
+  }
+}

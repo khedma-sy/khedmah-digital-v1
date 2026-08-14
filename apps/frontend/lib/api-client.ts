@@ -56,6 +56,12 @@ export interface PublicProfessionalProfile {
   readonly skills: string[];
   readonly isFeatured: boolean;
   readonly createdAt: string;
+  readonly contactEligibility?: {
+    readonly visibility: 'public' | 'private' | 'internal';
+    readonly moderationStatus: 'approved' | 'pending' | 'rejected' | 'suspended';
+    readonly lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived';
+    readonly eligible: boolean;
+  };
 }
 
 export interface PublicServiceListing {
@@ -166,8 +172,11 @@ export interface ApiError {
 
 export interface ContactInquiryReceipt {
   readonly id: string;
-  readonly businessProfileId: string;
+  readonly targetType: 'business' | 'professional';
+  readonly businessProfileId?: string;
+  readonly professionalProfileId?: string;
   readonly status: 'submitted';
+  readonly trackingStatus: 'submitted';
   readonly createdAt: string;
 }
 
@@ -205,6 +214,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  contact: {
+    submitInquiry(target: { type: 'business' | 'professional'; id: string }, data: { name: string; contactEmail: string; message: string }, idempotencyKey: string) {
+      const collection = target.type === 'business' ? 'businesses' : 'professionals';
+      return request<{ inquiry: ContactInquiryReceipt }>(`/${collection}/${target.id}/inquiries`, {
+        method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(data)
+      });
+    }
+  },
   auth: {
     register(email: string, password: string, displayName: string) {
       return request<{ user: PublicUserProfile }>('/auth/register', {
@@ -355,12 +372,6 @@ export const api = {
     },
     getTrustHistory(id: string) {
       return request<{ history: TrustHistoryEntry[] }>(`/businesses/${id}/trust-history`);
-    },
-    submitInquiry(id: string, data: { name: string; contactEmail: string; message: string }) {
-      return request<{ inquiry: ContactInquiryReceipt }>(`/businesses/${id}/inquiries`, {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
     },
     listReceivedInquiries(id: string) {
       return request<{ inquiries: ProviderContactInquiry[] }>(`/businesses/${id}/inquiries`);

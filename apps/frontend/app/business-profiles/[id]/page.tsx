@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
-import { ContactInquiryForm } from './contact-inquiry-form';
+import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
 import { ProviderQrAction } from './provider-qr-action';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -20,15 +21,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   lawyer: 'محامي',
 };
 
-const CITY_LABELS: Record<string, string> = {
-  damascus: 'دمشق',
-  aleppo: 'حلب',
-  homs: 'حمص',
-  latakia: 'اللاذقية',
-  hama: 'حماة',
-  tartus: 'طرطوس',
-  'deir-ez-zor': 'دير الزور',
-};
+
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -62,6 +55,7 @@ function PriceType({ type }: { type: string }) {
 export default function BusinessProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { cities } = useSyrianCities();
   const [business, setBusiness] = useState<PublicBusinessProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
@@ -149,7 +143,7 @@ export default function BusinessProfilePage() {
   const cover = media.find((a) => a.assetType === 'cover');
   const gallery = media.filter((a) => a.assetType === 'gallery');
   const categoryLabel = CATEGORY_LABELS[business.categoryCode] ?? business.categoryCode;
-  const cityLabel = CITY_LABELS[business.cityCode] ?? business.cityCode;
+  const localizedCity = cityLabel(business.cityCode, cities);
   const activeServices = services.filter((s) => s.status === 'active');
 
   // Phase E: Structured data (JSON-LD)
@@ -200,7 +194,7 @@ export default function BusinessProfilePage() {
               <div>
                 <h1 style={{ margin: '0 0 0.4rem', fontSize: 'clamp(1.4rem, 4vw, 2.25rem)' }}>{business.name}</h1>
                 <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9375rem' }}>
-                  {categoryLabel} · {cityLabel} · {business.countryCode.toUpperCase()}
+                  {categoryLabel} · {localizedCity} · {business.countryCode.toUpperCase()}
                 </p>
                 {business.addressAr && (
                   <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>📍 {business.addressAr}</p>
@@ -218,7 +212,7 @@ export default function BusinessProfilePage() {
             {/* Action bar */}
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
               {business.visibility === 'public' && business.trustStatus === 'approved' && (
-                <ContactInquiryForm businessProfileId={business.id} businessName={business.name} />
+                <ContactInquiryForm target={{ type: 'business', id: business.id }} providerName={business.name} />
               )}
               <button type="button" onClick={() => router.back()} className="filter-action-secondary">← رجوع</button>
               {business.phone && (
@@ -420,4 +414,3 @@ export default function BusinessProfilePage() {
     </main>
   );
 }
-

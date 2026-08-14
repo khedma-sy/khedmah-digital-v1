@@ -12,7 +12,11 @@ const CITIES: readonly City[] = [
   { code: 'tartus', nameAr: 'طرطوس', nameEn: 'Tartus', countryCode: 'SY' },
   { code: 'idlib', nameAr: 'إدلب', nameEn: 'Idlib', countryCode: 'SY' },
   { code: 'raqqa', nameAr: 'الرقة', nameEn: 'Raqqa', countryCode: 'SY' },
-  { code: 'daraa', nameAr: 'درعا', nameEn: 'Daraa', countryCode: 'SY' }
+  { code: 'daraa', nameAr: 'درعا', nameEn: 'Daraa', countryCode: 'SY' },
+  { code: 'rif-dimashq', nameAr: 'ريف دمشق', nameEn: 'Rif Dimashq', countryCode: 'SY' },
+  { code: 'hasakah', nameAr: 'الحسكة', nameEn: 'Al-Hasakah', countryCode: 'SY' },
+  { code: 'quneitra', nameAr: 'القنيطرة', nameEn: 'Quneitra', countryCode: 'SY' },
+  { code: 'suwayda', nameAr: 'السويداء', nameEn: 'As-Suwayda', countryCode: 'SY' }
 ];
 
 const COUNTRIES: readonly Country[] = [
@@ -32,6 +36,10 @@ const COUNTRIES: readonly Country[] = [
   { code: 'DE', nameAr: 'ألمانيا', nameEn: 'Germany' },
   { code: 'SE', nameAr: 'السويد', nameEn: 'Sweden' }
 ];
+
+export function isSyrianCityCode(value: string): boolean {
+  return CITIES.some((city) => city.code === value && city.countryCode === 'SY');
+}
 
 @Injectable()
 export class LocationsService {
