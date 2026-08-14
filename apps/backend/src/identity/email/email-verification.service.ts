@@ -108,7 +108,7 @@ export class EmailVerificationService {
       [record.id]
     );
     await this.db.query(
-      `UPDATE user_accounts SET status = 'active', updated_at = NOW() WHERE id = $1`,
+      `UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active', updated_at = NOW() WHERE user_identifier = $1`,
       [record.user_id]
     );
 

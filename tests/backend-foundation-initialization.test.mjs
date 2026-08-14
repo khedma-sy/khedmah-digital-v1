@@ -80,7 +80,8 @@ test('configuration, database, migrations, shared, and test foundations preserve
   const migrations = await read('backend/migrations/README.md');
   assert.match(migrations, /001_core_identity_accounts\.sql/);
   assert.match(migrations, /Mission 048/);
-  assert.match(migrations, /002 through 004 are not present/);
+  assert.match(migrations, /every version from `001` through `016`/);
+  assert.match(migrations, /never executed by application startup/);
 
   const shared = await read('backend/shared/README.md');
   assert.match(shared, /technical and domain-neutral/);

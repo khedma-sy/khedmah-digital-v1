@@ -153,9 +153,9 @@ export class ContactService {
   private async requirePublicApprovedBusiness(businessProfileId: string): Promise<ContactBusinessProfileSnapshot> {
     const snapshot = await this.contacts.findBusinessProfileSnapshot(businessProfileId);
     const business: ContactBusinessProfileSnapshot | undefined = snapshot
-      ? { id: snapshot.id, visibility: snapshot.visibility as BusinessProfileVisibility, trustStatus: snapshot.trustStatus as BusinessProfileTrustStatus, ownerUserId: snapshot.ownerUserId }
+      ? { id: snapshot.id, visibility: snapshot.visibility as BusinessProfileVisibility, moderationStatus: snapshot.moderationStatus, trustStatus: snapshot.trustStatus as BusinessProfileTrustStatus, status: snapshot.status, ownerUserId: snapshot.ownerUserId }
       : undefined;
-    if (!business || business.visibility !== 'public' || business.trustStatus !== 'approved') {
+    if (!business || business.visibility !== 'public' || business.moderationStatus !== 'approved' || business.trustStatus !== 'approved' || business.status !== 'active') {
       throw new ContactBusinessUnavailableError();
     }
 

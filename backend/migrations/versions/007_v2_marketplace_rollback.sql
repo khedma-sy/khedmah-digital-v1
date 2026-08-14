@@ -1,5 +1,3 @@
-ALTER TABLE contact_inquiries DROP COLUMN IF EXISTS tracking_status, DROP COLUMN IF EXISTS service_lng,
-  DROP COLUMN IF EXISTS service_lat, DROP COLUMN IF EXISTS service_address, DROP COLUMN IF EXISTS service_id;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS plans;
 DROP INDEX IF EXISTS business_profiles_availability_idx;

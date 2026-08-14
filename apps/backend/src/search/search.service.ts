@@ -36,6 +36,7 @@ export class SearchService {
         descriptionAr: profile.descriptionAr,
         descriptionEn: profile.descriptionEn,
         visibility: profile.visibility,
+        moderationStatus: profile.moderationStatus,
         trustStatus: profile.trustStatus,
         status: profile.status,
         phone: profile.phone,

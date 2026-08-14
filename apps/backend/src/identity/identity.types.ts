@@ -1,4 +1,4 @@
-export type AccountStatus = 'active' | 'disabled';
+export type AccountStatus = 'created' | 'pending' | 'active' | 'suspended' | 'archived';
 
 export interface UserAccount {
   readonly id: string;

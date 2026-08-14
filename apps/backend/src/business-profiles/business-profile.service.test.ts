@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from './business-profile.repository';
 import { BusinessProfileService } from './business-profile.service';
 import { IdentityRepository } from '../identity/identity.repository';
@@ -13,6 +13,7 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 const rawPool = createTestPool();
 
 async function createFixture() {
+  await resetCanonicalTestSchema(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`
@@ -68,7 +69,7 @@ async function createFixture() {
     );
     CREATE INDEX IF NOT EXISTS trust_history_entity_idx ON trust_history(entity_type, entity_id);
   `);
-  await pool.query('TRUNCATE business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE business_profiles, audit_logs, identity_sessions, identity_credentials, profiles, core_user_accounts, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());
@@ -129,10 +130,11 @@ test('public business profile does not expose ownerUserId', async () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'moderator@example.com': ['security_operations_engineer'] });
 
   try {
-    const { service, ownerCookie, moderatorCookie, businessId, businessRepo } = await createFixture();
+    const { pool, service, ownerCookie, moderatorCookie, businessId, businessRepo } = await createFixture();
 
     await service.updateTrustStatus(moderatorCookie, businessId, { trustStatus: 'approved' });
     await businessRepo.updateTrustStatus(businessId, 'approved', new Date().toISOString());
+    await pool.query('UPDATE business_profiles SET moderation_status = $2 WHERE id = $1', [businessId, 'approved']);
 
     await service.update(ownerCookie, businessId, { visibility: 'public' });
 

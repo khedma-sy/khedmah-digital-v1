@@ -26,7 +26,7 @@ ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,
-  owner_user_id TEXT NOT NULL REFERENCES user_accounts(user_identifier) ON DELETE CASCADE,
+  owner_user_id TEXT NOT NULL REFERENCES core_user_accounts(user_identifier) ON DELETE CASCADE,
   plan_code TEXT NOT NULL REFERENCES plans(code),
   status TEXT NOT NULL CHECK (status IN ('active', 'cancelled', 'expired')),
   starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -35,11 +35,3 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   CHECK (ends_at IS NULL OR ends_at > starts_at)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_active_owner_idx ON subscriptions(owner_user_id) WHERE status = 'active';
-
-ALTER TABLE contact_inquiries
-  ADD COLUMN IF NOT EXISTS service_id TEXT,
-  ADD COLUMN IF NOT EXISTS service_address TEXT,
-  ADD COLUMN IF NOT EXISTS service_lat NUMERIC(9,6),
-  ADD COLUMN IF NOT EXISTS service_lng NUMERIC(9,6),
-  ADD COLUMN IF NOT EXISTS tracking_status TEXT NOT NULL DEFAULT 'submitted'
-    CHECK (tracking_status IN ('submitted', 'accepted', 'on_the_way', 'in_progress', 'completed', 'cancelled'));
