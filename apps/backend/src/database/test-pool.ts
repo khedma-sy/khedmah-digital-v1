@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const SAFE_DATABASE_NAME = /^[a-z0-9_]*(?:_test|_ci)$/;
 const FORBIDDEN_DATABASE_NAMES = new Set(['postgres', 'template0', 'template1', 'khedmah', 'khedmah_dev', 'khedmah_prod', 'production']);
@@ -63,7 +64,7 @@ export function resetCanonicalTestSchema(pool: Pool): Promise<void> {
       await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
       for (const migration of CANONICAL_MIGRATIONS) {
         const sql = await readFile(
-          new URL(`../../../../backend/migrations/versions/${migration}.sql`, import.meta.url),
+          resolve(__dirname, '../../../../backend/migrations/versions', `${migration}.sql`),
           'utf8'
         );
         await client.query(sql);
