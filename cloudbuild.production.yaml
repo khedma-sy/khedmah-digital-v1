@@ -34,11 +34,13 @@ steps:
         done
 
         # Run tests inside a Node container on the same cloudbuild network.
+        # Explicitly opt in to destructive resets for this disposable *_test database only.
         docker run --rm \
           --network cloudbuild \
           -v /workspace:/workspace \
           -w /workspace \
           -e DATABASE_URL="postgresql://khedmah_test:khedmah_test_secret@pg-test:5432/khedmah_test" \
+          -e ALLOW_DESTRUCTIVE_DB_TESTS=true \
           node:20 \
           bash -euo pipefail -c "npm ci && npm run test:workspaces"
   - id: build-backend-image
