@@ -1,7 +1,7 @@
 -- P1-01: race-safe Contact submission idempotency for Business and Professional targets.
 -- The payload fingerprint is SHA-256 over normalized target and Contact fields; it stores no additional personal data.
 CREATE TABLE contact_submission_idempotency (
-  submitter_user_id TEXT NOT NULL,
+  submitter_user_id TEXT NOT NULL REFERENCES core_user_accounts(user_identifier) ON DELETE CASCADE,
   idempotency_key TEXT NOT NULL,
   inquiry_id TEXT NOT NULL,
   payload_fingerprint CHAR(64) NOT NULL,

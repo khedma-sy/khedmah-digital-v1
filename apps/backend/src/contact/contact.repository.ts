@@ -90,8 +90,8 @@ export class ContactRepository {
 
   async saveContactAction(event: ContactActionEvent): Promise<void> {
     await this.db.query(
-      `INSERT INTO contact_actions
-         (id, business_profile_id, actor_user_id, action_type, request_id, correlation_id, created_at)
+      `INSERT INTO contact_action_events
+         (id, business_profile_id, actor_user_id, action_type, request_id, correlation_id, occurred_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (id) DO NOTHING`,
       [
@@ -101,18 +101,20 @@ export class ContactRepository {
     );
   }
 
-  async findBusinessProfileSnapshot(id: string): Promise<{ id: string; visibility: string; trustStatus: string; ownerUserId: string } | undefined> {
+  async findBusinessProfileSnapshot(id: string): Promise<{ id: string; visibility: string; moderationStatus: string; trustStatus: string; status: string; ownerUserId: string } | undefined> {
     const rows = await this.db.query<{
-      id: string; visibility: string; trust_status: string; owner_user_id: string;
+      id: string; visibility: string; moderation_status: string; trust_status: string; status: string; owner_user_id: string;
     }>(
-      `SELECT id, visibility, trust_status, owner_user_id FROM business_profiles WHERE id=$1 LIMIT 1`,
+      `SELECT id, visibility, moderation_status, trust_status, status, owner_user_id FROM business_profiles WHERE id=$1 LIMIT 1`,
       [id]
     );
     if (!rows[0]) return undefined;
     return {
       id: rows[0].id,
       visibility: rows[0].visibility,
+      moderationStatus: rows[0].moderation_status,
       trustStatus: rows[0].trust_status,
+      status: rows[0].status,
       ownerUserId: rows[0].owner_user_id
     };
   }

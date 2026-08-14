@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS media_assets (
   id TEXT PRIMARY KEY,
-  owner_user_id TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,
+  owner_user_id TEXT NOT NULL REFERENCES core_user_accounts(user_identifier) ON DELETE CASCADE,
   owner_type TEXT NOT NULL CHECK (owner_type IN ('business_profile', 'professional_profile', 'user')),
   owner_id TEXT NOT NULL,
   filename TEXT NOT NULL,

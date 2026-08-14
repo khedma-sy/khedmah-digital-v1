@@ -9,11 +9,12 @@ export class IdentityRepository {
 
   async findAccountByEmail(email: string): Promise<UserAccount | undefined> {
     const rows = await this.db.query<{
-      id: string; email: string; password_hash: string; status: string;
+      user_identifier: string; email: string; password_hash: string; account_status: string;
       created_at: Date; updated_at: Date;
     }>(
-      `SELECT id, email, password_hash, status, created_at, updated_at
-       FROM user_accounts WHERE email = $1 LIMIT 1`,
+      `SELECT a.user_identifier, c.email, c.password_hash, a.account_status, a.created_at, a.updated_at
+       FROM core_user_accounts a JOIN identity_credentials c USING (user_identifier)
+       WHERE c.email = $1 LIMIT 1`,
       [email]
     );
     return rows[0] ? this.mapAccount(rows[0]) : undefined;
@@ -21,36 +22,43 @@ export class IdentityRepository {
 
   async findAccountById(id: string): Promise<UserAccount | undefined> {
     const rows = await this.db.query<{
-      id: string; email: string; password_hash: string; status: string;
+      user_identifier: string; email: string; password_hash: string; account_status: string;
       created_at: Date; updated_at: Date;
     }>(
-      `SELECT id, email, password_hash, status, created_at, updated_at
-       FROM user_accounts WHERE id = $1 LIMIT 1`,
+      `SELECT a.user_identifier, c.email, c.password_hash, a.account_status, a.created_at, a.updated_at
+       FROM core_user_accounts a JOIN identity_credentials c USING (user_identifier)
+       WHERE a.user_identifier = $1 LIMIT 1`,
       [id]
     );
     return rows[0] ? this.mapAccount(rows[0]) : undefined;
   }
 
   async saveAccount(account: UserAccount): Promise<void> {
-    await this.db.query(
-      `INSERT INTO user_accounts (id, email, password_hash, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id) DO UPDATE SET
-         email = EXCLUDED.email,
-         password_hash = EXCLUDED.password_hash,
-         status = EXCLUDED.status,
-         updated_at = EXCLUDED.updated_at`,
-      [account.id, account.email, account.passwordHash, account.status, account.createdAt, account.updatedAt]
-    );
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO core_user_accounts
+           (user_identifier, identity_reference, account_type, account_status, lifecycle_status, visibility_classification, created_at, updated_at)
+         VALUES ($1,$2,'individual_user',$3,$3,'private',$4,$5)
+         ON CONFLICT (user_identifier) DO UPDATE SET account_status=EXCLUDED.account_status,
+           lifecycle_status=EXCLUDED.lifecycle_status, updated_at=EXCLUDED.updated_at`,
+        [account.id, `identity_${account.id.replaceAll('-', '')}`, account.status, account.createdAt, account.updatedAt]
+      );
+      await client.query(
+        `INSERT INTO identity_credentials (user_identifier,email,password_hash,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (user_identifier) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,updated_at=EXCLUDED.updated_at`,
+        [account.id, account.email, account.passwordHash, account.createdAt, account.updatedAt]
+      );
+    });
   }
 
   async findProfile(userId: string): Promise<UserProfile | undefined> {
     const rows = await this.db.query<{
-      user_id: string; display_name: string; locale: string;
+      user_identifier: string; display_name: string; locale: string;
       created_at: Date; updated_at: Date;
     }>(
-      `SELECT user_id, display_name, locale, created_at, updated_at
-       FROM user_profiles WHERE user_id = $1 LIMIT 1`,
+      `SELECT user_identifier, display_name, locale, created_at, updated_at
+       FROM profiles WHERE user_identifier = $1 LIMIT 1`,
       [userId]
     );
     return rows[0] ? this.mapProfile(rows[0]) : undefined;
@@ -58,21 +66,21 @@ export class IdentityRepository {
 
   async saveProfile(profile: UserProfile): Promise<void> {
     await this.db.query(
-      `INSERT INTO user_profiles (user_id, display_name, locale, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id) DO UPDATE SET
+      `INSERT INTO profiles (profile_identifier, user_identifier, profile_type, display_name, lifecycle_status, visibility, locale, created_at, updated_at)
+       VALUES ($1, $2, 'personal_profile', $3, 'active', 'private', $4, $5, $6)
+       ON CONFLICT (user_identifier) DO UPDATE SET
          display_name = EXCLUDED.display_name,
          locale = EXCLUDED.locale,
          updated_at = EXCLUDED.updated_at`,
-      [profile.userId, profile.displayName, profile.locale, profile.createdAt, profile.updatedAt]
+      [`profile_${profile.userId.replaceAll('-', '')}`, profile.userId, profile.displayName, profile.locale, profile.createdAt, profile.updatedAt]
     );
   }
 
   async saveSession(session: UserSession): Promise<void> {
     await this.db.query(
-      `INSERT INTO user_sessions (id, user_id, token_hash, expires_at, revoked_at, created_at)
+      `INSERT INTO identity_sessions (session_identifier, user_identifier, token_hash, expires_at, revoked_at, created_at)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id) DO UPDATE SET
+       ON CONFLICT (session_identifier) DO UPDATE SET
          token_hash = EXCLUDED.token_hash,
          expires_at = EXCLUDED.expires_at,
          revoked_at = EXCLUDED.revoked_at`,
@@ -82,11 +90,11 @@ export class IdentityRepository {
 
   async findActiveSessionByTokenHash(tokenHash: string): Promise<UserSession | undefined> {
     const rows = await this.db.query<{
-      id: string; user_id: string; token_hash: string;
+      session_identifier: string; user_identifier: string; token_hash: string;
       expires_at: Date; revoked_at: Date | null; created_at: Date;
     }>(
-      `SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
-       FROM user_sessions
+      `SELECT session_identifier, user_identifier, token_hash, expires_at, revoked_at, created_at
+       FROM identity_sessions
        WHERE token_hash = $1
          AND revoked_at IS NULL
          AND expires_at > NOW()
@@ -98,7 +106,7 @@ export class IdentityRepository {
 
   async revokeSession(sessionId: string): Promise<void> {
     await this.db.query(
-      `UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1`,
+      `UPDATE identity_sessions SET revoked_at = NOW() WHERE session_identifier = $1`,
       [sessionId]
     );
   }
@@ -129,20 +137,20 @@ export class IdentityRepository {
     }));
   }
 
-  private mapAccount(r: { id: string; email: string; password_hash: string; status: string; created_at: Date; updated_at: Date }): UserAccount {
+  private mapAccount(r: { user_identifier: string; email: string; password_hash: string; account_status: string; created_at: Date; updated_at: Date }): UserAccount {
     return {
-      id: r.id,
+      id: r.user_identifier,
       email: r.email,
       passwordHash: r.password_hash,
-      status: r.status as UserAccount['status'],
+      status: r.account_status as UserAccount['status'],
       createdAt: r.created_at.toISOString(),
       updatedAt: r.updated_at.toISOString()
     };
   }
 
-  private mapProfile(r: { user_id: string; display_name: string; locale: string; created_at: Date; updated_at: Date }): UserProfile {
+  private mapProfile(r: { user_identifier: string; display_name: string; locale: string; created_at: Date; updated_at: Date }): UserProfile {
     return {
-      userId: r.user_id,
+      userId: r.user_identifier,
       displayName: r.display_name,
       locale: 'ar',
       createdAt: r.created_at.toISOString(),
@@ -150,10 +158,10 @@ export class IdentityRepository {
     };
   }
 
-  private mapSession(r: { id: string; user_id: string; token_hash: string; expires_at: Date; revoked_at: Date | null; created_at: Date }): UserSession {
+  private mapSession(r: { session_identifier: string; user_identifier: string; token_hash: string; expires_at: Date; revoked_at: Date | null; created_at: Date }): UserSession {
     return {
-      id: r.id,
-      userId: r.user_id,
+      id: r.session_identifier,
+      userId: r.user_identifier,
       tokenHash: r.token_hash,
       expiresAt: r.expires_at.toISOString(),
       revokedAt: r.revoked_at?.toISOString(),
@@ -185,4 +193,3 @@ export class IdentityRepository {
     return rows.map((r) => r.role);
   }
 }
-

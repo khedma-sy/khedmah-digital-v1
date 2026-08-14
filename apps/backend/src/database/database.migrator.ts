@@ -50,6 +50,8 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('authorization', '010', 'roles'),
   table('authorization', '010', 'permissions'),
   table('media', '011', 'media_assets'),
+  ...['owner_user_id', 'owner_type', 'owner_id', 'storage_key', 'public_url'].map((name) => column('media', '006', 'media_assets', name)),
+  ...['asset_type', 'sort_order'].map((name) => column('media', '011', 'media_assets', name)),
   table('nearby', '012', 'nearby_preferences'),
   ...['user_identifier', 'coverage_radius', 'location_identifier'].map((name) => column('nearby', '012', 'nearby_preferences', name)),
   table('notifications', '013', 'nearby_notifications'),

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool } from '../database/test-pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { ProfessionalProfileRepository } from '../professional-profiles/professional-profile.repository';
 import { ServiceCatalogRepository } from './service-catalog.repository';
@@ -13,6 +13,7 @@ import { SessionTokenService } from '../identity/security/session-token.service'
 const rawPool = createTestPool();
 
 async function createFixture() {
+  await resetCanonicalTestSchema(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`
@@ -79,7 +80,7 @@ async function createFixture() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('TRUNCATE service_listings, professional_directory_profiles, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE service_listings, professional_directory_profiles, business_profiles, audit_logs, identity_sessions, identity_credentials, profiles, core_user_accounts, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());

@@ -1,5 +1,7 @@
 # KDOS Pre-Final Repository Consolidation Report — 2026-08-14
 
+> **Superseded source snapshot:** this report accurately records the pre-repair tree. The later canonical-lineage reconciliation restores migrations 009–015 and resolves the active P0 runtime-name splits; use the newer reconciliation report for current source status.
+
 ## 1. Repository identity
 
 The inspected repository is `/workspace/khedmah-digital-v1`; both `pwd` and `git rev-parse --show-toplevel` returned that path. The starting checkout was the clean `work` branch at `cefa61a`. This is the KDOS repository named in the mission and its package metadata identifies the Khedmah Digital monorepo.

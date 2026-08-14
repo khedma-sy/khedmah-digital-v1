@@ -34,7 +34,7 @@ export class ProfessionalProfileService {
           updatedAt: now
         }
       : {
-          id: randomUUID(),
+          id: `professional_profile_${randomUUID().replaceAll('-', '')}`,
           userId: actor.id,
           headlineAr: input.headlineAr,
           headlineEn: input.headlineEn,
