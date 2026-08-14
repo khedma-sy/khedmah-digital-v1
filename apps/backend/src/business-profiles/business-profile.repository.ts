@@ -73,7 +73,7 @@ export class BusinessProfileRepository {
         profile.ownerUserId,
         profile.organizationId ?? null,
         profile.visibility,
-        profile.moderationStatus,
+        profile.moderationStatus ?? 'pending',
         profile.trustStatus,
         profile.status,
         profile.phone ?? null,

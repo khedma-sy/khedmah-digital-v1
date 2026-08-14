@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { readFile } from 'node:fs/promises';
 
 const SAFE_DATABASE_NAME = /^[a-z0-9_]*(?:_test|_ci)$/;
 const FORBIDDEN_DATABASE_NAMES = new Set(['postgres', 'template0', 'template1', 'khedmah', 'khedmah_dev', 'khedmah_prod', 'production']);
@@ -30,6 +31,48 @@ export async function verifyTestDatabase(pool: Pool): Promise<void> {
   const result = await pool.query<{ database_name: string }>('SELECT current_database() AS database_name');
   const databaseName = result.rows[0]?.database_name ?? '';
   assertSafeDisposableDatabaseName(databaseName);
+}
+
+const CANONICAL_MIGRATIONS = [
+  '001_core_identity_accounts',
+  '002_create_profiles',
+  '003_create_professional_profiles',
+  '004_analytics_and_contact',
+  '005_email_verifications_and_admin_roles',
+  '006_media_assets',
+  '007_v2_marketplace',
+  '008_provider_service_radius',
+  '009_canonical_identity_runtime',
+  '010_canonical_runtime_domains',
+  '011_canonical_media_contract',
+  '012_nearby_preferences',
+  '013_nearby_notifications_read_state',
+  '014_supplier_discovery',
+  '015_contact_target_contract',
+  '016_contact_submission_idempotency'
+] as const;
+
+let canonicalSchemaSetup: Promise<void> | undefined;
+
+/** Rebuilds the explicitly disposable test database from the governed lineage. */
+export function resetCanonicalTestSchema(pool: Pool): Promise<void> {
+  canonicalSchemaSetup ??= (async () => {
+    await verifyTestDatabase(pool);
+    const client = await pool.connect();
+    try {
+      await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
+      for (const migration of CANONICAL_MIGRATIONS) {
+        const sql = await readFile(
+          new URL(`../../../../backend/migrations/versions/${migration}.sql`, import.meta.url),
+          'utf8'
+        );
+        await client.query(sql);
+      }
+    } finally {
+      client.release();
+    }
+  })();
+  return canonicalSchemaSetup;
 }
 
 export function assertSafeDisposableDatabaseName(databaseName: string): void {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HttpStatus } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool, verifyTestDatabase } from '../database/test-pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactIdempotencyConflictError, ContactRateLimitError, ContactValidationError } from './contact.errors';
 import { ContactRateLimitService } from './contact-rate-limit.service';
@@ -16,7 +16,7 @@ import { PlatformLogger } from '../logging/platform-logger';
 const rawPool = createTestPool();
 
 async function createFixture() {
-  await verifyTestDatabase(rawPool);
+  await resetCanonicalTestSchema(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`
@@ -86,7 +86,7 @@ async function createFixture() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('TRUNCATE contact_actions, contact_submission_idempotency, contact_inquiries, professional_profiles, business_profiles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE contact_actions, contact_submission_idempotency, contact_inquiries, professional_profiles, business_profiles, audit_logs, identity_sessions, identity_credentials, profiles, core_user_accounts, user_sessions, user_profiles, user_accounts CASCADE');
 
   const identityRepository = new IdentityRepository(pool);
   const identity = new IdentityService(identityRepository, new SessionTokenService());
@@ -103,15 +103,17 @@ async function createFixture() {
      ON CONFLICT (id) DO NOTHING`
   );
   await pool.query(`INSERT INTO professional_profiles
-    (professional_profile_identifier, user_identifier, visibility, moderation_status, lifecycle_status)
-    VALUES ('professional-profile-1', 'owner-user', 'public', 'approved', 'active')`);
+    (professional_profile_identifier, profile_identifier, user_identifier, profession_type, visibility, moderation_status, lifecycle_status)
+    VALUES ('professional_profile_contact_1', $1, $2, 'freelancer', 'public', 'approved', 'active')`,
+    [`profile_${registration.user.id.replaceAll('-', '')}`, registration.user.id]);
   await pool.query(
-    `INSERT INTO business_profiles (id, name, owner_user_id, visibility, trust_status, status, category_code, city_code, country_code, created_at, updated_at)
+    `INSERT INTO business_profiles (id, name, owner_user_id, visibility, moderation_status, trust_status, status, category_code, city_code, country_code, created_at, updated_at)
      VALUES
-       ('approved-business', 'معمل الاختبار', 'owner-user', 'public', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
-       ('private-business', 'عمل خاص', 'owner-user', 'private', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
-       ('suspended-business', 'عمل موقوف', 'owner-user', 'public', 'suspended', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW())
-     ON CONFLICT (id) DO NOTHING`
+       ('approved-business', 'معمل الاختبار', $1, 'public', 'approved', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
+       ('private-business', 'عمل خاص', $1, 'private', 'approved', 'approved', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW()),
+       ('suspended-business', 'عمل موقوف', $1, 'public', 'approved', 'suspended', 'active', 'restaurant', 'damascus', 'SY', NOW(), NOW())
+     ON CONFLICT (id) DO NOTHING`,
+    [registration.user.id]
   );
 
   return { contacts, identityRepository, service, cookieHeader, pool };
@@ -183,7 +185,7 @@ test('conflicting reuse is denied while a different key creates a legal second i
 
 test('Professional target uses the same idempotency contract', async () => {
   const { service, cookieHeader } = await createFixture();
-  const target = { type: 'professional' as const, id: 'professional-profile-1' };
+  const target = { type: 'professional' as const, id: 'professional_profile_contact_1' };
   const first = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-professional-01');
   const retry = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-professional-01');
   assert.equal(first.id, retry.id);
@@ -218,7 +220,7 @@ test('contact click tracking records contact intent only', async () => {
 
   assert.equal(receipt.businessProfileId, 'approved-business');
   assert.equal(receipt.actionType, 'contact_click');
-  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_actions');
+  const rows = await pool.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM contact_action_events');
   assert.equal(rows[0].count, '1');
   assert.deepEqual(Object.keys(receipt).sort(), ['actionType', 'businessProfileId', 'id', 'trackedAt']);
 });

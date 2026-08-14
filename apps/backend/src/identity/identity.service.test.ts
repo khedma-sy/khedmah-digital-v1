@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { UnauthorizedException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool, verifyTestDatabase } from '../database/test-pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { IdentityRepository } from './identity.repository';
 import { IdentityService } from './identity.service';
 import { SessionTokenService } from './security/session-token.service';
@@ -11,7 +11,7 @@ import { SessionTokenService } from './security/session-token.service';
 const rawPool = createTestPool();
 
 async function setup(): Promise<{ repository: IdentityRepository; service: IdentityService }> {
-  await verifyTestDatabase(rawPool);
+  await resetCanonicalTestSchema(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
 
   await pool.query(`
@@ -37,7 +37,7 @@ async function setup(): Promise<{ repository: IdentityRepository; service: Ident
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('TRUNCATE audit_logs, user_sessions, user_profiles, user_accounts CASCADE');
+  await pool.query('TRUNCATE audit_logs, identity_sessions, identity_credentials, profiles, core_user_accounts, user_sessions, user_profiles, user_accounts CASCADE');
 
   const repository = new IdentityRepository(pool);
   return { repository, service: new IdentityService(repository, new SessionTokenService()) };

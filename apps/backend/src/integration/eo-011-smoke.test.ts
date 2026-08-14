@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
-import { createTestPool, verifyTestDatabase } from '../database/test-pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
@@ -160,13 +160,14 @@ const INLINE_DDL = `
 `;
 
 async function setupFixture() {
-  await verifyTestDatabase(rawPool);
+  await resetCanonicalTestSchema(rawPool);
   const pool = DatabasePool.fromPool(rawPool);
   await pool.query(INLINE_DDL);
   await pool.query(`
     TRUNCATE trust_history, verification_requests, business_social_links, business_branches,
     business_opening_hours, business_media_assets, business_profiles, service_listings, email_verifications,
-    admin_roles, audit_logs, user_sessions, user_profiles, user_accounts CASCADE
+    admin_roles, audit_logs, identity_sessions, identity_credentials, profiles, core_user_accounts,
+    user_sessions, user_profiles, user_accounts CASCADE
   `);
   const identityRepo = new IdentityRepository(pool);
   const sessionTokens = new SessionTokenService();
