@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('database migration workflow governs every canonical pair through 017', async () => {
+test('database migration workflow governs every canonical pair through 018', async () => {
   const workflow = await read('.github/workflows/database-migration-check.yml');
 
   const names = [
@@ -13,7 +13,8 @@ test('database migration workflow governs every canonical pair through 017', asy
     '007_v2_marketplace', '008_provider_service_radius', '009_canonical_identity_runtime',
     '010_canonical_runtime_domains', '011_canonical_media_contract', '012_nearby_preferences',
     '013_nearby_notifications_read_state', '014_supplier_discovery', '015_contact_target_contract',
-    '016_contact_submission_idempotency', '017_category_taxonomy_contract'
+    '016_contact_submission_idempotency', '017_category_taxonomy_contract',
+    '018_persistent_rate_limit_buckets'
   ];
   for (const name of names) {
     assert.match(workflow, new RegExp(`^\\s+${name}$`, 'm'));
