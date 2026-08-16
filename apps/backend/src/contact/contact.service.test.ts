@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HttpStatus } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { RateLimitRepository } from '../database/rate-limit.repository';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { ContactAbuseService } from './contact-abuse.service';
 import { ContactBusinessUnavailableError, ContactIdempotencyConflictError, ContactRateLimitError, ContactValidationError } from './contact.errors';
@@ -93,7 +94,7 @@ async function createFixture() {
   const contacts = new ContactRepository(pool);
   const logger = new PlatformLogger();
   logger.log = () => undefined;
-  const service = new ContactService(contacts, identity, identityRepository, new ContactRateLimitService(), new ContactAbuseService(), logger);
+  const service = new ContactService(contacts, identity, identityRepository, new ContactRateLimitService(new RateLimitRepository(pool)), new ContactAbuseService(), logger);
   const registration = await identity.register({ email: 'user@example.com', password: 'very-secure-password', displayName: 'زائر خدمة' });
   const cookieHeader = `khedmah_session=${registration.sessionToken}`;
 

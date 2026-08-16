@@ -1,28 +1,32 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { RateLimitRepository } from '../database/rate-limit.repository';
 import { RateLimitDecision } from './contact.types';
 
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_LIMIT = 10;
 
-interface RateLimitBucket {
-  count: number;
-  resetAt: number;
-}
-
 @Injectable()
 export class ContactRateLimitService {
-  private readonly buckets = new Map<string, RateLimitBucket>();
+  constructor(
+    @Inject(RateLimitRepository)
+    private readonly rateLimits: RateLimitRepository
+  ) {}
 
-  check(key: string, now = Date.now()): RateLimitDecision {
-    const current = this.buckets.get(key);
-    const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + DEFAULT_WINDOW_MS } : current;
-    bucket.count += 1;
-    this.buckets.set(key, bucket);
+  async check(
+    key: string,
+    now = Date.now()
+  ): Promise<RateLimitDecision> {
+    const result = await this.rateLimits.consume(
+      key,
+      DEFAULT_WINDOW_MS,
+      DEFAULT_LIMIT,
+      now
+    );
 
     return {
-      allowed: bucket.count <= DEFAULT_LIMIT,
+      allowed: result.allowed,
       key,
-      remaining: Math.max(DEFAULT_LIMIT - bucket.count, 0)
+      remaining: result.remaining
     };
   }
 }

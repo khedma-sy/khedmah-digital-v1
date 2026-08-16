@@ -39,7 +39,7 @@ export class ContactService {
 
     await this.requireAvailableTarget(target);
 
-    const rateLimit = this.rateLimits.check(`inquiry:${actor.id}:${target.type}:${target.id}`);
+    const rateLimit = await this.rateLimits.check(`inquiry:${actor.id}:${target.type}:${target.id}`);
 
     if (!rateLimit.allowed) {
       await this.audit('contact.inquiry.rate_limited', actor.id);
@@ -83,7 +83,7 @@ export class ContactService {
     const businessProfileId = validateBusinessProfileId(businessProfileIdValue);
     const business = await this.requirePublicApprovedBusiness(businessProfileId);
     validateTrackContactClick(request);
-    const rateLimit = this.rateLimits.check(`contact-click:${actor?.id ?? 'anonymous'}:${business.id}`);
+    const rateLimit = await this.rateLimits.check(`contact-click:${actor?.id ?? 'anonymous'}:${business.id}`);
 
     if (!rateLimit.allowed) {
       await this.audit('contact.click.rate_limited', actor?.id);

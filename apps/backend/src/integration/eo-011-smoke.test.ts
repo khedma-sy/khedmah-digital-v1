@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabasePool } from '../database/database.pool';
+import { RateLimitRepository } from '../database/rate-limit.repository';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
@@ -241,34 +242,51 @@ test('bootstrap admin: creates admin on first call, rejects on second call', asy
 
 // WP-03: Rate Limiting
 
-test('rate limiting: blocks after configured max requests', () => {
-  const limiter = new RateLimitMiddleware('test.register', 60000, 3);
-  const req = { headers: { 'x-forwarded-for': '10.0.0.1' }, socket: { remoteAddress: '10.0.0.1' } } as any;
+test('rate limiting: blocks after configured max requests across middleware instances', async () => {
+  await resetCanonicalTestSchema(rawPool);
+  const repository = new RateLimitRepository(DatabasePool.fromPool(rawPool));
+
+  const limiterA = new RateLimitMiddleware(repository, 'test.register.shared', 60000, 3);
+  const limiterB = new RateLimitMiddleware(repository, 'test.register.shared', 60000, 3);
+
+  const req = {
+    headers: { 'x-forwarded-for': '10.0.0.1' },
+    socket: { remoteAddress: '10.0.0.1' }
+  } as any;
+
   const res = {} as any;
   const next = () => {};
 
-  // First 3 should pass
-  limiter.use(req, res, next);
-  limiter.use(req, res, next);
-  limiter.use(req, res, next);
+  await limiterA.use(req, res, next);
+  await limiterB.use(req, res, next);
+  await limiterA.use(req, res, next);
 
-  // 4th should throw
-  assert.throws(() => limiter.use(req, res, next), { message: 'Rate limit exceeded. Please try again later.' });
+  await assert.rejects(
+    () => limiterB.use(req, res, next),
+    { message: 'Rate limit exceeded. Please try again later.' }
+  );
 });
 
-test('rate limiting: different IPs have independent limits', () => {
-  const limiter = new RateLimitMiddleware('test.search', 60000, 2);
+test('rate limiting: different IPs have independent persistent limits', async () => {
+  await resetCanonicalTestSchema(rawPool);
+  const repository = new RateLimitRepository(DatabasePool.fromPool(rawPool));
+  const limiter = new RateLimitMiddleware(repository, 'test.search.shared', 60000, 2);
+
   const next = () => {};
-  const makeReq = (ip: string) => ({ headers: { 'x-forwarded-for': ip }, socket: { remoteAddress: ip } } as any);
+  const makeReq = (ip: string) => ({
+    headers: { 'x-forwarded-for': ip },
+    socket: { remoteAddress: ip }
+  } as any);
+
   const res = {} as any;
 
-  limiter.use(makeReq('1.1.1.1'), res, next);
-  limiter.use(makeReq('1.1.1.1'), res, next);
-  limiter.use(makeReq('2.2.2.2'), res, next); // different IP, should not be limited
+  await limiter.use(makeReq('1.1.1.1'), res, next);
+  await limiter.use(makeReq('1.1.1.1'), res, next);
+  await limiter.use(makeReq('2.2.2.2'), res, next);
 
-  assert.throws(() => limiter.use(makeReq('1.1.1.1'), res, next)); // 1.1.1.1 should now be blocked
-  // 2.2.2.2 still has 1 remaining
-  limiter.use(makeReq('2.2.2.2'), res, next);
+  await assert.rejects(() => limiter.use(makeReq('1.1.1.1'), res, next));
+
+  await limiter.use(makeReq('2.2.2.2'), res, next);
 });
 
 // E2E: Full user journey

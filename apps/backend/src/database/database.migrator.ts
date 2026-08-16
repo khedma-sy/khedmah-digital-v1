@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '017';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '018';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -66,6 +66,11 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   constraint('categories', '017', 'business_profiles', 'business_profiles_category_code_fk'),
   constraint('categories', '017', 'service_listings', 'service_listings_category_code_fk'),
   index('categories', '017', 'categories', 'categories_public_order_idx'),
+  table('rate-limit', '018', 'rate_limit_buckets'),
+  ...['bucket_key', 'request_count', 'reset_at', 'updated_at'].map((name) => column('rate-limit', '018', 'rate_limit_buckets', name)),
+  constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_key_format'),
+  constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_request_count_nonnegative'),
+  index('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_reset_at_idx'),
   table('supplier', '014', 'supplier_capabilities'),
   ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name))
 ];

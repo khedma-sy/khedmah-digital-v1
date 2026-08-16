@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { PlatformLogger } from './logging/platform-logger';
+import { RateLimitRepository } from './database/rate-limit.repository';
 import { createRequestContextMiddleware } from './middleware/request-context.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
 
@@ -12,6 +13,7 @@ export async function createBackendApp() {
     bufferLogs: true
   });
   const logger = app.get(PlatformLogger);
+  const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
   app.use(createRequestContextMiddleware(logger));
@@ -29,13 +31,13 @@ export async function createBackendApp() {
   const publicWindowMs = parseInt(process.env.RATE_LIMIT_PUBLIC_WINDOW_MS ?? '60000', 10);
   const publicMax = parseInt(process.env.RATE_LIMIT_PUBLIC_MAX ?? '60', 10);
 
-  app.use('/api/v1/auth/register', createRateLimitMiddleware('auth.register', authWindowMs, authMax));
-  app.use('/api/v1/auth/login', createRateLimitMiddleware('auth.login', authWindowMs, authMax));
-  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware('email.verify', authWindowMs, authMax));
-  app.use('/api/v1/search', createRateLimitMiddleware('search', searchWindowMs, searchMax));
-  app.use('/api/v1/contact', createRateLimitMiddleware('contact', publicWindowMs, publicMax));
-  app.use('/api/v1/business-profiles', createRateLimitMiddleware('business-profiles', publicWindowMs, publicMax));
-  app.use('/api/v1/professional-profiles', createRateLimitMiddleware('professional-profiles', publicWindowMs, publicMax));
+  app.use('/api/v1/auth/register', createRateLimitMiddleware(rateLimitRepository, 'auth.register', authWindowMs, authMax));
+  app.use('/api/v1/auth/login', createRateLimitMiddleware(rateLimitRepository, 'auth.login', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify', authWindowMs, authMax));
+  app.use('/api/v1/search', createRateLimitMiddleware(rateLimitRepository, 'search', searchWindowMs, searchMax));
+  app.use('/api/v1/contact', createRateLimitMiddleware(rateLimitRepository, 'contact', publicWindowMs, publicMax));
+  app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));
+  app.use('/api/v1/professional-profiles', createRateLimitMiddleware(rateLimitRepository, 'professional-profiles', publicWindowMs, publicMax));
 
   app.useGlobalPipes(
     new ValidationPipe({
