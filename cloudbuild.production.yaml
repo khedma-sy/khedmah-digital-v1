@@ -130,7 +130,7 @@ steps:
       - '${_CLOUD_SQL_INSTANCE}'
       - --port
       - '8080'
-      - --set-env-vars
+      - --update-env-vars
       - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE},CORS_ORIGIN=${_CORS_ORIGIN}'
       - --set-secrets
       - 'DATABASE_URL=DATABASE_URL:latest'
