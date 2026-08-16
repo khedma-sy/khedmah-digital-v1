@@ -200,6 +200,15 @@ export class BusinessProfileRepository {
     );
   }
 
+  async updateModerationStatus(id: string, moderationStatus: BusinessProfile['moderationStatus'], updatedAt: string): Promise<void> {
+    await this.db.query(
+      `UPDATE business_profiles
+       SET moderation_status = $2, updated_at = $3
+       WHERE id = $1`,
+      [id, moderationStatus, updatedAt]
+    );
+  }
+
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
       `INSERT INTO media_assets

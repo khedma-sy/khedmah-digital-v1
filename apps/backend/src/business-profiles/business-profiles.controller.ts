@@ -146,6 +146,11 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.approveVerification(cookieHeader, id) };
   }
 
+  @Post(':id/moderation/approve')
+  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { business: await this.businessProfiles.approveModeration(cookieHeader, id) };
+  }
+
   @Post(':id/suspend')
   async suspend(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason?: string }) {
     return { business: await this.businessProfiles.suspendBusiness(cookieHeader, id, body.reason ?? '') };

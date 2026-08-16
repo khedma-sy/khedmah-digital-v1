@@ -264,6 +264,17 @@ export class BusinessProfileService {
     return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
   }
 
+  async approveModeration(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(entityId);
+    const updatedAt = new Date().toISOString();
+
+    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
+
+    return this.toPublic({ ...profile, moderationStatus: 'approved', updatedAt });
+  }
+
   async suspendBusiness(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
