@@ -63,19 +63,8 @@ export class ProfessionalProfileService {
   }
 
   async getProfile(id: string): Promise<PublicProfessionalProfile> {
-    const profile = await this.repository.findById(id);
-    if (!profile) {
-      throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
-    }
-    const publicProfile = this.toPublic(profile);
-    const eligibility = await this.repository.findContactEligibility(id);
-    return eligibility ? {
-      ...publicProfile,
-      contactEligibility: {
-        ...eligibility,
-        eligible: eligibility.visibility === 'public' && eligibility.moderationStatus === 'approved' && eligibility.lifecycleStatus === 'active'
-      }
-    } : publicProfile;
+    const profile = await this.requirePublicProfile(id);
+    return this.toPublic(profile);
   }
 
   async search(request: SearchProfessionalProfilesRequest): Promise<{ readonly professionals: PublicProfessionalProfile[]; readonly page: number; }> {
@@ -104,6 +93,7 @@ export class ProfessionalProfileService {
   }
 
   async getMediaAssets(profileId: string, assetType?: string): Promise<MediaAsset[]> {
+    await this.requirePublicProfile(profileId);
     return this.repository.listMediaAssets(profileId, assetType);
   }
 
@@ -123,16 +113,34 @@ export class ProfessionalProfileService {
   }
 
   async getVerificationStatus(profileId: string): Promise<VerificationRequest | undefined> {
+    await this.requirePublicProfile(profileId);
     return this.repository.findVerificationRequest(profileId);
   }
 
   async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
+    await this.requirePublicProfile(profileId);
     return this.repository.listTrustHistory(profileId);
   }
 
   private async requireProfile(id: string): Promise<ProfessionalProfile> {
     const profile = await this.repository.findById(id);
     if (!profile) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    return profile;
+  }
+
+  private async requirePublicProfile(id: string): Promise<ProfessionalProfile> {
+    const profile = await this.requireProfile(id);
+    const eligibility = await this.repository.findContactEligibility(id);
+
+    if (
+      !eligibility ||
+      eligibility.visibility !== 'public' ||
+      eligibility.moderationStatus !== 'approved' ||
+      eligibility.lifecycleStatus !== 'active'
+    ) {
+      throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    }
+
     return profile;
   }
 
