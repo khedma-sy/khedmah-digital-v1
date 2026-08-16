@@ -6,6 +6,7 @@ import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { PlatformLogger } from './logging/platform-logger';
 import { RateLimitRepository } from './database/rate-limit.repository';
 import { createRequestContextMiddleware } from './middleware/request-context.middleware';
+import { createCsrfOriginMiddleware } from './middleware/csrf-origin.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 export async function createBackendApp() {
@@ -17,6 +18,7 @@ export async function createBackendApp() {
 
   app.useLogger(logger);
   app.use(createRequestContextMiddleware(logger));
+  app.use(createCsrfOriginMiddleware());
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? 'https://frontend-774201339973.europe-west1.run.app',
     credentials: true
