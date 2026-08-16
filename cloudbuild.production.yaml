@@ -131,9 +131,9 @@ steps:
       - --port
       - '8080'
       - --update-env-vars
-      - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE},CORS_ORIGIN=${_CORS_ORIGIN},OPERATIONS_PRODUCT_ROLE_BINDINGS=${_OPERATIONS_PRODUCT_ROLE_BINDINGS}'
+      - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE},CORS_ORIGIN=${_CORS_ORIGIN}'
       - --set-secrets
-      - 'DATABASE_URL=DATABASE_URL:latest'
+      - 'DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest'
       - --quiet
   - id: deploy-frontend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
