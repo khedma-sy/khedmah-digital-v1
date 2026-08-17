@@ -34,7 +34,9 @@ function createService(
     media: number;
     verification: number;
     trust: number;
-  } = { media: 0, verification: 0, trust: 0 }
+  } = { media: 0, verification: 0, trust: 0 },
+  verificationRequest?: any,
+  actorId = 'user_test'
 ): ProfessionalProfileService {
   const repository = {
     findById: async () => profile,
@@ -47,7 +49,7 @@ function createService(
 
     findVerificationRequest: async () => {
       counters.verification += 1;
-      return undefined;
+      return verificationRequest;
     },
 
     listTrustHistory: async () => {
@@ -56,7 +58,11 @@ function createService(
     }
   } as unknown as ProfessionalProfileRepository;
 
-  const identity = {} as IdentityService;
+  const identity = {
+    getCurrentUser: async () => ({
+      id: actorId
+    })
+  } as unknown as IdentityService;
 
   return new ProfessionalProfileService(repository, identity);
 }
@@ -189,4 +195,55 @@ test('public approved active professional remains publicly readable', async () =
     verification: 1,
     trust: 1
   });
+});
+
+test('verification status projection does not expose internal requester fields', async () => {
+  const service = createService(
+    {
+      visibility: 'public',
+      moderationStatus: 'approved',
+      lifecycleStatus: 'active'
+    },
+    { media: 0, verification: 0, trust: 0 },
+    {
+      id: 'verification-1',
+      entityType: 'professional',
+      entityId: profile.id,
+      requesterId: 'private-user',
+      status: 'pending',
+      createdAt: '2026-08-16T00:00:00.000Z',
+      updatedAt: '2026-08-16T00:00:00.000Z'
+    }
+  );
+
+  const status = await service.getVerificationStatus(profile.id);
+
+  assert.deepEqual(status, {
+    status: 'pending',
+    createdAt: '2026-08-16T00:00:00.000Z',
+    updatedAt: '2026-08-16T00:00:00.000Z'
+  });
+
+  assert.equal('requesterId' in (status ?? {}), false);
+  assert.equal('entityId' in (status ?? {}), false);
+});
+
+test('verification request rejects another user profile ownership', async () => {
+  const service = createService(
+    {
+      visibility: 'public',
+      moderationStatus: 'approved',
+      lifecycleStatus: 'active'
+    },
+    { media: 0, verification: 0, trust: 0 },
+    undefined,
+    'another_user'
+  );
+
+  await assert.rejects(
+    () => service.requestVerification('session-cookie', profile.id),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message === 'Access denied'
+  );
 });

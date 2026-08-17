@@ -99,6 +99,12 @@ export class ProfessionalProfileService {
 
   async requestVerification(cookieHeader: string | undefined, profileId: string): Promise<VerificationRequest> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(profileId);
+
+    if (profile.userId !== actor.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
     const req: VerificationRequest = {
       id: randomUUID(),
       entityType: 'professional',
@@ -112,9 +118,20 @@ export class ProfessionalProfileService {
     return req;
   }
 
-  async getVerificationStatus(profileId: string): Promise<VerificationRequest | undefined> {
+  async getVerificationStatus(profileId: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
     await this.requirePublicProfile(profileId);
-    return this.repository.findVerificationRequest(profileId);
+
+    const request = await this.repository.findVerificationRequest(profileId);
+
+    if (!request) {
+      return undefined;
+    }
+
+    return {
+      status: request.status,
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt
+    };
   }
 
   async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
