@@ -52,6 +52,8 @@ const EXPECTED_MIGRATIONS = [
   '017_category_taxonomy_contract_rollback.sql',
   '018_persistent_rate_limit_buckets.sql',
   '018_persistent_rate_limit_buckets_rollback.sql',
+  '019_remove_out_of_scope_subscription_schema.sql',
+  '019_remove_out_of_scope_subscription_schema_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = [

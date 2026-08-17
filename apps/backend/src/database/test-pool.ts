@@ -52,7 +52,8 @@ const CANONICAL_MIGRATIONS = [
   '015_contact_target_contract',
   '016_contact_submission_idempotency',
   '017_category_taxonomy_contract',
-  '018_persistent_rate_limit_buckets'
+  '018_persistent_rate_limit_buckets',
+  '019_remove_out_of_scope_subscription_schema'
 ] as const;
 
 let canonicalSchemaSetup: Promise<void> | undefined;

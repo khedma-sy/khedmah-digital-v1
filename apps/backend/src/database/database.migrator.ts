@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '018';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '019';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
