@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { RateLimitRepository } from '../database/rate-limit.repository';
+import { resolveRateLimitClientIp } from './client-ip';
 
 /**
  * Shared PostgreSQL-backed fixed-window rate limiter.
@@ -21,12 +22,7 @@ export class RateLimitMiddleware {
     _res: Response,
     next: NextFunction
   ): Promise<void> {
-    const ip =
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() ??
-      req.socket.remoteAddress ??
-      'unknown';
+    const ip = resolveRateLimitClientIp(req);
 
     const result = await this.repository.consume(
       `${this.scope}:${ip}`,
