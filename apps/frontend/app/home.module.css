@@ -117,3 +117,73 @@
 
 @media (prefers-color-scheme: dark) { .page { color-scheme: dark; } }
 @media (prefers-reduced-motion: reduce) { .primaryAction,.secondaryAction { transition: none; } }
+
+/* B-05 — nearby discovery map signal */
+.nearbyMessage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .8rem;
+  margin-top: 1.25rem;
+}
+
+.nearbyMessage .description {
+  margin: 0;
+}
+
+.mapSignal {
+  position: relative;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 3rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(126 234 113 / 70%);
+  border-radius: 50%;
+  color: #8bf06f;
+  background: radial-gradient(circle, rgb(72 214 87 / 24%), rgb(3 18 24 / 82%));
+  box-shadow:
+    0 0 0 .35rem rgb(78 220 94 / 7%),
+    0 0 1.8rem rgb(78 220 94 / 35%);
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.mapSignal::after {
+  content: "";
+  position: absolute;
+  inset: -.55rem;
+  border: 1px solid rgb(126 234 113 / 18%);
+  border-radius: 50%;
+}
+
+.mapSignal svg {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.mapSignal:hover,
+.mapSignal:focus-visible {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    0 0 0 .45rem rgb(78 220 94 / 9%),
+    0 0 2.4rem rgb(78 220 94 / 48%);
+}
+
+@media (max-width: 28rem) {
+  .nearbyMessage {
+    gap: .6rem;
+  }
+
+  .mapSignal {
+    width: 2.7rem;
+    height: 2.7rem;
+    flex-basis: 2.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapSignal {
+    transition: none;
+  }
+}

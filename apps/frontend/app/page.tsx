@@ -8,8 +8,8 @@ import styles from './home.module.css';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 
 export const metadata: Metadata = {
-  title: 'خدمة ديجتل — تحت مظلة واحدة',
-  description: 'اكتشف الخدمات ومقدميها حولك عبر خدمة ديجتل.',
+  title: 'خدمة… أقرب إليك | خدمة ديجتل',
+  description: 'خدمة ديجتل تحت مظلة واحدة، توفر لك الوصول إلى الخدمات والأعمال الموثوقة بجانبك.',
   alternates: { canonical: SITE_URL }
 };
 
@@ -22,12 +22,17 @@ export default function Home() {
         </div>
         <div className={styles.content}>
           <p className={styles.eyebrow}>KHEDMA DIGITAL</p>
-          <h1 id="home-title"><Link href="/" className={styles.brandLink}><span>خدمة</span> <strong>ديجتل</strong></Link></h1>
+          <h1 id="home-title"><Link href="/" className={styles.brandLink}><span>خدمة… أقرب إليك</span></Link></h1>
           <p className={styles.tagline}><i aria-hidden="true" /> تحت مظلة واحدة <i aria-hidden="true" /></p>
-          <p className={styles.description}>اكتشف مقدمي الخدمات الموثوقين حولك، وابحث داخل منطقتك بسهولة عبر الخريطة.</p>
+          <div className={styles.nearbyMessage}>
+            <Link href="/map" className={styles.mapSignal} aria-label="افتح خريطة الخدمات القريبة">
+              <PlatformIcon name="pin" />
+            </Link>
+            <p className={styles.description}>الخدمات والأعمال الموثوقة بجانبك</p>
+          </div>
           <div className={styles.actions}>
-            <Link href="/map" className={styles.primaryAction}>ابدأ الآن <PlatformIcon name="arrow" /></Link>
-            <Link href="/auth/register" className={styles.secondaryAction}>إنشاء حساب <PlatformIcon name="userPlus" /></Link>
+            <Link href="/map" className={styles.primaryAction}>اكتشف الخدمات <PlatformIcon name="arrow" /></Link>
+            <Link href="/auth/register" className={styles.secondaryAction}>أضف نشاطك <PlatformIcon name="userPlus" /></Link>
           </div>
           <nav className={styles.quickLinks} aria-label="روابط الاستكشاف">
             <Link href="/service-catalog">دليل الخدمات</Link>

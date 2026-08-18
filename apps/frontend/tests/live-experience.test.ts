@@ -9,8 +9,8 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
 
   assert.match(home, /خدمة ديجتل/);
   assert.match(home, /تحت مظلة واحدة/);
-  assert.match(home, /ابدأ الآن/);
-  assert.match(home, /إنشاء حساب/);
+  assert.match(home, /اكتشف الخدمات/);
+  assert.match(home, /أضف نشاطك/);
   assert.match(home, /KHEDMAH_HERO_IMAGE/);
   assert.match(home, /PlatformIcon name="arrow"/);
   assert.match(home, /PlatformIcon name="userPlus"/);
