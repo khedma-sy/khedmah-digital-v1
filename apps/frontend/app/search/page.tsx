@@ -148,9 +148,9 @@ function SearchContent() {
     <main id="foundation-content" className="page-shell">
       <div className="page-content">
         <header style={{ marginBlockEnd: '1.5rem' }}>
-          <p className="eyebrow">خدمة الرقمية</p>
-          <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)', margin: '0 0 0.5rem' }}>البحث والاستكشاف</h1>
-          <p style={{ color: 'var(--muted)', fontSize: '1rem', margin: 0 }}>ابحث عن الأعمال، المهنيين، والخدمات في سوريا</p>
+          <p className="eyebrow">خدمة ديجتل</p>
+          <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)', margin: '0 0 0.5rem' }}>ماذا تبحث عنه؟</h1>
+          <p style={{ color: 'var(--muted)', fontSize: '1rem', margin: 0 }}>ابحث عن خدمة أو عمل موثوق بجانبك</p>
         </header>
 
         {/* Search form */}
@@ -244,7 +244,7 @@ function SearchContent() {
                       </div>
                       <div className="card-footer">
                         <Link href={`/business-profiles/${b.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض الملف <PlatformIcon name="arrow" size={16} />
+                          عرض النشاط <PlatformIcon name="arrow" size={16} />
                         </Link>
                       </div>
                     </article>
@@ -265,7 +265,7 @@ function SearchContent() {
                           <h3 className="card-title">{p.headlineAr}</h3>
                           {availLabel(p.availability)}
                         </div>
-                        <p className="card-meta">{cityLabel(p.cityCode, cities)} · {p.countryCode}</p>
+                        <p className="card-meta"><PlatformIcon name="pin" size={14} /> {cityLabel(p.cityCode, cities)}</p>
                         {p.skills.length > 0 && (
                           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
                             {p.skills.slice(0, 4).map((s) => <span key={s} className="skill-tag">{s}</span>)}
@@ -274,7 +274,7 @@ function SearchContent() {
                       </div>
                       <div className="card-footer">
                         <Link href={`/professional-profiles/${p.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض الملف <PlatformIcon name="arrow" size={16} />
+                          عرض المهني <PlatformIcon name="arrow" size={16} />
                         </Link>
                       </div>
                     </article>
