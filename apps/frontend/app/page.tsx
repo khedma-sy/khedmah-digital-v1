@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { KHEDMAH_HERO_IMAGE } from '../lib/brand-hero-image';
 import { PlatformIcon } from './components/platform-icon';
+import { SyriaMap } from './components/syria-map';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
@@ -13,33 +12,102 @@ export const metadata: Metadata = {
   alternates: { canonical: SITE_URL }
 };
 
+const trustItems = [
+  {
+    icon: 'check' as const,
+    title: 'موثوق ومعتمد',
+    description: 'ملفات أعمال موثوقة ومعتمدة'
+  },
+  {
+    icon: 'pin' as const,
+    title: 'قريب منك',
+    description: 'اكتشف الخدمات والأعمال بجانبك'
+  },
+  {
+    icon: 'grid' as const,
+    title: 'جودة عالية',
+    description: 'وصول أوضح للخدمات والأعمال'
+  },
+  {
+    icon: 'lock' as const,
+    title: 'آمن وسهل',
+    description: 'تجربة واضحة وسهلة الاستخدام'
+  }
+];
+
 export default function Home() {
   return (
     <main id="foundation-content" className={`discovery-home ${styles.page}`}>
       <section className={styles.hero} aria-labelledby="home-title">
-        <div className={styles.artwork}>
-          <Image src={KHEDMAH_HERO_IMAGE} alt="خدمة ديجتل تجمع مقدمي الخدمات تحت مظلة واحدة" width={1024} height={1024} priority />
+        <div className={styles.brand}>
+          <span className={styles.brandMark}>KD</span>
+          <span>
+            <strong>KHEDMA</strong>
+            <small>DIGITAL</small>
+          </span>
         </div>
+
+        <div className={styles.trustBadge}>
+          <PlatformIcon name="check" />
+          <span>منصة موثوقة وآمنة</span>
+        </div>
+
         <div className={styles.content}>
-          <p className={styles.eyebrow}>KHEDMA DIGITAL</p>
-          <h1 id="home-title"><Link href="/" className={styles.brandLink}><span>خدمة… أقرب إليك</span></Link></h1>
-          <p className={styles.tagline}><i aria-hidden="true" /> تحت مظلة واحدة <i aria-hidden="true" /></p>
-          <div className={styles.nearbyMessage}>
-            <Link href="/map" className={styles.mapSignal} aria-label="افتح خريطة الخدمات القريبة">
-              <PlatformIcon name="pin" />
-            </Link>
-            <p className={styles.description}>الخدمات والأعمال الموثوقة بجانبك</p>
-          </div>
+          <h1 id="home-title">
+            خدمة… <em>أقرب</em> إليك
+          </h1>
+
+          <p className={styles.tagline}>
+            <i aria-hidden="true" />
+            تحت مظلة واحدة
+            <i aria-hidden="true" />
+          </p>
+
+          <Link
+            href="/map"
+            className={styles.nearbyMessage}
+            aria-label="استكشف الخدمات والأعمال الموثوقة بجانبك"
+          >
+            <PlatformIcon name="pin" />
+            <span>الخدمات والأعمال الموثوقة بجانبك</span>
+          </Link>
+
           <div className={styles.actions}>
-            <Link href="/map" className={styles.primaryAction}>اكتشف الخدمات <PlatformIcon name="arrow" /></Link>
-            <Link href="/auth/register" className={styles.secondaryAction}>أضف نشاطك <PlatformIcon name="userPlus" /></Link>
+            <Link href="/map" className={styles.primaryAction}>
+              <PlatformIcon name="search" />
+              اكتشف الخدمات
+            </Link>
+
+            <Link href="/auth/register" className={styles.secondaryAction}>
+              <PlatformIcon name="briefcase" />
+              أضف نشاطك
+            </Link>
           </div>
+
           <nav className={styles.quickLinks} aria-label="روابط الاستكشاف">
             <Link href="/service-catalog">دليل الخدمات</Link>
             <Link href="/business-profiles/khedmah-digital">عن خدمة ديجتل</Link>
+            <Link href="/auth/login">تسجيل الدخول</Link>
           </nav>
-          <p className={styles.loginPrompt}>لديك حساب؟ <Link href="/auth/login">تسجيل الدخول</Link></p>
         </div>
+
+        <div className={styles.mapPanel}>
+          <SyriaMap />
+        </div>
+
+        <section className={styles.trustStrip} aria-label="مزايا خدمة ديجتل">
+          {trustItems.map((item) => (
+            <article key={item.title}>
+              <span className={styles.trustIcon}>
+                <PlatformIcon name={item.icon} />
+              </span>
+              <div>
+                <h2>{item.title}</h2>
+                <p>{item.description}</p>
+              </div>
+            </article>
+          ))}
+        </section>
       </section>
     </main>
   );

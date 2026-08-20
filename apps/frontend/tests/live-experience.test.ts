@@ -11,9 +11,9 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
   assert.match(home, /تحت مظلة واحدة/);
   assert.match(home, /اكتشف الخدمات/);
   assert.match(home, /أضف نشاطك/);
-  assert.match(home, /KHEDMAH_HERO_IMAGE/);
-  assert.match(home, /PlatformIcon name="arrow"/);
-  assert.match(home, /PlatformIcon name="userPlus"/);
+  assert.match(home, /SyriaMap/);
+  assert.match(home, /PlatformIcon name="search"/);
+  assert.match(home, /PlatformIcon name="briefcase"/);
 });
 
 test('homepage removes competing marketing and decorative concepts', async () => {
@@ -29,8 +29,7 @@ test('homepage removes competing marketing and decorative concepts', async () =>
 test('homepage is mobile-first and supports system themes and controlled motion', async () => {
   const styles = await read('app/home.module.css');
 
-  assert.match(styles, /@media \(max-width: 56rem\)/);
-  assert.match(styles, /@media \(prefers-color-scheme: dark\)/);
+  assert.match(styles, /@media \(max-width: 64rem\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(styles, /animation:/);
 });

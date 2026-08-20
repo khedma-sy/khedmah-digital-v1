@@ -40,7 +40,7 @@ test('all journey icons use the shared SVG icon system', async () => {
   ]);
 
   for (const icon of ['arrow', 'userPlus', 'filter']) assert.match(icons, new RegExp(`${icon}:`));
-  assert.match(home, /PlatformIcon name="arrow"/);
-  assert.match(home, /PlatformIcon name="userPlus"/);
+  assert.match(home, /PlatformIcon name="search"/);
+  assert.match(home, /PlatformIcon name="briefcase"/);
   assert.match(catalog, /PlatformIcon name="filter"/);
 });
