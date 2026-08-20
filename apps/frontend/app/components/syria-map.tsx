@@ -29,7 +29,7 @@ export function SyriaMap() {
         </g>
       </svg>
       {provinces.map((province) => (
-        <button key={province.slug} className={`province-node province-${province.slug}`} style={{ insetInlineStart: `${province.x}%`, insetBlockStart: `${province.y}%` }} onClick={() => router.push(`/locations/${province.slug}`)} aria-label={`استكشف خدمات ${province.name}`}>
+        <button key={province.slug} className={`province-node province-${province.slug}`} data-map-id={province.mapId} onClick={() => router.push(`/locations/${province.slug}`)} aria-label={`استكشف خدمات ${province.name}`}>
           <span className="node-pulse" /><span className="node-dot" /><span className="node-label">{province.name}</span>
         </button>
       ))}

@@ -1,20 +1,20 @@
-export type Province = { slug: string; name: string; subtitle: string; x: number; y: number };
+export type Province = { slug: string; name: string; subtitle: string; mapId: string };
 
 export const provinces: Province[] = [
-  { slug: 'damascus', name: 'دمشق', subtitle: 'العاصمة', x: 55, y: 75 },
-  { slug: 'rif-dimashq', name: 'ريف دمشق', subtitle: 'محيط العاصمة', x: 63, y: 70 },
-  { slug: 'aleppo', name: 'حلب', subtitle: 'الشمال', x: 48, y: 43 },
-  { slug: 'homs', name: 'حمص', subtitle: 'الوسط', x: 50, y: 59 },
-  { slug: 'hama', name: 'حماة', subtitle: 'الوسط', x: 43, y: 53 },
-  { slug: 'latakia', name: 'اللاذقية', subtitle: 'الساحل', x: 25, y: 48 },
-  { slug: 'tartus', name: 'طرطوس', subtitle: 'الساحل', x: 27, y: 57 },
-  { slug: 'idlib', name: 'إدلب', subtitle: 'الشمال الغربي', x: 35, y: 45 },
-  { slug: 'daraa', name: 'درعا', subtitle: 'الجنوب', x: 49, y: 87 },
-  { slug: 'sweida', name: 'السويداء', subtitle: 'الجنوب', x: 66, y: 84 },
-  { slug: 'quneitra', name: 'القنيطرة', subtitle: 'الجنوب الغربي', x: 39, y: 79 },
-  { slug: 'deir-ez-zor', name: 'دير الزور', subtitle: 'الشرق', x: 72, y: 57 },
-  { slug: 'raqqa', name: 'الرقة', subtitle: 'الشمال الشرقي', x: 69, y: 47 },
-  { slug: 'hasakah', name: 'الحسكة', subtitle: 'الجزيرة', x: 86, y: 39 }
+  { slug: 'damascus', name: 'دمشق', subtitle: 'العاصمة', mapId: 'damascus' },
+  { slug: 'rif-dimashq', name: 'ريف دمشق', subtitle: 'محيط العاصمة', mapId: 'rif-dimashq' },
+  { slug: 'aleppo', name: 'حلب', subtitle: 'الشمال', mapId: 'aleppo' },
+  { slug: 'homs', name: 'حمص', subtitle: 'الوسط', mapId: 'homs' },
+  { slug: 'hama', name: 'حماة', subtitle: 'الوسط', mapId: 'hama' },
+  { slug: 'latakia', name: 'اللاذقية', subtitle: 'الساحل', mapId: 'latakia' },
+  { slug: 'tartus', name: 'طرطوس', subtitle: 'الساحل', mapId: 'tartus' },
+  { slug: 'idlib', name: 'إدلب', subtitle: 'الشمال الغربي', mapId: 'idlib' },
+  { slug: 'daraa', name: 'درعا', subtitle: 'الجنوب', mapId: 'daraa' },
+  { slug: 'sweida', name: 'السويداء', subtitle: 'الجنوب', mapId: 'sweida' },
+  { slug: 'quneitra', name: 'القنيطرة', subtitle: 'الجنوب الغربي', mapId: 'quneitra' },
+  { slug: 'deir-ez-zor', name: 'دير الزور', subtitle: 'الشرق', mapId: 'deir-ez-zor' },
+  { slug: 'raqqa', name: 'الرقة', subtitle: 'الشمال الشرقي', mapId: 'raqqa' },
+  { slug: 'hasakah', name: 'الحسكة', subtitle: 'الجزيرة', mapId: 'hasakah' }
 ];
 
 export const serviceCategories = [
