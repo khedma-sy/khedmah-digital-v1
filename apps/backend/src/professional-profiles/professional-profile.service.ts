@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
+import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE } from './professional-profile.errors';
 import { ProfessionalProfileRepository } from './professional-profile.repository';
 import { MediaAsset, ProfessionalProfile, PublicProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
@@ -12,7 +13,8 @@ import { validateProfessionalProfileSearch, validateProfessionalProfileUpsert } 
 export class ProfessionalProfileService {
   constructor(
     @Inject(ProfessionalProfileRepository) private readonly repository: ProfessionalProfileRepository,
-    @Inject(IdentityService) private readonly identity: IdentityService
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
   ) {}
 
   async createOrUpdate(cookieHeader: string | undefined, request: CreateProfessionalProfileRequest): Promise<PublicProfessionalProfile> {
@@ -137,6 +139,109 @@ export class ProfessionalProfileService {
   async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
     await this.requirePublicProfile(profileId);
     return this.repository.listTrustHistory(profileId);
+  }
+
+  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfile[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profiles = await this.repository.listPendingModeration();
+    const result: PublicProfessionalProfile[] = [];
+    for (const p of profiles) {
+      result.push(await this.toPublic(p));
+    }
+    return result;
+  }
+
+  async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(id);
+    if (profile.userId !== actor.id) throw new ForbiddenException('Access denied');
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
+    await this.repository.updateLifecycleStatus(profile.id, 'pending', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'professional',
+      entityId: profile.id,
+      newStatus: 'pending',
+      changedBy: actor.id,
+      reason: 'Submitted for review by owner',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, updatedAt });
+  }
+
+  async approveModeration(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
+    await this.repository.updateLifecycleStatus(profile.id, 'active', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'professional',
+      entityId: profile.id,
+      newStatus: 'approved',
+      changedBy: actor.id,
+      reason: 'Approved by moderator',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, updatedAt });
+  }
+
+  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
+    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'professional',
+      entityId: profile.id,
+      newStatus: 'rejected',
+      changedBy: actor.id,
+      reason: reason || 'Rejected by moderator',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, updatedAt });
+  }
+
+  async suspendProfessional(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateModerationStatus(profile.id, 'suspended', updatedAt);
+    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'professional',
+      entityId: profile.id,
+      newStatus: 'suspended',
+      changedBy: actor.id,
+      reason: reason || 'Suspended by moderator',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, updatedAt });
   }
 
   private async requireProfile(id: string): Promise<ProfessionalProfile> {

@@ -146,6 +146,60 @@ export class BusinessProfileService {
     return profiles.map((p) => this.toPublic(p));
   }
 
+  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profiles = await this.repository.listPendingModeration();
+    return profiles.map((p) => this.toPublic(p));
+  }
+
+  // --- Moderation ---
+  async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(id);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+
+    const updatedAt = new Date().toISOString();
+    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.moderationStatus,
+      newStatus: 'pending',
+      changedBy: actor.id,
+      reason: 'Submitted for review by owner',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, moderationStatus: 'pending', updatedAt });
+  }
+
+  async rejectModeration(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(entityId);
+    const updatedAt = new Date().toISOString();
+
+    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.moderationStatus,
+      newStatus: 'rejected',
+      changedBy: actor.id,
+      reason: reason || 'Rejected by moderator',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
+
+    return this.toPublic({ ...profile, moderationStatus: 'rejected', updatedAt });
+  }
+
   // --- Media ---
   async addMediaAsset(cookieHeader: string | undefined, entityId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
@@ -271,6 +325,18 @@ export class BusinessProfileService {
     const updatedAt = new Date().toISOString();
 
     await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
+
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'business',
+      entityId: profile.id,
+      oldStatus: profile.moderationStatus,
+      newStatus: 'approved',
+      changedBy: actor.id,
+      reason: 'Approved by moderator',
+      createdAt: updatedAt
+    };
+    await this.repository.saveTrustHistory(historyEntry);
 
     return this.toPublic({ ...profile, moderationStatus: 'approved', updatedAt });
   }

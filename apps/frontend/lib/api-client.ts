@@ -23,6 +23,7 @@ export interface PublicBusinessProfile {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly visibility: 'public' | 'private';
+  readonly moderationStatus: 'pending' | 'approved' | 'rejected' | 'suspended';
   readonly trustStatus: 'pending' | 'approved' | 'suspended';
   readonly status: 'active' | 'suspended';
   readonly phone?: string;
@@ -387,6 +388,24 @@ export const api = {
     },
     listReceivedInquiries(id: string) {
       return request<{ inquiries: ProviderContactInquiry[] }>(`/businesses/${id}/inquiries`);
+    },
+    submitForReview(id: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/submit`, { method: 'POST' });
+    },
+    approveModeration(id: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST' });
+    },
+    rejectModeration(id: string, reason: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+    },
+    suspend(id: string, reason: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/suspend`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
     }
   },
   professionals: {
@@ -442,6 +461,29 @@ export const api = {
     },
     getTrustHistory(id: string) {
       return request<{ history: TrustHistoryEntry[] }>(`/professionals/${id}/trust-history`);
+    },
+    submitForReview(id: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/submit`, { method: 'POST' });
+    },
+    approveModeration(id: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST' });
+    },
+    rejectModeration(id: string, reason: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+    },
+    suspend(id: string, reason: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/suspend`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+    }
+  },
+  moderation: {
+    listPending() {
+      return request<{ businesses: PublicBusinessProfile[]; professionals: PublicProfessionalProfile[] }>('/admin/moderation/pending');
     }
   },
   services: {

@@ -127,6 +127,22 @@ export class BusinessProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
+  async listPendingModeration(): Promise<BusinessProfile[]> {
+    const rows = await this.db.query<BusinessProfileRow>(
+      `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
+              status, phone, email, website, category_code, city_code, country_code,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
+              to_jsonb(b)->>'availability' AS availability,
+              to_jsonb(b)->>'rating' AS rating,
+              to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
+       FROM business_profiles b
+       WHERE moderation_status = 'pending'
+       ORDER BY created_at ASC`
+    );
+    return rows.map((row) => this.map(row));
+  }
+
   async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(

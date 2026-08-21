@@ -74,6 +74,7 @@ export default function AdminPage() {
         <Link href="/service-catalog">دليل الخدمات</Link>
         <Link href="/locations">المواقع</Link>
         <Link href="/search">البحث</Link>
+        <Link href="/admin/moderation">إدارة المراجعة</Link>
         <Link href="/admin/operations-product">Operations Product</Link>
       </nav>
 

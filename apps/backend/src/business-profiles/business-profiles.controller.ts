@@ -141,6 +141,11 @@ export class BusinessProfilesController {
     return { history: await this.businessProfiles.getTrustHistory('business', id) };
   }
 
+  @Post(':id/submit')
+  async submit(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { business: await this.businessProfiles.submitForReview(cookieHeader, id) };
+  }
+
   @Post(':id/approve')
   async approve(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { business: await this.businessProfiles.approveVerification(cookieHeader, id) };
@@ -149,6 +154,11 @@ export class BusinessProfilesController {
   @Post(':id/moderation/approve')
   async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { business: await this.businessProfiles.approveModeration(cookieHeader, id) };
+  }
+
+  @Post(':id/moderation/reject')
+  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
+    return { business: await this.businessProfiles.rejectModeration(cookieHeader, id, body.reason) };
   }
 
   @Post(':id/suspend')

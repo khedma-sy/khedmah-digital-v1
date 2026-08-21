@@ -11,33 +11,50 @@ function AvailBadge({ av }: { av: string }) {
   return <span className="badge badge-unavailable">🔴 غير متاح</span>;
 }
 
+function ModerationBadge({ status }: { status: string }) {
+  if (status === 'approved') return <span className="badge" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>مقبول</span>;
+  if (status === 'rejected') return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>مرفوض</span>;
+  if (status === 'suspended') return <span className="badge" style={{ backgroundColor: '#f3f4f6', color: '#1f2937' }}>موقوف</span>;
+  return <span className="badge" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>معلق</span>;
+}
+
 export default function ProfessionalProfilesPage() {
   const router = useRouter();
   const [professionalProfile, setProfessionalProfile] = useState<PublicProfessionalProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    async function loadProfessionalProfile() {
-      try {
-        const data = await api.professionals.getMine();
-        setProfessionalProfile(data.professional);
-      } catch (err) {
-        const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
-        if (statusCode === 401) {
-          router.push('/auth/login');
-          return;
-        }
-        if (statusCode !== 404) {
-          setError(err instanceof Error ? err.message : 'تعذر تحميل الملف المهني.');
-        }
-      } finally {
-        setIsLoading(false);
+  const loadProfessionalProfile = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.professionals.getMine();
+      setProfessionalProfile(data.professional);
+    } catch (err) {
+      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
+      if (statusCode === 401) {
+        router.push('/auth/login');
+        return;
       }
+      if (statusCode !== 404) {
+        setError(err instanceof Error ? err.message : 'تعذر تحميل الملف المهني.');
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     void loadProfessionalProfile();
   }, []);
+
+  async function handleSubmitForReview(id: string) {
+    try {
+      await api.professionals.submitForReview(id);
+      await loadProfessionalProfile();
+    } catch (err: any) {
+      alert(err.message || 'حدث خطأ أثناء الإرسال للمراجعة');
+    }
+  }
 
   return (
     <main id="foundation-content" className="page-shell" aria-label="الملفات المهنية">
@@ -65,7 +82,12 @@ export default function ProfessionalProfilesPage() {
             <div className="card-body" style={{ padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, fontSize: '1.375rem' }}>{professionalProfile.headlineAr}</h2>
-                <AvailBadge av={professionalProfile.availability} />
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  <AvailBadge av={professionalProfile.availability} />
+                  {professionalProfile.contactEligibility && (
+                    <ModerationBadge status={professionalProfile.contactEligibility.moderationStatus} />
+                  )}
+                </div>
               </div>
               {professionalProfile.headlineEn && (
                 <p style={{ color: 'var(--muted)', direction: 'ltr', fontSize: '0.9375rem', margin: '0.35rem 0 0' }}>
@@ -103,6 +125,15 @@ export default function ProfessionalProfilesPage() {
               >
                 تعديل
               </Link>
+              {professionalProfile.contactEligibility && (professionalProfile.contactEligibility.moderationStatus === 'rejected' || professionalProfile.contactEligibility.lifecycleStatus === 'created') && (
+                <button
+                  onClick={() => handleSubmitForReview(professionalProfile.id)}
+                  className="filter-action"
+                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                >
+                  إرسال للمراجعة
+                </button>
+              )}
             </div>
           </article>
         ) : (

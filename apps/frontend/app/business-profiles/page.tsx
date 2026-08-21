@@ -11,6 +11,13 @@ function TrustBadge({ status }: { status: string }) {
   return <span className="badge badge-pending">⏳ قيد المراجعة</span>;
 }
 
+function ModerationBadge({ status }: { status: string }) {
+  if (status === 'approved') return <span className="badge" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>مقبول</span>;
+  if (status === 'rejected') return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>مرفوض</span>;
+  if (status === 'suspended') return <span className="badge" style={{ backgroundColor: '#f3f4f6', color: '#1f2937' }}>موقوف</span>;
+  return <span className="badge" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>معلق</span>;
+}
+
 export default function BusinessProfilesPage() {
   const router = useRouter();
   const [businessProfiles, setBusinessProfiles] = useState<PublicBusinessProfile[]>([]);
@@ -32,6 +39,15 @@ export default function BusinessProfilesPage() {
       setError(err instanceof Error ? err.message : 'تعذر تحميل ملفات الأعمال.');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleSubmitForReview(id: string) {
+    try {
+      await api.businesses.submitForReview(id);
+      await loadBusinessProfiles();
+    } catch (err: any) {
+      alert(err.message || 'حدث خطأ أثناء الإرسال للمراجعة');
     }
   }
 
@@ -79,7 +95,10 @@ export default function BusinessProfilesPage() {
                 <div className="card-body">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                     <h2 className="card-title">{profile.name}</h2>
-                    <TrustBadge status={profile.trustStatus} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-end' }}>
+                      <TrustBadge status={profile.trustStatus} />
+                      <ModerationBadge status={profile.moderationStatus} />
+                    </div>
                   </div>
                   <p className="card-meta">
                     {profile.categoryCode} · {profile.cityCode} ·{' '}
@@ -98,14 +117,23 @@ export default function BusinessProfilesPage() {
                     </p>
                   )}
                 </div>
-                <div className="card-footer">
+                <div className="card-footer" style={{ display: 'flex', gap: '0.5rem' }}>
                   <Link
                     href={`/business-profiles/${profile.id}/manage`}
                     className="foundation-action"
-                    style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                    style={{ flex: 1, marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                   >
                     إدارة الملف
                   </Link>
+                  {(profile.moderationStatus === 'rejected' || (!profile.moderationStatus && profile.visibility === 'private')) && (
+                    <button
+                      onClick={() => handleSubmitForReview(profile.id)}
+                      className="filter-action"
+                      style={{ flex: 1, fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                    >
+                      إرسال للمراجعة
+                    </button>
+                  )}
                 </div>
               </article>
             ))}

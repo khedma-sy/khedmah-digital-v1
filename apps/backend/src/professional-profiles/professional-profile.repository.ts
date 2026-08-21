@@ -130,6 +130,34 @@ export class ProfessionalProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
+  async listPendingModeration(): Promise<ProfessionalProfile[]> {
+    const rows = await this.db.query<ProfessionalProfileRow>(
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+       FROM professional_profiles
+       WHERE moderation_status = 'pending'
+       ORDER BY created_at ASC`
+    );
+    return rows.map((row) => this.map(row));
+  }
+
+  async updateModerationStatus(id: string, moderationStatus: string, updatedAt: string): Promise<void> {
+    await this.db.query(
+      `UPDATE professional_profiles
+       SET moderation_status = $2, updated_at = $3
+       WHERE professional_profile_identifier = $1`,
+      [id, moderationStatus, updatedAt]
+    );
+  }
+
+  async updateLifecycleStatus(id: string, lifecycleStatus: string, updatedAt: string): Promise<void> {
+    await this.db.query(
+      `UPDATE professional_profiles
+       SET lifecycle_status = $2, updated_at = $3
+       WHERE professional_profile_identifier = $1`,
+      [id, lifecycleStatus, updatedAt]
+    );
+  }
+
   private map(row: ProfessionalProfileRow): ProfessionalProfile {
     return {
       id: row.id,
@@ -208,6 +236,14 @@ export class ProfessionalProfileRepository {
     if (!rows[0]) return undefined;
     const r = rows[0];
     return { id: r.id, entityType: r.entity_type as 'professional', entityId: r.entity_id, requesterId: r.requester_id, status: r.status as VerificationRequest['status'], notes: r.notes ?? undefined, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() };
+  }
+
+  async saveTrustHistory(entry: TrustHistoryEntry): Promise<void> {
+    await this.db.query(
+      `INSERT INTO trust_history (id, entity_type, entity_id, old_status, new_status, changed_by, reason, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      [entry.id, entry.entityType, entry.entityId, entry.oldStatus ?? null, entry.newStatus, entry.changedBy ?? null, entry.reason ?? null]
+    );
   }
 
   async listTrustHistory(entityId: string): Promise<TrustHistoryEntry[]> {

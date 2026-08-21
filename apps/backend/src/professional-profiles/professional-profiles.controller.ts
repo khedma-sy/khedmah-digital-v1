@@ -77,4 +77,24 @@ export class ProfessionalProfilesController {
   async getTrustHistory(@Param('id') id: string) {
     return { history: await this.professionals.getTrustHistory(id) };
   }
+
+  @Post(':id/submit')
+  async submit(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { professional: await this.professionals.submitForReview(cookieHeader, id) };
+  }
+
+  @Post(':id/moderation/approve')
+  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { professional: await this.professionals.approveModeration(cookieHeader, id) };
+  }
+
+  @Post(':id/moderation/reject')
+  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
+    return { professional: await this.professionals.rejectModeration(cookieHeader, id, body.reason) };
+  }
+
+  @Post(':id/moderation/suspend')
+  async suspend(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
+    return { professional: await this.professionals.suspendProfessional(cookieHeader, id, body.reason) };
+  }
 }
