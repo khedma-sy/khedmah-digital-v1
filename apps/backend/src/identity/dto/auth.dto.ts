@@ -12,3 +12,12 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   readonly displayName?: unknown;
 }
+
+export interface ForgotPasswordRequest {
+  readonly email?: unknown;
+}
+
+export interface ResetPasswordRequest {
+  readonly token?: unknown;
+  readonly newPassword?: unknown;
+}

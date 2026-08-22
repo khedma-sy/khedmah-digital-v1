@@ -1,7 +1,3 @@
-/**
- * Email provider abstraction.
- * Implementations: ConsolEmailProvider (dev/test), ResendEmailProvider (production).
- */
 export interface EmailMessage {
   readonly to: string;
   readonly subject: string;
@@ -12,9 +8,6 @@ export interface EmailProvider {
   send(message: EmailMessage): Promise<void>;
 }
 
-/**
- * Console provider — logs to stdout. Used in development and tests.
- */
 export class ConsoleEmailProvider implements EmailProvider {
   async send(message: EmailMessage): Promise<void> {
     process.stdout.write(
@@ -23,10 +16,6 @@ export class ConsoleEmailProvider implements EmailProvider {
   }
 }
 
-/**
- * Resend provider — uses the RESEND_API_KEY environment variable.
- * Falls back to ConsoleEmailProvider if the key is absent.
- */
 export class ResendEmailProvider implements EmailProvider {
   private readonly apiKey: string;
   private readonly from: string;
@@ -34,10 +23,10 @@ export class ResendEmailProvider implements EmailProvider {
   constructor() {
     const key = process.env.RESEND_API_KEY;
     if (!key) {
-      throw new Error('RESEND_API_KEY is required for ResendEmailProvider.');
+      throw new Error("RESEND_API_KEY is required for ResendEmailProvider.");
     }
     this.apiKey = key;
-    this.from = process.env.EMAIL_FROM ?? 'noreply@khedmah.digital';
+    this.from = process.env.EMAIL_FROM || "noreply@khedmah.digital";
   }
 
   async send(message: EmailMessage): Promise<void> {
@@ -48,11 +37,11 @@ export class ResendEmailProvider implements EmailProvider {
       text: message.textBody
     });
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
       headers: {
-        Authorization: 'Bearer ' + this.apiKey,
-        'Content-Type': 'application/json'
+        Authorization: "Bearer " + this.apiKey,
+        "Content-Type": "application/json"
       },
       body
     });
@@ -64,12 +53,17 @@ export class ResendEmailProvider implements EmailProvider {
   }
 }
 
-/**
- * Returns the correct provider based on environment configuration.
- */
 export function createEmailProvider(): EmailProvider {
-  if (process.env.RESEND_API_KEY) {
+  const isProduction = process.env.NODE_ENV === "production";
+  const hasResendKey = Boolean(process.env.RESEND_API_KEY);
+
+  if (hasResendKey) {
     return new ResendEmailProvider();
   }
+
+  if (isProduction) {
+    throw new Error("CRITICAL: RESEND_API_KEY must be configured in production environment.");
+  }
+
   return new ConsoleEmailProvider();
 }

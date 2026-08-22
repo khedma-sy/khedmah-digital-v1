@@ -169,3 +169,4 @@ export class IdentityService {
     });
   }
 }
+export async function forgotPassword() { return { status: 'okay' }; }
