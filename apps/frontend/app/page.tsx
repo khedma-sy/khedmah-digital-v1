@@ -1,113 +1,50 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BrandMark } from './components/brand-mark';
 import { PlatformIcon } from './components/platform-icon';
-import { SyriaMap } from './components/syria-map';
-import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 
 export const metadata: Metadata = {
-  title: 'خدمة… أقرب إليك | خدمة ديجتل',
-  description: 'خدمة ديجتل تحت مظلة واحدة، توفر لك الوصول إلى الخدمات والأعمال الموثوقة بجانبك.',
+  title: 'خدمة… أقرب إليك',
+  description: 'خدمة تجمع الأعمال والمهنيين والخدمات الموثوقة تحت مظلة واحدة.',
   alternates: { canonical: SITE_URL }
 };
 
 const trustItems = [
-  {
-    icon: 'check' as const,
-    title: 'موثوق ومعتمد',
-    description: 'ملفات أعمال موثوقة ومعتمدة'
-  },
-  {
-    icon: 'pin' as const,
-    title: 'قريب منك',
-    description: 'اكتشف الخدمات والأعمال بجانبك'
-  },
-  {
-    icon: 'grid' as const,
-    title: 'جودة عالية',
-    description: 'وصول أوضح للخدمات والأعمال'
-  },
-  {
-    icon: 'lock' as const,
-    title: 'آمن وسهل',
-    description: 'تجربة واضحة وسهلة الاستخدام'
-  }
+  { icon: 'check' as const, title: 'موثوق ومعتمد', description: 'ملفات أعمال ومهنيين تمر عبر ضوابط الثقة والمراجعة.' },
+  { icon: 'pin' as const, title: 'قريب منك', description: 'اكتشف الخدمات حسب المحافظة والموقع بسهولة.' },
+  { icon: 'grid' as const, title: 'اختيار أوضح', description: 'نتائج منظمة تساعدك على الوصول إلى مقدم الخدمة المناسب.' },
+  { icon: 'lock' as const, title: 'آمن وسهل', description: 'تجربة عربية واضحة مع حماية للحسابات والبيانات.' }
 ];
 
 export default function Home() {
   return (
-    <main id="foundation-content" className={`discovery-home ${styles.page}`}>
-      <section className={styles.hero} aria-labelledby="home-title">
-        <div className={styles.brand}>
-          <span className={styles.brandMark}>KD</span>
-          <span>
-            <strong>KHEDMA</strong>
-            <small>DIGITAL</small>
-          </span>
-        </div>
-
-        <div className={styles.trustBadge}>
-          <PlatformIcon name="check" />
-          <span>منصة موثوقة وآمنة</span>
-        </div>
-
-        <div className={styles.content}>
-          <h1 id="home-title">
-            خدمة… <em>أقرب</em> إليك
-          </h1>
-
-          <p className={styles.tagline}>
-            <i aria-hidden="true" />
-            تحت مظلة واحدة
-            <i aria-hidden="true" />
-          </p>
-
-          <Link
-            href="/map"
-            className={styles.nearbyMessage}
-            aria-label="استكشف الخدمات والأعمال الموثوقة بجانبك"
-          >
-            <PlatformIcon name="pin" />
-            <span>الخدمات والأعمال الموثوقة بجانبك</span>
-          </Link>
-
-          <div className={styles.actions}>
-            <Link href="/map" className={styles.primaryAction}>
-              <PlatformIcon name="search" />
-              اكتشف الخدمات
-            </Link>
-
-            <Link href="/auth/register" className={styles.secondaryAction}>
-              <PlatformIcon name="briefcase" />
-              أضف نشاطك
-            </Link>
+    <main id="foundation-content" className="khedma-home">
+      <section className="khedma-home-hero" aria-labelledby="home-title">
+        <div className="khedma-home-copy">
+          <p className="eyebrow">تحت مظلة واحدة</p>
+          <h1 id="home-title">خدمة… <em>أقرب</em> إليك</h1>
+          <p>اكتشف الأعمال والمهنيين والخدمات الموثوقة، وابحث حسب احتياجك وموقعك ثم تواصل مباشرة مع مقدم الخدمة.</p>
+          <div className="khedma-home-actions">
+            <Link href="/search"><PlatformIcon name="search" /> اكتشف الخدمات</Link>
+            <Link href="/auth/register"><PlatformIcon name="briefcase" /> أضف نشاطك</Link>
           </div>
-
-          <nav className={styles.quickLinks} aria-label="روابط الاستكشاف">
-            <Link href="/service-catalog">دليل الخدمات</Link>
-            <Link href="/business-profiles/khedmah-digital">عن خدمة ديجتل</Link>
-            <Link href="/auth/login">تسجيل الدخول</Link>
-          </nav>
         </div>
 
-        <div className={styles.mapPanel}>
-          <SyriaMap />
+        <div className="khedma-home-brand-card" aria-label="هوية خدمة">
+          <BrandMark />
         </div>
+      </section>
 
-        <section className={styles.trustStrip} aria-label="مزايا خدمة ديجتل">
-          {trustItems.map((item) => (
-            <article key={item.title}>
-              <span className={styles.trustIcon}>
-                <PlatformIcon name={item.icon} />
-              </span>
-              <div>
-                <h2>{item.title}</h2>
-                <p>{item.description}</p>
-              </div>
-            </article>
-          ))}
-        </section>
+      <section className="khedma-trust-grid" aria-label="مزايا خدمة">
+        {trustItems.map((item) => (
+          <article className="khedma-trust-card" key={item.title}>
+            <PlatformIcon name={item.icon} />
+            <h2>{item.title}</h2>
+            <p>{item.description}</p>
+          </article>
+        ))}
       </section>
     </main>
   );
