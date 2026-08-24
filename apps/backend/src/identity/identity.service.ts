@@ -14,6 +14,11 @@ export interface AuthResult {
   readonly user: PublicUserProfile;
 }
 
+export interface RegistrationResult {
+  readonly user: PublicUserProfile;
+  readonly verificationRequired: true;
+}
+
 @Injectable()
 export class IdentityService {
   constructor(
@@ -21,7 +26,7 @@ export class IdentityService {
     @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
   ) {}
 
-  async register(request: RegisterRequest): Promise<AuthResult> {
+  async register(request: RegisterRequest): Promise<RegistrationResult> {
     const input = validateRegisterRequest(request);
     if (await this.repository.findAccountByEmail(input.email)) {
       throw new ConflictException('Account already exists.');
@@ -33,7 +38,7 @@ export class IdentityService {
       id: userId,
       email: input.email,
       passwordHash: hashPassword(input.password),
-      status: 'active',
+      status: 'pending',
       createdAt: now,
       updatedAt: now
     };
@@ -49,7 +54,10 @@ export class IdentityService {
     await this.repository.saveProfile(profile);
     await this.audit('auth.register', userId);
 
-    return this.createSession(account, profile);
+    return {
+      user: this.toPublicProfile(account, profile),
+      verificationRequired: true
+    };
   }
 
   async login(request: LoginRequest): Promise<AuthResult> {
@@ -80,25 +88,18 @@ export class IdentityService {
 
   async getSession(sessionToken: string | undefined): Promise<PublicUserProfile | undefined> {
     const session = await this.findSession(sessionToken);
-    if (!session) {
-      return undefined;
-    }
+    if (!session) return undefined;
 
     const account = await this.repository.findAccountById(session.userId);
     const profile = await this.repository.findProfile(session.userId);
-    if (!account || !profile || account.status !== 'active') {
-      return undefined;
-    }
+    if (!account || !profile || account.status !== 'active') return undefined;
 
     return this.toPublicProfile(account, profile);
   }
 
   async getCurrentUser(sessionToken: string | undefined): Promise<PublicUserProfile> {
     const user = await this.getSession(sessionToken);
-    if (!user) {
-      throw new UnauthorizedException('Authentication required.');
-    }
-
+    if (!user) throw new UnauthorizedException('Authentication required.');
     return user;
   }
 
@@ -107,20 +108,12 @@ export class IdentityService {
     const input = validateUpdateProfileRequest(request);
     const account = await this.repository.findAccountById(currentUser.id);
     const existingProfile = await this.repository.findProfile(currentUser.id);
-    if (!account || !existingProfile) {
-      throw new UnauthorizedException('Authentication required.');
-    }
+    if (!account || !existingProfile) throw new UnauthorizedException('Authentication required.');
 
     const now = new Date().toISOString();
-    const profile: UserProfile = {
-      ...existingProfile,
-      displayName: input.displayName,
-      updatedAt: now
-    };
-
+    const profile: UserProfile = { ...existingProfile, displayName: input.displayName, updatedAt: now };
     await this.repository.saveProfile(profile);
     await this.audit('profile.update', account.id);
-
     return this.toPublicProfile(account, profile);
   }
 
@@ -133,18 +126,11 @@ export class IdentityService {
       expiresAt: this.sessionTokens.expiresAt(),
       createdAt: new Date().toISOString()
     });
-
-    return {
-      sessionToken,
-      user: this.toPublicProfile(account, profile)
-    };
+    return { sessionToken, user: this.toPublicProfile(account, profile) };
   }
 
   private async findSession(sessionToken: string | undefined) {
-    if (!sessionToken) {
-      return undefined;
-    }
-
+    if (!sessionToken) return undefined;
     return this.repository.findActiveSessionByTokenHash(this.sessionTokens.hashToken(sessionToken));
   }
 
@@ -153,10 +139,7 @@ export class IdentityService {
       id: account.id,
       email: account.email,
       status: account.status,
-      profile: {
-        displayName: profile.displayName,
-        locale: profile.locale
-      }
+      profile: { displayName: profile.displayName, locale: profile.locale }
     };
   }
 
@@ -169,4 +152,3 @@ export class IdentityService {
     });
   }
 }
-export async function forgotPassword() { return { status: 'okay' }; }
