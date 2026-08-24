@@ -14,6 +14,8 @@ test('production readiness injects every required Google and identity value', as
     .filter((name) => name !== 'GOOGLE_APPLICATION_CREDENTIALS');
   const gate = workflow.split('- name: Block release unless all production values are injected')[1]
     ?.split('        run: |')[0] ?? '';
+  const webBuild = workflow.split('- name: Build Web with protected Firebase configuration')[1]
+    ?.split('        run:')[0] ?? '';
 
   for (const name of required) {
     assert.ok(gate.includes(`          ${name}: ` + '${{'), `${name} is not injected into the production gate`);
@@ -21,4 +23,6 @@ test('production readiness injects every required Google and identity value', as
   assert.match(gate, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
   assert.match(gate, /RESEND_API_KEY: \$\{\{ secrets\.RESEND_API_KEY \}\}/);
   assert.match(gate, /EMAIL_FROM: \$\{\{ vars\.EMAIL_FROM \}\}/);
+  assert.equal((gate.match(/NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:/g) ?? []).length, 1);
+  assert.match(webBuild, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
 });
