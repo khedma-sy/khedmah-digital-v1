@@ -12,8 +12,8 @@ interface FirebaseLookupUser {
 export class FirebaseAuthService {
   async verifyGoogleIdToken(idToken: unknown): Promise<{ subject: string; email: string; displayName: string }> {
     if (typeof idToken !== 'string' || idToken.length < 100) throw new UnauthorizedException('Invalid Google identity token.');
-    const apiKey = (process.env.FIREBASE_WEB_API_KEY ?? process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? '').trim();
-    if (!apiKey) throw new Error('FIREBASE_WEB_API_KEY is required for Google authentication.');
+    const apiKey = (process.env.FIREBASE_API_KEY ?? process.env.FIREBASE_WEB_API_KEY ?? process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? '').trim();
+    if (!apiKey) throw new Error('FIREBASE_API_KEY is required for Google authentication.');
 
     const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
