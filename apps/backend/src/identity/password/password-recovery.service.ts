@@ -4,6 +4,7 @@ import { DatabasePool } from '../../database/database.pool';
 import { IdentityRepository } from '../identity.repository';
 import { normalizeEmail, validatePassword } from '../identity.validation';
 import { createEmailProvider, type EmailProvider } from '../email/email-provider';
+import { hashPassword } from '../security/password-security';
 
 const RESET_TTL_MS = 30 * 60 * 1000;
 const RESET_REQUEST_WINDOW_MS = 60 * 1000;
@@ -85,7 +86,7 @@ export class PasswordRecoveryService {
     await this.db.transaction(async (client) => {
       await client.query(
         `UPDATE identity_credentials SET password_hash = $1, updated_at = NOW() WHERE user_identifier = $2`,
-        [this.repository.hashPasswordForRecovery(newPassword), token.user_id]
+        [hashPassword(newPassword), token.user_id]
       );
       await client.query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, [token.id]);
       await client.query(`UPDATE identity_sessions SET revoked_at = NOW() WHERE user_identifier = $1 AND revoked_at IS NULL`, [token.user_id]);
