@@ -27,6 +27,9 @@ export const productionAuth = {
   confirmEmail(token: string) {
     return post<{ message: string; email: string }>('/auth/email-verification/confirm', { token });
   },
+  resendVerification(email: string) {
+    return post<{ message: string }>('/auth/email-verification/resend', { email });
+  },
   google(idToken: string) {
     return post<{ user: PublicUserProfile }>('/auth/google', { idToken });
   }
