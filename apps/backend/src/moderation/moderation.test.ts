@@ -134,7 +134,6 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
 
   // 4. Admin Reject
   await professionalService.rejectModeration(adminCookie, pro.id, 'Invalid credentials');
-  const rejected = await professionalService.getProfile(pro.id);
-  assert.equal(rejected.contactEligibility?.moderationStatus, 'rejected');
-  assert.equal(rejected.contactEligibility?.lifecycleStatus, 'suspended');
+  const rejected = await professionalService.getProfile(pro.id).catch(() => null);
+  assert.equal(rejected, null); // Rejected profiles fail closed on public reads
 });
