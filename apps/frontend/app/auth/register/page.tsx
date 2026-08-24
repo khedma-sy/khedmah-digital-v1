@@ -26,7 +26,7 @@ export default function RegisterPage() {
     try {
       await api.auth.register((form.elements.namedItem('email') as HTMLInputElement).value, password, (form.elements.namedItem('displayName') as HTMLInputElement).value);
       sessionStorage.removeItem('khedmah.onboarding.complete');
-      router.push('/welcome');
+      router.push('/auth/verify-email');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'يرجى إدخال بيانات صحيحة لإكمال إنشاء الحساب.');
     } finally { setIsLoading(false); }
@@ -37,7 +37,7 @@ export default function RegisterPage() {
       <div className="auth-phone auth-phone-register">
         <Link className="auth-back" href="/" aria-label="العودة"><PlatformIcon name="arrow" /></Link>
         <IdentityVisual />
-        <section className="register-heading"><h1>إنشاء حساب جديد</h1><p>انضم إلى <strong>خدمة ديجتل</strong> واستفد من جميع الخدمات</p></section>
+        <section className="register-heading"><h1>إنشاء حساب جديد</h1><p>انضم إلى <strong>خدمة</strong> واستفد من جميع الخدمات</p></section>
         <form className="auth-panel register-panel" onSubmit={submitRegistration} noValidate>
           <label className="auth-field"><PlatformIcon name="user" /><span>الاسم الكامل</span><input aria-label="الاسم الكامل" name="displayName" autoComplete="name" required minLength={2} maxLength={80} /></label>
           <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
