@@ -96,7 +96,9 @@ async function createFixture() {
   logger.log = () => undefined;
   const service = new ContactService(contacts, identity, identityRepository, new ContactRateLimitService(new RateLimitRepository(pool)), new ContactAbuseService(), logger);
   const registration = await identity.register({ email: 'user@example.com', password: 'very-secure-password', displayName: 'زائر خدمة' });
-  const cookieHeader = `khedmah_session=${registration.sessionToken}`;
+  await pool.query(`UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`, [registration.user.id]);
+  const login = await identity.login({ email: 'user@example.com', password: 'very-secure-password' });
+  const cookieHeader = `khedmah_session=${login.sessionToken}`;
 
   await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
   await pool.query(
@@ -198,7 +200,9 @@ test('same opaque key is isolated by authenticated submitter', async () => {
   const { service, identityRepository, cookieHeader, pool } = await createFixture();
   const secondIdentity = new IdentityService(identityRepository, new SessionTokenService());
   const registration = await secondIdentity.register({ email: 'second@example.com', password: 'very-secure-password', displayName: 'مستخدم ثان' });
-  const secondCookie = `khedmah_session=${registration.sessionToken}`;
+  await pool.query(`UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`, [registration.user.id]);
+  const login = await secondIdentity.login({ email: 'second@example.com', password: 'very-secure-password' });
+  const secondCookie = `khedmah_session=${login.sessionToken}`;
   const target = { type: 'business' as const, id: 'approved-business' };
   const first = await service.submitInquiry(cookieHeader, target, validInquiry, 'idem-shared-users-01');
   const second = await service.submitInquiry(secondCookie, target, validInquiry, 'idem-shared-users-01');

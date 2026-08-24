@@ -34,11 +34,11 @@ test('homepage is mobile-first and supports system themes and controlled motion'
   assert.doesNotMatch(styles, /animation:/);
 });
 
-test('registration opens a protected, personalized welcome experience', async () => {
+test('registration requires email verification before the protected welcome experience', async () => {
   const register = await read('app/auth/register/page.tsx');
   const welcome = await read('app/welcome/page.tsx');
 
-  assert.match(register, /router\.push\('\/welcome'\)/);
+  assert.match(register, /router\.push\(`\/auth\/verify-email\?email=\$\{encodeURIComponent\(email\)\}`\)/);
   assert.match(welcome, /api\.auth\.session\(\)/);
   assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
   assert.match(welcome, /أهلاً بك تحت مظلة خدمة/);

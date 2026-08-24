@@ -291,8 +291,8 @@ test('rate limiting: different IPs have independent persistent limits', async ()
 
 // E2E: Full user journey
 
-test('e2e smoke: register → login → create business → search → logout', async () => {
-  const { identityService, identityRepo, businessService, searchService } = await setupFixture();
+test('e2e smoke: register → verify → login → create business → search → logout', async () => {
+  const { pool, identityService, identityRepo, businessService, searchService } = await setupFixture();
 
   // 1. Register
   const reg = await identityService.register({
@@ -300,10 +300,14 @@ test('e2e smoke: register → login → create business → search → logout', 
     password: 'smoke-test-password-secure',
     displayName: 'مستخدم التجربة'
   });
-  assert.ok(reg.sessionToken);
+  assert.equal(reg.verificationRequired, true);
   assert.equal(reg.user.email, 'smoke-test@khedmah.example');
 
-  // 2. Login with same credentials
+  // 2. Simulate the successful email-verification state transition, then log in.
+  await pool.query(
+    `UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`,
+    [reg.user.id]
+  );
   const login = await identityService.login({
     email: 'smoke-test@khedmah.example',
     password: 'smoke-test-password-secure'
@@ -332,8 +336,8 @@ test('e2e smoke: register → login → create business → search → logout', 
   assert.ok(auditLogs.some((l) => l.eventType === 'auth.login_success'));
 
   // 6. Logout
-  await identityService.logout(reg.sessionToken);
-  const sessionAfterLogout = await identityService.getSession(reg.sessionToken);
+  await identityService.logout(login.sessionToken);
+  const sessionAfterLogout = await identityService.getSession(login.sessionToken);
   assert.equal(sessionAfterLogout, undefined);
 });
 
