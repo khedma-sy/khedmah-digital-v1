@@ -70,8 +70,8 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   const business = await businessService.create(ownerCookie, {
     name: 'Test Business',
     categoryCode: 'CAT_TEST', // Assume CAT_TEST exists or add it
-    cityCode: 'CITY_TEST',
-    countryCode: 'SY'
+    cityCode: 'damascus',
+    countryCode: 'sy'
   });
   assert.equal(business.moderationStatus, 'pending');
 
@@ -111,8 +111,8 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
   // 1. Create professional
   const pro = await professionalService.createOrUpdate(ownerCookie, {
     headlineAr: 'محترف تيست',
-    cityCode: 'CITY_TEST',
-    countryCode: 'SY',
+    cityCode: 'damascus',
+    countryCode: 'sy',
     skills: ['test']
   });
 
