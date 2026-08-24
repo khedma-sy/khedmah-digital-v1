@@ -8,10 +8,12 @@ test('identity backend exposes only approved auth and user profile endpoints', a
   const auth = await read('apps/backend/src/identity/auth.controller.ts');
   const users = await read('apps/backend/src/identity/users.controller.ts');
 
-  assert.match(auth, /@Post\('register'\)/);
-  assert.match(auth, /@Post\('login'\)/);
-  assert.match(auth, /@Post\('logout'\)/);
-  assert.match(auth, /@Get\('session'\)/);
+  assert.match(auth, /@Post\(["']register["']\)/);
+  assert.match(auth, /@Post\(["']login["']\)/);
+  assert.match(auth, /@Post\(["']logout["']\)/);
+  assert.match(auth, /@Get\(["']session["']\)/);
+  assert.match(auth, /@Post\(["']forgot-password["']\)/);
+  assert.match(auth, /@Post\(["']reset-password["']\)/);
   assert.match(users, /@Get\('me'\)/);
   assert.match(users, /@Patch\('me\/profile'\)/);
 });

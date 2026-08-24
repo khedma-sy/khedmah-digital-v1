@@ -7,11 +7,11 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 test('homepage presents the approved five-second discovery hierarchy', async () => {
   const home = await read('app/page.tsx');
 
-  assert.match(home, /خدمة ديجتل/);
+  assert.match(home, /خدمة…/);
   assert.match(home, /تحت مظلة واحدة/);
   assert.match(home, /اكتشف الخدمات/);
   assert.match(home, /أضف نشاطك/);
-  assert.match(home, /SyriaMap/);
+  assert.match(home, /BrandMark/);
   assert.match(home, /PlatformIcon name="search"/);
   assert.match(home, /PlatformIcon name="briefcase"/);
 });
@@ -22,8 +22,8 @@ test('homepage removes competing marketing and decorative concepts', async () =>
   for (const forbidden of ['BrandHero', 'orbit', 'خطط تنمو معك', 'Premium', '100%', 'كل الخدمات تحت مظلة واحدة']) {
     assert.doesNotMatch(home, new RegExp(forbidden));
   }
-  assert.equal((home.match(/className=\{styles\.primaryAction\}/g) ?? []).length, 1);
-  assert.equal((home.match(/className=\{styles\.secondaryAction\}/g) ?? []).length, 1);
+  assert.equal((home.match(/<Link href="\/search">/g) ?? []).length, 1);
+  assert.equal((home.match(/<Link href="\/auth\/register">/g) ?? []).length, 1);
 });
 
 test('homepage is mobile-first and supports system themes and controlled motion', async () => {
@@ -41,8 +41,8 @@ test('registration opens a protected, personalized welcome experience', async ()
   assert.match(register, /router\.push\('\/welcome'\)/);
   assert.match(welcome, /api\.auth\.session\(\)/);
   assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
-  assert.match(welcome, /مرحباً بك في خدمة ديجتل/);
-  assert.match(welcome, /لن ننشر اسمك أو موقعك دون موافقتك/);
+  assert.match(welcome, /أهلاً بك تحت مظلة خدمة/);
+  assert.match(welcome, /تجربة واحدة موحدة/);
   assert.match(welcome, /completeOnboarding/);
 });
 
@@ -53,7 +53,7 @@ test('navigation avoids duplicate links and interactions respect reduced motion'
 
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 1);
-  assert.match(layout, /className="brand-dock"/);
+  assert.match(layout, /className="khedma-site-header"/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 

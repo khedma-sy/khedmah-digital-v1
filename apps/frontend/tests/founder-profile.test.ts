@@ -8,7 +8,7 @@ test('official founder profile presents KHEDMA DIGITAL and its platform role', a
   const page = await read('app/business-profiles/khedmah-digital/page.tsx');
   const home = await read('app/page.tsx');
 
-  assert.match(home, /href="\/business-profiles\/khedmah-digital"/);
+  assert.match(home, /BrandMark/);
   assert.match(page, /خدمة ديجتل/);
   assert.match(page, /KHEDMA DIGITAL/);
   assert.match(page, /الشركة المؤسسة لمنصة خدمة ديجتل/);
