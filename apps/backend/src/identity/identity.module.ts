@@ -8,12 +8,24 @@ import { BootstrapAdminController } from './bootstrap/bootstrap-admin.controller
 import { BootstrapAdminService } from './bootstrap/bootstrap-admin.service';
 import { EmailVerificationController } from './email/email-verification.controller';
 import { EmailVerificationService } from './email/email-verification.service';
+import { PasswordRecoveryService } from './password/password-recovery.service';
+import { FirebaseAuthService } from './oauth/firebase-auth.service';
+import { GoogleLoginService } from './oauth/google-login.service';
 import { DatabaseModule } from '../database/database.module';
 
 @Module({
   imports: [DatabaseModule],
   controllers: [AuthController, UsersController, BootstrapAdminController, EmailVerificationController],
-  providers: [IdentityRepository, IdentityService, SessionTokenService, BootstrapAdminService, EmailVerificationService],
+  providers: [
+    IdentityRepository,
+    IdentityService,
+    SessionTokenService,
+    BootstrapAdminService,
+    EmailVerificationService,
+    PasswordRecoveryService,
+    FirebaseAuthService,
+    GoogleLoginService
+  ],
   exports: [IdentityService, IdentityRepository]
 })
 export class IdentityModule {}
