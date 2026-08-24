@@ -11,8 +11,6 @@ steps:
       - pipefail
       - -c
       - |
-        # Start an isolated PostgreSQL container for tests only.
-        # The credentials below are ephemeral, test-only, and grant no production access.
         docker run --rm -d \
           --name pg-test \
           --network cloudbuild \
@@ -20,8 +18,6 @@ steps:
           -e POSTGRES_USER=khedmah_test \
           -e POSTGRES_PASSWORD=khedmah_test_secret \
           postgres:16-alpine
-
-        # Wait until PostgreSQL is ready (fail hard after 30 s).
         TRIES=0
         until docker run --rm --network cloudbuild postgres:16-alpine \
             pg_isready -h pg-test -p 5432 -U khedmah_test -d khedmah_test 2>/dev/null; do
@@ -32,9 +28,6 @@ steps:
           fi
           sleep 1
         done
-
-        # Run tests inside a Node container on the same cloudbuild network.
-        # Explicitly opt in to destructive resets for this disposable *_test database only.
         docker run --rm \
           --network cloudbuild \
           -v /workspace:/workspace \
@@ -94,18 +87,15 @@ steps:
             echo "ERROR: Missing required tag for $$image" >&2
             exit 1
           fi
-          actual_tags="$$(gcloud artifacts docker tags list "$$image" \
-            --format='value(tag)')"
+          actual_tags="$$(gcloud artifacts docker tags list "$$image" --format='value(tag)')"
           if ! printf '%s\n' "$$actual_tags" | grep -F -x -- "$$tag" >/dev/null; then
             echo "ERROR: Missing Artifact Registry tag $$image:$$tag" >&2
             exit 1
           fi
           echo "Verified $$image:$$tag"
         }
-
         BACKEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/backend"
         FRONTEND_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend"
-
         verify_image_tag "$$BACKEND_IMAGE" "${COMMIT_SHA}"
         verify_image_tag "$$BACKEND_IMAGE" "${_RELEASE_ALIAS}"
         verify_image_tag "$$FRONTEND_IMAGE" "${COMMIT_SHA}"
@@ -131,9 +121,9 @@ steps:
       - --port
       - '8080'
       - --update-env-vars
-      - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE},CORS_ORIGIN=${_CORS_ORIGIN}'
+      - 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE},CORS_ORIGIN=${_CORS_ORIGIN},NEXT_PUBLIC_SITE_URL=${_CORS_ORIGIN},EMAIL_FROM=${_EMAIL_FROM}'
       - --set-secrets
-      - 'DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest'
+      - 'DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest'
       - --quiet
   - id: deploy-frontend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -149,6 +139,7 @@ substitutions:
   _CLOUD_SQL_INSTANCE: project-94512a0e-1a5e-4bdb-87f:europe-west1:khedmah-v1-db
   _NEXT_PUBLIC_API_URL: https://backend-774201339973.europe-west1.run.app
   _CORS_ORIGIN: https://frontend-774201339973.europe-west1.run.app
+  _EMAIL_FROM: noreply@khedmah.digital
 options:
   logging: CLOUD_LOGGING_ONLY
   substitutionOption: MUST_MATCH
