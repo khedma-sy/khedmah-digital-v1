@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '019';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '020';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -22,11 +22,6 @@ const constraint = (domain: string, migration: string, tableName: string, name: 
 const index = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
   ({ domain, migration, kind: 'index', table: tableName, name });
 
-/**
- * Deliberately small contract surface: identity/ownership, public eligibility,
- * lifecycle integrity, idempotency and the final 015 contact discriminator.
- * It is not intended to be an exhaustive database performance audit.
- */
 export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('identity', '001', 'core_user_accounts'),
   ...['user_identifier', 'identity_reference', 'account_status', 'lifecycle_status'].map((name) => column('identity', '001', 'core_user_accounts', name)),
@@ -72,7 +67,15 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_request_count_nonnegative'),
   index('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_reset_at_idx'),
   table('supplier', '014', 'supplier_capabilities'),
-  ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name))
+  ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name)),
+  table('password-recovery', '020', 'password_reset_tokens'),
+  ...['user_id', 'token_hash', 'expires_at', 'used_at', 'created_at'].map((name) => column('password-recovery', '020', 'password_reset_tokens', name)),
+  index('password-recovery', '020', 'password_reset_tokens', 'password_reset_tokens_expires_idx'),
+  table('oauth', '020', 'oauth_identities'),
+  ...['user_id', 'provider', 'provider_subject', 'email', 'created_at', 'updated_at'].map((name) => column('oauth', '020', 'oauth_identities', name)),
+  constraint('oauth', '020', 'oauth_identities', 'oauth_identities_provider_subject_unique'),
+  constraint('oauth', '020', 'oauth_identities', 'oauth_identities_provider_user_unique'),
+  index('oauth', '020', 'oauth_identities', 'oauth_identities_email_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }
