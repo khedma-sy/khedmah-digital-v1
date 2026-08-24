@@ -22,6 +22,7 @@ async function createFixture() {
   const sessionTokens = new SessionTokenService();
   const identityService = new IdentityService(identityRepo, sessionTokens);
   const rbac = new OperationsRbacService();
+  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('restaurant', 'مطاعم') ON CONFLICT (code) DO NOTHING`);
   const categories = new CategoryService(new CategoryRepository(pool));
   const businessRepo = new BusinessProfileRepository(pool);
   const businessService = new BusinessProfileService(businessRepo, identityService, rbac, categories);
@@ -69,7 +70,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   // 1. Create business (starts as pending/private)
   const business = await businessService.create(ownerCookie, {
     name: 'Test Business',
-    categoryCode: 'CAT_TEST', // Assume CAT_TEST exists or add it
+    categoryCode: 'restaurant',
     cityCode: 'damascus',
     countryCode: 'sy'
   });
