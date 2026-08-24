@@ -33,7 +33,7 @@ export class IdentityService {
       id: userId,
       email: input.email,
       passwordHash: hashPassword(input.password),
-      status: 'active',
+      status: 'pending',
       createdAt: now,
       updatedAt: now
     };
@@ -49,6 +49,9 @@ export class IdentityService {
     await this.repository.saveProfile(profile);
     await this.audit('auth.register', userId);
 
+    // A token is returned internally so existing service callers remain compatible,
+    // but the HTTP registration controller deliberately does not set it as a cookie
+    // until the email address has been verified.
     return this.createSession(account, profile);
   }
 
@@ -169,4 +172,3 @@ export class IdentityService {
     });
   }
 }
-export async function forgotPassword() { return { status: 'okay' }; }
