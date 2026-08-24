@@ -1,6 +1,8 @@
-import { Body, Controller, Headers, Inject, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Headers, Inject, Post } from '@nestjs/common';
 import { readSessionToken } from '../session-cookie';
 import { IdentityService } from '../identity.service';
+import { IdentityRepository } from '../identity.repository';
+import { normalizeEmail } from '../identity.validation';
 import { EmailVerificationService } from './email-verification.service';
 
 interface RequestVerificationBody {
@@ -15,7 +17,8 @@ interface ConfirmVerificationBody {
 export class EmailVerificationController {
   constructor(
     @Inject(EmailVerificationService) private readonly emailVerification: EmailVerificationService,
-    @Inject(IdentityService) private readonly identity: IdentityService
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(IdentityRepository) private readonly repository: IdentityRepository
   ) {}
 
   @Post('request')
@@ -29,10 +32,19 @@ export class EmailVerificationController {
     return { message: 'Verification email sent.' };
   }
 
+  @Post('resend')
+  async resend(@Body() body: RequestVerificationBody): Promise<{ message: string }> {
+    const email = normalizeEmail(body.email);
+    const account = await this.repository.findAccountByEmail(email);
+    if (account && account.status === 'pending') {
+      await this.emailVerification.requestVerification(account.id, account.email);
+    }
+    return { message: 'If verification is required, an email has been sent.' };
+  }
+
   @Post('confirm')
   async confirm(@Body() body: ConfirmVerificationBody): Promise<{ message: string; email: string }> {
     if (typeof body.token !== 'string' || body.token.length === 0) {
-      const { BadRequestException } = await import('@nestjs/common');
       throw new BadRequestException('token is required.');
     }
     const result = await this.emailVerification.confirmVerification(body.token);
