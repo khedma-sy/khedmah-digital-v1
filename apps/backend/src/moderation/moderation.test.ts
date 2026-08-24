@@ -57,7 +57,7 @@ async function createUser(identityRepo: any, sessionTokens: SessionTokenService,
     expiresAt: sessionTokens.expiresAt(),
     createdAt: now
   });
-  return { userId, cookie: `session=${token}` };
+  return { userId, cookie: `khedmah_session=${token}` };
 }
 
 test('Moderation Vertical Slice: Business Workflow', async () => {
