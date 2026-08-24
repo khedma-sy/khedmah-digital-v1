@@ -21,6 +21,7 @@
     "validate:operations:production": "node scripts/validate-operations-readiness.mjs --production",
     "validate:firebase": "node scripts/validate-firebase-integration.mjs",
     "validate:firebase:production": "node scripts/validate-firebase-integration.mjs --production",
+    "validate:identity:production": "node scripts/validate-identity-production-readiness.mjs",
     "verify:firebase-secrets": "node scripts/audit-firebase-secret-usage.mjs",
     "build:android": "bash scripts/build-android.sh",
     "validate:deployments": "node scripts/validate-preview-staging.mjs",
