@@ -12,7 +12,6 @@ import { SessionTokenService } from '../identity/security/session-token.service'
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { CategoryRepository } from '../categories/category.repository';
 import { CategoryService } from '../categories/category.service';
-import { randomUUID } from 'node:crypto';
 
 const rawPool = createTestPool();
 
@@ -33,7 +32,7 @@ async function createFixture() {
 }
 
 async function createUser(identityRepo: any, email: string) {
-  const userId = email.split('@')[0];
+  const userId = `${email.split('@')[0]}_test_user`;
   await identityRepo.saveAccount({
     id: userId,
     email,
@@ -56,7 +55,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   const { identityRepo, businessService, sessionTokens } = await createFixture();
   const ownerEmail = 'owner@example.com';
   const ownerId = await createUser(identityRepo, ownerEmail);
-  const ownerCookie = `session=\${sessionTokens.generateToken(ownerId)}`;
+  const ownerCookie = `session=${sessionTokens.generateToken(ownerId)}`;
 
   // 1. Create business (starts as pending/private)
   const business = await businessService.create(ownerCookie, {
@@ -74,9 +73,9 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
 
   // 3. Admin Approve
   const adminEmail = 'admin@example.com';
-  await createUser(identityRepo, adminEmail);
+  const adminId = await createUser(identityRepo, adminEmail);
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [adminEmail]: ['operations_product_director'] });
-  const adminCookie = `session=\${sessionTokens.generateToken('admin')}`; // UserID is 'admin' for admin@example.com
+  const adminCookie = `session=${sessionTokens.generateToken(adminId)}`;
 
   await businessService.approveModeration(adminCookie, business.id);
 
@@ -98,7 +97,7 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
   const { identityRepo, professionalService, sessionTokens } = await createFixture();
   const ownerEmail = 'pro@example.com';
   const ownerId = await createUser(identityRepo, ownerEmail);
-  const ownerCookie = `session=\${sessionTokens.generateToken(ownerId)}`;
+  const ownerCookie = `session=${sessionTokens.generateToken(ownerId)}`;
 
   // 1. Create professional
   const pro = await professionalService.createOrUpdate(ownerCookie, {
@@ -113,9 +112,9 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
 
   // 3. Admin Approve
   const adminEmail = 'admin@example.com';
-  await createUser(identityRepo, adminEmail);
+  const adminId = await createUser(identityRepo, adminEmail);
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [adminEmail]: ['operations_product_director'] });
-  const adminCookie = `session=\${sessionTokens.generateToken('admin')}`;
+  const adminCookie = `session=${sessionTokens.generateToken(adminId)}`;
 
   await professionalService.approveModeration(adminCookie, pro.id);
   const approved = await professionalService.getProfile(pro.id);
