@@ -48,6 +48,7 @@ jobs:
             017_category_taxonomy_contract
             018_persistent_rate_limit_buckets
             019_remove_out_of_scope_subscription_schema
+            020_identity_recovery_oauth
           )
 
           for migration in "${migrations[@]}"; do
@@ -110,6 +111,8 @@ jobs:
             018_persistent_rate_limit_buckets_rollback.sql \
             019_remove_out_of_scope_subscription_schema.sql \
             019_remove_out_of_scope_subscription_schema_rollback.sql \
+            020_identity_recovery_oauth.sql \
+            020_identity_recovery_oauth_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
