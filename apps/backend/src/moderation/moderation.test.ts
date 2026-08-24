@@ -104,7 +104,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
 });
 
 test('Moderation Vertical Slice: Professional Workflow', async () => {
-  const { identityRepo, professionalService, sessionTokens } = await createFixture();
+  const { pool, identityRepo, professionalService, sessionTokens } = await createFixture();
   const ownerEmail = 'pro@example.com';
   const owner = await createUser(identityRepo, sessionTokens, ownerEmail);
   const ownerCookie = owner.cookie;
@@ -127,6 +127,7 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
   const adminCookie = admin.cookie;
 
   await professionalService.approveModeration(adminCookie, pro.id);
+  await pool.query(`UPDATE professional_profiles SET visibility = 'public' WHERE professional_profile_identifier = $1`, [pro.id]);
   const approved = await professionalService.getProfile(pro.id);
   assert.equal(approved.contactEligibility?.moderationStatus, 'approved');
   assert.equal(approved.contactEligibility?.lifecycleStatus, 'active');
