@@ -4,12 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { api } from '../../../lib/api-client';
+import { getGoogleIdToken } from '../../../lib/firebase/auth';
+import { identityApi } from '../../../lib/identity-api';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,11 +22,30 @@ export default function LoginPage() {
     setIsLoading(true);
     const form = event.currentTarget;
     try {
-      await api.auth.login((form.elements.namedItem('email') as HTMLInputElement).value, (form.elements.namedItem('password') as HTMLInputElement).value);
+      await api.auth.login(
+        (form.elements.namedItem('email') as HTMLInputElement).value,
+        (form.elements.namedItem('password') as HTMLInputElement).value
+      );
       router.push('/organizations');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول. تحقق من بياناتك.');
-    } finally { setIsLoading(false); }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function signInWithGoogle() {
+    setError('');
+    setIsGoogleLoading(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      await identityApi.google(idToken);
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول عبر Google.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
   }
 
   return (
@@ -34,9 +56,11 @@ export default function LoginPage() {
           <header className="auth-panel-title"><PlatformIcon name="user" /><h1>تسجيل الدخول</h1></header>
           <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
           <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={showPassword}><PlatformIcon name="eye" /></button></label>
+          <p style={{ margin: 0, textAlign: 'left' }}><Link href="/auth/forgot-password">نسيت كلمة المرور؟</Link></p>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
-          <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading}>{isLoading ? 'جاري الدخول...' : 'تسجيل الدخول'}<PlatformIcon name="arrow" /></button>
+          <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading}>{isLoading ? 'جاري الدخول...' : 'تسجيل الدخول'}<PlatformIcon name="arrow" /></button>
           <div className="auth-divider"><span>أو</span></div>
+          <button className="auth-secondary" type="button" onClick={signInWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading}>{isGoogleLoading ? 'جاري الاتصال بـ Google...' : 'المتابعة باستخدام Google'}</button>
           <Link className="auth-secondary" href="/auth/register">إنشاء حساب جديد <PlatformIcon name="userPlus" /></Link>
         </form>
         <p className="auth-help"><PlatformIcon name="user" size={17} /> أو <Link href="/">الاستمرار كزائر</Link></p>

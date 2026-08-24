@@ -94,7 +94,9 @@ async function createFixture() {
   const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo, categories);
 
   const ownerReg = await identity.register({ email: 'owner-svc@example.com', password: 'securepass123', displayName: 'مالك' });
-  const cookie = `khedmah_session=${ownerReg.sessionToken}`;
+  await pool.query(`UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`, [ownerReg.user.id]);
+  const ownerLogin = await identity.login({ email: 'owner-svc@example.com', password: 'securepass123' });
+  const cookie = `khedmah_session=${ownerLogin.sessionToken}`;
 
   return { pool, service, serviceRepo, businessRepo, professionalRepo, identity, cookie, ownerId: ownerReg.user.id };
 }

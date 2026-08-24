@@ -54,20 +54,12 @@ const EXPECTED_MIGRATIONS = [
   '018_persistent_rate_limit_buckets_rollback.sql',
   '019_remove_out_of_scope_subscription_schema.sql',
   '019_remove_out_of_scope_subscription_schema_rollback.sql',
+  '020_identity_recovery_oauth.sql',
+  '020_identity_recovery_oauth_rollback.sql',
 ];
 
-const REQUIRED_ENV_KEYS = [
-  'PGHOST',
-  'PGPORT',
-  'PGUSER',
-  'PGPASSWORD',
-  'PGDATABASE',
-];
-
-const PRODUCTION_ADDITIONAL_ENV = [
-  'DATABASE_URL',
-  'BOOTSTRAP_ADMIN_SECRET',
-];
+const REQUIRED_ENV_KEYS = ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'];
+const PRODUCTION_ADDITIONAL_ENV = ['DATABASE_URL', 'BOOTSTRAP_ADMIN_SECRET'];
 
 let passed = 0;
 let failed = 0;
@@ -95,46 +87,38 @@ console.log('  PRODUCTION DATABASE READINESS CHECK');
 console.log(`  Mode: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
 console.log('========================================\n');
 
-// 1. Migration files
 console.log('1. Migration files:');
 for (const filename of EXPECTED_MIGRATIONS) {
-  const filepath = join(MIGRATIONS_DIR, filename);
-  check(filename, existsSync(filepath));
+  check(filename, existsSync(join(MIGRATIONS_DIR, filename)));
 }
 
-// 2. Migration content validation
 console.log('\n2. Migration content validation:');
 for (const filename of EXPECTED_MIGRATIONS) {
   if (filename.includes('rollback')) continue;
   const filepath = join(MIGRATIONS_DIR, filename);
   if (!existsSync(filepath)) continue;
   const content = readFileSync(filepath, 'utf8');
-  check(`${filename} has schema DDL`, /\b(?:CREATE|ALTER)\s+TABLE\b/.test(content));
+  const isTeardown = filename.startsWith('019_');
+  check(
+    `${filename} has schema DDL`,
+    isTeardown ? /\bDROP\s+TABLE\b/.test(content) : /\b(?:CREATE|ALTER)\s+TABLE\b/.test(content)
+  );
   const rollbackFile = filename.replace('.sql', '_rollback.sql');
-  const rollbackPath = join(MIGRATIONS_DIR, rollbackFile);
-  check(`${filename} has rollback script`, existsSync(rollbackPath));
+  check(`${filename} has rollback script`, existsSync(join(MIGRATIONS_DIR, rollbackFile)));
 }
 
-// 3. Environment variables
 console.log('\n3. PostgreSQL environment variables:');
 for (const key of REQUIRED_ENV_KEYS) {
   const value = process.env[key];
-  if (value) {
-    check(key, true);
-  } else {
-    warn(`${key} is not set (required for live database connection)`);
-  }
+  if (value) check(key, true);
+  else warn(`${key} is not set (required for live database connection)`);
 }
 
 if (isProduction) {
   console.log('\n4. Production-only environment variables:');
-  for (const key of PRODUCTION_ADDITIONAL_ENV) {
-    const value = process.env[key];
-    check(key, Boolean(value));
-  }
+  for (const key of PRODUCTION_ADDITIONAL_ENV) check(key, Boolean(process.env[key]));
 }
 
-// 4. Secrets sanity check
 console.log('\n5. Secrets sanity:');
 const bootstrapSecret = process.env.BOOTSTRAP_ADMIN_SECRET;
 if (bootstrapSecret) {
@@ -148,11 +132,11 @@ const emailFrom = process.env.EMAIL_FROM;
 if (isProduction) {
   check('EMAIL_FROM is configured', Boolean(emailFrom));
   check('RESEND_API_KEY is configured', Boolean(process.env.RESEND_API_KEY));
+  check('FIREBASE_API_KEY is configured', Boolean(process.env.FIREBASE_API_KEY));
 } else {
   warn('EMAIL_FROM not set (ConsoleEmailProvider will be used)');
 }
 
-// 5. Rate limiting config
 console.log('\n6. Rate limiting configuration:');
 const rlAuthWindow = process.env.RATE_LIMIT_AUTH_WINDOW_MS;
 const rlAuthMax = process.env.RATE_LIMIT_AUTH_MAX;
@@ -163,13 +147,9 @@ if (rlAuthWindow && rlAuthMax) {
   warn('Rate limit env vars not set — defaults will be used (AUTH: 20 req/15min, SEARCH: 30 req/60s)');
 }
 
-// 6. Summary
 console.log('\n========================================');
 console.log(`  SUMMARY: ${passed} passed, ${failed} failed`);
 console.log('========================================\n');
 
-if (failed > 0) {
-  process.exit(1);
-} else {
-  console.log('Database readiness check PASSED.\n');
-}
+if (failed > 0) process.exit(1);
+console.log('Database readiness check PASSED.\n');

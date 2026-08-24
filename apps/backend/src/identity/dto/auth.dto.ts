@@ -9,6 +9,10 @@ export interface LoginRequest {
   readonly password?: unknown;
 }
 
+export interface GoogleLoginRequest {
+  readonly idToken?: unknown;
+}
+
 export interface UpdateProfileRequest {
   readonly displayName?: unknown;
 }

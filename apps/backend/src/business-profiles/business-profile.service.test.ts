@@ -83,10 +83,14 @@ async function createFixture() {
   const service = new BusinessProfileService(businessRepo, identity, rbac, categories);
 
   const ownerReg = await identity.register({ email: 'owner@example.com', password: 'securepass123', displayName: 'مالك' });
-  const ownerCookie = `khedmah_session=${ownerReg.sessionToken}`;
+  await pool.query(`UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`, [ownerReg.user.id]);
+  const ownerLogin = await identity.login({ email: 'owner@example.com', password: 'securepass123' });
+  const ownerCookie = `khedmah_session=${ownerLogin.sessionToken}`;
 
   const moderatorReg = await identity.register({ email: 'moderator@example.com', password: 'securepass123', displayName: 'مشرف' });
-  const moderatorCookie = `khedmah_session=${moderatorReg.sessionToken}`;
+  await pool.query(`UPDATE core_user_accounts SET account_status = 'active', lifecycle_status = 'active' WHERE user_identifier = $1`, [moderatorReg.user.id]);
+  const moderatorLogin = await identity.login({ email: 'moderator@example.com', password: 'securepass123' });
+  const moderatorCookie = `khedmah_session=${moderatorLogin.sessionToken}`;
 
   const created = await service.create(ownerCookie, {
     name: 'عمل للاختبار',
