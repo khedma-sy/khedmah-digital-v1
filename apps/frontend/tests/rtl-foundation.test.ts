@@ -7,7 +7,7 @@ test('root layout declares Arabic RTL defaults and metadata', async () => {
 
   assert.match(layout, /lang="ar"/);
   assert.match(layout, /dir="rtl"/);
-  assert.match(layout, /Arabic-first RTL platform foundation/);
+  assert.match(layout, /منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة/);
   assert.match(layout, /الانتقال إلى المحتوى/);
 });
 
