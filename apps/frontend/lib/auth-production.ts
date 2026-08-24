@@ -24,6 +24,9 @@ export const productionAuth = {
   resetPassword(token: string, newPassword: string) {
     return post<{ message: string }>('/auth/reset-password', { token, newPassword });
   },
+  confirmEmail(token: string) {
+    return post<{ message: string; email: string }>('/auth/email-verification/confirm', { token });
+  },
   google(idToken: string) {
     return post<{ user: PublicUserProfile }>('/auth/google', { idToken });
   }
