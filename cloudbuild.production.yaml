@@ -139,7 +139,7 @@ substitutions:
   _CLOUD_SQL_INSTANCE: project-94512a0e-1a5e-4bdb-87f:europe-west1:khedmah-v1-db
   _NEXT_PUBLIC_API_URL: https://backend-774201339973.europe-west1.run.app
   _CORS_ORIGIN: https://frontend-774201339973.europe-west1.run.app
-  _EMAIL_FROM: noreply@khedmah.digital
+  _EMAIL_FROM: noreply@mail.khedmah.uk
 options:
   logging: CLOUD_LOGGING_ONLY
   substitutionOption: MUST_MATCH

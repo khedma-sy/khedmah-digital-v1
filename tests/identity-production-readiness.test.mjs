@@ -31,3 +31,13 @@ test('Web identity validator fails closed on missing production values', async (
   assert.match(validator, /Web and backend Firebase project IDs must match/);
   assert.match(validator, /EMAIL_FROM must be a valid production sender address/);
 });
+
+test('production email defaults use the verified Resend sending domain', async () => {
+  const provider = await read('apps/backend/src/identity/email/email-provider.ts');
+  const cloudBuild = await read('cloudbuild.production.yaml');
+
+  assert.match(provider, /noreply@mail\.khedmah\.uk/);
+  assert.match(cloudBuild, /_EMAIL_FROM: noreply@mail\.khedmah\.uk/);
+  assert.doesNotMatch(provider, /noreply@khedmah\.digital/);
+  assert.doesNotMatch(cloudBuild, /_EMAIL_FROM: noreply@khedmah\.digital/);
+});
