@@ -55,7 +55,12 @@ jobs:
             rollback="backend/migrations/versions/${migration}_rollback.sql"
             test -f "$forward"
             test -f "$rollback"
-            grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
+            if [[ "$migration" == "019_remove_out_of_scope_subscription_schema" ]]; then
+              grep -Eq '\bDROP[[:space:]]+TABLE\b' "$forward"
+              grep -Eq '\bCREATE[[:space:]]+TABLE\b' "$rollback"
+            else
+              grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
+            fi
             echo "Verified migration pair: $migration"
           done
 
@@ -130,6 +135,11 @@ jobs:
           set -euo pipefail
           for file in backend/migrations/versions/[0-9][0-9][0-9]_*.sql; do
             [[ "$file" == *_rollback.sql ]] && continue
+            if [[ "$file" == *019_remove_out_of_scope_subscription_schema.sql ]]; then
+              grep -Eq '\bDROP[[:space:]]+TABLE\b' "$file"
+              echo "Verified teardown migration: $file"
+              continue
+            fi
             grep -Eq 'CONSTRAINT|PRIMARY KEY|FOREIGN KEY' "$file"
             echo "Verified constraints: $file"
           done
