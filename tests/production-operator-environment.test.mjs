@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
 
-test('production operator is an authentication-only manual workflow', () => {
+test('production operator is a gated manual deployment workflow', () => {
   const output = execFileSync(process.execPath, ['scripts/validate-production-operator.mjs'], { encoding: 'utf8' });
-  assert.match(output, /Production operator contract valid/);
+  assert.match(output, /gated deployment contract valid/);
 });
 
-test('production operator contains no deployment command', () => {
+test('production operator cannot deploy from an automatic repository event', () => {
   const workflow = execFileSync('cat', ['.github/workflows/production-operator.yml'], { encoding: 'utf8' });
-  assert.doesNotMatch(workflow, /gcloud run deploy|gcloud builds submit|firebase deploy|terraform apply/);
+  assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
+  assert.match(workflow, /default: VERIFY_ONLY/);
+  assert.match(workflow, /inputs\.mode == 'DEPLOY_PRODUCTION'/);
+  assert.match(workflow, /test "\$REQUESTED_SHA" = "\$MAIN_SHA"/);
 });
