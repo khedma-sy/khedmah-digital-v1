@@ -93,6 +93,9 @@ jobs:
           test -n "$GOOGLE_CLOUD_REGION"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
+          if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
+            BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
+          fi
           SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"
           test -n "$BUILD_SERVICE_ACCOUNT"
           BUILD_ID="$(gcloud builds submit . \
