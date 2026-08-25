@@ -8,7 +8,7 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
   const home = await read('app/page.tsx');
 
   assert.match(home, /كل ما تحتاجه/);
-  assert.match(home, /BrandMark/);
+  assert.match(home, /FeaturedCategories/);
   assert.match(home, /اكتشف الخدمات/);
   assert.match(home, /أضف نشاطك/);
   assert.match(home, /التصنيفات الرئيسية/);
