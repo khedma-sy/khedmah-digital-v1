@@ -93,11 +93,13 @@ jobs:
           test -n "$GOOGLE_CLOUD_REGION"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
+          SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"
           test -n "$BUILD_SERVICE_ACCOUNT"
           BUILD_ID="$(gcloud builds submit . \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
             --service-account "$BUILD_SERVICE_ACCOUNT" \
+            --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
             --config cloudbuild.production.yaml \
             --substitutions "COMMIT_SHA=$REQUESTED_SHA" \
             --async \
