@@ -17,6 +17,7 @@ for (const contract of [
   '[[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]',
   'test "$REQUESTED_SHA" = "$MAIN_SHA"',
   'gcloud builds get-default-service-account',
+  'BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"',
   'gcloud builds submit .',
   '--gcs-source-staging-dir "$SOURCE_STAGING_DIR"',
   '--config cloudbuild.production.yaml',
