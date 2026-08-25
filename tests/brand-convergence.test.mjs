@@ -23,7 +23,7 @@ test('approved account reference is implemented as functional UI', async () => {
   assert.match(login, /auth-tabs/);
   assert.match(login, /auth-options/);
   assert.match(login, /signInWithGoogle/);
-  assert.doesNotMatch(login, /Facebook|فيسبوك/);
+  assert.match(login, /signInWithFacebook/);
   assert.match(register, /auth-tabs/);
   assert.match(styles, /auth-experience::before/);
   assert.match(styles, /body:has\(\.auth-experience\) \.khedma-header/);

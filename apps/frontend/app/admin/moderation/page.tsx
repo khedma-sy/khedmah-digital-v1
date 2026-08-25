@@ -11,6 +11,7 @@ export default function ModerationPage() {
   const [rejectingEntity, setRejectingEntity] = useState<{ type: 'business' | 'professional'; id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const messageFor = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
 
   const loadQueue = async () => {
     setLoading(true);
@@ -19,8 +20,8 @@ export default function ModerationPage() {
       setBusinesses(businesses);
       setProfessionals(professionals);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء تحميل قائمة المراجعة');
+    } catch (err: unknown) {
+      setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
     } finally {
       setLoading(false);
     }
@@ -40,8 +41,8 @@ export default function ModerationPage() {
         await api.professionals.approveModeration(id);
       }
       await loadQueue();
-    } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء الموافقة');
+    } catch (err: unknown) {
+      alert(messageFor(err, 'حدث خطأ أثناء الموافقة'));
     } finally {
       setActionLoading(false);
     }
@@ -59,117 +60,117 @@ export default function ModerationPage() {
       setRejectingEntity(null);
       setRejectReason('');
       await loadQueue();
-    } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء الرفض');
+    } catch (err: unknown) {
+      alert(messageFor(err, 'حدث خطأ أثناء الرفض'));
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <div className="p-8 text-center">جاري التحميل...</div>;
-  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+  if (loading) return <main id="foundation-content" className="operations-shell moderation-state" aria-busy="true">جاري تحميل قائمة المراجعة...</main>;
+  if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}</main>;
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
-      <h1 className="text-3xl font-bold mb-8">إدارة المراجعة</h1>
+    <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
+      <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length} بانتظار المراجعة</span></header>
 
-      <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4 text-blue-800 border-b pb-2">الشركات المعلقة ({businesses.length})</h2>
+      <section className="operations-panel moderation-section">
+        <div className="panel-heading"><h2>الأعمال المعلقة</h2><span>{businesses.length}</span></div>
         {businesses.length === 0 ? (
-          <p className="text-gray-500 italic">لا توجد شركات بانتظار المراجعة.</p>
+          <p className="moderation-empty">لا توجد أعمال بانتظار المراجعة.</p>
         ) : (
-          <div className="grid gap-4">
+          <div className="moderation-list">
             {businesses.map((b) => (
-              <div key={b.id} className="bg-white p-4 rounded-lg shadow border flex justify-between items-center">
+              <article key={b.id} className="moderation-card">
                 <div>
-                  <h3 className="font-bold text-lg">{b.name}</h3>
-                  <p className="text-sm text-gray-600">{b.categoryCode} | {b.cityCode}</p>
+                  <h3>{b.name}</h3>
+                  <p>{b.categoryCode} · {b.cityCode}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="moderation-actions">
                   <button
                     onClick={() => handleApprove('business', b.id)}
                     disabled={actionLoading}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                    className="moderation-approve"
                   >
                     موافقة
                   </button>
                   <button
                     onClick={() => setRejectingEntity({ type: 'business', id: b.id })}
                     disabled={actionLoading}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                    className="moderation-reject"
                   >
                     رفض
                   </button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
       </section>
 
-      <section>
-        <h2 className="text-2xl font-semibold mb-4 text-green-800 border-b pb-2">المحترفون المعلقون ({professionals.length})</h2>
+      <section className="operations-panel moderation-section">
+        <div className="panel-heading"><h2>المهنيون المعلقون</h2><span>{professionals.length}</span></div>
         {professionals.length === 0 ? (
-          <p className="text-gray-500 italic">لا يوجد محترفون بانتظار المراجعة.</p>
+          <p className="moderation-empty">لا يوجد مهنيون بانتظار المراجعة.</p>
         ) : (
-          <div className="grid gap-4">
+          <div className="moderation-list">
             {professionals.map((p) => (
-              <div key={p.id} className="bg-white p-4 rounded-lg shadow border flex justify-between items-center">
+              <article key={p.id} className="moderation-card">
                 <div>
-                  <h3 className="font-bold text-lg">{p.headlineAr}</h3>
-                  <p className="text-sm text-gray-600">{p.cityCode} | {p.skills.join(', ')}</p>
+                  <h3>{p.headlineAr}</h3>
+                  <p>{p.cityCode} · {p.skills.join('، ')}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="moderation-actions">
                   <button
                     onClick={() => handleApprove('professional', p.id)}
                     disabled={actionLoading}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                    className="moderation-approve"
                   >
                     موافقة
                   </button>
                   <button
                     onClick={() => setRejectingEntity({ type: 'professional', id: p.id })}
                     disabled={actionLoading}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                    className="moderation-reject"
                   >
                     رفض
                   </button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
       </section>
 
       {rejectingEntity && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md" dir="rtl">
-            <h3 className="text-xl font-bold mb-4">سبب الرفض</h3>
+        <div className="moderation-dialog-backdrop" role="presentation">
+          <section className="moderation-dialog" role="dialog" aria-modal="true" aria-labelledby="reject-title" dir="rtl">
+            <h3 id="reject-title">سبب الرفض</h3>
             <textarea
-              className="w-full border p-2 rounded mb-4"
+              className="moderation-reason"
               rows={4}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="يرجى كتابة سبب الرفض هنا..."
             />
-            <div className="flex justify-end gap-2">
+            <div className="moderation-actions">
               <button
                 onClick={() => { setRejectingEntity(null); setRejectReason(''); }}
-                className="px-4 py-2 border rounded hover:bg-gray-100"
+                className="filter-action-secondary"
               >
                 إلغاء
               </button>
               <button
                 onClick={handleReject}
                 disabled={actionLoading || !rejectReason.trim()}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                className="moderation-reject"
               >
                 تأكيد الرفض
               </button>
             </div>
-          </div>
+          </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }

@@ -35,6 +35,8 @@ export type AuditEventType =
   | 'auth.password_reset_completed'
   | 'auth.google_login_success'
   | 'auth.google_login_failed'
+  | 'auth.facebook_login_success'
+  | 'auth.facebook_login_failed'
   | 'profile.update'
   | 'organization.create'
   | 'organization.update'
