@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 test('production operator is a gated manual deployment workflow', () => {
   const output = execFileSync(process.execPath, ['scripts/validate-production-operator.mjs'], { encoding: 'utf8' });
   assert.match(output, /gated deployment contract valid/);
+});
+
+test('production deployer can consume enabled Google APIs', () => {
+  for (const file of ['infra/iac/main.tf', 'infra/iac/bootstrap/main.tf']) {
+    const terraform = readFileSync(file, 'utf8');
+    assert.match(terraform, /roles\\/serviceusage\\.serviceUsageConsumer/);
+  }
+});
+
+test('deployment summary treats markdown backticks as text', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(workflow, /printf -- '- Commit: `%s`/);
+  assert.doesNotMatch(workflow, /echo "- Commit: `/);
 });
 
 test('production operator cannot deploy from an automatic repository event', () => {
