@@ -48,6 +48,7 @@ locals {
     "roles/monitoring.viewer",
     "roles/run.admin",
     "roles/secretmanager.viewer",
+    "roles/serviceusage.serviceUsageConsumer",
   ])
 }
 
