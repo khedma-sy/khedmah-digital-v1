@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
+import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
+import { BrandMark } from './components/brand-mark';
 import './globals.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
@@ -55,11 +57,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
-        {children}
-        <aside className="brand-dock" aria-label="روابط المنصة السريعة">
-          <a href="/" className="dock-brand" aria-label="خدمة ديجتل — الرئيسية"><b>KD</b><span>أنا مع خدمة</span></a>
+        <header className="khedma-header">
+          <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <AuthNavigation />
-        </aside>
+        </header>
+        {children}
       </body>
     </html>
   );
