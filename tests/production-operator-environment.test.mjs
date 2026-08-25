@@ -23,12 +23,9 @@ test('deployment summary treats markdown backticks as text', () => {
 
 test('production source is staged in a project-owned bucket', () => {
   const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.match(workflow, /SOURCE_STAGING_DIR="gs:\/\/
-?\\?\$
-?\{?GOOGLE_CLOUD_PROJECT/);
-  assert.match(workflow, /--gcs-source-staging-dir "\$SOURCE_STAGING_DIR"/);
+  assert.ok(workflow.includes('SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"'));
+  assert.ok(workflow.includes('--gcs-source-staging-dir "$SOURCE_STAGING_DIR"'));
 });
-
 test('production operator cannot deploy from an automatic repository event', () => {
   const workflow = execFileSync('cat', ['.github/workflows/production-operator.yml'], { encoding: 'utf8' });
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
