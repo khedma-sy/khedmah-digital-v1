@@ -20,7 +20,9 @@ android {
     buildFeatures { compose = true; buildConfig = true }
 
     defaultConfig {
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = providers.gradleProperty("GOOGLE_MAPS_API_KEY").orNull ?: ""
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = providers.gradleProperty("GOOGLE_MAPS_API_KEY").orNull
+            ?: providers.environmentVariable("GOOGLE_MAPS_ANDROID_API_KEY").orNull
+            ?: ""
         applicationId = "com.khedmah.digital"
         minSdk = 23
         targetSdk = 35
@@ -28,6 +30,10 @@ android {
         versionName = "1.0"
         val apiBaseUrl = providers.gradleProperty("KHEDMAH_API_BASE_URL").orNull ?: ""
         buildConfigField("String", "KHEDMAH_API_BASE_URL", "\"${apiBaseUrl.replace("\"", "\\\"")}\"")
+        val googleServerClientId = providers.gradleProperty("GOOGLE_OAUTH_SERVER_CLIENT_ID").orNull
+            ?: providers.environmentVariable("GOOGLE_OAUTH_SERVER_CLIENT_ID").orNull
+            ?: ""
+        buildConfigField("String", "GOOGLE_OAUTH_SERVER_CLIENT_ID", "\"${googleServerClientId.replace("\"", "\\\"")}\"")
     }
 }
 
@@ -38,6 +44,10 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.compose.ui:ui")

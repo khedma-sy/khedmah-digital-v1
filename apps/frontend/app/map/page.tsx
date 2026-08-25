@@ -24,7 +24,7 @@ type MapsApi = {
 };
 declare global { interface Window { google?: { maps: MapsApi } } }
 
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const DEFAULT_LOCATION = { latitude: 33.5138, longitude: 36.2765 };
 
 function MapDiscovery() {
@@ -116,7 +116,7 @@ function MapDiscovery() {
   }
 
   return <main className={`marketplace-map view-${activeView}`} dir="rtl">
-    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY`} strategy="afterInteractive" onLoad={initializeMap} />}
+    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} />}
     <aside className="map-results">
       <header><Link href="/">خدمة ديجتل</Link><h1>الخدمات حولك</h1></header>
       <nav className="map-view-switch" aria-label="طريقة عرض النتائج">

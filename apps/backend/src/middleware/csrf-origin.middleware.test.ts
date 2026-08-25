@@ -19,8 +19,9 @@ function runMiddleware(input: {
   cookie?: string;
   origin?: string;
   referer?: string;
+  configuredOrigins?: string;
 }) {
-  process.env.CORS_ORIGIN = allowedOrigin;
+  process.env.CORS_ORIGIN = input.configuredOrigins ?? allowedOrigin;
 
   let nextCalls = 0;
   let statusCode: number | undefined;
@@ -84,6 +85,18 @@ test('unsafe session request accepts the configured Origin', () => {
     method: 'POST',
     cookie: 'khedmah_session=session-token',
     origin: allowedOrigin
+  });
+
+  assert.equal(result.nextCalls, 1);
+  assert.equal(result.statusCode, undefined);
+});
+
+test('unsafe session request accepts every explicitly configured Origin', () => {
+  const result = runMiddleware({
+    method: 'POST',
+    cookie: 'khedmah_session=session-token',
+    origin: 'https://frontend-alt.example.test',
+    configuredOrigins: `${allowedOrigin}, https://frontend-alt.example.test`
   });
 
   assert.equal(result.nextCalls, 1);

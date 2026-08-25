@@ -20,10 +20,25 @@ test('Android public discovery uses the canonical backend contracts', async () =
   assert.match(api, /\/api\/v1\/search/);
   assert.match(api, /\/api\/v1\/auth\/login/);
   assert.match(api, /\/api\/v1\/auth\/register/);
+  assert.match(api, /\/api\/v1\/auth\/google/);
   assert.match(api, /CookieManager/);
   assert.match(api, /startsWith\("https:\/\/"\)/);
   assert.match(gradle, /KHEDMAH_API_BASE_URL/);
   assert.match(gradle, /material3/);
+  assert.match(gradle, /androidx\.credentials:credentials/);
+  assert.match(gradle, /GOOGLE_OAUTH_SERVER_CLIENT_ID/);
+  assert.match(gradle, /GOOGLE_MAPS_ANDROID_API_KEY/);
+});
+
+test('Android Google login exchanges a Firebase token with the canonical backend and fails closed when unconfigured', async () => {
+  const identity = await read('apps/android/app/src/main/java/com/khedmah/digital/GoogleIdentity.kt');
+  const activity = await read('apps/android/app/src/main/java/com/khedmah/digital/MainActivity.kt');
+  assert.match(identity, /GetGoogleIdOption/);
+  assert.match(identity, /GoogleAuthProvider\.getCredential/);
+  assert.match(identity, /getIdToken\(true\)/);
+  assert.match(identity, /FirebaseApp\.getApps/);
+  assert.match(activity, /googleConfigured = googleIdentity\.configured/);
+  assert.match(activity, /if \(googleConfigured\)/);
 });
 
 test('Android ships the approved multi-color umbrella vector', async () => {

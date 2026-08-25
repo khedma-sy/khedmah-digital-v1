@@ -12,11 +12,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17, cache: gradle }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
       - run: npm ci
       - run: npm run validate:google
       - run: npm run validate:firebase
       - run: npm run verify:firebase-secrets
       - run: npm run validate:operations
+      - name: Compile Android source without protected runtime configuration
+        run: npm run build:android
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
     environment: production
