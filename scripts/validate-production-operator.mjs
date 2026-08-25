@@ -18,6 +18,7 @@ for (const contract of [
   'test "$REQUESTED_SHA" = "$MAIN_SHA"',
   'gcloud builds get-default-service-account',
   'gcloud builds submit .',
+  '--gcs-source-staging-dir "$SOURCE_STAGING_DIR"',
   '--config cloudbuild.production.yaml',
   '--substitutions "COMMIT_SHA=$REQUESTED_SHA"',
   'test "${STATUS:-}" = SUCCESS',
