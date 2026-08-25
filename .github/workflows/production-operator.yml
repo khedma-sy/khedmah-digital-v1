@@ -2,6 +2,19 @@ name: Production Operator
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Operation to perform
+        required: true
+        default: VERIFY_ONLY
+        type: choice
+        options:
+          - VERIFY_ONLY
+          - DEPLOY_PRODUCTION
+      commit_sha:
+        description: Exact latest main commit SHA (required for deployment)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -23,7 +36,125 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Verify authenticated production project
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
         run: |
-          gcloud auth list
-          gcloud config list project
-          gcloud projects describe "${{ vars.GOOGLE_CLOUD_PROJECT }}"
+          set -euo pipefail
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          gcloud auth list --filter=status:ACTIVE --format='value(account)'
+          gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)'
+
+  deploy:
+    name: Deploy exact main commit to Production
+    if: ${{ inputs.mode == 'DEPLOY_PRODUCTION' }}
+    needs: authenticate
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
+      FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Lock deployment to the latest main commit
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          git fetch origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          test "$ACTUAL_SHA" = "$REQUESTED_SHA"
+          test "$REQUESTED_SHA" = "$MAIN_SHA"
+          printf 'DEPLOY_COMMIT=%s\n' "$ACTUAL_SHA"
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit protected Cloud Build and wait for completion
+        id: cloud-build
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          test -n "$GOOGLE_CLOUD_REGION"
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
+          test -n "$BUILD_SERVICE_ACCOUNT"
+          BUILD_ID="$(gcloud builds submit . \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --service-account "$BUILD_SERVICE_ACCOUNT" \
+            --config cloudbuild.production.yaml \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA" \
+            --async \
+            --format='value(id)')"
+          test -n "$BUILD_ID"
+          printf 'build_id=%s\n' "$BUILD_ID" >> "$GITHUB_OUTPUT"
+          printf 'CLOUD_BUILD_ID=%s\n' "$BUILD_ID"
+
+          for attempt in $(seq 1 240); do
+            STATUS="$(gcloud builds describe "$BUILD_ID" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --format='value(status)')"
+            printf 'Cloud Build status: %s\n' "$STATUS"
+            case "$STATUS" in
+              SUCCESS) break ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) exit 1 ;;
+            esac
+            sleep 15
+          done
+          test "${STATUS:-}" = SUCCESS
+
+      - name: Verify live services, health, map and CORS
+        run: |
+          set -euo pipefail
+          BACKEND_URL="$(gcloud run services describe "$BACKEND_SERVICE" \
+            --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+            --format='value(status.url)')"
+          FRONTEND_URL="$(gcloud run services describe "$FRONTEND_SERVICE" \
+            --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+            --format='value(status.url)')"
+          BACKEND_REVISION="$(gcloud run services describe "$BACKEND_SERVICE" \
+            --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+            --format='value(status.latestReadyRevisionName)')"
+          FRONTEND_REVISION="$(gcloud run services describe "$FRONTEND_SERVICE" \
+            --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+            --format='value(status.latestReadyRevisionName)')"
+          test -n "$BACKEND_URL"
+          test -n "$FRONTEND_URL"
+          test -n "$BACKEND_REVISION"
+          test -n "$FRONTEND_REVISION"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$BACKEND_URL/api/v1/health" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$FRONTEND_URL/map" >/dev/null
+          CORS_HEADERS="$(curl --silent --show-error --head \
+            -H "Origin: $FRONTEND_URL" \
+            "$BACKEND_URL/api/v1/search?map=true&type=business&latitude=33.5138&longitude=36.2765")"
+          grep -F -i "access-control-allow-origin: $FRONTEND_URL" <<<"$CORS_HEADERS" >/dev/null
+          printf 'BACKEND_REVISION=%s\n' "$BACKEND_REVISION"
+          printf 'FRONTEND_REVISION=%s\n' "$FRONTEND_REVISION"
+          printf 'PRODUCTION_VALIDATION=SUCCESS\n'
+
+      - name: Publish deployment summary
+        if: always()
+        run: |
+          {
+            echo '### Production deployment'
+            echo "- Commit: `$REQUESTED_SHA`"
+            echo "- Cloud Build: `${{ steps.cloud-build.outputs.build_id }}`"
+            echo "- Result: `${{ job.status }}`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,22 +1,35 @@
 import { readFile } from 'node:fs/promises';
-const requiredFiles = ['.github/workflows/production-operator.yml'];
-const sources = Object.fromEntries(await Promise.all(requiredFiles.map(async file => [file, await readFile(file, 'utf8')])));
-const workflow = sources['.github/workflows/production-operator.yml'];
+
+const workflow = await readFile('.github/workflows/production-operator.yml', 'utf8');
 
 for (const contract of [
-  'name: Production Operator', 'workflow_dispatch:', 'environment: production',
-  'contents: read', 'id-token: write', 'google-github-actions/auth@v2',
+  'name: Production Operator',
+  'workflow_dispatch:',
+  'default: VERIFY_ONLY',
+  '- DEPLOY_PRODUCTION',
+  "if: ${{ inputs.mode == 'DEPLOY_PRODUCTION' }}",
+  'environment: production',
+  'contents: read',
+  'id-token: write',
+  'google-github-actions/auth@v2',
   'workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}',
   'service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}',
-  'gcloud auth list', 'gcloud config list project',
-  'gcloud projects describe "${{ vars.GOOGLE_CLOUD_PROJECT }}"'
+  '[[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]',
+  'test "$REQUESTED_SHA" = "$MAIN_SHA"',
+  'gcloud builds get-default-service-account',
+  'gcloud builds submit .',
+  '--config cloudbuild.production.yaml',
+  '--substitutions "COMMIT_SHA=$REQUESTED_SHA"',
+  'test "${STATUS:-}" = SUCCESS',
+  'curl --fail --silent --show-error',
+  'access-control-allow-origin: $FRONTEND_URL',
+  'PRODUCTION_VALIDATION=SUCCESS'
 ]) {
   if (!workflow.includes(contract)) throw new Error(`Production operator workflow missing contract: ${contract}`);
 }
-for (const forbidden of [
-  'gcloud run deploy', 'gcloud builds submit', 'firebase deploy',
-  'google-production-deploy.sh', 'google-production-rollback.sh', 'terraform apply'
-]) {
-  if (workflow.includes(forbidden)) throw new Error(`Authentication-only workflow contains forbidden operation: ${forbidden}`);
+
+for (const forbidden of ['push:', 'schedule:', 'pull_request:', 'terraform apply', '--force']) {
+  if (workflow.includes(forbidden)) throw new Error(`Production operator contains forbidden trigger or operation: ${forbidden}`);
 }
-console.log(`Production operator contract valid (${requiredFiles.length} files checked).`);
+
+console.log('Production operator gated deployment contract valid.');
