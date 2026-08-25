@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import './globals.css';
+import './brand-system.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 const SITE_NAME = 'خدمة ديجتل';
