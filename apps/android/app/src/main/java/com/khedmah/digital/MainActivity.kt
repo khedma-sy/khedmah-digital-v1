@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -36,7 +37,7 @@ private val Orange = Color(0xFFEE7C37)
 private val Warm = Color(0xFFFFF9F0)
 
 private enum class Destination(val label: String, val symbol: String) {
-    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖")
+    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Account("حسابي", "◎")
 }
 
 class MainActivity : ComponentActivity() {
@@ -65,6 +66,9 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
             var results by remember { mutableStateOf<List<KhedmahResult>>(emptyList()) }
             var loading by remember { mutableStateOf(false) }
             var error by remember { mutableStateOf<String?>(null) }
+            var user by remember { mutableStateOf<KhedmahUser?>(null) }
+            var accountMessage by remember { mutableStateOf<String?>(null) }
+            var accountError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
 
             fun runSearch() {
@@ -78,7 +82,10 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
             }
 
             LaunchedEffect(api.configured) {
-                if (api.configured) runCatching { api.categories() }.onSuccess { categories = it }.onFailure { error = it.message ?: "تعذر تحميل التصنيفات." }
+                if (api.configured) {
+                    runCatching { api.categories() }.onSuccess { categories = it }.onFailure { error = it.message ?: "تعذر تحميل التصنيفات." }
+                    user = api.session()
+                }
             }
 
             Scaffold(containerColor = Warm, bottomBar = {
@@ -92,8 +99,54 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                     Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch)
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
+                    Destination.Account -> AccountScreen(
+                        modifier = Modifier.padding(padding), user = user, loading = loading,
+                        message = accountMessage, error = accountError,
+                        onLogin = { email, password ->
+                            scope.launch {
+                                loading = true; accountError = null; accountMessage = null
+                                runCatching { api.login(email, password) }.onSuccess { user = it }.onFailure { accountError = it.message ?: "تعذر تسجيل الدخول." }
+                                loading = false
+                            }
+                        },
+                        onRegister = { email, password, name ->
+                            scope.launch {
+                                loading = true; accountError = null; accountMessage = null
+                                runCatching { api.register(email, password, name) }
+                                    .onSuccess { accountMessage = "تم إنشاء الحساب. تحقق من بريدك الإلكتروني قبل تسجيل الدخول." }
+                                    .onFailure { accountError = it.message ?: "تعذر إنشاء الحساب." }
+                                loading = false
+                            }
+                        },
+                        onLogout = {
+                            scope.launch { loading = true; runCatching { api.logout() }; user = null; loading = false }
+                        }
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onLogout: () -> Unit) {
+    var registering by remember { mutableStateOf(false) }
+    var displayName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    LazyColumn(modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { BrandHeader() }
+        if (user != null) {
+            item { Text("مرحباً ${user.displayName}", color = Navy, fontSize = 26.sp, fontWeight = FontWeight.Black) }
+            item { Text(user.email, color = Color(0xFF647789)) }
+            item { Button(onLogout, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري الخروج..." else "تسجيل الخروج") } }
+        } else {
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!registering, { registering = false }, label = { Text("تسجيل الدخول") }, modifier = Modifier.weight(1f)); FilterChip(registering, { registering = true }, label = { Text("سجل الآن") }, modifier = Modifier.weight(1f)) } }
+            if (registering) item { OutlinedTextField(displayName, { displayName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("الاسم الكامل") }) }
+            item { OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني") }) }
+            item { OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("كلمة المرور") }) }
+            if (message != null) item { Text(message, color = Green, textAlign = TextAlign.Center) }
+            if (error != null) item { Text(error, color = Color(0xFF9C2B20), textAlign = TextAlign.Center) }
+            item { Button(onClick = { if (registering) onRegister(email, password, displayName) else onLogin(email, password) }, enabled = !loading && email.isNotBlank() && password.length >= 8 && (!registering || displayName.isNotBlank()), modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري المعالجة..." else if (registering) "إنشاء حساب" else "تسجيل الدخول") } }
         }
     }
 }
