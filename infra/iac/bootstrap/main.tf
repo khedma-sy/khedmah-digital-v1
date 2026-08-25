@@ -15,6 +15,7 @@ locals {
     "roles/iam.serviceAccountUser",
     "roles/run.admin",
     "roles/secretmanager.viewer",
+    "roles/serviceusage.serviceUsageConsumer",
   ])
 }
 
