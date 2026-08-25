@@ -151,10 +151,13 @@ jobs:
 
       - name: Publish deployment summary
         if: always()
+        env:
+          BUILD_ID: ${{ steps.cloud-build.outputs.build_id }}
+          JOB_RESULT: ${{ job.status }}
         run: |
           {
-            echo '### Production deployment'
-            echo "- Commit: `$REQUESTED_SHA`"
-            echo "- Cloud Build: `${{ steps.cloud-build.outputs.build_id }}`"
-            echo "- Result: `${{ job.status }}`"
+            printf '%s\\n' '### Production deployment'
+            printf -- '- Commit: `%s`\\n' "$REQUESTED_SHA"
+            printf -- '- Cloud Build: `%s`\\n' "${BUILD_ID:-not-created}"
+            printf -- '- Result: `%s`\\n' "$JOB_RESULT"
           } >> "$GITHUB_STEP_SUMMARY"

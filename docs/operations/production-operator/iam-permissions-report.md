@@ -7,6 +7,7 @@
 | GitHub repository principal | Deployer service account | `roles/iam.workloadIdentityUser` | Short-lived impersonation from the restricted workflow only. |
 | Existing deployer account | Project | `roles/run.admin` | Deploy and direct Cloud Run revisions/traffic. |
 | Existing deployer account | Project | `roles/cloudbuild.builds.editor` | Submit and inspect Cloud Build executions; this service-specific Editor role is justified because Google exposes build submission/cancellation through it. |
+| Existing deployer account | Project | `roles/serviceusage.serviceUsageConsumer` | Authorize the deployer to consume the project's enabled Cloud Build API; required by `gcloud builds submit`. |
 | Existing deployer account | Project | `roles/artifactregistry.writer` | Push build artifacts. |
 | Existing deployer account | Project | `roles/iam.serviceAccountUser` | Attach the runtime identity during deployment. |
 | Existing deployer account | Project | `roles/logging.logWriter` | Emit build/deployment logs. |

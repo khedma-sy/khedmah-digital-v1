@@ -23,7 +23,8 @@ for (const contract of [
   'test "${STATUS:-}" = SUCCESS',
   'curl --fail --silent --show-error',
   'access-control-allow-origin: $FRONTEND_URL',
-  'PRODUCTION_VALIDATION=SUCCESS'
+  'PRODUCTION_VALIDATION=SUCCESS',
+  "printf -- '- Commit: `%s`"
 ]) {
   if (!workflow.includes(contract)) throw new Error(`Production operator workflow missing contract: ${contract}`);
 }
