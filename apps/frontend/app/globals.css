@@ -1,14 +1,14 @@
 :root {
-  color-scheme: dark;
-  --background: #02070c;
-  --foreground: #f2f8f4;
-  --surface: #071824;
-  --accent: #7fc63b;
-  --accent-light: #183716;
-  --accent-dark: #5b9c24;
-  --border: #1c3b48;
-  --focus: #9fe657;
-  --muted: #9db0b5;
+  color-scheme: light;
+  --background: #fffdf9;
+  --foreground: #103452;
+  --surface: #ffffff;
+  --accent: #16875f;
+  --accent-light: #eaf5ef;
+  --accent-dark: #106849;
+  --border: #e8dfd4;
+  --focus: #ee7c37;
+  --muted: #647789;
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #d97706;
@@ -27,11 +27,64 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, "Noto Sans Arabic", sans-serif;
+  font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
-.khedma-header{position:sticky;top:0;z-index:100;min-height:4.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem max(1rem,calc((100vw - 82rem)/2));border-bottom:1px solid #ead7bf;background:#fffaf3eb;backdrop-filter:blur(16px)}
-.khedma-header>a{color:inherit;text-decoration:none}.khedma-brand{display:inline-flex;align-items:center;gap:.25rem;color:#073a62;line-height:1}.khedma-brand>svg{width:5rem;height:auto}.khedma-brand>span{display:grid;justify-items:center;margin-inline-start:-.4rem}.khedma-brand b{color:#ef7b22;font-size:2.1rem;font-weight:950}.khedma-brand small{margin-top:.18rem;color:#073a62;font-size:.55rem;font-weight:850}.khedma-brand-compact>svg{width:2.9rem}.khedma-brand-compact b{font-size:1.35rem}.khedma-brand-compact small{font-size:.42rem}.khedma-header .global-nav-links a,.khedma-header .nav-session button{color:#073a62}.khedma-header .global-nav-links .nav-cta{color:#fff;background:#07936f}.khedma-header .global-nav-links .nav-register{border-color:#ef7b22;color:#b45309}@media(max-width:38rem){.khedma-header{min-height:4rem}.khedma-brand-compact small{display:none}}
+.khedma-header {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-height: 5.2rem;
+  padding: .65rem max(1.5rem, calc((100vw - 77rem) / 2));
+  border-bottom: 1px solid #eee5d9;
+  background: rgb(255 253 249 / 94%);
+  backdrop-filter: blur(16px);
+}
+
+.khedma-header > a { flex: 0 0 auto; color: inherit; text-decoration: none; }
+.khedma-brand { display: inline-flex; align-items: center; gap: .4rem; color: #103452; line-height: 1; }
+.khedma-brand > svg { width: 4rem; height: auto; }
+.khedma-brand > span { display: grid; justify-items: center; gap: .2rem; }
+.khedma-brand b { color: #ee7c37; font-size: 1.7rem; font-weight: 850; }
+.khedma-brand small { color: #103452; font-size: .58rem; font-weight: 700; }
+.khedma-brand-compact > svg { width: 3rem; }
+.khedma-brand-compact b { font-size: 1.4rem; }
+
+.khedma-header .nav-session { display: flex; align-items: center; gap: .45rem; }
+.khedma-header .nav-session a,
+.khedma-header .nav-session button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .38rem;
+  min-height: 2.7rem;
+  border: 1px solid transparent;
+  border-radius: .65rem;
+  padding: .5rem .8rem;
+  color: #29475f;
+  background: transparent;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.khedma-header .nav-session a:hover { background: #f3eee7; }
+.khedma-header .nav-session .nav-cta { color: #fff; background: #16875f; }
+.khedma-header .nav-session .nav-cta:hover { background: #106849; }
+.khedma-header .nav-session .nav-register { border-color: #e8d2bd; color: #9c542b; }
+
+@media (max-width: 38rem) {
+  .khedma-header { min-height: 4.5rem; padding-inline: 1rem; }
+  .khedma-header .nav-session { gap: .25rem; }
+  .khedma-header .nav-session a { min-height: 2.45rem; padding-inline: .55rem; font-size: .75rem; }
+  .khedma-brand-compact > svg { width: 2.5rem; }
+  .khedma-brand-compact b { font-size: 1.12rem; }
+  .khedma-brand-compact small { font-size: .45rem; }
+}
 
 body:has(.discovery-home) .dock-brand {
   display: none;

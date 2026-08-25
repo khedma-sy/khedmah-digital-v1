@@ -57,6 +57,7 @@ WORKDIR /workspace
 
 COPY --from=build --chown=node:node /workspace/apps/frontend/.next/standalone ./
 COPY --from=build --chown=node:node /workspace/apps/frontend/.next/static apps/frontend/.next/static
+COPY --from=build --chown=node:node /workspace/apps/frontend/public apps/frontend/public
 USER node
 EXPOSE 8080
 CMD ["node", "apps/frontend/server.js"]
