@@ -62,6 +62,10 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         userFrom(request("/api/v1/auth/register", "POST", JSONObject().put("email", email).put("password", password).put("displayName", displayName)))
     }
 
+    suspend fun google(idToken: String): KhedmahUser = withContext(Dispatchers.IO) {
+        userFrom(request("/api/v1/auth/google", "POST", JSONObject().put("idToken", idToken)))
+    }
+
     suspend fun session(): KhedmahUser? = withContext(Dispatchers.IO) {
         runCatching { userFrom(request("/api/v1/auth/session")) }.getOrNull()
     }

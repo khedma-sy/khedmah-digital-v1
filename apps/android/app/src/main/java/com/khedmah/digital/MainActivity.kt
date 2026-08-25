@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -59,6 +60,8 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme(colorScheme = scheme) {
             val api = remember { KhedmahApi() }
+            val context = LocalContext.current
+            val googleIdentity = remember(context) { GoogleIdentity(context) }
             var destination by remember { mutableStateOf(Destination.Home) }
             var categories by remember { mutableStateOf<List<KhedmahCategory>>(emptyList()) }
             var selectedCategory by remember { mutableStateOf<String?>(null) }
@@ -102,6 +105,7 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                     Destination.Account -> AccountScreen(
                         modifier = Modifier.padding(padding), user = user, loading = loading,
                         message = accountMessage, error = accountError,
+                        googleConfigured = googleIdentity.configured,
                         onLogin = { email, password ->
                             scope.launch {
                                 loading = true; accountError = null; accountMessage = null
@@ -118,8 +122,17 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                                 loading = false
                             }
                         },
+                        onGoogle = {
+                            scope.launch {
+                                loading = true; accountError = null; accountMessage = null
+                                runCatching { api.google(googleIdentity.firebaseIdToken()) }
+                                    .onSuccess { user = it }
+                                    .onFailure { accountError = it.message ?: "تعذر تسجيل الدخول عبر Google." }
+                                loading = false
+                            }
+                        },
                         onLogout = {
-                            scope.launch { loading = true; runCatching { api.logout() }; user = null; loading = false }
+                            scope.launch { loading = true; runCatching { api.logout() }; runCatching { googleIdentity.signOut() }; user = null; loading = false }
                         }
                     )
                 }
@@ -128,7 +141,7 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
     }
 }
 
-@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onLogout: () -> Unit) {
+@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit) {
     var registering by remember { mutableStateOf(false) }
     var displayName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -147,6 +160,10 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
             if (message != null) item { Text(message, color = Green, textAlign = TextAlign.Center) }
             if (error != null) item { Text(error, color = Color(0xFF9C2B20), textAlign = TextAlign.Center) }
             item { Button(onClick = { if (registering) onRegister(email, password, displayName) else onLogin(email, password) }, enabled = !loading && email.isNotBlank() && password.length >= 8 && (!registering || displayName.isNotBlank()), modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري المعالجة..." else if (registering) "إنشاء حساب" else "تسجيل الدخول") } }
+            if (googleConfigured) {
+                item { HorizontalDivider() }
+                item { OutlinedButton(onGoogle, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("المتابعة باستخدام Google") } }
+            }
         }
     }
 }
