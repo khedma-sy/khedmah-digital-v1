@@ -20,7 +20,9 @@ android {
     buildFeatures { compose = true; buildConfig = true }
 
     defaultConfig {
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = providers.gradleProperty("GOOGLE_MAPS_API_KEY").orNull ?: ""
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = providers.gradleProperty("GOOGLE_MAPS_API_KEY").orNull
+            ?: providers.environmentVariable("GOOGLE_MAPS_ANDROID_API_KEY").orNull
+            ?: ""
         applicationId = "com.khedmah.digital"
         minSdk = 23
         targetSdk = 35

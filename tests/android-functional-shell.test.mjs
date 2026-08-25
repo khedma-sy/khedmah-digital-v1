@@ -27,6 +27,7 @@ test('Android public discovery uses the canonical backend contracts', async () =
   assert.match(gradle, /material3/);
   assert.match(gradle, /androidx\.credentials:credentials/);
   assert.match(gradle, /GOOGLE_OAUTH_SERVER_CLIENT_ID/);
+  assert.match(gradle, /GOOGLE_MAPS_ANDROID_API_KEY/);
 });
 
 test('Android Google login exchanges a Firebase token with the canonical backend and fails closed when unconfigured', async () => {

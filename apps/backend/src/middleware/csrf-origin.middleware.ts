@@ -12,11 +12,11 @@ function hasSessionCookie(cookieHeader: string | undefined): boolean {
     .some((cookie) => cookie.startsWith(`${SESSION_COOKIE_NAME}=`));
 }
 
-function configuredOrigin(): string {
-  return (
-    process.env.CORS_ORIGIN ??
-    'https://frontend-774201339973.europe-west1.run.app'
-  );
+export function configuredOrigins(): string[] {
+  return (process.env.CORS_ORIGIN ?? 'https://frontend-774201339973.europe-west1.run.app')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 }
 
 function originFromReferer(referer: string): string | undefined {
@@ -45,14 +45,14 @@ export function createCsrfOriginMiddleware() {
       return;
     }
 
-    const allowedOrigin = configuredOrigin();
+    const allowedOrigins = new Set(configuredOrigins());
     const originHeader =
       typeof request.headers.origin === 'string'
         ? request.headers.origin
         : undefined;
 
     if (originHeader) {
-      if (originHeader === allowedOrigin) {
+      if (allowedOrigins.has(originHeader)) {
         next();
         return;
       }
@@ -69,7 +69,7 @@ export function createCsrfOriginMiddleware() {
         ? request.headers.referer
         : undefined;
 
-    if (refererHeader && originFromReferer(refererHeader) === allowedOrigin) {
+    if (refererHeader && allowedOrigins.has(originFromReferer(refererHeader) ?? '')) {
       next();
       return;
     }
