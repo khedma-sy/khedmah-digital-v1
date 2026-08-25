@@ -41,3 +41,10 @@ test('production email defaults use the verified Resend sending domain', async (
   assert.doesNotMatch(provider, /noreply@khedmah\.digital/);
   assert.doesNotMatch(cloudBuild, /_EMAIL_FROM: noreply@khedmah\.digital/);
 });
+
+test('Cloud Run environment delimiter cannot collide with the sender address', async () => {
+  const cloudBuild = await read('cloudbuild.production.yaml');
+
+  assert.match(cloudBuild, /--update-env-vars "\^\|\^/);
+  assert.doesNotMatch(cloudBuild, /--update-env-vars "\^@\^/);
+});
