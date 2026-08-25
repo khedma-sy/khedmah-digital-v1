@@ -1,4 +1,5 @@
 import { PlatformIcon } from '../components/platform-icon';
+import { BrandMark } from '../components/brand-mark';
 
 const services = [
   { icon: 'tools' as const, label: 'صيانة' },
@@ -10,23 +11,17 @@ const services = [
 
 export function IdentityVisual() {
   return (
-    <section className="identity-visual" aria-label="خدمات منصة خدمة ديجتل">
-      <div className="service-orbit" aria-hidden="true">
+    <section className="identity-visual identity-visual-approved" aria-label="خدمات منصة خدمة">
+      <div className="identity-approved-brand">
+        <BrandMark />
+        <p>كل ما تحتاجه أقرب إليك</p>
+      </div>
+      <div className="identity-service-grid" aria-label="مجالات الخدمة">
         {services.map(({ icon, label }) => (
-          <span className="service-bubble" key={label} title={label}><PlatformIcon name={icon} size={21} /></span>
+          <span key={label}><PlatformIcon name={icon} size={21} /><b>{label}</b></span>
         ))}
       </div>
-      <div className="digital-umbrella" aria-hidden="true">
-        <div className="umbrella-glow" />
-        <div className="umbrella-canopy-auth" />
-        <div className="umbrella-stem-auth" />
-        <div className="syria-silhouette">خدمة</div>
-      </div>
-      <div className="identity-brand">
-        <span>مرحباً بك في</span>
-        <strong>خدمة <em>ديجتل</em></strong>
-        <small>تحت مظلة واحدة</small>
-      </div>
+      <p className="identity-approved-proof"><PlatformIcon name="check" size={18} /> بحث واضح، ملفات منظمة، وتواصل مباشر</p>
     </section>
   );
 }

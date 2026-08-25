@@ -1,0 +1,123 @@
+/* Approved Khedmah brand system. Imported last so every V1 route converges on one UI. */
+:root {
+  color-scheme: light;
+  --background: #fffdf9;
+  --foreground: #103452;
+  --surface: #ffffff;
+  --accent: #16875f;
+  --accent-light: #eaf5ef;
+  --accent-dark: #106849;
+  --border: #e8dfd4;
+  --focus: #ee7c37;
+  --muted: #647789;
+  --brand-navy: #103452;
+  --brand-green: #16875f;
+  --brand-orange: #ee7c37;
+  --brand-warm: #fff9f0;
+  --brand-shadow: 0 1.25rem 3.5rem rgb(16 52 82 / 10%);
+}
+
+html { background: var(--brand-warm); }
+body { color: var(--foreground); background: var(--background); font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif; }
+
+.khedma-header {
+  border-color: var(--border);
+  background: rgb(255 253 249 / 94%);
+  box-shadow: 0 .35rem 1.4rem rgb(16 52 82 / 5%);
+}
+.khedma-header .nav-session { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
+.khedma-header .nav-session a,
+.khedma-header .nav-session button { min-height:2.75rem; display:inline-flex; align-items:center; gap:.4rem; border:0; border-radius:.75rem; padding:.55rem .8rem; color:var(--brand-navy); background:transparent; font:inherit; font-weight:750; text-decoration:none; cursor:pointer; }
+.khedma-header .nav-session a:hover,
+.khedma-header .nav-session button:hover { color:var(--accent-dark); background:var(--accent-light); }
+.khedma-header .nav-session .nav-cta { color:#fff; background:var(--brand-green); }
+.khedma-header .nav-session .nav-register { border:1px solid var(--brand-orange); color:#a94e19; }
+
+.page-shell,.identity-shell,.operations-shell,.foundation-shell,.welcome-loading {
+  min-height:calc(100svh - 4.5rem);
+  color:var(--foreground);
+  background:
+    radial-gradient(circle at 8% 2%,rgb(238 124 55 / 9%),transparent 23rem),
+    linear-gradient(180deg,var(--brand-warm),var(--background));
+}
+.page-content { width:min(calc(100% - 2rem),76rem); margin-inline:auto; padding-block:clamp(1.5rem,4vw,3.5rem); }
+.identity-card,.operations-panel,.operations-summary article,.card,.section-card,.profile-header-card,.member-panel,.filter-panel,.empty-state {
+  border:1px solid var(--border);
+  color:var(--foreground);
+  background:var(--surface);
+  box-shadow:0 .65rem 2rem rgb(16 52 82 / 6%);
+}
+.eyebrow { color:var(--brand-orange); font-weight:850; }
+.foundation-action,.filter-action,.experience-action,.auth-primary {
+  border:0;
+  color:#fff;
+  background:var(--brand-green);
+  box-shadow:0 .55rem 1.4rem rgb(22 135 95 / 18%);
+}
+.filter-action-secondary,.auth-secondary { border:1px solid var(--border); color:var(--brand-navy); background:#fff; }
+.foundation-action:hover,.filter-action:hover,.experience-action:hover,.auth-primary:hover { background:var(--accent-dark); }
+
+.auth-experience {
+  min-height:calc(100svh - 4.5rem);
+  display:grid;
+  place-items:center;
+  padding:clamp(1rem,4vw,4rem);
+  color:var(--foreground);
+  background:
+    radial-gradient(circle at 12% 12%,rgb(238 124 55 / 12%),transparent 25rem),
+    linear-gradient(145deg,#fff9f0,#fffdf9);
+}
+.auth-phone { width:min(100%,72rem); display:grid; grid-template-columns:minmax(18rem,.9fr) minmax(20rem,1.1fr); grid-template-areas:"visual content" "visual footer"; align-items:center; gap:1.5rem clamp(2rem,6vw,6rem); padding:0; border:0; background:none; box-shadow:none; }
+.identity-visual-approved { grid-area:visual; min-height:32rem; display:flex; flex-direction:column; justify-content:center; gap:2rem; padding:clamp(1.5rem,4vw,3rem); border:1px solid #f0dbc8; border-radius:2rem; color:var(--brand-navy); background:linear-gradient(145deg,#fff3df,#fffaf2); box-shadow:var(--brand-shadow); overflow:hidden; }
+.identity-visual-approved::before { content:""; position:absolute; inset:-20% -15%; opacity:.06; background:radial-gradient(ellipse at 50% 70%,transparent 0 34%,var(--brand-orange) 35% 37%,transparent 38%); transform:rotate(-12deg); pointer-events:none; }
+.identity-visual-approved::after { display:none; }
+.identity-approved-brand,.identity-service-grid,.identity-approved-proof { position:relative; z-index:1; }
+.identity-approved-brand { display:grid; justify-items:start; gap:1rem; }
+.identity-approved-brand p { margin:0; color:var(--brand-orange); font-size:clamp(1.35rem,3vw,2.15rem); font-weight:900; }
+.identity-service-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.7rem; }
+.identity-service-grid span { min-height:5.5rem; display:grid; place-items:center; gap:.35rem; border:1px solid var(--border); border-radius:1rem; color:var(--brand-navy); background:rgb(255 255 255 / 78%); }
+.identity-service-grid svg { color:var(--brand-green); }
+.identity-service-grid b { font-size:.78rem; }
+.identity-approved-proof { display:flex; align-items:center; gap:.5rem; margin:0; color:var(--muted); font-weight:700; }
+.identity-approved-proof svg { color:var(--brand-green); }
+.auth-panel { grid-area:content; width:100%; max-width:34rem; justify-self:center; padding:clamp(1.25rem,3vw,2.25rem); border:1px solid var(--border); border-radius:1.5rem; color:var(--foreground); background:#fff; box-shadow:var(--brand-shadow); }
+.auth-panel-title { color:var(--brand-navy); }
+.auth-field { border-color:var(--border); color:var(--foreground); background:#fffdf9; }
+.auth-field input { color:var(--foreground); background:transparent; }
+.auth-field:focus-within { border-color:var(--brand-green); box-shadow:0 0 0 3px rgb(22 135 95 / 12%); }
+.auth-help,.login-prompt { grid-area:footer; color:var(--muted); }
+.auth-help a,.login-prompt a,.auth-panel a { color:var(--accent-dark); }
+.auth-divider::before,.auth-divider::after { border-color:var(--border); }
+.auth-divider span { color:var(--muted); background:#fff; }
+
+.catalog-experience,.map-welcome { min-height:calc(100svh - 4.5rem); color:var(--foreground); background:linear-gradient(180deg,var(--brand-warm),var(--background)); }
+.catalog-phone,.map-phone { width:min(calc(100% - 2rem),76rem); border:0; border-radius:0; color:var(--foreground); background:transparent; box-shadow:none; }
+.catalog-header a,.catalog-header button,.catalog-service>a { color:var(--brand-navy); }
+.catalog-filters button { border-color:var(--border); color:var(--brand-navy); background:#fff; }
+.catalog-filters button.active { border-color:var(--brand-green); color:#fff; background:var(--brand-green); }
+.catalog-service { border-color:var(--border); color:var(--foreground); background:#fff; box-shadow:0 .5rem 1.5rem rgb(16 52 82 / 6%); }
+.catalog-service-icon,.catalog-service small { color:var(--brand-green); }
+.catalog-service p,.catalog-intro,.catalog-state { color:var(--muted); }
+
+.operations-header,.admin-navigation { border-color:var(--border); color:var(--foreground); background:#fff; }
+.status-badge,.panel-heading span { color:#9a4b1d; background:#fff0e5; }
+.marketplace-map { color:var(--foreground); background:var(--brand-warm); }
+.map-results { background:#fff; box-shadow:-.5rem 0 2rem rgb(16 52 82 / 10%); }
+.map-results input,.map-view-switch button { border-color:var(--border); color:var(--foreground); background:#fffdf9; }
+.map-results form button,.locate-button,.map-view-switch button[aria-pressed="true"],.map-results article>a { color:#fff; background:var(--brand-green); }
+.map-results article { border-color:var(--border); color:var(--foreground); background:#fff; }
+
+@media(max-width:48rem) {
+  .khedma-header { align-items:flex-start; padding:.55rem .75rem; }
+  .khedma-header .nav-session { justify-content:flex-end; }
+  .khedma-header .nav-discovery { display:none!important; }
+  .auth-experience { padding:0; }
+  .auth-phone { grid-template-columns:1fr; grid-template-areas:"visual" "content" "footer"; gap:1rem; }
+  .identity-visual-approved { min-height:22rem; border:0; border-radius:0 0 2rem 2rem; }
+  .identity-service-grid { grid-template-columns:repeat(5,1fr); }
+  .identity-service-grid span { min-height:4rem; }
+  .identity-service-grid b { display:none; }
+  .auth-panel { width:calc(100% - 2rem); }
+}
+
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
