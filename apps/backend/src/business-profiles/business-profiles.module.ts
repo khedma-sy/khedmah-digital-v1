@@ -10,6 +10,6 @@ import { BusinessProfileService } from './business-profile.service';
   imports: [IdentityModule, OperationsProductModule, CategoryModule],
   controllers: [BusinessProfilesController],
   providers: [BusinessProfileRepository, BusinessProfileService],
-  exports: [BusinessProfileRepository]
+  exports: [BusinessProfileRepository, BusinessProfileService]
 })
 export class BusinessProfilesModule {}
