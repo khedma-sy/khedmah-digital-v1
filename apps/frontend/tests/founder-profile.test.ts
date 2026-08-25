@@ -4,15 +4,15 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('official founder profile presents KHEDMA DIGITAL and its platform role', async () => {
+test('official founder profile presents the approved Khedmah name and its platform role', async () => {
   const page = await read('app/business-profiles/khedmah-digital/page.tsx');
   const home = await read('app/page.tsx');
 
   assert.match(home, /FeaturedCategories/);
   assert.match(home, /khedma-community\.webp/);
-  assert.match(page, /خدمة ديجتل/);
-  assert.match(page, /KHEDMA DIGITAL/);
-  assert.match(page, /الشركة المؤسسة لمنصة خدمة ديجتل/);
+  assert.match(page, /nameAr: 'خدمة'/);
+  assert.doesNotMatch(page, /خدمة ديجتل|KHEDMA DIGITAL/);
+  assert.match(page, /المنصة الرسمية لخدمة/);
   assert.match(page, /منصة رقمية تجمع الأعمال والمهنيين ومقدمي الخدمات تحت مظلة واحدة/);
   assert.match(page, /اكتشاف الأعمال/);
   assert.match(page, /ملفات المهنيين/);
@@ -26,8 +26,8 @@ test('founder showcase supports identity media, partners, contact, and sharing',
   assert.match(showcase, /logoUrl/);
   assert.match(showcase, /coverUrl/);
   assert.match(showcase, /انضم كشريك/);
-  assert.match(showcase, /تواصل مع خدمة ديجتل/);
-  assert.match(showcase, /أنا مع خدمة/);
+  assert.match(showcase, /تواصل مع خدمة/);
+  assert.doesNotMatch(showcase, /خدمة ديجتل|أنا مع خدمة/);
   assert.match(showcase, /<ShareAction/);
   assert.match(shareAction, /navigator\.share/);
   assert.match(shareAction, /navigator\.clipboard\.writeText/);

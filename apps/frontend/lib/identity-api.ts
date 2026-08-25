@@ -1,6 +1,6 @@
 import type { PublicUserProfile } from './api-client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_BASE = '';
 
 async function identityRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`, {
@@ -12,7 +12,10 @@ async function identityRequest<T>(path: string, init?: RequestInit): Promise<T> 
   if (!response.ok) {
     const raw = (data as { message?: string | string[] }).message ?? `خطأ في الخادم (${response.status})`;
     const message = Array.isArray(raw) ? raw.join('. ') : raw;
-    throw Object.assign(new Error(message), { statusCode: response.status });
+    throw Object.assign(new Error(message), {
+      statusCode: response.status,
+      code: (data as { code?: string }).code
+    });
   }
   return data as T;
 }

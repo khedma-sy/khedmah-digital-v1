@@ -11,7 +11,7 @@ function DiscoveryLinks() {
     <>
       <Link href="/search" className="nav-discovery">البحث</Link>
       <Link href="/service-catalog" className="nav-discovery">الخدمات</Link>
-      <Link href="/locations" className="nav-discovery">المواقع</Link>
+      <Link href="/map" className="nav-discovery">الخريطة</Link>
     </>
   );
 }

@@ -19,7 +19,7 @@ export default function OrganizationDetailsPage() {
   return (
     <main id="foundation-content" className="identity-shell" aria-label="تفاصيل المنظمة">
       <form className="identity-card" onSubmit={updateOrganization} noValidate>
-        <p className="eyebrow">Khedmah Digital V1</p>
+        <p className="eyebrow">خدمة</p>
         <h1>تفاصيل المنظمة</h1>
         <label>
           اسم المنظمة

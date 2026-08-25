@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Browser requests stay on the frontend origin. Next.js proxies /api/v1 to the
+// backend so the session cookie is first-party in production.
+const API_BASE = '';
 
 export interface PublicUserProfile {
   readonly id: string;
@@ -177,6 +179,7 @@ export interface SearchResults {
 export interface ApiError {
   readonly message: string;
   readonly statusCode: number;
+  readonly code?: string;
 }
 
 export interface ContactInquiryReceipt {
@@ -216,7 +219,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       (data as { message?: string | string[] }).message ??
       `خطأ في الخادم (${response.status})`;
     const text = Array.isArray(message) ? message.join('. ') : (message as string);
-    throw Object.assign(new Error(text), { statusCode: response.status });
+    throw Object.assign(new Error(text), {
+      statusCode: response.status,
+      code: (data as { code?: string }).code
+    });
   }
 
   return data as T;

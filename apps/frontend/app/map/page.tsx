@@ -118,7 +118,7 @@ function MapDiscovery() {
   return <main className={`marketplace-map view-${activeView}`} dir="rtl">
     {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} />}
     <aside className="map-results">
-      <header><Link href="/">خدمة ديجتل</Link><h1>الخدمات حولك</h1></header>
+      <header><Link href="/">خدمة</Link><h1>الخدمات حولك</h1></header>
       <nav className="map-view-switch" aria-label="طريقة عرض النتائج">
         <button type="button" aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}>الخريطة</button>
         <button type="button" aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}>النتائج</button>

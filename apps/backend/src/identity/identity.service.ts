@@ -4,7 +4,7 @@ import { getRequestContext } from '../context/request-context';
 import { LoginRequest, RegisterRequest, UpdateProfileRequest } from './dto/auth.dto';
 import { IdentityRepository } from './identity.repository';
 import { PublicUserProfile, UserAccount, UserProfile } from './identity.types';
-import { SafeAuthenticationError } from './identity.errors';
+import { EmailVerificationRequiredError, SafeAuthenticationError } from './identity.errors';
 import { hashPassword, verifyPassword } from './security/password-security';
 import { SessionTokenService } from './security/session-token.service';
 import { validateLoginRequest, validateRegisterRequest, validateUpdateProfileRequest } from './identity.validation';
@@ -64,8 +64,18 @@ export class IdentityService {
     const input = validateLoginRequest(request);
     const account = await this.repository.findAccountByEmail(input.email);
 
-    if (!account || account.status !== 'active' || !verifyPassword(input.password, account.passwordHash)) {
+    if (!account || !verifyPassword(input.password, account.passwordHash)) {
       await this.audit('auth.login_failed');
+      throw new SafeAuthenticationError();
+    }
+
+    if (account.status === 'pending') {
+      await this.audit('auth.login_failed', account.id);
+      throw new EmailVerificationRequiredError();
+    }
+
+    if (account.status !== 'active') {
+      await this.audit('auth.login_failed', account.id);
       throw new SafeAuthenticationError();
     }
 

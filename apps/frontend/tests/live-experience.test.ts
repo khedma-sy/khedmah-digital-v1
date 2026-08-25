@@ -40,7 +40,7 @@ test('registration requires email verification before the protected welcome expe
   assert.match(register, /router\.push\(`\/auth\/verify-email\?email=\$\{encodeURIComponent\(email\)\}`\)/);
   assert.match(welcome, /api\.auth\.session\(\)/);
   assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
-  assert.match(welcome, /مرحباً بك في خدمة ديجتل/);
+  assert.match(welcome, /مرحباً بك في خدمة/);
   assert.match(welcome, /لن ننشر اسمك أو موقعك دون موافقتك/);
   assert.match(welcome, /completeOnboarding/);
 });

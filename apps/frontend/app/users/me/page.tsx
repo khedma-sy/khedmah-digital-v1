@@ -19,7 +19,7 @@ export default function ProfilePage() {
   return (
     <main id="foundation-content" className="identity-shell" aria-label="الملف الأساسي">
       <form className="identity-card" onSubmit={submitProfile} noValidate>
-        <p className="eyebrow">Khedmah Digital V1</p>
+        <p className="eyebrow">خدمة</p>
         <h1>الملف الأساسي</h1>
         <label>
           الاسم الظاهر

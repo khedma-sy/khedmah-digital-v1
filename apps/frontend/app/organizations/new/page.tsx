@@ -31,7 +31,7 @@ export default function CreateOrganizationPage() {
   return (
     <main id="foundation-content" className="identity-shell" aria-label="إنشاء منظمة">
       <form className="identity-card" onSubmit={createOrganization} noValidate>
-        <p className="eyebrow">Khedmah Digital V1</p>
+        <p className="eyebrow">خدمة</p>
         <h1>إنشاء منظمة</h1>
         <label>
           اسم المنظمة

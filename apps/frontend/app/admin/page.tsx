@@ -47,7 +47,7 @@ export default function AdminPage() {
     return (
       <main id="foundation-content" className="identity-shell" aria-label="لوحة الإدارة">
         <section className="identity-card">
-          <p className="eyebrow">Khedmah Digital V1 · Admin</p>
+          <p className="eyebrow">خدمة · الإدارة</p>
           <p>جاري التحميل...</p>
         </section>
       </main>
@@ -58,7 +58,7 @@ export default function AdminPage() {
     <main id="foundation-content" className="operations-shell" aria-label="لوحة الإدارة">
       <header className="operations-header">
         <div>
-          <p className="eyebrow">KHEDMA DIGITAL · ADMIN</p>
+          <p className="eyebrow">خدمة · الإدارة</p>
           <h1>لوحة الإدارة</h1>
           <p>إدارة الحساب والمنظمات.</p>
         </div>
@@ -72,7 +72,7 @@ export default function AdminPage() {
         <Link href="/business-profiles">ملفات الأعمال</Link>
         <Link href="/professional-profiles">الملفات المهنية</Link>
         <Link href="/service-catalog">دليل الخدمات</Link>
-        <Link href="/locations">المواقع</Link>
+        <Link href="/map">الخريطة</Link>
         <Link href="/search">البحث</Link>
         <Link href="/admin/moderation">إدارة المراجعة</Link>
         <Link href="/admin/operations-product">Operations Product</Link>

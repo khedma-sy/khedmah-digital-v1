@@ -3,6 +3,7 @@ import { BadRequestException, HttpException, HttpStatus, Inject, Injectable } fr
 import { DatabasePool } from '../../database/database.pool';
 import { IdentityRepository } from '../identity.repository';
 import { createEmailProvider, EmailProvider } from './email-provider';
+import { renderKhedmahEmail } from './khedmah-email-template';
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RESEND_WINDOW_MS = 60 * 1000;
@@ -70,7 +71,15 @@ export class EmailVerificationService {
         'إذا لم تطلب هذا الإجراء، يمكنك تجاهل الرسالة.',
         '',
         'فريق خدمة'
-      ].join('\n')
+      ].join('\n'),
+      htmlBody: renderKhedmahEmail({
+        preheader: 'أكد بريدك الإلكتروني لتفعيل حسابك في خدمة.',
+        title: 'تأكيد البريد الإلكتروني',
+        message: 'مرحباً، بقيت خطوة واحدة لتفعيل حسابك. اضغط الزر التالي لتأكيد بريدك الإلكتروني.',
+        actionLabel: 'تأكيد البريد الإلكتروني',
+        actionUrl: verifyUrl,
+        footnote: 'هذا الرابط صالح لمدة 24 ساعة. إذا لم تنشئ حساباً في خدمة، يمكنك تجاهل الرسالة بأمان.'
+      })
     });
   }
 
