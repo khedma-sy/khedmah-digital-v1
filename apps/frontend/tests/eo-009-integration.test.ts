@@ -16,16 +16,14 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
   assert.match(businessProfiles, /ملفات الأعمال/);
   assert.match(professionalProfiles, /الملفات المهنية/);
   assert.match(serviceCatalog, /دليل الخدمات/);
-  assert.match(locations, /المواقع/);
+  assert.match(locations, /redirect\('\/map'\)/);
   assert.match(search, /البحث/);
 
   assert.match(businessProfiles, /role="alert"/);
   assert.match(professionalProfiles, /role="alert"/);
   assert.match(serviceCatalog, /aria-busy/);
-  assert.match(locations, /aria-busy/);
   assert.match(search, /aria-busy/);
   assert.match(serviceCatalog, /role="alert"/);
-  assert.match(locations, /role="alert"/);
   assert.match(search, /role="alert"/);
 });
 
@@ -37,7 +35,7 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   assert.match(home, /href="\/search"/);
   assert.match(home, /href="\/auth\/register"/);
 
-  for (const href of ['/business-profiles', '/professional-profiles', '/service-catalog', '/locations', '/search']) {
+  for (const href of ['/business-profiles', '/professional-profiles', '/service-catalog', '/map', '/search']) {
     assert.match(organizations, new RegExp(`href=\\"${href}\\"`));
     assert.match(admin, new RegExp(`href=\\"${href}\\"`));
   }
