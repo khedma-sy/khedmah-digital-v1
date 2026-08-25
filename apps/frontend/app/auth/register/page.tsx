@@ -44,8 +44,12 @@ export default function RegisterPage() {
       <div className="auth-phone auth-phone-register">
         <Link className="auth-back" href="/" aria-label="العودة"><PlatformIcon name="arrow" /></Link>
         <IdentityVisual />
-        <section className="register-heading"><h1>إنشاء حساب جديد</h1><p>انضم إلى <strong>خدمة</strong> واكتشف الخدمات والأعمال والمهنيين الموثوقين.</p></section>
+        <section className="register-heading"><p>انضم إلى <strong>خدمة</strong> واكتشف الخدمات والأعمال والمهنيين الموثوقين.</p></section>
         <form className="auth-panel register-panel" onSubmit={submitRegistration} noValidate>
+          <nav className="auth-tabs" aria-label="الدخول وإنشاء الحساب">
+            <span aria-current="page">سجل الآن</span>
+            <Link href="/auth/login">تسجيل الدخول</Link>
+          </nav>
           <label className="auth-field"><PlatformIcon name="user" /><span>الاسم الكامل</span><input aria-label="الاسم الكامل" name="displayName" autoComplete="name" required minLength={2} maxLength={80} /></label>
           <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
           <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" type={visiblePassword === 'password' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'password' ? null : 'password')} aria-label={visiblePassword === 'password' ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}><PlatformIcon name="eye" /></button></label>

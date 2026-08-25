@@ -12,8 +12,11 @@ interface FirebaseAccountLookupResponse {
     email?: string;
     emailVerified?: boolean;
     displayName?: string;
+    providerUserInfo?: Array<{ providerId?: string; rawId?: string }>;
   }>;
 }
+
+type ExternalProvider = 'google' | 'facebook';
 
 export interface GoogleAuthResult {
   readonly sessionToken: string;
@@ -28,13 +31,13 @@ export class GoogleAuthService {
     @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
   ) {}
 
-  async signIn(rawIdToken: unknown): Promise<GoogleAuthResult> {
+  async signIn(rawIdToken: unknown, provider: ExternalProvider = 'google'): Promise<GoogleAuthResult> {
     const idToken = typeof rawIdToken === 'string' ? rawIdToken.trim() : '';
-    if (!idToken) throw new UnauthorizedException('Google authentication failed.');
+    if (!idToken) throw new UnauthorizedException(`${provider} authentication failed.`);
 
     const firebaseApiKey = process.env.FIREBASE_API_KEY?.trim();
     if (!firebaseApiKey) {
-      throw new Error('CRITICAL: FIREBASE_API_KEY is required for Google sign-in verification.');
+      throw new Error('CRITICAL: FIREBASE_API_KEY is required for social sign-in verification.');
     }
 
     const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseApiKey)}`, {
@@ -43,23 +46,25 @@ export class GoogleAuthService {
       body: JSON.stringify({ idToken })
     });
     if (!response.ok) {
-      await this.repository.appendAuditLog('auth.google_login_failed');
-      throw new UnauthorizedException('Google authentication failed.');
+      await this.repository.appendAuditLog(`auth.${provider}_login_failed`);
+      throw new UnauthorizedException(`${provider} authentication failed.`);
     }
 
     const payload = await response.json() as FirebaseAccountLookupResponse;
-    const google = payload.users?.[0];
-    const subject = google?.localId?.trim() ?? '';
-    const email = google?.email?.trim().toLowerCase() ?? '';
-    if (!subject || !email || google?.emailVerified !== true) {
-      await this.repository.appendAuditLog('auth.google_login_failed');
-      throw new UnauthorizedException('Google authentication failed.');
+    const external = payload.users?.[0];
+    const providerId = provider === 'google' ? 'google.com' : 'facebook.com';
+    const providerIdentity = external?.providerUserInfo?.find((item) => item.providerId === providerId);
+    const subject = providerIdentity?.rawId?.trim() || external?.localId?.trim() || '';
+    const email = external?.email?.trim().toLowerCase() ?? '';
+    if (!subject || !email || external?.emailVerified !== true || !providerIdentity) {
+      await this.repository.appendAuditLog(`auth.${provider}_login_failed`);
+      throw new UnauthorizedException(`${provider} authentication failed.`);
     }
 
     const bound = await this.db.query<{ user_identifier: string }>(
       `SELECT user_identifier FROM external_identities
-       WHERE provider = 'google' AND provider_subject = $1 LIMIT 1`,
-      [subject]
+       WHERE provider = $1 AND provider_subject = $2 LIMIT 1`,
+      [provider, subject]
     );
 
     let account = bound[0]
@@ -68,8 +73,8 @@ export class GoogleAuthService {
     let profile = account ? await this.repository.findProfile(account.id) : undefined;
 
     if (account && (account.status === 'suspended' || account.status === 'archived')) {
-      await this.repository.appendAuditLog('auth.google_login_failed', { actorUserId: account.id });
-      throw new UnauthorizedException('Google authentication failed.');
+      await this.repository.appendAuditLog(`auth.${provider}_login_failed`, { actorUserId: account.id });
+      throw new UnauthorizedException(`${provider} authentication failed.`);
     }
 
     if (!account) {
@@ -85,7 +90,7 @@ export class GoogleAuthService {
       } satisfies UserAccount;
       profile = {
         userId,
-        displayName: google.displayName?.trim() || email.split('@')[0] || 'مستخدم خدمة',
+        displayName: external.displayName?.trim() || email.split('@')[0] || 'مستخدم خدمة',
         locale: 'ar',
         createdAt: now,
         updatedAt: now
@@ -106,7 +111,7 @@ export class GoogleAuthService {
       const now = new Date().toISOString();
       profile = {
         userId: account.id,
-        displayName: google.displayName?.trim() || email.split('@')[0] || 'مستخدم خدمة',
+        displayName: external.displayName?.trim() || email.split('@')[0] || 'مستخدم خدمة',
         locale: 'ar',
         createdAt: now,
         updatedAt: now
@@ -116,10 +121,10 @@ export class GoogleAuthService {
 
     await this.db.query(
       `INSERT INTO external_identities (provider, provider_subject, user_identifier, email, created_at)
-       VALUES ('google', $1, $2, $3, NOW())
+       VALUES ($1, $2, $3, $4, NOW())
        ON CONFLICT (provider, provider_subject) DO UPDATE
        SET email = EXCLUDED.email`,
-      [subject, account.id, email]
+      [provider, subject, account.id, email]
     );
 
     const sessionToken = this.sessionTokens.createToken();
@@ -131,7 +136,7 @@ export class GoogleAuthService {
       createdAt: new Date().toISOString()
     });
 
-    await this.repository.appendAuditLog('auth.google_login_success', { actorUserId: account.id });
+    await this.repository.appendAuditLog(`auth.${provider}_login_success`, { actorUserId: account.id });
     return {
       sessionToken,
       user: {

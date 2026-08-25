@@ -16,6 +16,19 @@ test('identity journeys do not render the retired Syria silhouette', async () =>
   assert.match(visual, /BrandMark/);
 });
 
+test('approved account reference is implemented as functional UI', async () => {
+  const login = await read('apps/frontend/app/auth/login/page.tsx');
+  const register = await read('apps/frontend/app/auth/register/page.tsx');
+  const styles = await read('apps/frontend/app/brand-system.css');
+  assert.match(login, /auth-tabs/);
+  assert.match(login, /auth-options/);
+  assert.match(login, /signInWithGoogle/);
+  assert.match(login, /signInWithFacebook/);
+  assert.match(register, /auth-tabs/);
+  assert.match(styles, /auth-experience::before/);
+  assert.match(styles, /body:has\(\.auth-experience\) \.khedma-header/);
+});
+
 test('Android uses the approved navy green orange and warm surface tokens', async () => {
   const colors = await read('apps/android/app/src/main/res/values/colors.xml');
   for (const token of ['khedma_navy', 'khedma_green', 'khedma_orange', 'khedma_warm_background']) {

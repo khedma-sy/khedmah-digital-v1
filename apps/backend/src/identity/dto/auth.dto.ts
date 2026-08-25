@@ -13,6 +13,10 @@ export interface GoogleLoginRequest {
   readonly idToken?: unknown;
 }
 
+export interface FacebookLoginRequest {
+  readonly idToken?: unknown;
+}
+
 export interface UpdateProfileRequest {
   readonly displayName?: unknown;
 }

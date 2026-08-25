@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Inject, Post, Res, UnauthorizedException } from "@nestjs/common";
 import type { Response } from "express";
-import { ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RegisterRequest, ResetPasswordRequest } from "./dto/auth.dto";
+import { FacebookLoginRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RegisterRequest, ResetPasswordRequest } from "./dto/auth.dto";
 import { EmailVerificationService } from "./email/email-verification.service";
 import { GoogleAuthService } from "./google-auth.service";
 import { IdentityService } from "./identity.service";
@@ -37,7 +37,14 @@ export class AuthController {
 
   @Post("google")
   async google(@Body() body: GoogleLoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
-    const result = await this.googleAuth.signIn(body.idToken);
+    const result = await this.googleAuth.signIn(body.idToken, "google");
+    attachSessionCookie(response, result.sessionToken);
+    return { user: result.user };
+  }
+
+  @Post("facebook")
+  async facebook(@Body() body: FacebookLoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
+    const result = await this.googleAuth.signIn(body.idToken, "facebook");
     attachSessionCookie(response, result.sessionToken);
     return { user: result.user };
   }

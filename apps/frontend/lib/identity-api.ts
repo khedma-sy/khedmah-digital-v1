@@ -28,6 +28,11 @@ export const identityApi = {
       method: 'POST', body: JSON.stringify({ idToken })
     });
   },
+  facebook(idToken: string) {
+    return identityRequest<{ user: PublicUserProfile }>('/auth/facebook', {
+      method: 'POST', body: JSON.stringify({ idToken })
+    });
+  },
   forgotPassword(email: string) {
     return identityRequest<{ message: string }>('/auth/forgot-password', {
       method: 'POST', body: JSON.stringify({ email })
