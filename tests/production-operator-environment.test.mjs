@@ -21,6 +21,11 @@ test('deployment summary treats markdown backticks as text', () => {
   assert.doesNotMatch(workflow, /echo "- Commit: `/);
 });
 
+test('default Cloud Build account is normalized to a resource name', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.ok(workflow.includes('BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"'));
+});
+
 test('production source is staged in a project-owned bucket', () => {
   const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
   assert.ok(workflow.includes('SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"'));
