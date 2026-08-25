@@ -71,7 +71,7 @@ function MapDiscovery() {
     overlays.current = providers.flatMap((provider) => {
       if (provider.lat === undefined || provider.lng === undefined) return [];
       const position = { lat: provider.lat, lng: provider.lng };
-      const circle = new window.google!.maps.Circle({ map: map.current, center: position, radius: (provider.serviceRadius ?? 25) * 1000, fillColor: '#0D5EB8', fillOpacity: 0.08, strokeColor: '#0B3A6F', strokeOpacity: 0.4 });
+      const circle = new window.google!.maps.Circle({ map: map.current, center: position, radius: (provider.serviceRadius ?? 25) * 1000, fillColor: '#7fc63b', fillOpacity: 0.08, strokeColor: '#7fc63b', strokeOpacity: 0.4 });
       const marker = new window.google!.maps.Marker({ map: map.current, position, title: provider.name });
       marker.addListener('click', () => {
         infoWindow.current?.close();
@@ -118,7 +118,7 @@ function MapDiscovery() {
   return <main className={`marketplace-map view-${activeView}`} dir="rtl">
     {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY`} strategy="afterInteractive" onLoad={initializeMap} />}
     <aside className="map-results">
-      <header><Link href="/">خدمة</Link><h1>الخدمات حولك</h1></header>
+      <header><Link href="/">خدمة ديجتل</Link><h1>الخدمات حولك</h1></header>
       <nav className="map-view-switch" aria-label="طريقة عرض النتائج">
         <button type="button" aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}>الخريطة</button>
         <button type="button" aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}>النتائج</button>
