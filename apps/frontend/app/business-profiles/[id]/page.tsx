@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
+import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, VerificationRequest } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
 import { ProviderQrAction } from './provider-qr-action';
@@ -63,7 +63,6 @@ export default function BusinessProfilePage() {
   const [branches, setBranches] = useState<BusinessBranch[]>([]);
   const [socialLinks, setSocialLinks] = useState<BusinessSocialLink[]>([]);
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
-  const [trustHistory, setTrustHistory] = useState<TrustHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareMsg, setShareMsg] = useState('');
@@ -71,15 +70,14 @@ export default function BusinessProfilePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [businessData, serviceData, mediaData, hoursData, branchData, socialData, verData, histData] = await Promise.all([
+        const [businessData, serviceData, mediaData, hoursData, branchData, socialData, verData] = await Promise.all([
           api.businesses.getPublic(id),
           api.services.listForOwner(id, 'business').catch(() => ({ services: [] })),
           api.businesses.getMedia(id).catch(() => ({ assets: [] })),
           api.businesses.getOpeningHours(id).catch(() => ({ hours: [] })),
           api.businesses.getBranches(id).catch(() => ({ branches: [] })),
           api.businesses.getSocialLinks(id).catch(() => ({ links: [] })),
-          api.businesses.getVerificationStatus(id).catch(() => ({ status: null })),
-          api.businesses.getTrustHistory(id).catch(() => ({ history: [] }))
+          api.businesses.getVerificationStatus(id).catch(() => ({ status: null }))
         ]);
         setBusiness(businessData.business);
         setServices(serviceData.services);
@@ -88,7 +86,6 @@ export default function BusinessProfilePage() {
         setBranches(branchData.branches);
         setSocialLinks(socialData.links);
         setVerification(verData.status);
-        setTrustHistory(histData.history);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'تعذر التحميل.');
       } finally {
@@ -170,7 +167,7 @@ export default function BusinessProfilePage() {
         <div style={{ borderRadius: '1rem', overflow: 'hidden', marginBlockEnd: '0', height: '12rem', background: 'var(--border)', position: 'relative' }}>
           {cover
             ? <img src={cover.url} alt="غلاف العمل" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', background: 'var(--accent-light)' }} aria-hidden="true">🏢</div>
+            : <div className="business-cover-placeholder" aria-hidden="true"><span>خدمة</span></div>
           }
           {business.isFeatured && (
             <span style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: '#FFD700', color: '#333', borderRadius: '999px', padding: '0.25rem 0.75rem', fontSize: '0.8rem', fontWeight: 700 }}>
@@ -373,7 +370,7 @@ export default function BusinessProfilePage() {
                       <h3 className="card-title">{service.titleAr}</h3>
                       <PriceType type={service.priceType} />
                     </div>
-                    <p className="card-meta">{service.categoryCode}</p>
+                    <p className="card-meta">{CATEGORY_LABELS[service.categoryCode] ?? 'خدمة محلية'}</p>
                     {service.descriptionAr && (
                       <p style={{ color: 'var(--muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
                         {service.descriptionAr}
@@ -391,25 +388,6 @@ export default function BusinessProfilePage() {
           </section>
         )}
 
-        {/* Trust history */}
-        {trustHistory.length > 0 && (
-          <section aria-label="سجل الثقة" style={{ marginBlockEnd: '1.5rem' }}>
-            <div className="section-card">
-              <h2>سجل الثقة</h2>
-              <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
-                {trustHistory.map((entry) => (
-                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.875rem' }}>
-                    <span>
-                      {entry.oldStatus ? `${entry.oldStatus} → ` : ''}{entry.newStatus}
-                      {entry.reason && <span style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>· {entry.reason}</span>}
-                    </span>
-                    <span style={{ color: 'var(--muted)' }}>{new Date(entry.createdAt).toLocaleDateString('ar-SY')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </main>
   );

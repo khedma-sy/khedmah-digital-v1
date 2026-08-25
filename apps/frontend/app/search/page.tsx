@@ -148,7 +148,7 @@ function SearchContent() {
     <main id="foundation-content" className="page-shell">
       <div className="page-content">
         <header style={{ marginBlockEnd: '1.5rem' }}>
-          <p className="eyebrow">خدمة ديجتل</p>
+          <p className="eyebrow">خدمة</p>
           <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)', margin: '0 0 0.5rem' }}>ماذا تبحث عنه؟</h1>
           <p style={{ color: 'var(--muted)', fontSize: '1rem', margin: 0 }}>ابحث عن خدمة أو عمل موثوق بجانبك</p>
         </header>

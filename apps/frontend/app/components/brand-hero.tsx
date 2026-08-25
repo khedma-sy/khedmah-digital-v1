@@ -5,7 +5,7 @@ export function BrandHero() {
   return (
     <section className="live-hero" aria-labelledby="live-hero-title">
       <div className="live-hero-content">
-        <span className="sr-only">KHEDMA DIGITAL — كل الخدمات تحت مظلة واحدة</span>
+        <span className="sr-only">خدمة — كل الخدمات تحت مظلة واحدة</span>
         <div className="hero-brand-lockup"><span className="hero-brand-k">KD</span><span><b>KHEDMA</b><small>DIGITAL</small></span></div>
         <p className="live-kicker"><span /> مساحة رقمية للأعمال والمهنيين والخدمات</p>
         <h1 id="live-hero-title" className="hero-reveal">ابحث. تواصل.<br/><em>وانمُ مع خدمة.</em></h1>

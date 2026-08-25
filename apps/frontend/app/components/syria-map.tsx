@@ -14,7 +14,7 @@ export function SyriaMap() {
     <div className="syria-map" aria-label="خريطة المحافظات السورية">
       <div className="map-orbit map-orbit-one" /><div className="map-orbit map-orbit-two" />
       <div className="umbrella-canopy" aria-hidden="true"><span className="canopy-spire" /><i /><i /><i /><i /><i /></div>
-      <div className="umbrella-services" aria-label="قطاعات مظلة خدمة ديجتل">
+      <div className="umbrella-services" aria-label="قطاعات مظلة خدمة">
         {umbrellaServices.map(([icon, label]) => <span key={label}><b>{icon}</b><small>{label}</small></span>)}
       </div>
       <div className="umbrella-pole" aria-hidden="true" />

@@ -17,7 +17,7 @@ export function ShareAction({ title, text, className = 'experience-action experi
 
   return (
     <span className="share-action-wrap">
-      <button type="button" className={className} onClick={() => void share()}>أنا مع خدمة · مشاركة</button>
+      <button type="button" className={className} onClick={() => void share()}>خدمة · مشاركة</button>
       {status ? <span role="status" className="share-action-status">{status}</span> : null}
     </span>
   );

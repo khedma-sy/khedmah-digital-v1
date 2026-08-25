@@ -32,12 +32,12 @@ export default function WelcomePage() {
   return (
     <main id="foundation-content" className="map-welcome">
       <section className="map-phone">
-        <div className="syria-map-welcome" aria-label="شبكة خدمة ديجتل في المحافظات السورية">
+        <div className="syria-map-welcome" aria-label="شبكة خدمة في المحافظات السورية">
           <svg viewBox="0 0 100 105" role="img"><path d="M9 25 28 13l18 5 10-9 32 12-7 17 9 15-14 12-5 23-22-1-12 12-18-11 2-15L8 78l8-15L4 48Z"/></svg>
           {cities.map(([name,x,y]) => <span key={name as string} style={{left:`${x}%`,top:`${y}%`}}>{name}</span>)}
         </div>
         <div className="map-brand">
-          <p>مرحباً بك في خدمة ديجتل، {user.profile.displayName}</p>
+          <p>مرحباً بك في خدمة، {user.profile.displayName}</p>
           <h1>أنا مع<br/><strong>خدمة</strong></h1>
           <small>أصبحت ضمن شبكة سوريا. لن ننشر اسمك أو موقعك دون موافقتك.</small>
         </div>

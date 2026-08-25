@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { IdentityRepository } from './identity.repository';
@@ -56,7 +56,11 @@ test('login fails closed while email verification is pending and succeeds after 
 
   await assert.rejects(
     () => service.login({ email: 'owner@example.com', password: 'very-secure-password' }),
-    UnauthorizedException
+    (error: unknown) => {
+      assert.ok(error instanceof ForbiddenException);
+      assert.equal((error.getResponse() as { code?: string }).code, 'EMAIL_VERIFICATION_REQUIRED');
+      return true;
+    }
   );
 
   await activate(pool, registration.user.id);

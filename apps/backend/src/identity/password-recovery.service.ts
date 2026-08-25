@@ -3,6 +3,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { IdentityRepository } from './identity.repository';
 import { createEmailProvider, EmailProvider } from './email/email-provider';
+import { renderKhedmahEmail } from './email/khedmah-email-template';
 import { hashPassword } from './security/password-security';
 
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -67,7 +68,15 @@ export class PasswordRecoveryService {
         resetUrl,
         '',
         'إذا لم تطلب هذا الإجراء فتجاهل الرسالة.'
-      ].join('\n')
+      ].join('\n'),
+      htmlBody: renderKhedmahEmail({
+        preheader: 'استخدم الرابط الآمن لإعادة تعيين كلمة مرور حسابك في خدمة.',
+        title: 'إعادة تعيين كلمة المرور',
+        message: 'تلقينا طلباً لإعادة تعيين كلمة مرور حسابك. اضغط الزر التالي لاختيار كلمة مرور جديدة.',
+        actionLabel: 'تعيين كلمة مرور جديدة',
+        actionUrl: resetUrl,
+        footnote: 'هذا الرابط صالح لمدة ساعة واحدة. إذا لم تطلب هذا الإجراء، تجاهل الرسالة ولن تتغير كلمة مرورك.'
+      })
     });
   }
 

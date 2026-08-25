@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('browser identity calls use the same-origin API proxy', async () => {
+  const [apiClient, identityApi, nextConfig] = await Promise.all([
+    read('apps/frontend/lib/api-client.ts'),
+    read('apps/frontend/lib/identity-api.ts'),
+    read('apps/frontend/next.config.ts')
+  ]);
+
+  assert.match(apiClient, /const API_BASE = ''/);
+  assert.match(identityApi, /const API_BASE = ''/);
+  assert.match(nextConfig, /source: '\/api\/v1\/:path\*'/);
+  assert.match(nextConfig, /destination: `\$\{backendOrigin\}\/api\/v1\/:path\*`/);
+});
+
+test('pending accounts receive an actionable verification response', async () => {
+  const [errors, service, login] = await Promise.all([
+    read('apps/backend/src/identity/identity.errors.ts'),
+    read('apps/backend/src/identity/identity.service.ts'),
+    read('apps/frontend/app/auth/login/page.tsx')
+  ]);
+
+  assert.match(errors, /EMAIL_VERIFICATION_REQUIRED/);
+  assert.match(service, /account\.status === 'pending'/);
+  assert.match(login, /إعادة إرسال رابط التحقق/);
+  assert.match(login, /verificationEmail/);
+});
+
+test('verification and password recovery mail include branded clickable HTML', async () => {
+  const [provider, verification, recovery, template] = await Promise.all([
+    read('apps/backend/src/identity/email/email-provider.ts'),
+    read('apps/backend/src/identity/email/email-verification.service.ts'),
+    read('apps/backend/src/identity/password-recovery.service.ts'),
+    read('apps/backend/src/identity/email/khedmah-email-template.ts')
+  ]);
+
+  assert.match(provider, /htmlBody\?: string/);
+  assert.match(provider, /html: message\.htmlBody/);
+  assert.match(verification, /htmlBody: renderKhedmahEmail/);
+  assert.match(recovery, /htmlBody: renderKhedmahEmail/);
+  assert.match(template, /href="\$\{actionUrl\}"/);
+  assert.match(verification, /actionLabel: 'تأكيد البريد الإلكتروني'/);
+});
+
+test('login uses real vector provider marks and approved umbrella pattern', async () => {
+  const [login, icons, styles] = await Promise.all([
+    read('apps/frontend/app/auth/login/page.tsx'),
+    read('apps/frontend/app/auth/social-provider-icon.tsx'),
+    read('apps/frontend/app/brand-system.css')
+  ]);
+
+  assert.match(login, /SocialProviderIcon provider="google"/);
+  assert.match(login, /SocialProviderIcon provider="facebook"/);
+  assert.match(icons, /fill="#4285f4"/);
+  assert.match(icons, /fill="#1877f2"/);
+  assert.match(styles, /umbrella-pattern\.svg/);
+});
+
+test('public UI uses Khedmah only and profile fields remain readable', async () => {
+  const [layout, profile, styles] = await Promise.all([
+    read('apps/frontend/app/layout.tsx'),
+    read('apps/frontend/app/users/me/page.tsx'),
+    read('apps/frontend/app/brand-system.css')
+  ]);
+
+  assert.match(layout, /const SITE_NAME = 'خدمة'/);
+  assert.doesNotMatch(layout, /خدمة ديجتل|Khedmah Digital V1/);
+  assert.doesNotMatch(profile, /خدمة ديجتل|Khedmah Digital V1|أنا مع خدمة/);
+  assert.match(styles, /\.identity-card h1,\.identity-card h2,\.identity-card label/);
+  assert.match(styles, /\.identity-card input,\.identity-card select/);
+});
+
+test('retired locations directory redirects to the real map experience', async () => {
+  const [navigation, locations, organizations] = await Promise.all([
+    read('apps/frontend/app/auth-navigation.tsx'),
+    read('apps/frontend/app/locations/page.tsx'),
+    read('apps/frontend/app/organizations/page.tsx')
+  ]);
+
+  assert.match(navigation, /href="\/map"[^>]*>الخريطة/);
+  assert.doesNotMatch(navigation, />المواقع</);
+  assert.match(locations, /redirect\('\/map'\)/);
+  assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
+  assert.match(organizations, /href="\/map">الخريطة/);
+});
+
+test('service catalog no longer renders the legacy phone navigation', async () => {
+  const catalog = await read('apps/frontend/app/service-catalog/page.tsx');
+  assert.doesNotMatch(catalog, /catalog-bottom/);
+  assert.match(catalog, /catalog-category-grid/);
+  assert.match(catalog, /فتح الخريطة/);
+});
+
+test('public provider profile hides internal audit history and technical categories', async () => {
+  const profile = await read('apps/frontend/app/business-profiles/[id]/page.tsx');
+  assert.doesNotMatch(profile, /getTrustHistory|سجل الثقة/);
+  assert.match(profile, /خدمة محلية/);
+  assert.match(profile, /business-cover-placeholder/);
+});

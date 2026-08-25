@@ -68,6 +68,19 @@ export default function ServiceCatalogPage() {
         <p className="catalog-intro">اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة.</p>
         {categoriesError ? <p className="form-error" role="status">{categoriesError}</p> : null}
 
+        {!activeCategory && categories.length > 0 ? (
+          <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
+            {categories.map((category) => (
+              <button key={category.code} type="button" onClick={() => selectCategory(category.code)}>
+                <span className="catalog-category-icon"><PlatformIcon name="tools" /></span>
+                <strong>{category.nameAr}</strong>
+                <small>استعرض مقدمي الخدمة</small>
+                <PlatformIcon name="arrow" />
+              </button>
+            ))}
+          </section>
+        ) : null}
+
         {error ? <div className="catalog-state" role="alert"><p>{error}</p><button type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</button></div> : null}
         {isLoading ? <div className="catalog-results" aria-busy="true" aria-label="جاري تحميل الخدمات">{Array.from({ length: 4 }, (_, index) => <div className="catalog-skeleton" key={index} />)}</div> : null}
 
@@ -83,9 +96,18 @@ export default function ServiceCatalogPage() {
           </section>
         ) : null}
 
-        {!isLoading && !error && services.length === 0 ? <div className="catalog-state"><PlatformIcon name="search" size={30} /><h2>لا توجد خدمات متاحة حالياً</h2><p>جرّب تصنيفاً آخر أو ارجع لاحقاً.</p><button type="button" onClick={() => selectCategory('')}>عرض كل الخدمات</button></div> : null}
-
-        <nav className="catalog-bottom" aria-label="التنقل الرئيسي"><Link href="/users/me"><PlatformIcon name="user"/><span>حسابي</span></Link><Link href="/"><PlatformIcon name="home"/><span>الرئيسية</span></Link><Link href="/service-catalog" aria-current="page"><PlatformIcon name="grid"/><span>الدليل</span></Link></nav>
+        {!isLoading && !error && services.length === 0 && activeCategory ? (
+          <div className="catalog-state">
+            <PlatformIcon name="search" size={30} />
+            <h2>لا توجد نتائج في هذا التصنيف بعد</h2>
+            <p>اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء.</p>
+            <div className="catalog-state-actions">
+              <button type="button" onClick={() => selectCategory('')}>تغيير التصنيف</button>
+              <Link href="/map">فتح الخريطة</Link>
+              <Link href="/business-profiles/new">إضافة نشاط</Link>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );

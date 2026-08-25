@@ -2,15 +2,15 @@ import type { Metadata } from 'next';
 import { CompanyShowcase, CompanyShowcaseData } from '../../components/company-showcase';
 
 export const metadata: Metadata = {
-  title: 'خدمة ديجتل — الشركة المؤسسة',
-  description: 'الملف الرسمي للشركة المؤسسة لمنصة خدمة ديجتل، المظلة الرقمية للأعمال والمهنيين ومقدمي الخدمات.'
+  title: 'خدمة — المنصة الرسمية',
+  description: 'الملف الرسمي لمنصة خدمة، المظلة الرقمية للأعمال والمهنيين ومقدمي الخدمات.'
 };
 
 const KHEDMAH_DIGITAL: CompanyShowcaseData = {
-  nameAr: 'خدمة ديجتل',
-  nameEn: 'KHEDMA DIGITAL',
-  founderLabel: 'الشركة المؤسسة لمنصة خدمة ديجتل',
-  description: 'خدمة ديجتل منصة رقمية تجمع الأعمال والمهنيين ومقدمي الخدمات تحت مظلة واحدة.',
+  nameAr: 'خدمة',
+  nameEn: '',
+  founderLabel: 'المنصة الرسمية لخدمة',
+  description: 'خدمة منصة رقمية تجمع الأعمال والمهنيين ومقدمي الخدمات تحت مظلة واحدة.',
   location: 'سوريا · منصة رقمية',
   services: [
     {

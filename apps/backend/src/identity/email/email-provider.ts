@@ -2,6 +2,7 @@ export interface EmailMessage {
   readonly to: string;
   readonly subject: string;
   readonly textBody: string;
+  readonly htmlBody?: string;
 }
 
 export interface EmailProvider {
@@ -34,7 +35,8 @@ export class ResendEmailProvider implements EmailProvider {
       from: this.from,
       to: [message.to],
       subject: message.subject,
-      text: message.textBody
+      text: message.textBody,
+      html: message.htmlBody
     });
 
     const response = await fetch("https://api.resend.com/emails", {
