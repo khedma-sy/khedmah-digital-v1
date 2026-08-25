@@ -11,7 +11,7 @@ test('production operator is a gated manual deployment workflow', () => {
 test('production deployer can consume enabled Google APIs', () => {
   for (const file of ['infra/iac/main.tf', 'infra/iac/bootstrap/main.tf']) {
     const terraform = readFileSync(file, 'utf8');
-    assert.match(terraform, /roles\\/serviceusage\\.serviceUsageConsumer/);
+    assert.match(terraform, /roles\/serviceusage\.serviceUsageConsumer/);
   }
 });
 
