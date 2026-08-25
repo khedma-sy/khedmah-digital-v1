@@ -31,7 +31,7 @@ export default function Home() {
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
         <p className={styles.lead}>ابحث حسب الفئة والموقع، اطّلع على ملفات الأعمال ومقدمي الخدمات، ثم تواصل مباشرة دون وسطاء.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
-        <div className={styles.actions}><Link href="/service-catalog">اكتشف الخدمات</Link><Link href="/business-profiles/new">أضف نشاطك</Link></div>
+        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link></div>
       </div>
       <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أفراد وأصحاب أعمال يستخدمون منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة للجميع</b><small>للأفراد وأصحاب الأعمال</small></span></div></div>
     </section>
