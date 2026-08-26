@@ -3,255 +3,104 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, MediaAsset, PublicProfessionalProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
+import { api, type MediaAsset, type PublicProfessionalProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
 import { ProviderReportForm } from '../../../components/provider-report-form';
+import { ActionButton, ActionLink, EmptyState, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
+import { PlatformIcon } from '../../components/platform-icon';
+import styles from './professional-profile.module.css';
 
+const availabilityLabel = (value: PublicProfessionalProfile['availability']) => value === 'available' ? 'متاح للعمل' : value === 'busy' ? 'مشغول حالياً' : 'غير متاح حالياً';
+const priceTypeLabel = (value: string) => value === 'fixed' ? 'سعر ثابت' : value === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
 
-
-export default function ProfessionalProfileDetailPage() {
+export default function ProfessionalProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { cities } = useSyrianCities();
+  const { categories } = useCategories();
   const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
-  const [trustHistory, setTrustHistory] = useState<TrustHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
 
   useEffect(() => {
+    let active = true;
     async function load() {
+      setIsLoading(true); setError('');
       try {
-        const [profileData, serviceData, mediaData, verData, histData] = await Promise.all([
-          api.professionals.getProfile(id),
-          api.services.listForOwner(id, 'professional').catch(() => ({ services: [] })),
-          api.professionals.getMedia(id).catch(() => ({ assets: [] })),
-          api.professionals.getVerificationStatus(id).catch(() => ({ status: null })),
-          api.professionals.getTrustHistory(id).catch(() => ({ history: [] }))
+        const [profileData, serviceData, mediaData, verificationData] = await Promise.all([
+          api.professionals.getProfile(id), api.services.listForOwner(id, 'professional').catch(() => ({ services: [] })),
+          api.professionals.getMedia(id).catch(() => ({ assets: [] })), api.professionals.getVerificationStatus(id).catch(() => ({ status: null }))
         ]);
-        setProfile(profileData.professional);
-        setServices(serviceData.services);
-        setMedia(mediaData.assets);
-        setVerification(verData.status);
-        setTrustHistory(histData.history);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'تعذر التحميل.');
-      } finally {
-        setIsLoading(false);
-      }
+        if (!active) return;
+        setProfile(profileData.professional); setServices(serviceData.services); setMedia(mediaData.assets); setVerification(verificationData.status);
+      } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل الملف المهني.'); }
+      finally { if (active) setIsLoading(false); }
     }
-
-    void load();
+    void load(); return () => { active = false; };
   }, [id]);
 
-  if (isLoading) {
-    return (
-      <main id="foundation-content" className="page-shell">
-        <div className="page-content">
-          <div className="skeleton" style={{ height: '14rem', borderRadius: '1rem', marginBlockEnd: '1.5rem' }} />
-          <div className="skeleton skeleton-heading" />
-          <div className="skeleton skeleton-text" style={{ width: '50%' }} />
-        </div>
-      </main>
-    );
+  async function share() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: profile?.headlineAr ?? 'خدمة', url });
+      else { await navigator.clipboard.writeText(url); setShareMessage('تم نسخ الرابط'); setTimeout(() => setShareMessage(''), 2000); }
+    } catch { setShareMessage('تعذرت المشاركة'); setTimeout(() => setShareMessage(''), 2000); }
   }
 
-  if (error || !profile) {
-    return (
-      <main id="foundation-content" className="page-shell">
-        <div className="page-content">
-          <div className="empty-state">
-            <span className="empty-state-icon" aria-hidden="true">⚠️</span>
-            <h2>تعذر التحميل</h2>
-            <p>{error || 'لم يتم العثور على الملف المهني.'}</p>
-            <Link href="/professional-profiles/search" className="filter-action" style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.5rem' }}>
-              البحث عن مهنيين
-            </Link>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  if (isLoading) return <PageShell className={styles.page} label="جاري تحميل الملف المهني"><SkeletonGrid count={5} label="جاري تحميل معلومات مقدم الخدمة" /></PageShell>;
+  if (error || !profile) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح الملف المهني" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<ActionLink href="/professional-profiles/search">العودة إلى البحث</ActionLink>} /></PageShell>;
 
+  const portrait = media.find((asset) => asset.assetType === 'profile_image');
+  const cover = media.find((asset) => asset.assetType === 'cover');
+  const gallery = media.filter((asset) => asset.assetType === 'gallery');
+  const activeServices = services.filter((service) => service.status === 'active');
   const localizedCity = cityLabel(profile.cityCode, cities);
-  const activeServices = services.filter((s) => s.status === 'active');
-  const profileImage = media.find((a) => a.assetType === 'profile_image');
-  const gallery = media.filter((a) => a.assetType === 'gallery');
+  const eligible = profile.contactEligibility?.eligible === true;
 
-  return (
-    <main id="foundation-content" className="page-shell" aria-label="الملف المهني">
-      <div className="page-content">
-        {/* Header card */}
-        <div className="profile-header-card" style={{ position: 'relative', paddingTop: 0, overflow: 'hidden' }}>
-          {/* Cover */}
-          <div className="profile-cover" style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)' }}>
-            <div className="profile-cover-placeholder" aria-hidden="true">👤</div>
-          </div>
+  return <PageShell className={styles.page} label={`ملف ${profile.headlineAr}`}>
+    <div className={styles.stack}>
+      <div className={styles.cover}>
+        {cover ? <img src={cover.url} alt={`غلاف ${profile.headlineAr}`} /> : <div className={styles.coverFallback} aria-hidden="true"><span>خدمة</span><small>خبرات موثوقة تحت مظلة واحدة</small></div>}
+        {profile.isFeatured && <span className={styles.featured}>مهني مميز</span>}
+      </div>
 
-          <div style={{ position: 'relative', paddingTop: '3.5rem', paddingRight: '1.5rem' }}>
-            <div
-              className="profile-avatar"
-              aria-hidden={!!profileImage}
-              style={{ position: 'absolute', top: '-2.5rem', right: '1.5rem', fontSize: '1.75rem', background: '#e0f2fe', color: '#0369a1', overflow: 'hidden' }}
-            >
-              {profileImage
-                ? <img src={profileImage.url} alt="صورة الملف المهني" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : profile.headlineAr.charAt(0)
-              }
-            </div>
-          </div>
+      <Surface as="section" className={styles.identity}>
+        <div className={styles.portrait}>{portrait ? <img src={portrait.url} alt={`صورة ${profile.headlineAr}`} /> : <span aria-hidden="true">{profile.headlineAr.charAt(0)}</span>}</div>
+        <div className={styles.heading}>
+          <div><p className={styles.eyebrow}>مقدم خدمة محترف</p><h1>{profile.headlineAr}</h1>{profile.headlineEn && <p className={styles.english}>{profile.headlineEn}</p>}<p className={styles.meta}><PlatformIcon name="pin" size={16}/><span>{localizedCity}</span><span>·</span><span>{profile.countryCode.toUpperCase()}</span></p></div>
+          <div className={styles.badges}><span className={`${styles.badge} ${profile.availability === 'available' ? styles.available : styles.badgeMuted}`}>{availabilityLabel(profile.availability)}</span>{verification?.status === 'approved' && <span className={styles.badge}><PlatformIcon name="check" size={15}/> موثّق</span>}</div>
+        </div>
+        <div className={styles.actions}>
+          {eligible && <ContactInquiryForm target={{ type: 'professional', id: profile.id }} providerName={profile.headlineAr} />}
+          <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={() => void share()}><PlatformIcon name="arrow" size={17}/> مشاركة</ActionButton>
+          {eligible && <ProviderReportForm target={{ type: 'professional', id: profile.id }} providerName={profile.headlineAr} />}
+          {shareMessage && <span className={styles.shareStatus} role="status">{shareMessage}</span>}
+        </div>
+      </Surface>
 
-          <div style={{ padding: '0 1.5rem 1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <div>
-                <h1 style={{ margin: '0 0 0.4rem', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)' }}>{profile.headlineAr}</h1>
-                {profile.headlineEn && (
-                  <p style={{ margin: '0 0 0.35rem', color: 'var(--muted)', direction: 'ltr', fontSize: '0.9375rem' }}>
-                    {profile.headlineEn}
-                  </p>
-                )}
-                <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-                  📍 {localizedCity} · {profile.countryCode.toUpperCase()}
-                </p>
-              </div>
-            </div>
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
-              {profile.contactEligibility?.eligible && (
-                <ContactInquiryForm
-                  target={{ type: 'professional', id: profile.id }}
-                  providerName={profile.headlineAr}
-                />
-              )}
-              {profile.contactEligibility?.eligible && (
-                <ProviderReportForm
-                  target={{ type: 'professional', id: profile.id }}
-                  providerName={profile.headlineAr}
-                />
-              )}
-              <button type="button" onClick={() => router.back()} className="filter-action-secondary">
-                ← رجوع
-              </button>
-              <Link href="/professional-profiles/search" className="filter-action-secondary" style={{ textDecoration: 'none' }}>
-                تصفح المهنيين
-              </Link>
-            </div>
-          </div>
+      <div className={styles.content}>
+        <div className={styles.main}>
+          {(profile.bioAr || profile.bioEn) && <Surface className={styles.section}><h2>نبذة مهنية</h2>{profile.bioAr && <p>{profile.bioAr}</p>}{profile.bioEn && <p className={styles.english}>{profile.bioEn}</p>}</Surface>}
+          {profile.skills.length > 0 && <Surface className={styles.section}><h2>المهارات والتخصصات</h2><div className={styles.skills}>{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></Surface>}
+          <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات المقدمة</h2><span>{activeServices.length}</span></div>{activeServices.length > 0 ? <div className={styles.serviceGrid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceTypeLabel(service.priceType)}</span></div><p className={styles.category}>{categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة مهنية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div> : <EmptyState icon={<PlatformIcon name="briefcase" size={28}/>} title="لم تُضف خدمات بعد" description="يمكنك استكشاف مهنيين آخرين أو العودة إلى نتائج البحث." actions={<ActionLink href="/professional-profiles/search">استكشف المهنيين</ActionLink>} />}</Surface>
+          {gallery.length > 0 && <Surface className={styles.section}><div className={styles.sectionHeading}><h2>معرض الأعمال</h2><span>{gallery.length}</span></div><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`عمل من معرض ${profile.headlineAr}`} loading="lazy" />)}</div></Surface>}
         </div>
 
-        {/* Verification status */}
-        {verification && (
-          <div style={{ background: verification.status === 'approved' ? 'var(--accent-light)' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem 1.25rem', marginBlockEnd: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>
-              {verification.status === 'approved' ? '✅' : verification.status === 'rejected' ? '❌' : '⏳'}
-            </span>
-            <div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9375rem' }}>
-                {verification.status === 'approved' ? 'الملف موثّق' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}
-              </p>
-              {verification.notes && <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>{verification.notes}</p>}
-            </div>
-          </div>
-        )}
-
-        {/* Bio */}
-        {(profile.bioAr || profile.bioEn) && (
-          <div className="section-card">
-            <h2>النبذة التعريفية</h2>
-            {profile.bioAr && <p style={{ lineHeight: 1.8 }}>{profile.bioAr}</p>}
-            {profile.bioEn && (
-              <p style={{ color: 'var(--muted)', direction: 'ltr', marginTop: '0.75rem', lineHeight: 1.7, fontSize: '0.9rem' }}>
-                {profile.bioEn}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Skills */}
-        {profile.skills.length > 0 && (
-          <div className="section-card">
-            <h2>المهارات والتخصصات</h2>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {profile.skills.map((skill) => (
-                <span key={skill} className="skill-tag">{skill}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Gallery */}
-        {gallery.length > 0 && (
-          <section aria-label="معرض الصور" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2 style={{ marginBlockEnd: '1rem' }}>الصور ({gallery.length})</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.75rem' }}>
-              {gallery.map((img) => (
-                <img
-                  key={img.id}
-                  src={img.url}
-                  alt="صورة من المعرض"
-                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid var(--border)' }}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Services */}
-        {activeServices.length > 0 && (
-          <section aria-label="الخدمات">
-            <div className="section-header">
-              <h2>الخدمات ({activeServices.length})</h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
-              {activeServices.map((service) => (
-                <article className="card" key={service.id}>
-                  <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                      <h3 className="card-title">{service.titleAr}</h3>
-                    </div>
-                    {service.descriptionAr && (
-                      <p style={{ color: 'var(--muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
-                        {service.descriptionAr}
-                      </p>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {services.length === 0 && (
-          <div className="empty-state" style={{ padding: '2rem', background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)' }}>
-            <span className="empty-state-icon" aria-hidden="true">📋</span>
-            <h2>لا توجد خدمات</h2>
-            <p>لم يُضف هذا المهني خدمات بعد.</p>
-          </div>
-        )}
-
-        {/* Trust history */}
-        {trustHistory.length > 0 && (
-          <section aria-label="سجل الثقة" style={{ marginBlockEnd: '1.5rem' }}>
-            <div className="section-card">
-              <h2>سجل الثقة</h2>
-              <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
-                {trustHistory.map((entry) => (
-                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.875rem' }}>
-                    <span>
-                      {entry.oldStatus ? `${entry.oldStatus} → ` : ''}{entry.newStatus}
-                      {entry.reason && <span style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>· {entry.reason}</span>}
-                    </span>
-                    <span style={{ color: 'var(--muted)' }}>{new Date(entry.createdAt).toLocaleDateString('ar-SY')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+        <aside className={styles.aside} aria-label="ملخص الملف المهني">
+          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
+          <Surface className={styles.safety}><span><PlatformIcon name="lock" size={22}/></span><div><h2>تواصل آمن وواضح</h2><p>راجع تفاصيل الخدمة واتفق مباشرة مع مقدمها. لا توفر «خدمة» دفعاً أو دردشة فورية في الإصدار الحالي.</p></div></Surface>
+          <Surface className={styles.discover}><h2>تبحث عن تخصص آخر؟</h2><p>قارن بين الملفات المنشورة حسب المهارة والمدينة.</p><Link href="/professional-profiles/search">تصفح جميع المهنيين</Link></Surface>
+        </aside>
       </div>
-    </main>
-  );
+    </div>
+  </PageShell>;
 }
