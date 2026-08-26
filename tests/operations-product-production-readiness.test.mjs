@@ -47,16 +47,26 @@ test('live certification execution refuses an unapproved environment', () => {
 
 test('live evidence collection refuses missing tooling without changing its parent permissions', async (t) => {
   const sandbox = await mkdtemp(join(tmpdir(), 'khedmah-live-evidence-test-'));
+  const bin = join(sandbox, 'bin');
   const output = join(sandbox, 'evidence');
+  await mkdir(bin);
+  for (const [name, target] of [
+    ['mkdir', '/usr/bin/mkdir'],
+    ['chmod', '/usr/bin/chmod'],
+  ]) {
+    const wrapper = join(bin, name);
+    await writeFile(wrapper, `#!/bin/bash\nexec ${target} "$@"\n`);
+    await chmod(wrapper, 0o700);
+  }
   await chmod(sandbox, 0o755);
   t.after(() => rm(sandbox, { recursive: true, force: true }));
 
   let stderr = '';
   assert.throws(() => {
     try {
-      execFileSync('bash', ['scripts/collect-live-production-evidence.sh', output], {
+      execFileSync('/bin/bash', ['scripts/collect-live-production-evidence.sh', output], {
         encoding: 'utf8',
-        env: { PATH: '/usr/bin:/bin' },
+        env: { PATH: bin },
       });
     } catch (error) {
       stderr = String(error.stderr ?? '');
