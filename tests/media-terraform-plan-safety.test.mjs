@@ -24,6 +24,7 @@ const runPlanWithMocks = async (t, overrides = {}) => {
   const sandbox = await mkdtemp(join(tmpdir(), 'khedmah-media-plan-test-'));
   const bin = join(sandbox, 'bin');
   const planMarker = join(sandbox, 'plan-called');
+  const publishedPlan = join(sandbox, 'approved-media.tfplan');
   const legacyReadCount = join(sandbox, 'legacy-read-count');
   await mkdir(bin);
   t.after(() => rm(sandbox, { recursive: true, force: true }));
@@ -35,19 +36,6 @@ if [[ "$1 $2 $3" == "storage buckets describe" && "$4" == "gs://state-bucket" ]]
   printf '%s\\n' '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}'
 elif [[ "$1 $2 $3" == "iam service-accounts describe" ]]; then
   printf '%s\\n' "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
-elif [[ "$1 $2" == "storage cat" && "$3" == "gs://state-bucket/khedmah/production/root/default.tfstate" ]]; then
-  [[ "$MOCK_LEGACY_STATE_STATUS" == "success" ]] || exit 8
-  count=0
-  if [[ -f "$MOCK_LEGACY_READ_COUNT" ]]; then
-    count="$(/usr/bin/cat "$MOCK_LEGACY_READ_COUNT")"
-  fi
-  count=$((count + 1))
-  printf '%s' "$count" > "$MOCK_LEGACY_READ_COUNT"
-  if (( count > 1 )); then
-    printf '%s' "$MOCK_LEGACY_STATE_JSON_AFTER"
-  else
-    printf '%s' "$MOCK_LEGACY_STATE_JSON"
-  fi
 elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
   [[ "$MOCK_BUCKET_LIST_STATUS" == "success" ]] || exit 9
   printf '%s' "$MOCK_EXISTING_BUCKETS"
@@ -83,6 +71,28 @@ fi
 `,
     terraform: `#!/usr/bin/env bash
 set -eu
+if [[ "$1" == "-chdir=infra/iac" ]]; then
+  case "$2" in
+    init) exit 0 ;;
+    state)
+      [[ "$3" == "pull" ]]
+      [[ "$MOCK_LEGACY_STATE_STATUS" == "success" ]] || exit 8
+      count=0
+      if [[ -f "$MOCK_LEGACY_READ_COUNT" ]]; then
+        count="$(/usr/bin/cat "$MOCK_LEGACY_READ_COUNT")"
+      fi
+      count=$((count + 1))
+      printf '%s' "$count" > "$MOCK_LEGACY_READ_COUNT"
+      if (( count > 1 )); then
+        printf '%s' "$MOCK_LEGACY_STATE_JSON_AFTER"
+      else
+        printf '%s' "$MOCK_LEGACY_STATE_JSON"
+      fi
+      ;;
+    *) exit 2 ;;
+  esac
+  exit 0
+fi
 case "$2" in
   init|validate) exit 0 ;;
   state)
@@ -90,7 +100,14 @@ case "$2" in
     printf '%s' "$MOCK_STATE_RESOURCES"
     ;;
   show) printf '%s\\n' '{}' ;;
-  plan) : > "$MOCK_PLAN_MARKER" ;;
+  plan)
+    for argument in "$@"; do
+      if [[ "$argument" == -out=* ]]; then
+        printf '%s' 'mock plan' > "\${argument#-out=}"
+      fi
+    done
+    : > "$MOCK_PLAN_MARKER"
+    ;;
   *) exit 2 ;;
 esac
 `,
@@ -110,6 +127,7 @@ esac
       GOOGLE_CLOUD_PROJECT: 'khedmah-test-project',
       GOOGLE_CLOUD_REGION: 'europe-west1',
       TF_STATE_BUCKET: 'state-bucket',
+      TF_PLAN_FILE: publishedPlan,
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT:
         'runtime@khedmah-test-project.iam.gserviceaccount.com',
@@ -139,13 +157,15 @@ esac
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  return { ...result, planMarker };
+  return { ...result, planMarker, publishedPlan };
 };
 
 test('media infrastructure is isolated from the legacy root Terraform state', async () => {
   const root = await read('../infra/iac/main.tf');
+  const rootVersions = await read('../infra/iac/versions.tf');
   const media = await read('../infra/iac/media/main.tf');
   assert.doesNotMatch(root, /google_storage_bucket" "media/);
+  assert.match(rootVersions, /backend "gcs"/);
   assert.match(media, /google_storage_bucket" "media/);
 });
 
@@ -169,10 +189,13 @@ test('media plan requires protected remote state and performs no apply', async (
   assert.match(script, /LEGACY_ROOT_STATE_LINEAGE_MISMATCH/);
   assert.match(script, /LEGACY_ROOT_STATE_SERIAL_MISMATCH/);
   assert.match(script, /LEGACY_ROOT_STATE_CHANGED_DURING_PLAN/);
-  assert.match(script, /gs:\/\/\$\{STATE_BUCKET\}\/khedmah\/production\/root\/default\.tfstate/);
+  assert.match(script, /terraform -chdir=infra\/iac init/);
+  assert.match(script, /backend-config="prefix=\$\{EXPECTED_LEGACY_ROOT_STATE_PREFIX\}"/);
+  assert.match(script, /terraform -chdir=infra\/iac state pull/);
   assert.match(script, /UNEXPECTED_MEDIA_STATE_RESOURCES/);
   assert.match(script, /UNEXPECTED_MEDIA_PLAN_RESOURCES/);
   assert.match(script, /DESTRUCTIVE_MEDIA_PLAN_CHANGES/);
+  assert.match(script, /pending_plan_file/);
   assert.match(script, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT/);
   assert.doesNotMatch(script, /terraform -chdir=infra\/iac\/media apply/);
 });
@@ -203,6 +226,7 @@ test('media plan proceeds only after every state ownership check succeeds', asyn
   assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   assert.match(result.stdout, /NO_TERRAFORM_APPLY/);
   await readFile(result.planMarker);
+  await readFile(result.publishedPlan);
 });
 
 test('media plan stops when state tracks a different bucket name', async (t) => {
@@ -283,6 +307,7 @@ test('media plan rejects a legacy root state change during planning', async (t) 
   assert.match(result.stderr, /NO_APPROVED_TERRAFORM_PLAN/);
   assert.doesNotMatch(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   await readFile(result.planMarker);
+  await assert.rejects(readFile(result.publishedPlan));
 });
 
 test('media plan rejects a stale legacy root state serial', async (t) => {
@@ -354,6 +379,7 @@ test('media plan rejects resources outside the saved plan allowlist', async (t) 
   assert.match(result.stderr, /NO_APPROVED_TERRAFORM_PLAN/);
   assert.doesNotMatch(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   await readFile(result.planMarker);
+  await assert.rejects(readFile(result.publishedPlan));
 });
 
 test('media plan rejects destructive actions in the saved plan', async (t) => {
@@ -366,6 +392,7 @@ test('media plan rejects destructive actions in the saved plan', async (t) => {
   assert.match(result.stderr, /NO_APPROVED_TERRAFORM_PLAN/);
   assert.doesNotMatch(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   await readFile(result.planMarker);
+  await assert.rejects(readFile(result.publishedPlan));
 });
 
 test('media plan rejects a saved plan for a different runtime identity', async (t) => {
@@ -379,6 +406,7 @@ test('media plan rejects a saved plan for a different runtime identity', async (
   assert.match(result.stderr, /NO_APPROVED_TERRAFORM_PLAN/);
   assert.doesNotMatch(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   await readFile(result.planMarker);
+  await assert.rejects(readFile(result.publishedPlan));
 });
 
 test('Terraform state and saved plans cannot be committed', async () => {
