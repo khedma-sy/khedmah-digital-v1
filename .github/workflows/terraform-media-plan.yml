@@ -118,16 +118,18 @@ jobs:
             ]
           }' "$plan_dir/khedmah-media-plan.json" \
             > "$plan_dir/khedmah-media-plan-summary.json"
-          sha256sum "$TF_PLAN_FILE" "$plan_dir/khedmah-media-plan.json" \
-            "$plan_dir/khedmah-media-plan.txt" \
-            > "$plan_dir/SHA256SUMS"
-
           artifact_dir="$RUNNER_TEMP/reviewed-media-plan"
           mkdir -p "$artifact_dir"
           cp "$TF_PLAN_FILE" "$plan_dir/khedmah-media-plan.json" \
             "$plan_dir/khedmah-media-plan.txt" \
-            "$plan_dir/khedmah-media-plan-summary.json" \
-            "$plan_dir/SHA256SUMS" "$artifact_dir/"
+            "$plan_dir/khedmah-media-plan-summary.json" "$artifact_dir/"
+          (
+            cd "$artifact_dir"
+            sha256sum khedmah-media.tfplan khedmah-media-plan.json \
+              khedmah-media-plan.txt khedmah-media-plan-summary.json \
+              > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
           printf 'artifact_dir=%s\n' "$artifact_dir" >> "$GITHUB_OUTPUT"
 
           {
