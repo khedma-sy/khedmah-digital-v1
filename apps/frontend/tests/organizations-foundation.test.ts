@@ -8,7 +8,7 @@ test('organization screens render Arabic-first labels and loading states', async
   const details = await readFile(new URL('../app/organizations/[id]/page.tsx', import.meta.url), 'utf8');
 
   assert.match(list, /المؤسسات والجهات/);
-  assert.match(list, /نظّم فريقك وملفات الأعمال/);
+  assert.match(list, /تجمع فريقك وملفات أعمالك/);
   assert.match(create, /إنشاء مؤسسة أو جهة/);
   assert.match(details, /إدارة الجهة/);
   assert.match(list, /SkeletonGrid/);
