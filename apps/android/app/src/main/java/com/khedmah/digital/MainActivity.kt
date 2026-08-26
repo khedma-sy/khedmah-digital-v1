@@ -16,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -31,11 +30,6 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
-
-private val Navy = Color(0xFF103452)
-private val Green = Color(0xFF16875F)
-private val Orange = Color(0xFFEE7C37)
-private val Warm = Color(0xFFFFF9F0)
 
 private enum class Destination(val label: String, val symbol: String) {
     Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Account("حسابي", "◎")
@@ -56,11 +50,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -> Unit) {
-    val scheme = lightColorScheme(primary = Green, secondary = Orange, background = Warm, surface = Color.White, onSurface = Navy)
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = scheme) {
+        val context = LocalContext.current
+        var themePreference by remember { mutableStateOf(loadThemePreference(context)) }
+        KhedmahTheme(themePreference) {
             val api = remember { KhedmahApi() }
-            val context = LocalContext.current
             val googleIdentity = remember(context) { GoogleIdentity(context) }
             var destination by remember { mutableStateOf(Destination.Home) }
             var categories by remember { mutableStateOf<List<KhedmahCategory>>(emptyList()) }
@@ -91,8 +85,13 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                 }
             }
 
-            Scaffold(containerColor = Warm, bottomBar = {
-                NavigationBar(containerColor = Color.White) {
+            Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
+                ThemePreferenceBar(themePreference) { selected ->
+                    themePreference = selected
+                    saveThemePreference(context, selected)
+                }
+            }, bottomBar = {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     Destination.entries.forEach { item ->
                         NavigationBarItem(selected = destination == item, onClick = { destination = item }, icon = { Text(item.symbol, fontSize = 22.sp) }, label = { Text(item.label) })
                     }
@@ -141,6 +140,27 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
     }
 }
 
+@Composable
+private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (KhedmahThemePreference) -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("المظهر", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(end = 8.dp))
+            KhedmahThemePreference.entries.forEach { option ->
+                FilterChip(
+                    selected = selected == option,
+                    onClick = { onSelect(option) },
+                    label = { Text(option.label, fontSize = 11.sp) },
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit) {
     var registering by remember { mutableStateOf(false) }
     var displayName by remember { mutableStateOf("") }
@@ -149,16 +169,16 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
     LazyColumn(modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { BrandHeader() }
         if (user != null) {
-            item { Text("مرحباً ${user.displayName}", color = Navy, fontSize = 26.sp, fontWeight = FontWeight.Black) }
-            item { Text(user.email, color = Color(0xFF647789)) }
+            item { Text("مرحباً ${user.displayName}", color = MaterialTheme.colorScheme.onBackground, fontSize = 26.sp, fontWeight = FontWeight.Black) }
+            item { Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             item { Button(onLogout, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري الخروج..." else "تسجيل الخروج") } }
         } else {
             item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!registering, { registering = false }, label = { Text("تسجيل الدخول") }, modifier = Modifier.weight(1f)); FilterChip(registering, { registering = true }, label = { Text("سجل الآن") }, modifier = Modifier.weight(1f)) } }
             if (registering) item { OutlinedTextField(displayName, { displayName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("الاسم الكامل") }) }
             item { OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني") }) }
             item { OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("كلمة المرور") }) }
-            if (message != null) item { Text(message, color = Green, textAlign = TextAlign.Center) }
-            if (error != null) item { Text(error, color = Color(0xFF9C2B20), textAlign = TextAlign.Center) }
+            if (message != null) item { Text(message, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
+            if (error != null) item { Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
             item { Button(onClick = { if (registering) onRegister(email, password, displayName) else onLogin(email, password) }, enabled = !loading && email.isNotBlank() && password.length >= 8 && (!registering || displayName.isNotBlank()), modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري المعالجة..." else if (registering) "إنشاء حساب" else "تسجيل الدخول") } }
             if (googleConfigured) {
                 item { HorizontalDivider() }
@@ -170,8 +190,8 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
 
 @Composable private fun BrandHeader() = Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Image(painterResource(R.drawable.ic_khedmah_umbrella), null, Modifier.size(88.dp))
-    Text("خدمة", color = Navy, fontSize = 34.sp, fontWeight = FontWeight.Black)
-    Text("تحت مظلة واحدة", color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    Text("خدمة", color = MaterialTheme.colorScheme.onBackground, fontSize = 34.sp, fontWeight = FontWeight.Black)
+    Text("تحت مظلة واحدة", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable private fun SearchBox(query: String, onQuery: (String) -> Unit, onSearch: () -> Unit) = Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -187,23 +207,23 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
 @Composable private fun HomeScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, onSearch: () -> Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Spacer(Modifier.height(18.dp)); BrandHeader() }
-        item { Text("كل ما تحتاجه أقرب إليك", color = Navy, fontSize = 27.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
-        item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = Color(0xFF647789), textAlign = TextAlign.Center) }
+        item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 27.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
+        item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
-        item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = Navy, fontWeight = FontWeight.Bold); CategoryRow(categories, selected, onCategory) } }
-        item { Card(colors = CardDefaults.cardColors(Color.White), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Text("وصول أوضح إلى الخدمة المناسبة", color = Navy, fontWeight = FontWeight.Bold); Text("معلومات واضحة · بحث حسب الموقع · تواصل مباشر", color = Green) } } }
+        item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryRow(categories, selected, onCategory) } }
+        item { Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Text("وصول أوضح إلى الخدمة المناسبة", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold); Text("معلومات واضحة · بحث حسب الموقع · تواصل مباشر", color = MaterialTheme.colorScheme.primary) } } }
     }
 }
 
 @Composable private fun SearchScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, results: List<KhedmahResult>, loading: Boolean, error: String?, onSearch: () -> Unit) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("اكتشف الخدمات", color = Navy, fontSize = 26.sp, fontWeight = FontWeight.Black)
+        Text("اكتشف الخدمات", color = MaterialTheme.colorScheme.onBackground, fontSize = 26.sp, fontWeight = FontWeight.Black)
         SearchBox(query, onQuery, onSearch); CategoryRow(categories, selected, onCategory)
         when {
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Green) }
-            error != null -> Card(colors = CardDefaults.cardColors(Color(0xFFFFEDEA))) { Text(error, color = Color(0xFF9C2B20), modifier = Modifier.padding(16.dp)) }
-            results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("ابدأ البحث لعرض الأعمال والمهنيين والخدمات.", color = Color(0xFF647789), textAlign = TextAlign.Center) }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(results, key = { "${it.type}:${it.id}" }) { result -> Card(colors = CardDefaults.cardColors(Color.White), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(result.title, color = Navy, fontWeight = FontWeight.Bold); Text(result.subtitle, color = Color(0xFF647789), fontSize = 13.sp) } } } }
+            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
+            error != null -> Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.errorContainer)) { Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(16.dp)) }
+            results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("ابدأ البحث لعرض الأعمال والمهنيين والخدمات.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
+            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(results, key = { "${it.type}:${it.id}" }) { result -> Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(result.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold); Text(result.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) } } } }
         }
     }
 }
