@@ -6,8 +6,11 @@ REGION="${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 STATE_BUCKET="${TF_STATE_BUCKET:?TF_STATE_BUCKET is required}"
 MEDIA_BUCKET="${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
 RUNTIME_SA="${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
+EXPECTED_LEGACY_ROOT_STATE_LINEAGE="${LEGACY_ROOT_STATE_LINEAGE:?LEGACY_ROOT_STATE_LINEAGE is required}"
+EXPECTED_LEGACY_ROOT_STATE_SERIAL="${LEGACY_ROOT_STATE_SERIAL:?LEGACY_ROOT_STATE_SERIAL is required}"
 EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
+EXPECTED_LEGACY_ROOT_STATE_URI="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
 
 if [[ "$REGION" != "europe-west1" ]]; then
   printf 'ERROR: EXPECTED_REGION=europe-west1 ACTUAL_REGION=%s\n' "$REGION" >&2
@@ -26,30 +29,83 @@ if [[ "$STATE_PREFIX" != "$EXPECTED_STATE_PREFIX" ]]; then
 fi
 
 assert_legacy_root_released() {
-  local legacy_state_resources
   local failure_marker="${1:-NO_TERRAFORM_PLAN_CREATED}"
+  local legacy_state_identity
+  local legacy_state_lineage
+  local legacy_state_serial
 
-  if ! legacy_state_resources="$(terraform -chdir=infra/iac state list)"; then
+  if ! gcloud storage cat "$EXPECTED_LEGACY_ROOT_STATE_URI" \
+      --project="$PROJECT_ID" > "$legacy_state_json"; then
     printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_QUERY_FAILED' >&2
     printf '%s\n' "$failure_marker" >&2
     exit 1
   fi
 
-  if grep -F -x \
-      -e 'google_storage_bucket.media' \
-      -e 'google_storage_bucket_iam_member.runtime_media_objects' \
-      <<< "$legacy_state_resources" >/dev/null; then
+  if ! legacy_state_identity="$(
+    jq -er '
+      select(.version == 4)
+      | select((.lineage | type == "string") and (.lineage | length > 0))
+      | select((.serial | type == "number") and .serial >= 0)
+      | [.lineage, (.serial | tostring)]
+      | @tsv
+    ' "$legacy_state_json"
+  )"; then
+    printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_IDENTITY_UNREADABLE' >&2
+    printf '%s\n' "$failure_marker" >&2
+    exit 1
+  fi
+
+  IFS=$'\t' read -r legacy_state_lineage legacy_state_serial \
+    <<< "$legacy_state_identity"
+
+  if [[ "$legacy_state_lineage" != "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" ]]; then
+    printf 'ERROR: LEGACY_ROOT_STATE_LINEAGE_MISMATCH EXPECTED=%s ACTUAL=%s\n' \
+      "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" "$legacy_state_lineage" >&2
+    printf '%s\n' "$failure_marker" >&2
+    exit 1
+  fi
+
+  if [[ -z "$observed_legacy_root_state_serial" ]]; then
+    if [[ "$legacy_state_serial" != "$EXPECTED_LEGACY_ROOT_STATE_SERIAL" ]]; then
+      printf 'ERROR: LEGACY_ROOT_STATE_SERIAL_MISMATCH EXPECTED=%s ACTUAL=%s\n' \
+        "$EXPECTED_LEGACY_ROOT_STATE_SERIAL" "$legacy_state_serial" >&2
+      printf '%s\n' "$failure_marker" >&2
+      exit 1
+    fi
+    observed_legacy_root_state_serial="$legacy_state_serial"
+  elif [[ "$legacy_state_serial" != "$observed_legacy_root_state_serial" ]]; then
+    printf 'ERROR: LEGACY_ROOT_STATE_CHANGED_DURING_PLAN BEFORE=%s AFTER=%s\n' \
+      "$observed_legacy_root_state_serial" "$legacy_state_serial" >&2
+    printf '%s\n' "$failure_marker" >&2
+    exit 1
+  fi
+
+  if jq -e '
+      any(
+        .resources[]?;
+        ((.module? // "") == "") and
+        (
+          (.type == "google_storage_bucket" and .name == "media") or
+          (
+            .type == "google_storage_bucket_iam_member" and
+            .name == "runtime_media_objects"
+          )
+        )
+      )
+    ' "$legacy_state_json" >/dev/null; then
     printf '%s\n' 'ERROR: LEGACY_ROOT_MEDIA_STATE_HANDOFF_INCOMPLETE' >&2
     printf '%s\n' "$failure_marker" >&2
     exit 1
   fi
 }
 
-assert_legacy_root_released
-
+legacy_state_json="$(mktemp)"
 state_json="$(mktemp)"
 plan_json="$(mktemp)"
-trap 'rm -f "$state_json" "$plan_json"' EXIT
+trap 'rm -f "$legacy_state_json" "$state_json" "$plan_json"' EXIT
+observed_legacy_root_state_serial=''
+
+assert_legacy_root_released
 
 gcloud storage buckets describe "gs://${STATE_BUCKET}" \
   --project="$PROJECT_ID" \
