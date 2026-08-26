@@ -85,7 +85,7 @@ test('retired locations directory redirects to the real map experience', async (
   assert.doesNotMatch(navigation, />المواقع</);
   assert.match(locations, /redirect\('\/map'\)/);
   assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
-  assert.match(organizations, /href="\/map">الخريطة/);
+  assert.match(organizations, /href="\/map"[^>]*>الخريطة/);
 });
 
 test('service catalog no longer renders the legacy phone navigation', async () => {

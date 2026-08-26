@@ -33,7 +33,7 @@ test('organization frontend creates only list, create, and details pages', async
 
   assert.match(list, /مساحة الأعمال/);
   assert.match(list, /تجمع فريقك وملفات أعمالك/);
-  assert.match(create, /إنشاء المنظمة/);
-  assert.match(details, /تفاصيل المنظمة/);
+  assert.match(create, /إنشاء مؤسسة أو جهة/);
+  assert.match(details, /إدارة الجهة/);
   assert.doesNotMatch(`${list}\n${create}\n${details}`, /business profile|marketplace|payments|messaging|analytics/i);
 });
