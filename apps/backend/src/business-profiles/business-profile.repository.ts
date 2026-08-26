@@ -266,17 +266,25 @@ export class BusinessProfileRepository {
     }));
   }
 
-  async deleteMediaAsset(id: string): Promise<void> {
-    await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
+  async deleteMediaAsset(businessProfileId: string, id: string): Promise<void> {
+    await this.db.query(`DELETE FROM media_assets WHERE id = $1 AND owner_type = 'business_profile' AND owner_id = $2`, [id, businessProfileId]);
   }
 
-  async saveOpeningHours(hours: OpeningHours): Promise<void> {
-    await this.db.query(
-      `INSERT INTO business_opening_hours (id, business_profile_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET open_time = EXCLUDED.open_time, close_time = EXCLUDED.close_time, is_closed = EXCLUDED.is_closed, updated_at = NOW()`,
-      [hours.id, hours.businessProfileId, hours.dayOfWeek, hours.openTime, hours.closeTime, hours.isClosed]
-    );
+  async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[]): Promise<void> {
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `DELETE FROM business_opening_hours WHERE business_profile_id = $1`,
+        [businessProfileId]
+      );
+      for (const entry of hours) {
+        await client.query(
+          `INSERT INTO business_opening_hours
+             (id, business_profile_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+          [entry.id, businessProfileId, entry.dayOfWeek, entry.openTime, entry.closeTime, entry.isClosed]
+        );
+      }
+    });
   }
 
   async listOpeningHours(businessProfileId: string): Promise<OpeningHours[]> {
@@ -328,8 +336,8 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, platform: r.platform, url: r.url }));
   }
 
-  async deleteSocialLink(id: string): Promise<void> {
-    await this.db.query(`DELETE FROM business_social_links WHERE id = $1`, [id]);
+  async deleteSocialLink(businessProfileId: string, id: string): Promise<void> {
+    await this.db.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
   }
 
   async saveVerificationRequest(req: VerificationRequest): Promise<void> {
