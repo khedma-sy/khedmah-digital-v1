@@ -19,7 +19,7 @@ export function PageHeader({ title, description, eyebrow, backHref, actions }: {
 
 type SurfaceProps = {
   children: ReactNode;
-  as?: 'section' | 'article' | 'div' | 'form';
+  as?: 'section' | 'article' | 'aside' | 'div' | 'form';
   className?: string;
 } & Pick<FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'aria-busy'>;
 
