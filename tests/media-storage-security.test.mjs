@@ -24,6 +24,8 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.match(terraform, /resource "google_storage_bucket" "media"/);
   assert.match(terraform, /uniform_bucket_level_access = true/);
   assert.match(terraform, /public_access_prevention\s+= "enforced"/);
+  assert.match(terraform, /soft_delete_policy/);
+  assert.match(terraform, /retention_duration_seconds\s+= 2592000/);
   assert.match(terraform, /roles\/storage\.objectAdmin/);
   assert.doesNotMatch(terraform, /allUsers/);
   assert.match(versions, /backend "gcs"/);

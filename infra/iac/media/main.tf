@@ -11,6 +11,10 @@ resource "google_storage_bucket" "media" {
     enabled = true
   }
 
+  soft_delete_policy {
+    retention_duration_seconds = 2592000
+  }
+
   lifecycle_rule {
     condition {
       num_newer_versions = 3
