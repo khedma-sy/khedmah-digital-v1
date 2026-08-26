@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -218,7 +218,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteMediaAsset(assetId);
+    await this.repository.deleteMediaAsset(businessId, assetId);
   }
 
   // --- Opening Hours ---
@@ -226,12 +226,20 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const saved: OpeningHours[] = [];
-    for (const h of hours) {
-      const entry: OpeningHours = { ...h, id: randomUUID() };
-      await this.repository.saveOpeningHours(entry);
-      saved.push(entry);
+    if (hours.length !== 7 || new Set(hours.map((hour) => hour.dayOfWeek)).size !== 7) {
+      throw new BadRequestException('Opening hours must contain each day of the week exactly once.');
     }
+    const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
+    for (const hour of hours) {
+      if (hour.dayOfWeek < 0 || hour.dayOfWeek > 6 || !validTime.test(hour.openTime) || !validTime.test(hour.closeTime)) {
+        throw new BadRequestException('Opening hours contain an invalid day or time.');
+      }
+      if (!hour.isClosed && hour.openTime >= hour.closeTime) {
+        throw new BadRequestException('Opening time must be earlier than closing time.');
+      }
+    }
+    const saved = hours.map((hour) => ({ ...hour, id: randomUUID() }));
+    await this.repository.replaceOpeningHours(businessId, saved);
     return saved;
   }
 
@@ -244,7 +252,8 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const full: BusinessBranch = { ...branch, id: randomUUID(), businessProfileId: businessId };
+    if (!branch.nameAr?.trim() || !branch.cityCode?.trim()) throw new BadRequestException('Branch name and city are required.');
+    const full: BusinessBranch = { ...branch, nameAr: branch.nameAr.trim(), cityCode: branch.cityCode.trim(), id: randomUUID(), businessProfileId: businessId };
     await this.repository.saveBranch(full);
     return full;
   }
@@ -258,7 +267,12 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const link: BusinessSocialLink = { id: randomUUID(), businessProfileId: businessId, platform, url };
+    const allowedPlatforms = new Set(['facebook', 'instagram', 'linkedin', 'youtube', 'whatsapp']);
+    if (!allowedPlatforms.has(platform)) throw new BadRequestException('Unsupported social platform.');
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { throw new BadRequestException('Social link must be a valid URL.'); }
+    if (parsed.protocol !== 'https:') throw new BadRequestException('Social link must use HTTPS.');
+    const link: BusinessSocialLink = { id: randomUUID(), businessProfileId: businessId, platform, url: parsed.toString() };
     await this.repository.saveSocialLink(link);
     return link;
   }
@@ -271,12 +285,17 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteSocialLink(linkId);
+    await this.repository.deleteSocialLink(businessId, linkId);
   }
 
   // --- Verification ---
   async requestVerification(cookieHeader: string | undefined, entityType: 'business' | 'professional', entityId: string): Promise<VerificationRequest> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    if (entityType !== 'business') throw new BadRequestException('Unsupported verification entity type.');
+    const profile = await this.requireProfile(entityId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    const existing = await this.repository.findVerificationRequest(entityType, entityId);
+    if (existing?.status === 'pending' || existing?.status === 'approved') return existing;
     const req: VerificationRequest = {
       id: randomUUID(),
       entityType,
