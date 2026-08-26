@@ -26,3 +26,9 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.match(readiness, /allUsers/);
   assert.match(readiness, /PRIVATE_MEDIA_BUCKET/);
 });
+
+test('Android resolves protected media proxy paths against the configured backend', async () => {
+  const androidApi = await read('../apps/android/app/src/main/java/com/khedmah/digital/KhedmahApi.kt');
+  assert.match(androidApi, /absoluteMediaUrl\(item\.optString\("url"\)\)/);
+  assert.match(androidApi, /value\.startsWith\("\/"\) -> "\$baseUrl\$value"/);
+});
