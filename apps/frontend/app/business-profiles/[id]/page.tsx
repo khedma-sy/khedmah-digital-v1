@@ -3,59 +3,23 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicServiceListing, VerificationRequest } from '../../../lib/api-client';
+import { api, type BusinessBranch, type BusinessSocialLink, type MediaAsset, type OpeningHours, type PublicBusinessProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
+import { ActionButton, ActionLink, EmptyState, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
+import { PlatformIcon } from '../../components/platform-icon';
 import { ProviderQrAction } from './provider-qr-action';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  restaurant: 'مطعم',
-  shop: 'محل',
-  workshop: 'ورشة',
-  service_business: 'خدمات',
-  retail_business: 'تجزئة',
-  factory: 'مصنع',
-  supplier_business: 'توريد',
-  company: 'شركة',
-  doctor: 'طبيب',
-  lawyer: 'محامي',
-};
-
-
+import styles from './public-profile.module.css';
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-
-const SOCIAL_ICONS: Record<string, string> = {
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '🐦',
-  whatsapp: '💬',
-  telegram: '✈️',
-  linkedin: '💼',
-  youtube: '▶️',
-  tiktok: '🎵',
-};
-
-function TrustBadge({ status }: { status: string }) {
-  if (status === 'approved') {
-    return <span className="badge badge-approved" aria-label="ملف معتمد">✓ معتمد</span>;
-  }
-  if (status === 'suspended') {
-    return <span className="badge badge-suspended" aria-label="ملف موقوف">✗ موقوف</span>;
-  }
-  return <span className="badge badge-pending" aria-label="قيد المراجعة">⏳ قيد المراجعة</span>;
-}
-
-function PriceType({ type }: { type: string }) {
-  if (type === 'fixed') return <span className="badge badge-approved">سعر ثابت</span>;
-  if (type === 'hourly') return <span className="badge badge-pending">بالساعة</span>;
-  return <span className="badge badge-unavailable">قابل للتفاوض</span>;
-}
+const priceType = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
 
 export default function BusinessProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { cities } = useSyrianCities();
+  const { categories } = useCategories();
   const [business, setBusiness] = useState<PublicBusinessProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
@@ -68,9 +32,11 @@ export default function BusinessProfilePage() {
   const [shareMsg, setShareMsg] = useState('');
 
   useEffect(() => {
+    let active = true;
     async function load() {
+      setIsLoading(true); setError('');
       try {
-        const [businessData, serviceData, mediaData, hoursData, branchData, socialData, verData] = await Promise.all([
+        const [businessData, serviceData, mediaData, hoursData, branchData, socialData, verificationData] = await Promise.all([
           api.businesses.getPublic(id),
           api.services.listForOwner(id, 'business').catch(() => ({ services: [] })),
           api.businesses.getMedia(id).catch(() => ({ assets: [] })),
@@ -79,316 +45,87 @@ export default function BusinessProfilePage() {
           api.businesses.getSocialLinks(id).catch(() => ({ links: [] })),
           api.businesses.getVerificationStatus(id).catch(() => ({ status: null }))
         ]);
-        setBusiness(businessData.business);
-        setServices(serviceData.services);
-        setMedia(mediaData.assets);
-        setHours(hoursData.hours);
-        setBranches(branchData.branches);
-        setSocialLinks(socialData.links);
-        setVerification(verData.status);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'تعذر التحميل.');
-      } finally {
-        setIsLoading(false);
-      }
+        if (!active) return;
+        setBusiness(businessData.business); setServices(serviceData.services); setMedia(mediaData.assets);
+        setHours(hoursData.hours); setBranches(branchData.branches); setSocialLinks(socialData.links); setVerification(verificationData.status);
+      } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل ملف النشاط.'); }
+      finally { if (active) setIsLoading(false); }
     }
-    void load();
+    void load(); return () => { active = false; };
   }, [id]);
 
-  function handleShare() {
+  async function handleShare() {
     const url = window.location.href;
-    if (navigator.share) {
-      void navigator.share({ title: business?.name ?? '', url });
-    } else {
-      void navigator.clipboard.writeText(url).then(() => {
-        setShareMsg('تم نسخ الرابط!');
-        setTimeout(() => setShareMsg(''), 2000);
-      });
-    }
+    try {
+      if (navigator.share) await navigator.share({ title: business?.name ?? 'خدمة', url });
+      else { await navigator.clipboard.writeText(url); setShareMsg('تم نسخ الرابط'); setTimeout(() => setShareMsg(''), 2000); }
+    } catch { setShareMsg('تعذرت المشاركة'); setTimeout(() => setShareMsg(''), 2000); }
   }
 
-  if (isLoading) {
-    return (
-      <main id="foundation-content" className="page-shell">
-        <div className="page-content">
-          <div className="skeleton" style={{ height: '14rem', borderRadius: '1rem', marginBlockEnd: '1.5rem' }} />
-          <div className="skeleton skeleton-heading" />
-          <div className="skeleton skeleton-text" style={{ width: '40%' }} />
-        </div>
-      </main>
-    );
-  }
+  if (isLoading) return <PageShell className={styles.page} label="جاري تحميل ملف النشاط"><SkeletonGrid count={5} label="جاري تحميل معلومات النشاط" /></PageShell>;
+  if (error || !business) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح ملف النشاط" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<ActionLink href="/search">العودة إلى البحث</ActionLink>} /></PageShell>;
 
-  if (error || !business) {
-    return (
-      <main id="foundation-content" className="page-shell">
-        <div className="page-content">
-          <div className="empty-state">
-            <span className="empty-state-icon" aria-hidden="true">⚠️</span>
-            <h2>تعذر التحميل</h2>
-            <p>{error || 'لم يتم العثور على ملف العمل.'}</p>
-            <Link href="/search" className="filter-action" style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.5rem' }}>
-              العودة للبحث
-            </Link>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  const logo = media.find((a) => a.assetType === 'logo');
-  const cover = media.find((a) => a.assetType === 'cover');
-  const gallery = media.filter((a) => a.assetType === 'gallery');
-  const categoryLabel = CATEGORY_LABELS[business.categoryCode] ?? business.categoryCode;
+  const logo = media.find((asset) => asset.assetType === 'logo');
+  const cover = media.find((asset) => asset.assetType === 'cover');
+  const gallery = media.filter((asset) => asset.assetType === 'gallery');
+  const activeServices = services.filter((service) => service.status === 'active');
+  const categoryLabel = categories.find((category) => category.code === business.categoryCode)?.nameAr ?? 'خدمة محلية';
   const localizedCity = cityLabel(business.cityCode, cities);
-  const activeServices = services.filter((s) => s.status === 'active');
-
-  // Phase E: Structured data (JSON-LD)
   const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: business.name,
-    description: business.descriptionAr ?? business.descriptionEn,
-    telephone: business.phone,
-    email: business.email,
-    url: business.website,
+    '@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name,
+    description: business.descriptionAr ?? business.descriptionEn, telephone: business.phone,
+    email: business.email, url: business.website,
     address: business.addressAr ? { '@type': 'PostalAddress', streetAddress: business.addressAr, addressCountry: business.countryCode } : undefined,
-    geo: business.lat && business.lng ? { '@type': 'GeoCoordinates', latitude: business.lat, longitude: business.lng } : undefined,
+    geo: business.lat !== undefined && business.lng !== undefined ? { '@type': 'GeoCoordinates', latitude: business.lat, longitude: business.lng } : undefined,
     image: logo?.url
   };
 
-  return (
-    <main id="foundation-content" className="page-shell" aria-label={`ملف ${business.name}`}>
-      {/* Phase E: Structured data */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      <div className="page-content">
-        {/* Cover */}
-        <div style={{ borderRadius: '1rem', overflow: 'hidden', marginBlockEnd: '0', height: '12rem', background: 'var(--border)', position: 'relative' }}>
-          {cover
-            ? <img src={cover.url} alt="غلاف العمل" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div className="business-cover-placeholder" aria-hidden="true"><span>خدمة</span></div>
-          }
-          {business.isFeatured && (
-            <span style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: '#FFD700', color: '#333', borderRadius: '999px', padding: '0.25rem 0.75rem', fontSize: '0.8rem', fontWeight: 700 }}>
-              ⭐ مميز
-            </span>
-          )}
-        </div>
-
-        {/* Header */}
-        <div className="profile-header-card" style={{ position: 'relative', paddingTop: '1rem' }}>
-          {/* Logo */}
-          <div style={{ position: 'absolute', top: '-2.5rem', right: '1.5rem', width: '5rem', height: '5rem', borderRadius: '1rem', border: '3px solid var(--surface)', overflow: 'hidden', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem' }}>
-            {logo
-              ? <img src={logo.url} alt="شعار العمل" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span aria-hidden="true">{business.name.charAt(0)}</span>
-            }
-          </div>
-
-          <div style={{ padding: '3.5rem 1.5rem 1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <div>
-                <h1 style={{ margin: '0 0 0.4rem', fontSize: 'clamp(1.4rem, 4vw, 2.25rem)' }}>{business.name}</h1>
-                <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9375rem' }}>
-                  {categoryLabel} · {localizedCity} · {business.countryCode.toUpperCase()}
-                </p>
-                {business.addressAr && (
-                  <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>📍 {business.addressAr}</p>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <TrustBadge status={business.trustStatus} />
-                {business.visibility === 'public'
-                  ? <span className="badge badge-available">عام</span>
-                  : <span className="badge badge-unavailable">خاص</span>
-                }
-              </div>
-            </div>
-
-            {/* Action bar */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
-              {business.visibility === 'public' && business.trustStatus === 'approved' && (
-                <ContactInquiryForm target={{ type: 'business', id: business.id }} providerName={business.name} />
-              )}
-              <button type="button" onClick={() => router.back()} className="filter-action-secondary">← رجوع</button>
-              {business.phone && (
-                <a href={`tel:${business.phone}`} className="filter-action-secondary" style={{ textDecoration: 'none' }}>📞 اتصل</a>
-              )}
-              {business.email && (
-                <a href={`mailto:${business.email}`} className="filter-action-secondary" style={{ textDecoration: 'none' }}>✉ راسل</a>
-              )}
-              {business.website && (
-                <a href={business.website} target="_blank" rel="noopener noreferrer" className="filter-action-secondary" style={{ textDecoration: 'none' }}>🌐 الموقع</a>
-              )}
-              <ProviderQrAction providerName={business.name} />
-              <button type="button" onClick={handleShare} className="filter-action-secondary" style={{ position: 'relative' }}>
-                🔗 مشاركة
-                {shareMsg && <span style={{ position: 'absolute', top: '-2rem', right: 0, background: 'var(--foreground)', color: 'var(--surface)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{shareMsg}</span>}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Verification status */}
-        {verification && (
-          <div style={{ background: verification.status === 'approved' ? 'var(--accent-light)' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem 1.25rem', marginBlockEnd: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>
-              {verification.status === 'approved' ? '✅' : verification.status === 'rejected' ? '❌' : '⏳'}
-            </span>
-            <div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9375rem' }}>
-                {verification.status === 'approved' ? 'الملف موثّق' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}
-              </p>
-              {verification.notes && <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>{verification.notes}</p>}
-            </div>
-          </div>
-        )}
-
-        {/* Social links */}
-        {socialLinks.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBlockEnd: '1.25rem' }}>
-            {socialLinks.map((link) => (
-              <a
-                key={link.id}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '999px', padding: '0.4rem 0.85rem', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none', color: 'var(--foreground)' }}
-                aria-label={`${link.platform}`}
-              >
-                {SOCIAL_ICONS[link.platform.toLowerCase()] ?? '🔗'} {link.platform}
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* Description */}
-        {(business.descriptionAr || business.descriptionEn) && (
-          <div className="section-card" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2>عن العمل</h2>
-            {business.descriptionAr && <p style={{ lineHeight: 1.8, margin: 0 }}>{business.descriptionAr}</p>}
-            {business.descriptionEn && (
-              <p style={{ color: 'var(--muted)', direction: 'ltr', marginTop: '0.75rem', lineHeight: 1.7, fontSize: '0.9rem', margin: '0.75rem 0 0' }}>
-                {business.descriptionEn}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Gallery */}
-        {gallery.length > 0 && (
-          <section aria-label="معرض الصور" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2 style={{ marginBlockEnd: '1rem' }}>الصور ({gallery.length})</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.75rem' }}>
-              {gallery.map((img) => (
-                <img
-                  key={img.id}
-                  src={img.url}
-                  alt="صورة من المعرض"
-                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid var(--border)' }}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Opening Hours */}
-        {hours.length > 0 && (
-          <section aria-label="أوقات العمل" style={{ marginBlockEnd: '1.5rem' }}>
-            <div className="section-card">
-              <h2>أوقات العمل</h2>
-              <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.75rem' }}>
-                {hours.map((h) => (
-                  <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontWeight: 600 }}>{DAY_NAMES[h.dayOfWeek] ?? h.dayOfWeek}</span>
-                    <span style={{ color: h.isClosed ? 'var(--muted)' : 'var(--foreground)' }}>
-                      {h.isClosed ? 'مغلق' : `${h.openTime} — ${h.closeTime}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Google Maps */}
-        {business.lat && business.lng && (
-          <section aria-label="الموقع على الخريطة" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2 style={{ marginBlockEnd: '0.75rem' }}>الموقع</h2>
-            <a
-              href={`https://www.google.com/maps?q=${business.lat},${business.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'block', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--border)', textDecoration: 'none' }}
-              aria-label="افتح الموقع على خرائط جوجل"
-            >
-              <div style={{ background: 'var(--accent-light)', padding: '2rem', textAlign: 'center', color: 'var(--accent-dark)' }}>
-                <p style={{ margin: 0, fontSize: '1.5rem' }}>🗺️</p>
-                <p style={{ margin: '0.5rem 0 0', fontWeight: 700 }}>عرض الموقع على خرائط جوجل</p>
-                <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--muted)' }}>{business.lat.toFixed(5)}, {business.lng.toFixed(5)}</p>
-              </div>
-            </a>
-          </section>
-        )}
-
-        {/* Branches */}
-        {branches.length > 0 && (
-          <section aria-label="الفروع" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2 style={{ marginBlockEnd: '0.75rem' }}>الفروع ({branches.length})</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
-              {branches.map((branch) => (
-                <div key={branch.id} className="card">
-                  <div className="card-body">
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBlockEnd: '0.25rem' }}>
-                      <h3 className="card-title" style={{ margin: 0 }}>{branch.nameAr}</h3>
-                      {branch.isMain && <span className="badge badge-approved" style={{ fontSize: '0.7rem' }}>رئيسي</span>}
-                    </div>
-                    {branch.addressAr && <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.875rem' }}>📍 {branch.addressAr}</p>}
-                    {branch.phone && <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>📞 <a href={`tel:${branch.phone}`} style={{ color: 'var(--accent)' }}>{branch.phone}</a></p>}
-                    {branch.lat && branch.lng && (
-                      <a href={`https://www.google.com/maps?q=${branch.lat},${branch.lng}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '0.5rem', fontSize: '0.8125rem', color: 'var(--accent)', textDecoration: 'none' }}>
-                        🗺️ الخريطة
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Services */}
-        {activeServices.length > 0 && (
-          <section aria-label="الخدمات" style={{ marginBlockEnd: '1.5rem' }}>
-            <h2 style={{ marginBlockEnd: '0.75rem' }}>الخدمات ({activeServices.length})</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '1rem' }}>
-              {activeServices.map((service) => (
-                <article className="card" key={service.id}>
-                  <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                      <h3 className="card-title">{service.titleAr}</h3>
-                      <PriceType type={service.priceType} />
-                    </div>
-                    <p className="card-meta">{CATEGORY_LABELS[service.categoryCode] ?? 'خدمة محلية'}</p>
-                    {service.descriptionAr && (
-                      <p style={{ color: 'var(--muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
-                        {service.descriptionAr}
-                      </p>
-                    )}
-                    {service.price != null && (
-                      <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.5rem 0 0' }}>
-                        {service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}
-                      </p>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
+  return <PageShell className={styles.page} label={`ملف ${business.name}`}>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+    <div className={styles.stack}>
+      <div className={styles.cover}>
+        {cover ? <img src={cover.url} alt={`غلاف ${business.name}`} /> : <div className={`business-cover-placeholder ${styles.coverFallback}`} aria-hidden="true">خدمة</div>}
+        {business.isFeatured && <span className={styles.featured}>نشاط مميز</span>}
       </div>
-    </main>
-  );
+
+      <Surface as="section" className={styles.identity}>
+        <div className={styles.logo}>{logo ? <img src={logo.url} alt={`شعار ${business.name}`} /> : <span aria-hidden="true">{business.name.charAt(0)}</span>}</div>
+        <div className={styles.heading}><div><h1>{business.name}</h1><p className={styles.meta}><span>{categoryLabel}</span><span>·</span><span>{localizedCity}</span>{business.addressAr && <><span>·</span><span>{business.addressAr}</span></>}</p></div>
+          <div className={styles.badges}><span className={styles.badge}><PlatformIcon name="check" size={15}/>{business.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span>{business.visibility === 'public' && <span className={`${styles.badge} ${styles.badgeMuted}`}>منشور</span>}</div>
+        </div>
+        <div className={styles.actions}>
+          {business.visibility === 'public' && business.trustStatus === 'approved' && <ContactInquiryForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
+          {business.phone && <a className="ui-action ui-action-secondary" href={`tel:${business.phone}`}><PlatformIcon name="phone" size={17}/> اتصال</a>}
+          <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
+          <ProviderQrAction providerName={business.name} />
+          <ActionButton type="button" variant="secondary" onClick={() => void handleShare()}><PlatformIcon name="arrow" size={17}/> مشاركة</ActionButton>
+          {shareMsg && <span className={styles.shareStatus} role="status">{shareMsg}</span>}
+        </div>
+      </Surface>
+
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق النشاط' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+
+      <div className={styles.content}>
+        <div className={styles.main}>
+          {(business.descriptionAr || business.descriptionEn) && <Surface className={styles.section}><h2>عن النشاط</h2>{business.descriptionAr && <p>{business.descriptionAr}</p>}{business.descriptionEn && <p className={styles.secondaryText}>{business.descriptionEn}</p>}</Surface>}
+
+          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
+
+          {gallery.length > 0 && <Surface className={styles.section}><h2>معرض الصور ({gallery.length})</h2><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`صورة من ${business.name}`} loading="lazy" />)}</div></Surface>}
+
+          {branches.length > 0 && <Surface className={styles.section}><h2>الفروع ({branches.length})</h2><div className={styles.grid}>{branches.map((branch) => <Surface as="article" className={styles.branch} key={branch.id}><div className={styles.serviceTop}><h3>{branch.nameAr}</h3>{branch.isMain && <span className={styles.badge}>الفرع الرئيسي</span>}</div>{branch.addressAr && <p><PlatformIcon name="pin" size={15}/> {branch.addressAr}</p>}{branch.phone && <a href={`tel:${branch.phone}`}>{branch.phone}</a>}{branch.lat !== undefined && branch.lng !== undefined && <a href={`https://www.google.com/maps?q=${branch.lat},${branch.lng}`} target="_blank" rel="noopener noreferrer">عرض الفرع على الخريطة</a>}</Surface>)}</div></Surface>}
+        </div>
+
+        <aside className={styles.aside} aria-label="معلومات التواصل والعمل">
+          {(business.phone || business.email || business.website || socialLinks.length > 0) && <Surface className={styles.section}><h2>التواصل</h2><div className={styles.contactList}>{business.phone && <a href={`tel:${business.phone}`}><PlatformIcon name="phone" size={17}/><bdi>{business.phone}</bdi></a>}{business.email && <a href={`mailto:${business.email}`}><PlatformIcon name="mail" size={17}/><bdi>{business.email}</bdi></a>}{business.website && <a href={business.website} target="_blank" rel="noopener noreferrer"><PlatformIcon name="briefcase" size={17}/> الموقع الإلكتروني</a>}{socialLinks.map((link) => <a href={link.url} target="_blank" rel="noopener noreferrer" key={link.id}><PlatformIcon name="arrow" size={16}/>{link.platform}</a>)}</div></Surface>}
+
+          {hours.length > 0 && <Surface className={styles.section}><h2>ساعات العمل</h2><div className={styles.hours}>{hours.map((hour) => <div className={styles.hour} key={hour.id}><strong>{DAY_NAMES[hour.dayOfWeek] ?? hour.dayOfWeek}</strong><span>{hour.isClosed ? 'مغلق' : `${hour.openTime} — ${hour.closeTime}`}</span></div>)}</div></Surface>}
+
+          {business.lat !== undefined && business.lng !== undefined && <Surface className={styles.section}><h2>الموقع</h2><a className={styles.mapLink} href={`https://www.google.com/maps?q=${business.lat},${business.lng}`} target="_blank" rel="noopener noreferrer"><PlatformIcon name="pin" size={28}/><strong>عرض الموقع على خرائط جوجل</strong><span className={styles.coordinates}>{business.lat.toFixed(5)}, {business.lng.toFixed(5)}</span></a></Surface>}
+
+          {!business.phone && !business.email && !business.website && !hours.length && <Surface className={styles.section}><h2>معلومات النشاط</h2><p>لم يضف مقدم النشاط معلومات تواصل أو ساعات عمل بعد.</p><Link href="/search">استكشف نشاطاً آخر</Link></Surface>}
+        </aside>
+      </div>
+    </div>
+  </PageShell>;
 }
