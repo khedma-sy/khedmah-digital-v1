@@ -1,10 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
-import type { MediaMimeType, MediaOwnerType, MediaVisibility, UploadMediaRequest } from './media.types';
+import type { MediaAssetType, MediaMimeType, MediaOwnerType, MediaVisibility, UploadMediaRequest } from './media.types';
 
 const ALLOWED_MIME_TYPES: MediaMimeType[] = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_OWNER_TYPES: MediaOwnerType[] = ['business_profile', 'professional_profile', 'user'];
 const ALLOWED_VISIBILITIES: MediaVisibility[] = ['public', 'private'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_ASSET_TYPES: MediaAssetType[] = ['logo', 'cover', 'gallery', 'profile_image', 'service_image'];
 
 export function validateUploadMediaRequest(req: UploadMediaRequest): {
   ownerType: MediaOwnerType;
@@ -14,6 +15,8 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
   mimeType: MediaMimeType;
   sizeBytes: number;
   content: string;
+  assetType?: MediaAssetType;
+  sortOrder: number;
 } {
   if (!ALLOWED_OWNER_TYPES.includes(req.ownerType as MediaOwnerType)) {
     throw new BadRequestException(`ownerType must be one of: ${ALLOWED_OWNER_TYPES.join(', ')}`);
@@ -36,6 +39,16 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
   if (typeof req.content !== 'string' || req.content.length === 0) {
     throw new BadRequestException('content (base64) is required.');
   }
+  if (req.assetType !== undefined && !ALLOWED_ASSET_TYPES.includes(req.assetType as MediaAssetType)) {
+    throw new BadRequestException(`assetType must be one of: ${ALLOWED_ASSET_TYPES.join(', ')}`);
+  }
+  if (req.ownerType === 'business_profile' && !['logo', 'cover', 'gallery'].includes(req.assetType as string)) {
+    throw new BadRequestException('Business media requires logo, cover, or gallery assetType.');
+  }
+  const sortOrder = req.sortOrder === undefined ? 0 : req.sortOrder;
+  if (!Number.isInteger(sortOrder) || (sortOrder as number) < 0 || (sortOrder as number) > 1000) {
+    throw new BadRequestException('sortOrder must be an integer between 0 and 1000.');
+  }
 
   return {
     ownerType: req.ownerType as MediaOwnerType,
@@ -44,6 +57,8 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
     filename: req.filename.trim(),
     mimeType: req.mimeType as MediaMimeType,
     sizeBytes: req.sizeBytes,
-    content: req.content
+    content: req.content,
+    assetType: req.assetType as MediaAssetType | undefined,
+    sortOrder: sortOrder as number
   };
 }
