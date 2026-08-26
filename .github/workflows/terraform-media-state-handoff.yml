@@ -10,6 +10,8 @@ on:
         type: choice
         options:
           - VERIFY_ONLY
+          - VERIFY_EMPTY_ROOT
+          - INITIALIZE_EMPTY_ROOT
           - HANDOFF_STATE
       commit_sha:
         description: Exact latest main commit SHA
@@ -28,7 +30,7 @@ on:
         required: false
         type: string
       confirmation:
-        description: Enter HANDOFF_MEDIA_STATE for HANDOFF_STATE
+        description: Enter the exact confirmation token required by the selected write mode
         required: false
         type: string
 
@@ -134,9 +136,12 @@ jobs:
           test -n "$STATE_BUCKET"
 
           protections="$(gcloud storage buckets describe "gs://${STATE_BUCKET}" --format=json)"
-          jq -e '.iamConfiguration.uniformBucketLevelAccess.enabled == true' <<<"$protections" >/dev/null
-          jq -e '.iamConfiguration.publicAccessPrevention == "enforced"' <<<"$protections" >/dev/null
-          jq -e '.versioning.enabled == true' <<<"$protections" >/dev/null
+          jq -e '(.uniform_bucket_level_access == true) or
+            (.iamConfiguration.uniformBucketLevelAccess.enabled == true)' <<<"$protections" >/dev/null
+          jq -e '(.public_access_prevention == "enforced") or
+            (.iamConfiguration.publicAccessPrevention == "enforced")' <<<"$protections" >/dev/null
+          jq -e '(.versioning_enabled == true) or
+            (.versioning.enabled == true)' <<<"$protections" >/dev/null
 
           tf_data_dir="$(mktemp -d)"
           state_file="$(mktemp)"
@@ -146,6 +151,35 @@ jobs:
           terraform -chdir=infra/iac init -input=false -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/root" >/dev/null
+
+          root_state_uri="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
+          if [[ "$MODE" == VERIFY_EMPTY_ROOT || "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
+            if gcloud storage ls "$root_state_uri" >/dev/null 2>&1; then
+              printf '%s\n' 'ERROR: ROOT_STATE_ALREADY_EXISTS' >&2
+              exit 3
+            fi
+            if [[ "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
+              test "$CONFIRMATION" = INITIALIZE_EMPTY_ROOT_STATE
+              lineage="$(cat /proc/sys/kernel/random/uuid)"
+              jq -n --arg lineage "$lineage" '{
+                version: 4,
+                terraform_version: "1.6.6",
+                serial: 0,
+                lineage: $lineage,
+                outputs: {},
+                resources: []
+              }' >"$state_file"
+              terraform -chdir=infra/iac state push "$state_file" >/dev/null
+              terraform -chdir=infra/iac state pull >"$state_file"
+              jq -e '.resources | length == 0' "$state_file" >/dev/null
+              lineage="$(jq -er '.lineage' "$state_file")"
+              serial="$(jq -er '.serial' "$state_file")"
+              printf 'lineage=%s\nserial=%s\n' "$lineage" "$serial" >>"$GITHUB_OUTPUT"
+            fi
+            printf 'state_bucket=%s\n' "$STATE_BUCKET" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           terraform -chdir=infra/iac state pull >"$state_file"
 
           lineage="$(jq -er '.lineage' "$state_file")"
@@ -234,6 +268,11 @@ jobs:
               printf -- '- Protected backup: `%s`\n' "$BACKUP_URI"
               printf -- '- New root serial: `%s`\n' "$NEW_SERIAL"
               printf -- '- Result: media addresses removed; no import, plan, apply, or deployment performed.\n'
+            elif [[ "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
+              printf -- '- Result: new empty root state initialized with zero resources.\n'
+              printf -- '- No import, plan, apply, or deployment performed.\n'
+            elif [[ "$MODE" == VERIFY_EMPTY_ROOT ]]; then
+              printf -- '- Result: protected bucket verified and root state is absent.\n'
             else
               printf -- '- Result: verification only; state was not changed.\n'
             fi
