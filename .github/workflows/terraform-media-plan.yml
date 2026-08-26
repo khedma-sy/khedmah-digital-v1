@@ -1,0 +1,157 @@
+name: Terraform Media Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      state_bucket:
+        description: Protected Terraform state bucket (falls back to the production variable)
+        required: false
+        type: string
+      expected_root_lineage:
+        description: Exact reviewed root-state lineage
+        required: true
+        type: string
+      expected_root_serial:
+        description: Exact reviewed root-state serial
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-media-plan-production
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Review private production media plan
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION || 'europe-west1' }}
+      GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      LEGACY_ROOT_STATE_LINEAGE: ${{ inputs.expected_root_lineage }}
+      LEGACY_ROOT_STATE_SERIAL: ${{ inputs.expected_root_serial }}
+      TF_STATE_PREFIX: khedmah/production/media
+      TF_IN_AUTOMATION: "true"
+      TF_WORKSPACE: default
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Lock plan to latest main
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+          terraform_wrapper: false
+
+      - name: Create and verify the media-only plan
+        id: media-plan
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          test -n "$GCS_MEDIA_BUCKET"
+          test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+          test -n "$LEGACY_ROOT_STATE_LINEAGE"
+          [[ "$LEGACY_ROOT_STATE_SERIAL" =~ ^[0-9]+$ ]]
+
+          TF_STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
+          test -n "$TF_STATE_BUCKET"
+          if [[ -n "$REQUESTED_STATE_BUCKET" && -n "$CONFIGURED_STATE_BUCKET" ]]; then
+            test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
+          fi
+          test "$TF_STATE_BUCKET" != "$GCS_MEDIA_BUCKET"
+          export TF_STATE_BUCKET
+
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
+          plan_dir="$(mktemp -d)"
+          review_tf_data_dir="$(mktemp -d)"
+          trap 'rm -rf "$plan_dir" "$review_tf_data_dir"' EXIT
+          export TF_PLAN_FILE="$plan_dir/khedmah-media.tfplan"
+
+          bash scripts/plan-media-storage.sh
+          export TF_DATA_DIR="$review_tf_data_dir"
+          terraform -chdir=infra/iac/media init -backend=false -input=false
+          terraform -chdir=infra/iac/media show -json "$TF_PLAN_FILE" \
+            > "$plan_dir/khedmah-media-plan.json"
+          terraform -chdir=infra/iac/media show -no-color "$TF_PLAN_FILE" \
+            > "$plan_dir/khedmah-media-plan.txt"
+
+          jq '{
+            format_version,
+            terraform_version,
+            resource_changes: [
+              (.resource_changes // [])[] |
+              {address, actions: .change.actions}
+            ]
+          }' "$plan_dir/khedmah-media-plan.json" \
+            > "$plan_dir/khedmah-media-plan-summary.json"
+          artifact_dir="$RUNNER_TEMP/reviewed-media-plan"
+          mkdir -p "$artifact_dir"
+          cp "$TF_PLAN_FILE" "$plan_dir/khedmah-media-plan.json" \
+            "$plan_dir/khedmah-media-plan.txt" \
+            "$plan_dir/khedmah-media-plan-summary.json" "$artifact_dir/"
+          (
+            cd "$artifact_dir"
+            sha256sum khedmah-media.tfplan khedmah-media-plan.json \
+              khedmah-media-plan.txt khedmah-media-plan-summary.json \
+              > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+          printf 'artifact_dir=%s\n' "$artifact_dir" >> "$GITHUB_OUTPUT"
+
+          {
+            printf '%s\n' '### Terraform media plan'
+            printf -- '- Commit: `%s`\n' "$REQUESTED_SHA"
+            printf -- '- State: `gs://%s/%s/default.tfstate`\n' \
+              "$TF_STATE_BUCKET" "$TF_STATE_PREFIX"
+            printf -- '- Media bucket: `%s`\n' "$GCS_MEDIA_BUCKET"
+            printf -- '- Location: `%s`\n' "$GCS_MEDIA_LOCATION"
+            printf -- '- Runtime identity: `%s`\n' "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+            printf -- '- Root lineage/serial: `%s` / `%s`\n' \
+              "$LEGACY_ROOT_STATE_LINEAGE" "$LEGACY_ROOT_STATE_SERIAL"
+            printf -- '- Apply/deployment: `NOT PERFORMED`\n'
+            printf '%s\n' '' '```json'
+            cat "$plan_dir/khedmah-media-plan-summary.json"
+            printf '%s\n' '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reviewed plan evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-media-plan-${{ inputs.commit_sha }}
+          path: ${{ steps.media-plan.outputs.artifact_dir }}
+          if-no-files-found: error
+          retention-days: 7
