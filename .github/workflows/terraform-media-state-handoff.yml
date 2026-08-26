@@ -1,0 +1,206 @@
+name: Terraform Media State Handoff
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify the legacy state or perform the approved state-only handoff
+        required: true
+        default: VERIFY_ONLY
+        type: choice
+        options:
+          - VERIFY_ONLY
+          - HANDOFF_STATE
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      state_bucket:
+        description: Protected Terraform state bucket (falls back to the production variable)
+        required: false
+        type: string
+      expected_lineage:
+        description: Required for HANDOFF_STATE; discovered by VERIFY_ONLY
+        required: false
+        type: string
+      expected_serial:
+        description: Required for HANDOFF_STATE; discovered by VERIFY_ONLY
+        required: false
+        type: string
+      confirmation:
+        description: Enter HANDOFF_MEDIA_STATE for HANDOFF_STATE
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-media-state-handoff-production
+  cancel-in-progress: false
+
+jobs:
+  handoff:
+    name: Verify or hand off legacy media state
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      EXPECTED_LINEAGE: ${{ inputs.expected_lineage }}
+      EXPECTED_SERIAL: ${{ inputs.expected_serial }}
+      MODE: ${{ inputs.mode }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      TF_WORKSPACE: default
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Lock operation to latest main
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+          terraform_wrapper: false
+
+      - name: Verify legacy root state authority
+        id: verify
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
+          test -n "$STATE_BUCKET"
+          if [[ -n "$REQUESTED_STATE_BUCKET" && -n "$CONFIGURED_STATE_BUCKET" ]]; then
+            test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
+          fi
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
+
+          protections="$(gcloud storage buckets describe "gs://${STATE_BUCKET}" --format=json)"
+          jq -e '.iamConfiguration.uniformBucketLevelAccess.enabled == true' <<<"$protections" >/dev/null
+          jq -e '.iamConfiguration.publicAccessPrevention == "enforced"' <<<"$protections" >/dev/null
+          jq -e '.versioning.enabled == true' <<<"$protections" >/dev/null
+
+          tf_data_dir="$(mktemp -d)"
+          state_file="$(mktemp)"
+          chmod 600 "$state_file"
+          trap 'rm -rf "$tf_data_dir" "$state_file"' EXIT
+          export TF_DATA_DIR="$tf_data_dir"
+          terraform -chdir=infra/iac init -input=false -reconfigure \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="prefix=khedmah/production/root" >/dev/null
+          terraform -chdir=infra/iac state pull >"$state_file"
+
+          lineage="$(jq -er '.lineage' "$state_file")"
+          serial="$(jq -er '.serial' "$state_file")"
+          mapfile -t addresses < <(terraform -chdir=infra/iac state list | LC_ALL=C sort)
+          bucket_address='google_storage_bucket.media'
+          iam_address='google_storage_bucket_iam_member.runtime_media_objects'
+          printf '%s\n' "${addresses[@]}" | grep -Fx "$bucket_address" >/dev/null
+          printf '%s\n' "${addresses[@]}" | grep -Fx "$iam_address" >/dev/null
+
+          if [[ "$MODE" == HANDOFF_STATE ]]; then
+            test "$CONFIRMATION" = HANDOFF_MEDIA_STATE
+            test -n "$EXPECTED_LINEAGE"
+            [[ "$EXPECTED_SERIAL" =~ ^[0-9]+$ ]]
+            test "$lineage" = "$EXPECTED_LINEAGE"
+            test "$serial" = "$EXPECTED_SERIAL"
+          elif [[ "$MODE" != VERIFY_ONLY ]]; then
+            exit 2
+          fi
+
+          bucket_name="$(jq -er '.resources[] | select(.type == "google_storage_bucket" and .name == "media") | .instances[0].attributes.name' "$state_file")"
+          bucket_project="$(jq -er '.resources[] | select(.type == "google_storage_bucket" and .name == "media") | .instances[0].attributes.project' "$state_file")"
+          bucket_location="$(jq -er '.resources[] | select(.type == "google_storage_bucket" and .name == "media") | .instances[0].attributes.location' "$state_file")"
+          iam_bucket="$(jq -er '.resources[] | select(.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects") | .instances[0].attributes.bucket' "$state_file")"
+          iam_member="$(jq -er '.resources[] | select(.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects") | .instances[0].attributes.member' "$state_file")"
+          test "$bucket_project" = "$GOOGLE_CLOUD_PROJECT"
+          test "$bucket_name" = "$iam_bucket"
+          test "${bucket_location,,}" = europe-west1
+
+          {
+            printf 'state_bucket=%s\n' "$STATE_BUCKET"
+            printf 'lineage=%s\n' "$lineage"
+            printf 'serial=%s\n' "$serial"
+            printf 'bucket_name=%s\n' "$bucket_name"
+            printf 'bucket_location=%s\n' "$bucket_location"
+            printf 'iam_member=%s\n' "$iam_member"
+          } >>"$GITHUB_OUTPUT"
+
+          if [[ "$MODE" == HANDOFF_STATE ]]; then
+            backup_uri="gs://${STATE_BUCKET}/khedmah/production/state-handoff-backups/root-before-media-handoff-${GITHUB_RUN_ID}-${serial}.tfstate"
+            local_digest="$(sha256sum "$state_file" | cut -d' ' -f1)"
+            gcloud storage cp "$state_file" "$backup_uri" >/dev/null
+            backup_copy="$(mktemp)"
+            chmod 600 "$backup_copy"
+            gcloud storage cp "$backup_uri" "$backup_copy" >/dev/null
+            test "$(sha256sum "$backup_copy" | cut -d' ' -f1)" = "$local_digest"
+            rm -f "$backup_copy"
+
+            before_addresses="$(mktemp)"
+            after_addresses="$(mktemp)"
+            printf '%s\n' "${addresses[@]}" | grep -Fvx "$bucket_address" | grep -Fvx "$iam_address" >"$before_addresses"
+            terraform -chdir=infra/iac state rm "$bucket_address" "$iam_address" >/dev/null
+            terraform -chdir=infra/iac state pull >"$state_file"
+            test "$(jq -er '.lineage' "$state_file")" = "$lineage"
+            new_serial="$(jq -er '.serial' "$state_file")"
+            test "$new_serial" -gt "$serial"
+            terraform -chdir=infra/iac state list | LC_ALL=C sort >"$after_addresses"
+            ! grep -Fx "$bucket_address" "$after_addresses"
+            ! grep -Fx "$iam_address" "$after_addresses"
+            diff -u "$before_addresses" "$after_addresses"
+            rm -f "$before_addresses" "$after_addresses"
+            printf 'backup_uri=%s\nnew_serial=%s\n' "$backup_uri" "$new_serial" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish sanitized state handoff summary
+        if: always() && steps.verify.outcome == 'success'
+        env:
+          STATE_BUCKET: ${{ steps.verify.outputs.state_bucket }}
+          LINEAGE: ${{ steps.verify.outputs.lineage }}
+          SERIAL: ${{ steps.verify.outputs.serial }}
+          BUCKET_NAME: ${{ steps.verify.outputs.bucket_name }}
+          BUCKET_LOCATION: ${{ steps.verify.outputs.bucket_location }}
+          IAM_MEMBER: ${{ steps.verify.outputs.iam_member }}
+          BACKUP_URI: ${{ steps.verify.outputs.backup_uri }}
+          NEW_SERIAL: ${{ steps.verify.outputs.new_serial }}
+        run: |
+          {
+            printf '%s\n' '### Terraform media state handoff'
+            printf -- '- Mode: `%s`\n' "$MODE"
+            printf -- '- Root state: `gs://%s/khedmah/production/root/default.tfstate`\n' "$STATE_BUCKET"
+            printf -- '- Lineage: `%s`\n' "$LINEAGE"
+            printf -- '- Reviewed serial: `%s`\n' "$SERIAL"
+            printf -- '- Media bucket: `%s` (`%s`)\n' "$BUCKET_NAME" "$BUCKET_LOCATION"
+            printf -- '- Runtime member: `%s`\n' "$IAM_MEMBER"
+            if [[ "$MODE" == HANDOFF_STATE ]]; then
+              printf -- '- Protected backup: `%s`\n' "$BACKUP_URI"
+              printf -- '- New root serial: `%s`\n' "$NEW_SERIAL"
+              printf -- '- Result: media addresses removed; no import, plan, apply, or deployment performed.\n'
+            else
+              printf -- '- Result: verification only; state was not changed.\n'
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
