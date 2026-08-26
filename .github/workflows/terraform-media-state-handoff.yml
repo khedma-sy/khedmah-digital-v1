@@ -154,7 +154,7 @@ jobs:
 
           root_state_uri="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
           if [[ "$MODE" == VERIFY_EMPTY_ROOT || "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
-            if gcloud storage ls "$root_state_uri" >/dev/null 2>&1; then
+            if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
               printf '%s\n' 'ERROR: ROOT_STATE_ALREADY_EXISTS' >&2
               exit 3
             fi
