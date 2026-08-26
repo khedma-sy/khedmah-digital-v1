@@ -7,11 +7,11 @@ test('organization screens render Arabic-first labels and loading states', async
   const create = await readFile(new URL('../app/organizations/new/page.tsx', import.meta.url), 'utf8');
   const details = await readFile(new URL('../app/organizations/[id]/page.tsx', import.meta.url), 'utf8');
 
-  assert.match(list, /مساحة الأعمال/);
-  assert.match(list, /تجمع فريقك وملفات أعمالك/);
-  assert.match(create, /إنشاء منظمة/);
-  assert.match(details, /تفاصيل المنظمة/);
-  assert.match(list, /aria-busy/);
-  assert.match(create, /role="alert"/);
-  assert.match(details, /role="status"/);
+  assert.match(list, /المؤسسات والجهات/);
+  assert.match(list, /نظّم فريقك وملفات الأعمال/);
+  assert.match(create, /إنشاء مؤسسة أو جهة/);
+  assert.match(details, /إدارة الجهة/);
+  assert.match(list, /SkeletonGrid/);
+  assert.match(create, /StatusMessage tone="danger"/);
+  assert.match(details, /StatusMessage tone="success"/);
 });
