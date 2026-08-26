@@ -41,7 +41,7 @@ export default function BusinessProfilesPage() {
   }
 
   return <PageShell className={styles.page} label="أنشطتي">
-    <PageHeader eyebrow="مساحة صاحب النشاط" title="أنشطتي" description="أنشئ ملف نشاطك، أكمل خدماته، ثم أرسله للمراجعة ليظهر للمستخدمين بعد الاعتماد." actions={<div className={styles.headerActions}><ActionLink href="/business-profiles/new"><PlatformIcon name="grid" size={18}/> إضافة نشاط</ActionLink><ActionLink href="/search?type=business" variant="secondary">استكشف الدليل</ActionLink></div>} />
+    <PageHeader eyebrow="مساحة صاحب النشاط" title="أنشطتي" description="أدر ملفات الأعمال الخاصة بك، وأكمل خدماتها، ثم أرسلها للمراجعة لتظهر للمستخدمين بعد الاعتماد." actions={<div className={styles.headerActions}><ActionLink href="/business-profiles/new"><PlatformIcon name="grid" size={18}/> إضافة نشاط</ActionLink><ActionLink href="/search?type=business" variant="secondary">استكشف الدليل</ActionLink></div>} />
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
     {isLoading ? <SkeletonGrid count={4} label="جاري تحميل أنشطتك" /> : profiles.length === 0 ? <EmptyState icon={<PlatformIcon name="briefcase" size={32}/>} title="ابدأ حضور نشاطك على خدمة" description="لم تنشئ أي نشاط بعد. أضف المعلومات الأساسية واحفظه كملف خاص قبل إرساله للمراجعة." actions={<ActionLink href="/business-profiles/new">إنشاء أول نشاط</ActionLink>} /> : <div className={styles.grid}>{profiles.map((profile) => {
       const category = categories.find((item) => item.code === profile.categoryCode)?.nameAr ?? 'تصنيف غير محدد';
