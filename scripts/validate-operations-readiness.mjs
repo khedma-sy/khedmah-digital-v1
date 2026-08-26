@@ -51,7 +51,7 @@ try {
 } catch (error) {
   const message = String(error.stderr || error.message || '');
   if (error.code === 'ENOENT') pending('google-cloud', 'terraform validate', 'Terraform CLI unavailable');
-  else if (/Required plugins are not installed|Failed to query available provider packages|Missing required provider/.test(message)) pending('google-cloud', 'terraform validate', 'Provider installation unavailable in this environment');
+  else if (/Required plugins are not installed|Failed to query available provider packages|Missing required provider|there is no package for .* cached in \.terraform\/providers/i.test(message)) pending('google-cloud', 'terraform validate', 'Provider installation unavailable in this environment');
   else check('google-cloud', 'terraform validate', false, 'terraform validate failed');
 }
 
