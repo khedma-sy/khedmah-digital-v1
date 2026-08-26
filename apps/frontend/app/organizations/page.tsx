@@ -36,10 +36,11 @@ export default function OrganizationsPage() {
   }, []);
 
   return <PageShell className={styles.page} label="المؤسسات والجهات">
-    <PageHeader eyebrow="مساحة صاحب النشاط" title="المؤسسات والجهات" description="نظّم فريقك وملفات الأعمال التابعة لجهة واحدة، مع صلاحيات عضوية واضحة وإدارة آمنة." actions={<div className={styles.headerActions}>
+    <PageHeader eyebrow="مساحة الأعمال" title="المؤسسات والجهات" description="تجمع فريقك وملفات أعمالك التابعة لجهة واحدة، مع صلاحيات عضوية واضحة وإدارة آمنة." actions={<div className={styles.headerActions}>
       <ActionLink href="/organizations/new"><PlatformIcon name="grid" size={18}/> إنشاء جهة</ActionLink>
       <ActionButton type="button" variant="secondary" disabled={isLoading} onClick={() => void loadOrganizations()}>{isLoading ? 'جارٍ التحديث…' : 'تحديث القائمة'}</ActionButton>
     </div>}/>
+    <nav className={styles.actions} aria-label="روابط مساحة الأعمال"><ActionLink href="/business-profiles" variant="quiet">ملفات الأعمال</ActionLink><ActionLink href="/professional-profiles" variant="quiet">الملفات المهنية</ActionLink><ActionLink href="/categories" variant="quiet">التصنيفات</ActionLink><ActionLink href="/map" variant="quiet">الخريطة</ActionLink><ActionLink href="/search" variant="quiet">البحث</ActionLink></nav>
     {error ? <StatusMessage tone="danger"><p>{error}</p><ActionButton type="button" variant="secondary" onClick={() => void loadOrganizations()}>إعادة المحاولة</ActionButton></StatusMessage> : null}
     {isLoading ? <SkeletonGrid count={3} label="جاري تحميل المؤسسات والجهات"/> : null}
     {!isLoading && !error && organizations.length === 0 ? <EmptyState icon={<PlatformIcon name="grid" size={30}/>} title="لا توجد جهة بعد" description="أنشئ جهة عندما تحتاج إلى إدارة فريق أو ربط عدة ملفات أعمال تحت ملكية منظمة." actions={<ActionLink href="/organizations/new">إنشاء الجهة الأولى</ActionLink>}/> : null}
