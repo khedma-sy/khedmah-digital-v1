@@ -8,10 +8,13 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import android.util.Base64
 
 data class KhedmahCategory(val code: String, val nameAr: String)
 data class KhedmahResult(val id: String, val title: String, val subtitle: String, val type: String)
 data class KhedmahUser(val id: String, val email: String, val displayName: String)
+data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
+data class KhedmahMedia(val id: String, val publicUrl: String, val assetType: String)
 
 class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.trimEnd('/')) {
     private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
@@ -74,6 +77,34 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         request("/api/v1/auth/logout", "POST", JSONObject()); cookies.cookieStore.removeAll(); Unit
     }
 
+    suspend fun myBusinesses(): List<KhedmahBusiness> = withContext(Dispatchers.IO) {
+        val values = get("/api/v1/businesses/my").optJSONArray("businesses") ?: return@withContext emptyList()
+        List(values.length()) { index ->
+            val item = values.getJSONObject(index)
+            KhedmahBusiness(item.getString("id"), item.optString("name", "نشاط"), item.optString("descriptionAr"), item.optString("cityCode"), item.optString("moderationStatus", "pending"))
+        }
+    }
+
+    suspend fun businessMedia(businessId: String): List<KhedmahMedia> = withContext(Dispatchers.IO) {
+        val values = get("/api/v1/businesses/${encode(businessId)}/media").optJSONArray("assets") ?: return@withContext emptyList()
+        List(values.length()) { index ->
+            val item = values.getJSONObject(index)
+            KhedmahMedia(item.getString("id"), item.optString("url"), item.optString("assetType", "gallery"))
+        }
+    }
+
+    suspend fun uploadBusinessMedia(businessId: String, filename: String, mimeType: String, bytes: ByteArray, assetType: String, sortOrder: Int): Unit = withContext(Dispatchers.IO) {
+        request("/api/v1/media", "POST", JSONObject()
+            .put("ownerType", "business_profile").put("ownerId", businessId).put("visibility", "public")
+            .put("filename", filename).put("mimeType", mimeType).put("sizeBytes", bytes.size)
+            .put("content", Base64.encodeToString(bytes, Base64.NO_WRAP)).put("assetType", assetType).put("sortOrder", sortOrder))
+        Unit
+    }
+
+    suspend fun deleteMedia(id: String): Unit = withContext(Dispatchers.IO) {
+        request("/api/v1/media/${encode(id)}", "DELETE"); Unit
+    }
+
     private fun encode(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
 
     private fun get(path: String): JSONObject = request(path)
@@ -91,6 +122,7 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
             connection.connectTimeout = 10_000
             connection.readTimeout = 15_000
             connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("X-Khedmah-Client", "android")
             cookies.get(connection.url.toURI(), emptyMap()).forEach { (name, values) -> connection.setRequestProperty(name, values.joinToString("; ")) }
             if (body != null) {
                 connection.doOutput = true
@@ -102,7 +134,7 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
             cookies.put(connection.url.toURI(), responseHeaders)
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (status !in 200..299) error("تعذر الاتصال بخدمة البحث ($status)")
+            if (status !in 200..299) error("تعذر إكمال الطلب ($status)")
             JSONObject(body)
         } finally {
             connection.disconnect()

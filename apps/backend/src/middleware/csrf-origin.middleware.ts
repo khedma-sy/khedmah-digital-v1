@@ -45,6 +45,12 @@ export function createCsrfOriginMiddleware() {
       return;
     }
 
+    const nativeClient = request.headers['x-khedmah-client'];
+    if (nativeClient === 'android' && !request.headers.origin && !request.headers.referer) {
+      next();
+      return;
+    }
+
     const allowedOrigins = new Set(configuredOrigins());
     const originHeader =
       typeof request.headers.origin === 'string'

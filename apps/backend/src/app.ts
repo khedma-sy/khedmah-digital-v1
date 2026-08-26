@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { PlatformLogger } from './logging/platform-logger';
@@ -10,13 +11,15 @@ import { configuredOrigins, createCsrfOriginMiddleware } from './middleware/csrf
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 export async function createBackendApp() {
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    bodyParser: false
   });
   const logger = app.get(PlatformLogger);
   const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
+  app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
   app.enableCors({

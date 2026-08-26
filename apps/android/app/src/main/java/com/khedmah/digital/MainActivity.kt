@@ -3,6 +3,7 @@ package com.khedmah.digital
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,8 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private enum class Destination(val label: String, val symbol: String) {
     Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Account("حسابي", "◎")
@@ -66,6 +69,11 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
             var user by remember { mutableStateOf<KhedmahUser?>(null) }
             var accountMessage by remember { mutableStateOf<String?>(null) }
             var accountError by remember { mutableStateOf<String?>(null) }
+            var ownedBusinesses by remember { mutableStateOf<List<KhedmahBusiness>>(emptyList()) }
+            var selectedOwnedBusiness by remember { mutableStateOf<KhedmahBusiness?>(null) }
+            var businessMedia by remember { mutableStateOf<List<KhedmahMedia>>(emptyList()) }
+            var ownerMessage by remember { mutableStateOf<String?>(null) }
+            var ownerError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
 
             fun runSearch() {
@@ -85,6 +93,16 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                 }
             }
 
+            LaunchedEffect(user?.id) {
+                ownedBusinesses = if (user != null) runCatching { api.myBusinesses() }.getOrElse { accountError = it.message; emptyList() } else emptyList()
+                if (user == null) { selectedOwnedBusiness = null; businessMedia = emptyList() }
+            }
+
+            fun openOwnedBusiness(business: KhedmahBusiness) {
+                selectedOwnedBusiness = business; ownerMessage = null; ownerError = null
+                scope.launch { loading = true; runCatching { api.businessMedia(business.id) }.onSuccess { businessMedia = it }.onFailure { ownerError = it.message }; loading = false }
+            }
+
             Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
                 ThemePreferenceBar(themePreference) { selected ->
                     themePreference = selected
@@ -101,9 +119,34 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                     Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch)
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
-                    Destination.Account -> AccountScreen(
+                    Destination.Account -> if (selectedOwnedBusiness != null) OwnerBusinessScreen(
+                        modifier = Modifier.padding(padding),
+                        business = selectedOwnedBusiness!!, media = businessMedia, loading = loading, message = ownerMessage, error = ownerError,
+                        onBack = { selectedOwnedBusiness = null; ownerMessage = null; ownerError = null },
+                        onUpload = { uri, assetType ->
+                            scope.launch {
+                                loading = true; ownerMessage = null; ownerError = null
+                                runCatching {
+                                    val details = withContext(Dispatchers.IO) {
+                                        val mime = context.contentResolver.getType(uri) ?: error("نوع الصورة غير معروف.")
+                                        require(mime in setOf("image/jpeg", "image/png", "image/webp")) { "صيغة الصورة غير مدعومة." }
+                                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("تعذر قراءة الصورة.")
+                                        require(bytes.isNotEmpty() && bytes.size <= 5 * 1024 * 1024) { "حجم الصورة يجب ألا يتجاوز 5 ميغابايت." }
+                                        var name = "business-image"
+                                        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) name = cursor.getString(0) ?: name }
+                                        Triple(name, mime, bytes)
+                                    }
+                                    api.uploadBusinessMedia(selectedOwnedBusiness!!.id, details.first, details.second, details.third, assetType, businessMedia.count { it.assetType == "gallery" })
+                                    businessMedia = api.businessMedia(selectedOwnedBusiness!!.id)
+                                }.onSuccess { ownerMessage = "تم رفع الصورة وحفظها في ملف النشاط." }.onFailure { ownerError = it.message ?: "تعذر رفع الصورة." }
+                                loading = false
+                            }
+                        },
+                        onDelete = { mediaId -> scope.launch { loading = true; ownerMessage = null; ownerError = null; runCatching { api.deleteMedia(mediaId); businessMedia = api.businessMedia(selectedOwnedBusiness!!.id) }.onSuccess { ownerMessage = "تم حذف الصورة." }.onFailure { ownerError = it.message ?: "تعذر حذف الصورة." }; loading = false } }
+                    ) else AccountScreen(
                         modifier = Modifier.padding(padding), user = user, loading = loading,
                         message = accountMessage, error = accountError,
+                        businesses = ownedBusinesses, onManageBusiness = ::openOwnedBusiness,
                         googleConfigured = googleIdentity.configured,
                         onLogin = { email, password ->
                             scope.launch {
@@ -161,7 +204,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     }
 }
 
-@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit) {
+@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, businesses: List<KhedmahBusiness>, onManageBusiness: (KhedmahBusiness) -> Unit, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit) {
     var registering by remember { mutableStateOf(false) }
     var displayName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -171,6 +214,17 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         if (user != null) {
             item { Text("مرحباً ${user.displayName}", color = MaterialTheme.colorScheme.onBackground, fontSize = 26.sp, fontWeight = FontWeight.Black) }
             item { Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text("أنشطتي", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth()) }
+            if (businesses.isEmpty()) item { KhedmahStateCard("لا توجد أنشطة", "أنشئ نشاطك من موقع خدمة، ثم أدر صوره من التطبيق.") }
+            items(businesses, key = { it.id }) { business ->
+                Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(business.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Text(if (business.moderationStatus == "approved") "معتمد للنشر" else "قيد المراجعة", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = { onManageBusiness(business) }, modifier = Modifier.fillMaxWidth()) { Text("إدارة صور النشاط") }
+                    }
+                }
+            }
             item { Button(onLogout, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري الخروج..." else "تسجيل الخروج") } }
         } else {
             item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!registering, { registering = false }, label = { Text("تسجيل الدخول") }, modifier = Modifier.weight(1f)); FilterChip(registering, { registering = true }, label = { Text("سجل الآن") }, modifier = Modifier.weight(1f)) } }
