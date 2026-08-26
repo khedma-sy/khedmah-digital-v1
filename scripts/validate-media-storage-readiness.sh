@@ -3,8 +3,8 @@ set -euo pipefail
 
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 REGION="${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
-BUCKET="${GCS_MEDIA_BUCKET:-${PROJECT_ID}-khedmah-media}"
-RUNTIME_SA="${RUNTIME_SERVICE_ACCOUNT:-khedmah-v1-runtime@${PROJECT_ID}.iam.gserviceaccount.com}"
+BUCKET="${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
+RUNTIME_SA="${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
 
 gcloud storage buckets describe "gs://${BUCKET}" \
   --project="${PROJECT_ID}" \
