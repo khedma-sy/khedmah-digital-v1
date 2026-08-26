@@ -32,26 +32,26 @@ export class GcsStorageAdapter implements StorageAdapter {
   }
 
   async save(key: string, data: Buffer, mimeType: string): Promise<string | undefined> {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const gcs = require('@google-cloud/storage');
-    if (!gcs || !gcs.Storage) {
-      throw new Error('@google-cloud/storage is not installed. Run: npm install @google-cloud/storage');
-    }
-    const storage = new gcs.Storage();
-    const file = storage.bucket(this.bucket).file(key);
-    await file.save(data, { contentType: mimeType, resumable: false });
-    await file.makePublic();
+    const token = await this.accessToken();
+    const endpoint = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o?uploadType=media&predefinedAcl=publicRead&name=${encodeURIComponent(key)}`;
+    const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType, 'Content-Length': String(data.length) }, body: data });
+    if (!response.ok) throw new Error(`GCS upload failed with status ${response.status}.`);
     return `https://storage.googleapis.com/${this.bucket}/${key}`;
   }
 
   async delete(key: string): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const gcs = require('@google-cloud/storage');
-    if (!gcs || !gcs.Storage) {
-      throw new Error('@google-cloud/storage is not installed.');
-    }
-    const storage = new gcs.Storage();
-    await storage.bucket(this.bucket).file(key).delete({ ignoreNotFound: true });
+    const token = await this.accessToken();
+    const endpoint = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(this.bucket)}/o/${encodeURIComponent(key)}`;
+    const response = await fetch(endpoint, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok && response.status !== 404) throw new Error(`GCS delete failed with status ${response.status}.`);
+  }
+
+  private async accessToken(): Promise<string> {
+    const response = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token', { headers: { 'Metadata-Flavor': 'Google' } });
+    if (!response.ok) throw new Error('Unable to obtain Google Cloud storage credentials.');
+    const payload = await response.json() as { access_token?: string };
+    if (!payload.access_token) throw new Error('Google Cloud access token is missing.');
+    return payload.access_token;
   }
 }
 
