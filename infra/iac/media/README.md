@@ -11,5 +11,7 @@ Safety rules:
 - Public access prevention and uniform bucket-level access are enforced.
 - There is no automated apply command. Applying requires a separately reviewed saved plan and explicit approval.
 - If the media bucket already exists, import it into this stack before any apply.
+- If state already tracks the media bucket, its recorded name must exactly match `GCS_MEDIA_BUCKET` before planning.
+- Provider selections are committed in this stack's own `.terraform.lock.hcl` for reproducible validation and planning.
 
 Run `scripts/plan-media-storage.sh` only after supplying its required environment variables.

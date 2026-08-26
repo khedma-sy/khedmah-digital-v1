@@ -43,11 +43,45 @@ terraform -chdir=infra/iac/media init \
 
 terraform -chdir=infra/iac/media validate
 
+if ! state_resources="$(terraform -chdir=infra/iac/media state list)"; then
+  printf '%s\n' 'ERROR: TERRAFORM_STATE_LIST_FAILED' >&2
+  printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+  exit 1
+fi
+
+if grep -F -x -- 'google_storage_bucket.media' <<< "$state_resources" >/dev/null; then
+  if ! tracked_media_bucket="$(
+    terraform -chdir=infra/iac/media show -json |
+      jq -er '
+        [
+          .values.root_module
+          | ..
+          | objects
+          | .resources? // empty
+          | .[]
+          | select(.address == "google_storage_bucket.media")
+          | .values.name
+        ]
+        | if length == 1 and (.[0] | type == "string") then .[0] else empty end
+      '
+  )"; then
+    printf '%s\n' 'ERROR: TRACKED_MEDIA_BUCKET_NAME_UNREADABLE' >&2
+    printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+    exit 1
+  fi
+
+  if [[ "$tracked_media_bucket" != "$MEDIA_BUCKET" ]]; then
+    printf 'ERROR: TRACKED_MEDIA_BUCKET_MISMATCH EXPECTED=%s ACTUAL=%s\n' \
+      "$MEDIA_BUCKET" "$tracked_media_bucket" >&2
+    printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+    exit 1
+  fi
+fi
+
 if gcloud storage buckets describe "gs://${MEDIA_BUCKET}" \
     --project="$PROJECT_ID" \
     --format='value(name)' >/dev/null 2>&1; then
-  if ! terraform -chdir=infra/iac/media state list |
-      grep -F -x -- 'google_storage_bucket.media' >/dev/null; then
+  if ! grep -F -x -- 'google_storage_bucket.media' <<< "$state_resources" >/dev/null; then
     printf 'ERROR: EXISTING_MEDIA_BUCKET_REQUIRES_REVIEWED_IMPORT=%s\n' "$MEDIA_BUCKET" >&2
     printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
     exit 1
