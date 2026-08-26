@@ -14,15 +14,17 @@ resource "google_iam_workload_identity_pool_provider" "github_production" {
     "google.subject"         = "assertion.sub"
     "attribute.repository"   = "assertion.repository"
     "attribute.ref"          = "assertion.ref"
-    "attribute.workflow_ref" = "assertion.job_workflow_ref"
+    "attribute.workflow_ref" = "assertion.workflow_ref"
   }
 
   attribute_condition = <<-EOT
     assertion.repository == "${var.github_repository}" &&
     assertion.ref == "refs/heads/main" &&
-    assertion.job_workflow_ref in [
+    assertion.workflow_ref in [
       "${var.github_repository}/.github/workflows/production-operator.yml@refs/heads/main",
-      "${var.github_repository}/.github/workflows/terraform-media-apply.yml@refs/heads/main"
+      "${var.github_repository}/.github/workflows/terraform-media-apply.yml@refs/heads/main",
+      "${var.github_repository}/.github/workflows/terraform-media-plan.yml@refs/heads/main",
+      "${var.github_repository}/.github/workflows/terraform-media-state-handoff.yml@refs/heads/main"
     ]
   EOT
 

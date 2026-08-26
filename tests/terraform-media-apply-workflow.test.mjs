@@ -23,10 +23,14 @@ test('media apply is manual, production protected, and pinned to reviewed eviden
   assert.doesNotMatch(workflow, /pull_request:|push:|schedule:/);
 });
 
-test('production WIF trusts only the two reviewed main workflows', () => {
-  assert.match(productionOperator, /assertion\.job_workflow_ref in \[/);
+test('production WIF trusts only the four reviewed main workflows', () => {
+  assert.match(productionOperator, /"attribute\.workflow_ref" = "assertion\.workflow_ref"/);
+  assert.match(productionOperator, /assertion\.workflow_ref in \[/);
+  assert.doesNotMatch(productionOperator, /job_workflow_ref/);
   assert.match(productionOperator, /production-operator\.yml@refs\/heads\/main/);
   assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /terraform-media-plan\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /terraform-media-state-handoff\.yml@refs\/heads\/main/);
   assert.doesNotMatch(productionOperator, /\.github\/workflows\/\*@/);
 });
 
