@@ -6,6 +6,10 @@ const workflow = await readFile(
   new URL('../.github/workflows/terraform-media-apply.yml', import.meta.url),
   'utf8',
 );
+const productionOperator = await readFile(
+  new URL('../infra/iac/production_operator.tf', import.meta.url),
+  'utf8',
+);
 
 test('media apply is manual, production protected, and pinned to reviewed evidence', () => {
   assert.match(workflow, /workflow_dispatch:/);
@@ -17,6 +21,13 @@ test('media apply is manual, production protected, and pinned to reviewed eviden
   assert.match(workflow, /sha256sum --check SHA256SUMS/);
   assert.match(workflow, /git diff --name-only "\$APPROVED_SHA" origin\/main/);
   assert.doesNotMatch(workflow, /pull_request:|push:|schedule:/);
+});
+
+test('production WIF trusts only the two reviewed main workflows', () => {
+  assert.match(productionOperator, /assertion\.job_workflow_ref in \[/);
+  assert.match(productionOperator, /production-operator\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
+  assert.doesNotMatch(productionOperator, /\.github\/workflows\/\*@/);
 });
 
 test('media apply validates approvals and both state identities before init and apply', () => {

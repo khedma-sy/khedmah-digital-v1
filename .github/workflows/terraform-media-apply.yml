@@ -101,6 +101,7 @@ jobs:
           git diff --name-only "$APPROVED_SHA" origin/main > /tmp/post-plan-files
           diff -u <(printf '%s\n' \
             '.github/workflows/terraform-media-apply.yml' \
+            'infra/iac/production_operator.tf' \
             'tests/terraform-media-apply-workflow.test.mjs') \
             /tmp/post-plan-files
 
