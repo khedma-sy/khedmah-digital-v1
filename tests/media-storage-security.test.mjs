@@ -36,6 +36,7 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.doesNotMatch(plan, /terraform[^\n]*apply/);
   assert.match(readiness, /allUsers/);
   assert.match(readiness, /PRIVATE_MEDIA_BUCKET/);
+  assert.match(readiness, /EXPECTED_MEDIA_LOCATION=europe-west1/);
 });
 
 test('Android resolves protected media proxy paths against the configured backend', async () => {

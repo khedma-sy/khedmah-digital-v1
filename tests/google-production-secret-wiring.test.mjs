@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -25,4 +26,27 @@ test('production readiness injects every required Google and identity value', as
   assert.match(gate, /EMAIL_FROM: \$\{\{ vars\.EMAIL_FROM \}\}/);
   assert.equal((gate.match(/NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:/g) ?? []).length, 1);
   assert.match(webBuild, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
+});
+
+test('production configuration accepts only the approved media location', async () => {
+  const contract = await read('.env.production');
+  const names = [...contract.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)].map((match) => match[1]);
+  const productionEnv = Object.fromEntries(
+    names.map((name) => [name, name.endsWith('_ENABLED') ? 'true' : 'injected-value']),
+  );
+  productionEnv.GCS_MEDIA_LOCATION = 'europe-west1';
+
+  assert.doesNotThrow(() => execFileSync(
+    process.execPath,
+    ['scripts/validate-google-config.mjs', '--production'],
+    { encoding: 'utf8', env: productionEnv },
+  ));
+  assert.throws(
+    () => execFileSync(
+      process.execPath,
+      ['scripts/validate-google-config.mjs', '--production'],
+      { encoding: 'utf8', env: { ...productionEnv, GCS_MEDIA_LOCATION: 'US' } },
+    ),
+    /GCS_MEDIA_LOCATION must be europe-west1/,
+  );
 });
