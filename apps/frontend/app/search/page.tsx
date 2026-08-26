@@ -91,7 +91,7 @@ function SearchContent() {
     {citiesError && <StatusMessage tone="danger">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
     {categoriesError && <StatusMessage tone="danger">تعذر تحميل التصنيفات. يمكنك متابعة البحث بالكلمة أو المدينة.</StatusMessage>}
     <div className={styles.tabs} role="tablist" aria-label="نوع النتائج">{tabs.map(([value,label]) => <button key={value} className={styles.tab} role="tab" aria-selected={tab === value} onClick={() => changeTab(value)}>{label}</button>)}</div>
-    {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {error && <div role="alert"><StatusMessage tone="danger">{error}</StatusMessage></div>}
     {isLoading && <SkeletonGrid count={6} label="جاري البحث في الأنشطة والخدمات" />}
     {!isLoading && searched && <><p className={styles.resultSummary} aria-live="polite">{total ? `${total} نتيجة مطابقة${page > 1 ? ` — الصفحة ${page}` : ''}` : 'لم نعثر على نتيجة مطابقة'}</p>
       {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.name}</h3><span className={styles.badge}><PlatformIcon name="check" size={14}/>{item.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)} · {cityLabel(item.cityCode,cities)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${item.id}`}>عرض النشاط <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
