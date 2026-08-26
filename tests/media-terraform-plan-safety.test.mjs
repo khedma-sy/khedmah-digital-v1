@@ -33,7 +33,7 @@ const runPlanWithMocks = async (t, overrides = {}) => {
     gcloud: `#!/usr/bin/env bash
 set -eu
 if [[ "$1 $2 $3" == "storage buckets describe" && "$4" == "gs://state-bucket" ]]; then
-  printf '%s\\n' '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}'
+  printf '%s\\n' "$MOCK_STATE_BUCKET_JSON"
 elif [[ "$1 $2 $3" == "iam service-accounts describe" ]]; then
   printf '%s\\n' "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
 elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
@@ -142,6 +142,8 @@ esac
       MOCK_LEGACY_STATE_JSON_AFTER:
         '{"version":4,"terraform_version":"1.6.6","serial":42,"lineage":"reviewed-lineage","outputs":{},"resources":[]}',
       MOCK_LEGACY_READ_COUNT: legacyReadCount,
+      MOCK_STATE_BUCKET_JSON:
+        '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}',
       MOCK_STATE_RESOURCES: 'google_storage_bucket.media\n',
       MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\teurope-west1',
       MOCK_RUNTIME_IDENTITY:
@@ -176,8 +178,12 @@ test('media plan requires protected remote state and performs no apply', async (
   const script = await read('../scripts/plan-media-storage.sh');
   assert.match(script, /TF_STATE_BUCKET:\?TF_STATE_BUCKET is required/);
   assert.match(script, /publicAccessPrevention == "enforced"/);
+  assert.match(script, /public_access_prevention == "enforced"/);
   assert.match(script, /uniformBucketLevelAccess\.enabled == true/);
+  assert.match(script, /uniform_bucket_level_access == true/);
   assert.match(script, /versioning\.enabled == true/);
+  assert.match(script, /versioning_enabled == true/);
+  assert.match(script, /TERRAFORM_STATE_BUCKET_PROTECTIONS_UNVERIFIED/);
   assert.match(script, /media_terraform plan/);
   assert.match(script, /EXISTING_MEDIA_BUCKET_REQUIRES_REVIEWED_STATE_HANDOFF/);
   assert.match(script, /media_terraform show -json/);
@@ -238,6 +244,16 @@ test('media plan proceeds only after every state ownership check succeeds', asyn
   assert.ok(isAbsolute(invokedPlanPath));
   assert.notEqual(invokedPlanPath, result.publishedPlan);
   await readFile(result.publishedPlan);
+});
+
+test('media plan accepts the flat gcloud bucket protection schema used in production', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    MOCK_STATE_BUCKET_JSON:
+      '{"uniform_bucket_level_access":true,"public_access_prevention":"enforced","versioning_enabled":true}',
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
 });
 
 test('media plan separates the production runtime region from the bucket location', async (t) => {
