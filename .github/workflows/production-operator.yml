@@ -57,6 +57,8 @@ jobs:
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
       FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
     steps:
       - name: Check out requested commit
@@ -91,6 +93,8 @@ jobs:
           set -euo pipefail
           test -n "$GOOGLE_CLOUD_PROJECT"
           test -n "$GOOGLE_CLOUD_REGION"
+          test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+          test -n "$GCS_MEDIA_BUCKET"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
           if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
@@ -104,7 +108,7 @@ jobs:
             --service-account "$BUILD_SERVICE_ACCOUNT" \
             --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
             --config cloudbuild.production.yaml \
-            --substitutions "COMMIT_SHA=$REQUESTED_SHA" \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET" \
             --async \
             --format='value(id)')"
           test -n "$BUILD_ID"
