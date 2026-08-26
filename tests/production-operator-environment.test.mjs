@@ -44,6 +44,14 @@ test('production operator deploys the planned media bucket and runtime identity'
   );
 });
 
+test('VERIFY_ONLY checks the live private media contract without deploying', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(workflow, /Verify private media storage readiness/);
+  assert.match(workflow, /bash scripts\/validate-media-storage-readiness\.sh/);
+  assert.match(workflow, /GCS_MEDIA_LOCATION: \$\{\{ vars\.GCS_MEDIA_LOCATION \}\}/);
+  assert.match(workflow, /if: \$\{\{ inputs\.mode == 'DEPLOY_PRODUCTION' \}\}/);
+});
+
 test('production operator cannot deploy from an automatic repository event', () => {
   const workflow = execFileSync('cat', ['.github/workflows/production-operator.yml'], { encoding: 'utf8' });
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);

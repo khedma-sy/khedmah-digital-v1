@@ -222,6 +222,9 @@ test('media plan and production deployment share canonical bucket and runtime in
   assert.match(plan, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(plan, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT:\?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required/);
   assert.match(readiness, /GCS_MEDIA_BUCKET:\?GCS_MEDIA_BUCKET is required/);
+  assert.match(readiness, /versioning_enabled/);
+  assert.match(readiness, /retentionDurationSeconds == "2592000"/);
+  assert.match(readiness, /allAuthenticatedUsers/);
   assert.match(readiness, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(readiness, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT:\?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required/);
   assert.match(deploy, /GCS_MEDIA_BUCKET:\?GCS_MEDIA_BUCKET is required/);

@@ -22,10 +22,18 @@ permissions:
 
 jobs:
   authenticate:
-    name: Verify Google Cloud authentication
+    name: Verify Google Cloud and private media readiness
     runs-on: ubuntu-latest
     environment: production
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+      GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
     steps:
+      - name: Check out main readiness controls
+        uses: actions/checkout@v4
+
       - name: Authenticate to Google Cloud with Workload Identity Federation
         uses: google-github-actions/auth@v2
         with:
@@ -36,14 +44,20 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Verify authenticated production project
-        env:
-          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
         run: |
           set -euo pipefail
           test -n "$GOOGLE_CLOUD_PROJECT"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           gcloud auth list --filter=status:ACTIVE --format='value(account)'
           gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)'
+
+      - name: Verify private media storage readiness
+        run: |
+          set -euo pipefail
+          test -n "$GCS_MEDIA_LOCATION"
+          test -n "$GCS_MEDIA_BUCKET"
+          test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+          bash scripts/validate-media-storage-readiness.sh
 
   deploy:
     name: Deploy exact main commit to Production

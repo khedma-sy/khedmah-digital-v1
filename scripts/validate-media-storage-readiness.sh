@@ -12,21 +12,44 @@ if [[ "$MEDIA_LOCATION" != "europe-west1" ]]; then
   exit 1
 fi
 
+bucket_json="$(mktemp)"
+policy_json="$(mktemp)"
+trap 'rm -f "$bucket_json" "$policy_json"' EXIT
+
 gcloud storage buckets describe "gs://${BUCKET}" \
   --project="${PROJECT_ID}" \
-  --format=json > /tmp/khedmah-media-bucket.json
+  --format=json > "$bucket_json"
 
 jq -e --arg location "${MEDIA_LOCATION}" '
   (.location | ascii_downcase) == ($location | ascii_downcase) and
-  .iamConfiguration.uniformBucketLevelAccess.enabled == true and
-  .iamConfiguration.publicAccessPrevention == "enforced"
-' /tmp/khedmah-media-bucket.json >/dev/null
+  (
+    (.uniform_bucket_level_access == true) or
+    (.iamConfiguration.uniformBucketLevelAccess.enabled == true)
+  ) and
+  (
+    (.public_access_prevention == "enforced") or
+    (.iamConfiguration.publicAccessPrevention == "enforced")
+  ) and
+  (
+    (.versioning_enabled == true) or
+    (.versioning.enabled == true)
+  ) and
+  (
+    (.soft_delete_policy.retentionDurationSeconds == "2592000") or
+    (.softDeletePolicy.retentionDurationSeconds == "2592000")
+  )
+' "$bucket_json" >/dev/null
 
-gcloud storage buckets get-iam-policy "gs://${BUCKET}" --format=json |
-  jq -e --arg member "serviceAccount:${RUNTIME_SA}" '
-    any(.bindings[]; .role == "roles/storage.objectAdmin" and (.members | index($member))) and
-    all(.bindings[]; (.members // []) | index("allUsers") | not)
-  ' >/dev/null
+gcloud storage buckets get-iam-policy "gs://${BUCKET}" --format=json > "$policy_json"
+jq -e --arg member "serviceAccount:${RUNTIME_SA}" '
+  any(
+    .bindings[]?;
+    .role == "roles/storage.objectAdmin" and
+    any(.members[]?; . == $member)
+  ) and
+  ([.bindings[]?.members[]?] |
+    all(. != "allUsers" and . != "allAuthenticatedUsers"))
+' "$policy_json" >/dev/null
 
 printf 'READY: PRIVATE_MEDIA_BUCKET=%s\n' "${BUCKET}"
 printf 'READY: MEDIA_RUNTIME=%s\n' "${RUNTIME_SA}"
