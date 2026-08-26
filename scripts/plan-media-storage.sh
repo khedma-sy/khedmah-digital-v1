@@ -34,7 +34,7 @@ assert_legacy_root_released() {
   local legacy_state_lineage
   local legacy_state_serial
 
-  if ! terraform -chdir=infra/iac state pull > "$legacy_state_json"; then
+  if ! root_terraform state pull > "$legacy_state_json"; then
     printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_QUERY_FAILED' >&2
     printf '%s\n' "$failure_marker" >&2
     exit 1
@@ -101,17 +101,30 @@ assert_legacy_root_released() {
 legacy_state_json="$(mktemp)"
 state_json="$(mktemp)"
 plan_json="$(mktemp)"
+root_tf_data_dir="$(mktemp -d)"
+media_tf_data_dir="$(mktemp -d)"
 pending_plan_file=''
 cleanup() {
   rm -f "$legacy_state_json" "$state_json" "$plan_json"
   if [[ -n "$pending_plan_file" ]]; then
     rm -f "$pending_plan_file"
   fi
+  rm -rf -- "$root_tf_data_dir" "$media_tf_data_dir"
 }
 trap cleanup EXIT
 observed_legacy_root_state_serial=''
 
-terraform -chdir=infra/iac init \
+root_terraform() {
+  TF_DATA_DIR="$root_tf_data_dir" TF_WORKSPACE=default \
+    terraform -chdir=infra/iac "$@"
+}
+
+media_terraform() {
+  TF_DATA_DIR="$media_tf_data_dir" TF_WORKSPACE=default \
+    terraform -chdir=infra/iac/media "$@"
+}
+
+root_terraform init \
   -input=false \
   -reconfigure \
   -backend-config="bucket=${STATE_BUCKET}" \
@@ -133,15 +146,15 @@ gcloud iam service-accounts describe "$RUNTIME_SA" \
   --project="$PROJECT_ID" \
   --format='value(email)' | grep -F -x -- "$RUNTIME_SA" >/dev/null
 
-terraform -chdir=infra/iac/media init \
+media_terraform init \
   -input=false \
   -reconfigure \
   -backend-config="bucket=${STATE_BUCKET}" \
   -backend-config="prefix=${STATE_PREFIX}"
 
-terraform -chdir=infra/iac/media validate
+media_terraform validate
 
-if ! state_resources="$(terraform -chdir=infra/iac/media state list)"; then
+if ! state_resources="$(media_terraform state list)"; then
   printf '%s\n' 'ERROR: TERRAFORM_STATE_LIST_FAILED' >&2
   printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
   exit 1
@@ -163,7 +176,7 @@ fi
 
 if grep -F -x -- 'google_storage_bucket.media' <<< "$state_resources" >/dev/null; then
   if ! tracked_media_identity="$(
-    terraform -chdir=infra/iac/media show -json |
+    media_terraform show -json |
       jq -er '
         [
           .values.root_module
@@ -220,7 +233,7 @@ fi
 if grep -F -x -- 'google_storage_bucket_iam_member.runtime_media_objects' \
     <<< "$state_resources" >/dev/null; then
   if ! tracked_runtime_identity="$(
-    terraform -chdir=infra/iac/media show -json |
+    media_terraform show -json |
       jq -er '
         [
           .values.root_module
@@ -283,17 +296,25 @@ if grep -F -x -- "$MEDIA_BUCKET" <<< "$project_media_buckets" >/dev/null; then
   fi
 fi
 
-plan_file="${TF_PLAN_FILE:-/tmp/khedmah-media.tfplan}"
+requested_plan_file="${TF_PLAN_FILE:-/tmp/khedmah-media.tfplan}"
+requested_plan_directory="$(dirname -- "$requested_plan_file")"
+if ! plan_directory="$(cd -- "$requested_plan_directory" && pwd -P)"; then
+  printf 'ERROR: MEDIA_TERRAFORM_PLAN_DIRECTORY_UNREADABLE=%s\n' \
+    "$requested_plan_directory" >&2
+  printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+  exit 1
+fi
+plan_basename="$(basename -- "$requested_plan_file")"
+plan_file="${plan_directory}/${plan_basename}"
+
 if [[ -e "$plan_file" ]]; then
   printf 'ERROR: MEDIA_TERRAFORM_PLAN_ALREADY_EXISTS=%s\n' "$plan_file" >&2
   printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
   exit 1
 fi
 
-plan_directory="$(dirname -- "$plan_file")"
-plan_basename="$(basename -- "$plan_file")"
 pending_plan_file="$(mktemp "${plan_directory}/.${plan_basename}.pending.XXXXXX")"
-terraform -chdir=infra/iac/media plan \
+media_terraform plan \
   -input=false \
   -lock-timeout=60s \
   -out="$pending_plan_file" \
@@ -302,7 +323,7 @@ terraform -chdir=infra/iac/media plan \
   -var="bucket_name=${MEDIA_BUCKET}" \
   -var="runtime_service_account_email=${RUNTIME_SA}"
 
-if ! terraform -chdir=infra/iac/media show -json "$pending_plan_file" > "$plan_json"; then
+if ! media_terraform show -json "$pending_plan_file" > "$plan_json"; then
   printf '%s\n' 'ERROR: MEDIA_TERRAFORM_PLAN_UNREADABLE' >&2
   printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
   exit 1
