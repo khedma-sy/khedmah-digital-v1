@@ -19,6 +19,14 @@ export interface PublicOrganization {
   readonly memberCount: number;
 }
 
+export interface PublicOrganizationMember {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly role: 'owner' | 'member';
+  readonly status: 'active' | 'removed';
+}
+
 export interface PublicBusinessProfile {
   readonly id: string;
   readonly name: string;
@@ -287,6 +295,35 @@ export const api = {
     },
     listMine() {
       return request<{ organizations: PublicOrganization[] }>('/organizations/my');
+    },
+    get(id: string) {
+      return request<{ organization: PublicOrganization }>(`/organizations/${encodeURIComponent(id)}`);
+    },
+    update(id: string, name: string) {
+      return request<{ organization: PublicOrganization }>(`/organizations/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name })
+      });
+    },
+    listMembers(id: string) {
+      return request<{ members: PublicOrganizationMember[] }>(`/organizations/${encodeURIComponent(id)}/members`);
+    },
+    addMember(id: string, userId: string, role: PublicOrganizationMember['role']) {
+      return request<{ member: PublicOrganizationMember }>(`/organizations/${encodeURIComponent(id)}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId, role })
+      });
+    },
+    updateMember(id: string, memberId: string, data: { role?: PublicOrganizationMember['role']; status?: PublicOrganizationMember['status'] }) {
+      return request<{ member: PublicOrganizationMember }>(`/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
+    },
+    removeMember(id: string, memberId: string) {
+      return request<{ status: 'ok' }>(`/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, {
+        method: 'DELETE'
+      });
     }
   },
   categories: {
