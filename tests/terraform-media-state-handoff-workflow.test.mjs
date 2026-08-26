@@ -26,13 +26,25 @@ test('handoff verifies protected root state and exact reviewed state identity', 
   assert.match(workflow, /protoPayload\.resourceName/);
   assert.match(workflow, /khedmah\/production\/root\/default\.tfstate/);
   assert.match(workflow, /test \"\$\{#state_candidates\[@\]\}\" -eq 1/);
+  assert.match(workflow, /uniform_bucket_level_access == true/);
   assert.match(workflow, /uniformBucketLevelAccess\.enabled == true/);
+  assert.match(workflow, /public_access_prevention == \"enforced\"/);
   assert.match(workflow, /publicAccessPrevention == \"enforced\"/);
+  assert.match(workflow, /versioning_enabled == true/);
   assert.match(workflow, /versioning\.enabled == true/);
   assert.match(workflow, /test \"\$lineage\" = \"\$EXPECTED_LINEAGE\"/);
   assert.match(workflow, /test \"\$serial\" = \"\$EXPECTED_SERIAL\"/);
   assert.match(workflow, /test \"\$bucket_project\" = \"\$GOOGLE_CLOUD_PROJECT\"/);
   assert.match(workflow, /test \"\$bucket_name\" = \"\$iam_bucket\"/);
+});
+
+test('fresh root initialization requires absence, explicit confirmation and zero resources', () => {
+  assert.match(workflow, /VERIFY_EMPTY_ROOT/);
+  assert.match(workflow, /INITIALIZE_EMPTY_ROOT/);
+  assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
+  assert.match(workflow, /test \"\$CONFIRMATION\" = INITIALIZE_EMPTY_ROOT_STATE/);
+  assert.match(workflow, /terraform -chdir=infra\/iac state push/);
+  assert.match(workflow, /\.resources \| length == 0/);
 });
 
 test('handoff backs up and removes both addresses atomically, then stops', () => {
