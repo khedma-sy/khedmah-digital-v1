@@ -31,6 +31,19 @@ test('production source is staged in a project-owned bucket', () => {
   assert.ok(workflow.includes('SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"'));
   assert.ok(workflow.includes('--gcs-source-staging-dir "$SOURCE_STAGING_DIR"'));
 });
+
+test('production operator deploys the planned media bucket and runtime identity', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(workflow, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_RUNTIME_SERVICE_ACCOUNT \}\}/);
+  assert.match(workflow, /GCS_MEDIA_BUCKET: \$\{\{ vars\.GCS_MEDIA_BUCKET \}\}/);
+  assert.match(workflow, /test -n "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
+  assert.match(workflow, /test -n "\$GCS_MEDIA_BUCKET"/);
+  assert.match(
+    workflow,
+    /--substitutions "COMMIT_SHA=\$REQUESTED_SHA,_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET"/,
+  );
+});
+
 test('production operator cannot deploy from an automatic repository event', () => {
   const workflow = execFileSync('cat', ['.github/workflows/production-operator.yml'], { encoding: 'utf8' });
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
