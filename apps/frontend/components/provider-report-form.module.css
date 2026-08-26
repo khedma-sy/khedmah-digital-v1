@@ -1,0 +1,18 @@
+.trigger { min-height:2.75rem; display:inline-flex; align-items:center; justify-content:center; gap:.45rem; border:1px solid var(--k-color-border); border-radius:var(--k-radius-md); padding:.65rem 1rem; color:var(--k-color-danger); background:var(--k-color-surface); font:inherit; font-weight:800; cursor:pointer; }
+.panel { width:min(100%,42rem); display:grid; gap:1rem; margin-block-start:1rem; border:1px solid var(--k-color-border); border-radius:var(--k-radius-lg); padding:clamp(1rem,3vw,1.5rem); color:var(--k-color-text); background:var(--k-color-surface); box-shadow:var(--k-shadow-md); }
+.header { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
+.header h2,.header p { margin:0; }
+.header p { margin-block-start:.35rem; color:var(--k-color-text-muted); line-height:1.65; }
+.close { width:2.5rem; aspect-ratio:1; border:1px solid var(--k-color-border); border-radius:.75rem; color:var(--k-color-text); background:var(--k-color-surface-muted); font:inherit; cursor:pointer; }
+.form { display:grid; gap:.75rem; }
+.form label { font-size:.85rem; font-weight:800; }
+.form select,.form textarea { width:100%; border:1px solid var(--k-color-border); border-radius:var(--k-radius-md); padding:.75rem 1rem; color:var(--k-color-text); background:var(--k-color-surface-muted); font:inherit; }
+.form textarea { resize:vertical; min-height:8rem; }
+.form select:focus,.form textarea:focus { outline:3px solid color-mix(in srgb,var(--k-color-primary) 22%,transparent); border-color:var(--k-color-primary); }
+.help { margin:0; color:var(--k-color-text-muted); font-size:.78rem; line-height:1.6; }
+.error { margin:0; color:var(--k-color-danger); font-weight:700; }
+.success { display:grid; justify-items:center; gap:.65rem; padding:1rem; text-align:center; }
+.success span { width:3rem; aspect-ratio:1; display:grid; place-items:center; border-radius:50%; color:#fff; background:var(--k-color-success); font-weight:900; }
+.success h2,.success p { margin:0; }
+.success p { color:var(--k-color-text-muted); line-height:1.7; }
+@media(max-width:38rem){.trigger{flex:1}.panel{width:100%}}

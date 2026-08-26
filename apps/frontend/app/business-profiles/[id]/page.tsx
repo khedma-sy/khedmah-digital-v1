@@ -7,6 +7,7 @@ import { api, type BusinessBranch, type BusinessSocialLink, type MediaAsset, typ
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
+import { ProviderReportForm } from '../../../components/provider-report-form';
 import { ActionButton, ActionLink, EmptyState, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import { ProviderQrAction } from './provider-qr-action';
@@ -99,6 +100,7 @@ export default function BusinessProfilePage() {
           <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
           <ProviderQrAction providerName={business.name} />
           <ActionButton type="button" variant="secondary" onClick={() => void handleShare()}><PlatformIcon name="arrow" size={17}/> مشاركة</ActionButton>
+          {business.visibility === 'public' && <ProviderReportForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
           {shareMsg && <span className={styles.shareStatus} role="status">{shareMsg}</span>}
         </div>
       </Surface>

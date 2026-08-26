@@ -182,6 +182,27 @@ export interface ApiError {
   readonly code?: string;
 }
 
+export interface PublicProviderReportReceipt {
+  readonly id: string;
+  readonly targetType: 'business' | 'professional';
+  readonly targetId: string;
+  readonly status: 'submitted';
+  readonly createdAt: string;
+}
+
+export interface ModerationProviderReport {
+  readonly id: string;
+  readonly reporterUserId: string;
+  readonly targetType: 'business' | 'professional';
+  readonly targetId: string;
+  readonly reasonCode: string;
+  readonly details: string;
+  readonly status: 'submitted' | 'in_review' | 'resolved' | 'dismissed';
+  readonly resolutionNote?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface ContactInquiryReceipt {
   readonly id: string;
   readonly targetType: 'business' | 'professional';
@@ -490,6 +511,12 @@ export const api = {
   moderation: {
     listPending() {
       return request<{ businesses: PublicBusinessProfile[]; professionals: PublicProfessionalProfile[] }>('/admin/moderation/pending');
+    },
+    listReports() {
+      return request<{ reports: ModerationProviderReport[] }>('/admin/reports');
+    },
+    reviewReport(id: string, status: 'in_review' | 'resolved' | 'dismissed', note: string) {
+      return request<{ report: { id: string; status: string } }>(`/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
     }
   },
   services: {
@@ -566,6 +593,12 @@ export const api = {
       if (params.latitude !== undefined) qs.set('latitude', String(params.latitude));
       if (params.longitude !== undefined) qs.set('longitude', String(params.longitude));
       return request<SearchResults>(`/search?${qs}`);
+    }
+  },
+  reports: {
+    submit(target: { type: 'business' | 'professional'; id: string }, data: { reasonCode: string; details: string }) {
+      const collection = target.type === 'business' ? 'businesses' : 'professionals';
+      return request<{ report: PublicProviderReportReceipt }>(`/${collection}/${target.id}/reports`, { method: 'POST', body: JSON.stringify(data) });
     }
   }
 };
