@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
+import { ThemeToggle } from './components/theme-toggle';
 import './globals.css';
 import './brand-system.css';
+import './design-tokens.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 const SITE_NAME = 'خدمة';
@@ -52,15 +54,17 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const themeScript = `(function(){try{var p=localStorage.getItem('khedma-theme');var v=p==='light'||p==='dark'?p:'system';var d=v==='dark'||(v==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.dataset.themePreference=v;r.dataset.theme=d?'dark':'light';r.style.colorScheme=d?'dark':'light'}catch(e){}})()`;
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
       <body>
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
-          <AuthNavigation />
+          <div className="khedma-header-actions"><ThemeToggle /><AuthNavigation /></div>
         </header>
         {children}
       </body>

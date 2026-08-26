@@ -1,0 +1,11 @@
+<resources>
+  <color name="khedma_navy">#EDF7F4</color>
+  <color name="khedma_blue">#EDF7F4</color>
+  <color name="khedma_blue_accent">#4FC49A</color>
+  <color name="khedma_green">#4FC49A</color>
+  <color name="khedma_orange">#FF9A5F</color>
+  <color name="khedma_warm_background">#0B1A24</color>
+  <color name="khedma_background">#07131C</color>
+  <color name="khedma_surface">#102431</color>
+  <color name="khedma_border">#294653</color>
+</resources>
