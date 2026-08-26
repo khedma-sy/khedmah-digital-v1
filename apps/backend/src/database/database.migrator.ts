@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '020';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '021';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -79,7 +79,11 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('oauth', '020', 'external_identities'),
   ...['provider', 'provider_subject', 'user_identifier', 'email'].map((name) => column('oauth', '020', 'external_identities', name)),
   constraint('oauth', '020', 'external_identities', 'external_identities_provider_user_unique'),
-  index('oauth', '020', 'external_identities', 'external_identities_user_idx')
+  index('oauth', '020', 'external_identities', 'external_identities_user_idx'),
+  table('reports', '021', 'provider_reports'),
+  ...['report_identifier', 'reporter_user_identifier', 'target_type', 'reason_code', 'details', 'status', 'reviewed_by_user_identifier', 'resolution_note', 'created_at'].map((name) => column('reports', '021', 'provider_reports', name)),
+  constraint('reports', '021', 'provider_reports', 'provider_reports_exactly_one_target_check'),
+  index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { api, MediaAsset, PublicProfessionalProfile, PublicServiceListing, TrustHistoryEntry, VerificationRequest } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
+import { ProviderReportForm } from '../../../components/provider-report-form';
 
 
 
@@ -121,6 +122,12 @@ export default function ProfessionalProfileDetailPage() {
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
               {profile.contactEligibility?.eligible && (
                 <ContactInquiryForm
+                  target={{ type: 'professional', id: profile.id }}
+                  providerName={profile.headlineAr}
+                />
+              )}
+              {profile.contactEligibility?.eligible && (
+                <ProviderReportForm
                   target={{ type: 'professional', id: profile.id }}
                   providerName={profile.headlineAr}
                 />

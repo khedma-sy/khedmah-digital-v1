@@ -16,6 +16,7 @@ import { OperationsProductModule } from './operations-product/operations-product
 import { ProfessionalProfilesModule } from './professional-profiles/professional-profiles.module';
 import { SearchModule } from './search/search.module';
 import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
     LocationsModule,
     SearchModule,
     MediaModule,
-    ModerationModule
+    ModerationModule,
+    ReportsModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

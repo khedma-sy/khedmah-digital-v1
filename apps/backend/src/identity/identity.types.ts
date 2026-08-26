@@ -48,6 +48,8 @@ export type AuditEventType =
   | 'contact.inquiry.abuse_blocked'
   | 'contact.click.tracked'
   | 'contact.click.rate_limited'
+  | 'provider.report.submitted'
+  | 'provider.report.reviewed'
   | 'analytics.event.recorded'
   | 'operations.change.requested'
   | 'operations.rollback.requested'

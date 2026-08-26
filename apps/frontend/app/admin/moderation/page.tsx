@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, ModerationProviderReport, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [professionals, setProfessionals] = useState<PublicProfessionalProfile[]>([]);
+  const [reports, setReports] = useState<ModerationProviderReport[]>([]);
   const [rejectingEntity, setRejectingEntity] = useState<{ type: 'business' | 'professional'; id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -16,15 +17,25 @@ export default function ModerationPage() {
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const { businesses, professionals } = await api.moderation.listPending();
+      const [{ businesses, professionals }, { reports }] = await Promise.all([api.moderation.listPending(), api.moderation.listReports()]);
       setBusinesses(businesses);
       setProfessionals(professionals);
+      setReports(reports);
       setError(null);
     } catch (err: unknown) {
       setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const reviewReport = async (id: string, status: 'in_review' | 'resolved' | 'dismissed') => {
+    const note = prompt(status === 'dismissed' ? 'اكتب سبب استبعاد البلاغ:' : status === 'resolved' ? 'اكتب إجراء المعالجة:' : 'اكتب ملاحظة بدء المراجعة:');
+    if (!note || note.trim().length < 5) return;
+    setActionLoading(true);
+    try { await api.moderation.reviewReport(id, status, note.trim()); await loadQueue(); }
+    catch (err: unknown) { alert(messageFor(err, 'تعذر تحديث البلاغ')); }
+    finally { setActionLoading(false); }
   };
 
   useEffect(() => {
@@ -106,6 +117,20 @@ export default function ModerationPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="operations-panel moderation-section" aria-labelledby="reports-title">
+        <div className="panel-heading"><h2 id="reports-title">بلاغات المستخدمين</h2><span>{reports.filter((report) => report.status === 'submitted' || report.status === 'in_review').length}</span></div>
+        {reports.length === 0 ? <p className="moderation-empty">لا توجد بلاغات مسجلة.</p> : <div className="moderation-list">
+          {reports.map((report) => <article key={report.id} className="moderation-card">
+            <div><h3>{report.targetType === 'business' ? 'نشاط تجاري' : 'ملف مهني'} · {report.reasonCode}</h3><p>{report.details}</p><small><bdi>{report.targetId}</bdi> · {report.status}</small></div>
+            {(report.status === 'submitted' || report.status === 'in_review') && <div className="moderation-actions">
+              {report.status === 'submitted' && <button disabled={actionLoading} onClick={() => void reviewReport(report.id, 'in_review')} className="filter-action-secondary">بدء المراجعة</button>}
+              <button disabled={actionLoading} onClick={() => void reviewReport(report.id, 'resolved')} className="moderation-approve">تمت المعالجة</button>
+              <button disabled={actionLoading} onClick={() => void reviewReport(report.id, 'dismissed')} className="moderation-reject">استبعاد</button>
+            </div>}
+          </article>)}
+        </div>}
       </section>
 
       <section className="operations-panel moderation-section">
