@@ -9,6 +9,7 @@ Safety rules:
 - The plan script validates the state bucket before Terraform initialization.
 - Production media remains in `europe-west1`, supplied independently through `GCS_MEDIA_LOCATION`; `GOOGLE_CLOUD_REGION` remains the Cloud Run and Cloud Build region.
 - Public access prevention and uniform bucket-level access are enforced.
+- Deleted media remains recoverable for 30 days through an explicit soft-delete policy.
 - There is no automated apply command. Applying requires a separately reviewed saved plan and explicit approval.
 - If the media bucket already exists, do not import it directly. A separately approved state handoff must remove both media addresses from the legacy root state and import both into this isolated state in one reviewed maintenance window.
 - The root stack declares a GCS backend. The plan script initializes it against `gs://$TF_STATE_BUCKET/khedmah/production/root/default.tfstate` and reads it through `terraform state pull`; planning stays blocked until the separately approved state migration/handoff makes that the real root authority.
