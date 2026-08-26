@@ -119,7 +119,7 @@ steps:
           --allow-unauthenticated \
           --add-cloudsql-instances '${_CLOUD_SQL_INSTANCE}' \
           --port 8080 \
-          --update-env-vars "^|^CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE}|CORS_ORIGIN=$$ALLOWED_ORIGINS|NEXT_PUBLIC_SITE_URL=$$FRONTEND_RUNTIME_URL|EMAIL_FROM=${_EMAIL_FROM}" \
+          --update-env-vars "^|^CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE}|CORS_ORIGIN=$$ALLOWED_ORIGINS|NEXT_PUBLIC_SITE_URL=$$FRONTEND_RUNTIME_URL|EMAIL_FROM=${_EMAIL_FROM}|GCS_MEDIA_BUCKET=${_GCS_MEDIA_BUCKET}" \
           --set-secrets 'DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest' \
           --quiet
   - id: deploy-frontend
@@ -137,6 +137,7 @@ substitutions:
   _NEXT_PUBLIC_API_URL: https://backend-774201339973.europe-west1.run.app
   _CORS_ORIGIN: https://frontend-774201339973.europe-west1.run.app
   _EMAIL_FROM: noreply@mail.khedmah.uk
+  _GCS_MEDIA_BUCKET: project-94512a0e-1a5e-4bdb-87f-khedmah-media
 options:
   logging: CLOUD_LOGGING_ONLY
   substitutionOption: MUST_MATCH
