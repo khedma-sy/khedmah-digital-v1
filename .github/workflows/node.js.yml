@@ -50,6 +50,17 @@ jobs:
     - name: Validate Firebase SDK integration
       run: npm run validate:firebase
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.6
+
+    - name: Validate Terraform formatting and media stack
+      run: |
+        terraform fmt -check -recursive infra/iac
+        terraform -chdir=infra/iac/media init -backend=false -input=false
+        terraform -chdir=infra/iac/media validate
+
     - name: Build
       run: npm run build --if-present
     
