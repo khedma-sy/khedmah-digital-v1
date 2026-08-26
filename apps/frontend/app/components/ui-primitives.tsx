@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, FormHTMLAttributes, ReactNode } from 'react';
 
 export function PageShell({ children, label, className = '' }: { children: ReactNode; label?: string; className?: string }) {
   return <main id="foundation-content" className={`ui-page ${className}`.trim()} aria-label={label}>
@@ -17,9 +17,19 @@ export function PageHeader({ title, description, eyebrow, backHref, actions }: {
   </header>;
 }
 
-export function Surface({ children, as = 'section', className = '' }: { children: ReactNode; as?: 'section' | 'article' | 'div'; className?: string }) {
+type SurfaceProps = {
+  children: ReactNode;
+  as?: 'section' | 'article' | 'div' | 'form';
+  className?: string;
+} & Pick<FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'aria-busy'>;
+
+export function Surface({ children, as = 'section', className = '', onSubmit, 'aria-busy': ariaBusy }: SurfaceProps) {
+  const surfaceClassName = `ui-surface ${className}`.trim();
+  if (as === 'form') {
+    return <form className={surfaceClassName} onSubmit={onSubmit} aria-busy={ariaBusy}>{children}</form>;
+  }
   const Element = as;
-  return <Element className={`ui-surface ${className}`.trim()}>{children}</Element>;
+  return <Element className={surfaceClassName}>{children}</Element>;
 }
 
 export function ActionLink({ href, children, variant = 'primary' }: { href: string; children: ReactNode; variant?: 'primary' | 'secondary' | 'quiet' }) {
