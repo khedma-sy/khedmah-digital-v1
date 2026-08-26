@@ -17,6 +17,7 @@ export default function ManageBusinessProfilePage() {
   const [inquiries, setInquiries] = useState<ProviderContactInquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [updatingServiceId, setUpdatingServiceId] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +27,7 @@ export default function ManageBusinessProfilePage() {
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const [priceType, setPriceType] = useState('negotiable');
   const [price, setPrice] = useState('');
+  const [profileForm, setProfileForm] = useState({ name: '', descriptionAr: '', phone: '', email: '', website: '', categoryCode: '' });
 
   async function loadProviderCore() {
     setIsLoading(true);
@@ -44,6 +46,7 @@ export default function ManageBusinessProfilePage() {
         return;
       }
       setBusiness(ownedProfile);
+      setProfileForm({ name: ownedProfile.name, descriptionAr: ownedProfile.descriptionAr ?? '', phone: ownedProfile.phone ?? '', email: ownedProfile.email ?? '', website: ownedProfile.website ?? '', categoryCode: ownedProfile.categoryCode });
       setServices(ownerServices.services);
       setInquiries(received.inquiries);
     } catch (loadError) {
@@ -105,6 +108,15 @@ export default function ManageBusinessProfilePage() {
     }
   }
 
+  async function updateProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setIsSaving(true); setError('');
+    try {
+      const result = await api.businesses.update(id, { name: profileForm.name.trim(), descriptionAr: profileForm.descriptionAr.trim(), phone: profileForm.phone.trim() || undefined, email: profileForm.email.trim() || undefined, website: profileForm.website.trim() || undefined, categoryCode: profileForm.categoryCode });
+      setBusiness(result.business); setShowProfileForm(false);
+    } catch { setError('تعذر حفظ معلومات النشاط. راجع البيانات وحاول مجدداً.'); }
+    finally { setIsSaving(false); }
+  }
+
   return (
     <main id="foundation-content" className={styles.page}>
       <div className={styles.shell}>
@@ -121,11 +133,22 @@ export default function ManageBusinessProfilePage() {
         </header>
 
         <nav className={styles.secondaryActions} aria-label="إجراءات الملف">
+          <button type="button" onClick={() => setShowProfileForm((value) => !value)}><PlatformIcon name="briefcase" size={18} /> {showProfileForm ? 'إغلاق تعديل المعلومات' : 'تعديل معلومات النشاط'}</button>
           <Link href={`/business-profiles/${id}`}><PlatformIcon name="user" size={18} /> عرض الملف العام</Link>
           <Link href="/business-profiles"><PlatformIcon name="arrow" size={18} /> كل ملفات أعمالي</Link>
         </nav>
 
         {error && <p className={styles.error} role="alert">{error}</p>}
+
+        {showProfileForm && <form className={styles.serviceForm} onSubmit={updateProfile}>
+          <h2>معلومات النشاط</h2>
+          <label>اسم النشاط<input value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} minLength={2} maxLength={160} required /></label>
+          <label>الوصف<textarea value={profileForm.descriptionAr} onChange={(event) => setProfileForm((current) => ({ ...current, descriptionAr: event.target.value }))} maxLength={2000} rows={5} /></label>
+          <label>التصنيف<select value={profileForm.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setProfileForm((current) => ({ ...current, categoryCode: event.target.value }))} required>{categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</select></label>
+          <div className={styles.formGrid}><label>الهاتف<input type="tel" value={profileForm.phone} onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))} /></label><label>البريد الإلكتروني<input type="email" dir="ltr" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))} /></label></div>
+          <label>الموقع الإلكتروني<input type="url" dir="ltr" value={profileForm.website} onChange={(event) => setProfileForm((current) => ({ ...current, website: event.target.value }))} /></label>
+          <button className={styles.primaryAction} type="submit" disabled={isSaving || !profileForm.name.trim() || !profileForm.categoryCode}>{isSaving ? 'جارٍ الحفظ…' : 'حفظ معلومات النشاط'}</button>
+        </form>}
 
         {showServiceForm && (
           <form className={styles.serviceForm} onSubmit={createService}>

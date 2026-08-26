@@ -1,145 +1,56 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicBusinessProfile } from '../../lib/api-client';
+import { api, type PublicBusinessProfile } from '../../lib/api-client';
+import { cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
+import { useCategories } from '../../lib/use-categories';
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
+import { PlatformIcon } from '../components/platform-icon';
+import styles from '../../components/owner-workspace.module.css';
 
-function TrustBadge({ status }: { status: string }) {
-  if (status === 'approved') return <span className="badge badge-approved">✓ معتمد</span>;
-  if (status === 'suspended') return <span className="badge badge-suspended">✗ موقوف</span>;
-  return <span className="badge badge-pending">⏳ قيد المراجعة</span>;
-}
-
-function ModerationBadge({ status }: { status: string }) {
-  if (status === 'approved') return <span className="badge" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>مقبول</span>;
-  if (status === 'rejected') return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>مرفوض</span>;
-  if (status === 'suspended') return <span className="badge" style={{ backgroundColor: '#f3f4f6', color: '#1f2937' }}>موقوف</span>;
-  return <span className="badge" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>معلق</span>;
-}
+const moderationLabel = (status: PublicBusinessProfile['moderationStatus']) => status === 'approved' ? 'معتمد للنشر' : status === 'rejected' ? 'مطلوب تعديل' : status === 'suspended' ? 'موقوف' : 'قيد المراجعة';
+const moderationTone = (status: PublicBusinessProfile['moderationStatus']) => status === 'approved' ? styles.success : status === 'rejected' || status === 'suspended' ? styles.danger : styles.warning;
 
 export default function BusinessProfilesPage() {
   const router = useRouter();
-  const [businessProfiles, setBusinessProfiles] = useState<PublicBusinessProfile[]>([]);
+  const { cities } = useSyrianCities();
+  const { categories } = useCategories();
+  const [profiles, setProfiles] = useState<PublicBusinessProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState('');
   const [error, setError] = useState('');
 
-  async function loadBusinessProfiles() {
-    setIsLoading(true);
-    setError('');
-    try {
-      const data = await api.businesses.listMine();
-      setBusinessProfiles(data.businesses);
-    } catch (err) {
-      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
-      if (statusCode === 401) {
-        router.push('/auth/login');
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'تعذر تحميل ملفات الأعمال.');
-    } finally {
-      setIsLoading(false);
-    }
+  async function load() {
+    setIsLoading(true); setError('');
+    try { setProfiles((await api.businesses.listMine()).businesses); }
+    catch (cause) {
+      const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+      if (status === 401) { router.replace('/auth/login'); return; }
+      setError(cause instanceof Error ? cause.message : 'تعذر تحميل أنشطتك.');
+    } finally { setIsLoading(false); }
   }
 
-  async function handleSubmitForReview(id: string) {
-    try {
-      await api.businesses.submitForReview(id);
-      await loadBusinessProfiles();
-    } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء الإرسال للمراجعة');
-    }
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  async function submitForReview(id: string) {
+    setSubmittingId(id); setError('');
+    try { await api.businesses.submitForReview(id); await load(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إرسال الملف للمراجعة.'); }
+    finally { setSubmittingId(''); }
   }
 
-  useEffect(() => {
-    void loadBusinessProfiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <main id="foundation-content" className="page-shell" aria-label="ملفات الأعمال">
-      <div className="page-content">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem' }}>
-          <div>
-            <p className="eyebrow">خدمة الرقمية</p>
-            <h1 style={{ margin: '0 0 0.35rem', fontSize: 'clamp(1.75rem, 5vw, 3rem)' }}>ملفات الأعمال</h1>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '1rem' }}>إدارة ملفات أعمالك وعرضها للعملاء.</p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <Link href="/business-profiles/new" className="filter-action" style={{ textDecoration: 'none' }}>+ إنشاء ملف</Link>
-            <Link href="/search?type=business" className="filter-action-secondary" style={{ textDecoration: 'none' }}>تصفح الأعمال</Link>
-          </div>
-        </header>
-
-        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
-
-        {isLoading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="skeleton skeleton-card" />
-            ))}
-          </div>
-        ) : businessProfiles.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-state-icon" aria-hidden="true">🏢</span>
-            <h2>لا توجد ملفات أعمال</h2>
-            <p>لم تُنشئ أي ملف عمل بعد. أنشئ ملفك الأول وابدأ ظهورك على المنصة.</p>
-            <Link href="/business-profiles/new" className="filter-action" style={{ textDecoration: 'none', marginTop: '0.5rem' }}>
-              إنشاء أول ملف
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-            {businessProfiles.map((profile) => (
-              <article className="card" key={profile.id}>
-                <div className="card-body">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                    <h2 className="card-title">{profile.name}</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-end' }}>
-                      <TrustBadge status={profile.trustStatus} />
-                      <ModerationBadge status={profile.moderationStatus} />
-                    </div>
-                  </div>
-                  <p className="card-meta">
-                    {profile.categoryCode} · {profile.cityCode} ·{' '}
-                    {profile.visibility === 'public' ? 'عام' : 'خاص'}
-                  </p>
-                  {profile.descriptionAr && (
-                    <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {profile.descriptionAr}
-                    </p>
-                  )}
-                  {(profile.phone || profile.email) && (
-                    <p className="card-meta" style={{ marginTop: '0.35rem' }}>
-                      {profile.phone && `📞 ${profile.phone}`}
-                      {profile.phone && profile.email && ' · '}
-                      {profile.email && `✉ ${profile.email}`}
-                    </p>
-                  )}
-                </div>
-                <div className="card-footer" style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Link
-                    href={`/business-profiles/${profile.id}/manage`}
-                    className="foundation-action"
-                    style={{ flex: 1, marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                  >
-                    إدارة الملف
-                  </Link>
-                  {(profile.moderationStatus === 'rejected' || (!profile.moderationStatus && profile.visibility === 'private')) && (
-                    <button
-                      onClick={() => handleSubmitForReview(profile.id)}
-                      className="filter-action"
-                      style={{ flex: 1, fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                    >
-                      إرسال للمراجعة
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
-  );
+  return <PageShell className={styles.page} label="أنشطتي">
+    <PageHeader eyebrow="مساحة صاحب النشاط" title="أنشطتي" description="أنشئ ملف نشاطك، أكمل خدماته، ثم أرسله للمراجعة ليظهر للمستخدمين بعد الاعتماد." actions={<div className={styles.headerActions}><ActionLink href="/business-profiles/new"><PlatformIcon name="grid" size={18}/> إضافة نشاط</ActionLink><ActionLink href="/search?type=business" variant="secondary">استكشف الدليل</ActionLink></div>} />
+    {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {isLoading ? <SkeletonGrid count={4} label="جاري تحميل أنشطتك" /> : profiles.length === 0 ? <EmptyState icon={<PlatformIcon name="briefcase" size={32}/>} title="ابدأ حضور نشاطك على خدمة" description="لم تنشئ أي نشاط بعد. أضف المعلومات الأساسية واحفظه كملف خاص قبل إرساله للمراجعة." actions={<ActionLink href="/business-profiles/new">إنشاء أول نشاط</ActionLink>} /> : <div className={styles.grid}>{profiles.map((profile) => {
+      const category = categories.find((item) => item.code === profile.categoryCode)?.nameAr ?? 'تصنيف غير محدد';
+      const canSubmit = profile.moderationStatus === 'rejected' || profile.moderationStatus === 'pending';
+      return <Surface as="article" className={styles.card} key={profile.id}>
+        <div className={styles.cardTop}><div><h2>{profile.name}</h2><p className={styles.meta}><span>{category}</span><span>·</span><span>{cityLabel(profile.cityCode, cities)}</span></p></div><div className={styles.badges}><span className={`${styles.badge} ${moderationTone(profile.moderationStatus)}`}>{moderationLabel(profile.moderationStatus)}</span><span className={`${styles.badge} ${profile.visibility === 'public' ? styles.success : styles.muted}`}>{profile.visibility === 'public' ? 'منشور' : 'خاص'}</span></div></div>
+        <p className={styles.description}>{profile.descriptionAr || 'لم تضف وصفاً للنشاط بعد. أكمل الملف قبل إرساله للمراجعة.'}</p>
+        <div className={styles.actions}><ActionLink href={`/business-profiles/${profile.id}/manage`}>إدارة النشاط</ActionLink>{profile.visibility === 'public' && <ActionLink href={`/business-profiles/${profile.id}`} variant="secondary">عرض الصفحة العامة</ActionLink>}{canSubmit && <ActionButton type="button" variant="secondary" disabled={submittingId === profile.id} onClick={() => void submitForReview(profile.id)}>{submittingId === profile.id ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>}</div>
+      </Surface>;
+    })}</div>}
+  </PageShell>;
 }

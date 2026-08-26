@@ -7,11 +7,11 @@ export function PageShell({ children, label, className = '' }: { children: React
   </main>;
 }
 
-export function PageHeader({ title, description, backHref, actions }: { title: string; description?: string; backHref?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, eyebrow, backHref, actions }: { title: string; description?: string; eyebrow?: string; backHref?: string; actions?: ReactNode }) {
   return <header className="ui-page-header">
     <div className="ui-page-heading">
       {backHref ? <Link className="ui-back" href={backHref} aria-label="العودة">←</Link> : null}
-      <div><h1>{title}</h1>{description ? <p>{description}</p> : null}</div>
+      <div>{eyebrow ? <span className="ui-eyebrow">{eyebrow}</span> : null}<h1>{title}</h1>{description ? <p>{description}</p> : null}</div>
     </div>
     {actions ? <div className="ui-page-actions">{actions}</div> : null}
   </header>;
@@ -48,4 +48,3 @@ export function SkeletonGrid({ count = 4, label = 'جاري تحميل المح�
     {Array.from({ length: count }, (_, index) => <div className="ui-skeleton" key={index} />)}
   </div>;
 }
-

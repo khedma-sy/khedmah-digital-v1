@@ -1,125 +1,48 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { api } from '../../../lib/api-client';
 import { useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
+import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../../components/ui-primitives';
+import styles from '../../../components/owner-workspace.module.css';
 
 export default function NewBusinessProfilePage() {
   const router = useRouter();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
-  const [name, setName] = useState('');
-  const [descriptionAr, setDescriptionAr] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [website, setWebsite] = useState('');
-  const [categoryCode, setCategoryCode] = useState('');
-  const [cityCode, setCityCode] = useState('');
+  const [form, setForm] = useState({ name: '', descriptionAr: '', phone: '', email: '', website: '', categoryCode: '', cityCode: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setError('');
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setIsSubmitting(true); setError('');
     try {
-      await api.businesses.create({
-        name,
-        descriptionAr: descriptionAr || undefined,
-        phone: phone || undefined,
-        email: email || undefined,
-        website: website || undefined,
-        categoryCode,
-        cityCode,
-        countryCode: 'SY'
-      });
+      await api.businesses.create({ name: form.name.trim(), descriptionAr: form.descriptionAr.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, website: form.website.trim() || undefined, categoryCode: form.categoryCode, cityCode: form.cityCode, countryCode: 'SY' });
       router.push('/business-profiles');
-    } catch (err) {
-      if (err instanceof Error && (err as Error & { statusCode?: number }).statusCode === 401) {
-        router.push('/auth/login');
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'تعذر الإنشاء.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (cause) {
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace('/auth/login'); return; }
+      setError(cause instanceof Error ? cause.message : 'تعذر إنشاء النشاط. راجع البيانات وحاول مجدداً.');
+    } finally { setIsSubmitting(false); }
   }
 
-  return (
-    <main id="foundation-content" className="identity-shell" aria-label="إنشاء ملف عمل">
-      <section className="identity-card" style={{ width: 'min(100%, 36rem)' }}>
-        <p className="eyebrow">خدمة الرقمية</p>
-        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)' }}>إنشاء ملف عمل</h1>
-        <p>أنشئ ملف عملك على المنصة.</p>
-
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
-          <label>
-            اسم العمل *
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} required placeholder="مثال: مطعم الأصيل" />
-          </label>
-          <label>
-            الوصف بالعربية
-            <textarea
-              value={descriptionAr}
-              onChange={(event) => setDescriptionAr(event.target.value)}
-              placeholder="وصف مختصر لعملك..."
-              style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit', resize: 'vertical', minHeight: '5rem' }}
-            />
-          </label>
-          <label>
-            التصنيف *
-            <select value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)} required>
-              <option value="">اختر تصنيفاً معتمداً</option>
-              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
-            </select>
-          </label>
-          {categoriesError && <p className="form-error" role="status">{categoriesError} <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></p>}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <label>
-              المدينة *
-              <select
-                value={cityCode}
-                disabled={citiesLoading || !!citiesError}
-                onChange={(event) => setCityCode(event.target.value)}
-                style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}
-              >
-                <option value="">اختر مدينة</option>
-                {cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}
-              </select>
-            </label>
-            <label>
-              الدولة *
-              <select
-                value="SY"
-                disabled
-                style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem 1rem', font: 'inherit' }}
-              >
-                <option value="SY">سوريا</option>
-              </select>
-            </label>
-          </div>
-          {citiesError && <p className="form-error" role="status">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></p>}
-          <label>
-            رقم الهاتف
-            <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+963 11 123 4567" />
-          </label>
-          <label>
-            البريد الإلكتروني
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="info@example.com" />
-          </label>
-          <label>
-            الموقع الإلكتروني
-            <input type="url" value={website} onChange={(event) => setWebsite(event.target.value)} placeholder="https://example.com" />
-          </label>
-          <button type="submit" className="foundation-action" aria-busy={isSubmitting} disabled={isSubmitting || citiesLoading || categoriesLoading || !!citiesError || !!categoriesError || !cityCode || !categoryCode} style={{ marginBlockStart: 0 }}>
-            {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء الملف'}
-          </button>
-        </form>
-      </section>
-    </main>
-  );
+  const unavailable = citiesLoading || categoriesLoading || !!citiesError || !!categoriesError;
+  return <PageShell className={styles.page} label="إضافة نشاط">
+    <div className={styles.formShell}>
+      <PageHeader eyebrow="مساحة صاحب النشاط" title="إضافة نشاط جديد" description="أدخل معلومات صحيحة وواضحة. سيُحفظ النشاط كملف خاص ولن يظهر في الدليل قبل إرساله للمراجعة واعتماده." />
+      {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {(citiesError || categoriesError) && <StatusMessage tone="warning"><p>{citiesError || categoriesError}</p><div className={styles.actions}>{citiesError && <ActionButton type="button" variant="secondary" onClick={() => void retryCities()}>إعادة تحميل المدن</ActionButton>}{categoriesError && <ActionButton type="button" variant="secondary" onClick={() => void retryCategories()}>إعادة تحميل التصنيفات</ActionButton>}</div></StatusMessage>}
+      <div className={styles.formLayout}>
+        <Surface as="form" className={styles.form} onSubmit={submit}>
+          <section className={styles.section}><h2>المعلومات الأساسية</h2><p>استخدم الاسم التجاري المعروف ووصفاً مختصراً يوضح ما يقدمه النشاط.</p><label>اسم النشاط <span className={styles.required}>*</span><input value={form.name} onChange={(event) => update('name', event.target.value)} minLength={2} maxLength={160} required autoComplete="organization" placeholder="مثال: مطعم الأصيل" /></label><label>وصف النشاط<textarea value={form.descriptionAr} onChange={(event) => update('descriptionAr', event.target.value)} maxLength={2000} placeholder="الخدمات الأساسية والخبرة وما يميز النشاط" /><span className={styles.help}>{form.descriptionAr.length.toLocaleString('ar-SY')} / ٢٠٠٠</span></label></section>
+          <section className={styles.section}><h2>التصنيف والموقع</h2><div className={styles.fieldGrid}><label>التصنيف <span className={styles.required}>*</span><select value={form.categoryCode} disabled={unavailable} onChange={(event) => update('categoryCode', event.target.value)} required><option value="">اختر تصنيفاً معتمداً</option>{categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</select></label><label>المدينة <span className={styles.required}>*</span><select value={form.cityCode} disabled={unavailable} onChange={(event) => update('cityCode', event.target.value)} required><option value="">اختر مدينة سورية</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label></div><p className={styles.notice}>تعمل «خدمة» حالياً بدليل المدن والمناطق السورية. لن تختلط المدن بقائمة الدول.</p></section>
+          <section className={styles.section}><h2>وسائل التواصل</h2><p>هذه الحقول اختيارية الآن ويمكن استكمالها لاحقاً من إدارة النشاط.</p><div className={styles.fieldGrid}><label>رقم الهاتف<input type="tel" value={form.phone} onChange={(event) => update('phone', event.target.value)} autoComplete="tel" placeholder="+963…" /></label><label>البريد الإلكتروني<input type="email" value={form.email} onChange={(event) => update('email', event.target.value)} autoComplete="email" placeholder="name@example.com" dir="ltr" /></label></div><label>الموقع الإلكتروني<input type="url" value={form.website} onChange={(event) => update('website', event.target.value)} placeholder="https://example.com" dir="ltr" /></label></section>
+          <footer className={styles.footer}><ActionLink href="/business-profiles" variant="secondary">إلغاء والعودة</ActionLink><ActionButton type="submit" disabled={isSubmitting || unavailable || !form.name.trim() || !form.categoryCode || !form.cityCode}>{isSubmitting ? 'جارٍ حفظ النشاط…' : 'حفظ النشاط'}</ActionButton></footer>
+        </Surface>
+        <Surface as="aside" className={styles.guide}><h2>ماذا يحدث بعد الحفظ؟</h2><ol><li>يُنشأ النشاط كملف خاص لا يظهر للعامة.</li><li>تضيف الخدمات والصور وساعات العمل من لوحة الإدارة.</li><li>ترسل الملف إلى فريق المراجعة عندما تصبح معلوماته مكتملة.</li><li>بعد الاعتماد يظهر في البحث والتصنيف والمنطقة.</li></ol><p className={styles.notice}>قرار النشر النهائي بشري. لا يعني إنشاء الملف أنه موثّق أو منشور تلقائياً.</p></Surface>
+      </div>
+    </div>
+  </PageShell>;
 }
