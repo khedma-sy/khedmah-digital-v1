@@ -24,6 +24,7 @@ const runPlanWithMocks = async (t, overrides = {}) => {
   const sandbox = await mkdtemp(join(tmpdir(), 'khedmah-media-plan-test-'));
   const bin = join(sandbox, 'bin');
   const planMarker = join(sandbox, 'plan-called');
+  const legacyReadCount = join(sandbox, 'legacy-read-count');
   await mkdir(bin);
   t.after(() => rm(sandbox, { recursive: true, force: true }));
 
@@ -34,6 +35,19 @@ if [[ "$1 $2 $3" == "storage buckets describe" && "$4" == "gs://state-bucket" ]]
   printf '%s\\n' '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}'
 elif [[ "$1 $2 $3" == "iam service-accounts describe" ]]; then
   printf '%s\\n' "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+elif [[ "$1 $2" == "storage cat" && "$3" == "gs://state-bucket/khedmah/production/root/default.tfstate" ]]; then
+  [[ "$MOCK_LEGACY_STATE_STATUS" == "success" ]] || exit 8
+  count=0
+  if [[ -f "$MOCK_LEGACY_READ_COUNT" ]]; then
+    count="$(/usr/bin/cat "$MOCK_LEGACY_READ_COUNT")"
+  fi
+  count=$((count + 1))
+  printf '%s' "$count" > "$MOCK_LEGACY_READ_COUNT"
+  if (( count > 1 )); then
+    printf '%s' "$MOCK_LEGACY_STATE_JSON_AFTER"
+  else
+    printf '%s' "$MOCK_LEGACY_STATE_JSON"
+  fi
 elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
   [[ "$MOCK_BUCKET_LIST_STATUS" == "success" ]] || exit 9
   printf '%s' "$MOCK_EXISTING_BUCKETS"
@@ -43,7 +57,9 @@ fi
 `,
     jq: `#!/usr/bin/env bash
 set -eu
-if [[ "\${1:-}" == "-r" ]]; then
+if [[ "\${1:-}" == "-e" || "\${2:-}" == *".lineage"* ]]; then
+  exec /usr/bin/jq "$@"
+elif [[ "\${1:-}" == "-r" ]]; then
   cat >/dev/null
   if [[ "$2" == *'index("delete")'* ]]; then
     printf '%s' "$MOCK_PLAN_DELETES"
@@ -67,12 +83,6 @@ fi
 `,
     terraform: `#!/usr/bin/env bash
 set -eu
-if [[ "$1" == "-chdir=infra/iac" ]]; then
-  [[ "$2 $3" == "state list" ]]
-  [[ "$MOCK_LEGACY_STATE_STATUS" == "success" ]] || exit 8
-  printf '%s' "$MOCK_LEGACY_STATE_RESOURCES"
-  exit 0
-fi
 case "$2" in
   init|validate) exit 0 ;;
   state)
@@ -103,8 +113,14 @@ esac
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT:
         'runtime@khedmah-test-project.iam.gserviceaccount.com',
+      LEGACY_ROOT_STATE_LINEAGE: 'reviewed-lineage',
+      LEGACY_ROOT_STATE_SERIAL: '42',
       MOCK_LEGACY_STATE_STATUS: 'success',
-      MOCK_LEGACY_STATE_RESOURCES: '',
+      MOCK_LEGACY_STATE_JSON:
+        '{"version":4,"terraform_version":"1.6.6","serial":42,"lineage":"reviewed-lineage","outputs":{},"resources":[]}',
+      MOCK_LEGACY_STATE_JSON_AFTER:
+        '{"version":4,"terraform_version":"1.6.6","serial":42,"lineage":"reviewed-lineage","outputs":{},"resources":[]}',
+      MOCK_LEGACY_READ_COUNT: legacyReadCount,
       MOCK_STATE_RESOURCES: 'google_storage_bucket.media\n',
       MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\teurope-west1',
       MOCK_RUNTIME_IDENTITY:
@@ -150,6 +166,10 @@ test('media plan requires protected remote state and performs no apply', async (
   assert.match(script, /UNEXPECTED_TERRAFORM_STATE_PREFIX/);
   assert.match(script, /LEGACY_ROOT_MEDIA_STATE_HANDOFF_INCOMPLETE/);
   assert.match(script, /LEGACY_ROOT_STATE_QUERY_FAILED/);
+  assert.match(script, /LEGACY_ROOT_STATE_LINEAGE_MISMATCH/);
+  assert.match(script, /LEGACY_ROOT_STATE_SERIAL_MISMATCH/);
+  assert.match(script, /LEGACY_ROOT_STATE_CHANGED_DURING_PLAN/);
+  assert.match(script, /gs:\/\/\$\{STATE_BUCKET\}\/khedmah\/production\/root\/default\.tfstate/);
   assert.match(script, /UNEXPECTED_MEDIA_STATE_RESOURCES/);
   assert.match(script, /UNEXPECTED_MEDIA_PLAN_RESOURCES/);
   assert.match(script, /DESTRUCTIVE_MEDIA_PLAN_CHANGES/);
@@ -228,12 +248,50 @@ test('media plan rejects an unexpected remote state prefix', async (t) => {
 
 test('media plan stops while the legacy root state still owns media resources', async (t) => {
   const result = await runPlanWithMocks(t, {
-    MOCK_LEGACY_STATE_RESOURCES:
-      'google_storage_bucket.media\ngoogle_storage_bucket_iam_member.runtime_media_objects\n',
+    MOCK_LEGACY_STATE_JSON:
+      '{"version":4,"serial":42,"lineage":"reviewed-lineage","resources":[{"mode":"managed","type":"google_storage_bucket","name":"media","instances":[]}]}',
   });
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /LEGACY_ROOT_MEDIA_STATE_HANDOFF_INCOMPLETE/);
+  assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
+  await assert.rejects(readFile(result.planMarker));
+});
+
+test('media plan rejects a different legacy root state lineage', async (t) => {
+  const mismatchedState =
+    '{"version":4,"serial":42,"lineage":"unreviewed-lineage","resources":[]}';
+  const result = await runPlanWithMocks(t, {
+    MOCK_LEGACY_STATE_JSON: mismatchedState,
+    MOCK_LEGACY_STATE_JSON_AFTER: mismatchedState,
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /LEGACY_ROOT_STATE_LINEAGE_MISMATCH/);
+  assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
+  await assert.rejects(readFile(result.planMarker));
+});
+
+test('media plan rejects a legacy root state change during planning', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    MOCK_LEGACY_STATE_JSON_AFTER:
+      '{"version":4,"serial":43,"lineage":"reviewed-lineage","resources":[]}',
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /LEGACY_ROOT_STATE_CHANGED_DURING_PLAN BEFORE=42 AFTER=43/);
+  assert.match(result.stderr, /NO_APPROVED_TERRAFORM_PLAN/);
+  assert.doesNotMatch(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
+  await readFile(result.planMarker);
+});
+
+test('media plan rejects a stale legacy root state serial', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    LEGACY_ROOT_STATE_SERIAL: '43',
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /LEGACY_ROOT_STATE_SERIAL_MISMATCH EXPECTED=43 ACTUAL=42/);
   assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
   await assert.rejects(readFile(result.planMarker));
 });
