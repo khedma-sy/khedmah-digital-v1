@@ -67,3 +67,6 @@ apps/android/.gradle/
 apps/android/**/build/
 apps/android/local.properties
 .terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

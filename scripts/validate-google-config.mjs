@@ -10,5 +10,8 @@ if (leaked.length) throw new Error(".env.production must not contain populated c
 if (production) {
   const missing = required.filter(name => !process.env[name]?.trim());
   if (missing.length) throw new Error(`Missing production environment variables: ${missing.join(", ")}`);
+  if (process.env.GCS_MEDIA_LOCATION !== 'europe-west1') {
+    throw new Error('GCS_MEDIA_LOCATION must be europe-west1 for the approved production media stack');
+  }
 }
 console.log(`Google configuration valid (${files.length} files, ${required.length} required variables checked).`);

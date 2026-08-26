@@ -2,16 +2,22 @@
 set -euo pipefail
 
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
-REGION="${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
-BUCKET="${GCS_MEDIA_BUCKET:-${PROJECT_ID}-khedmah-media}"
-RUNTIME_SA="${RUNTIME_SERVICE_ACCOUNT:-khedmah-v1-runtime@${PROJECT_ID}.iam.gserviceaccount.com}"
+MEDIA_LOCATION="${GCS_MEDIA_LOCATION:?GCS_MEDIA_LOCATION is required}"
+BUCKET="${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
+RUNTIME_SA="${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
+
+if [[ "$MEDIA_LOCATION" != "europe-west1" ]]; then
+  printf 'ERROR: EXPECTED_MEDIA_LOCATION=europe-west1 ACTUAL_MEDIA_LOCATION=%s\n' \
+    "$MEDIA_LOCATION" >&2
+  exit 1
+fi
 
 gcloud storage buckets describe "gs://${BUCKET}" \
   --project="${PROJECT_ID}" \
   --format=json > /tmp/khedmah-media-bucket.json
 
-jq -e --arg region "${REGION}" '
-  (.location | ascii_downcase) == ($region | ascii_downcase) and
+jq -e --arg location "${MEDIA_LOCATION}" '
+  (.location | ascii_downcase) == ($location | ascii_downcase) and
   .iamConfiguration.uniformBucketLevelAccess.enabled == true and
   .iamConfiguration.publicAccessPrevention == "enforced"
 ' /tmp/khedmah-media-bucket.json >/dev/null

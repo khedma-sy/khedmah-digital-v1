@@ -16,15 +16,27 @@ test('GCS media stays private and is delivered through the backend visibility ga
 });
 
 test('Terraform governs a private uniform-access media bucket and least-privilege runtime access', async () => {
-  const terraform = await read('../infra/iac/main.tf');
+  const terraform = await read('../infra/iac/media/main.tf');
+  const versions = await read('../infra/iac/media/versions.tf');
+  const variables = await read('../infra/iac/media/variables.tf');
+  const plan = await read('../scripts/plan-media-storage.sh');
   const readiness = await read('../scripts/validate-media-storage-readiness.sh');
   assert.match(terraform, /resource "google_storage_bucket" "media"/);
   assert.match(terraform, /uniform_bucket_level_access = true/);
   assert.match(terraform, /public_access_prevention\s+= "enforced"/);
   assert.match(terraform, /roles\/storage\.objectAdmin/);
   assert.doesNotMatch(terraform, /allUsers/);
+  assert.match(versions, /backend "gcs"/);
+  assert.match(versions, /region\s+= var\.location/);
+  assert.match(variables, /var\.location == "europe-west1"/);
+  assert.doesNotMatch(variables, /variable "region"/);
+  assert.match(plan, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
+  assert.match(plan, /NO_TERRAFORM_APPLY/);
+  assert.match(plan, /STATE_BUCKET.*MEDIA_BUCKET/);
+  assert.doesNotMatch(plan, /terraform[^\n]*apply/);
   assert.match(readiness, /allUsers/);
   assert.match(readiness, /PRIVATE_MEDIA_BUCKET/);
+  assert.match(readiness, /EXPECTED_MEDIA_LOCATION=europe-west1/);
 });
 
 test('Android resolves protected media proxy paths against the configured backend', async () => {

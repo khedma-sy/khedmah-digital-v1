@@ -68,40 +68,6 @@ resource "google_service_account" "deployer" {
   display_name = "Khedmah V1 production deployer"
 }
 
-resource "google_storage_bucket" "media" {
-  name                        = "${var.project_id}-khedmah-media"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_rule {
-    condition {
-      num_newer_versions = 3
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  depends_on = [google_project_service.google_services]
-}
-
-resource "google_storage_bucket_iam_member" "runtime_media_objects" {
-  bucket = google_storage_bucket.media.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.runtime.email}"
-}
-
-output "media_bucket_name" {
-  description = "Private bucket used by the backend media proxy."
-  value       = google_storage_bucket.media.name
-}
-
 resource "google_secret_manager_secret" "runtime" {
   for_each  = var.runtime_secret_names
   secret_id = each.value

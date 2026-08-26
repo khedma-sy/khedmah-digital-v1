@@ -2,7 +2,7 @@
 set -euo pipefail
 output="${1:-artifacts/live-certification/evidence}"
 mkdir -p "$output"
-chmod 700 "$(dirname "$output")" "$output"
+chmod 700 "$output"
 required=(gcloud jq)
 for command_name in "${required[@]}"; do command -v "$command_name" >/dev/null || { echo "missing required command: $command_name" >&2; exit 3; }; done
 for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION FIREBASE_PROJECT_ID OPERATIONS_RUNTIME_SERVICE_ACCOUNT OPERATIONS_DEPLOYER_SERVICE_ACCOUNT OPERATIONS_BACKEND_SERVICE OPERATIONS_FRONTEND_SERVICE; do
