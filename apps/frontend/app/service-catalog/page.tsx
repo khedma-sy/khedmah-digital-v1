@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { PlatformIcon } from '../components/platform-icon';
 import { useCategories } from '../../lib/use-categories';
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage } from '../components/ui-primitives';
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -50,13 +51,10 @@ export default function ServiceCatalogPage() {
   const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
 
   return (
-    <main id="foundation-content" className="catalog-experience" aria-label="دليل الخدمات">
-      <div className="catalog-phone">
-        <header className="catalog-header">
-          <Link href="/" aria-label="العودة إلى الرئيسية"><PlatformIcon name="arrow" /></Link>
-          <h1>{title}</h1>
-          <button type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /></button>
-        </header>
+    <PageShell label="دليل الخدمات" className="catalog-experience">
+        <PageHeader title={title} description="اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة." backHref="/" actions={
+          <ActionButton variant="secondary" type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تصفية</ActionButton>
+        } />
 
         {showFilters ? (
           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
@@ -65,8 +63,7 @@ export default function ServiceCatalogPage() {
           </nav>
         ) : null}
 
-        <p className="catalog-intro">اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة.</p>
-        {categoriesError ? <p className="form-error" role="status">{categoriesError}</p> : null}
+        {categoriesError ? <StatusMessage tone="warning">{categoriesError}</StatusMessage> : null}
 
         {!activeCategory && categories.length > 0 ? (
           <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
@@ -81,8 +78,8 @@ export default function ServiceCatalogPage() {
           </section>
         ) : null}
 
-        {error ? <div className="catalog-state" role="alert"><p>{error}</p><button type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</button></div> : null}
-        {isLoading ? <div className="catalog-results" aria-busy="true" aria-label="جاري تحميل الخدمات">{Array.from({ length: 4 }, (_, index) => <div className="catalog-skeleton" key={index} />)}</div> : null}
+        {error ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
+        {isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 
         {!isLoading && !error && services.length > 0 ? (
           <section className="catalog-results" aria-label={`${services.length} خدمة متاحة`}>
@@ -97,18 +94,12 @@ export default function ServiceCatalogPage() {
         ) : null}
 
         {!isLoading && !error && services.length === 0 && activeCategory ? (
-          <div className="catalog-state">
-            <PlatformIcon name="search" size={30} />
-            <h2>لا توجد نتائج في هذا التصنيف بعد</h2>
-            <p>اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء.</p>
-            <div className="catalog-state-actions">
-              <button type="button" onClick={() => selectCategory('')}>تغيير التصنيف</button>
-              <Link href="/map">فتح الخريطة</Link>
-              <Link href="/business-profiles/new">إضافة نشاط</Link>
-            </div>
-          </div>
+          <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>
+            <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
+            <ActionLink href="/map">فتح الخريطة</ActionLink>
+            <ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink>
+          </>} />
         ) : null}
-      </div>
-    </main>
+    </PageShell>
   );
 }

@@ -1,35 +1,38 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api, PublicUserProfile } from '../../../lib/api-client';
+import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 
 export default function ProfilePage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [user, setUser] = useState<PublicUserProfile | null>();
+  const [error, setError] = useState('');
 
-  function submitProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage('');
-    setIsLoading(true);
-    window.setTimeout(() => {
-      setIsLoading(false);
-      setMessage('تم تجهيز واجهة الملف الأساسي.');
-    }, 250);
-  }
+  useEffect(() => {
+    let active = true;
+    void api.auth.session()
+      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
+      .catch((reason) => { if (active) { setUser(null); setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.'); } });
+    return () => { active = false; };
+  }, []);
 
-  return (
-    <main id="foundation-content" className="identity-shell" aria-label="الملف الأساسي">
-      <form className="identity-card" onSubmit={submitProfile} noValidate>
-        <p className="eyebrow">خدمة</p>
-        <h1>الملف الأساسي</h1>
-        <label>
-          الاسم الظاهر
-          <input name="displayName" type="text" required minLength={2} maxLength={80} />
-        </label>
-        {message ? <p className="form-success" role="status">{message}</p> : null}
-        <button className="foundation-action" type="submit" aria-busy={isLoading} disabled={isLoading}>
-          {isLoading ? 'جاري الحفظ...' : 'حفظ الملف'}
-        </button>
-      </form>
-    </main>
-  );
+  if (user === undefined) return <PageShell label="حسابي"><PageHeader title="حسابي" description="جاري تحميل بيانات حسابك الآمنة." /><SkeletonGrid count={2} label="جاري تحميل الحساب" /></PageShell>;
+
+  if (!user) return <PageShell label="حسابي"><PageHeader title="حسابي" /><StatusMessage tone="warning">{error || 'انتهت الجلسة أو لم تسجل الدخول.'}</StatusMessage><ActionLink href="/auth/login">تسجيل الدخول</ActionLink></PageShell>;
+
+  return <PageShell label="حسابي">
+    <PageHeader title="حسابي" description="بيانات الحساب المرتبطة بجلسة تسجيل الدخول الحالية." actions={<ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>} />
+    <div className="ui-account-grid">
+      <Surface className="ui-account-profile">
+        <span className="ui-account-avatar" aria-hidden="true">{user.profile.displayName.trim().slice(0, 1) || 'خ'}</span>
+        <div><p className="ui-account-label">الاسم الظاهر</p><h2>{user.profile.displayName}</h2></div>
+        <div><p className="ui-account-label">البريد الإلكتروني</p><p dir="ltr">{user.email}</p></div>
+      </Surface>
+      <Surface className="ui-account-links">
+        <h2>إدارة حضورك في خدمة</h2>
+        <p>حدّث أنشطتك ومؤسساتك من لوحات الإدارة المرتبطة بحسابك.</p>
+        <div className="ui-page-actions"><ActionLink href="/business-profiles">أنشطتي</ActionLink><ActionLink href="/organizations" variant="secondary">مؤسساتي</ActionLink></div>
+      </Surface>
+    </div>
+  </PageShell>;
 }

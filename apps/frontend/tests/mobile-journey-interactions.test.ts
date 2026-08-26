@@ -14,7 +14,7 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   assert.match(welcome, /onClick=\{completeOnboarding\}/);
   assert.match(home, /href="\/search"/);
   assert.match(home, /href="\/auth\/register"/);
-  assert.match(catalog, /href="\/" aria-label="العودة إلى الرئيسية"/);
+  assert.match(catalog, /PageHeader title=\{title\}.*backHref="\/"/s);
   assert.match(catalog, /onClick=\{\(\) => setShowFilters/);
   assert.match(catalog, /selectCategory\(category\.code\)/);
   assert.match(catalog, /providerHref\(service\)/);
