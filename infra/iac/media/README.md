@@ -19,6 +19,7 @@ Safety rules:
 - The production state prefix is fixed at `khedmah/production/media`; alternate prefixes fail closed.
 - An inconclusive project bucket lookup stops before planning instead of treating the bucket as absent.
 - Provider selections are committed in this stack's own `.terraform.lock.hcl` for reproducible validation and planning.
+- CI must initialize and validate this isolated stack. A missing cached provider for the legacy root stack is external pending evidence, not permission to skip the isolated validation.
 
 Run `scripts/plan-media-storage.sh` only after supplying its required environment variables.
 Merging the root configuration removal, mutating either state, importing resources, planning, and applying remain separate approval gates.
