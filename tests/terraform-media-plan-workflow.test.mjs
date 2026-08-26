@@ -29,7 +29,8 @@ test('media plan binds the reviewed production state and resource identities', (
 
 test('media plan publishes review evidence but cannot apply or deploy', () => {
   assert.match(workflow, /khedmah-media-plan-summary\.json/);
-  assert.match(workflow, /sha256sum/);
+  assert.match(workflow, /cd "\$artifact_dir"/);
+  assert.match(workflow, /sha256sum --check SHA256SUMS/);
   assert.match(workflow, /actions\/upload-artifact@v4/);
   assert.match(workflow, /retention-days: 7/);
   assert.match(workflow, /Apply\/deployment: `NOT PERFORMED`/);
