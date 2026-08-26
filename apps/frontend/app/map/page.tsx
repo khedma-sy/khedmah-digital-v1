@@ -5,6 +5,9 @@ import Script from 'next/script';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
+import { PlatformIcon } from '../components/platform-icon';
+import { ActionButton, ActionLink, StatusMessage, Surface } from '../components/ui-primitives';
+import styles from '../discovery.module.css';
 
 type Bounds = { south: number; west: number; north: number; east: number };
 type MapHandle = {
@@ -115,31 +118,31 @@ function MapDiscovery() {
     }, () => setStatus('تعذر الوصول إلى موقعك. حرّك الخريطة يدوياً.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
-  return <main className={`marketplace-map view-${activeView}`} dir="rtl">
+  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} dir="rtl">
     {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} />}
-    <aside className="map-results">
-      <header><Link href="/">خدمة</Link><h1>الخدمات حولك</h1></header>
-      <nav className="map-view-switch" aria-label="طريقة عرض النتائج">
-        <button type="button" aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}>الخريطة</button>
-        <button type="button" aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}>النتائج</button>
+    <aside className={styles.mapPanel}>
+      <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
+      <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
+        <ActionButton type="button" variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
+        <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
       </nav>
       <form onSubmit={(event) => { event.preventDefault(); void search(map.current?.getBounds()?.toJSON()); }}>
         <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="الخدمة المطلوبة" placeholder="مثال: تصليح مكيف" />
-        <button type="submit">بحث</button>
+        <ActionButton type="submit"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
       </form>
-      <button className="locate-button" type="button" onClick={locateUser}>◎ استخدم موقعي الحالي</button>
-      <p role="status">{MAPS_KEY ? status : 'يلزم إعداد مفتاح Google Maps العام لتشغيل الخريطة.'}</p>
-      <section className="provider-map-list" aria-label="مقدمو الخدمات">
-        {providers.map((provider) => <article key={provider.id}>
+      <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
+      <StatusMessage tone={MAPS_KEY ? 'info' : 'warning'}>{MAPS_KEY ? status : 'الخريطة غير متاحة حالياً. استخدم عرض النتائج أو البحث العادي.'}</StatusMessage>
+      <section className={styles.providerList} aria-label="مقدمو الخدمات">
+        {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} · ⭐ {provider.rating ?? 0} {provider.distanceKm !== undefined && `· ${provider.distanceKm} كم`}</p></div>
-          <Link href={`/business-profiles/${encodeURIComponent(provider.id)}?source=map`}>عرض وطلب</Link>
-        </article>)}
+          <ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=map`}>عرض النشاط</ActionLink>
+        </Surface>)}
       </section>
     </aside>
-    <div className="google-map" ref={mapNode} aria-label="خريطة مقدمي الخدمات" />
+    <div className={styles.mapCanvas} ref={mapNode} aria-label="خريطة مقدمي الخدمات" />
   </main>;
 }
 
 export default function MarketplaceMapPage() {
-  return <Suspense fallback={<main className="marketplace-map-loading" dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
+  return <Suspense fallback={<main className={styles.mapPage} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
 }
