@@ -71,7 +71,7 @@ export default function AdminPage() {
         <Link href="/users/me">الملف الأساسي</Link>
         <Link href="/business-profiles">ملفات الأعمال</Link>
         <Link href="/professional-profiles">الملفات المهنية</Link>
-        <Link href="/service-catalog">دليل الخدمات</Link>
+        <Link href="/categories">التصنيفات</Link>
         <Link href="/map">الخريطة</Link>
         <Link href="/search">البحث</Link>
         <Link href="/admin/moderation">إدارة المراجعة</Link>

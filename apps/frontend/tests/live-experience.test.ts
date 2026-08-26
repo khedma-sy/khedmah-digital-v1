@@ -39,9 +39,9 @@ test('registration requires email verification before the protected welcome expe
 
   assert.match(register, /router\.push\(`\/auth\/verify-email\?email=\$\{encodeURIComponent\(email\)\}`\)/);
   assert.match(welcome, /api\.auth\.session\(\)/);
-  assert.match(welcome, /router\.replace\('\/auth\/login'\)/);
+  assert.match(welcome, /router\.push\('\/auth\/login'\)/);
   assert.match(welcome, /مرحباً بك في خدمة/);
-  assert.match(welcome, /لن ننشر اسمك أو موقعك دون موافقتك/);
+  assert.match(welcome, /لا ننشر بياناتك أو موقعك دون موافقتك/);
   assert.match(welcome, /completeOnboarding/);
 });
 
@@ -51,7 +51,8 @@ test('navigation avoids duplicate links and interactions respect reduced motion'
   const styles = await read('app/globals.css');
 
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
-  assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 1);
+  assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
+  assert.match(navigation, /label: 'التصنيفات'/);
   assert.match(layout, /className="khedma-header"/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });

@@ -6,12 +6,15 @@ import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../lib/api-client';
 import { PlatformIcon } from './components/platform-icon';
 
-function DiscoveryLinks() {
+function DiscoveryLinks({ pathname }: { pathname: string }) {
+  const links = [
+    { href: '/search', label: 'اكتشف', active: pathname === '/search' },
+    { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
+    { href: '/map', label: 'بالقرب مني', active: pathname === '/map' }
+  ];
   return (
     <>
-      <Link href="/search" className="nav-discovery">البحث</Link>
-      <Link href="/service-catalog" className="nav-discovery">الخدمات</Link>
-      <Link href="/map" className="nav-discovery">الخريطة</Link>
+      {links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}
     </>
   );
 }
@@ -60,7 +63,7 @@ export function AuthNavigation() {
   if (user === null) {
     return (
       <div className="nav-session" data-auth-state="guest">
-        <DiscoveryLinks />
+        <DiscoveryLinks pathname={pathname} />
         <Link href="/auth/login" className="nav-cta"><PlatformIcon name="lock" size={17}/>دخول</Link>
         <Link href="/auth/register" className="nav-register"><PlatformIcon name="userPlus" size={17}/>إنشاء حساب</Link>
       </div>
@@ -69,7 +72,7 @@ export function AuthNavigation() {
 
   return (
     <div className="nav-session" data-auth-state="authenticated">
-      <DiscoveryLinks />
+      <DiscoveryLinks pathname={pathname} />
       <Link href="/business-profiles">أعمالي</Link>
       <Link href="/organizations">منظماتي</Link>
       <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>

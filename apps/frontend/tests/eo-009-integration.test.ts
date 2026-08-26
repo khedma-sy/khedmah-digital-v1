@@ -9,7 +9,7 @@ async function read(path: string) {
 test('EO-009 pages exist with Arabic-first labels and loading/error states', async () => {
   const businessProfiles = await read('app/business-profiles/page.tsx');
   const professionalProfiles = await read('app/professional-profiles/page.tsx');
-  const serviceCatalog = await read('app/service-catalog/page.tsx');
+  const serviceCatalog = await read('app/components/category-directory.tsx');
   const locations = await read('app/locations/page.tsx');
   const search = await read('app/search/page.tsx');
 
@@ -35,7 +35,7 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   assert.match(home, /href="\/search"/);
   assert.match(home, /href="\/auth\/register"/);
 
-  for (const href of ['/business-profiles', '/professional-profiles', '/service-catalog', '/map', '/search']) {
+  for (const href of ['/business-profiles', '/professional-profiles', '/categories', '/map', '/search']) {
     assert.match(organizations, new RegExp(`href=\\"${href}\\"`));
     assert.match(admin, new RegExp(`href=\\"${href}\\"`));
   }

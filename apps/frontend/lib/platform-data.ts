@@ -16,18 +16,3 @@ export const provinces: Province[] = [
   { slug: 'raqqa', name: 'الرقة', subtitle: 'الشمال الشرقي', mapId: 'raqqa' },
   { slug: 'hasakah', name: 'الحسكة', subtitle: 'الجزيرة', mapId: 'hasakah' }
 ];
-
-export const serviceCategories = [
-  { icon: '✚', name: 'الصحة', description: 'أطباء، مراكز طبية، صيدليات', color: 'cyan' },
-  { icon: '◇', name: 'التعليم', description: 'مدارس، حضانات، معاهد', color: 'violet' },
-  { icon: '▱', name: 'البناء', description: 'مواد بناء، مهندسون، مقاولون', color: 'orange' },
-  { icon: '✦', name: 'الجمال', description: 'صالونات وخدمات تجميل', color: 'pink' },
-  { icon: '◉', name: 'المناسبات', description: 'أعراس، صالات، تصوير', color: 'gold' },
-  { icon: '▦', name: 'التجارة', description: 'تجزئة، جملة، مستودعات، موردون', color: 'blue' },
-  { icon: '</>', name: 'التكنولوجيا', description: 'برمجة، مواقع، خدمات رقمية', color: 'cyan' },
-  { icon: '◆', name: 'السيارات', description: 'تأجير، صيانة، خدمات', color: 'violet' }
-];
-
-export function provinceBySlug(slug: string) {
-  return provinces.find((province) => province.slug === slug);
-}

@@ -29,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8
     },
     {
-      url: `${SITE_URL}/service-catalog`,
+      url: `${SITE_URL}/categories`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8
