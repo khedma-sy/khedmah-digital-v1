@@ -4,19 +4,26 @@
  *   - GcsStorageAdapter (production): writes to Google Cloud Storage
  */
 export interface StorageAdapter {
-  save(key: string, data: Buffer, mimeType: string): Promise<string | undefined>; // returns public URL if public
+  save(key: string, data: Buffer, mimeType: string): Promise<void>;
+  read(key: string): Promise<{ data: Buffer; mimeType: string }>;
   delete(key: string): Promise<void>;
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
-  async save(key: string, _data: Buffer, _mimeType: string): Promise<string | undefined> {
-    // In tests/development we do not write to disk to keep things stateless.
-    // Return a synthetic URL so callers can reference the asset.
-    return `http://localhost:3001/api/v1/media/local/${encodeURIComponent(key)}`;
+  private readonly objects = new Map<string, { data: Buffer; mimeType: string }>();
+
+  async save(key: string, data: Buffer, mimeType: string): Promise<void> {
+    this.objects.set(key, { data: Buffer.from(data), mimeType });
   }
 
-  async delete(_key: string): Promise<void> {
-    // no-op in local adapter
+  async read(key: string): Promise<{ data: Buffer; mimeType: string }> {
+    const object = this.objects.get(key);
+    if (!object) throw new Error('Stored media object was not found.');
+    return { data: Buffer.from(object.data), mimeType: object.mimeType };
+  }
+
+  async delete(key: string): Promise<void> {
+    this.objects.delete(key);
   }
 }
 
@@ -31,12 +38,22 @@ export class GcsStorageAdapter implements StorageAdapter {
     this.bucket = bucket;
   }
 
-  async save(key: string, data: Buffer, mimeType: string): Promise<string | undefined> {
+  async save(key: string, data: Buffer, mimeType: string): Promise<void> {
     const token = await this.accessToken();
-    const endpoint = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o?uploadType=media&predefinedAcl=publicRead&name=${encodeURIComponent(key)}`;
+    const endpoint = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(this.bucket)}/o?uploadType=media&name=${encodeURIComponent(key)}`;
     const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType, 'Content-Length': String(data.length) }, body: data });
     if (!response.ok) throw new Error(`GCS upload failed with status ${response.status}.`);
-    return `https://storage.googleapis.com/${this.bucket}/${key}`;
+  }
+
+  async read(key: string): Promise<{ data: Buffer; mimeType: string }> {
+    const token = await this.accessToken();
+    const endpoint = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(this.bucket)}/o/${encodeURIComponent(key)}?alt=media`;
+    const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error(`GCS read failed with status ${response.status}.`);
+    return {
+      data: Buffer.from(await response.arrayBuffer()),
+      mimeType: response.headers.get('content-type') ?? 'application/octet-stream'
+    };
   }
 
   async delete(key: string): Promise<void> {

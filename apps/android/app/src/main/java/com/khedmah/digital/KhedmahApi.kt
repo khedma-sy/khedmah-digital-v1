@@ -89,7 +89,7 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         val values = get("/api/v1/businesses/${encode(businessId)}/media").optJSONArray("assets") ?: return@withContext emptyList()
         List(values.length()) { index ->
             val item = values.getJSONObject(index)
-            KhedmahMedia(item.getString("id"), item.optString("url"), item.optString("assetType", "gallery"))
+            KhedmahMedia(item.getString("id"), absoluteMediaUrl(item.optString("url")), item.optString("assetType", "gallery"))
         }
     }
 
@@ -106,6 +106,12 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
     }
 
     private fun encode(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
+
+    private fun absoluteMediaUrl(value: String): String = when {
+        value.startsWith("https://") || value.startsWith("http://") -> value
+        value.startsWith("/") -> "$baseUrl$value"
+        else -> value
+    }
 
     private fun get(path: String): JSONObject = request(path)
 

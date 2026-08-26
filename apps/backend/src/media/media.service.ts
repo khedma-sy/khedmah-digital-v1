@@ -42,7 +42,7 @@ export class MediaService {
       throw new BadRequestException('Business gallery supports up to 12 images.');
     }
 
-    const publicUrl = await this.storage.save(storageKey, content, input.mimeType);
+    await this.storage.save(storageKey, content, input.mimeType);
 
     const asset: MediaAsset = {
       id,
@@ -54,7 +54,7 @@ export class MediaService {
       sizeBytes: input.sizeBytes,
       visibility: input.visibility,
       storageKey,
-      publicUrl: input.visibility === 'public' ? publicUrl : undefined,
+      publicUrl: input.visibility === 'public' ? `/api/v1/media/public/${id}` : undefined,
       assetType: input.assetType,
       sortOrder: input.sortOrder,
       createdAt: now,
@@ -114,6 +114,16 @@ export class MediaService {
 
     await this.storage.delete(rows[0].storage_key);
     await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
+  }
+
+  async readPublic(id: string): Promise<{ data: Buffer; mimeType: string }> {
+    const rows = await this.db.query<{ storage_key: string; mime_type: string }>(
+      `SELECT storage_key, mime_type FROM media_assets WHERE id = $1 AND visibility = 'public' LIMIT 1`,
+      [id]
+    );
+    if (!rows[0]) throw new NotFoundException('Public media asset not found.');
+    const object = await this.storage.read(rows[0].storage_key);
+    return { data: object.data, mimeType: rows[0].mime_type || object.mimeType };
   }
 
   private toPublic(asset: MediaAsset): PublicMediaAsset {
