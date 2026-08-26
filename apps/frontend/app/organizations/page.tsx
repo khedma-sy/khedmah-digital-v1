@@ -1,9 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicOrganization } from '../../lib/api-client';
+import { api, type PublicOrganization } from '../../lib/api-client';
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
+import { PlatformIcon } from '../components/platform-icon';
+import styles from '../../components/owner-workspace.module.css';
 
 export default function OrganizationsPage() {
   const router = useRouter();
@@ -17,12 +19,12 @@ export default function OrganizationsPage() {
     try {
       const data = await api.organizations.listMine();
       setOrganizations(data.organizations);
-    } catch (err) {
-      if (err instanceof Error && (err as Error & { statusCode?: number }).statusCode === 401) {
-        router.push('/auth/login');
+    } catch (cause) {
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) {
+        router.replace('/auth/login');
         return;
       }
-      setError(err instanceof Error ? err.message : 'تعذر تحميل المنظمات.');
+      setError(cause instanceof Error ? cause.message : 'تعذر تحميل المؤسسات والجهات.');
     } finally {
       setIsLoading(false);
     }
@@ -33,55 +35,20 @@ export default function OrganizationsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleLogout() {
-    try {
-      await api.auth.logout();
-    } finally {
-      router.push('/auth/login');
-    }
-  }
-
-  return (
-    <main id="foundation-content" className="identity-shell" aria-label="مساحة الأعمال">
-      <section className="identity-card">
-        <p className="eyebrow">خدمة</p>
-        <h1>مساحة الأعمال</h1>
-        <p>أنشئ جهة عمل تجمع فريقك وملفات أعمالك في مساحة واحدة. تظهر هنا الجهات التي تملكها أو تشارك في إدارتها.</p>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="foundation-action" type="button" aria-busy={isLoading} disabled={isLoading} onClick={loadOrganizations}>
-            {isLoading ? 'جاري التحديث...' : 'تحديث القائمة'}
-          </button>
-          <Link className="foundation-action" href="/organizations/new">إنشاء منظمة جديدة</Link>
-          <Link className="foundation-action" href="/business-profiles">ملفات الأعمال</Link>
-          <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
-          <Link className="foundation-action" href="/categories">التصنيفات</Link>
-          <Link className="foundation-action" href="/map">الخريطة</Link>
-          <Link className="foundation-action" href="/search">البحث</Link>
-          <Link className="foundation-action" href="/admin">لوحة الإدارة</Link>
-        </div>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-        {organizations.length === 0 && !isLoading ? (
-          <p style={{ marginTop: '1rem' }}>لا توجد منظمات بعد. أنشئ منظمتك الأولى!</p>
-        ) : (
-          <ul className="foundation-list" aria-label="قائمة المنظمات">
-            {organizations.map((org) => (
-              <li key={org.id}>
-                <strong>{org.name}</strong>
-                <span style={{ marginRight: '0.5rem', color: '#666', fontSize: '0.875rem' }}>
-                  ({org.memberCount} عضو)
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{ marginTop: '1.5rem', background: 'none', border: '1px solid #ccc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          تسجيل الخروج
-        </button>
-      </section>
-    </main>
-  );
+  return <PageShell className={styles.page} label="المؤسسات والجهات">
+    <PageHeader eyebrow="مساحة صاحب النشاط" title="المؤسسات والجهات" description="نظّم فريقك وملفات الأعمال التابعة لجهة واحدة، مع صلاحيات عضوية واضحة وإدارة آمنة." actions={<div className={styles.headerActions}>
+      <ActionLink href="/organizations/new"><PlatformIcon name="grid" size={18}/> إنشاء جهة</ActionLink>
+      <ActionButton type="button" variant="secondary" disabled={isLoading} onClick={() => void loadOrganizations()}>{isLoading ? 'جارٍ التحديث…' : 'تحديث القائمة'}</ActionButton>
+    </div>}/>
+    {error ? <StatusMessage tone="danger"><p>{error}</p><ActionButton type="button" variant="secondary" onClick={() => void loadOrganizations()}>إعادة المحاولة</ActionButton></StatusMessage> : null}
+    {isLoading ? <SkeletonGrid count={3} label="جاري تحميل المؤسسات والجهات"/> : null}
+    {!isLoading && !error && organizations.length === 0 ? <EmptyState icon={<PlatformIcon name="grid" size={30}/>} title="لا توجد جهة بعد" description="أنشئ جهة عندما تحتاج إلى إدارة فريق أو ربط عدة ملفات أعمال تحت ملكية منظمة." actions={<ActionLink href="/organizations/new">إنشاء الجهة الأولى</ActionLink>}/> : null}
+    {!isLoading && organizations.length > 0 ? <div className={styles.grid} aria-label="قائمة المؤسسات والجهات">
+      {organizations.map((organization) => <Surface as="article" className={styles.card} key={organization.id}>
+        <div className={styles.cardTop}><div><h2>{organization.name}</h2><p className={styles.meta}>{organization.memberCount.toLocaleString('ar-SY')} {organization.memberCount === 1 ? 'عضو' : 'أعضاء'}</p></div><span className={`${styles.badge} ${styles.success}`}>نشطة</span></div>
+        <p className={styles.description}>إدارة معلومات الجهة وأعضاء الفريق والصلاحيات المرتبطة بها.</p>
+        <div className={styles.actions}><ActionLink href={`/organizations/${organization.id}`}>إدارة الجهة</ActionLink><ActionLink href="/business-profiles" variant="secondary">ملفات الأعمال</ActionLink></div>
+      </Surface>)}
+    </div> : null}
+  </PageShell>;
 }
