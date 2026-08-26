@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, Inject, Param, Post, StreamableFile } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { PublicMediaAsset, UploadMediaRequest } from './media.types';
 
@@ -12,6 +12,13 @@ export class MediaController {
     @Body() body: UploadMediaRequest
   ): Promise<PublicMediaAsset> {
     return this.media.upload(cookieHeader, body);
+  }
+
+  @Get('public/:id')
+  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400')
+  async readPublic(@Param('id') id: string): Promise<StreamableFile> {
+    const asset = await this.media.readPublic(id);
+    return new StreamableFile(asset.data, { type: asset.mimeType });
   }
 
   @Get(':ownerType/:ownerId')
