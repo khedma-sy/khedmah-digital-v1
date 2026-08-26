@@ -34,7 +34,31 @@ exit 1
 
   assert.equal(report.summary.fail ?? 0, 0);
   assert.equal(terraformResult?.status, 'pending_external');
-  assert.equal(terraformResult?.detail, 'Provider installation unavailable in this environment');
+  assert.equal(terraformResult?.detail, 'Provider or backend initialization unavailable in this environment');
+});
+
+test('repository readiness treats an uninitialized production backend as external', async (t) => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'khedmah-operations-backend-'));
+  const bin = join(sandbox, 'bin');
+  const terraform = join(bin, 'terraform');
+  await mkdir(bin);
+  await writeFile(terraform, `#!/usr/bin/env bash
+printf '%s\n' 'Error: Backend initialization required: please run "terraform init"' >&2
+exit 1
+`);
+  await chmod(terraform, 0o700);
+  t.after(() => rm(sandbox, { recursive: true, force: true }));
+
+  const output = execFileSync(process.execPath, ['scripts/validate-operations-readiness.mjs'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+  });
+  const report = JSON.parse(output);
+  const terraformResult = report.results.find((result) => result.name === 'terraform validate');
+
+  assert.equal(report.summary.fail ?? 0, 0);
+  assert.equal(terraformResult?.status, 'pending_external');
+  assert.equal(terraformResult?.detail, 'Provider or backend initialization unavailable in this environment');
 });
 
 test('Operations Product production gate fails closed without injected production evidence', () => {
