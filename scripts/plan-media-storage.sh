@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
-REGION="${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
+MEDIA_LOCATION="${GCS_MEDIA_LOCATION:?GCS_MEDIA_LOCATION is required}"
 STATE_BUCKET="${TF_STATE_BUCKET:?TF_STATE_BUCKET is required}"
 MEDIA_BUCKET="${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
 RUNTIME_SA="${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
@@ -12,8 +12,9 @@ EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
 EXPECTED_LEGACY_ROOT_STATE_PREFIX="khedmah/production/root"
 
-if [[ "$REGION" != "europe-west1" ]]; then
-  printf 'ERROR: EXPECTED_REGION=europe-west1 ACTUAL_REGION=%s\n' "$REGION" >&2
+if [[ "$MEDIA_LOCATION" != "europe-west1" ]]; then
+  printf 'ERROR: EXPECTED_MEDIA_LOCATION=europe-west1 ACTUAL_MEDIA_LOCATION=%s\n' \
+    "$MEDIA_LOCATION" >&2
   exit 1
 fi
 
@@ -205,7 +206,7 @@ if grep -F -x -- 'google_storage_bucket.media' <<< "$state_resources" >/dev/null
     exit 1
   fi
 
-  IFS=$'\t' read -r tracked_media_bucket tracked_media_project tracked_media_region \
+  IFS=$'\t' read -r tracked_media_bucket tracked_media_project tracked_media_location \
     <<< "$tracked_media_identity"
 
   if [[ "$tracked_media_bucket" != "$MEDIA_BUCKET" ]]; then
@@ -222,9 +223,9 @@ if grep -F -x -- 'google_storage_bucket.media' <<< "$state_resources" >/dev/null
     exit 1
   fi
 
-  if [[ "${tracked_media_region,,}" != "${REGION,,}" ]]; then
-    printf 'ERROR: TRACKED_MEDIA_REGION_MISMATCH EXPECTED=%s ACTUAL=%s\n' \
-      "$REGION" "$tracked_media_region" >&2
+  if [[ "${tracked_media_location,,}" != "${MEDIA_LOCATION,,}" ]]; then
+    printf 'ERROR: TRACKED_MEDIA_LOCATION_MISMATCH EXPECTED=%s ACTUAL=%s\n' \
+      "$MEDIA_LOCATION" "$tracked_media_location" >&2
     printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
     exit 1
   fi
@@ -319,7 +320,7 @@ media_terraform plan \
   -lock-timeout=60s \
   -out="$pending_plan_file" \
   -var="project_id=${PROJECT_ID}" \
-  -var="region=${REGION}" \
+  -var="location=${MEDIA_LOCATION}" \
   -var="bucket_name=${MEDIA_BUCKET}" \
   -var="runtime_service_account_email=${RUNTIME_SA}"
 
@@ -391,15 +392,15 @@ if ! planned_media_identity="$(
   exit 1
 fi
 
-IFS=$'\t' read -r planned_media_bucket planned_media_project planned_media_region \
+IFS=$'\t' read -r planned_media_bucket planned_media_project planned_media_location \
   <<< "$planned_media_identity"
 
 if [[ "$planned_media_bucket" != "$MEDIA_BUCKET" || \
       "$planned_media_project" != "$PROJECT_ID" || \
-      "${planned_media_region,,}" != "${REGION,,}" ]]; then
+      "${planned_media_location,,}" != "${MEDIA_LOCATION,,}" ]]; then
   printf 'ERROR: PLANNED_MEDIA_BUCKET_IDENTITY_MISMATCH EXPECTED=%s,%s,%s ACTUAL=%s,%s,%s\n' \
-    "$MEDIA_BUCKET" "$PROJECT_ID" "$REGION" \
-    "$planned_media_bucket" "$planned_media_project" "$planned_media_region" >&2
+    "$MEDIA_BUCKET" "$PROJECT_ID" "$MEDIA_LOCATION" \
+    "$planned_media_bucket" "$planned_media_project" "$planned_media_location" >&2
   printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
   exit 1
 fi

@@ -127,7 +127,8 @@ esac
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,
       GOOGLE_CLOUD_PROJECT: 'khedmah-test-project',
-      GOOGLE_CLOUD_REGION: 'europe-west1',
+      GOOGLE_CLOUD_REGION: 'me-central1',
+      GCS_MEDIA_LOCATION: 'europe-west1',
       TF_STATE_BUCKET: 'state-bucket',
       TF_PLAN_FILE: relative(join(repoRoot, '..'), publishedPlan),
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
@@ -182,7 +183,7 @@ test('media plan requires protected remote state and performs no apply', async (
   assert.match(script, /media_terraform show -json/);
   assert.match(script, /TRACKED_MEDIA_BUCKET_MISMATCH/);
   assert.match(script, /TRACKED_MEDIA_PROJECT_MISMATCH/);
-  assert.match(script, /TRACKED_MEDIA_REGION_MISMATCH/);
+  assert.match(script, /TRACKED_MEDIA_LOCATION_MISMATCH/);
   assert.match(script, /TRACKED_RUNTIME_MEMBER_MISMATCH/);
   assert.match(script, /MEDIA_BUCKET_EXISTENCE_CHECK_FAILED/);
   assert.match(script, /UNEXPECTED_TERRAFORM_STATE_PREFIX/);
@@ -212,8 +213,10 @@ test('media plan and production deployment share canonical bucket and runtime in
   const deploy = await read('../scripts/google-production-deploy.sh');
 
   assert.match(plan, /GCS_MEDIA_BUCKET:\?GCS_MEDIA_BUCKET is required/);
+  assert.match(plan, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(plan, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT:\?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required/);
   assert.match(readiness, /GCS_MEDIA_BUCKET:\?GCS_MEDIA_BUCKET is required/);
+  assert.match(readiness, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(readiness, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT:\?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required/);
   assert.match(deploy, /GCS_MEDIA_BUCKET:\?GCS_MEDIA_BUCKET is required/);
   assert.match(deploy, /_GCS_MEDIA_BUCKET=\$\{GCS_MEDIA_BUCKET\}/);
@@ -235,6 +238,25 @@ test('media plan proceeds only after every state ownership check succeeds', asyn
   assert.ok(isAbsolute(invokedPlanPath));
   assert.notEqual(invokedPlanPath, result.publishedPlan);
   await readFile(result.publishedPlan);
+});
+
+test('media plan separates the production runtime region from the bucket location', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    GOOGLE_CLOUD_REGION: 'me-central1',
+    GCS_MEDIA_LOCATION: 'europe-west1',
+  });
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
+  await readFile(result.publishedPlan);
+});
+
+test('media plan rejects an unapproved bucket location', async (t) => {
+  const result = await runPlanWithMocks(t, { GCS_MEDIA_LOCATION: 'me-central1' });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /EXPECTED_MEDIA_LOCATION=europe-west1/);
+  await assert.rejects(readFile(result.planMarker));
 });
 
 test('media plan ignores an inherited non-default Terraform workspace', async (t) => {
@@ -266,13 +288,13 @@ test('media plan stops when state tracks a different project', async (t) => {
   await assert.rejects(readFile(result.planMarker));
 });
 
-test('media plan stops when state tracks a different region', async (t) => {
+test('media plan stops when state tracks a different location', async (t) => {
   const result = await runPlanWithMocks(t, {
     MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\tUS',
   });
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /TRACKED_MEDIA_REGION_MISMATCH/);
+  assert.match(result.stderr, /TRACKED_MEDIA_LOCATION_MISMATCH/);
   await assert.rejects(readFile(result.planMarker));
 });
 

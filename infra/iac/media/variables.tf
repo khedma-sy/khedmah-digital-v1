@@ -8,12 +8,12 @@ variable "project_id" {
   }
 }
 
-variable "region" {
-  description = "Region where production media is stored."
+variable "location" {
+  description = "Google Cloud Storage location where production media is stored."
   type        = string
 
   validation {
-    condition     = var.region == "europe-west1"
+    condition     = var.location == "europe-west1"
     error_message = "Production media must remain in europe-west1 unless an approved migration changes this contract."
   }
 }

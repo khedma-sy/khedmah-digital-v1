@@ -27,7 +27,10 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.match(terraform, /roles\/storage\.objectAdmin/);
   assert.doesNotMatch(terraform, /allUsers/);
   assert.match(versions, /backend "gcs"/);
-  assert.match(variables, /var\.region == "europe-west1"/);
+  assert.match(versions, /region\s+= var\.location/);
+  assert.match(variables, /var\.location == "europe-west1"/);
+  assert.doesNotMatch(variables, /variable "region"/);
+  assert.match(plan, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(plan, /NO_TERRAFORM_APPLY/);
   assert.match(plan, /STATE_BUCKET.*MEDIA_BUCKET/);
   assert.doesNotMatch(plan, /terraform[^\n]*apply/);
