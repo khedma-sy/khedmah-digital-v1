@@ -5,8 +5,7 @@ PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 REGION="${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 STATE_BUCKET="${TF_STATE_BUCKET:?TF_STATE_BUCKET is required}"
 MEDIA_BUCKET="${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
-RUNTIME_SA="${RUNTIME_SERVICE_ACCOUNT:?RUNTIME_SERVICE_ACCOUNT is required}"
-LEGACY_ROOT_STATE_LIST_FILE="${LEGACY_ROOT_STATE_LIST_FILE:?LEGACY_ROOT_STATE_LIST_FILE is required}"
+RUNTIME_SA="${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
 EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
 
@@ -26,23 +25,31 @@ if [[ "$STATE_PREFIX" != "$EXPECTED_STATE_PREFIX" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$LEGACY_ROOT_STATE_LIST_FILE" || ! -r "$LEGACY_ROOT_STATE_LIST_FILE" ]]; then
-  printf 'ERROR: LEGACY_ROOT_STATE_LIST_UNREADABLE=%s\n' \
-    "$LEGACY_ROOT_STATE_LIST_FILE" >&2
-  exit 1
-fi
+assert_legacy_root_released() {
+  local legacy_state_resources
+  local failure_marker="${1:-NO_TERRAFORM_PLAN_CREATED}"
 
-if grep -F -x \
-    -e 'google_storage_bucket.media' \
-    -e 'google_storage_bucket_iam_member.runtime_media_objects' \
-    -- "$LEGACY_ROOT_STATE_LIST_FILE" >/dev/null; then
-  printf '%s\n' 'ERROR: LEGACY_ROOT_MEDIA_STATE_HANDOFF_INCOMPLETE' >&2
-  printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
-  exit 1
-fi
+  if ! legacy_state_resources="$(terraform -chdir=infra/iac state list)"; then
+    printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_QUERY_FAILED' >&2
+    printf '%s\n' "$failure_marker" >&2
+    exit 1
+  fi
+
+  if grep -F -x \
+      -e 'google_storage_bucket.media' \
+      -e 'google_storage_bucket_iam_member.runtime_media_objects' \
+      <<< "$legacy_state_resources" >/dev/null; then
+    printf '%s\n' 'ERROR: LEGACY_ROOT_MEDIA_STATE_HANDOFF_INCOMPLETE' >&2
+    printf '%s\n' "$failure_marker" >&2
+    exit 1
+  fi
+}
+
+assert_legacy_root_released
 
 state_json="$(mktemp)"
-trap 'rm -f "$state_json"' EXIT
+plan_json="$(mktemp)"
+trap 'rm -f "$state_json" "$plan_json"' EXIT
 
 gcloud storage buckets describe "gs://${STATE_BUCKET}" \
   --project="$PROJECT_ID" \
@@ -217,6 +224,128 @@ terraform -chdir=infra/iac/media plan \
   -var="region=${REGION}" \
   -var="bucket_name=${MEDIA_BUCKET}" \
   -var="runtime_service_account_email=${RUNTIME_SA}"
+
+if ! terraform -chdir=infra/iac/media show -json "$plan_file" > "$plan_json"; then
+  printf '%s\n' 'ERROR: MEDIA_TERRAFORM_PLAN_UNREADABLE' >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+unexpected_plan_resources="$(
+  jq -r '
+    [(.resource_changes // [])[]?.address]
+    | unique[]
+    | select(
+        . != "google_storage_bucket.media" and
+        . != "google_storage_bucket_iam_member.runtime_media_objects"
+      )
+  ' "$plan_json"
+)"
+
+if [[ -n "$unexpected_plan_resources" ]]; then
+  printf 'ERROR: UNEXPECTED_MEDIA_PLAN_RESOURCES=%s\n' \
+    "$(tr '\n' ',' <<< "$unexpected_plan_resources" | sed 's/,$//')" >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+destructive_plan_resources="$(
+  jq -r '
+    (.resource_changes // [])[]
+    | select((.change.actions // []) | index("delete"))
+    | .address
+  ' "$plan_json"
+)"
+
+if [[ -n "$destructive_plan_resources" ]]; then
+  printf 'ERROR: DESTRUCTIVE_MEDIA_PLAN_CHANGES=%s\n' \
+    "$(tr '\n' ',' <<< "$destructive_plan_resources" | sed 's/,$//')" >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+if ! planned_media_identity="$(
+  jq -er '
+    [
+      .planned_values.root_module
+      | ..
+      | objects
+      | .resources? // empty
+      | .[]
+      | select(.address == "google_storage_bucket.media")
+    ]
+    | if length == 1 then
+        .[0].values
+        | select(
+            (.name | type == "string") and
+            (.project | type == "string") and
+            (.location | type == "string")
+          )
+        | [.name, .project, .location]
+        | @tsv
+      else
+        empty
+      end
+  ' "$plan_json"
+)"; then
+  printf '%s\n' 'ERROR: PLANNED_MEDIA_BUCKET_IDENTITY_UNREADABLE' >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+IFS=$'\t' read -r planned_media_bucket planned_media_project planned_media_region \
+  <<< "$planned_media_identity"
+
+if [[ "$planned_media_bucket" != "$MEDIA_BUCKET" || \
+      "$planned_media_project" != "$PROJECT_ID" || \
+      "${planned_media_region,,}" != "${REGION,,}" ]]; then
+  printf 'ERROR: PLANNED_MEDIA_BUCKET_IDENTITY_MISMATCH EXPECTED=%s,%s,%s ACTUAL=%s,%s,%s\n' \
+    "$MEDIA_BUCKET" "$PROJECT_ID" "$REGION" \
+    "$planned_media_bucket" "$planned_media_project" "$planned_media_region" >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+if ! planned_runtime_identity="$(
+  jq -er '
+    [
+      .planned_values.root_module
+      | ..
+      | objects
+      | .resources? // empty
+      | .[]
+      | select(.address == "google_storage_bucket_iam_member.runtime_media_objects")
+    ]
+    | if length == 1 then
+        .[0].values
+        | select((.bucket | type == "string") and (.member | type == "string"))
+        | [.bucket, .member]
+        | @tsv
+      else
+        empty
+      end
+  ' "$plan_json"
+)"; then
+  printf '%s\n' 'ERROR: PLANNED_RUNTIME_MEDIA_IDENTITY_UNREADABLE' >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+IFS=$'\t' read -r planned_runtime_bucket planned_runtime_member \
+  <<< "$planned_runtime_identity"
+
+if [[ "$planned_runtime_bucket" != "$MEDIA_BUCKET" || \
+      "$planned_runtime_member" != "serviceAccount:${RUNTIME_SA}" ]]; then
+  printf 'ERROR: PLANNED_RUNTIME_MEDIA_IDENTITY_MISMATCH EXPECTED=%s,%s ACTUAL=%s,%s\n' \
+    "$MEDIA_BUCKET" "serviceAccount:${RUNTIME_SA}" \
+    "$planned_runtime_bucket" "$planned_runtime_member" >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+
+# Re-query the canonical legacy working directory after planning so a concurrent
+# ownership change cannot be reported as a reviewed, ready handoff.
+assert_legacy_root_released NO_APPROVED_TERRAFORM_PLAN
 
 printf 'READY: MEDIA_TERRAFORM_PLAN=%s\n' "$plan_file"
 printf '%s\n' 'NO_TERRAFORM_APPLY'
