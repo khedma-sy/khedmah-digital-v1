@@ -40,12 +40,17 @@ test('handoff verifies protected root state and exact reviewed state identity', 
 
 test('fresh root initialization requires absence, explicit confirmation and zero resources', () => {
   assert.match(workflow, /VERIFY_EMPTY_ROOT/);
+  assert.match(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT/);
   assert.match(workflow, /INITIALIZE_EMPTY_ROOT/);
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
   assert.match(workflow, /gcloud storage ls --all-versions \"\$root_state_uri\"/);
   assert.match(workflow, /test \"\$CONFIRMATION\" = INITIALIZE_EMPTY_ROOT_STATE/);
   assert.match(workflow, /terraform -chdir=infra\/iac state push/);
   assert.match(workflow, /\.resources \| length == 0/);
+  assert.ok(
+    workflow.indexOf('gcloud storage ls --all-versions "$root_state_uri"') <
+      workflow.indexOf('terraform -chdir=infra/iac init'),
+  );
 });
 
 test('handoff backs up and removes both addresses atomically, then stops', () => {
