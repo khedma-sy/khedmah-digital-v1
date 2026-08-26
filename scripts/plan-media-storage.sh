@@ -137,11 +137,24 @@ gcloud storage buckets describe "gs://${STATE_BUCKET}" \
   --project="$PROJECT_ID" \
   --format=json > "$state_json"
 
-jq -e '
-  .iamConfiguration.uniformBucketLevelAccess.enabled == true and
-  .iamConfiguration.publicAccessPrevention == "enforced" and
-  .versioning.enabled == true
-' "$state_json" >/dev/null
+if ! jq -e '
+    (
+      (.uniform_bucket_level_access == true) or
+      (.iamConfiguration.uniformBucketLevelAccess.enabled == true)
+    ) and
+    (
+      (.public_access_prevention == "enforced") or
+      (.iamConfiguration.publicAccessPrevention == "enforced")
+    ) and
+    (
+      (.versioning_enabled == true) or
+      (.versioning.enabled == true)
+    )
+  ' "$state_json" >/dev/null; then
+  printf '%s\n' 'ERROR: TERRAFORM_STATE_BUCKET_PROTECTIONS_UNVERIFIED' >&2
+  printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+  exit 1
+fi
 
 gcloud iam service-accounts describe "$RUNTIME_SA" \
   --project="$PROJECT_ID" \
