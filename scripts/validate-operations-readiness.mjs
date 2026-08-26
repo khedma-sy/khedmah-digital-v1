@@ -46,12 +46,13 @@ for (const capability of ['Authentication', 'Messaging', 'Analytics', 'CrashRepo
 for (const capability of ['Remote Config', 'App Check', 'Hosting']) check('firebase', capability, terraform.toLowerCase().includes(capability.toLowerCase().replace(' ', '')), 'API declared in production IaC');
 
 try {
+  execFileSync('terraform', ['-chdir=infra/iac', 'init', '-backend=false', '-input=false'], { stdio: 'pipe' });
   execFileSync('terraform', ['-chdir=infra/iac', 'validate'], { stdio: 'pipe' });
-  check('google-cloud', 'terraform validate', true, 'Terraform configuration valid');
+  check('google-cloud', 'terraform validate', true, 'Terraform configuration initialized without its production backend and valid');
 } catch (error) {
   const message = String(error.stderr || error.message || '');
   if (error.code === 'ENOENT') pending('google-cloud', 'terraform validate', 'Terraform CLI unavailable');
-  else if (/Required plugins are not installed|Failed to query available provider packages|Missing required provider|there is no package for .* cached in \.terraform\/providers|Backend initialization required|Please run ["']?terraform init/i.test(message)) pending('google-cloud', 'terraform validate', 'Provider or backend initialization unavailable in this environment');
+  else if (/Required plugins are not installed|Failed to query available provider packages|Missing required provider|there is no package for .* cached in \.terraform\/providers/i.test(message)) pending('google-cloud', 'terraform validate', 'Provider initialization unavailable in this environment');
   else check('google-cloud', 'terraform validate', false, 'terraform validate failed');
 }
 
