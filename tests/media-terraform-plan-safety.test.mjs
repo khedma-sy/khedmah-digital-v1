@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
@@ -71,6 +71,8 @@ fi
 `,
     terraform: `#!/usr/bin/env bash
 set -eu
+[[ "\${TF_WORKSPACE:-}" == "default" ]] || exit 11
+[[ "\${TF_DATA_DIR:-}" == /* ]] || exit 12
 if [[ "$1" == "-chdir=infra/iac" ]]; then
   case "$2" in
     init) exit 0 ;;
@@ -104,9 +106,9 @@ case "$2" in
     for argument in "$@"; do
       if [[ "$argument" == -out=* ]]; then
         printf '%s' 'mock plan' > "\${argument#-out=}"
+        printf '%s' "\${argument#-out=}" > "$MOCK_PLAN_MARKER"
       fi
     done
-    : > "$MOCK_PLAN_MARKER"
     ;;
   *) exit 2 ;;
 esac
@@ -127,7 +129,7 @@ esac
       GOOGLE_CLOUD_PROJECT: 'khedmah-test-project',
       GOOGLE_CLOUD_REGION: 'europe-west1',
       TF_STATE_BUCKET: 'state-bucket',
-      TF_PLAN_FILE: publishedPlan,
+      TF_PLAN_FILE: relative(join(repoRoot, '..'), publishedPlan),
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT:
         'runtime@khedmah-test-project.iam.gserviceaccount.com',
@@ -175,9 +177,9 @@ test('media plan requires protected remote state and performs no apply', async (
   assert.match(script, /publicAccessPrevention == "enforced"/);
   assert.match(script, /uniformBucketLevelAccess\.enabled == true/);
   assert.match(script, /versioning\.enabled == true/);
-  assert.match(script, /terraform -chdir=infra\/iac\/media plan/);
+  assert.match(script, /media_terraform plan/);
   assert.match(script, /EXISTING_MEDIA_BUCKET_REQUIRES_REVIEWED_STATE_HANDOFF/);
-  assert.match(script, /terraform -chdir=infra\/iac\/media show -json/);
+  assert.match(script, /media_terraform show -json/);
   assert.match(script, /TRACKED_MEDIA_BUCKET_MISMATCH/);
   assert.match(script, /TRACKED_MEDIA_PROJECT_MISMATCH/);
   assert.match(script, /TRACKED_MEDIA_REGION_MISMATCH/);
@@ -189,9 +191,13 @@ test('media plan requires protected remote state and performs no apply', async (
   assert.match(script, /LEGACY_ROOT_STATE_LINEAGE_MISMATCH/);
   assert.match(script, /LEGACY_ROOT_STATE_SERIAL_MISMATCH/);
   assert.match(script, /LEGACY_ROOT_STATE_CHANGED_DURING_PLAN/);
-  assert.match(script, /terraform -chdir=infra\/iac init/);
+  assert.match(script, /root_terraform init/);
   assert.match(script, /backend-config="prefix=\$\{EXPECTED_LEGACY_ROOT_STATE_PREFIX\}"/);
-  assert.match(script, /terraform -chdir=infra\/iac state pull/);
+  assert.match(script, /root_terraform state pull/);
+  assert.match(script, /TF_WORKSPACE=default/);
+  assert.match(script, /TF_DATA_DIR="\$root_tf_data_dir"/);
+  assert.match(script, /TF_DATA_DIR="\$media_tf_data_dir"/);
+  assert.match(script, /pwd -P/);
   assert.match(script, /UNEXPECTED_MEDIA_STATE_RESOURCES/);
   assert.match(script, /UNEXPECTED_MEDIA_PLAN_RESOURCES/);
   assert.match(script, /DESTRUCTIVE_MEDIA_PLAN_CHANGES/);
@@ -225,7 +231,17 @@ test('media plan proceeds only after every state ownership check succeeds', asyn
   assert.equal(result.code, 0);
   assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   assert.match(result.stdout, /NO_TERRAFORM_APPLY/);
-  await readFile(result.planMarker);
+  const invokedPlanPath = await readFile(result.planMarker, 'utf8');
+  assert.ok(isAbsolute(invokedPlanPath));
+  assert.notEqual(invokedPlanPath, result.publishedPlan);
+  await readFile(result.publishedPlan);
+});
+
+test('media plan ignores an inherited non-default Terraform workspace', async (t) => {
+  const result = await runPlanWithMocks(t, { TF_WORKSPACE: 'wrong-workspace' });
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
   await readFile(result.publishedPlan);
 });
 
