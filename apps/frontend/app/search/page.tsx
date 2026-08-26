@@ -1,380 +1,107 @@
 'use client';
-
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
-import { api, PublicBusinessProfile, PublicProfessionalProfile, PublicServiceListing } from '../../lib/api-client';
+import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { api, type PublicBusinessProfile, type PublicProfessionalProfile, type PublicServiceListing } from '../../lib/api-client';
 import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
 import { useCategories } from '../../lib/use-categories';
 import { PlatformIcon } from '../components/platform-icon';
-
-
-
-function trustLabel(status: string) {
-  if (status === 'approved') return <span className="badge badge-approved"><PlatformIcon name="check" size={14} /> معتمد</span>;
-  if (status === 'suspended') return <span className="badge badge-suspended"><PlatformIcon name="close" size={14} /> موقوف</span>;
-  return <span className="badge badge-pending">قيد المراجعة</span>;
-}
-
-function availLabel(av: string) {
-  if (av === 'available') return <span className="badge badge-available">متاح</span>;
-  if (av === 'busy') return <span className="badge badge-busy">مشغول</span>;
-  return <span className="badge badge-unavailable">غير متاح</span>;
-}
-
-function priceLabel(type: string) {
-  if (type === 'fixed') return 'سعر ثابت';
-  if (type === 'hourly') return 'بالساعة';
-  return 'قابل للتفاوض';
-}
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
+import styles from '../discovery.module.css';
 
 type TabType = 'all' | 'business' | 'professional' | 'service';
+const PAGE_SIZE = 12;
+const tabs: [TabType, string][] = [['all', 'الكل'], ['business', 'الأنشطة'], ['professional', 'المهنيون'], ['service', 'الخدمات']];
+const priceLabel = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
+const availabilityLabel = (value: string) => value === 'available' ? 'متاح' : value === 'busy' ? 'مشغول' : 'حسب الموعد';
 
 function SearchContent() {
   const router = useRouter();
   const params = useSearchParams();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
-
   const [q, setQ] = useState(params.get('q') ?? '');
   const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
   const [categoryCode, setCategoryCode] = useState(params.get('categoryCode') ?? '');
   const [tab, setTab] = useState<TabType>((params.get('type') as TabType) ?? 'all');
-  const [page, setPage] = useState(() => Math.max(1, Number(params.get('page')) || 1));
+  const [page, setPage] = useState(Math.max(1, Number(params.get('page')) || 1));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
-
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [professionals, setProfessionals] = useState<PublicProfessionalProfile[]>([]);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [total, setTotal] = useState(0);
 
-  const PAGE_SIZE = 12;
-
-  function updateCanonicalUrl(nextCityCode = cityCode, nextPage = page) {
-    const next = new URLSearchParams();
-    if (q) next.set('q', q);
-    if (nextCityCode) next.set('cityCode', nextCityCode);
-    if (categoryCode) next.set('categoryCode', categoryCode);
-    if (tab !== 'all') next.set('type', tab);
-    if (nextPage > 1) next.set('page', String(nextPage));
-    router.replace(next.size ? `/search?${next.toString()}` : '/search');
+  function syncUrl(next = { q, cityCode, categoryCode, tab, page }) {
+    const query = new URLSearchParams();
+    if (next.q) query.set('q', next.q);
+    if (next.cityCode) query.set('cityCode', next.cityCode);
+    if (next.categoryCode) query.set('categoryCode', next.categoryCode);
+    if (next.tab !== 'all') query.set('type', next.tab);
+    if (next.page > 1) query.set('page', String(next.page));
+    router.replace(query.size ? `/search?${query}` : '/search');
   }
 
-  async function doSearch(overrides?: { tab?: TabType; page?: number; cityCode?: string }) {
-    const activeTab = overrides?.tab ?? tab;
-    const activePage = overrides?.page ?? page;
-    const activeCityCode = overrides?.cityCode ?? cityCode;
-    setIsLoading(true);
-    setError('');
+  async function search(next: { tab: TabType; page: number; cityCode: string; q: string; categoryCode: string }) {
+    setIsLoading(true); setError('');
     try {
-      if (activeTab === 'professional') {
-        const data = await api.professionals.search({ q: q || undefined, cityCode: activeCityCode || undefined, page: activePage });
-        setProfessionals(data.professionals);
-        setBusinesses([]);
-        setServices([]);
-        setTotal(data.professionals.length);
-      } else if (activeTab === 'service') {
-        const data = await api.services.search({ q: q || undefined, categoryCode: categoryCode || undefined, page: activePage });
-        setServices(data.services);
-        setBusinesses([]);
-        setProfessionals([]);
-        setTotal(data.total);
-      } else if (activeTab === 'business') {
-        const data = await api.businesses.search({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: activeCityCode || undefined, page: activePage });
-        setBusinesses(data.businesses);
-        setServices([]);
-        setProfessionals([]);
-        setTotal(data.total);
+      if (next.tab === 'professional') {
+        const data = await api.professionals.search({ q: next.q || undefined, cityCode: next.cityCode || undefined, page: next.page });
+        setProfessionals(data.professionals); setBusinesses([]); setServices([]); setTotal(data.professionals.length);
+      } else if (next.tab === 'service') {
+        const data = await api.services.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, page: next.page });
+        setServices(data.services); setBusinesses([]); setProfessionals([]); setTotal(data.total);
+      } else if (next.tab === 'business') {
+        const data = await api.businesses.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
+        setBusinesses(data.businesses); setServices([]); setProfessionals([]); setTotal(data.total);
       } else {
-        const data = await api.search.query({ q: q || undefined, categoryCode: categoryCode || undefined, cityCode: activeCityCode || undefined, page: activePage, type: activeTab });
-        setBusinesses(data.businesses);
-        setServices(data.services);
-        setProfessionals([]);
-        setTotal(data.total);
+        const data = await api.search.query({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page, type: 'all' });
+        setBusinesses(data.businesses); setServices(data.services); setProfessionals([]); setTotal(data.total);
       }
       setSearched(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر البحث.');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إكمال البحث.'); }
+    finally { setIsLoading(false); }
   }
 
-  function handleSearch(event: React.FormEvent) {
-    event.preventDefault();
-    setPage(1);
-    updateCanonicalUrl(cityCode, 1);
-    void doSearch({ page: 1 });
-  }
+  function submit(event: FormEvent) { event.preventDefault(); const next = { q, cityCode, categoryCode, tab, page: 1 }; setPage(1); syncUrl(next); void search(next); }
+  function changeTab(nextTab: TabType) { setTab(nextTab); setPage(1); const next = { q, cityCode, categoryCode, tab: nextTab, page: 1 }; syncUrl(next); if (searched) void search(next); }
+  function clear() { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }
+  function goToPage(nextPage: number) { const next = { q, cityCode, categoryCode, tab, page: nextPage }; setPage(nextPage); syncUrl(next); void search(next); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
-  function handleTabChange(nextTab: TabType) {
-    setTab(nextTab);
-    setPage(1);
-    if (searched) void doSearch({ tab: nextTab, page: 1 });
-  }
-
-  function handlePage(nextPage: number) {
-    setPage(nextPage);
-    updateCanonicalUrl(cityCode, nextPage);
-    void doSearch({ page: nextPage });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  // Auto-search when arriving via URL params (from homepage links)
   useEffect(() => {
-    const urlQ = params.get('q');
     const rawCity = params.get('cityCode');
-    const urlCity = canonicalCityCode(rawCity, cities);
-    const urlCat = params.get('categoryCode');
-    const urlType = params.get('type') as TabType | null;
-    const urlPage = Math.max(1, Number(params.get('page')) || 1);
-    if (urlQ || urlCity || urlCat || urlType) {
-      if (urlQ) setQ(urlQ);
-      setCityCode(urlCity);
-      if (urlCat) setCategoryCode(urlCat);
-      if (urlType) setTab(urlType);
-      setPage(urlPage);
-      void doSearch({ tab: urlType ?? 'all', page: urlPage, cityCode: urlCity });
-    }
-    if (rawCity && cities.length > 0 && !urlCity) router.replace('/search');
+    const next = { q: params.get('q') ?? '', cityCode: canonicalCityCode(rawCity, cities), categoryCode: params.get('categoryCode') ?? '', tab: (params.get('type') as TabType) ?? 'all', page: Math.max(1, Number(params.get('page')) || 1) };
+    if (next.q || next.cityCode || next.categoryCode || params.get('type')) { setQ(next.q); setCityCode(next.cityCode); setCategoryCode(next.categoryCode); setTab(next.tab); setPage(next.page); void search(next); }
+    if (rawCity && cities.length && !next.cityCode) router.replace('/search');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cities, params]);
 
+  const categoryName = (code: string) => categories.find((item) => item.code === code)?.nameAr ?? code;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const noResults = !businesses.length && !professionals.length && !services.length;
 
-  return (
-    <main id="foundation-content" className="page-shell">
-      <div className="page-content">
-        <header style={{ marginBlockEnd: '1.5rem' }}>
-          <p className="eyebrow">خدمة</p>
-          <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)', margin: '0 0 0.5rem' }}>ماذا تبحث عنه؟</h1>
-          <p style={{ color: 'var(--muted)', fontSize: '1rem', margin: 0 }}>ابحث عن خدمة أو عمل موثوق بجانبك</p>
-        </header>
-
-        {/* Search form */}
-        <form onSubmit={handleSearch} className="filter-bar" role="search" aria-label="نموذج البحث">
-          <div className="filter-group" style={{ flex: '2 1 180px' }}>
-            <label htmlFor="q">كلمة البحث</label>
-            <input
-              id="q"
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="مطعم، نجار، محامي..."
-            />
-          </div>
-          <div className="filter-group" style={{ flex: '1 1 130px' }}>
-            <label htmlFor="city">المدينة</label>
-            <select id="city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(e) => { const next = e.target.value; setCityCode(next); setPage(1); updateCanonicalUrl(next, 1); }}>
-              <option value="">كل المدن</option>
-              {cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}
-            </select>
-          </div>
-          <div className="filter-group" style={{ flex: '1 1 130px' }}>
-            <label htmlFor="cat">التصنيف</label>
-            <select id="cat" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(e) => setCategoryCode(e.target.value)}>
-              <option value="">كل التصنيفات</option>
-              {categories.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-            <button type="submit" className="filter-action" aria-busy={isLoading} disabled={isLoading}>
-              {!isLoading && <PlatformIcon name="search" size={18} />}
-              {isLoading ? 'جاري البحث...' : 'بحث'}
-            </button>
-            {(q || cityCode || categoryCode) && (
-              <button
-                type="button"
-                className="filter-action-secondary"
-                onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }}
-              >
-                مسح
-              </button>
-            )}
-          </div>
-        </form>
-        {citiesError && <p className="form-error" role="status">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></p>}
-
-        {/* Type tabs */}
-        <nav className="type-tabs" aria-label="نوع النتائج">
-          {([['all', 'الكل'], ['business', 'أعمال'], ['professional', 'مهنيون'], ['service', 'خدمات']] as [TabType, string][]).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={`type-tab${tab === value ? ' active' : ''}`}
-              onClick={() => handleTabChange(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
-
-        {/* Loading skeleton */}
-        {isLoading && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="skeleton skeleton-card" />
-            ))}
-          </div>
-        )}
-
-        {/* Results */}
-        {!isLoading && searched && (
-          <>
-            <p className="result-count">تم العثور على {total} نتيجة{page > 1 ? ` · الصفحة ${page}` : ''}</p>
-
-            {/* Businesses */}
-            {businesses.length > 0 && (
-              <section aria-label="ملفات الأعمال" style={{ marginBlockEnd: '2rem' }}>
-                {tab === 'all' && <div className="section-header"><h2>ملفات الأعمال ({businesses.length})</h2></div>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-                  {businesses.map((b) => (
-                    <article className="card" key={b.id}>
-                      <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                          <h3 className="card-title">{b.name}</h3>
-                          {trustLabel(b.trustStatus)}
-                        </div>
-                        <p className="card-meta">{categories.find((category) => category.code === b.categoryCode)?.nameAr ?? b.categoryCode} · {cityLabel(b.cityCode, cities)}</p>
-                        {b.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.descriptionAr}</p>}
-                      </div>
-                      <div className="card-footer">
-                        <Link href={`/business-profiles/${b.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض النشاط <PlatformIcon name="arrow" size={16} />
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Professionals */}
-            {professionals.length > 0 && (
-              <section aria-label="المهنيون" style={{ marginBlockEnd: '2rem' }}>
-                {tab === 'all' && <div className="section-header"><h2>المهنيون ({professionals.length})</h2></div>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-                  {professionals.map((p) => (
-                    <article className="card" key={p.id}>
-                      <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                          <h3 className="card-title">{p.headlineAr}</h3>
-                          {availLabel(p.availability)}
-                        </div>
-                        <p className="card-meta"><PlatformIcon name="pin" size={14} /> {cityLabel(p.cityCode, cities)}</p>
-                        {p.skills.length > 0 && (
-                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                            {p.skills.slice(0, 4).map((s) => <span key={s} className="skill-tag">{s}</span>)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="card-footer">
-                        <Link href={`/professional-profiles/${p.id}`} className="foundation-action" style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-                          عرض المهني <PlatformIcon name="arrow" size={16} />
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Services */}
-            {services.length > 0 && (
-              <section aria-label="الخدمات" style={{ marginBlockEnd: '2rem' }}>
-                {tab === 'all' && <div className="section-header"><h2>الخدمات ({services.length})</h2></div>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
-                  {services.map((s) => (
-                    <article className="card" key={s.id}>
-                      <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                          <h3 className="card-title">{s.titleAr}</h3>
-                          <span className="badge badge-pending" style={{ whiteSpace: 'nowrap' }}>{priceLabel(s.priceType)}</span>
-                        </div>
-                        <p className="card-meta">{categories.find((category) => category.code === s.categoryCode)?.nameAr ?? s.categoryCode}</p>
-                        {s.descriptionAr && <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0.25rem 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.descriptionAr}</p>}
-                        {s.price != null && (
-                          <p style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '1.0625rem', margin: '0.25rem 0 0' }}>
-                            {s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}
-                          </p>
-                        )}
-                      </div>
-                      <div className="card-footer">
-                        <Link
-                          href={s.ownerType === 'business' ? `/business-profiles/${s.ownerId}` : `/professional-profiles/${s.ownerId}`}
-                          className="foundation-action"
-                          style={{ marginBlockStart: 0, textDecoration: 'none', textAlign: 'center', display: 'flex', fontSize: '0.875rem', padding: '0.5rem 1rem', gap: '0.4rem' }}
-                        >
-                          عرض مقدم الخدمة <PlatformIcon name="arrow" size={16} />
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Empty state */}
-            {businesses.length === 0 && professionals.length === 0 && services.length === 0 && (
-              <div className="empty-state">
-                <span className="empty-state-icon" aria-hidden="true"><PlatformIcon name="search" size={42} /></span>
-                <h2>لا توجد نتائج</h2>
-                <p>جرّب كلمة بحث مختلفة أو قم بتوسيع نطاق البحث.</p>
-                <button type="button" className="filter-action" onClick={() => { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }}>
-                  مسح الفلاتر
-                </button>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <nav className="pagination" aria-label="الصفحات">
-                <button type="button" className="page-btn" disabled={page <= 1} onClick={() => handlePage(page - 1)}>
-                  ‹ السابق
-                </button>
-                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
-                  <button key={p} type="button" className={`page-btn${p === page ? ' active' : ''}`} onClick={() => handlePage(p)}>
-                    {p}
-                  </button>
-                ))}
-                <button type="button" className="page-btn" disabled={page >= totalPages} onClick={() => handlePage(page + 1)}>
-                  التالي ›
-                </button>
-              </nav>
-            )}
-          </>
-        )}
-
-        {/* Initial state before search */}
-        {!searched && !isLoading && (
-          <div className="empty-state" style={{ paddingTop: '3rem' }}>
-            <span className="empty-state-icon" aria-hidden="true"><PlatformIcon name="pin" size={42} /></span>
-            <h2>ابدأ البحث</h2>
-            <p>أدخل كلمة بحث أو اختر مدينة وتصنيفاً للعثور على الأعمال والمهنيين.</p>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+  return <PageShell className={styles.page} label="اكتشاف الخدمات">
+    <PageHeader title="اكتشف الخدمة المناسبة" description="ابحث في الأنشطة والخدمات المنشورة حسب التخصص والمنطقة." actions={<ActionLink href="/map" variant="secondary"><PlatformIcon name="pin" size={17}/> البحث على الخريطة</ActionLink>} />
+    <Surface as="div"><form className={styles.form} onSubmit={submit} role="search" aria-label="البحث في خدمة">
+      <div className={styles.field}><label htmlFor="q">ما الخدمة التي تحتاجها؟</label><input id="q" value={q} onChange={(event) => setQ(event.target.value)} placeholder="مثال: طبيب أسنان، نجار، مطعم" /></div>
+      <div className={styles.field}><label htmlFor="city">المدينة</label><select id="city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setCityCode(event.target.value)}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></div>
+      <div className={styles.field}><label htmlFor="category">التصنيف</label><select id="category" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)}><option value="">كل التصنيفات</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.nameAr}</option>)}</select></div>
+      <div className={styles.formActions}><ActionButton type="submit" disabled={isLoading}><PlatformIcon name="search" size={17}/>{isLoading ? 'جاري البحث' : 'بحث'}</ActionButton>{(q || cityCode || categoryCode) && <ActionButton type="button" variant="secondary" onClick={clear}>مسح</ActionButton>}</div>
+    </form></Surface>
+    {citiesError && <StatusMessage tone="danger">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
+    {categoriesError && <StatusMessage tone="danger">تعذر تحميل التصنيفات. يمكنك متابعة البحث بالكلمة أو المدينة.</StatusMessage>}
+    <div className={styles.tabs} role="tablist" aria-label="نوع النتائج">{tabs.map(([value,label]) => <button key={value} className={styles.tab} role="tab" aria-selected={tab === value} onClick={() => changeTab(value)}>{label}</button>)}</div>
+    {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {isLoading && <SkeletonGrid count={6} label="جاري البحث في الأنشطة والخدمات" />}
+    {!isLoading && searched && <><p className={styles.resultSummary} aria-live="polite">{total ? `${total} نتيجة مطابقة${page > 1 ? ` — الصفحة ${page}` : ''}` : 'لم نعثر على نتيجة مطابقة'}</p>
+      {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.name}</h3><span className={styles.badge}><PlatformIcon name="check" size={14}/>{item.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)} · {cityLabel(item.cityCode,cities)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${item.id}`}>عرض النشاط <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {professionals.length > 0 && <ResultSection title="المهنيون">{professionals.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.headlineAr}</h3><span className={styles.badge}>{availabilityLabel(item.availability)}</span></div><p className={styles.meta}><PlatformIcon name="pin" size={14}/> {cityLabel(item.cityCode,cities)}</p><div className={styles.tags}>{item.skills.slice(0,4).map((skill) => <span className={styles.tag} key={skill}>{skill}</span>)}</div><div className={styles.cardAction}><ActionLink href={`/professional-profiles/${item.id}`}>عرض الملف <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {services.length > 0 && <ResultSection title={tab === 'all' ? 'الخدمات' : undefined}>{services.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.titleAr}</h3><span className={styles.badge}>{priceLabel(item.priceType)}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}{item.price != null && <p className={styles.price}>{item.price.toLocaleString('ar-SY')} {item.priceCurrency ?? 'SYP'}</p>}<div className={styles.cardAction}><ActionLink href={item.ownerType === 'business' ? `/business-profiles/${item.ownerId}` : `/professional-profiles/${item.ownerId}`}>عرض مقدم الخدمة <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {noResults && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="لا توجد نتائج مطابقة" description="جرّب كلمة أخرى أو وسّع المدينة والتصنيف." actions={<ActionButton type="button" variant="secondary" onClick={clear}>مسح عوامل البحث</ActionButton>} />}
+      {totalPages > 1 && <nav className={styles.pagination} aria-label="صفحات النتائج"><button disabled={page <= 1} onClick={() => goToPage(page-1)}>السابق</button>{Array.from({length:Math.min(totalPages,7)},(_,index)=>index+1).map((value)=><button key={value} aria-current={value===page?'page':undefined} onClick={()=>goToPage(value)}>{value}</button>)}<button disabled={page >= totalPages} onClick={() => goToPage(page+1)}>التالي</button></nav>}
+    </>}
+    {!searched && !isLoading && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="كل ما تحتاجه أقرب إليك" description="ابدأ بكلمة بحث، أو اختر مدينة وتصنيفاً لاستعراض الأنشطة المنشورة." actions={<ActionLink href="/categories" variant="secondary">استكشف التصنيفات</ActionLink>} />}
+  </PageShell>;
 }
-
-export default function SearchPage() {
-  return (
-    <Suspense fallback={
-      <main id="foundation-content" className="page-shell">
-        <div className="page-content">
-          <div className="skeleton skeleton-heading" style={{ marginBlock: '1.5rem' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem', marginTop: '2rem' }}>
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton skeleton-card" />)}
-          </div>
-        </div>
-      </main>
-    }>
-      <SearchContent />
-    </Suspense>
-  );
-}
+function ResultSection({ title, children }: { title?: string; children: ReactNode }) { return <section className={styles.section}>{title && <h2>{title}</h2>}<div className={styles.grid}>{children}</div></section>; }
+export default function SearchPage() { return <Suspense fallback={<PageShell className={styles.page}><SkeletonGrid count={6}/></PageShell>}><SearchContent/></Suspense>; }
