@@ -113,6 +113,20 @@ export interface MediaAsset {
   readonly createdAt: string;
 }
 
+export interface UploadedMediaAsset {
+  readonly id: string;
+  readonly ownerType: 'business_profile' | 'professional_profile' | 'user';
+  readonly ownerId: string;
+  readonly filename: string;
+  readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly sizeBytes: number;
+  readonly visibility: 'public' | 'private';
+  readonly publicUrl?: string;
+  readonly assetType?: MediaAsset['assetType'];
+  readonly sortOrder: number;
+  readonly createdAt: string;
+}
+
 export interface OpeningHours {
   readonly id: string;
   readonly businessProfileId: string;
@@ -329,6 +343,15 @@ export const api = {
   categories: {
     list() { return request<{ categories: Category[] }>('/categories'); },
     get(code: string) { return request<{ category: Category }>(`/categories/${encodeURIComponent(code)}`); }
+  },
+  media: {
+    uploadBusiness(id: string, data: { filename: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sizeBytes: number; content: string; assetType: 'logo' | 'cover' | 'gallery'; sortOrder?: number }) {
+      return request<UploadedMediaAsset>('/media', {
+        method: 'POST',
+        body: JSON.stringify({ ownerType: 'business_profile', ownerId: id, visibility: 'public', ...data })
+      });
+    },
+    delete(id: string) { return request<{ deleted: boolean }>(`/media/${id}`, { method: 'DELETE' }); }
   },
   businesses: {
     create(data: {

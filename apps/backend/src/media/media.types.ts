@@ -1,6 +1,7 @@
 export type MediaVisibility = 'public' | 'private';
 export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'user';
 export type MediaMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
+export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image';
 
 export interface MediaAsset {
   readonly id: string;
@@ -13,6 +14,8 @@ export interface MediaAsset {
   readonly visibility: MediaVisibility;
   readonly storageKey: string;
   readonly publicUrl?: string;
+  readonly assetType?: MediaAssetType;
+  readonly sortOrder: number;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -25,6 +28,8 @@ export interface UploadMediaRequest {
   readonly mimeType?: unknown;
   readonly sizeBytes?: unknown;
   readonly content?: unknown; // base64
+  readonly assetType?: unknown;
+  readonly sortOrder?: unknown;
 }
 
 export interface PublicMediaAsset {
@@ -36,5 +41,7 @@ export interface PublicMediaAsset {
   readonly sizeBytes: number;
   readonly visibility: MediaVisibility;
   readonly publicUrl?: string;
+  readonly assetType?: MediaAssetType;
+  readonly sortOrder: number;
   readonly createdAt: string;
 }
