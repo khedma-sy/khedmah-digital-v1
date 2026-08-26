@@ -19,7 +19,7 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
   assert.match(locations, /redirect\('\/map'\)/);
   assert.match(search, /البحث/);
 
-  assert.match(businessProfiles, /role="alert"/);
+  assert.match(businessProfiles, /StatusMessage tone="danger"/);
   assert.match(professionalProfiles, /role="alert"/);
   assert.match(serviceCatalog, /SkeletonGrid label="جاري تحميل الخدمات"/);
   assert.match(search, /aria-busy/);
