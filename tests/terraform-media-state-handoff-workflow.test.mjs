@@ -20,6 +20,10 @@ test('media state handoff is a manual production WIF gate locked to latest main'
 test('handoff verifies protected root state and exact reviewed state identity', () => {
   assert.match(workflow, /prefix=khedmah\/production\/root/);
   assert.match(workflow, /gcloud storage buckets list --project/);
+  assert.match(workflow, /gcloud logging read/);
+  assert.match(workflow, /storage\.buckets\.create/);
+  assert.match(workflow, /--freshness=7d/);
+  assert.match(workflow, /protoPayload\.resourceName/);
   assert.match(workflow, /khedmah\/production\/root\/default\.tfstate/);
   assert.match(workflow, /test \"\$\{#state_candidates\[@\]\}\" -eq 1/);
   assert.match(workflow, /uniformBucketLevelAccess\.enabled == true/);
