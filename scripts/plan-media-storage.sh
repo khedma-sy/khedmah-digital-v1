@@ -10,7 +10,7 @@ EXPECTED_LEGACY_ROOT_STATE_LINEAGE="${LEGACY_ROOT_STATE_LINEAGE:?LEGACY_ROOT_STA
 EXPECTED_LEGACY_ROOT_STATE_SERIAL="${LEGACY_ROOT_STATE_SERIAL:?LEGACY_ROOT_STATE_SERIAL is required}"
 EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
-EXPECTED_LEGACY_ROOT_STATE_URI="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
+EXPECTED_LEGACY_ROOT_STATE_PREFIX="khedmah/production/root"
 
 if [[ "$REGION" != "europe-west1" ]]; then
   printf 'ERROR: EXPECTED_REGION=europe-west1 ACTUAL_REGION=%s\n' "$REGION" >&2
@@ -34,8 +34,7 @@ assert_legacy_root_released() {
   local legacy_state_lineage
   local legacy_state_serial
 
-  if ! gcloud storage cat "$EXPECTED_LEGACY_ROOT_STATE_URI" \
-      --project="$PROJECT_ID" > "$legacy_state_json"; then
+  if ! terraform -chdir=infra/iac state pull > "$legacy_state_json"; then
     printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_QUERY_FAILED' >&2
     printf '%s\n' "$failure_marker" >&2
     exit 1
@@ -102,8 +101,21 @@ assert_legacy_root_released() {
 legacy_state_json="$(mktemp)"
 state_json="$(mktemp)"
 plan_json="$(mktemp)"
-trap 'rm -f "$legacy_state_json" "$state_json" "$plan_json"' EXIT
+pending_plan_file=''
+cleanup() {
+  rm -f "$legacy_state_json" "$state_json" "$plan_json"
+  if [[ -n "$pending_plan_file" ]]; then
+    rm -f "$pending_plan_file"
+  fi
+}
+trap cleanup EXIT
 observed_legacy_root_state_serial=''
+
+terraform -chdir=infra/iac init \
+  -input=false \
+  -reconfigure \
+  -backend-config="bucket=${STATE_BUCKET}" \
+  -backend-config="prefix=${EXPECTED_LEGACY_ROOT_STATE_PREFIX}"
 
 assert_legacy_root_released
 
@@ -272,16 +284,25 @@ if grep -F -x -- "$MEDIA_BUCKET" <<< "$project_media_buckets" >/dev/null; then
 fi
 
 plan_file="${TF_PLAN_FILE:-/tmp/khedmah-media.tfplan}"
+if [[ -e "$plan_file" ]]; then
+  printf 'ERROR: MEDIA_TERRAFORM_PLAN_ALREADY_EXISTS=%s\n' "$plan_file" >&2
+  printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
+  exit 1
+fi
+
+plan_directory="$(dirname -- "$plan_file")"
+plan_basename="$(basename -- "$plan_file")"
+pending_plan_file="$(mktemp "${plan_directory}/.${plan_basename}.pending.XXXXXX")"
 terraform -chdir=infra/iac/media plan \
   -input=false \
   -lock-timeout=60s \
-  -out="$plan_file" \
+  -out="$pending_plan_file" \
   -var="project_id=${PROJECT_ID}" \
   -var="region=${REGION}" \
   -var="bucket_name=${MEDIA_BUCKET}" \
   -var="runtime_service_account_email=${RUNTIME_SA}"
 
-if ! terraform -chdir=infra/iac/media show -json "$plan_file" > "$plan_json"; then
+if ! terraform -chdir=infra/iac/media show -json "$pending_plan_file" > "$plan_json"; then
   printf '%s\n' 'ERROR: MEDIA_TERRAFORM_PLAN_UNREADABLE' >&2
   printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
   exit 1
@@ -402,6 +423,14 @@ fi
 # Re-query the canonical legacy working directory after planning so a concurrent
 # ownership change cannot be reported as a reviewed, ready handoff.
 assert_legacy_root_released NO_APPROVED_TERRAFORM_PLAN
+
+mv -n -- "$pending_plan_file" "$plan_file"
+if [[ -e "$pending_plan_file" ]]; then
+  printf 'ERROR: MEDIA_TERRAFORM_PLAN_PUBLISH_FAILED=%s\n' "$plan_file" >&2
+  printf '%s\n' 'NO_APPROVED_TERRAFORM_PLAN' >&2
+  exit 1
+fi
+pending_plan_file=''
 
 printf 'READY: MEDIA_TERRAFORM_PLAN=%s\n' "$plan_file"
 printf '%s\n' 'NO_TERRAFORM_APPLY'
