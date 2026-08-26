@@ -11,12 +11,14 @@ import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 export async function createBackendApp() {
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true
+    bufferLogs: true,
+    bodyParser: false
   });
   const logger = app.get(PlatformLogger);
   const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
+  app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
   app.enableCors({
