@@ -14,8 +14,9 @@ const productionOperator = await readFile(
 test('media apply is manual, production protected, and pinned to reviewed evidence', () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /APPROVED_SHA: 6f53ed3/);
-  assert.match(workflow, /APPROVED_PLAN_RUN_ID: "33019789431"/);
+  assert.match(workflow, /APPROVED_SHA: 679f6698/);
+  assert.match(workflow, /APPROVED_PLAN_RUN_ID: "33023641715"/);
+  assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "2"/);
   assert.match(workflow, /actions\/download-artifact@v4/);
   assert.match(workflow, /run-id: \$\{\{ inputs\.plan_run_id \}\}/);
   assert.match(workflow, /sha256sum --check SHA256SUMS/);

@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: Type APPLY_KHEDMAH_MEDIA_6F53ED3
+        description: Type APPLY_KHEDMAH_MEDIA_679F669
         required: true
         type: string
 
@@ -52,10 +52,10 @@ jobs:
     environment: production
     timeout-minutes: 20
     env:
-      APPROVED_SHA: 6f53ed3ba5783865e68bc91cb63f012df78d5b98
-      APPROVED_PLAN_RUN_ID: "33019789431"
-      APPROVED_ARTIFACT_NAME: terraform-media-plan-6f53ed3ba5783865e68bc91cb63f012df78d5b98
-      APPROVED_CONFIRMATION: APPLY_KHEDMAH_MEDIA_6F53ED3
+      APPROVED_SHA: 679f6698f4fb1580ff840f0d8bdb193880912433
+      APPROVED_PLAN_RUN_ID: "33023641715"
+      APPROVED_ARTIFACT_NAME: terraform-media-plan-679f6698f4fb1580ff840f0d8bdb193880912433
+      APPROVED_CONFIRMATION: APPLY_KHEDMAH_MEDIA_679F669
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
@@ -84,7 +84,7 @@ jobs:
           test "$EXPECTED_ROOT_LINEAGE" = "7f4f274c-10cf-4ba2-0dc5-85c03031f7fc"
           test "$EXPECTED_ROOT_SERIAL" = "1"
           test "$EXPECTED_MEDIA_LINEAGE" = "1cb9348c-6c22-d938-03bb-ab466862a98f"
-          test "$EXPECTED_MEDIA_SERIAL" = "1"
+          test "$EXPECTED_MEDIA_SERIAL" = "2"
 
       - name: Check out the approved commit
         uses: actions/checkout@v4
@@ -101,7 +101,6 @@ jobs:
           git diff --name-only "$APPROVED_SHA" origin/main > /tmp/post-plan-files
           diff -u <(printf '%s\n' \
             '.github/workflows/terraform-media-apply.yml' \
-            'infra/iac/production_operator.tf' \
             'tests/terraform-media-apply-workflow.test.mjs') \
             /tmp/post-plan-files
 
