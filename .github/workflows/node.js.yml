@@ -55,9 +55,11 @@ jobs:
       with:
         terraform_version: 1.6.6
 
-    - name: Validate Terraform formatting and media stack
+    - name: Validate Terraform formatting and stacks without remote backends
       run: |
         terraform fmt -check -recursive infra/iac
+        terraform -chdir=infra/iac init -backend=false -input=false
+        terraform -chdir=infra/iac validate
         terraform -chdir=infra/iac/media init -backend=false -input=false
         terraform -chdir=infra/iac/media validate
 
