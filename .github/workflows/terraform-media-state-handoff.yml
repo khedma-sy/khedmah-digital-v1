@@ -99,9 +99,27 @@ jobs:
           gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
 
           if [[ -z "$STATE_BUCKET" ]]; then
-            mapfile -t project_buckets < <(
-              gcloud storage buckets list --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)'
-            )
+            bucket_inventory="$(mktemp)"
+            if gcloud storage buckets list --project "$GOOGLE_CLOUD_PROJECT" \
+              --format='value(name)' >"$bucket_inventory" 2>/dev/null; then
+              mapfile -t project_buckets <"$bucket_inventory"
+            else
+              audit_inventory="$(mktemp)"
+              gcloud logging read \
+                '(protoPayload.methodName="storage.buckets.create" OR protoPayload.methodName="storage.buckets.insert")' \
+                --project "$GOOGLE_CLOUD_PROJECT" --freshness=7d --limit=100 --format=json \
+                >"$audit_inventory"
+              mapfile -t project_buckets < <(
+                jq -r '[
+                  .[] |
+                  (.resource.labels.bucket_name? // empty),
+                  ((.protoPayload.resourceName? // empty) |
+                    sub("^projects/_/buckets/"; ""))
+                ] | map(select(length > 0)) | unique[]' "$audit_inventory"
+              )
+              rm -f "$audit_inventory"
+            fi
+            rm -f "$bucket_inventory"
             state_candidates=()
             for project_bucket in "${project_buckets[@]}"; do
               if gcloud storage ls \
