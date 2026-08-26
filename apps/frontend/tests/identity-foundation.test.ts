@@ -9,7 +9,7 @@ test('identity screens are Arabic-first and RTL-compatible', async () => {
 
   assert.match(login, /تسجيل الدخول/);
   assert.match(register, /إنشاء حساب/);
-  assert.match(profile, /الملف الأساسي/);
+  assert.match(profile, /حسابي/);
 });
 
 test('identity screens include validation, loading, and error states', async () => {
@@ -23,7 +23,10 @@ test('identity screens include validation, loading, and error states', async () 
   assert.match(login, /minLength=\{8\}/);
   assert.match(register, /minLength=\{8\}/);
   assert.match(register, /جاري إنشاء الحساب/);
-  assert.match(profile, /role="status"/);
+  assert.match(profile, /api\.auth\.session\(\)/);
+  assert.match(profile, /SkeletonGrid/);
+  assert.match(profile, /StatusMessage/);
+  assert.doesNotMatch(profile, /setTimeout/);
 });
 
 test('global navigation separates guest discovery from authenticated account actions', async () => {

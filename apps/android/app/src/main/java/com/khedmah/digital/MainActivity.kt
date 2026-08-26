@@ -211,7 +211,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryRow(categories, selected, onCategory) } }
-        item { Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Text("وصول أوضح إلى الخدمة المناسبة", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold); Text("معلومات واضحة · بحث حسب الموقع · تواصل مباشر", color = MaterialTheme.colorScheme.primary) } } }
+        item { KhedmahStateCard("وصول أوضح إلى الخدمة المناسبة", "معلومات واضحة · بحث حسب الموقع · تواصل مباشر") }
     }
 }
 
@@ -221,9 +221,9 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         SearchBox(query, onQuery, onSearch); CategoryRow(categories, selected, onCategory)
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
-            error != null -> Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.errorContainer)) { Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(16.dp)) }
-            results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("ابدأ البحث لعرض الأعمال والمهنيين والخدمات.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(results, key = { "${it.type}:${it.id}" }) { result -> Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(result.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold); Text(result.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) } } } }
+            error != null -> KhedmahStateCard("تعذر تحميل النتائج", error, KhedmahStateTone.Error)
+            results.isEmpty() -> KhedmahStateCard("ابدأ البحث", "اعرض الأعمال والمهنيين والخدمات المطابقة لما تحتاجه.")
+            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(results, key = { "${it.type}:${it.id}" }) { result -> KhedmahResultCard(result.title, result.subtitle) } }
         }
     }
 }
