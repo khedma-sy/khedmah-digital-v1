@@ -45,12 +45,17 @@ test('fresh root initialization requires absence, explicit confirmation and zero
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
   assert.match(workflow, /gcloud storage ls --all-versions \"\$root_state_uri\"/);
   assert.match(workflow, /test \"\$CONFIRMATION\" = INITIALIZE_EMPTY_ROOT_STATE/);
-  assert.match(workflow, /terraform -chdir=infra\/iac state push/);
+  assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
   assert.match(workflow, /\.resources \| length == 0/);
   assert.ok(
     workflow.indexOf('gcloud storage ls --all-versions "$root_state_uri"') <
       workflow.indexOf('terraform -chdir=infra/iac init'),
   );
+  assert.ok(
+    workflow.indexOf('test "$CONFIRMATION" = INITIALIZE_EMPTY_ROOT_STATE') <
+      workflow.indexOf('terraform -chdir=infra/iac init'),
+  );
+  assert.match(workflow, /ROOT_STATE_NOT_FOUND/);
 });
 
 test('handoff backs up and removes both addresses atomically, then stops', () => {
