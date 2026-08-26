@@ -54,7 +54,7 @@ export default function OrganizationsPage() {
           <Link className="foundation-action" href="/organizations/new">إنشاء منظمة جديدة</Link>
           <Link className="foundation-action" href="/business-profiles">ملفات الأعمال</Link>
           <Link className="foundation-action" href="/professional-profiles">الملفات المهنية</Link>
-          <Link className="foundation-action" href="/service-catalog">دليل الخدمات</Link>
+          <Link className="foundation-action" href="/categories">التصنيفات</Link>
           <Link className="foundation-action" href="/map">الخريطة</Link>
           <Link className="foundation-action" href="/search">البحث</Link>
           <Link className="foundation-action" href="/admin">لوحة الإدارة</Link>

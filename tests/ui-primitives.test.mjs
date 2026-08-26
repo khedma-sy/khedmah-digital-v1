@@ -17,7 +17,7 @@ test('Web primitives cover the seven template foundations', async () => {
 });
 
 test('service catalog uses shared structure instead of the legacy phone shell', async () => {
-  const catalog = await read('apps/frontend/app/service-catalog/page.tsx');
+  const catalog = await read('apps/frontend/app/components/category-directory.tsx');
   assert.match(catalog, /<PageShell/);
   assert.match(catalog, /<PageHeader/);
   assert.match(catalog, /<EmptyState/);

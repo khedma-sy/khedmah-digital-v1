@@ -37,7 +37,7 @@ test('global navigation separates guest discovery from authenticated account act
   assert.match(navigation, /api\.auth\.session\(\)/);
   assert.match(navigation, /data-auth-state="guest"/);
   assert.match(navigation, /href="\/search"/);
-  assert.match(navigation, /href="\/service-catalog"/);
+  assert.match(navigation, /href: '\/categories'/);
   assert.match(navigation, /href="\/map"/);
   assert.match(navigation, /href="\/auth\/login"/);
   assert.match(navigation, /href="\/auth\/register"/);

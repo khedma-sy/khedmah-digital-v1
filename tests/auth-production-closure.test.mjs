@@ -81,7 +81,7 @@ test('retired locations directory redirects to the real map experience', async (
     read('apps/frontend/app/organizations/page.tsx')
   ]);
 
-  assert.match(navigation, /href="\/map"[^>]*>الخريطة/);
+  assert.match(navigation, /href: '\/map', label: 'بالقرب مني'/);
   assert.doesNotMatch(navigation, />المواقع</);
   assert.match(locations, /redirect\('\/map'\)/);
   assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
@@ -89,7 +89,7 @@ test('retired locations directory redirects to the real map experience', async (
 });
 
 test('service catalog no longer renders the legacy phone navigation', async () => {
-  const catalog = await read('apps/frontend/app/service-catalog/page.tsx');
+  const catalog = await read('apps/frontend/app/components/category-directory.tsx');
   assert.doesNotMatch(catalog, /catalog-bottom/);
   assert.match(catalog, /catalog-category-grid/);
   assert.match(catalog, /فتح الخريطة/);

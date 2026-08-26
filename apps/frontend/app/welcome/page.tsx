@@ -3,21 +3,32 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../lib/api-client';
+import { BrandMark } from '../components/brand-mark';
+import { PlatformIcon } from '../components/platform-icon';
+import { ActionButton, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
+import styles from './welcome.module.css';
 
-const cities = [['حلب',24,22],['الحسكة',72,18],['الرقة',57,32],['إدلب',18,34],['اللاذقية',7,45],['حماة',29,47],['طرطوس',9,55],['حمص',39,58],['دير الزور',69,52],['دمشق',43,74],['ريف دمشق',51,69],['القنيطرة',31,79],['درعا',39,87],['السويداء',53,85]];
+const benefits = [
+  { icon: 'search' as const, title: 'اكتشف بسهولة', text: 'ابحث حسب الخدمة والتصنيف والمنطقة.' },
+  { icon: 'check' as const, title: 'معلومات أوضح', text: 'اطّلع على الملفات المنشورة ووسائل التواصل.' },
+  { icon: 'briefcase' as const, title: 'أدر نشاطك', text: 'أنشئ حضورك وأرسل ملفك للمراجعة.' }
+];
 
 export default function WelcomePage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (sessionStorage.getItem('khedmah.onboarding.complete') === 'true') {
       router.replace('/');
       return;
     }
+    let active = true;
     void api.auth.session()
-      .then(({ user: currentUser }) => setUser(currentUser))
-      .catch(() => router.replace('/auth/login'));
+      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
+      .catch(() => { if (active) { setUser(null); setError('انتهت الجلسة. سجّل الدخول للمتابعة.'); } });
+    return () => { active = false; };
   }, [router]);
 
   function completeOnboarding() {
@@ -25,24 +36,24 @@ export default function WelcomePage() {
     router.push('/');
   }
 
-  if (!user) {
-    return <main id="foundation-content" className="welcome-loading" aria-busy="true">جاري تجهيز تجربتك...</main>;
-  }
+  if (user === undefined) return <main id="foundation-content" className={styles.page} aria-label="جاري تجهيز تجربة خدمة"><div className={styles.container}><SkeletonGrid count={3} label="جاري تجهيز تجربتك" /></div></main>;
 
-  return (
-    <main id="foundation-content" className="map-welcome">
-      <section className="map-phone">
-        <div className="syria-map-welcome" aria-label="شبكة خدمة في المحافظات السورية">
-          <svg viewBox="0 0 100 105" role="img"><path d="M9 25 28 13l18 5 10-9 32 12-7 17 9 15-14 12-5 23-22-1-12 12-18-11 2-15L8 78l8-15L4 48Z"/></svg>
-          {cities.map(([name,x,y]) => <span key={name as string} style={{left:`${x}%`,top:`${y}%`}}>{name}</span>)}
-        </div>
-        <div className="map-brand">
-          <p>مرحباً بك في خدمة، {user.profile.displayName}</p>
-          <h1>أنا مع<br/><strong>خدمة</strong></h1>
-          <small>أصبحت ضمن شبكة سوريا. لن ننشر اسمك أو موقعك دون موافقتك.</small>
-        </div>
-        <button type="button" className="map-continue" onClick={completeOnboarding}>متابعة إلى الرئيسية</button>
+  if (!user) return <main id="foundation-content" className={styles.page}><div className={styles.container}><StatusMessage tone="warning">{error}</StatusMessage><ActionButton type="button" onClick={() => router.push('/auth/login')}>تسجيل الدخول</ActionButton></div></main>;
+
+  return <main id="foundation-content" className={styles.page} aria-label="مرحباً بك في خدمة">
+    <div className={styles.container}>
+      <section className={styles.hero}>
+        <div className={styles.brand}><BrandMark /><p>مرحباً {user.profile.displayName}</p></div>
+        <h1>كل ما تحتاجه، <em>أقرب إليك</em></h1>
+        <p className={styles.lead}>اكتشف الأنشطة والخدمات المحلية المنشورة، قارن المعلومات، ثم تواصل مباشرة — تحت مظلة واحدة.</p>
+        <ActionButton type="button" onClick={completeOnboarding}>ابدأ الاكتشاف <PlatformIcon name="arrow" size={18} /></ActionButton>
       </section>
-    </main>
-  );
+      <section className={styles.benefits} aria-label="مزايا خدمة">
+        {benefits.map((benefit) => <Surface as="article" className={styles.benefit} key={benefit.title}>
+          <span><PlatformIcon name={benefit.icon} size={22} /></span><h2>{benefit.title}</h2><p>{benefit.text}</p>
+        </Surface>)}
+      </section>
+      <p className={styles.privacy}><PlatformIcon name="lock" size={16} /> لا ننشر بياناتك أو موقعك دون موافقتك.</p>
+    </div>
+  </main>;
 }

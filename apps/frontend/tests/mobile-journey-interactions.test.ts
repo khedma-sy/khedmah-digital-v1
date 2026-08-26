@@ -8,7 +8,7 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   const [welcome, home, catalog] = await Promise.all([
     read('app/welcome/page.tsx'),
     read('app/page.tsx'),
-    read('app/service-catalog/page.tsx')
+    read('app/components/category-directory.tsx')
   ]);
 
   assert.match(welcome, /onClick=\{completeOnboarding\}/);
@@ -35,7 +35,7 @@ test('password visibility icons are operable controls with accessible labels', a
 test('all journey icons use the shared SVG icon system', async () => {
   const [home, catalog, icons] = await Promise.all([
     read('app/page.tsx'),
-    read('app/service-catalog/page.tsx'),
+    read('app/components/category-directory.tsx'),
     read('app/components/platform-icon.tsx')
   ]);
 

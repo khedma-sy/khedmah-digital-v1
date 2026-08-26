@@ -33,7 +33,7 @@ test('frontend Category choices come from the canonical API', async () => {
   const [hook, businessPage, catalogPage] = await Promise.all([
     read('apps/frontend/lib/use-categories.ts'),
     read('apps/frontend/app/business-profiles/new/page.tsx'),
-    read('apps/frontend/app/service-catalog/page.tsx')
+    read('apps/frontend/app/components/category-directory.tsx')
   ]);
   assert.match(hook, /api\.categories\.list/);
   assert.match(businessPage, /useCategories/);
