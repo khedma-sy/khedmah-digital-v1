@@ -93,11 +93,27 @@ jobs:
           set -euo pipefail
           test -n "$GOOGLE_CLOUD_PROJECT"
           STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
-          test -n "$STATE_BUCKET"
           if [[ -n "$REQUESTED_STATE_BUCKET" && -n "$CONFIGURED_STATE_BUCKET" ]]; then
             test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
           fi
           gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
+
+          if [[ -z "$STATE_BUCKET" ]]; then
+            mapfile -t project_buckets < <(
+              gcloud storage buckets list --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)'
+            )
+            state_candidates=()
+            for project_bucket in "${project_buckets[@]}"; do
+              if gcloud storage ls \
+                "gs://${project_bucket}/khedmah/production/root/default.tfstate" \
+                >/dev/null 2>&1; then
+                state_candidates+=("$project_bucket")
+              fi
+            done
+            test "${#state_candidates[@]}" -eq 1
+            STATE_BUCKET="${state_candidates[0]}"
+          fi
+          test -n "$STATE_BUCKET"
 
           protections="$(gcloud storage buckets describe "gs://${STATE_BUCKET}" --format=json)"
           jq -e '.iamConfiguration.uniformBucketLevelAccess.enabled == true' <<<"$protections" >/dev/null
