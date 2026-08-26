@@ -11,7 +11,8 @@ Safety rules:
 - Public access prevention and uniform bucket-level access are enforced.
 - There is no automated apply command. Applying requires a separately reviewed saved plan and explicit approval.
 - If the media bucket already exists, do not import it directly. A separately approved state handoff must remove both media addresses from the legacy root state and import both into this isolated state in one reviewed maintenance window.
-- The plan script queries `terraform -chdir=infra/iac state list` directly before and after planning. The canonical legacy root working directory must be initialized against its actual state, and neither media resource address may remain under legacy ownership.
+- The authoritative legacy root state is fixed at `gs://$TF_STATE_BUCKET/khedmah/production/root/default.tfstate`. Planning stays blocked until the separately approved state migration/handoff places the real root state there.
+- `LEGACY_ROOT_STATE_LINEAGE` and `LEGACY_ROOT_STATE_SERIAL` must match the reviewed identity of that authoritative state. The script reads the latest GCS object before and after planning, requires an unchanged serial, and rejects either legacy media resource.
 - The isolated state may contain only `google_storage_bucket.media` and `google_storage_bucket_iam_member.runtime_media_objects`; any other address stops before planning.
 - If state already tracks the media bucket, its recorded name must exactly match `GCS_MEDIA_BUCKET` before planning.
 - The tracked bucket project and region must match the requested production project and `europe-west1`.
