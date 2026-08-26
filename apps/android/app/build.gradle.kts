@@ -57,4 +57,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.android.gms:play-services-maps:19.2.0")
     implementation("com.google.maps.android:maps-compose:6.4.1")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
