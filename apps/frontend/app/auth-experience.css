@@ -9,17 +9,31 @@ body:has(.auth-experience) .khedma-header { display:none; }
   overflow:hidden;
   padding:clamp(1.25rem,3vw,2.75rem) 1rem 3rem;
   color:#103452;
-  background-color:#fbfcfd;
+  background-color:#f7fafc;
   background-image:
-    linear-gradient(rgb(251 252 253 / 78%),rgb(251 252 253 / 78%)),
-    url('/brand/umbrella-pattern.svg');
-  background-repeat:repeat,repeat;
-  background-position:center,center top;
-  background-size:auto,clamp(19rem,27vw,28rem) auto;
+    radial-gradient(circle at 50% -8%,rgb(21 90 145 / 15%),transparent 34rem),
+    radial-gradient(circle at 4% 78%,rgb(22 135 95 / 10%),transparent 30rem),
+    radial-gradient(circle at 96% 72%,rgb(238 124 55 / 10%),transparent 28rem),
+    url('/brand/auth-umbrella-pattern.svg');
+  background-repeat:no-repeat,no-repeat,no-repeat,repeat;
+  background-position:center top,left bottom,right bottom,center -2.25rem;
+  background-size:auto,auto,auto,clamp(17rem,22vw,23rem) auto;
   isolation:isolate;
 }
 
-.auth-experience::before,
+.auth-experience::before {
+  content:"";
+  position:fixed;
+  z-index:-1;
+  inset:7rem 50% auto auto;
+  width:min(58rem,92vw);
+  height:min(52rem,86vh);
+  translate:50% 0;
+  border-radius:50%;
+  background:radial-gradient(ellipse,rgb(255 255 255 / 95%) 0 38%,rgb(255 255 255 / 62%) 58%,transparent 76%);
+  pointer-events:none;
+}
+
 .auth-experience::after { display:none; }
 
 .auth-phone,
@@ -47,7 +61,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .identity-visual-approved,
 .auth-phone-register .identity-visual {
   position:relative;
-  z-index:auto;
+  z-index:1;
   inset:auto;
   grid-area:visual;
   width:100%;
@@ -108,7 +122,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
   gap:0;
 }
 
-.identity-approved-brand .khedma-brand>svg { width:7.35rem; }
+.identity-approved-brand .khedma-brand>svg { width:8.55rem; }
 .identity-approved-brand .khedma-brand>span { margin:0; }
 .identity-approved-brand .khedma-brand b { color:#103452; font-size:3rem; line-height:1; }
 .identity-approved-brand .khedma-brand small { margin-top:.3rem; color:#103452; font-size:.7rem; }
@@ -137,8 +151,8 @@ body:has(.auth-experience) .khedma-header { display:none; }
   border:1px solid #e2e7eb;
   border-radius:1rem;
   color:#103452;
-  background:rgb(255 255 255 / 96%);
-  box-shadow:0 1.25rem 4rem rgb(16 52 82 / 11%);
+  background:rgb(255 255 255 / 94%);
+  box-shadow:0 1.35rem 4.5rem rgb(16 52 82 / 14%),0 0 0 1px rgb(255 255 255 / 65%) inset;
 }
 
 .auth-panel-title { display:grid; justify-items:center; gap:.35rem; margin:0; text-align:center; }
@@ -241,10 +255,15 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-status-icon.auth-status-waiting { background:#155a91; }
 
 @media(max-width:42rem) {
-  .auth-experience { padding:1rem .75rem 2rem; background-size:auto,16rem auto; }
+  .auth-experience {
+    padding:1rem .75rem 2rem;
+    background-position:center top,left bottom,right bottom,center -1rem;
+    background-size:auto,auto,auto,14.5rem auto;
+  }
+  .auth-experience::before { inset-block-start:5.5rem; width:96vw; height:42rem; }
   .auth-phone,.auth-phone-register,.auth-phone-login { width:100%; }
   .identity-language { position:static; justify-self:start; margin-bottom:-1.5rem; font-size:.82rem; }
-  .identity-approved-brand .khedma-brand>svg { width:5.8rem; }
+  .identity-approved-brand .khedma-brand>svg { width:6.6rem; }
   .identity-approved-brand .khedma-brand b { font-size:2.35rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1.2rem; }
   .auth-social-grid { grid-template-columns:1fr; }

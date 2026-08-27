@@ -89,7 +89,9 @@ test('the complete authentication journey uses the approved reference system', a
   ]);
 
   assert.match(layout, /import '\.\/auth-experience\.css'/);
-  assert.match(styles, /url\('\/brand\/umbrella-pattern\.svg'\)/);
+  assert.match(styles, /url\('\/brand\/auth-umbrella-pattern\.svg'\)/);
+  assert.match(styles, /radial-gradient\(circle at 50% -8%/);
+  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:8\.55rem; \}/);
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
   assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:#4f6070!important/);
