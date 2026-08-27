@@ -10,12 +10,9 @@
       <path d="M90 21v86c0 21 26 21 26 1" fill="none" stroke="#103452" stroke-width="3" opacity=".105"/>
     </g>
   </defs>
-  <use href="#umbrella" x="-16" y="4" transform="scale(1.12)"/>
-  <use href="#umbrella" x="330" y="18" transform="scale(.78)"/>
-  <use href="#umbrella" x="610" y="-18" transform="scale(1.02)"/>
-  <use href="#umbrella" x="145" y="246" transform="scale(.88)"/>
-  <use href="#umbrella" x="505" y="222" transform="scale(1.18)"/>
-  <use href="#umbrella" x="-36" y="472" transform="scale(.76)"/>
-  <use href="#umbrella" x="320" y="446" transform="scale(1.08)"/>
-  <use href="#umbrella" x="650" y="500" transform="scale(.72)"/>
+  <use href="#umbrella" x="-20" y="12" transform="scale(1.06)"/>
+  <use href="#umbrella" x="380" y="8" transform="scale(.76)"/>
+  <use href="#umbrella" x="600" y="190" transform="scale(1.04)"/>
+  <use href="#umbrella" x="112" y="300" transform="scale(.84)"/>
+  <use href="#umbrella" x="410" y="470" transform="scale(.94)"/>
 </svg>
