@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../../../lib/api-client';
 import { getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
 import { identityApi } from '../../../lib/identity-api';
@@ -12,6 +12,7 @@ import { SocialProviderIcon } from '../social-provider-icon';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [destination, setDestination] = useState('/organizations');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
@@ -19,6 +20,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    const requestedDestination = new URLSearchParams(window.location.search).get('next');
+    if (!requestedDestination?.startsWith('/')) return;
+    const parsedDestination = new URL(requestedDestination, window.location.origin);
+    if (parsedDestination.origin !== window.location.origin) return;
+    setDestination(`${parsedDestination.pathname}${parsedDestination.search}${parsedDestination.hash}`);
+  }, []);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +40,7 @@ export default function LoginPage() {
         (form.elements.namedItem('email') as HTMLInputElement).value,
         (form.elements.namedItem('password') as HTMLInputElement).value
       );
-      router.push('/organizations');
+      router.push(destination);
     } catch (err) {
       if ((err as { code?: string }).code === 'EMAIL_VERIFICATION_REQUIRED') {
         const email = (form.elements.namedItem('email') as HTMLInputElement).value.trim().toLowerCase();
@@ -64,7 +73,7 @@ export default function LoginPage() {
     try {
       const idToken = await getGoogleIdToken();
       await identityApi.google(idToken);
-      router.push('/organizations');
+      router.push(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول عبر Google.');
     } finally {
@@ -78,7 +87,7 @@ export default function LoginPage() {
     try {
       const idToken = await getFacebookIdToken();
       await identityApi.facebook(idToken);
-      router.push('/organizations');
+      router.push(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول عبر Facebook.');
     } finally {

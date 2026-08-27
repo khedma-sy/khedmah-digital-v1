@@ -27,7 +27,19 @@ test('business creation is a private reviewed workflow using canonical Syrian ci
   assert.match(page, /countryCode: 'SY'/);
   assert.match(page, /ملف خاص/);
   assert.match(page, /قرار النشر النهائي بشري/);
+  assert.match(page, /api\.auth\.session\(\)/);
+  assert.match(page, /isCheckingSession/);
+  assert.match(page, /\/auth\/login\?next=%2Fbusiness-profiles%2Fnew/);
   assert.doesNotMatch(page, /api\.locations\.countries|Saudi Arabia|UAE/);
+});
+
+test('login returns safely to the protected owner destination', async () => {
+  const login = await read('apps/frontend/app/auth/login/page.tsx');
+  assert.match(login, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(login, /new URL\(requestedDestination, window\.location\.origin\)/);
+  assert.match(login, /parsedDestination\.origin !== window\.location\.origin/);
+  assert.match(login, /parsedDestination\.pathname/);
+  assert.match(login, /router\.push\(destination\)/);
 });
 
 test('owner can edit real business data and manage services and inquiries', async () => {
