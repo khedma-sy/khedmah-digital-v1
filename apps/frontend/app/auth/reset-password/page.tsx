@@ -46,13 +46,13 @@ export default function ResetPasswordPage() {
         <IdentityVisual />
         {done ? (
           <section className="auth-panel">
-            <header className="auth-panel-title"><h1>تم تحديث كلمة المرور</h1></header>
+            <header className="auth-panel-title"><span className="auth-status-icon" aria-hidden="true">✓</span><h1>تم تحديث كلمة المرور</h1><p>يمكنك العودة إلى حسابك بأمان.</p></header>
             <p>تم تغيير كلمة المرور وإلغاء الجلسات السابقة لحماية حسابك.</p>
             <Link className="auth-primary" href="/auth/login">تسجيل الدخول</Link>
           </section>
         ) : (
           <form className="auth-panel" onSubmit={submit}>
-            <header className="auth-panel-title"><h1>كلمة مرور جديدة</h1></header>
+            <header className="auth-panel-title"><span className="auth-status-icon auth-status-waiting" aria-hidden="true">⌁</span><h1>كلمة مرور جديدة</h1><p>اختر كلمة مرور قوية لا تستخدمها في حساب آخر.</p></header>
             <label className="auth-field"><span>كلمة المرور الجديدة</span><input name="password" type="password" autoComplete="new-password" required minLength={8} /></label>
             <label className="auth-field"><span>تأكيد كلمة المرور</span><input name="confirmPassword" type="password" autoComplete="new-password" required minLength={8} /></label>
             {error ? <p className="auth-error" role="alert">{error}</p> : null}

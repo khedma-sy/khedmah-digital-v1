@@ -4,6 +4,7 @@ import { DatabasePool } from '../database/database.pool';
 import { IdentityRepository } from './identity.repository';
 import { createEmailProvider, EmailProvider } from './email/email-provider';
 import { renderKhedmahEmail } from './email/khedmah-email-template';
+import { buildPublicActionUrl } from './email/public-site-url';
 import { hashPassword } from './security/password-security';
 
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -54,8 +55,7 @@ export class PasswordRecoveryService {
     );
     await this.repository.appendAuditLog('auth.password_reset_requested', { actorUserId: account.id });
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-    const resetUrl = `${siteUrl}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const resetUrl = buildPublicActionUrl('/auth/reset-password', rawToken);
     await this.emailProvider.send({
       to: account.email,
       subject: 'إعادة تعيين كلمة المرور — خدمة',

@@ -4,6 +4,7 @@ import { DatabasePool } from '../../database/database.pool';
 import { IdentityRepository } from '../identity.repository';
 import { createEmailProvider, EmailProvider } from './email-provider';
 import { renderKhedmahEmail } from './khedmah-email-template';
+import { buildPublicActionUrl } from './public-site-url';
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RESEND_WINDOW_MS = 60 * 1000;
@@ -54,8 +55,7 @@ export class EmailVerificationService {
 
     await this.repository.appendAuditLog('email.verification.requested', { actorUserId: userId });
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-    const verifyUrl = `${siteUrl}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+    const verifyUrl = buildPublicActionUrl('/auth/verify-email', rawToken);
 
     await this.emailProvider.send({
       to: email,

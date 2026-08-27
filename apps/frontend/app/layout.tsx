@@ -7,6 +7,7 @@ import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
 import './ui-primitives.css';
+import './auth-experience.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 const SITE_NAME = 'خدمة';

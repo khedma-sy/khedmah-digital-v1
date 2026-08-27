@@ -106,7 +106,6 @@ export default function LoginPage() {
             <button className="auth-secondary auth-google" type="button" onClick={signInWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'تسجيل الدخول عبر Google'}</button>
             <button className="auth-secondary auth-facebook" type="button" onClick={signInWithFacebook} aria-busy={isFacebookLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{isFacebookLoading ? 'جاري الاتصال...' : 'تسجيل الدخول عبر Facebook'}</button>
           </div>
-          <Link className="auth-secondary" href="/auth/register">إنشاء حساب جديد <PlatformIcon name="userPlus" /></Link>
         </form>
         <p className="auth-help"><PlatformIcon name="user" size={17} /> أو <Link href="/">الاستمرار كزائر</Link></p>
       </div>

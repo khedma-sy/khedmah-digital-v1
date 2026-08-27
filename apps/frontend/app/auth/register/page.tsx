@@ -4,13 +4,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { identityApi } from '../../../lib/identity-api';
+import { getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
+import { SocialProviderIcon } from '../social-provider-icon';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [visiblePassword, setVisiblePassword] = useState<'password' | 'confirmPassword' | null>(null);
 
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
@@ -33,9 +37,39 @@ export default function RegisterPage() {
       sessionStorage.removeItem('khedmah.onboarding.complete');
       router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
+      if ((err as { statusCode?: number }).statusCode === 409) {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}&existing=1`);
+        return;
+      }
       setError(err instanceof Error ? err.message : 'يرجى إدخال بيانات صحيحة لإكمال إنشاء الحساب.');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function continueWithGoogle() {
+    setError('');
+    setIsGoogleLoading(true);
+    try {
+      await identityApi.google(await getGoogleIdToken());
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر المتابعة عبر Google.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  }
+
+  async function continueWithFacebook() {
+    setError('');
+    setIsFacebookLoading(true);
+    try {
+      await identityApi.facebook(await getFacebookIdToken());
+      router.push('/organizations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر المتابعة عبر Facebook.');
+    } finally {
+      setIsFacebookLoading(false);
     }
   }
 
@@ -56,9 +90,13 @@ export default function RegisterPage() {
           <label className="auth-field"><PlatformIcon name="lock" /><span>تأكيد كلمة المرور</span><input aria-label="تأكيد كلمة المرور" name="confirmPassword" type={visiblePassword === 'confirmPassword' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'confirmPassword' ? null : 'confirmPassword')} aria-label={visiblePassword === 'confirmPassword' ? 'إخفاء تأكيد كلمة المرور' : 'إظهار تأكيد كلمة المرور'}><PlatformIcon name="eye" /></button></label>
           <div className="password-strength"><strong>يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل.</strong></div>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
-          <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading}>{isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}<PlatformIcon name="arrow" /></button>
+          <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}>{isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}<PlatformIcon name="arrow" /></button>
+          <div className="auth-divider"><span>أو</span></div>
+          <div className="auth-social-grid">
+            <button className="auth-secondary auth-google" type="button" onClick={continueWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'المتابعة عبر Google'}</button>
+            <button className="auth-secondary auth-facebook" type="button" onClick={continueWithFacebook} aria-busy={isFacebookLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{isFacebookLoading ? 'جاري الاتصال...' : 'المتابعة عبر Facebook'}</button>
+          </div>
         </form>
-        <p className="login-prompt">لديك حساب بالفعل؟ <Link href="/auth/login">تسجيل الدخول</Link></p>
       </div>
     </main>
   );

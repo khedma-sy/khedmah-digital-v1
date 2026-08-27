@@ -11,11 +11,13 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'verified' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [resending, setResending] = useState(false);
+  const [existing, setExisting] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const nextEmail = params.get('email') ?? '';
     const nextToken = params.get('token') ?? '';
+    setExisting(params.get('existing') === '1');
     setEmail(nextEmail);
     setToken(nextToken);
     if (nextToken) {
@@ -52,8 +54,12 @@ export default function VerifyEmailPage() {
       <div className="auth-phone auth-phone-login">
         <IdentityVisual />
         <section className="auth-panel">
-          <header className="auth-panel-title"><h1>تأكيد البريد الإلكتروني</h1></header>
-          {status === 'confirming' ? <p>جاري التحقق من الرابط...</p> : null}
+          <header className="auth-panel-title">
+            <span className={`auth-status-icon ${status === 'verified' ? '' : 'auth-status-waiting'}`} aria-hidden="true">{status === 'verified' ? '✓' : '✉'}</span>
+            <h1>{status === 'verified' ? 'تم تأكيد البريد' : 'أكد بريدك الإلكتروني'}</h1>
+            <p>{status === 'confirming' ? 'نتحقق من الرابط الآمن الآن…' : status === 'verified' ? 'أصبح حسابك جاهزًا للاستخدام.' : 'بقيت خطوة واحدة لتفعيل حسابك في خدمة.'}</p>
+          </header>
+          {status === 'confirming' ? <p className="auth-notice" role="status">جاري التحقق من الرابط...</p> : null}
           {status === 'verified' ? (
             <>
               <p className="auth-success" role="status">{message}</p>
@@ -62,10 +68,10 @@ export default function VerifyEmailPage() {
           ) : null}
           {status !== 'verified' ? (
             <>
-              <p>أرسلنا رابط تأكيد إلى بريدك. افتح الرسالة واضغط على رابط التحقق لتفعيل الحساب.</p>
+              <p>{existing ? 'هذا البريد مسجل مسبقًا. إذا كان الحساب بانتظار التفعيل، اطلب رسالة تحقق جديدة.' : 'أرسلنا رابط تأكيد إلى بريدك. افتح الرسالة واضغط زر «تأكيد البريد الإلكتروني» لتفعيل الحساب.'}</p>
               {email ? <p><strong>{email}</strong></p> : null}
               {message ? <p className={status === 'error' ? 'auth-error' : ''} role="status">{message}</p> : null}
-              {email ? <button className="auth-secondary" type="button" onClick={resend} disabled={resending}>{resending ? 'جاري الإرسال...' : 'إعادة إرسال رسالة التحقق'}</button> : null}
+              {email ? <button className="auth-resend" type="button" onClick={resend} disabled={resending}>{resending ? 'جاري الإرسال...' : 'إرسال رابط تحقق جديد'}</button> : null}
               <Link className="auth-secondary" href="/auth/login">العودة إلى تسجيل الدخول</Link>
             </>
           ) : null}

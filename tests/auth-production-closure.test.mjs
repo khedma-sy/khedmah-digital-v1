@@ -43,7 +43,24 @@ test('verification and password recovery mail include branded clickable HTML', a
   assert.match(verification, /htmlBody: renderKhedmahEmail/);
   assert.match(recovery, /htmlBody: renderKhedmahEmail/);
   assert.match(template, /href="\$\{actionUrl\}"/);
+  assert.match(template, /target="_blank"/);
   assert.match(verification, /actionLabel: 'تأكيد البريد الإلكتروني'/);
+});
+
+test('production email actions use one validated HTTPS site URL builder', async () => {
+  const [siteUrl, verification, recovery] = await Promise.all([
+    read('apps/backend/src/identity/email/public-site-url.ts'),
+    read('apps/backend/src/identity/email/email-verification.service.ts'),
+    read('apps/backend/src/identity/password-recovery.service.ts')
+  ]);
+
+  assert.match(siteUrl, /NEXT_PUBLIC_SITE_URL must be configured in production/);
+  assert.match(siteUrl, /url\.protocol !== 'https:'/);
+  assert.match(siteUrl, /url\.searchParams\.set\('token', token\)/);
+  assert.match(verification, /buildPublicActionUrl\('\/auth\/verify-email', rawToken\)/);
+  assert.match(recovery, /buildPublicActionUrl\('\/auth\/reset-password', rawToken\)/);
+  assert.doesNotMatch(verification, /\?token=\$\{encodeURIComponent/);
+  assert.doesNotMatch(recovery, /\?token=\$\{encodeURIComponent/);
 });
 
 test('login uses real vector provider marks and approved umbrella pattern', async () => {
@@ -58,6 +75,35 @@ test('login uses real vector provider marks and approved umbrella pattern', asyn
   assert.match(icons, /fill="#4285f4"/);
   assert.match(icons, /fill="#1877f2"/);
   assert.match(styles, /umbrella-pattern\.svg/);
+});
+
+test('the complete authentication journey uses the approved reference system', async () => {
+  const [layout, styles, login, register, verify, forgot, reset] = await Promise.all([
+    read('apps/frontend/app/layout.tsx'),
+    read('apps/frontend/app/auth-experience.css'),
+    read('apps/frontend/app/auth/login/page.tsx'),
+    read('apps/frontend/app/auth/register/page.tsx'),
+    read('apps/frontend/app/auth/verify-email/page.tsx'),
+    read('apps/frontend/app/auth/forgot-password/page.tsx'),
+    read('apps/frontend/app/auth/reset-password/page.tsx')
+  ]);
+
+  assert.match(layout, /import '\.\/auth-experience\.css'/);
+  assert.match(styles, /url\('\/brand\/umbrella-pattern\.svg'\)/);
+  assert.match(styles, /\.identity-language/);
+  assert.match(styles, /\.auth-social-grid/);
+  assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:#4f6070!important/);
+  assert.match(register, /SocialProviderIcon provider="google"/);
+  assert.match(register, /SocialProviderIcon provider="facebook"/);
+  assert.match(register, /statusCode\?: number/);
+  assert.match(register, /existing=1/);
+  assert.equal((login.match(/href="\/auth\/register"/g) ?? []).length, 1);
+  assert.equal((register.match(/href="\/auth\/login"/g) ?? []).length, 1);
+  assert.doesNotMatch(login, /إنشاء حساب جديد/);
+  assert.doesNotMatch(register, /لديك حساب بالفعل/);
+  assert.match(verify, /هذا البريد مسجل مسبقًا/);
+  assert.match(forgot, /auth-status-icon/);
+  assert.match(reset, /auth-status-icon/);
 });
 
 test('public UI uses Khedmah only and profile fields remain readable', async () => {
