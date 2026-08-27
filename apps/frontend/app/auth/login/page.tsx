@@ -23,7 +23,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     const requestedDestination = new URLSearchParams(window.location.search).get('next');
-    if (requestedDestination?.startsWith('/') && !requestedDestination.startsWith('//')) setDestination(requestedDestination);
+    if (!requestedDestination?.startsWith('/')) return;
+    const parsedDestination = new URL(requestedDestination, window.location.origin);
+    if (parsedDestination.origin !== window.location.origin) return;
+    setDestination(`${parsedDestination.pathname}${parsedDestination.search}${parsedDestination.hash}`);
   }, []);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
