@@ -92,8 +92,9 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(styles, /url\('\/brand\/auth-umbrella-pattern\.svg'\)/);
   assert.match(styles, /radial-gradient\(circle at 50% -8%/);
   assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:8\.55rem; \}/);
-  assert.match(styles, /backdrop-filter:blur\(20px\) saturate\(1\.12\)/);
-  assert.match(styles, /linear-gradient\(115deg,rgb\(21 90 145 \/ 72%\),rgb\(22 135 95 \/ 62%\) 66%,rgb\(238 124 55 \/ 70%\)\) border-box/);
+  assert.match(styles, /backdrop-filter:blur\(22px\) saturate\(1\.04\)/);
+  assert.match(styles, /linear-gradient\(110deg,#155a91 0 34%,#16875f 52% 70%,#ee7c37 88% 100%\) border-box/);
+  assert.match(styles, /\.password-strength \{ color:#425a6d; font-size:\.8rem; font-weight:650; \}/);
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
   assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:#4f6070!important/);
