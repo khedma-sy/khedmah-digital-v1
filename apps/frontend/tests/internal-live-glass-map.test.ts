@@ -34,3 +34,12 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
   assert.match(page, /تعذر تشغيل الخريطة/);
   assert.match(page, /عرض النتائج/);
 });
+
+
+test('map waits for the Google callback before constructing the live map', async () => {
+  const page = await read('app/map/page.tsx');
+
+  assert.match(page, /window\.initKhedmahMap = initializeMap/);
+  assert.match(page, /callback=initKhedmahMap/);
+  assert.doesNotMatch(page, /onLoad=\{initializeMap\}/);
+});

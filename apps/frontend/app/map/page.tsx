@@ -25,7 +25,13 @@ type MapsApi = {
   Circle: new (options: object) => Overlay;
   InfoWindow: new (options: object) => { open(options: object): void; close(): void };
 };
-declare global { interface Window { google?: { maps: MapsApi }; gm_authFailure?: () => void } }
+declare global {
+  interface Window {
+    google?: { maps: MapsApi };
+    gm_authFailure?: () => void;
+    initKhedmahMap?: () => void;
+  }
+}
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const DEFAULT_LOCATION = { latitude: 33.5138, longitude: 36.2765 };
@@ -111,6 +117,8 @@ function MapDiscovery() {
   useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current); }, []);
   useEffect(() => {
     const previous = window.gm_authFailure;
+    const previousInitializer = window.initKhedmahMap;
+    window.initKhedmahMap = initializeMap;
     window.gm_authFailure = () => {
       setMapStatus('error');
       setStatus('تعذر تشغيل خريطة Google لهذا النطاق. يمكنك متابعة البحث من عرض النتائج.');
@@ -121,8 +129,9 @@ function MapDiscovery() {
     return () => {
       window.clearTimeout(timeout);
       window.gm_authFailure = previous;
+      window.initKhedmahMap = previousInitializer;
     };
-  }, []);
+  }, [initializeMap]);
 
   function locateUser() {
     setStatus('جاري تحديد موقعك…');
@@ -135,7 +144,7 @@ function MapDiscovery() {
   }
 
   return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} dir="rtl">
-    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} onError={() => setMapStatus('error')} />}
+    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async&callback=initKhedmahMap`} strategy="afterInteractive" onError={() => setMapStatus('error')} />}
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
