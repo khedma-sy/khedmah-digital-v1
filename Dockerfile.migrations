@@ -1,0 +1,10 @@
+FROM postgres:16-alpine
+
+COPY backend/migrations/versions /migrations
+COPY scripts/run-production-migration.sh /usr/local/bin/run-production-migration
+
+RUN chmod 0555 /usr/local/bin/run-production-migration \
+    && chmod -R a-w /migrations
+
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-production-migration"]
