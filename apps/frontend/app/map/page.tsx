@@ -25,7 +25,7 @@ type MapsApi = {
   Circle: new (options: object) => Overlay;
   InfoWindow: new (options: object) => { open(options: object): void; close(): void };
 };
-declare global { interface Window { google?: { maps: MapsApi } } }
+declare global { interface Window { google?: { maps: MapsApi }; gm_authFailure?: () => void } }
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const DEFAULT_LOCATION = { latitude: 33.5138, longitude: 36.2765 };
@@ -50,6 +50,7 @@ function MapDiscovery() {
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
   const [status, setStatus] = useState('جاري تحميل مقدمي الخدمات…');
+  const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
 
   const search = useCallback(async (boundaries?: Bounds, nextLocation = location, nextQuery = query) => {
     setStatus('جاري تحديث النتائج…');
@@ -93,6 +94,7 @@ function MapDiscovery() {
   const initializeMap = useCallback(() => {
     if (!mapNode.current || !window.google || map.current) return;
     map.current = new window.google.maps.Map(mapNode.current, { center: { lat: location.latitude, lng: location.longitude }, zoom: 12, mapTypeControl: false, streetViewControl: false, fullscreenControl: true });
+    setMapStatus('ready');
     if (initialBounds) map.current.fitBounds(initialBounds);
     map.current.addListener('idle', () => {
       if (idleTimer.current) clearTimeout(idleTimer.current);
@@ -107,6 +109,20 @@ function MapDiscovery() {
   useEffect(renderMarkers, [renderMarkers]);
   useEffect(() => { void search(initialBounds, DEFAULT_LOCATION, initialQuery); }, []);
   useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current); }, []);
+  useEffect(() => {
+    const previous = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      setMapStatus('error');
+      setStatus('تعذر تشغيل خريطة Google لهذا النطاق. يمكنك متابعة البحث من عرض النتائج.');
+    };
+    const timeout = window.setTimeout(() => {
+      if (!map.current) setMapStatus('error');
+    }, 12000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.gm_authFailure = previous;
+    };
+  }, []);
 
   function locateUser() {
     setStatus('جاري تحديد موقعك…');
@@ -119,7 +135,7 @@ function MapDiscovery() {
   }
 
   return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} dir="rtl">
-    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} />}
+    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`} strategy="afterInteractive" onLoad={initializeMap} onError={() => setMapStatus('error')} />}
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
@@ -131,7 +147,7 @@ function MapDiscovery() {
         <ActionButton type="submit"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
       </form>
       <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
-      <StatusMessage tone={MAPS_KEY ? 'info' : 'warning'}>{MAPS_KEY ? status : 'الخريطة غير متاحة حالياً. استخدم عرض النتائج أو البحث العادي.'}</StatusMessage>
+      <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? 'الخريطة غير متاحة حالياً. استخدم عرض النتائج أو البحث العادي.' : status}</StatusMessage>
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} · ⭐ {provider.rating ?? 0} {provider.distanceKm !== undefined && `· ${provider.distanceKm} كم`}</p></div>
@@ -139,7 +155,15 @@ function MapDiscovery() {
         </Surface>)}
       </section>
     </aside>
-    <div className={styles.mapCanvas} ref={mapNode} aria-label="خريطة مقدمي الخدمات" />
+    <section className={styles.mapStage} aria-label="منطقة الخريطة">
+      <div className={styles.mapCanvas} ref={mapNode} aria-label="خريطة مقدمي الخدمات" />
+      {mapStatus !== 'ready' && <div className={styles.mapFallback} role={mapStatus === 'error' ? 'alert' : 'status'}>
+        <PlatformIcon name="pin" size={34}/>
+        <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
+        <p>{mapStatus === 'error' ? 'يمكنك متابعة البحث ومشاهدة الأنشطة من عرض النتائج إلى أن تعود الخريطة.' : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
+        {mapStatus === 'error' && <ActionButton type="button" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton>}
+      </div>}
+    </section>
   </main>;
 }
 
