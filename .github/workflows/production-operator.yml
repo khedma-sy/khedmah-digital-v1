@@ -20,6 +20,10 @@ on:
         description: Exact operation confirmation token
         required: false
         type: string
+      backup_id:
+        description: Successful Cloud SQL on-demand backup ID required for migration 021
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -89,6 +93,7 @@ jobs:
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       CONFIRMATION: ${{ inputs.confirmation }}
+      EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
       MIGRATION_SHA256: 61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698
     steps:
       - name: Check out requested commit
@@ -117,6 +122,34 @@ jobs:
 
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify exact recent pre-migration backup
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_BACKUP_ID" =~ ^[0-9]+$ ]]
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          EXPECTED_DESCRIPTION="khedmah-before-021-${REQUESTED_SHA:0:7}"
+          BACKUP_STATUS="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --instance "$SQL_INSTANCE_NAME" \
+            --format='value(status)')"
+          BACKUP_DESCRIPTION="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --instance "$SQL_INSTANCE_NAME" \
+            --format='value(description)')"
+          BACKUP_END_TIME="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --instance "$SQL_INSTANCE_NAME" \
+            --format='value(endTime)')"
+          test "$BACKUP_STATUS" = SUCCESSFUL
+          test "$BACKUP_DESCRIPTION" = "$EXPECTED_DESCRIPTION"
+          test -n "$BACKUP_END_TIME"
+          BACKUP_EPOCH="$(date -u -d "$BACKUP_END_TIME" +%s)"
+          NOW_EPOCH="$(date -u +%s)"
+          BACKUP_AGE_SECONDS="$((NOW_EPOCH - BACKUP_EPOCH))"
+          test "$BACKUP_AGE_SECONDS" -ge 0
+          test "$BACKUP_AGE_SECONDS" -le 86400
+          printf 'VERIFIED_PRE_MIGRATION_BACKUP=%s\n' "$EXPECTED_BACKUP_ID"
 
       - name: Build checksum-bound migration image
         run: |
@@ -167,6 +200,7 @@ jobs:
             printf '%s\n' '### Production database migration 021'
             printf -- '- Commit: `%s`\n' "$REQUESTED_SHA"
             printf -- '- Checksum: `%s`\n' "$MIGRATION_SHA256"
+            printf -- '- Backup: `%s`\n' "${EXPECTED_BACKUP_ID:-not-provided}"
             printf -- '- Result: `%s`\n' "$JOB_RESULT"
           } >> "$GITHUB_STEP_SUMMARY"
 
