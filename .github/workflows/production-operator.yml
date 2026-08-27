@@ -219,6 +219,7 @@ jobs:
       FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
+      GOOGLE_MAPS_ALLOWED_WEB_ORIGINS: ${{ vars.GOOGLE_MAPS_ALLOWED_WEB_ORIGINS }}
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
     steps:
@@ -257,6 +258,7 @@ jobs:
           test -n "$OPERATIONS_ARTIFACT_REPOSITORY"
           test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
           test -n "$GCS_MEDIA_BUCKET"
+          test -n "$GOOGLE_MAPS_ALLOWED_WEB_ORIGINS"
           test -n "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
@@ -311,6 +313,17 @@ jobs:
           test -n "$FRONTEND_URL"
           test -n "$BACKEND_REVISION"
           test -n "$FRONTEND_REVISION"
+          MAPS_ORIGIN_MATCH=false
+          while IFS= read -r allowed_origin; do
+            allowed_origin="${allowed_origin//[[:space:]]/}"
+            if [[ "$allowed_origin" = "$FRONTEND_URL" || "$allowed_origin" = "$FRONTEND_URL/*" ]]; then
+              MAPS_ORIGIN_MATCH=true
+            fi
+          done < <(tr ',' '\n' <<<"$GOOGLE_MAPS_ALLOWED_WEB_ORIGINS")
+          test "$MAPS_ORIGIN_MATCH" = true || {
+            printf 'Google Maps allowed origins do not include the live frontend: %s\n' "$FRONTEND_URL" >&2
+            exit 1
+          }
           curl --fail --silent --show-error --retry 5 --retry-all-errors "$BACKEND_URL/api/v1/health" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors "$FRONTEND_URL/map" >/dev/null
           CORS_HEADERS="$(curl --silent --show-error --head \

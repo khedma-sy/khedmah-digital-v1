@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FeaturedCategories } from './components/featured-categories';
+import { RecentlyAdded } from './components/recently-added';
 import { PlatformIcon } from './components/platform-icon';
 import styles from './home.module.css';
 
@@ -31,6 +32,7 @@ export default function Home() {
       <div className={styles.sectionHeading}><span>اكتشف ما حولك</span><h2 id="categories-title">التصنيفات الرئيسية</h2><p>اختر المجال المناسب وانتقل مباشرة إلى نتائج البحث الحقيقية.</p></div>
       <FeaturedCategories />
     </section>
+    <RecentlyAdded />
     <section className={styles.trust} aria-labelledby="trust-title">
       <div className={styles.sectionHeading}><span>لماذا خدمة؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
       <div className={styles.trustGrid}>{trustItems.map(item => <article key={item.title}><PlatformIcon name={item.icon} /><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
