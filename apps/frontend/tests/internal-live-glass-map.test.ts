@@ -46,3 +46,17 @@ test('map waits for the Google callback before constructing the live map', async
   assert.match(page, /callback=initKhedmahMap/);
   assert.doesNotMatch(page, /onLoad=\{initializeMap\}/);
 });
+
+
+test('public discovery surfaces keep compact rhythm and restrained brand glass borders', async () => {
+  const home = await read('app/home.module.css');
+  const primitives = await read('app/ui-primitives.css');
+  const discovery = await read('app/discovery.module.css');
+
+  assert.match(home, /padding: clamp\(3\.5rem, 6vw, 5rem\)/);
+  assert.match(home, /\.discovery::before[\s\S]*umbrella-pattern\.svg/);
+  assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(18px\)/);
+  assert.match(primitives, /linear-gradient\(115deg[\s\S]*border-box/);
+  assert.match(discovery, /\.tabs[\s\S]*backdrop-filter:blur\(18px\)/);
+  assert.match(discovery, /\.provider[\s\S]*linear-gradient\(115deg/);
+});
