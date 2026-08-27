@@ -208,6 +208,11 @@
 .recentAction { margin-top:1.5rem; text-align:center; }
 .recentAction a { display:inline-flex; border-radius:.75rem; padding:.8rem 1.2rem; color:#fff; background:var(--brand-green); font-weight:800; text-decoration:none; }
 .recentSkeleton { min-height:14rem; border:1px solid #ffffffa8; border-radius:1.1rem; background:linear-gradient(110deg,#ffffff75 30%,#ffffffd1 45%,#ffffff75 60%); }
+.recentEmpty { display:grid; justify-items:center; gap:.55rem; max-width:46rem; margin-inline:auto; border:1px solid #ffffffb8; border-radius:1.1rem; padding:2.2rem 1.5rem; text-align:center; background:linear-gradient(145deg,#ffffffbf,#ffffff78); box-shadow:0 18px 42px #10345212; backdrop-filter:blur(20px); }
+.recentEmpty svg { color:var(--brand-green); }
+.recentEmpty h3,.recentEmpty p { margin:0; }
+.recentEmpty p { color:var(--brand-muted); line-height:1.8; }
+.recentEmpty a { margin-top:.45rem; border-radius:.75rem; padding:.75rem 1rem; color:#fff; background:var(--brand-green); font-weight:800; text-decoration:none; }
 
 .trust { background: #fff6e9; }
 .trustGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.15rem; }
