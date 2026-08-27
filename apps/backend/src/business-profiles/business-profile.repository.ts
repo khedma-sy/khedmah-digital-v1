@@ -172,7 +172,8 @@ export class BusinessProfileRepository {
               to_jsonb(b)->>'rating' AS rating,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
-       WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active' AND is_featured = TRUE
+       WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active'
+         AND LOWER(name) <> 'khedmah production test' AND is_featured = TRUE
        ORDER BY featured_at DESC
        LIMIT $1`,
       [limit]
@@ -191,6 +192,7 @@ export class BusinessProfileRepository {
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active'
+         AND LOWER(name) <> 'khedmah production test'
        ORDER BY created_at DESC
        LIMIT $1`,
       [limit]
@@ -378,7 +380,7 @@ export class BusinessProfileRepository {
   }
 
   private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }) {
-    const clauses = ["visibility = 'public'", "moderation_status = 'approved'", "trust_status = 'approved'", "status = 'active'"];
+    const clauses = ["visibility = 'public'", "moderation_status = 'approved'", "trust_status = 'approved'", "status = 'active'", "LOWER(name) <> 'khedmah production test'"];
     const params: unknown[] = [];
 
     if (filters.categoryCode) {
