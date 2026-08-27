@@ -14,6 +14,11 @@ test('production migration 021 is explicit, checksum-bound and transactional', a
 
   assert.match(workflow, /APPLY_MIGRATION_021/);
   assert.match(workflow, /APPLY_KHEDMAH_MIGRATION_021_/);
+  assert.match(workflow, /EXPECTED_BACKUP_ID: \$\{\{ inputs\.backup_id \}\}/);
+  assert.match(workflow, /gcloud sql backups describe/);
+  assert.match(workflow, /test "\$BACKUP_STATUS" = SUCCESSFUL/);
+  assert.match(workflow, /khedmah-before-021-/);
+  assert.match(workflow, /BACKUP_AGE_SECONDS/);
   assert.match(workflow, /--max-retries[= ]0/);
   assert.match(workflow, /--set-cloudsql-instances/);
   assert.match(workflow, /DATABASE_URL=DATABASE_URL:latest/);
