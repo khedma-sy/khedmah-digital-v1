@@ -10,9 +10,14 @@ on:
         type: choice
         options:
           - VERIFY_ONLY
+          - APPLY_MIGRATION_021
           - DEPLOY_PRODUCTION
       commit_sha:
-        description: Exact latest main commit SHA (required for deployment)
+        description: Exact latest main commit SHA (required for migration or deployment)
+        required: false
+        type: string
+      confirmation:
+        description: Exact operation confirmation token
         required: false
         type: string
 
@@ -68,6 +73,102 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/validate-production-deployment-readiness.sh
+
+  migrate-021:
+    name: Apply reviewed database migration 021
+    if: ${{ inputs.mode == 'APPLY_MIGRATION_021' }}
+    needs: authenticate
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      MIGRATION_SHA256: 61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Lock migration to latest main and exact confirmation
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          git fetch origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          test "$ACTUAL_SHA" = "$REQUESTED_SHA"
+          test "$REQUESTED_SHA" = "$MAIN_SHA"
+          EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MIGRATION_021_${REQUESTED_SHA:0:7}"
+          test "$CONFIRMATION" = "$EXPECTED_CONFIRMATION"
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build checksum-bound migration image
+        run: |
+          set -euo pipefail
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
+          if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
+            BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
+          fi
+          gcloud builds submit . \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --service-account "$BUILD_SERVICE_ACCOUNT" \
+            --gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source" \
+            --config cloudbuild.migration.yaml \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY" \
+            --quiet
+
+      - name: Run migration once and wait for verification
+        run: |
+          set -euo pipefail
+          IMAGE="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${OPERATIONS_ARTIFACT_REPOSITORY}/database-migrations:${REQUESTED_SHA}"
+          JOB="khedmah-database-migration-021"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets 'DATABASE_URL=DATABASE_URL:latest' \
+            --set-env-vars "MIGRATION_VERSION=021_provider_reports,MIGRATION_SHA256=${MIGRATION_SHA256}" \
+            --tasks 1 \
+            --parallelism 1 \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --quiet
+          gcloud run jobs execute "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --wait
+
+      - name: Publish migration summary
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: |
+          {
+            printf '%s\n' '### Production database migration 021'
+            printf -- '- Commit: `%s`\n' "$REQUESTED_SHA"
+            printf -- '- Checksum: `%s`\n' "$MIGRATION_SHA256"
+            printf -- '- Result: `%s`\n' "$JOB_RESULT"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy exact main commit to Production
