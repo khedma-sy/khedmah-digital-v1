@@ -22,14 +22,19 @@ permissions:
 
 jobs:
   authenticate:
-    name: Verify Google Cloud and private media readiness
+    name: Verify Google Cloud deployment readiness
     runs-on: ubuntu-latest
     environment: production
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
+      OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
+      OPERATIONS_FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
     steps:
       - name: Check out main readiness controls
         uses: actions/checkout@v4
@@ -58,6 +63,11 @@ jobs:
           test -n "$GCS_MEDIA_BUCKET"
           test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
           bash scripts/validate-media-storage-readiness.sh
+
+      - name: Verify deployment prerequisites without deploying
+        run: |
+          set -euo pipefail
+          bash scripts/validate-production-deployment-readiness.sh
 
   deploy:
     name: Deploy exact main commit to Production
