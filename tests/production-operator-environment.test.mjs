@@ -40,7 +40,7 @@ test('production operator deploys the planned media bucket and runtime identity'
   assert.match(workflow, /test -n "\$GCS_MEDIA_BUCKET"/);
   assert.match(
     workflow,
-    /--substitutions "COMMIT_SHA=\$REQUESTED_SHA,_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET"/,
+    /--substitutions "COMMIT_SHA=\$REQUESTED_SHA,_REGION=\$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=\$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=\$BACKEND_SERVICE,_FRONTEND_SERVICE=\$FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET"/,
   );
 });
 
@@ -50,6 +50,21 @@ test('VERIFY_ONLY checks the live private media contract without deploying', () 
   assert.match(workflow, /bash scripts\/validate-media-storage-readiness\.sh/);
   assert.match(workflow, /GCS_MEDIA_LOCATION: \$\{\{ vars\.GCS_MEDIA_LOCATION \}\}/);
   assert.match(workflow, /if: \$\{\{ inputs\.mode == 'DEPLOY_PRODUCTION' \}\}/);
+});
+
+test('VERIFY_ONLY checks live deployment prerequisites without reading secret payloads', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  const readiness = readFileSync('scripts/validate-production-deployment-readiness.sh', 'utf8');
+  assert.match(workflow, /Verify deployment prerequisites without deploying/);
+  assert.match(workflow, /bash scripts\/validate-production-deployment-readiness\.sh/);
+  assert.match(readiness, /gcloud builds get-default-service-account/);
+  assert.match(readiness, /gcloud artifacts repositories describe/);
+  assert.match(readiness, /gcloud run services describe/);
+  assert.match(readiness, /gcloud sql instances describe/);
+  assert.match(readiness, /SQL_INSTANCE_REGION/);
+  assert.match(readiness, /gcloud secrets versions describe latest/);
+  assert.doesNotMatch(readiness, /secrets versions access|gcloud builds submit|gcloud run deploy/);
+  assert.match(readiness, /READY: SECRET_METADATA_COUNT=/);
 });
 
 test('production operator cannot deploy from an automatic repository event', () => {

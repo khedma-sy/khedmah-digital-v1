@@ -22,14 +22,19 @@ permissions:
 
 jobs:
   authenticate:
-    name: Verify Google Cloud and private media readiness
+    name: Verify Google Cloud deployment readiness
     runs-on: ubuntu-latest
     environment: production
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
+      OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
+      OPERATIONS_FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
     steps:
       - name: Check out main readiness controls
         uses: actions/checkout@v4
@@ -59,6 +64,11 @@ jobs:
           test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
           bash scripts/validate-media-storage-readiness.sh
 
+      - name: Verify deployment prerequisites without deploying
+        run: |
+          set -euo pipefail
+          bash scripts/validate-production-deployment-readiness.sh
+
   deploy:
     name: Deploy exact main commit to Production
     if: ${{ inputs.mode == 'DEPLOY_PRODUCTION' }}
@@ -69,10 +79,12 @@ jobs:
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
       BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
       FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
     steps:
       - name: Check out requested commit
@@ -107,8 +119,10 @@ jobs:
           set -euo pipefail
           test -n "$GOOGLE_CLOUD_PROJECT"
           test -n "$GOOGLE_CLOUD_REGION"
+          test -n "$OPERATIONS_ARTIFACT_REPOSITORY"
           test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
           test -n "$GCS_MEDIA_BUCKET"
+          test -n "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
           if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
@@ -122,7 +136,7 @@ jobs:
             --service-account "$BUILD_SERVICE_ACCOUNT" \
             --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
             --config cloudbuild.production.yaml \
-            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET" \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=$BACKEND_SERVICE,_FRONTEND_SERVICE=$FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET" \
             --async \
             --format='value(id)')"
           test -n "$BUILD_ID"

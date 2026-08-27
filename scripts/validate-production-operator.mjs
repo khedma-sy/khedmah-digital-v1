@@ -25,7 +25,8 @@ for (const contract of [
   'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
   'test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"',
   'test -n "$GCS_MEDIA_BUCKET"',
-  '--substitutions "COMMIT_SHA=$REQUESTED_SHA,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET"',
+  'bash scripts/validate-production-deployment-readiness.sh',
+  '--substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=$BACKEND_SERVICE,_FRONTEND_SERVICE=$FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET"',
   'test "${STATUS:-}" = SUCCESS',
   'curl --fail --silent --show-error',
   'access-control-allow-origin: $FRONTEND_URL',
@@ -35,7 +36,7 @@ for (const contract of [
   if (!workflow.includes(contract)) throw new Error(`Production operator workflow missing contract: ${contract}`);
 }
 
-for (const forbidden of ['push:', 'schedule:', 'pull_request:', 'terraform apply', '--force']) {
+for (const forbidden of ['push:', 'schedule:', 'pull_request:', 'terraform apply', '--force', 'secrets versions access']) {
   if (workflow.includes(forbidden)) throw new Error(`Production operator contains forbidden trigger or operation: ${forbidden}`);
 }
 
