@@ -15,6 +15,9 @@ test('new in Khedmah is a real approved-business feed with no fixture content', 
   assert.match(feed, /source=whats-new/);
   assert.match(feed, /KNOWN_TEST_NAMES/);
   assert.doesNotMatch(feed, /setTimeout|Math\.random|localStorage/);
+  assert.doesNotMatch(feed, /return null/);
+  assert.match(feed, /بانتظار أول نشاط موثّق/);
+  assert.match(feed, /تعذر تحميل الأنشطة الجديدة/);
 });
 
 test('shared internal surfaces use the approved glass and umbrella system', async () => {
