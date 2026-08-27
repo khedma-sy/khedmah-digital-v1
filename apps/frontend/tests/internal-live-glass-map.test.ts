@@ -60,3 +60,12 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   assert.match(discovery, /\.tabs[\s\S]*backdrop-filter:blur\(18px\)/);
   assert.match(discovery, /\.provider[\s\S]*linear-gradient\(115deg/);
 });
+
+
+test('homepage balances a single real category without inventing fixtures', async () => {
+  const home = await read('app/home.module.css');
+
+  assert.match(home, /\.categoryGrid[\s\S]*repeat\(auto-fit/);
+  assert.match(home, /\.categoryCard:only-child[\s\S]*grid-template-columns/);
+  assert.match(home, /@media \(max-width: 38rem\)[\s\S]*\.categoryCard:only-child[\s\S]*grid-template-columns:1fr/);
+});
