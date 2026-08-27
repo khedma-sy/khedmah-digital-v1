@@ -1,11 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../../../lib/api-client';
 import { useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
-import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../../components/ui-primitives';
+import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import styles from '../../../components/owner-workspace.module.css';
 
 export default function NewBusinessProfilePage() {
@@ -14,8 +14,23 @@ export default function NewBusinessProfilePage() {
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const [form, setForm] = useState({ name: '', descriptionAr: '', phone: '', email: '', website: '', categoryCode: '', cityCode: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [error, setError] = useState('');
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
+
+  useEffect(() => {
+    let active = true;
+    void api.auth.session()
+      .then(() => { if (active) setIsCheckingSession(false); })
+      .catch((cause) => {
+        if (!active) return;
+        const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+        if (status === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles%2Fnew'); return; }
+        setError(cause instanceof Error ? cause.message : 'تعذر التحقق من جلسة الدخول. حاول مجدداً.');
+        setIsCheckingSession(false);
+      });
+    return () => { active = false; };
+  }, [router]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setIsSubmitting(true); setError('');
@@ -23,12 +38,13 @@ export default function NewBusinessProfilePage() {
       await api.businesses.create({ name: form.name.trim(), descriptionAr: form.descriptionAr.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, website: form.website.trim() || undefined, categoryCode: form.categoryCode, cityCode: form.cityCode, countryCode: 'SY' });
       router.push('/business-profiles');
     } catch (cause) {
-      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace('/auth/login'); return; }
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles%2Fnew'); return; }
       setError(cause instanceof Error ? cause.message : 'تعذر إنشاء النشاط. راجع البيانات وحاول مجدداً.');
     } finally { setIsSubmitting(false); }
   }
 
   const unavailable = citiesLoading || categoriesLoading || !!citiesError || !!categoriesError;
+  if (isCheckingSession) return <PageShell className={styles.page} label="جاري التحقق من جلسة الدخول"><div className={styles.formShell}><SkeletonGrid count={2} label="جاري تجهيز مساحة صاحب النشاط" /></div></PageShell>;
   return <PageShell className={styles.page} label="إضافة نشاط">
     <div className={styles.formShell}>
       <PageHeader eyebrow="مساحة صاحب النشاط" title="إضافة نشاط جديد" description="أدخل معلومات صحيحة وواضحة. سيُحفظ النشاط كملف خاص ولن يظهر في الدليل قبل إرساله للمراجعة واعتماده." />
