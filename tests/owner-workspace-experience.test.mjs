@@ -36,8 +36,9 @@ test('business creation is a private reviewed workflow using canonical Syrian ci
 test('login returns safely to the protected owner destination', async () => {
   const login = await read('apps/frontend/app/auth/login/page.tsx');
   assert.match(login, /new URLSearchParams\(window\.location\.search\)/);
-  assert.match(login, /requestedDestination\?\.startsWith\('\/'\)/);
-  assert.match(login, /!requestedDestination\.startsWith\('\/\/'\)/);
+  assert.match(login, /new URL\(requestedDestination, window\.location\.origin\)/);
+  assert.match(login, /parsedDestination\.origin !== window\.location\.origin/);
+  assert.match(login, /parsedDestination\.pathname/);
   assert.match(login, /router\.push\(destination\)/);
 });
 
