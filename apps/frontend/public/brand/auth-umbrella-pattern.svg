@@ -1,11 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 320">
-  <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M48 143C57 78 107 40 180 40c72 0 123 38 132 103-30-21-60-22-88-2-27-23-59-23-87 0-28-20-58-19-89 2Z" fill="#103452" opacity=".055"/>
-    <path d="M48 143c31-21 61-22 89-2 9-55 23-89 43-101-74 0-123 38-132 103Z" fill="#155a91" opacity=".11"/>
-    <path d="M137 141c28-23 60-23 87 0-8-55-23-89-44-101-20 12-34 46-43 101Z" fill="#16875f" opacity=".105"/>
-    <path d="M224 141c28-20 58-19 88 2-7-43-28-75-63-92-11 18-19 48-25 90Z" fill="#ee7c37" opacity=".11"/>
-    <path d="M48 143C57 78 107 40 180 40c72 0 123 38 132 103-30-21-60-22-88-2-27-23-59-23-87 0-28-20-58-19-89 2Z" fill="none" stroke="#103452" stroke-width="5" opacity=".12"/>
-    <path d="M137 141c9-55 23-89 43-101 21 12 36 46 44 101" fill="none" stroke="#16875f" stroke-width="4" opacity=".12"/>
-    <path d="M180 41v171c0 42 52 42 52 2" fill="none" stroke="#103452" stroke-width="6" opacity=".115"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 680">
+  <defs>
+    <g id="umbrella" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M24 72C29 39 54 20 90 20s61 19 66 52c-15-11-30-11-44-1-14-12-30-12-44 0-14-10-29-10-44 1Z" fill="#103452" opacity=".045"/>
+      <path d="M24 72c15-11 30-11 44-1 5-28 12-45 22-51-36 0-61 19-66 52Z" fill="#155a91" opacity=".105"/>
+      <path d="M68 71c14-12 30-12 44 0-4-28-12-45-22-51-10 6-17 23-22 51Z" fill="#16875f" opacity=".1"/>
+      <path d="M112 71c14-10 29-10 44 1-4-22-14-38-32-47-6 9-10 24-12 46Z" fill="#ee7c37" opacity=".105"/>
+      <path d="M24 72C29 39 54 20 90 20s61 19 66 52c-15-11-30-11-44-1-14-12-30-12-44 0-14-10-29-10-44 1Z" fill="none" stroke="#103452" stroke-width="3" opacity=".11"/>
+      <path d="M68 71c5-28 12-45 22-51 10 6 18 23 22 51" fill="none" stroke="#16875f" stroke-width="2.5" opacity=".11"/>
+      <path d="M90 21v86c0 21 26 21 26 1" fill="none" stroke="#103452" stroke-width="3" opacity=".105"/>
+    </g>
+  </defs>
+  <use href="#umbrella" x="-16" y="4" transform="scale(1.12)"/>
+  <use href="#umbrella" x="330" y="18" transform="scale(.78)"/>
+  <use href="#umbrella" x="610" y="-18" transform="scale(1.02)"/>
+  <use href="#umbrella" x="145" y="246" transform="scale(.88)"/>
+  <use href="#umbrella" x="505" y="222" transform="scale(1.18)"/>
+  <use href="#umbrella" x="-36" y="472" transform="scale(.76)"/>
+  <use href="#umbrella" x="320" y="446" transform="scale(1.08)"/>
+  <use href="#umbrella" x="650" y="500" transform="scale(.72)"/>
 </svg>
