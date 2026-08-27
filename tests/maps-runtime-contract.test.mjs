@@ -9,7 +9,7 @@ test('Web map sanitizes its protected key and requests async Google Maps loading
   assert.match(page, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY\?\.trim\(\)/);
   assert.match(page, /loading=async/);
   assert.match(page, /callback=initKhedmahMap/);
-  assert.match(page, /window\\.initKhedmahMap = initializeMap/);
+  assert.match(page, /window\.initKhedmahMap = initializeMap/);
 });
 
 test('Production deploy discovers the live frontend URL and permits both Cloud Run aliases', async () => {
