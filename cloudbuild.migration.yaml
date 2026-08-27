@@ -1,0 +1,26 @@
+steps:
+  - id: build-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.migrations
+      - -t
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/database-migrations:$COMMIT_SHA'
+      - .
+  - id: push-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/database-migrations:$COMMIT_SHA'
+
+substitutions:
+  _REGION: europe-west1
+  _AR_REPOSITORY: khedmah-digital
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: MUST_MATCH
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/database-migrations:$COMMIT_SHA'
