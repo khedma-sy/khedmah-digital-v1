@@ -34,8 +34,6 @@ export function RecentlyAdded() {
     return () => { active = false; };
   }, []);
 
-  if (!isLoading && (error || businesses.length === 0)) return null;
-
   return <section id="whats-new" className={styles.recent} aria-labelledby="recent-title">
     <div className={styles.sectionHeading}>
       <span>انضموا حديثًا</span>
@@ -43,12 +41,17 @@ export function RecentlyAdded() {
       <p>أنشطة منشورة وموثقة انضمت حديثًا تحت مظلة واحدة.</p>
     </div>
     {isLoading ? <div className={styles.recentGrid} aria-label="جاري تحميل الأنشطة الجديدة">{[0, 1, 2].map(item => <div className={styles.recentSkeleton} key={item} />)}</div> :
-      <div className={styles.recentGrid}>{businesses.map(business => <article className={styles.recentCard} key={business.id}>
+      businesses.length ? <div className={styles.recentGrid}>{businesses.map(business => <article className={styles.recentCard} key={business.id}>
         <div className={styles.recentMeta}><span><PlatformIcon name="check" /> نشاط موثّق</span><time dateTime={business.createdAt}>{formatDate(business.createdAt)}</time></div>
         <h3>{business.name}</h3>
         <p>{business.descriptionAr || `انضم نشاط جديد إلى خدمة في ${cityLabel(business.cityCode, cities)}.`}</p>
         <div className={styles.recentFooter}><span><PlatformIcon name="pin" /> {cityLabel(business.cityCode, cities)}</span><Link href={`/business-profiles/${encodeURIComponent(business.id)}?source=whats-new`}>عرض النشاط <PlatformIcon name="arrow" /></Link></div>
-      </article>)}</div>}
+      </article>)}</div> : <div className={styles.recentEmpty} role={error ? 'alert' : 'status'}>
+        <PlatformIcon name={error ? 'search' : 'briefcase'} size={30} />
+        <h3>{error ? 'تعذر تحميل الأنشطة الجديدة' : 'بانتظار أول نشاط موثّق'}</h3>
+        <p>{error ? 'يمكنك متابعة اكتشاف الخدمات المنشورة ريثما نعيد الاتصال.' : 'ستظهر هنا الأنشطة المنشورة والموثقة فور انضمامها إلى خدمة.'}</p>
+        <Link href="/search">استكشف الخدمات المنشورة</Link>
+      </div>}
     <div className={styles.recentAction}><Link href="/search">عرض جميع الخدمات</Link></div>
   </section>;
 }
