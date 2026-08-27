@@ -11,10 +11,6 @@ FRONTEND_SERVICE="${OPERATIONS_FRONTEND_SERVICE:-frontend}"
 CLOUD_SQL_INSTANCE="${CLOUD_SQL_INSTANCE_CONNECTION_NAME:?CLOUD_SQL_INSTANCE_CONNECTION_NAME is required}"
 SOURCE_BUCKET="${GOOGLE_CLOUD_PROJECT}-cloudbuild-source"
 
-if [[ "$GOOGLE_CLOUD_REGION" != "europe-west1" ]]; then
-  echo "ERROR: Production region must be europe-west1." >&2
-  exit 1
-fi
 if [[ "$CLOUD_SQL_INSTANCE" != "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]; then
   echo "ERROR: Cloud SQL connection name is outside the approved project or region." >&2
   exit 1
@@ -50,8 +46,12 @@ gcloud run services describe "$FRONTEND_SERVICE" \
   --format='value(metadata.name)' >/dev/null
 
 SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE##*:}"
-gcloud sql instances describe "$SQL_INSTANCE_NAME" \
-  --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
+SQL_INSTANCE_REGION="$(gcloud sql instances describe "$SQL_INSTANCE_NAME" \
+  --project "$GOOGLE_CLOUD_PROJECT" --format='value(region)')"
+if [[ "$SQL_INSTANCE_REGION" != "$GOOGLE_CLOUD_REGION" ]]; then
+  echo "ERROR: Cloud SQL instance region does not match GOOGLE_CLOUD_REGION." >&2
+  exit 1
+fi
 gcloud iam service-accounts describe "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
   --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 
