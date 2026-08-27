@@ -45,6 +45,7 @@ jq -e --arg member "serviceAccount:${RUNTIME_SA}" '
   any(
     .bindings[]?;
     .role == "roles/storage.objectAdmin" and
+    ((has("condition") | not) or .condition == null) and
     any(.members[]?; . == $member)
   ) and
   ([.bindings[]?.members[]?] |
