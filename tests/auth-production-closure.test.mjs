@@ -92,6 +92,7 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(styles, /url\('\/brand\/umbrella-pattern\.svg'\)/);
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
+  assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:#4f6070!important/);
   assert.match(register, /SocialProviderIcon provider="google"/);
   assert.match(register, /SocialProviderIcon provider="facebook"/);
   assert.match(register, /statusCode\?: number/);

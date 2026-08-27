@@ -221,7 +221,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-social-grid .auth-secondary { min-width:0; font-size:.82rem; }
 .social-provider-icon { width:1.55rem; height:1.55rem; flex:none; }
 
-.auth-help,.login-prompt { grid-area:footer; margin:0; color:#4f6070; text-align:center; }
+.auth-help,.login-prompt { grid-area:footer; margin:0; color:#4f6070!important; text-align:center; }
 .auth-help a,.login-prompt a { color:#155a91; font-weight:850; }
 .auth-back { position:fixed; inset-block-start:1rem; inset-inline-start:1rem; z-index:3; }
 .password-strength { color:#647789; font-size:.78rem; }
