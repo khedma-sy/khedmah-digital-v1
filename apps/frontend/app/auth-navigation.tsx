@@ -9,6 +9,7 @@ import { PlatformIcon } from './components/platform-icon';
 function DiscoveryLinks({ pathname }: { pathname: string }) {
   const links = [
     { href: '/search', label: 'اكتشف', active: pathname === '/search' },
+    { href: '/new', label: 'جديد في خدمة', active: pathname === '/new' },
     { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
     { href: '/map', label: 'بالقرب مني', active: pathname === '/map' }
   ];
