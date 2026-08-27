@@ -2,6 +2,15 @@ import type { PublicUserProfile } from './api-client';
 
 const API_BASE = '';
 
+const identityErrors: Record<string, string> = {
+  'Account already exists.': 'هذا البريد مسجل مسبقًا.',
+  'Please wait before requesting another verification email.': 'يرجى الانتظار دقيقة قبل طلب رسالة تحقق جديدة.',
+  'Too many verification emails sent. Please wait before requesting another.': 'تم إرسال عدة رسائل تحقق. يرجى المحاولة لاحقًا.',
+  'Verification token is invalid or expired.': 'رابط التحقق غير صالح أو انتهت صلاحيته.',
+  'Verification token has expired. Please request a new one.': 'انتهت صلاحية رابط التحقق. اطلب رابطًا جديدًا.',
+  'Email has already been verified.': 'تم تأكيد هذا البريد مسبقًا.'
+};
+
 async function identityRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
@@ -11,7 +20,8 @@ async function identityRequest<T>(path: string, init?: RequestInit): Promise<T> 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const raw = (data as { message?: string | string[] }).message ?? `خطأ في الخادم (${response.status})`;
-    const message = Array.isArray(raw) ? raw.join('. ') : raw;
+    const sourceMessage = Array.isArray(raw) ? raw.join('. ') : raw;
+    const message = identityErrors[sourceMessage] ?? sourceMessage;
     throw Object.assign(new Error(message), {
       statusCode: response.status,
       code: (data as { code?: string }).code
