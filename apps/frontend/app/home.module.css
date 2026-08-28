@@ -419,3 +419,45 @@
   .heroCopy { padding:1.25rem; }
   .heroVisual { aspect-ratio:4 / 3; min-height:0; }
 }
+
+
+/* Final home-page normalization: complete imagery, smaller type, white glass. */
+.page {
+  background:
+    radial-gradient(circle at 9% 18%, rgb(22 135 95 / 6%), transparent 24rem),
+    radial-gradient(circle at 91% 34%, rgb(238 124 55 / 6%), transparent 22rem),
+    #fbfdff;
+}
+.hero { min-height: 34rem; gap: clamp(1.75rem, 4vw, 3.5rem); }
+.hero::before { opacity: .13; filter: saturate(1.45); }
+.heroCopy {
+  max-width: 34rem;
+  border: 1px solid var(--k-glass-border);
+  border-radius: 1.25rem;
+  padding: clamp(1.25rem, 2.8vw, 2rem);
+  background: var(--k-glass-strong);
+  box-shadow: var(--k-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+  backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+}
+.hero h1 { font-size: var(--k-type-display); line-height: 1.22; letter-spacing: -.025em; }
+.lead { font-size: .95rem; line-height: 1.8; }
+.sectionHeading h2 { font-size: var(--k-type-section); }
+.heroVisual,.categoryImage { background: var(--k-glass-strong); }
+.heroVisual > img,.categoryImage img {
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
+}
+.categoryCard,.categoryCard:only-child {
+  background: var(--k-glass-strong);
+  border-color: var(--k-glass-border);
+  -webkit-backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+  backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+}
+.categoryCard:only-child .categoryBody b { font-size: var(--k-type-card); }
+@media (max-width: 46rem) {
+  .hero { min-height: auto; padding-block: 2rem 3rem; }
+  .hero h1 { font-size: clamp(1.9rem, 9vw, 2.35rem); }
+  .heroVisual { aspect-ratio: 4 / 3; min-height: 0; }
+}
