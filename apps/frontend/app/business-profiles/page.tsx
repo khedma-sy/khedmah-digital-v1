@@ -26,7 +26,7 @@ export default function BusinessProfilesPage() {
     try { setProfiles((await api.businesses.listMine()).businesses); }
     catch (cause) {
       const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
-      if (status === 401) { router.replace('/auth/login'); return; }
+      if (status === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles'); return; }
       setError(cause instanceof Error ? cause.message : 'تعذر تحميل أنشطتك.');
     } finally { setIsLoading(false); }
   }

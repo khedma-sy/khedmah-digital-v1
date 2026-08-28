@@ -67,7 +67,11 @@ export default function ManageBusinessProfilePage() {
       setBranchForm((current) => ({ ...current, cityCode: current.cityCode || owned.cityCode }));
     } catch (cause) {
       const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
-      if (status === 401 || status === 403) { router.replace('/auth/login'); return; }
+      if (status === 401) {
+        router.replace(`/auth/login?next=${encodeURIComponent(`/business-profiles/${encodeURIComponent(id)}/manage`)}`);
+        return;
+      }
+      if (status === 403) { router.replace('/business-profiles'); return; }
       setError('تعذر تحميل مساحة إدارة النشاط. حاول مجدداً.');
     } finally { setIsLoading(false); }
   }
