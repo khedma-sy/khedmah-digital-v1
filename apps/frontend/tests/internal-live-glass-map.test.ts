@@ -53,7 +53,8 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   const primitives = await read('app/ui-primitives.css');
   const discovery = await read('app/discovery.module.css');
 
-  assert.match(home, /padding: clamp\(3\.5rem, 6vw, 5rem\)/);
+  assert.match(home, /padding: clamp\(3rem, 5vw, 4\.25rem\)/);
+  assert.match(home, /overflow-x: clip/);
   assert.match(home, /\.discovery::before[\s\S]*umbrella-pattern\.svg/);
   assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(18px\)/);
   assert.match(primitives, /linear-gradient\(115deg[\s\S]*border-box/);
