@@ -14,6 +14,12 @@ test('Web map sanitizes its protected key and requests async Google Maps loading
   assert.match(page, /data-map-status=\{mapStatus\}/);
 });
 
+test('Web map never offers a retry that can hang when the Maps key is absent', async () => {
+  const page = await read('apps/frontend/app/map/page.tsx');
+  assert.match(page, /mapStatus === 'error' && MAPS_KEY &&/);
+  assert.match(page, /\{MAPS_KEY && <ActionButton type="button" onClick=\{retryMap\}>إعادة المحاولة<\/ActionButton>\}/);
+});
+
 test('Production deploy opens the live map in a browser and requires ready state', async () => {
   const workflow = await read('.github/workflows/production-operator.yml');
   assert.match(workflow, /GOOGLE_MAPS_BROWSER_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);

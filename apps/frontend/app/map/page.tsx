@@ -203,7 +203,7 @@ function MapDiscovery() {
       </form>
       <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
-      {mapStatus === 'error' && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
+      {mapStatus === 'error' && MAPS_KEY && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} · ⭐ {provider.rating ?? 0} {provider.distanceKm !== undefined && `· ${provider.distanceKm} كم`}</p></div>
@@ -217,7 +217,7 @@ function MapDiscovery() {
         <PlatformIcon name="pin" size={34}/>
         <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
         <p>{mapStatus === 'error' ? mapError : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
-        {mapStatus === 'error' && <div className={styles.mapFallbackActions}><ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton><ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
+        {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{MAPS_KEY && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
   </main>;
