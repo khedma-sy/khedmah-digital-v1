@@ -5,6 +5,8 @@ import { getFirebaseClientServices } from './client';
 
 type SocialProviderName = 'Google' | 'Facebook';
 
+export const FACEBOOK_AUTH_ENABLED = process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === 'true';
+
 export function translateFirebaseSocialAuthError(provider: SocialProviderName, cause: unknown): Error {
   const code = typeof cause === 'object' && cause !== null && 'code' in cause
     ? String((cause as { code?: unknown }).code ?? '')

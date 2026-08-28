@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../../../lib/api-client';
-import { getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
+import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
 import { identityApi } from '../../../lib/identity-api';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
@@ -116,7 +116,7 @@ export default function LoginPage() {
           <div className="auth-divider"><span>أو</span></div>
           <div className="auth-social-grid">
             <button className="auth-secondary auth-google" type="button" onClick={signInWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'تسجيل الدخول عبر Google'}</button>
-            <button className="auth-secondary auth-facebook" type="button" onClick={signInWithFacebook} aria-busy={isFacebookLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{isFacebookLoading ? 'جاري الاتصال...' : 'تسجيل الدخول عبر Facebook'}</button>
+            <button className={`auth-secondary auth-facebook${FACEBOOK_AUTH_ENABLED ? '' : ' auth-facebook-deferred'}`} type="button" onClick={FACEBOOK_AUTH_ENABLED ? signInWithFacebook : undefined} aria-busy={FACEBOOK_AUTH_ENABLED && isFacebookLoading} aria-label={FACEBOOK_AUTH_ENABLED ? 'تسجيل الدخول عبر Facebook' : 'تسجيل الدخول عبر Facebook — قريبًا'} title={FACEBOOK_AUTH_ENABLED ? undefined : 'سيتم تفعيل تسجيل الدخول عبر Facebook لاحقًا'} disabled={!FACEBOOK_AUTH_ENABLED || isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{FACEBOOK_AUTH_ENABLED ? (isFacebookLoading ? 'جاري الاتصال...' : 'تسجيل الدخول عبر Facebook') : 'Facebook — قريبًا'}</button>
           </div>
         </form>
         <p className="auth-help"><PlatformIcon name="user" size={17} /> أو <Link href="/">الاستمرار كزائر</Link></p>

@@ -64,6 +64,7 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="$$FIREBASE_MESSAGING_SENDER_ID" \
           --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="$$FIREBASE_APP_ID" \
           --build-arg NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="$$FIREBASE_MEASUREMENT_ID" \
+          --build-arg NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED="${_FACEBOOK_AUTH_ENABLED}" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$COMMIT_SHA" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:${_RELEASE_ALIAS}" .
   - id: push-frontend-image
@@ -138,6 +139,7 @@ substitutions:
   _CORS_ORIGIN: https://frontend-774201339973.europe-west1.run.app
   _EMAIL_FROM: noreply@mail.khedmah.uk
   _GCS_MEDIA_BUCKET: project-94512a0e-1a5e-4bdb-87f-khedmah-media
+  _FACEBOOK_AUTH_ENABLED: 'false'
 options:
   logging: CLOUD_LOGGING_ONLY
   substitutionOption: MUST_MATCH

@@ -236,10 +236,9 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
             if (message != null) item { Text(message, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
             if (error != null) item { Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
             item { Button(onClick = { if (registering) onRegister(email, password, displayName) else onLogin(email, password) }, enabled = !loading && email.isNotBlank() && password.length >= 8 && (!registering || displayName.isNotBlank()), modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري المعالجة..." else if (registering) "إنشاء حساب" else "تسجيل الدخول") } }
-            if (googleConfigured) {
-                item { HorizontalDivider() }
-                item { OutlinedButton(onGoogle, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("المتابعة باستخدام Google") } }
-            }
+            item { HorizontalDivider() }
+            if (googleConfigured) item { OutlinedButton(onGoogle, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("المتابعة باستخدام Google") } }
+            item { OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Facebook — قريبًا") } }
         }
     }
 }

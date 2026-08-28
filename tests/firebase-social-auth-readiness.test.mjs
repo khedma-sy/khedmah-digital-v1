@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('production readiness blocks missing social providers and unauthorized domains', async () => {
+test('production readiness requires Google and gates Facebook behind the production feature flag', async () => {
   const [validator, prerequisites, workflow] = await Promise.all([
     read('scripts/validate-firebase-social-auth-readiness.sh'),
     read('scripts/validate-production-deployment-readiness.sh'),
@@ -13,7 +13,10 @@ test('production readiness blocks missing social providers and unauthorized doma
 
   assert.match(prerequisites, /identitytoolkit\.googleapis\.com/);
   assert.match(validator, /\.authorizedDomains/);
-  assert.match(validator, /google\.com facebook\.com/);
+  assert.match(validator, /required_providers=\(google\.com\)/);
+  assert.match(validator, /FACEBOOK_AUTH_ENABLED/);
+  assert.match(validator, /required_providers\+=\(facebook\.com\)/);
+  assert.match(validator, /DEFERRED: FIREBASE_PROVIDER=facebook\.com/);
   assert.match(validator, /\.name/);
   assert.match(validator, /split\("\/"\) \| last/);
   assert.doesNotMatch(validator, /\.idpId/);
@@ -21,4 +24,5 @@ test('production readiness blocks missing social providers and unauthorized doma
   assert.match(validator, /\.clientId/);
   assert.doesNotMatch(validator, /clientSecret|set \+x/);
   assert.match(workflow, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
+  assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
 });
