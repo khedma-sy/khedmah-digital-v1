@@ -42,6 +42,16 @@ test('login returns safely to the protected owner destination', async () => {
   assert.match(login, /router\.push\(destination\)/);
 });
 
+test('owner workspace preserves safe destinations and does not treat forbidden profiles as logged-out sessions', async () => {
+  const list = await read('apps/frontend/app/business-profiles/page.tsx');
+  const manage = await read('apps/frontend/app/business-profiles/[id]/manage/page.tsx');
+  assert.match(list, /\/auth\/login\?next=%2Fbusiness-profiles/);
+  assert.match(manage, /encodeURIComponent\(`\/business-profiles\/\$\{encodeURIComponent\(id\)\}\/manage`\)/);
+  assert.match(manage, /status === 401/);
+  assert.match(manage, /status === 403/);
+  assert.match(manage, /router\.replace\('\/business-profiles'\)/);
+});
+
 test('owner can edit real business data and manage services and inquiries', async () => {
   const page = await read('apps/frontend/app/business-profiles/[id]/manage/page.tsx');
   assert.match(page, /api\.businesses\.update/);
