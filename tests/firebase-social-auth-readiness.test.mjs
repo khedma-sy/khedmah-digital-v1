@@ -14,6 +14,9 @@ test('production readiness blocks missing social providers and unauthorized doma
   assert.match(prerequisites, /identitytoolkit\.googleapis\.com/);
   assert.match(validator, /\.authorizedDomains/);
   assert.match(validator, /google\.com facebook\.com/);
+  assert.match(validator, /\.name/);
+  assert.match(validator, /split\("\/"\) \| last/);
+  assert.doesNotMatch(validator, /\.idpId/);
   assert.match(validator, /\.enabled == true/);
   assert.match(validator, /\.clientId/);
   assert.doesNotMatch(validator, /clientSecret|set \+x/);
