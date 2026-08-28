@@ -40,3 +40,30 @@
 .ui-account-profile h2,.ui-account-profile p,.ui-account-links h2,.ui-account-links p { margin:0; }
 .ui-account-links p { color:var(--k-color-text-muted); font-size:1rem; line-height:1.7; }
 @media(max-width:48rem) { .ui-account-grid { grid-template-columns:1fr; } }
+
+
+/* Apply the shared contract to every product surface, not only the home page. */
+.ui-page {
+  background:
+    radial-gradient(circle at 10% 14%, rgb(22 135 95 / 7%), transparent 28rem),
+    radial-gradient(circle at 90% 78%, rgb(238 124 55 / 6%), transparent 26rem),
+    linear-gradient(145deg, #fbfdff, #fffdf9);
+}
+.ui-page::before {
+  opacity: .11;
+  background-image:
+    linear-gradient(115deg, rgb(16 52 82 / 20%), rgb(22 135 95 / 18%) 52%, rgb(238 124 55 / 18%)),
+    url('/brand/umbrella-pattern.svg');
+  background-blend-mode: screen, normal;
+  filter: saturate(1.35);
+}
+.ui-page-heading h1 { font-size: var(--k-type-page); line-height: 1.28; letter-spacing: -.02em; }
+.ui-page-heading p,.ui-empty p,.ui-account-links p { font-size: .92rem; }
+.ui-surface {
+  border-color: var(--k-glass-border);
+  background: var(--k-glass);
+  box-shadow: inset 0 1px rgb(255 255 255 / 75%), var(--k-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+  backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+}
+.ui-empty h2,.ui-account-profile h2,.ui-account-links h2 { font-size: var(--k-type-card); }
