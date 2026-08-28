@@ -277,3 +277,62 @@
 @media (prefers-reduced-motion: reduce) {
   .categoryCard { transition: none; }
 }
+
+
+/* Visible glass recomposition shared with the production authentication canvas. */
+.hero {
+  background:
+    radial-gradient(circle at 82% 14%,rgb(238 124 55 / 13%),transparent 25rem),
+    radial-gradient(circle at 12% 84%,rgb(22 135 95 / 11%),transparent 26rem),
+    linear-gradient(135deg,#f2f8fb 0%,#fffaf4 52%,#f2faf6 100%);
+}
+.heroCopy {
+  position:relative;
+  max-width:39rem;
+  border:1px solid transparent;
+  border-radius:1.65rem;
+  padding:clamp(1.5rem,3vw,2.35rem);
+  background:
+    linear-gradient(145deg,rgb(255 255 255 / 88%),rgb(255 255 255 / 70%)) padding-box,
+    linear-gradient(115deg,rgb(21 90 145 / 62%),rgb(22 135 95 / 48%) 64%,rgb(238 124 55 / 58%)) border-box;
+  -webkit-backdrop-filter:blur(24px) saturate(116%);
+  backdrop-filter:blur(24px) saturate(116%);
+  box-shadow:0 1.5rem 4.5rem rgb(16 52 82 / 13%);
+}
+.heroCopy::before {
+  content:"";
+  position:absolute;
+  inset:.55rem 2rem auto;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#155a91,#16875f,#ee7c37);
+}
+.search {
+  border:1px solid transparent;
+  background:
+    linear-gradient(rgb(255 255 255 / 90%),rgb(255 255 255 / 78%)) padding-box,
+    linear-gradient(115deg,rgb(21 90 145 / 50%),rgb(22 135 95 / 38%) 66%,rgb(238 124 55 / 48%)) border-box;
+  -webkit-backdrop-filter:blur(16px);
+  backdrop-filter:blur(16px);
+}
+.heroVisual {
+  border:1px solid transparent;
+  background:
+    linear-gradient(#f4ebdf,#f4ebdf) padding-box,
+    linear-gradient(145deg,#155a91,#16875f 62%,#ee7c37) border-box;
+  box-shadow:0 2rem 5.5rem rgb(16 52 82 / 16%);
+}
+.sectionHeading {
+  border-radius:1.25rem;
+  padding:1rem 1.25rem;
+  background:rgb(255 255 255 / 54%);
+  -webkit-backdrop-filter:blur(16px);
+  backdrop-filter:blur(16px);
+}
+@media (max-width:64rem) {
+  .heroCopy { max-width:none; }
+}
+@media (max-width:38rem) {
+  .heroCopy { border-radius:1.25rem; padding:1.35rem; }
+  .sectionHeading { padding:.8rem; }
+}

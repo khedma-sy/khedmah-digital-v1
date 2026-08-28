@@ -57,6 +57,8 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   assert.match(home, /overflow-x: clip/);
   assert.match(home, /\.discovery::before[\s\S]*umbrella-pattern\.svg/);
   assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(18px\)/);
+  assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(24px\) saturate\(116%\)/);
+  assert.match(home, /\.heroCopy::before[\s\S]*linear-gradient\(90deg,#155a91,#16875f,#ee7c37\)/);
   assert.match(primitives, /linear-gradient\(115deg[\s\S]*border-box/);
   assert.match(discovery, /\.tabs[\s\S]*backdrop-filter:blur\(18px\)/);
   assert.match(discovery, /\.provider[\s\S]*linear-gradient\(115deg/);
