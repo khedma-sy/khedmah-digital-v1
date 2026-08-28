@@ -33,18 +33,23 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
   const page = await read('app/map/page.tsx');
 
   assert.match(page, /gm_authFailure/);
-  assert.match(page, /onError=\{\(\) => setMapStatus\('error'\)\}/);
+  assert.match(page, /setActiveView\('list'\)/);
+  assert.match(page, /إعادة تشغيل الخريطة/);
   assert.match(page, /تعذر تشغيل الخريطة/);
   assert.match(page, /عرض النتائج/);
 });
 
 
-test('map waits for the Google callback before constructing the live map', async () => {
+test('map installs the Google callback before inserting one controlled script', async () => {
   const page = await read('app/map/page.tsx');
 
-  assert.match(page, /window\.initKhedmahMap = initializeMap/);
+  const callback = page.indexOf('window.initKhedmahMap = () =>');
+  const insertion = page.indexOf('document.head.appendChild(insertedScript)');
+  assert.ok(callback >= 0 && insertion > callback);
+  assert.match(page, /MAP_SCRIPT_ID = 'khedmah-google-maps'/);
   assert.match(page, /callback=initKhedmahMap/);
-  assert.doesNotMatch(page, /onLoad=\{initializeMap\}/);
+  assert.match(page, /data-map-status=\{mapStatus\}/);
+  assert.doesNotMatch(page, /from 'next\/script'/);
 });
 
 

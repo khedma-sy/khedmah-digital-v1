@@ -29,7 +29,8 @@ test('discovery surfaces use tokens and responsive layouts', () => {
   for (const token of ['--k-color-canvas', '--k-color-surface', '--k-color-text', '--k-color-primary', '--k-color-border']) {
     assert.match(styles, new RegExp(token));
   }
-  assert.match(styles, /@media\(max-width:48rem\)/);
+  assert.match(styles, /@media\(max-width:52rem\)/);
+  assert.match(styles, /\.listView \.providerList[\s\S]*repeat\(auto-fit/);
   assert.match(styles, /grid-template-columns:repeat\(auto-fill/);
   assert.doesNotMatch(styles, /#06121a|#83ca3e|#0a202c/);
 });

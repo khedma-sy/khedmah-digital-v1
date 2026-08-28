@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Script from 'next/script';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
@@ -35,6 +34,7 @@ declare global {
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const DEFAULT_LOCATION = { latitude: 33.5138, longitude: 36.2765 };
+const MAP_SCRIPT_ID = 'khedmah-google-maps';
 
 function MapDiscovery() {
   const searchParams = useSearchParams();
@@ -57,6 +57,8 @@ function MapDiscovery() {
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
   const [status, setStatus] = useState('جاري تحميل مقدمي الخدمات…');
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
+  const [mapError, setMapError] = useState(MAPS_KEY ? '' : 'إعداد خريطة Google غير متوفر حالياً. يمكنك متابعة البحث من عرض النتائج.');
+  const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
 
   const search = useCallback(async (boundaries?: Bounds, nextLocation = location, nextQuery = query) => {
     setStatus('جاري تحديث النتائج…');
@@ -101,6 +103,7 @@ function MapDiscovery() {
     if (!mapNode.current || !window.google || map.current) return;
     map.current = new window.google.maps.Map(mapNode.current, { center: { lat: location.latitude, lng: location.longitude }, zoom: 12, mapTypeControl: false, streetViewControl: false, fullscreenControl: true });
     setMapStatus('ready');
+    setMapError('');
     if (initialBounds) map.current.fitBounds(initialBounds);
     map.current.addListener('idle', () => {
       if (idleTimer.current) clearTimeout(idleTimer.current);
@@ -112,26 +115,70 @@ function MapDiscovery() {
     renderMarkers();
   }, [location, renderMarkers, search]);
 
+  const initializeMapRef = useRef(initializeMap);
+  useEffect(() => { initializeMapRef.current = initializeMap; }, [initializeMap]);
+
   useEffect(renderMarkers, [renderMarkers]);
   useEffect(() => { void search(initialBounds, DEFAULT_LOCATION, initialQuery); }, []);
   useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current); }, []);
   useEffect(() => {
-    const previous = window.gm_authFailure;
+    if (!MAPS_KEY) {
+      setActiveView('list');
+      return;
+    }
+
+    let cancelled = false;
+    let insertedScript: HTMLScriptElement | null = null;
+    const previousAuthFailure = window.gm_authFailure;
     const previousInitializer = window.initKhedmahMap;
-    window.initKhedmahMap = initializeMap;
-    window.gm_authFailure = () => {
+    const failMap = (message: string) => {
+      if (cancelled) return;
       setMapStatus('error');
-      setStatus('تعذر تشغيل خريطة Google لهذا النطاق. يمكنك متابعة البحث من عرض النتائج.');
+      setMapError(message);
+      setStatus(message);
+      setActiveView('list');
     };
+
+    window.initKhedmahMap = () => {
+      if (cancelled) return;
+      initializeMapRef.current();
+    };
+    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+
+    if (window.google?.maps) {
+      initializeMapRef.current();
+    } else {
+      document.getElementById(MAP_SCRIPT_ID)?.remove();
+      insertedScript = document.createElement('script');
+      insertedScript.id = MAP_SCRIPT_ID;
+      insertedScript.async = true;
+      insertedScript.defer = true;
+      insertedScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async&callback=initKhedmahMap`;
+      insertedScript.onerror = () => failMap('تعذر الاتصال بخدمة خرائط Google. تحقق من الاتصال أو تابع من عرض النتائج.');
+      document.head.appendChild(insertedScript);
+    }
+
     const timeout = window.setTimeout(() => {
-      if (!map.current) setMapStatus('error');
-    }, 12000);
+      if (!map.current) failMap('استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
+    }, 20000);
+
     return () => {
+      cancelled = true;
       window.clearTimeout(timeout);
-      window.gm_authFailure = previous;
+      window.gm_authFailure = previousAuthFailure;
       window.initKhedmahMap = previousInitializer;
+      if (insertedScript && !window.google?.maps) insertedScript.remove();
     };
-  }, [initializeMap]);
+  }, [mapLoadAttempt]);
+
+  function retryMap() {
+    map.current = null;
+    setMapStatus('loading');
+    setMapError('');
+    setStatus('جاري إعادة تشغيل الخريطة…');
+    setActiveView('map');
+    setMapLoadAttempt((attempt) => attempt + 1);
+  }
 
   function locateUser() {
     setStatus('جاري تحديد موقعك…');
@@ -143,8 +190,7 @@ function MapDiscovery() {
     }, () => setStatus('تعذر الوصول إلى موقعك. حرّك الخريطة يدوياً.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
-  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} dir="rtl">
-    {MAPS_KEY && <Script src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async&callback=initKhedmahMap`} strategy="afterInteractive" onError={() => setMapStatus('error')} />}
+  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
@@ -156,7 +202,8 @@ function MapDiscovery() {
         <ActionButton type="submit"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
       </form>
       <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
-      <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? 'الخريطة غير متاحة حالياً. استخدم عرض النتائج أو البحث العادي.' : status}</StatusMessage>
+      <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
+      {mapStatus === 'error' && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} · ⭐ {provider.rating ?? 0} {provider.distanceKm !== undefined && `· ${provider.distanceKm} كم`}</p></div>
@@ -169,8 +216,8 @@ function MapDiscovery() {
       {mapStatus !== 'ready' && <div className={styles.mapFallback} role={mapStatus === 'error' ? 'alert' : 'status'}>
         <PlatformIcon name="pin" size={34}/>
         <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
-        <p>{mapStatus === 'error' ? 'يمكنك متابعة البحث ومشاهدة الأنشطة من عرض النتائج إلى أن تعود الخريطة.' : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
-        {mapStatus === 'error' && <ActionButton type="button" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton>}
+        <p>{mapStatus === 'error' ? mapError : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
+        {mapStatus === 'error' && <div className={styles.mapFallbackActions}><ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton><ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
   </main>;

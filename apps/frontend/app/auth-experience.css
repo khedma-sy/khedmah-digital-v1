@@ -8,7 +8,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
   overflow-x:hidden;
   overflow-y:auto;
   isolation:isolate;
-  padding:1.25rem 1rem 2rem;
+  padding:.8rem 1rem 1.35rem;
   color:var(--k-color-text);
   background:
     radial-gradient(circle at 50% 3%,rgb(255 255 255 / 84%) 0 8rem,transparent 27rem),
@@ -22,22 +22,22 @@ body:has(.auth-experience) .khedma-header { display:none; }
   position:fixed;
   z-index:-1;
   inset:0;
-  opacity:.78;
+  opacity:.94;
   pointer-events:none;
-  background:url('/brand/auth-umbrella-pattern.svg') center/72rem auto no-repeat;
-  filter:saturate(1.45);
+  background:url('/brand/auth-umbrella-pattern.svg') center/cover no-repeat;
+  filter:saturate(1.25);
 }
 
 .auth-phone,
 .auth-phone-register,
 .auth-phone-login {
-  width:min(100%,34rem);
+  width:min(100%,31.5rem);
   display:grid;
   grid-template-columns:1fr;
   grid-template-areas:"visual" "heading" "content" "footer";
   justify-items:stretch;
   align-items:start;
-  gap:.45rem;
+  gap:.3rem;
 }
 
 .identity-visual,
@@ -77,9 +77,9 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .identity-approved-brand { position:relative; display:grid; justify-items:center; }
 .identity-approved-brand::before { content:""; position:absolute; z-index:-1; inset:50% auto auto 50%; width:10rem; height:7.5rem; translate:-50% -50%; border-radius:50%; background:radial-gradient(ellipse,var(--k-glass-strong) 0 46%,transparent 76%); pointer-events:none; }
 .identity-approved-brand .khedma-brand { display:grid; justify-items:center; gap:0; }
-.identity-approved-brand .khedma-brand>svg { width:5rem; }
+.identity-approved-brand .khedma-brand>svg { width:4.35rem; }
 .identity-approved-brand .khedma-brand>span { margin:0; }
-.identity-approved-brand .khedma-brand b { color:var(--k-color-text); font-size:1.8rem; line-height:1; }
+.identity-approved-brand .khedma-brand b { color:var(--k-color-text); font-size:1.6rem; line-height:1; }
 .identity-approved-brand .khedma-brand small { margin-top:.18rem; color:var(--k-color-text-muted); font-size:.58rem; }
 .identity-approved-brand>p,
 .identity-service-grid,
@@ -96,12 +96,12 @@ body:has(.auth-experience) .khedma-header { display:none; }
   grid-area:content;
   width:100%;
   display:grid;
-  gap:.75rem;
-  padding:1.2rem;
+  gap:.58rem;
+  padding:1rem;
   border:1px solid var(--k-glass-border);
   border-radius:var(--k-radius-xl);
   color:var(--k-color-text);
-  background:var(--k-glass-strong);
+  background:var(--k-glass);
   box-shadow:var(--k-glass-shadow);
   -webkit-backdrop-filter:blur(var(--k-glass-blur)) saturate(108%);
   backdrop-filter:blur(var(--k-glass-blur)) saturate(108%);
@@ -113,12 +113,12 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-panel-title p { margin:0; color:var(--k-color-text-muted); font-size:.84rem; line-height:1.7; }
 
 .auth-tabs { display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--k-color-border); }
-.auth-tabs a,.auth-tabs span { min-height:2.65rem; display:grid; place-items:center; border-bottom:2px solid transparent; color:var(--k-color-text); text-decoration:none; font-size:.9rem; font-weight:800; }
+.auth-tabs a,.auth-tabs span { min-height:2.4rem; display:grid; place-items:center; border-bottom:2px solid transparent; color:var(--k-color-text); text-decoration:none; font-size:.84rem; font-weight:800; }
 .auth-tabs [aria-current='page'] { border-color:var(--k-color-primary); color:var(--k-color-primary); }
 
 .auth-field {
   position:relative;
-  min-height:3.05rem;
+  min-height:2.72rem;
   display:grid;
   grid-template-columns:1.35rem 1fr auto;
   align-items:center;
@@ -127,7 +127,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
   border-radius:.7rem;
   padding:.38rem .75rem;
   color:var(--k-color-text);
-  background:color-mix(in srgb,var(--k-color-surface) 80%,transparent);
+  background:color-mix(in srgb,var(--k-color-surface) 66%,transparent);
 }
 
 .auth-field:focus-within { border-color:var(--k-color-primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--k-color-primary) 13%,transparent); }
@@ -145,7 +145,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-primary,
 .auth-secondary,
 .auth-resend {
-  min-height:2.9rem;
+  min-height:2.65rem;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -162,7 +162,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 
 .auth-primary { border:0; color:#fff!important; background:var(--k-color-primary); box-shadow:0 .5rem 1.2rem color-mix(in srgb,var(--k-color-primary) 18%,transparent); }
 .auth-primary:hover { background:var(--k-color-primary-hover); }
-.auth-secondary,.auth-resend { border:1px solid var(--k-color-border); color:var(--k-color-text); background:var(--k-glass-strong); box-shadow:none; }
+.auth-secondary,.auth-resend { border:1px solid var(--k-color-border); color:var(--k-color-text); background:color-mix(in srgb,var(--k-glass) 84%,transparent); box-shadow:none; }
 .auth-secondary:hover,.auth-resend:hover { border-color:var(--k-color-primary); color:var(--k-color-primary); }
 .auth-primary:disabled,.auth-secondary:disabled,.auth-resend:disabled { cursor:wait; opacity:.6; }
 .auth-facebook-deferred:disabled { cursor:not-allowed; opacity:1; border-style:dashed; color:var(--k-color-text-muted); background:color-mix(in srgb,var(--k-glass-strong) 84%,transparent); }
@@ -185,11 +185,11 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-status-icon.auth-status-waiting { background:var(--k-color-brand); }
 
 @media(max-width:42rem) {
-  .auth-experience { padding:.8rem .7rem 1.25rem; }
-  .auth-experience::before { background-size:48rem auto; }
+  .auth-experience { padding:.65rem .7rem 1rem; }
+  .auth-experience::before { background-position:center 30%; background-size:100% auto; }
   .identity-language { position:static; justify-self:start; margin-bottom:-1.2rem; font-size:.74rem; }
-  .identity-approved-brand .khedma-brand>svg { width:4.5rem; }
-  .identity-approved-brand .khedma-brand b { font-size:1.65rem; }
+  .identity-approved-brand .khedma-brand>svg { width:4rem; }
+  .identity-approved-brand .khedma-brand b { font-size:1.5rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1rem; border-radius:1rem; }
   .auth-social-grid { grid-template-columns:1fr; }
   .auth-back { position:absolute; }

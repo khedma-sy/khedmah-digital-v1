@@ -192,7 +192,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         KhedmahThemePreference.Light -> "○"
         KhedmahThemePreference.Dark -> "●"
     }
-    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f), tonalElevation = 0.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f), tonalElevation = 0.dp) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.End,
@@ -219,7 +219,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
             item { Text("أنشطتي", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth()) }
             if (businesses.isEmpty()) item { KhedmahStateCard("لا توجد أنشطة", "أنشئ نشاطك من موقع خدمة، ثم أدر صوره من التطبيق.") }
             items(businesses, key = { it.id }) { business ->
-                Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)), modifier = Modifier.fillMaxWidth()) {
+                Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(business.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         Text(if (business.moderationStatus == "approved") "معتمد للنشر" else "قيد المراجعة", color = MaterialTheme.colorScheme.onSurfaceVariant)

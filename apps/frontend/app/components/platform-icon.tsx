@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -21,7 +21,8 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   briefcase: <><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 12h18M10 12v2h4v-2"/></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
   menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
-  filter: <path d="M3 5h18l-7 8v6l-4 2v-8Z"/>
+  filter: <path d="M3 5h18l-7 8v6l-4 2v-8Z"/>,
+  refresh: <><path d="M20 7v5h-5"/><path d="M18.2 16.5A8 8 0 1 1 20 12"/></>
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {
