@@ -45,6 +45,14 @@ test('production operator deploys the planned media bucket and runtime identity'
   assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
 });
 
+test('production deployment proves the JavaScript map reaches ready state in Chrome', () => {
+  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(workflow, /GOOGLE_MAPS_BROWSER_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
+  assert.match(workflow, /CHROME_BIN=.*google-chrome/);
+  assert.match(workflow, /--virtual-time-budget=25000/);
+  assert.match(workflow, /data-map-status="ready"/);
+});
+
 test('VERIFY_ONLY checks the live private media contract without deploying', () => {
   const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
   assert.match(workflow, /Verify private media storage readiness/);

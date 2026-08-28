@@ -90,9 +90,9 @@ test('the complete authentication journey uses the approved reference system', a
 
   assert.match(layout, /import '\.\/auth-experience\.css'/);
   assert.match(styles, /url\('\/brand\/auth-umbrella-pattern\.svg'\)/);
-  assert.match(styles, /background:url\('\/brand\/auth-umbrella-pattern\.svg'\) center\/72rem auto no-repeat/);
-  assert.match(styles, /background:var\(--k-glass-strong\)/);
-  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:5rem; \}/);
+  assert.match(styles, /background:url\('\/brand\/auth-umbrella-pattern\.svg'\) center\/cover no-repeat/);
+  assert.match(styles, /background:var\(--k-glass\)/);
+  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:4\.35rem; \}/);
   assert.match(styles, /backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
   assert.match(styles, /background:linear-gradient\(90deg,var\(--k-color-primary\),var\(--k-color-accent\)\)/);
   assert.match(styles, /\.password-strength \{ color:var\(--k-color-text-muted\); font-size:\.75rem; font-weight:700; \}/);
@@ -111,6 +111,14 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(verify, /هذا البريد مسجل مسبقًا/);
   assert.match(forgot, /auth-status-icon/);
   assert.match(reset, /auth-status-icon/);
+});
+
+test('authentication backdrop contains exactly two complete colored umbrellas', async () => {
+  const pattern = await read('apps/frontend/public/brand/auth-umbrella-pattern.svg');
+  assert.equal((pattern.match(/<use href="#umbrella"/g) ?? []).length, 2);
+  assert.match(pattern, /#16875f/);
+  assert.match(pattern, /#e97835/);
+  assert.doesNotMatch(pattern, /x="-\d/);
 });
 
 test('public UI uses Khedmah only and profile fields remain readable', async () => {

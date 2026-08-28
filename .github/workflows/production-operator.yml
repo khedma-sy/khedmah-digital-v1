@@ -226,6 +226,7 @@ jobs:
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       GOOGLE_MAPS_ALLOWED_WEB_ORIGINS: ${{ vars.GOOGLE_MAPS_ALLOWED_WEB_ORIGINS }}
+      GOOGLE_MAPS_BROWSER_API_KEY: ${{ secrets.GOOGLE_MAPS_BROWSER_API_KEY }}
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       FACEBOOK_AUTH_ENABLED: ${{ vars.FACEBOOK_AUTH_ENABLED || 'false' }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
@@ -320,6 +321,7 @@ jobs:
           test -n "$FRONTEND_URL"
           test -n "$BACKEND_REVISION"
           test -n "$FRONTEND_REVISION"
+          test -n "$GOOGLE_MAPS_BROWSER_API_KEY"
           MAPS_ORIGIN_MATCH=false
           while IFS= read -r allowed_origin; do
             allowed_origin="${allowed_origin//[[:space:]]/}"
@@ -333,6 +335,18 @@ jobs:
           }
           curl --fail --silent --show-error --retry 5 --retry-all-errors "$BACKEND_URL/api/v1/health" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors "$FRONTEND_URL/map" >/dev/null
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$CHROME_BIN"
+          MAP_DOM="$(mktemp)"
+          trap 'rm -f "$MAP_DOM"' EXIT
+          "$CHROME_BIN" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --virtual-time-budget=25000 \
+            --dump-dom \
+            "$FRONTEND_URL/map" > "$MAP_DOM"
+          grep -Eq '<main[^>]+data-map-status="ready"' "$MAP_DOM"
           CORS_HEADERS="$(curl --silent --show-error --head \
             -H "Origin: $FRONTEND_URL" \
             "$BACKEND_URL/api/v1/search?map=true&type=business&latitude=33.5138&longitude=36.2765")"
