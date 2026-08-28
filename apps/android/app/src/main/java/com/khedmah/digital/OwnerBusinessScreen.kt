@@ -41,7 +41,7 @@ fun OwnerBusinessScreen(
         if (message != null) item { KhedmahStateCard("تم التنفيذ", message) }
         if (error != null) item { KhedmahStateCard("تعذر تنفيذ العملية", error, KhedmahStateTone.Error) }
         item {
-            Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("إضافة صورة", fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -58,9 +58,9 @@ fun OwnerBusinessScreen(
         }
         if (media.isEmpty()) item { KhedmahStateCard("لا توجد صور بعد", "أضف شعار النشاط وصورة الغلاف وصوراً حقيقية لأعمالك.") }
         items(media, key = { it.id }) { asset ->
-            Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+            Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                 Column {
-                    AsyncImage(model = asset.publicUrl, contentDescription = mediaLabels[asset.assetType] ?: "صورة النشاط", modifier = Modifier.fillMaxWidth().aspectRatio(16f / 10f), contentScale = ContentScale.Crop)
+                    AsyncImage(model = asset.publicUrl, contentDescription = mediaLabels[asset.assetType] ?: "صورة النشاط", modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f), contentScale = ContentScale.Fit)
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(mediaLabels[asset.assetType] ?: "صورة", fontWeight = FontWeight.Bold)
                         TextButton(onClick = { onDelete(asset.id) }, enabled = !loading, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("حذف") }

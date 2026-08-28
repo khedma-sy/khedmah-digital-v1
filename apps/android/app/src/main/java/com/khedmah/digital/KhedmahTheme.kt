@@ -5,8 +5,12 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 val Navy = Color(0xFF103452)
 val Green = Color(0xFF16875F)
@@ -45,10 +49,22 @@ private val KhedmahLightColors = lightColorScheme(
     secondary = Orange,
     background = Warm,
     surface = Color.White,
+    surfaceVariant = Color(0xFFF8FAFB),
     onBackground = Navy,
     onSurface = Navy,
     outline = Color(0xFFE8DFD4),
     error = Color(0xFFB42318)
+)
+
+private val KhedmahTypography = Typography(
+    displayLarge = TextStyle(fontSize = 30.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black),
+    headlineLarge = TextStyle(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+    headlineMedium = TextStyle(fontSize = 21.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold),
+    titleLarge = TextStyle(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold),
+    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 23.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp)
 )
 
 private val KhedmahDarkColors = darkColorScheme(
@@ -72,5 +88,5 @@ fun KhedmahTheme(preference: KhedmahThemePreference, content: @Composable () -> 
         KhedmahThemePreference.Light -> false
         KhedmahThemePreference.Dark -> true
     }
-    MaterialTheme(colorScheme = if (dark) KhedmahDarkColors else KhedmahLightColors, content = content)
+    MaterialTheme(colorScheme = if (dark) KhedmahDarkColors else KhedmahLightColors, typography = KhedmahTypography, content = content)
 }
