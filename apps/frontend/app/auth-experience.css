@@ -455,3 +455,16 @@ body:has(.auth-experience) .khedma-header { display:none; }
   .identity-approved-brand .khedma-brand b { font-size:1.85rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1.1rem; }
 }
+
+
+/* Keep authentication aligned with the site-wide white glass system. */
+.auth-experience::before { opacity: .12; filter: saturate(1.4); }
+.auth-experience .auth-panel {
+  border-color: var(--k-glass-border);
+  background: var(--k-glass-strong);
+  box-shadow: var(--k-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+  backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+}
+.auth-experience .brand-lockup img { width: clamp(5.25rem, 8vw, 7rem); }
+.auth-experience h1,.auth-experience h2 { font-size: var(--k-type-section); line-height: 1.3; }
