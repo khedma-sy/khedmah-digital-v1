@@ -50,3 +50,15 @@
 @media(max-width:58rem){ .form { grid-template-columns:1fr 1fr; } .formActions { grid-column:1/-1; } }
 @media(max-width:48rem){ .mapPage { grid-template-columns:1fr; grid-template-rows:auto 55svh; } .mapPanel { max-height:45svh; border-inline:0; border-block-end:1px solid color-mix(in srgb,var(--k-color-primary) 30%,var(--k-color-border)); box-shadow:none; } .mapStage,.mapCanvas { min-height:55svh; } .mapPage:not(.listView) .providerList { display:none; } .listView .mapPanel { max-height:none; min-height:calc(100svh - 5rem); } }
 @media(max-width:36rem){ .form { grid-template-columns:1fr; padding:var(--k-space-4); } .formActions { grid-column:auto; } .formActions>* { flex:1; } }
+
+
+/* Neutral white glass for search, map, and provider surfaces. */
+.mapPanel,.providerCard,.searchPanel,.resultsPanel {
+  border-color: var(--k-glass-border);
+  background: var(--k-glass-strong);
+  box-shadow: var(--k-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+  backdrop-filter: blur(var(--k-glass-blur)) saturate(105%);
+}
+.mapPanel h1,.resultsPanel h1,.searchPanel h1 { font-size: var(--k-type-page); line-height: 1.3; }
+.providerCard h2,.providerCard h3 { font-size: var(--k-type-card); }
