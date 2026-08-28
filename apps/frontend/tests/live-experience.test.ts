@@ -30,6 +30,9 @@ test('homepage is mobile-first and supports system themes and controlled motion'
 
   assert.match(styles, /@media \(max-width: 64rem\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(styles, /overflow-x: clip/);
+  assert.match(styles, /\.hero[\s\S]*overflow: clip/);
+  assert.match(styles, /\.categoryCard:only-child[\s\S]*min-height:16rem/);
   assert.doesNotMatch(styles, /animation:/);
 });
 
