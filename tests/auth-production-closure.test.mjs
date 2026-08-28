@@ -67,14 +67,14 @@ test('login uses real vector provider marks and approved umbrella pattern', asyn
   const [login, icons, styles] = await Promise.all([
     read('apps/frontend/app/auth/login/page.tsx'),
     read('apps/frontend/app/auth/social-provider-icon.tsx'),
-    read('apps/frontend/app/brand-system.css')
+    read('apps/frontend/app/auth-experience.css')
   ]);
 
   assert.match(login, /SocialProviderIcon provider="google"/);
   assert.match(login, /SocialProviderIcon provider="facebook"/);
   assert.match(icons, /fill="#4285f4"/);
   assert.match(icons, /fill="#1877f2"/);
-  assert.match(styles, /umbrella-pattern\.svg/);
+  assert.match(styles, /auth-umbrella-pattern\.svg/);
 });
 
 test('the complete authentication journey uses the approved reference system', async () => {
@@ -90,17 +90,15 @@ test('the complete authentication journey uses the approved reference system', a
 
   assert.match(layout, /import '\.\/auth-experience\.css'/);
   assert.match(styles, /url\('\/brand\/auth-umbrella-pattern\.svg'\)/);
-  assert.match(styles, /radial-gradient\(circle at 50% -8%/);
-  assert.match(styles, /background-repeat:no-repeat,no-repeat,no-repeat,no-repeat/);
-  assert.match(styles, /background-size:auto,auto,auto,min\(78rem,92vw\) auto/);
-  assert.match(styles, /background:rgb\(255 255 255 \/ 66%\)/);
-  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:5\.5rem; \}/);
-  assert.match(styles, /backdrop-filter:blur\(22px\) saturate\(104%\)/);
-  assert.match(styles, /linear-gradient\(110deg,#155a91 0 34%,#16875f 52% 70%,#ee7c37 88% 100%\) border-box/);
-  assert.match(styles, /\.password-strength \{ color:#314d62; font-size:\.82rem; font-weight:700; \}/);
+  assert.match(styles, /background:url\('\/brand\/auth-umbrella-pattern\.svg'\) center\/72rem auto no-repeat/);
+  assert.match(styles, /background:var\(--k-glass-strong\)/);
+  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:5rem; \}/);
+  assert.match(styles, /backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
+  assert.match(styles, /background:linear-gradient\(90deg,var\(--k-color-primary\),var\(--k-color-accent\)\)/);
+  assert.match(styles, /\.password-strength \{ color:var\(--k-color-text-muted\); font-size:\.75rem; font-weight:700; \}/);
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
-  assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:#4f6070!important/);
+  assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:var\(--k-color-text-muted\)!important/);
   assert.match(login, /auth-login-heading/);
   assert.match(register, /SocialProviderIcon provider="google"/);
   assert.match(register, /SocialProviderIcon provider="facebook"/);
@@ -126,7 +124,7 @@ test('public UI uses Khedmah only and profile fields remain readable', async () 
   assert.doesNotMatch(layout, /خدمة ديجتل|Khedmah Digital V1/);
   assert.doesNotMatch(profile, /خدمة ديجتل|Khedmah Digital V1|أنا مع خدمة/);
   assert.match(styles, /\.identity-card h1,\.identity-card h2,\.identity-card label/);
-  assert.match(styles, /\.identity-card input,\.identity-card select/);
+  assert.match(styles, /\.identity-card input:focus,\.identity-card select:focus/);
 });
 
 test('retired locations directory redirects to the real map experience', async () => {

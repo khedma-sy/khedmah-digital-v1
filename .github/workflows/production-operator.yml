@@ -78,6 +78,11 @@ jobs:
           set -euo pipefail
           bash scripts/validate-production-deployment-readiness.sh
 
+      - name: Verify Firebase social login readiness
+        run: |
+          set -euo pipefail
+          bash scripts/validate-firebase-social-auth-readiness.sh
+
   migrate-021:
     name: Apply reviewed database migration 021
     if: ${{ inputs.mode == 'APPLY_MIGRATION_021' }}

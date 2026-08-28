@@ -4,6 +4,7 @@ import { deleteApp } from 'firebase/app';
 import { getFirebaseClientServices } from '../lib/firebase/client';
 import { getFirebaseAnalytics } from '../lib/firebase/analytics';
 import { prepareFirebaseMessaging } from '../lib/firebase/fcm';
+import { translateFirebaseSocialAuthError } from '../lib/firebase/auth';
 
 const config = {
   NEXT_PUBLIC_FIREBASE_API_KEY: 'test-browser-key-not-production',
@@ -30,4 +31,15 @@ test('Analytics and Messaging remain inert outside a browser', async () => {
   Object.assign(process.env, config);
   assert.equal(await getFirebaseAnalytics(), null);
   assert.equal(await prepareFirebaseMessaging(), null);
+});
+
+test('social authentication failures explain the real Firebase configuration blocker', () => {
+  assert.equal(
+    translateFirebaseSocialAuthError('Google', { code: 'auth/operation-not-allowed' }).message,
+    'تسجيل الدخول عبر Google غير مفعّل في إعدادات Firebase لهذا المشروع.'
+  );
+  assert.equal(
+    translateFirebaseSocialAuthError('Facebook', { code: 'auth/unauthorized-domain' }).message,
+    'نطاق الموقع الحالي غير مضاف إلى النطاقات المصرّح بها في Firebase.'
+  );
 });

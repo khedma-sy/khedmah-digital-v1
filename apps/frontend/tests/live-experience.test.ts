@@ -28,11 +28,11 @@ test('homepage removes competing marketing and decorative concepts', async () =>
 test('homepage is mobile-first and supports system themes and controlled motion', async () => {
   const styles = await read('app/home.module.css');
 
-  assert.match(styles, /@media \(max-width: 64rem\)/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(styles, /overflow-x: clip/);
-  assert.match(styles, /\.hero[\s\S]*overflow: clip/);
-  assert.match(styles, /\.categoryCard:only-child[\s\S]*min-height:16rem/);
+  assert.match(styles, /@media\(max-width:64rem\)/);
+  assert.match(styles, /@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(styles, /overflow-x:clip/);
+  assert.match(styles, /\.heroVisual[\s\S]*aspect-ratio:1200\/804/);
+  assert.match(styles, /\.heroVisual>img[\s\S]*object-fit:contain/);
   assert.doesNotMatch(styles, /animation:/);
 });
 

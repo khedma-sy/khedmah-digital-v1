@@ -26,6 +26,7 @@ for (const contract of [
   'test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"',
   'test -n "$GCS_MEDIA_BUCKET"',
   'bash scripts/validate-production-deployment-readiness.sh',
+  'bash scripts/validate-firebase-social-auth-readiness.sh',
   '--substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=$BACKEND_SERVICE,_FRONTEND_SERVICE=$FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET"',
   'test "${STATUS:-}" = SUCCESS',
   'curl --fail --silent --show-error',

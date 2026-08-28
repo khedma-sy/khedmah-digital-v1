@@ -185,20 +185,22 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
 
 @Composable
 private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (KhedmahThemePreference) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+    val options = KhedmahThemePreference.entries
+    val next = options[(options.indexOf(selected) + 1) % options.size]
+    val symbol = when (selected) {
+        KhedmahThemePreference.System -> "◐"
+        KhedmahThemePreference.Light -> "○"
+        KhedmahThemePreference.Dark -> "●"
+    }
+    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f), tonalElevation = 0.dp) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("المظهر", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(end = 8.dp))
-            KhedmahThemePreference.entries.forEach { option ->
-                FilterChip(
-                    selected = selected == option,
-                    onClick = { onSelect(option) },
-                    label = { Text(option.label, fontSize = 11.sp) },
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                )
+            TextButton(onClick = { onSelect(next) }, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)) {
+                Text(symbol, fontSize = 14.sp, modifier = Modifier.padding(end = 5.dp))
+                Text(selected.label, fontSize = 11.sp)
             }
         }
     }
@@ -212,13 +214,13 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     LazyColumn(modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { BrandHeader() }
         if (user != null) {
-            item { Text("مرحباً ${user.displayName}", color = MaterialTheme.colorScheme.onBackground, fontSize = 21.sp, fontWeight = FontWeight.Black) }
+            item { Text("مرحباً ${user.displayName}", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Black) }
             item { Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            item { Text("أنشطتي", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth()) }
+            item { Text("أنشطتي", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth()) }
             if (businesses.isEmpty()) item { KhedmahStateCard("لا توجد أنشطة", "أنشئ نشاطك من موقع خدمة، ثم أدر صوره من التطبيق.") }
             items(businesses, key = { it.id }) { business ->
-                Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)), modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(business.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         Text(if (business.moderationStatus == "approved") "معتمد للنشر" else "قيد المراجعة", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedButton(onClick = { onManageBusiness(business) }, modifier = Modifier.fillMaxWidth()) { Text("إدارة صور النشاط") }
@@ -243,9 +245,9 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
 }
 
 @Composable private fun BrandHeader() = Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Image(painterResource(R.drawable.ic_khedmah_umbrella), null, Modifier.size(76.dp))
-    Text("خدمة", color = MaterialTheme.colorScheme.onBackground, fontSize = 28.sp, fontWeight = FontWeight.Black)
-    Text("تحت مظلة واحدة", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    Image(painterResource(R.drawable.ic_khedmah_umbrella), null, Modifier.size(62.dp))
+    Text("خدمة", color = MaterialTheme.colorScheme.onBackground, fontSize = 23.sp, fontWeight = FontWeight.Black)
+    Text("تحت مظلة واحدة", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable private fun SearchBox(query: String, onQuery: (String) -> Unit, onSearch: () -> Unit) = Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -261,7 +263,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
 @Composable private fun HomeScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, onSearch: () -> Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Spacer(Modifier.height(18.dp)); BrandHeader() }
-        item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
+        item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
         item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryRow(categories, selected, onCategory) } }
@@ -271,7 +273,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
 
 @Composable private fun SearchScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, results: List<KhedmahResult>, loading: Boolean, error: String?, onSearch: () -> Unit) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("اكتشف الخدمات", color = MaterialTheme.colorScheme.onBackground, fontSize = 21.sp, fontWeight = FontWeight.Black)
+        Text("اكتشف الخدمات", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Black)
         SearchBox(query, onQuery, onSearch); CategoryRow(categories, selected, onCategory)
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }

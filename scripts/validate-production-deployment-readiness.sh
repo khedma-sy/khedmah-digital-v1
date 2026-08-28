@@ -19,6 +19,7 @@ fi
 required_apis=(
   artifactregistry.googleapis.com
   cloudbuild.googleapis.com
+  identitytoolkit.googleapis.com
   run.googleapis.com
   secretmanager.googleapis.com
   sqladmin.googleapis.com

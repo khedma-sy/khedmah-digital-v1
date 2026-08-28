@@ -19,7 +19,7 @@ test('identity journeys do not render the retired Syria silhouette', async () =>
 test('approved account reference is implemented as functional UI', async () => {
   const login = await read('apps/frontend/app/auth/login/page.tsx');
   const register = await read('apps/frontend/app/auth/register/page.tsx');
-  const styles = await read('apps/frontend/app/brand-system.css');
+  const styles = await read('apps/frontend/app/auth-experience.css');
   assert.match(login, /auth-tabs/);
   assert.match(login, /auth-options/);
   assert.match(login, /signInWithGoogle/);
