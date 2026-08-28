@@ -10,6 +10,8 @@ const options: Array<{ value: ThemePreference; label: string }> = [
   { value: 'dark', label: 'مظلم' }
 ];
 
+const icons: Record<ThemePreference, string> = { system: '◐', light: '○', dark: '●' };
+
 function applyTheme(preference: ThemePreference) {
   const root = document.documentElement;
   const dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -39,11 +41,18 @@ export function ThemeToggle() {
     applyTheme(next);
   }
 
-  return <fieldset className="theme-toggle" aria-label="مظهر المنصة">
-    <legend className="sr-only">اختر مظهر المنصة</legend>
-    {options.map((option) => <button type="button" key={option.value} aria-pressed={preference === option.value} title={option.label} onClick={() => choose(option.value)}>
-      <span aria-hidden="true">{option.value === 'system' ? '◐' : option.value === 'light' ? '○' : '●'}</span>
-      <span className="theme-toggle-label">{option.label}</span>
-    </button>)}
-  </fieldset>;
+  const currentIndex = options.findIndex((option) => option.value === preference);
+  const current = options[currentIndex];
+  const next = options[(currentIndex + 1) % options.length];
+
+  return <button
+    type="button"
+    className="theme-toggle"
+    aria-label={`المظهر الحالي: ${current.label}. اضغط للتبديل إلى ${next.label}`}
+    title={`المظهر: ${current.label}`}
+    onClick={() => choose(next.value)}
+  >
+    <span className="theme-toggle-icon" aria-hidden="true">{icons[preference]}</span>
+    <span className="sr-only">{current.label}</span>
+  </button>;
 }

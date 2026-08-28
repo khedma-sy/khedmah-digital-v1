@@ -30,7 +30,9 @@ test('theme control supports system, light, and dark with persistence', async ()
   assert.match(toggle, /نهاري/);
   assert.match(toggle, /مظلم/);
   assert.match(toggle, /localStorage\.setItem\('khedma-theme'/);
-  assert.match(toggle, /aria-pressed/);
+  assert.match(toggle, /onClick=\{\(\) => choose\(next\.value\)\}/);
+  assert.match(toggle, /className="theme-toggle"/);
+  assert.doesNotMatch(toggle, /<fieldset/);
 });
 
 test('Android shares the three persisted theme preferences', async () => {
@@ -47,5 +49,5 @@ test('Android shares the three persisted theme preferences', async () => {
   assert.match(activity, /KhedmahTheme\(themePreference\)/);
   assert.match(activity, /ThemePreferenceBar/);
   assert.doesNotMatch(activity, /Color\(0x|private val Navy|private val Green/);
-  assert.match(nightColors, /#07131C/);
+  assert.match(nightColors, /#101315/);
 });

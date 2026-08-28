@@ -1,11 +1,11 @@
 <resources>
-  <color name="khedma_navy">#EDF7F4</color>
-  <color name="khedma_blue">#EDF7F4</color>
-  <color name="khedma_blue_accent">#4FC49A</color>
-  <color name="khedma_green">#4FC49A</color>
-  <color name="khedma_orange">#FF9A5F</color>
-  <color name="khedma_warm_background">#0B1A24</color>
-  <color name="khedma_background">#07131C</color>
-  <color name="khedma_surface">#102431</color>
-  <color name="khedma_border">#294653</color>
+  <color name="khedma_navy">#F0F4F2</color>
+  <color name="khedma_blue">#F0F4F2</color>
+  <color name="khedma_blue_accent">#56C79D</color>
+  <color name="khedma_green">#56C79D</color>
+  <color name="khedma_orange">#F39A63</color>
+  <color name="khedma_warm_background">#15191B</color>
+  <color name="khedma_background">#101315</color>
+  <color name="khedma_surface">#1C2124</color>
+  <color name="khedma_border">#343C3F</color>
 </resources>

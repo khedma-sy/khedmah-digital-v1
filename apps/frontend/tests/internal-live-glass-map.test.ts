@@ -25,7 +25,7 @@ test('shared internal surfaces use the approved glass and umbrella system', asyn
   const discovery = await read('app/discovery.module.css');
 
   assert.match(primitives, /umbrella-pattern\.svg/);
-  assert.match(primitives, /backdrop-filter:blur\(22px\)/);
+  assert.match(primitives, /backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
   assert.match(discovery, /mapPanel[\s\S]*backdrop-filter:blur\(24px\)/);
 });
 
@@ -53,25 +53,25 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   const primitives = await read('app/ui-primitives.css');
   const discovery = await read('app/discovery.module.css');
 
-  assert.match(home, /padding: clamp\(3rem, 5vw, 4\.25rem\)/);
-  assert.match(home, /overflow-x: clip/);
-  assert.match(home, /\.hero[\s\S]*overflow:visible/);
-  assert.match(home, /font-size:clamp\(2\.6rem,4\.2vw,3\.75rem\)/);
-  assert.match(home, /aspect-ratio:4 \/ 3/);
+  assert.match(home, /padding:clamp\(2\.5rem,4vw,3\.5rem\)/);
+  assert.match(home, /overflow-x:clip/);
+  assert.match(home, /font-size:var\(--k-type-display\)/);
+  assert.match(home, /aspect-ratio:1200\/804/);
   assert.match(home, /\.discovery::before[\s\S]*umbrella-pattern\.svg/);
-  assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(18px\)/);
-  assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(20px\) saturate\(105%\)/);
+  assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
+  assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
   assert.match(home, /\.heroCopy::before[\s\S]*opacity:\.7/);
-  assert.match(primitives, /linear-gradient\(115deg[\s\S]*border-box/);
+  assert.match(primitives, /background:var\(--k-glass\)/);
   assert.match(discovery, /\.tabs[\s\S]*backdrop-filter:blur\(18px\)/);
   assert.match(discovery, /\.provider[\s\S]*linear-gradient\(115deg/);
 });
 
 
-test('homepage balances a single real category without inventing fixtures', async () => {
+test('homepage keeps every real category in the same complete-image grid', async () => {
   const home = await read('app/home.module.css');
 
   assert.match(home, /\.categoryGrid[\s\S]*repeat\(auto-fit/);
-  assert.match(home, /\.categoryCard:only-child[\s\S]*grid-template-columns/);
-  assert.match(home, /@media \(max-width: 38rem\)[\s\S]*\.categoryCard:only-child[\s\S]*grid-template-columns:1fr/);
+  assert.match(home, /\.categoryImage[\s\S]*aspect-ratio:4\/3/);
+  assert.match(home, /\.categoryImage img[\s\S]*object-fit:contain/);
+  assert.doesNotMatch(home, /categoryCard:only-child/);
 });

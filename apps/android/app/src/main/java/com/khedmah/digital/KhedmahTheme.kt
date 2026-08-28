@@ -12,18 +12,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val Navy = Color(0xFF103452)
+val Navy = Color(0xFF173247)
 val Green = Color(0xFF16875F)
-val Orange = Color(0xFFEE7C37)
-val Warm = Color(0xFFFFF9F0)
-val DarkCanvas = Color(0xFF07131C)
-val DarkSurface = Color(0xFF102431)
-val DarkSurfaceRaised = Color(0xFF15303F)
-val DarkText = Color(0xFFEDF7F4)
-val DarkMuted = Color(0xFFABC0C5)
-val DarkBorder = Color(0xFF294653)
-val DarkGreen = Color(0xFF4FC49A)
-val DarkOrange = Color(0xFFFF9A5F)
+val Orange = Color(0xFFE97835)
+val Warm = Color(0xFFF8FAF9)
+val DarkCanvas = Color(0xFF101315)
+val DarkSurface = Color(0xFF1C2124)
+val DarkSurfaceRaised = Color(0xFF22282B)
+val DarkText = Color(0xFFF0F4F2)
+val DarkMuted = Color(0xFFADB8B3)
+val DarkBorder = Color(0xFF343C3F)
+val DarkGreen = Color(0xFF56C79D)
+val DarkOrange = Color(0xFFF39A63)
 
 enum class KhedmahThemePreference(val storageValue: String, val label: String) {
     System("system", "حسب الجهاز"),
@@ -49,22 +49,22 @@ private val KhedmahLightColors = lightColorScheme(
     secondary = Orange,
     background = Warm,
     surface = Color.White,
-    surfaceVariant = Color(0xFFF8FAFB),
+    surfaceVariant = Color(0xFFF2F6F4),
     onBackground = Navy,
     onSurface = Navy,
-    outline = Color(0xFFE8DFD4),
+    outline = Color(0xFFDCE6E1),
     error = Color(0xFFB42318)
 )
 
 private val KhedmahTypography = Typography(
-    displayLarge = TextStyle(fontSize = 30.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black),
-    headlineLarge = TextStyle(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-    headlineMedium = TextStyle(fontSize = 21.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold),
-    titleLarge = TextStyle(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
-    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 23.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp)
+    displayLarge = TextStyle(fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Black),
+    headlineLarge = TextStyle(fontSize = 21.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold),
+    headlineMedium = TextStyle(fontSize = 19.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold),
+    titleLarge = TextStyle(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
+    titleMedium = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+    bodyLarge = TextStyle(fontSize = 14.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontSize = 11.sp, lineHeight = 17.sp)
 )
 
 private val KhedmahDarkColors = darkColorScheme(

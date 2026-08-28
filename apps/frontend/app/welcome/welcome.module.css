@@ -4,7 +4,7 @@
 .hero::after { content:""; position:absolute; z-index:-1; inset-inline-end:-22rem; inset-block-start:-10rem; width:34rem; aspect-ratio:1; opacity:.08; border:3rem solid var(--k-color-accent); border-radius:50% 50% 45% 55%; transform:rotate(-18deg); }
 .brand { display:flex; align-items:center; gap:1rem; }
 .brand p { margin:0; color:var(--k-color-text-muted); font-weight:800; }
-.hero h1 { max-width:44rem; margin:1rem 0 0; font-size:clamp(2.75rem,7vw,5.75rem); line-height:1.12; letter-spacing:-.04em; }
+.hero h1 { max-width:36rem; margin:.75rem 0 0; font-size:var(--k-type-display); line-height:1.24; letter-spacing:-.025em; }
 .hero h1 em { color:var(--k-color-accent); font-style:normal; }
 .lead { max-width:42rem; margin:0; color:var(--k-color-text-muted); font-size:clamp(1rem,2vw,1.2rem); line-height:1.9; }
 .benefits { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
@@ -14,4 +14,4 @@
 .benefit h2 { font-size:1.05rem; }
 .benefit p { color:var(--k-color-text-muted); font-size:.9rem; line-height:1.7; }
 .privacy { display:flex; align-items:center; gap:.45rem; margin:0; color:var(--k-color-text-muted); font-size:.85rem; }
-@media(max-width:44rem){.container{padding-block:2rem}.benefits{grid-template-columns:1fr}.hero h1{font-size:clamp(2.5rem,14vw,4rem)}}
+@media(max-width:44rem){.container{padding-block:2rem}.benefits{grid-template-columns:1fr}.hero h1{font-size:clamp(1.8rem,9vw,2.3rem)}}
