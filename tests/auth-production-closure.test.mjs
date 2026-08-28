@@ -92,10 +92,10 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(styles, /url\('\/brand\/auth-umbrella-pattern\.svg'\)/);
   assert.match(styles, /radial-gradient\(circle at 50% -8%/);
   assert.match(styles, /background-repeat:no-repeat,no-repeat,no-repeat,no-repeat/);
-  assert.match(styles, /background-size:auto,auto,auto,min\(96rem,100vw\) auto/);
-  assert.match(styles, /linear-gradient\(rgb\(255 255 255 \/ 96%\),rgb\(255 255 255 \/ 91%\)\) padding-box/);
-  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:6\.25rem; \}/);
-  assert.match(styles, /backdrop-filter:blur\(28px\) saturate\(1\.08\)/);
+  assert.match(styles, /background-size:auto,auto,auto,min\(78rem,92vw\) auto/);
+  assert.match(styles, /background:rgb\(255 255 255 \/ 66%\)/);
+  assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:5\.5rem; \}/);
+  assert.match(styles, /backdrop-filter:blur\(22px\) saturate\(104%\)/);
   assert.match(styles, /linear-gradient\(110deg,#155a91 0 34%,#16875f 52% 70%,#ee7c37 88% 100%\) border-box/);
   assert.match(styles, /\.password-strength \{ color:#314d62; font-size:\.82rem; font-weight:700; \}/);
   assert.match(styles, /\.identity-language/);

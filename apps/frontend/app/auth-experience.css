@@ -395,3 +395,63 @@ body:has(.auth-experience) .khedma-header { display:none; }
   .register-heading { border-radius:1rem; text-align:center; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1.3rem; border-radius:1.15rem; }
 }
+
+
+/* Structural auth reset: one quiet canvas and a compact neutral-glass form. */
+.auth-experience {
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding:1.25rem 1rem 2rem;
+  background-color:#f7fafb;
+  background-image:
+    radial-gradient(circle at 50% 4%,rgb(255 255 255 / 98%) 0 10rem,transparent 28rem),
+    radial-gradient(circle at 8% 86%,rgb(22 135 95 / 7%),transparent 28rem),
+    radial-gradient(circle at 92% 82%,rgb(238 124 55 / 7%),transparent 27rem),
+    url('/brand/auth-umbrella-pattern.svg');
+  background-repeat:no-repeat;
+  background-position:center top,left bottom,right bottom,center;
+  background-size:auto,auto,auto,min(78rem,92vw) auto;
+}
+.auth-experience::before {
+  width:min(48rem,90vw);
+  height:min(43rem,86vh);
+  background:radial-gradient(ellipse,rgb(255 255 255 / 68%) 0 44%,rgb(255 255 255 / 24%) 64%,transparent 78%);
+}
+.auth-phone,.auth-phone-register,.auth-phone-login {
+  width:min(100%,36rem);
+  gap:.5rem;
+}
+.identity-approved-brand::before { width:11rem; height:8.5rem; }
+.identity-approved-brand .khedma-brand>svg { width:5.5rem; }
+.identity-approved-brand .khedma-brand b { font-size:2.05rem; }
+.identity-approved-brand .khedma-brand small { font-size:.64rem; }
+.register-heading { margin:0 0 .2rem; padding:.35rem .75rem; background:rgb(255 255 255 / 56%); }
+.auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel {
+  gap:.78rem;
+  padding:1.4rem;
+  border-color:rgb(16 52 82 / 15%);
+  border-radius:1.15rem;
+  background:rgb(255 255 255 / 62%);
+  -webkit-backdrop-filter:blur(22px) saturate(104%);
+  backdrop-filter:blur(22px) saturate(104%);
+  box-shadow:0 1.25rem 3.75rem rgb(16 52 82 / 12%);
+}
+.auth-tabs a,.auth-tabs span { min-height:2.85rem; font-size:1rem; }
+.auth-field {
+  min-height:3.25rem;
+  border-color:rgb(16 52 82 / 17%);
+  background:rgb(255 255 255 / 66%);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+}
+.auth-primary,.auth-secondary,.auth-resend { min-height:3.15rem; }
+.auth-primary { background:linear-gradient(135deg,#155a91,#103452); }
+.auth-secondary,.auth-resend { border-color:rgb(16 52 82 / 16%); background:rgb(255 255 255 / 62%); }
+.auth-divider::before,.auth-divider::after { border-color:rgb(16 52 82 / 22%); }
+.auth-divider span { background:transparent; }
+@media(max-width:42rem) {
+  .auth-experience { padding:.85rem .7rem 1.25rem; background-size:auto,auto,auto,48rem auto; }
+  .identity-approved-brand .khedma-brand>svg { width:4.8rem; }
+  .identity-approved-brand .khedma-brand b { font-size:1.85rem; }
+  .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1.1rem; }
+}
