@@ -10,6 +10,8 @@ test('Android is a branded service app rather than a map-only activity', async (
     assert.match(activity, new RegExp(contract.replace('.', '\\.')));
   }
   assert.match(activity, /تحت مظلة واحدة/);
+  assert.match(activity, /Facebook — قريبًا/);
+  assert.match(activity, /OutlinedButton\(onClick = \{\}, enabled = false/);
   assert.match(activity, /LocalLayoutDirection provides LayoutDirection\.Rtl/);
 });
 

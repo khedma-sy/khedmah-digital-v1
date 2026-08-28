@@ -5,10 +5,16 @@ set -euo pipefail
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 
 FRONTEND_SERVICE="${OPERATIONS_FRONTEND_SERVICE:-frontend}"
+FACEBOOK_AUTH_ENABLED="${FACEBOOK_AUTH_ENABLED:-false}"
 CONFIG_FILE="$(mktemp)"
 PROVIDERS_FILE="$(mktemp)"
 cleanup() { rm -f "$CONFIG_FILE" "$PROVIDERS_FILE"; }
 trap cleanup EXIT
+
+if [[ "$FACEBOOK_AUTH_ENABLED" != true && "$FACEBOOK_AUTH_ENABLED" != false ]]; then
+  echo "ERROR: FACEBOOK_AUTH_ENABLED must be true or false." >&2
+  exit 1
+fi
 
 for command_name in curl gcloud jq; do
   command -v "$command_name" >/dev/null || {
@@ -47,7 +53,12 @@ curl --fail --silent --show-error \
   -H "X-Goog-User-Project: ${GOOGLE_CLOUD_PROJECT}" \
   "${ADMIN_BASE}/defaultSupportedIdpConfigs" > "$PROVIDERS_FILE"
 
-for provider in google.com facebook.com; do
+required_providers=(google.com)
+if [[ "$FACEBOOK_AUTH_ENABLED" == true ]]; then
+  required_providers+=(facebook.com)
+fi
+
+for provider in "${required_providers[@]}"; do
   if ! jq -e --arg provider "$provider" '
     (.defaultSupportedIdpConfigs // [])
     | any(
@@ -62,4 +73,9 @@ for provider in google.com facebook.com; do
 done
 
 echo "READY: FIREBASE_AUTHORIZED_DOMAIN=${FRONTEND_HOST}"
-echo "READY: FIREBASE_SOCIAL_PROVIDERS=google.com,facebook.com"
+if [[ "$FACEBOOK_AUTH_ENABLED" == true ]]; then
+  echo "READY: FIREBASE_SOCIAL_PROVIDERS=google.com,facebook.com"
+else
+  echo "READY: FIREBASE_SOCIAL_PROVIDERS=google.com"
+  echo "DEFERRED: FIREBASE_PROVIDER=facebook.com"
+fi

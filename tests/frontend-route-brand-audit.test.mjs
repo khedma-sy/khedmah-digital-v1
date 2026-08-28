@@ -28,11 +28,18 @@ test('every frontend page is audited against retired utility styling', async () 
 
 test('social login verifies the selected provider on both sides of the API', async () => {
   const client = await readFile(new URL('../apps/frontend/lib/firebase/auth.ts', import.meta.url), 'utf8');
+  const login = await readFile(new URL('../apps/frontend/app/auth/login/page.tsx', import.meta.url), 'utf8');
+  const register = await readFile(new URL('../apps/frontend/app/auth/register/page.tsx', import.meta.url), 'utf8');
   const api = await readFile(new URL('../apps/frontend/lib/identity-api.ts', import.meta.url), 'utf8');
   const controller = await readFile(new URL('../apps/backend/src/identity/auth.controller.ts', import.meta.url), 'utf8');
   const service = await readFile(new URL('../apps/backend/src/identity/google-auth.service.ts', import.meta.url), 'utf8');
   assert.match(client, /FacebookAuthProvider/);
   assert.match(client, /GoogleAuthProvider/);
+  assert.match(client, /NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED/);
+  assert.match(login, /FACEBOOK_AUTH_ENABLED/);
+  assert.match(login, /Facebook — قريبًا/);
+  assert.match(register, /FACEBOOK_AUTH_ENABLED/);
+  assert.match(register, /Facebook — قريبًا/);
   assert.match(api, /auth\/facebook/);
   assert.match(controller, /@Post\("facebook"\)/);
   assert.match(service, /facebook\.com/);
