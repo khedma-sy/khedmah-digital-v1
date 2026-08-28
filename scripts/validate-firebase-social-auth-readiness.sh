@@ -50,7 +50,11 @@ curl --fail --silent --show-error \
 for provider in google.com facebook.com; do
   if ! jq -e --arg provider "$provider" '
     (.defaultSupportedIdpConfigs // [])
-    | any(.idpId == $provider and .enabled == true and ((.clientId // "") | length > 0))
+    | any(
+        (((.name // "") | split("/") | last) == $provider)
+        and .enabled == true
+        and ((.clientId // "") | length > 0)
+      )
   ' "$PROVIDERS_FILE" >/dev/null; then
     echo "ERROR: Firebase provider ${provider} must be enabled and have a client ID before production deployment." >&2
     exit 1
