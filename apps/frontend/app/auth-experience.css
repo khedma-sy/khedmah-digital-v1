@@ -17,7 +17,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
     url('/brand/auth-umbrella-pattern.svg');
   background-repeat:no-repeat,no-repeat,no-repeat,repeat;
   background-position:center top,left bottom,right bottom,center top;
-  background-size:auto,auto,auto,clamp(52rem,68vw,64rem) auto;
+  background-size:auto,auto,auto,clamp(72rem,82vw,88rem) auto;
   isolation:isolate;
 }
 
@@ -47,7 +47,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
   grid-template-areas:"visual" "heading" "content" "footer";
   justify-items:stretch;
   align-items:start;
-  gap:.55rem;
+  gap:.38rem;
   padding:0;
   border:0;
   border-radius:0;
@@ -122,8 +122,8 @@ body:has(.auth-experience) .khedma-header { display:none; }
   position:absolute;
   z-index:-1;
   inset:50% auto auto 50%;
-  width:17rem;
-  height:14rem;
+  width:15rem;
+  height:12.5rem;
   translate:-50% -50%;
   border-radius:50%;
   background:radial-gradient(ellipse,rgb(247 250 252 / 99%) 0 46%,rgb(247 250 252 / 82%) 62%,transparent 78%);
@@ -136,9 +136,9 @@ body:has(.auth-experience) .khedma-header { display:none; }
   gap:0;
 }
 
-.identity-approved-brand .khedma-brand>svg { width:8.55rem; }
+.identity-approved-brand .khedma-brand>svg { width:7.35rem; }
 .identity-approved-brand .khedma-brand>span { margin:0; }
-.identity-approved-brand .khedma-brand b { color:#103452; font-size:3rem; line-height:1; }
+.identity-approved-brand .khedma-brand b { color:#103452; font-size:2.65rem; line-height:1; }
 .identity-approved-brand .khedma-brand small { margin-top:.3rem; color:#103452; font-size:.7rem; }
 .identity-approved-brand>p,
 .identity-service-grid,
@@ -150,7 +150,8 @@ body:has(.auth-experience) .khedma-header { display:none; }
   text-align:center;
 }
 
-.register-heading p { margin:0; color:#4f6070; font-size:.92rem; font-weight:620; }
+.register-heading p { margin:0; color:#40566a; font-size:.92rem; font-weight:650; }
+.auth-login-heading { grid-area:heading; margin:0 0 .15rem; }
 
 .auth-panel,
 .auth-phone-register .auth-panel,
@@ -159,18 +160,18 @@ body:has(.auth-experience) .khedma-header { display:none; }
   width:100%;
   max-width:none;
   display:grid;
-  gap:1rem;
+  gap:.85rem;
   justify-self:stretch;
-  padding:1.7rem;
-  border:1.25px solid transparent;
+  padding:1.45rem;
+  border:1px solid transparent;
   border-radius:1rem;
   color:#103452;
   background:
-    linear-gradient(145deg,rgb(255 255 255 / 88%),rgb(250 253 253 / 81%)) padding-box,
+    linear-gradient(145deg,rgb(255 255 255 / 94%),rgb(252 254 254 / 89%)) padding-box,
     linear-gradient(110deg,#155a91 0 34%,#16875f 52% 70%,#ee7c37 88% 100%) border-box;
-  -webkit-backdrop-filter:blur(22px) saturate(1.04);
-  backdrop-filter:blur(22px) saturate(1.04);
-  box-shadow:0 1.35rem 4.5rem rgb(16 52 82 / 14%),0 0 0 1px rgb(255 255 255 / 72%) inset;
+  -webkit-backdrop-filter:blur(18px) saturate(1.02);
+  backdrop-filter:blur(18px) saturate(1.02);
+  box-shadow:0 1.15rem 3.5rem rgb(16 52 82 / 12%),0 0 0 1px rgb(255 255 255 / 78%) inset;
 }
 
 .auth-panel-title { display:grid; justify-items:center; gap:.35rem; margin:0; text-align:center; }
@@ -199,7 +200,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 
 .auth-field {
   position:relative;
-  min-height:3.55rem;
+  min-height:3.35rem;
   display:grid;
   grid-template-columns:1.5rem 1fr auto;
   align-items:center;
@@ -209,15 +210,15 @@ body:has(.auth-experience) .khedma-header { display:none; }
   padding:.45rem .9rem;
   color:#103452;
   background:
-    linear-gradient(rgb(255 255 255 / 91%),rgb(255 255 255 / 84%)) padding-box,
-    linear-gradient(110deg,rgb(21 90 145 / 68%),rgb(22 135 95 / 58%) 68%,rgb(238 124 55 / 64%)) border-box;
+    linear-gradient(rgb(255 255 255 / 96%),rgb(255 255 255 / 91%)) padding-box,
+    linear-gradient(110deg,rgb(21 90 145 / 38%),rgb(22 135 95 / 32%) 68%,rgb(238 124 55 / 38%)) border-box;
   -webkit-backdrop-filter:blur(10px);
   backdrop-filter:blur(10px);
 }
 
-.auth-field:focus-within { border-color:#155a91; box-shadow:0 0 0 3px rgb(21 90 145 / 13%),0 0 0 1px rgb(22 135 95 / 22%) inset; }
+.auth-field:focus-within { border-color:transparent; box-shadow:0 0 0 3px rgb(21 90 145 / 13%),0 0 0 1px rgb(22 135 95 / 28%) inset; }
 .auth-field>svg { grid-column:1; color:#586f82; }
-.auth-field>span { position:absolute; inset-inline-start:3rem; inset-block-start:.38rem; color:#5b6f80; font-size:.69rem; font-weight:650; }
+.auth-field>span { position:absolute; inset-inline-start:3rem; inset-block-start:.38rem; color:#40566a; font-size:.72rem; font-weight:700; }
 .auth-field>input { grid-column:2; align-self:end; width:100%; min-width:0; border:0; outline:0; padding:.75rem 0 .05rem; color:#103452; background:transparent; font:inherit; }
 .password-toggle { grid-column:3; border:0; padding:.35rem; color:#586f82; background:transparent; cursor:pointer; }
 
@@ -259,7 +260,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-primary:disabled,.auth-secondary:disabled,.auth-resend:disabled { cursor:wait; opacity:.6; }
 
 .auth-divider { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:.8rem; color:#647789; }
-.auth-divider::before,.auth-divider::after { content:""; border-top:1px solid #d9e0e6; }
+.auth-divider::before,.auth-divider::after { content:""; border-top:1px solid #c9d4dc; }
 .auth-divider span { padding:0 .35rem; background:rgb(255 255 255 / 78%); }
 
 .auth-social-grid { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
@@ -269,7 +270,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 .auth-help,.login-prompt { grid-area:footer; margin:0; color:#4f6070!important; text-align:center; }
 .auth-help a,.login-prompt a { color:#155a91; font-weight:850; }
 .auth-back { position:fixed; inset-block-start:1rem; inset-inline-start:1rem; z-index:3; }
-.password-strength { color:#425a6d; font-size:.8rem; font-weight:650; }
+.password-strength { color:#314d62; font-size:.82rem; font-weight:700; }
 
 .auth-error,.auth-notice,.auth-success {
   margin:0;
@@ -289,13 +290,13 @@ body:has(.auth-experience) .khedma-header { display:none; }
   .auth-experience {
     padding:1rem .75rem 2rem;
     background-position:center top,left bottom,right bottom,center top;
-    background-size:auto,auto,auto,42rem auto;
+    background-size:auto,auto,auto,58rem auto;
   }
   .auth-experience::before { inset-block-start:6rem; width:94vw; height:38rem; }
   .identity-approved-brand::before { width:14rem; height:12rem; }
   .auth-phone,.auth-phone-register,.auth-phone-login { width:100%; }
   .identity-language { position:static; justify-self:start; margin-bottom:-1.5rem; font-size:.82rem; }
-  .identity-approved-brand .khedma-brand>svg { width:6.6rem; }
+  .identity-approved-brand .khedma-brand>svg { width:6.1rem; }
   .identity-approved-brand .khedma-brand b { font-size:2.35rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1.2rem; }
   .auth-social-grid { grid-template-columns:1fr; }
