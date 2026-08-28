@@ -99,6 +99,9 @@ export default function LoginPage() {
     <main id="foundation-content" className="auth-experience" aria-label="تسجيل الدخول">
       <div className="auth-phone auth-phone-login">
         <IdentityVisual />
+        <section className="register-heading auth-login-heading">
+          <p>اكتشف الخدمات والأعمال والمهنيين الموثوقين بالقرب منك.</p>
+        </section>
         <form className="auth-panel" onSubmit={submitLogin} noValidate>
           <nav className="auth-tabs" aria-label="الدخول وإنشاء الحساب">
             <Link href="/auth/register">سجل الآن</Link>
