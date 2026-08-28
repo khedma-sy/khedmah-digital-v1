@@ -360,3 +360,30 @@ body:has(.auth-experience) .khedma-header { display:none; }
   .auth-panel { width:100%; padding:1.2rem; }
   .auth-social-grid { grid-template-columns:1fr; }
 }
+
+
+/* Header control reset: modes are secondary controls, never the visual focus. */
+.khedma-header {
+  min-height:4rem;
+  padding-block:.45rem;
+  background:rgb(255 255 255 / 76%);
+  -webkit-backdrop-filter:blur(18px) saturate(105%);
+  backdrop-filter:blur(18px) saturate(105%);
+  box-shadow:0 .3rem 1.2rem rgb(16 52 82 / 5%);
+}
+.khedma-header .khedma-header-actions { gap:.7rem; }
+.khedma-header .nav-session a,
+.khedma-header .nav-session button {
+  min-height:2.45rem;
+  border-radius:.65rem;
+  padding:.45rem .68rem;
+  font-size:.84rem;
+}
+.khedma-header .nav-session .nav-cta {
+  background:#16875f;
+  box-shadow:0 .35rem .9rem rgb(22 135 95 / 14%);
+}
+@media(max-width:48rem) {
+  .khedma-header { min-height:3.6rem; }
+  .khedma-header .nav-session a,.khedma-header .nav-session button { min-height:2.3rem; padding:.4rem .55rem; }
+}
