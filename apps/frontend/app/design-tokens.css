@@ -101,3 +101,23 @@ body { background: var(--k-color-canvas); color: var(--k-color-text); }
 .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
 @media(max-width:58rem) { .theme-toggle-label { display:none; } }
 @media(max-width:38rem) { .khedma-header-actions { gap:.3rem; } .theme-toggle button { min-width:2rem; min-height:2rem; padding:.2rem; } }
+
+
+/* Shared visual contract: compact type, neutral glass, and calm brand color. */
+:root {
+  --k-type-display: clamp(2rem, 3.35vw, 3rem);
+  --k-type-page: clamp(1.55rem, 2.5vw, 2.15rem);
+  --k-type-section: clamp(1.3rem, 2vw, 1.75rem);
+  --k-type-card: 1.05rem;
+  --k-glass: rgb(255 255 255 / 82%);
+  --k-glass-strong: rgb(255 255 255 / 92%);
+  --k-glass-border: rgb(16 52 82 / 13%);
+  --k-glass-shadow: 0 1rem 2.8rem rgb(16 52 82 / 9%);
+  --k-glass-blur: 18px;
+}
+:root[data-theme='dark'] {
+  --k-glass: rgb(15 22 27 / 84%);
+  --k-glass-strong: rgb(18 27 33 / 94%);
+  --k-glass-border: rgb(237 247 244 / 15%);
+  --k-glass-shadow: 0 1rem 2.8rem rgb(0 0 0 / 28%);
+}
