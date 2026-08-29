@@ -2,56 +2,25 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { api, type PublicBusinessProfile } from '../../lib/api-client';
-import { cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
+import { api, type ProductListing } from '../../lib/api-client';
 import { PlatformIcon } from './platform-icon';
 import styles from '../home.module.css';
 
-const KNOWN_TEST_NAMES = new Set(['khedmah production test', 'خدمة production test']);
-const isPublicRelease = (business: PublicBusinessProfile) =>
-  business.visibility === 'public' &&
-  business.moderationStatus === 'approved' &&
-  business.trustStatus === 'approved' &&
-  business.status === 'active' &&
-  !KNOWN_TEST_NAMES.has(business.name.trim().toLocaleLowerCase('en'));
-
-const formatDate = (value: string) => new Intl.DateTimeFormat('ar-SY', {
-  day: 'numeric', month: 'long', year: 'numeric'
-}).format(new Date(value));
-
 export function RecentlyAdded() {
-  const { cities } = useSyrianCities();
-  const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
+  const [ads, setAds] = useState<ProductListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
-
   useEffect(() => {
     let active = true;
-    void api.businesses.getRecentlyAdded()
-      .then(({ businesses: items }) => { if (active) setBusinesses(items.filter(isPublicRelease).slice(0, 6)); })
-      .catch(() => { if (active) setError(true); })
-      .finally(() => { if (active) setIsLoading(false); });
+    void api.products.list({}).then(({ products }) => { if (active) setAds(products.slice(0, 8)); })
+      .catch(() => { if (active) setError(true); }).finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, []);
-
-  return <section id="whats-new" className={styles.recent} aria-labelledby="recent-title">
-    <div className={styles.sectionHeading}>
-      <span>انضموا حديثًا</span>
-      <h2 id="recent-title">جديد في خدمة</h2>
-      <p>أنشطة منشورة وموثقة انضمت حديثًا تحت مظلة واحدة.</p>
-    </div>
-    {isLoading ? <div className={styles.recentGrid} aria-label="جاري تحميل الأنشطة الجديدة">{[0, 1, 2].map(item => <div className={styles.recentSkeleton} key={item} />)}</div> :
-      businesses.length ? <div className={styles.recentGrid}>{businesses.map(business => <article className={styles.recentCard} key={business.id}>
-        <div className={styles.recentMeta}><span><PlatformIcon name="check" /> نشاط موثّق</span><time dateTime={business.createdAt}>{formatDate(business.createdAt)}</time></div>
-        <h3>{business.name}</h3>
-        <p>{business.descriptionAr || `انضم نشاط جديد إلى خدمة في ${cityLabel(business.cityCode, cities)}.`}</p>
-        <div className={styles.recentFooter}><span><PlatformIcon name="pin" /> {cityLabel(business.cityCode, cities)}</span><Link href={`/business-profiles/${encodeURIComponent(business.id)}?source=whats-new`}>عرض النشاط <PlatformIcon name="arrow" /></Link></div>
-      </article>)}</div> : <div className={styles.recentEmpty} role={error ? 'alert' : 'status'}>
-        <PlatformIcon name={error ? 'search' : 'briefcase'} size={30} />
-        <h3>{error ? 'تعذر تحميل الأنشطة الجديدة' : 'لا توجد إضافات جديدة حاليًا'}</h3>
-        <p>{error ? 'يمكنك متابعة اكتشاف الخدمات المنشورة ريثما نعيد الاتصال.' : 'ابحث في دليل الأنشطة والخدمات الحالي أو اختر تصنيفًا للبدء.'}</p>
-        <Link href="/search">فتح دليل الخدمات</Link>
-      </div>}
-    <div className={styles.recentAction}><Link href="/search">عرض جميع الخدمات</Link></div>
+  return <section id="classifieds-strip" className={styles.recent} aria-labelledby="classifieds-title">
+    <div className={styles.sectionHeading}><span>إعلانات مرتبطة بأنشطة معتمدة</span><h2 id="classifieds-title">الإعلانات المبوبة</h2><p>منتجات وعروض منشورة بعد المراجعة، والتواصل مباشر مع النشاط المعلن.</p></div>
+    {isLoading ? <div className={styles.recentGrid} aria-label="جاري تحميل الإعلانات">{[0, 1, 2].map(item => <div className={styles.recentSkeleton} key={item} />)}</div> : ads.length ?
+      <div className={styles.adRail}>{ads.map(ad => <article className={styles.recentCard} key={ad.id}><div className={styles.recentMeta}><span><PlatformIcon name="briefcase" /> إعلان</span><span>{ad.businessName}</span></div><h3>{ad.titleAr}</h3><p>{ad.descriptionAr || 'اطّلع على التفاصيل وتواصل مباشرة مع النشاط المعلن.'}</p><div className={styles.recentFooter}><strong>{ad.price.toLocaleString('ar-SY')} {ad.currency}</strong><Link href={`/store/products/${encodeURIComponent(ad.id)}`}>عرض الإعلان <PlatformIcon name="arrow" /></Link></div></article>)}</div> :
+      <div className={styles.recentEmpty} role={error ? 'alert' : 'status'}><PlatformIcon name="briefcase" size={30} /><h3>{error ? 'تعذر تحميل الإعلانات' : 'لا توجد إعلانات منشورة حاليًا'}</h3><p>{error ? 'أعد المحاولة لاحقًا.' : 'يمكن لصاحب نشاط معتمد إضافة أول إعلان وإرساله للمراجعة.'}</p><Link href="/store/sell">أضف إعلانًا</Link></div>}
+    <div className={styles.recentAction}><Link href="/classifieds">فتح صفحة الإعلانات المبوبة</Link></div>
   </section>;
 }
