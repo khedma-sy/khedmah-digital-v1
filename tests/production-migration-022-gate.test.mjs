@@ -42,6 +42,13 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(rollback, /UPDATE categories AS category[\s\S]*FROM category_taxonomy_022_before_image AS before_image/);
   assert.match(rollback, /status = before_image\.status/);
   assert.match(rollback, /name_ar = before_image\.name_ar/);
+  assert.match(rollback, /MIGRATION_022_ROLLBACK_BEFORE_IMAGE_MISSING/);
+  assert.match(rollback, /business_profiles AS profile[\s\S]*JOIN categories AS category ON category\.code = profile\.category_code[\s\S]*before_image\.code = category\.code/);
+  assert.match(rollback, /service_listings AS service[\s\S]*JOIN categories AS category ON category\.code = service\.category_code[\s\S]*before_image\.code = category\.code/);
+  assert.match(rollback, /MIGRATION_022_ROLLBACK_NEW_CATEGORY_REFERENCED/);
+  assert.match(rollback, /UPDATE categories[\s\S]*SET parent_code = NULL[\s\S]*WHERE parent_code IS NOT NULL/);
+  assert.match(rollback, /DELETE FROM categories AS category[\s\S]*NOT EXISTS[\s\S]*before_image\.code = category\.code/);
+  assert.ok(rollback.indexOf('MIGRATION_022_ROLLBACK_NEW_CATEGORY_REFERENCED') < rollback.indexOf('UPDATE categories AS category'));
   assert.match(rollback, /DROP TABLE category_taxonomy_022_before_image/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN.*organization_id/);
   assert.match(runner, /pg_advisory_xact_lock/);

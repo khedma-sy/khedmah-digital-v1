@@ -366,7 +366,7 @@ Trust Level
 - Discovery accepts a root or leaf. Root filtering recursively includes descendants, and keyword search includes aliases from the category lineage.
 - Web and Android must preserve the hierarchy rather than render a flat 114-item primary list.
 - Existing organization records and memberships remain compatible data but gain no category ownership authority.
-- Legacy referenced category rows are preserved, hidden when noncanonical, and restored to their exact prior state by the governed rollback.
+- The forward path preserves legacy referenced category rows and hides them when noncanonical. Governed rollback restores the exact pre-022 catalog, removes unreferenced post-snapshot rows, and aborts before mutation when a post-snapshot category is referenced so an operator can remap it explicitly.
 - Category changes require reviewed migration, rollback, checksum synchronization, product/contract updates, and cross-client tests.
 
 `Service`, `Workflow Type`, expanded location coverage, category-specific trust policy, representative relationships, and Job Work execution remain separate contracts and are not implied by this Category implementation.

@@ -1,5 +1,37 @@
+-- Refuse rollback before changing data when a category created after the
+-- pre-022 snapshot is already referenced. The older schema cannot represent
+-- that relationship safely, so an operator must remap those references first.
+DO $rollback_guard$
+BEGIN
+  IF to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_022_ROLLBACK_BEFORE_IMAGE_MISSING';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM business_profiles AS profile
+    JOIN categories AS category ON category.code = profile.category_code
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM category_taxonomy_022_before_image AS before_image
+      WHERE before_image.code = category.code
+    )
+  ) OR EXISTS (
+    SELECT 1
+    FROM service_listings AS service
+    JOIN categories AS category ON category.code = service.category_code
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM category_taxonomy_022_before_image AS before_image
+      WHERE before_image.code = category.code
+    )
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION_022_ROLLBACK_NEW_CATEGORY_REFERENCED';
+  END IF;
+END
+$rollback_guard$;
+
 -- Restore every pre-existing category row exactly as migration 022 found it.
--- Rows introduced by 022 are preserved because they may already be referenced.
 UPDATE categories AS category
 SET
   name_ar = before_image.name_ar,
@@ -10,6 +42,22 @@ SET
   updated_at = before_image.updated_at
 FROM category_taxonomy_022_before_image AS before_image
 WHERE category.code = before_image.code;
+
+-- Remove every unreferenced row created after the snapshot so the old
+-- application receives the exact pre-022 flat catalog. Clear the hierarchy on
+-- all rows first so the self-referencing foreign key cannot make deletion
+-- order-dependent. Any unmodelled reference still fails through its database
+-- foreign key and leaves the surrounding rollback transaction unchanged.
+UPDATE categories
+SET parent_code = NULL
+WHERE parent_code IS NOT NULL;
+
+DELETE FROM categories AS category
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM category_taxonomy_022_before_image AS before_image
+  WHERE before_image.code = category.code
+);
 
 -- Remove only the hierarchy/search presentation columns introduced by 022.
 ALTER TABLE categories

@@ -17,7 +17,7 @@ The V1 implementation authority is limited to a two-level `Category → Subcateg
 | Owner writes | New or changed Business Profile and Service Listing category selections require an active leaf. An unchanged preserved legacy reference may pass through an unrelated edit; a broad root is never a new writable classification. |
 | Discovery | Search accepts an active root or leaf. A root includes all descendants; Arabic and English aliases from the selected category lineage are searchable. |
 | Presentation | Web groups roots and leaves. Android carries `parentCode`, shows roots as the main row, and reveals the selected root's leaves. |
-| Compatibility | Pre-existing referenced category rows are preserved. Noncanonical legacy roots are hidden from active public/owner selection, and the rollback restores their exact pre-022 state. |
+| Compatibility | The forward path preserves pre-existing referenced category rows and hides noncanonical legacy roots from active public/owner selection. Rollback restores the exact pre-022 catalog, deletes unreferenced post-snapshot rows, and aborts before mutation if a post-snapshot category is referenced. |
 | Change control | Adding, renaming, moving, or reactivating categories requires a reviewed migration, updated aliases/presentation, tests, and synchronized product/contract documentation. |
 
 ## Taxonomy Principles

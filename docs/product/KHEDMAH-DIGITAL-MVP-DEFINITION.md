@@ -163,7 +163,7 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 1. The governed catalog contains 15 active roots and 99 active leaves; new or changed owner category selections accept active leaves only, while an unchanged preserved legacy reference does not block unrelated edits.
 2. Root discovery recursively includes descendants, and keyword matching includes Arabic and English aliases from category lineage.
 3. Web and Android consume `parentCode`; the primary category surface displays roots and exposes leaves within their selected root.
-4. Migration 022 is ordered, checksum-bound, reversible, preserves references, and restores all pre-existing category state on rollback.
+4. Migration 022 is ordered, checksum-bound, and reversible. Its forward path preserves legacy references; rollback restores the exact pre-022 catalog by deleting unreferenced post-snapshot rows and aborts before mutation when a post-snapshot category is referenced.
 5. Search results continue to enforce existing public visibility and moderation rules and expose no private or internal fields.
 6. Category names, aliases, hierarchy, product documentation, contract documentation, and cross-client tests change together.
 7. The Web search surface must not show or retain a Category filter on the Professional tab; the combined Category search returns Business Profiles and Service Listings only.
