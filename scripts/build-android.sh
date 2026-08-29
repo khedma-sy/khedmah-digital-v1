@@ -10,12 +10,25 @@ gradle_wrapper="${android_root}/gradlew"
   exit 3
 }
 
-command -v java >/dev/null || {
-  echo 'JDK 17 is required to build Android.' >&2
-  exit 4
-}
+if [[ -n "${JAVA_HOME:-}" ]]; then
+  if [[ -x "${JAVA_HOME}/jre/sh/java" ]]; then
+    java_command="${JAVA_HOME}/jre/sh/java"
+  else
+    java_command="${JAVA_HOME}/bin/java"
+  fi
+  [[ -x "$java_command" ]] || {
+    echo "JAVA_HOME does not reference an executable Java runtime: ${JAVA_HOME}" >&2
+    exit 4
+  }
+else
+  java_command="$(command -v java || true)"
+  [[ -n "$java_command" ]] || {
+    echo 'JDK 17 is required to build Android.' >&2
+    exit 4
+  }
+fi
 
-java_major_version="$(java -version 2>&1 | awk -F '[\".]' '/version/ { print $2; exit }')"
+java_major_version="$("$java_command" -version 2>&1 | awk -F '[\".]' '/version/ { print $2; exit }')"
 [[ "$java_major_version" == "17" ]] || {
   echo "JDK 17 is required to build Android; found ${java_major_version:-unknown}." >&2
   exit 5
