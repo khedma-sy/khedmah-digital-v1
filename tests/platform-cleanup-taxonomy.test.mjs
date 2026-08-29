@@ -127,6 +127,7 @@ test('category directory paginates every service result instead of stopping at t
   assert.match(directory, /const totalPages = Math\.ceil\(total \/ PAGE_SIZE\)/);
   assert.match(directory, /aria-label="صفحات دليل الخدمات"/);
   assert.match(directory, /goToPage\(page \+ 1\)/);
+  assert.match(directory, /loadServices\(activeCategory, page\)/);
   assert.match(styles, /\.catalog-pagination/);
   assert.match(contract, /broad roots must not stop at the first 20 eligible listings/);
 });

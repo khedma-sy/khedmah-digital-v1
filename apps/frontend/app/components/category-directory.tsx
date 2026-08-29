@@ -27,6 +27,7 @@ export function CategoryDirectory() {
   const roots = categories.filter((category) => !category.parentCode);
 
   async function loadServices(categoryCode: string, pageNumber = 1) {
+    setPage(pageNumber);
     setIsLoading(true);
     setError('');
     try {
@@ -110,7 +111,7 @@ export function CategoryDirectory() {
           </section>
         ) : null}
 
-        {error ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
+        {error ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory, page)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
         {isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 
         {!isLoading && !error && services.length > 0 ? (

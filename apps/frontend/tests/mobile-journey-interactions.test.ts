@@ -21,6 +21,7 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   assert.match(catalog, /page: pageNumber/);
   assert.match(catalog, /setTotal\(data\.total\)/);
   assert.match(catalog, /aria-label="صفحات دليل الخدمات"/);
+  assert.match(catalog, /loadServices\(activeCategory, page\)/);
 });
 
 test('password visibility icons are operable controls with accessible labels', async () => {
