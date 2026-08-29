@@ -5,6 +5,8 @@ readonly APPROVED_MIGRATION_021='021_provider_reports'
 readonly APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'
 readonly APPROVED_MIGRATION_022='022_expand_category_taxonomy'
 readonly APPROVED_SHA256_022='f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330'
+readonly APPROVED_MIGRATION_024='024_product_store'
+readonly APPROVED_SHA256_024='d2141fab35a163cd46511d35bef13a060f9ceb4b2d25acbedb0afa44a4be16a6'
 
 case "${MIGRATION_VERSION:-}" in
   "$APPROVED_MIGRATION_021")
@@ -15,8 +17,12 @@ case "${MIGRATION_VERSION:-}" in
     APPROVED_SHA256="$APPROVED_SHA256_022"
     MIGRATION_FILE='/migrations/022_expand_category_taxonomy.sql'
     ;;
+  "$APPROVED_MIGRATION_024")
+    APPROVED_SHA256="$APPROVED_SHA256_024"
+    MIGRATION_FILE='/migrations/024_product_store.sql'
+    ;;
   *)
-    echo "ERROR: Only ${APPROVED_MIGRATION_021} or ${APPROVED_MIGRATION_022} is approved by this image." >&2
+    echo "ERROR: Only ${APPROVED_MIGRATION_021}, ${APPROVED_MIGRATION_022}, or ${APPROVED_MIGRATION_024} is approved by this image." >&2
     exit 1
     ;;
 esac
@@ -96,6 +102,77 @@ SQL
   exit 0
 fi
 
+if [ "$MIGRATION_VERSION" = "$APPROVED_MIGRATION_024" ]; then
+  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('khedmah-production-schema-migration', 0));
+DO \$migration_guard\$
+BEGIN
+  IF to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_024_REQUIRES_SCHEMA_022';
+  END IF;
+  IF to_regclass(current_schema() || '.product_listings') IS NOT NULL THEN
+    RAISE EXCEPTION 'MIGRATION_024_ALREADY_OR_PARTIALLY_APPLIED';
+  END IF;
+END
+\$migration_guard\$;
+\ir ${MIGRATION_FILE}
+DO \$migration_verify\$
+DECLARE
+  required_column text;
+BEGIN
+  IF to_regclass(current_schema() || '.product_listings') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_024_TABLE_POSTCONDITION_FAILED';
+  END IF;
+  FOREACH required_column IN ARRAY ARRAY[
+    'business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency',
+    'category_code', 'availability', 'status', 'moderation_status'
+  ] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'product_listings'
+        AND column_name = required_column
+    ) THEN
+      RAISE EXCEPTION 'MIGRATION_024_COLUMN_POSTCONDITION_FAILED: %', required_column;
+    END IF;
+  END LOOP;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = current_schema()
+      AND tablename = 'product_listings'
+      AND indexname = 'product_listings_public_idx'
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION_024_INDEX_POSTCONDITION_FAILED';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = current_schema()
+      AND t.relname = 'media_assets'
+      AND c.conname = 'media_assets_owner_type_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%product_listing%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = current_schema()
+      AND t.relname = 'media_assets'
+      AND c.conname = 'media_assets_asset_type_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%product_image%'
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION_024_MEDIA_CONSTRAINT_POSTCONDITION_FAILED';
+  END IF;
+END
+\$migration_verify\$;
+COMMIT;
+SQL
+
+  printf '%s\n' 'MIGRATION_024_APPLIED_AND_VERIFIED'
+  exit 0
+fi
+
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-production-schema-migration', 0));
@@ -116,6 +193,7 @@ BEGIN
         AND table_name = 'categories'
         AND column_name IN ('parent_code', 'visual_key', 'search_aliases_ar', 'search_aliases_en', 'is_featured')
     )
+    OR to_regclass(current_schema() || '.product_listings') IS NOT NULL
   THEN
     RAISE EXCEPTION 'MIGRATION_022_ALREADY_OR_PARTIALLY_APPLIED';
   END IF;
