@@ -14,7 +14,7 @@ The V1 implementation authority is limited to a two-level `Category → Subcateg
 | --- | --- |
 | Source of truth | The `categories` table and ordered Migration `022_expand_category_taxonomy`. |
 | Shape | Exactly 15 active root categories and 99 active leaf categories in the shipped catalog. Root and leaf codes are stable governed identifiers. |
-| Owner writes | Business profiles and service listings select an active leaf. A broad root is not a writable activity classification. |
+| Owner writes | New or changed Business Profile and Service Listing category selections require an active leaf. An unchanged preserved legacy reference may pass through an unrelated edit; a broad root is never a new writable classification. |
 | Discovery | Search accepts an active root or leaf. A root includes all descendants; Arabic and English aliases from the selected category lineage are searchable. |
 | Presentation | Web groups roots and leaves. Android carries `parentCode`, shows roots as the main row, and reveals the selected root's leaves. |
 | Compatibility | Pre-existing referenced category rows are preserved. Noncanonical legacy roots are hidden from active public/owner selection, and the rollback restores their exact pre-022 state. |

@@ -61,7 +61,7 @@ test('canonical contract verifies taxonomy examples and V1 boundaries', async ()
   assert.match(doc, /Implemented V1 Category Contract/);
   assert.match(doc, /15 active parentless root records/);
   assert.match(doc, /99 active leaf records/);
-  assert.match(doc, /owner writes require an active leaf/);
+  assert.match(doc, /New or changed Business Profile and Service Listing category selections require an active leaf/);
   assert.match(doc, /Discovery accepts a root or leaf/);
   assert.match(doc, /Web and Android must preserve the hierarchy/);
   assert.match(doc, /alias arrays remain server-side search fields/);

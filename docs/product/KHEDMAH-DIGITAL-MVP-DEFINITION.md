@@ -160,7 +160,7 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 
 **Acceptance criteria**
 
-1. The governed catalog contains 15 active roots and 99 active leaves; owner writes accept active leaves only.
+1. The governed catalog contains 15 active roots and 99 active leaves; new or changed owner category selections accept active leaves only, while an unchanged preserved legacy reference does not block unrelated edits.
 2. Root discovery recursively includes descendants, and keyword matching includes Arabic and English aliases from category lineage.
 3. Web and Android consume `parentCode`; the primary category surface displays roots and exposes leaves within their selected root.
 4. Migration 022 is ordered, checksum-bound, reversible, preserves references, and restores all pre-existing category state on rollback.

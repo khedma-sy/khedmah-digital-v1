@@ -72,7 +72,9 @@ export class BusinessProfileService {
     }
 
     const input = validateUpdateBusinessProfile(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode && input.categoryCode !== profile.categoryCode) {
+      await this.categories.assertActiveCategory(input.categoryCode);
+    }
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,

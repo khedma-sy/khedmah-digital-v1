@@ -102,7 +102,9 @@ export class ServiceCatalogService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const service = await this.requireOwnedService(id, actor.id);
     const input = validateUpdateServiceRequest(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode && input.categoryCode !== service.categoryCode) {
+      await this.categories.assertActiveCategory(input.categoryCode);
+    }
     const updated: ServiceListing = {
       ...service,
       titleAr: input.titleAr ?? service.titleAr,

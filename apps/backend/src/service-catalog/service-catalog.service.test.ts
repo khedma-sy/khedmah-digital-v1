@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { BadRequestException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
@@ -213,4 +214,50 @@ test('public service projection does not include owner user identifier', async (
   for (const svc of result.services) {
     assert.equal('ownerUserId' in svc, false, 'ownerUserId must not appear in public service projection');
   }
+});
+
+test('unchanged inactive legacy category does not block unrelated service edits', async () => {
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
+  const now = new Date().toISOString();
+  const businessId = `bp-legacy-${Date.now()}`;
+  await businessRepo.save({
+    id: businessId,
+    name: 'عمل بتصنيف قديم',
+    ownerUserId: ownerId,
+    visibility: 'private',
+    trustStatus: 'pending',
+    status: 'active',
+    categoryCode: 'test',
+    cityCode: 'damascus',
+    countryCode: 'SY',
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  const listing = await service.create(cookie, {
+    titleAr: 'خدمة قديمة',
+    categoryCode: 'test',
+    priceType: 'negotiable',
+    ownerId: businessId,
+    ownerType: 'business',
+    ownerUserId: ownerId
+  });
+  await pool.query(`
+    INSERT INTO categories (code, name_ar, status) VALUES
+      ('legacy_service', 'تصنيف خدمة قديم', 'inactive'),
+      ('legacy_service_other', 'تصنيف خدمة قديم آخر', 'inactive')
+    ON CONFLICT (code) DO UPDATE SET status = 'inactive', parent_code = NULL
+  `);
+  await pool.query('UPDATE service_listings SET category_code = $2 WHERE id = $1', [listing.id, 'legacy_service']);
+
+  const updated = await service.update(cookie, listing.id, {
+    titleAr: 'خدمة قديمة معدلة',
+    categoryCode: 'legacy_service'
+  });
+  assert.equal(updated.categoryCode, 'legacy_service');
+  assert.equal(updated.titleAr, 'خدمة قديمة معدلة');
+  await assert.rejects(
+    () => service.update(cookie, listing.id, { categoryCode: 'legacy_service_other' }),
+    BadRequestException
+  );
 });

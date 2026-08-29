@@ -43,6 +43,8 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
   assert.match(categoryService, /assertActiveCategoryFilter/);
   assert.match(businessService, /async search[\s\S]*assertActiveCategoryFilter/);
   assert.match(serviceCatalogService, /async search[\s\S]*assertActiveCategoryFilter/);
+  assert.match(businessService, /input\.categoryCode && input\.categoryCode !== profile\.categoryCode/);
+  assert.match(serviceCatalogService, /input\.categoryCode && input\.categoryCode !== service\.categoryCode/);
   assert.match(categoryUi, /allowRoots/);
   assert.match(categoryUi, /<optgroup/);
   assert.match(categoryUi, /children\.length === 0[\s\S]*return allowRoots \?/);
