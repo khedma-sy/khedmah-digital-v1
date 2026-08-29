@@ -4,7 +4,7 @@ set -eu
 readonly APPROVED_MIGRATION_021='021_provider_reports'
 readonly APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'
 readonly APPROVED_MIGRATION_022='022_expand_category_taxonomy'
-readonly APPROVED_SHA256_022='b79287d42287094911400a03f98dc0c8a7c54770691b1eba3b4bac14043d7080'
+readonly APPROVED_SHA256_022='f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330'
 
 case "${MIGRATION_VERSION:-}" in
   "$APPROVED_MIGRATION_021")
@@ -109,12 +109,14 @@ BEGIN
   THEN
     RAISE EXCEPTION 'MIGRATION_022_ORGANIZATIONS_COMPATIBILITY_MISSING';
   END IF;
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = current_schema()
-      AND table_name = 'categories'
-      AND column_name IN ('parent_code', 'visual_key', 'search_aliases_ar', 'search_aliases_en', 'is_featured')
-  ) THEN
+  IF to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NOT NULL
+    OR EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'categories'
+        AND column_name IN ('parent_code', 'visual_key', 'search_aliases_ar', 'search_aliases_en', 'is_featured')
+    )
+  THEN
     RAISE EXCEPTION 'MIGRATION_022_ALREADY_OR_PARTIALLY_APPLIED';
   END IF;
 END
@@ -145,6 +147,9 @@ BEGIN
       RAISE EXCEPTION 'MIGRATION_022_COLUMN_POSTCONDITION_FAILED: %', required_column;
     END IF;
   END LOOP;
+  IF to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_022_BEFORE_IMAGE_POSTCONDITION_FAILED';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_class t ON t.oid = c.conrelid

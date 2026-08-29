@@ -1,4 +1,21 @@
 -- Expand the flat Category authority into an Arabic-first, searchable hierarchy.
+-- Keep the exact pre-022 state of every existing category so the governed
+-- rollback can restore rows changed by the canonical upserts/deactivation.
+CREATE TABLE category_taxonomy_022_before_image (
+  code TEXT PRIMARY KEY,
+  name_ar TEXT NOT NULL,
+  name_en TEXT,
+  status TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
+INSERT INTO category_taxonomy_022_before_image
+  (code, name_ar, name_en, status, sort_order, created_at, updated_at)
+SELECT code, name_ar, name_en, status, sort_order, created_at, updated_at
+FROM categories;
+
 ALTER TABLE categories
   ADD COLUMN parent_code TEXT,
   ADD COLUMN visual_key TEXT NOT NULL DEFAULT 'services',

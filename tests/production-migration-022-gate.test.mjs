@@ -5,10 +5,11 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('production migrations 021 and 022 remain sequential, backed up, checksum-bound and transactional', async () => {
-  const [workflow, runner, migration, build, dockerfile] = await Promise.all([
+  const [workflow, runner, migration, rollback, build, dockerfile] = await Promise.all([
     read('.github/workflows/production-operator.yml'),
     read('scripts/run-production-migration.sh'),
     read('backend/migrations/versions/022_expand_category_taxonomy.sql'),
+    read('backend/migrations/versions/022_expand_category_taxonomy_rollback.sql'),
     read('cloudbuild.migration.yaml'),
     read('Dockerfile.migrations')
   ]);
@@ -28,9 +29,16 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(runner, /APPROVED_MIGRATION_021='021_provider_reports'/);
   assert.match(runner, /APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'/);
   assert.match(runner, /APPROVED_MIGRATION_022='022_expand_category_taxonomy'/);
-  assert.match(runner, /APPROVED_SHA256_022='b79287d42287094911400a03f98dc0c8a7c54770691b1eba3b4bac14043d7080'/);
+  assert.match(runner, /APPROVED_SHA256_022='f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330'/);
   assert.match(runner, /MIGRATION_022_ORGANIZATIONS_COMPATIBILITY_MISSING/);
   assert.match(runner, /MIGRATION_022_NONCANONICAL_ACTIVE_POSTCONDITION_FAILED/);
+  assert.match(runner, /MIGRATION_022_BEFORE_IMAGE_POSTCONDITION_FAILED/);
+  assert.match(migration, /CREATE TABLE category_taxonomy_022_before_image/);
+  assert.match(migration, /INSERT INTO category_taxonomy_022_before_image/);
+  assert.match(rollback, /UPDATE categories AS category[\s\S]*FROM category_taxonomy_022_before_image AS before_image/);
+  assert.match(rollback, /status = before_image\.status/);
+  assert.match(rollback, /name_ar = before_image\.name_ar/);
+  assert.match(rollback, /DROP TABLE category_taxonomy_022_before_image/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN.*organization_id/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /BEGIN;/);
