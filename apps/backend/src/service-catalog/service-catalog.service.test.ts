@@ -221,7 +221,7 @@ test('service and combined discovery filter listings by the governed city of eit
   const { pool, service, serviceRepo, businessRepo, professionalRepo, cookie, ownerId } = await createFixture();
   const now = new Date().toISOString();
   const businessId = `bp-city-${Date.now()}`;
-  const professionalId = `pp-city-${Date.now()}`;
+  const professionalId = `professional_profile_city_${Date.now()}`;
 
   await businessRepo.save({
     id: businessId,
