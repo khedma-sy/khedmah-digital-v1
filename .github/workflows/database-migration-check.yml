@@ -129,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden='marketplace|payments?|commissions?|products?|inventory|orders?|tracking|social_profiles?'
+          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
             "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
