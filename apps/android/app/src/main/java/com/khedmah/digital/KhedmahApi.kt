@@ -15,6 +15,7 @@ data class KhedmahResult(val id: String, val title: String, val subtitle: String
 data class KhedmahUser(val id: String, val email: String, val displayName: String)
 data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
 data class KhedmahMedia(val id: String, val publicUrl: String, val assetType: String)
+data class KhedmahProduct(val id: String, val titleAr: String, val businessName: String, val price: Double, val currency: String, val availability: String, val imageUrl: String?)
 
 class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.trimEnd('/')) {
     private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
@@ -33,17 +34,30 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         }
     }
 
-    suspend fun search(query: String, categoryCode: String?): List<KhedmahResult> = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, categoryCode: String?, latitude: Double? = null, longitude: Double? = null): List<KhedmahResult> = withContext(Dispatchers.IO) {
         val parameters = buildList {
             if (query.isNotBlank()) add("q=${encode(query)}")
             if (!categoryCode.isNullOrBlank()) add("categoryCode=${encode(categoryCode)}")
+            if (latitude != null && longitude != null) {
+                add("type=business")
+                add("map=true")
+                add("latitude=$latitude")
+                add("longitude=$longitude")
+            }
         }.joinToString("&")
         val payload = get("/api/v1/search?$parameters")
         buildList {
             payload.optJSONArray("businesses")?.let { items ->
                 repeat(items.length()) { index ->
                     val item = items.getJSONObject(index)
-                    add(KhedmahResult(item.getString("id"), item.optString("name", "نشاط تجاري"), item.optString("cityCode"), "business"))
+                    add(KhedmahResult(
+                        item.getString("id"),
+                        item.optString("name", "نشاط تجاري"),
+                        item.optString("cityCode"),
+                        "business",
+                        item.optString("phone").takeIf { it.isNotBlank() },
+                        item.optDouble("distanceKm").takeIf { !it.isNaN() }
+                    ))
                 }
             }
             payload.optJSONArray("professionals")?.let { items ->
@@ -58,6 +72,22 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
                     add(KhedmahResult(item.getString("id"), item.optString("titleAr", "خدمة"), item.optString("priceType"), "service"))
                 }
             }
+        }
+    }
+
+    suspend fun products(): List<KhedmahProduct> = withContext(Dispatchers.IO) {
+        val values = get("/api/v1/products").optJSONArray("products") ?: return@withContext emptyList()
+        List(values.length()) { index ->
+            val item = values.getJSONObject(index)
+            KhedmahProduct(
+                id = item.getString("id"),
+                titleAr = item.optString("titleAr", "منتج"),
+                businessName = item.optString("businessName", "نشاط على خدمة"),
+                price = item.optDouble("price", 0.0),
+                currency = item.optString("currency", "SYP"),
+                availability = item.optString("availability", "in_stock"),
+                imageUrl = item.optString("imageUrl").takeIf { it.isNotBlank() }?.let(::absoluteMediaUrl)
+            )
         }
     }
 
