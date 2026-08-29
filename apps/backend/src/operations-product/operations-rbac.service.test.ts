@@ -10,6 +10,7 @@ test('Operations Product roles grant only their mapped permissions', () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'sre@example.invalid': ['site_reliability_engineer'] });
   const rbac = new OperationsRbacService();
   assert.deepEqual(rbac.assert('SRE@example.invalid', 'incidents.manage'), ['site_reliability_engineer']);
+  assert.deepEqual(rbac.permissionsFor('SRE@example.invalid'), ['operations.read', 'deployments.manage', 'incidents.manage']);
   assert.throws(() => rbac.assert('sre@example.invalid', 'security.manage'), ForbiddenException);
   delete process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;
 });

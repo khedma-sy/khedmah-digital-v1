@@ -11,12 +11,12 @@ import { OperationsRbacService } from './operations-rbac.service';
 export class OperationsProductService {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService, @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository, @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService, @Inject(OperationsProductRepository) private readonly repository: OperationsProductRepository) {}
   private async actor(cookie: string | undefined, permission: Parameters<OperationsRbacService['assert']>[1]) {
-    const actor = await this.identity.getCurrentUser(readSessionToken(cookie)); const roles = this.rbac.assert(actor.email, permission); return { actor, roles };
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie)); const roles = this.rbac.assert(actor.email, permission); const permissions = this.rbac.permissionsFor(actor.email); return { actor, roles, permissions };
   }
   async overview(cookie: string | undefined) {
-    const { roles } = await this.actor(cookie, 'operations.read');
+    const { roles, permissions } = await this.actor(cookie, 'operations.read');
     const enabled = (name: string) => process.env[name] === 'true';
-    return { division: 'Operations Product', roles, health: { status: 'ready', productionTrafficEnabled: false },
+    return { division: 'Operations Product', roles, permissions, health: { status: 'ready', productionTrafficEnabled: false },
       services: [
         { id: 'google-cloud', label: 'Google Cloud', status: process.env.GOOGLE_CLOUD_PROJECT ? 'configured' : 'configuration_required' },
         { id: 'firebase', label: 'Firebase', status: process.env.FIREBASE_PROJECT_ID ? 'configured' : 'configuration_required' },

@@ -74,7 +74,6 @@ export function AuthNavigation() {
     <div className="nav-session" data-auth-state="authenticated">
       <DiscoveryLinks pathname={pathname} />
       <Link href="/business-profiles">أعمالي</Link>
-      <Link href="/organizations">منظماتي</Link>
       <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>
       <button className="nav-logout" type="button" onClick={logout} disabled={isLoggingOut} aria-busy={isLoggingOut}><PlatformIcon name="logout" size={17}/>{isLoggingOut ? 'جاري الخروج...' : 'تسجيل الخروج'}</button>
       {logoutError ? <span className="nav-action-error" role="alert">{logoutError}</span> : null}
