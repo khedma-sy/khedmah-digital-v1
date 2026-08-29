@@ -18,7 +18,10 @@ test('migration 022 installs the full hierarchical taxonomy requested for discov
   assert.match(migration, /ADD COLUMN parent_code TEXT/);
   assert.match(migration, /ADD COLUMN search_aliases_ar TEXT\[\]/);
   assert.match(migration, /categories_parent_code_fk/);
+  assert.match(migration, /UPDATE categories[\s\S]*SET status = 'inactive'/);
+  assert.match(migration, /code NOT IN/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN.*organization_id/);
+  assert.doesNotMatch(migration, /DELETE FROM categories/);
 });
 
 test('category discovery accepts parent filters and Arabic aliases while owner writes require a leaf', async () => {

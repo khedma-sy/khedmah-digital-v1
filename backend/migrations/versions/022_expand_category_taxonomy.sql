@@ -46,6 +46,20 @@ ON CONFLICT (code) DO UPDATE SET
   sort_order = EXCLUDED.sort_order,
   updated_at = NOW();
 
+-- Preserve referenced legacy rows, but keep the public/owner taxonomy canonical.
+-- All pre-022 rows start with parent_code = NULL; canonical roots above are the
+-- only parentless rows that remain active after this migration.
+UPDATE categories
+SET status = 'inactive', is_featured = FALSE, updated_at = NOW()
+WHERE parent_code IS NULL
+  AND code NOT IN (
+    'home_maintenance', 'food_hospitality', 'health_medical', 'education_training',
+    'professional_services', 'beauty_personal_care', 'retail_shopping', 'automotive',
+    'transport_logistics', 'technology_digital', 'construction_real_estate',
+    'events_occasions', 'agriculture_livestock', 'industrial_supply', 'travel_tourism'
+  )
+  AND (status <> 'inactive' OR is_featured);
+
 -- Leaf categories selectable by activity owners and searchable by users.
 INSERT INTO categories
   (code, name_ar, name_en, parent_code, visual_key, search_aliases_ar, search_aliases_en, is_featured, status, sort_order)

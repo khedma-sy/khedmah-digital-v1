@@ -4,7 +4,7 @@ set -eu
 readonly APPROVED_MIGRATION_021='021_provider_reports'
 readonly APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'
 readonly APPROVED_MIGRATION_022='022_expand_category_taxonomy'
-readonly APPROVED_SHA256_022='ac385b1262a80a75d4443662fce2fb1a858ebd8778a2bc6fdec65d8c1c805a8a'
+readonly APPROVED_SHA256_022='b79287d42287094911400a03f98dc0c8a7c54770691b1eba3b4bac14043d7080'
 
 case "${MIGRATION_VERSION:-}" in
   "$APPROVED_MIGRATION_021")
@@ -171,6 +171,19 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM categories WHERE code = 'delivery_courier' AND parent_code = 'transport_logistics')
   THEN
     RAISE EXCEPTION 'MIGRATION_022_TAXONOMY_POSTCONDITION_FAILED';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM categories
+    WHERE status = 'active'
+      AND parent_code IS NULL
+      AND code NOT IN (
+        'home_maintenance', 'food_hospitality', 'health_medical', 'education_training',
+        'professional_services', 'beauty_personal_care', 'retail_shopping', 'automotive',
+        'transport_logistics', 'technology_digital', 'construction_real_estate',
+        'events_occasions', 'agriculture_livestock', 'industrial_supply', 'travel_tourism'
+      )
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION_022_NONCANONICAL_ACTIVE_POSTCONDITION_FAILED';
   END IF;
 END
 \$migration_verify\$;

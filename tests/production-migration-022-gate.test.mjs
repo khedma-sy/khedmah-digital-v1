@@ -28,8 +28,9 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(runner, /APPROVED_MIGRATION_021='021_provider_reports'/);
   assert.match(runner, /APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'/);
   assert.match(runner, /APPROVED_MIGRATION_022='022_expand_category_taxonomy'/);
-  assert.match(runner, /APPROVED_SHA256_022='ac385b1262a80a75d4443662fce2fb1a858ebd8778a2bc6fdec65d8c1c805a8a'/);
+  assert.match(runner, /APPROVED_SHA256_022='b79287d42287094911400a03f98dc0c8a7c54770691b1eba3b4bac14043d7080'/);
   assert.match(runner, /MIGRATION_022_ORGANIZATIONS_COMPATIBILITY_MISSING/);
+  assert.match(runner, /MIGRATION_022_NONCANONICAL_ACTIVE_POSTCONDITION_FAILED/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN.*organization_id/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /BEGIN;/);

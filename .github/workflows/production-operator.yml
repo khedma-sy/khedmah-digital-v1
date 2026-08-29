@@ -103,7 +103,7 @@ jobs:
       EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
       MIGRATION_NUMBER: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021' || '022' }}
       MIGRATION_VERSION: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021_provider_reports' || '022_expand_category_taxonomy' }}
-      MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || 'ac385b1262a80a75d4443662fce2fb1a858ebd8778a2bc6fdec65d8c1c805a8a' }}
+      MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || 'b79287d42287094911400a03f98dc0c8a7c54770691b1eba3b4bac14043d7080' }}
     steps:
       - name: Check out requested commit
         uses: actions/checkout@v4
