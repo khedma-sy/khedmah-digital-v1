@@ -3,139 +3,78 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicOrganization, PublicUserProfile } from '../../lib/api-client';
+import { api, type OperationsProductOverview, type PublicUserProfile } from '../../lib/api-client';
+
+const roleLabel = (role: string) => role === 'operations_product_director'
+  ? 'مالك المنصة'
+  : role === 'security_operations_engineer'
+    ? 'إدارة الأمن والمراجعة'
+    : role.replaceAll('_', ' ');
 
 export default function AdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>(null);
-  const [organizations, setOrganizations] = useState<PublicOrganization[]>([]);
+  const [overview, setOverview] = useState<OperationsProductOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [sessionData, orgsData] = await Promise.all([
-          api.auth.session(),
-          api.organizations.listMine()
-        ]);
-        setUser(sessionData.user);
-        setOrganizations(orgsData.organizations);
-      } catch (err) {
-        if (err instanceof Error && (err as Error & { statusCode?: number }).statusCode === 401) {
-          router.push('/auth/login');
+    let active = true;
+    void Promise.all([api.auth.session(), api.operationsProduct.overview()])
+      .then(([session, result]) => {
+        if (!active) return;
+        setUser(session.user);
+        setOverview(result.operationsProduct);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+        if (status === 401) {
+          router.replace('/auth/login?next=%2Fadmin');
           return;
         }
-        setError(err instanceof Error ? err.message : 'تعذر تحميل البيانات.');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    void loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleLogout() {
-    try {
-      await api.auth.logout();
-    } finally {
-      router.push('/auth/login');
-    }
-  }
+        setError(status === 403
+          ? 'هذا الحساب لا يملك صلاحية إدارة منصة خدمة.'
+          : cause instanceof Error ? cause.message : 'تعذر التحقق من صلاحية الإدارة.');
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [router]);
 
   if (isLoading) {
-    return (
-      <main id="foundation-content" className="identity-shell" aria-label="لوحة الإدارة">
-        <section className="identity-card">
-          <p className="eyebrow">خدمة · الإدارة</p>
-          <p>جاري التحميل...</p>
-        </section>
-      </main>
-    );
+    return <main id="foundation-content" className="operations-shell" aria-label="لوحة الإدارة" aria-busy="true"><section className="operations-panel"><p>جاري التحقق من صلاحية الإدارة…</p></section></main>;
   }
 
-  return (
-    <main id="foundation-content" className="operations-shell" aria-label="لوحة الإدارة">
-      <header className="operations-header">
-        <div>
-          <p className="eyebrow">خدمة · الإدارة</p>
-          <h1>لوحة الإدارة</h1>
-          <p>إدارة الحساب والمنظمات.</p>
-        </div>
-        <span className="status-badge">نشط · تشغيل محلي</span>
-      </header>
+  if (error || !user || !overview) {
+    return <main id="foundation-content" className="operations-shell" aria-label="الوصول إلى الإدارة"><section className="operations-panel"><h1>لوحة الإدارة غير متاحة</h1><p className="form-error" role="alert">{error || 'تعذر فتح لوحة الإدارة.'}</p><Link href="/" className="foundation-action">العودة إلى الرئيسية</Link></section></main>;
+  }
 
-      <nav className="admin-navigation" aria-label="التنقل الإداري">
-        <Link href="/">الرئيسية</Link>
-        <Link href="/organizations">المنظمات</Link>
-        <Link href="/users/me">الملف الأساسي</Link>
-        <Link href="/business-profiles">ملفات الأعمال</Link>
-        <Link href="/professional-profiles">الملفات المهنية</Link>
-        <Link href="/categories">التصنيفات</Link>
-        <Link href="/map">الخريطة</Link>
-        <Link href="/search">البحث</Link>
-        <Link href="/admin/moderation">إدارة المراجعة</Link>
-        <Link href="/admin/operations-product">Operations Product</Link>
-      </nav>
+  const canManageModeration = overview.permissions.includes('security.manage');
 
-      {error ? <p className="form-error" role="alert" style={{ padding: '1rem' }}>{error}</p> : null}
+  return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
+    <header className="operations-header">
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>إدارة المراجعة والتصنيفات والتشغيل بصلاحيات مقيدة ومسجلة.</p></div>
+      <span className="status-badge">{overview.roles.map(roleLabel).join(' · ')}</span>
+    </header>
 
-      {user ? (
-        <section className="operations-summary" aria-label="معلومات الجلسة">
-          <article>
-            <strong>{user.profile.displayName}</strong>
-            <span>الاسم الظاهر</span>
-          </article>
-          <article>
-            <strong>{user.email}</strong>
-            <span>البريد الإلكتروني</span>
-          </article>
-          <article>
-            <strong>{user.status}</strong>
-            <span>حالة الحساب</span>
-          </article>
-          <article>
-            <strong>{organizations.length}</strong>
-            <span>عدد المنظمات</span>
-          </article>
-        </section>
-      ) : null}
+    <nav className="admin-navigation" aria-label="التنقل الإداري">
+      <Link href="/">الرئيسية</Link>
+      {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
+      <Link href="/categories">التصنيفات</Link>
+      <Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
+    </nav>
 
-      <section className="operations-grid" aria-label="المنظمات">
-        {organizations.length === 0 ? (
-          <article className="operations-panel">
-            <div className="panel-heading">
-              <h2>لا توجد منظمات</h2>
-            </div>
-            <p>لم تنشئ أي منظمة بعد.</p>
-            <Link href="/organizations/new" className="foundation-action" style={{ display: 'inline-block', padding: '0.5rem 1rem' }}>
-              إنشاء منظمة
-            </Link>
-          </article>
-        ) : (
-          organizations.map((org) => (
-            <article className="operations-panel" key={org.id}>
-              <div className="panel-heading">
-                <h2>{org.name}</h2>
-                <span>مالك</span>
-              </div>
-              <p>{org.memberCount} عضو · معرّف: {org.id.slice(0, 8)}…</p>
-            </article>
-          ))
-        )}
-      </section>
+    <section className="operations-summary" aria-label="ملخص الإدارة">
+      <article><strong>{user.profile.displayName}</strong><span>الحساب الإداري</span></article>
+      <article><strong>{overview.roles.length}</strong><span>الأدوار المعتمدة</span></article>
+      <article><strong>{overview.openIncidents}</strong><span>حوادث مفتوحة</span></article>
+      <article><strong>{overview.pendingChanges}</strong><span>تغييرات معلقة</span></article>
+    </section>
 
-      <div style={{ padding: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-        <Link href="/organizations/new" className="foundation-action">إنشاء منظمة جديدة</Link>
-        <Link href="/business-profiles" className="foundation-action">ملفات الأعمال</Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{ background: 'none', border: '1px solid #ccc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          تسجيل الخروج
-        </button>
-      </div>
-    </main>
-  );
+    <section className="operations-grid" aria-label="أقسام الإدارة">
+      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
+      <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>{overview.health.status === 'ready' ? 'جاهز' : overview.health.status}</span></div><p>حالة الخدمات والتغييرات والحوادث دون عرض أي أسرار.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
+    </section>
+  </main>;
 }

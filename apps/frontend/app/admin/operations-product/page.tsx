@@ -1,28 +1,76 @@
+'use client';
+
 import Link from 'next/link';
-const sections = [
-  ['Infrastructure Overview', 'نظرة البنية التحتية', 'Cloud Run، Cloud Build، Artifact Registry، الشبكات، النطاقات والشهادات'],
-  ['Google Cloud', 'Google Cloud', 'المشروعات، الخدمات، حسابات الخدمة وواجهات Google APIs'],
-  ['Firebase', 'Firebase', 'Authentication، Messaging، Analytics، Crashlytics، Remote Config وApp Check'],
-  ['CI/CD', 'CI/CD', 'مسارات البناء والنشر والإصدار والتراجع'],
-  ['Production', 'الإنتاج', 'حالة الخدمات، السعة، الأداء والتوافر'],
-  ['Monitoring', 'المراقبة', 'Cloud Monitoring، المقاييس، التنبيهات والحوادث'],
-  ['Security', 'الأمن', 'IAM، الأسرار، الشهادات، سجلات التدقيق ومراجعات الوصول'],
-  ['Releases', 'الإصدارات', 'سجل الإصدارات واعتمادات التغيير'],
-  ['Deployments', 'عمليات النشر', 'سجل النشر وطلبات التراجع'],
-  ['Secrets', 'الأسرار', 'مراجع Secret Manager فقط دون عرض القيم'],
-  ['IAM', 'الصلاحيات', 'RBAC وأقل صلاحية وفصل الواجبات'],
-  ['Logs', 'السجلات', 'سجلات تشغيل منقحة من البيانات الحساسة'],
-  ['Alerts', 'التنبيهات', 'تنبيهات الصحة والأمن والسعة'],
-  ['Incidents', 'الحوادث', 'التصعيد والاستجابة والتعافي'],
-  ['Build History', 'سجل البناء', 'نتائج Cloud Build والأدلة'],
-  ['Deployment History', 'سجل النشر', 'البيئة والإصدار والحالة'],
-  ['RBAC', 'التحكم بالوصول', 'أدوار Operations Product المخصصة']
-] as const;
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { api, type OperationsProductOverview } from '../../../lib/api-client';
+
+const statusLabel = (status: string) => ({
+  configured: 'مُعدّ',
+  enabled: 'مفعّل',
+  configuration_required: 'يتطلب إعدادًا',
+  disabled_pre_launch: 'غير مفعّل قبل الإطلاق'
+}[status] ?? status);
+
 export default function OperationsProductPage() {
-  return <main id="foundation-content" className="operations-shell">
-    <header className="operations-header"><div><p className="eyebrow">خدمة · الإدارة</p><h1>مركز العمليات</h1><p>مركز عمليات البنية التحتية والإنتاج مع صلاحيات مقيدة وتدقيق كامل.</p></div><span className="status-badge">جاهز للتهيئة · غير مفعّل للإنتاج</span></header>
-    <nav className="admin-navigation" aria-label="التنقل الإداري"><Link href="/">الرئيسية</Link><a href="#infrastructure">البنية التحتية</a><a href="#monitoring">المراقبة</a><a href="#security">الأمن</a><a href="#releases">الإصدارات</a></nav>
-    <section className="operations-summary" aria-label="ملخص العمليات"><article><strong>0</strong><span>حوادث مفتوحة</span></article><article><strong>0</strong><span>تغييرات معلقة</span></article><article><strong>مغلق</strong><span>حركة الإنتاج</span></article><article><strong>RBAC</strong><span>الوصول الإداري</span></article></section>
-    <section className="operations-grid" id="infrastructure" aria-label="لوحات Operations Product">{sections.map(([key, title, description]) => <article className="operations-panel" id={key === 'Monitoring' ? 'monitoring' : key === 'Security' ? 'security' : key === 'Releases' ? 'releases' : undefined} key={key}><div className="panel-heading"><h2>{title}</h2><span>مقيد</span></div><p>{description}</p><button type="button" disabled title="يتطلب جلسة إدارية وصلاحية معتمدة">يتطلب صلاحية معتمدة</button></article>)}</section>
+  const router = useRouter();
+  const [overview, setOverview] = useState<OperationsProductOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void api.operationsProduct.overview()
+      .then(({ operationsProduct }) => { if (active) setOverview(operationsProduct); })
+      .catch((cause) => {
+        if (!active) return;
+        const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+        if (status === 401) {
+          router.replace('/auth/login?next=%2Fadmin%2Foperations-product');
+          return;
+        }
+        setError(status === 403
+          ? 'هذا الحساب لا يملك صلاحية الاطلاع على تشغيل المنصة.'
+          : cause instanceof Error ? cause.message : 'تعذر تحميل حالة تشغيل المنصة.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [router]);
+
+  if (loading) {
+    return <main id="foundation-content" className="operations-shell" aria-busy="true"><section className="operations-panel"><p>جاري التحقق من صلاحية التشغيل…</p></section></main>;
+  }
+
+  if (error || !overview) {
+    return <main id="foundation-content" className="operations-shell"><section className="operations-panel"><h1>مركز التشغيل غير متاح</h1><p className="form-error" role="alert">{error || 'تعذر فتح مركز التشغيل.'}</p><Link href="/admin">العودة إلى لوحة الإدارة</Link></section></main>;
+  }
+
+  const canManageModeration = overview.permissions.includes('security.manage');
+
+  return <main id="foundation-content" className="operations-shell" dir="rtl">
+    <header className="operations-header">
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>مركز التشغيل</h1><p>حالة الخدمات الفعلية التي يعرضها الخادم للحساب الإداري المصرح له.</p></div>
+      <span className="status-badge">{overview.health.productionTrafficEnabled ? 'حركة الإنتاج مفعّلة' : 'حركة الإنتاج مقفلة'}</span>
+    </header>
+
+    <nav className="admin-navigation" aria-label="التنقل الإداري">
+      <Link href="/admin">لوحة الإدارة</Link>
+      {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
+      <Link href="/categories">التصنيفات الحية</Link>
+    </nav>
+
+    <section className="operations-summary" aria-label="ملخص التشغيل">
+      <article><strong>{overview.services.length}</strong><span>خدمات مراقبة</span></article>
+      <article><strong>{overview.openIncidents}</strong><span>حوادث مفتوحة</span></article>
+      <article><strong>{overview.pendingChanges}</strong><span>تغييرات معلقة</span></article>
+      <article><strong>{overview.roles.length}</strong><span>أدوار هذا الحساب</span></article>
+    </section>
+
+    <section className="operations-grid" aria-label="حالة الخدمات">
+      {overview.services.map((service) => <article className="operations-panel" key={service.id}>
+        <div className="panel-heading"><h2>{service.label}</h2><span>{statusLabel(service.status)}</span></div>
+        <p>المعرّف التشغيلي: <bdi>{service.id}</bdi></p>
+      </article>)}
+    </section>
   </main>;
 }

@@ -27,6 +27,23 @@ export interface PublicOrganizationMember {
   readonly status: 'active' | 'removed';
 }
 
+export interface OperationsProductOverview {
+  readonly division: 'Operations Product';
+  readonly roles: string[];
+  readonly permissions: string[];
+  readonly health: {
+    readonly status: 'ready';
+    readonly productionTrafficEnabled: boolean;
+  };
+  readonly services: Array<{
+    readonly id: string;
+    readonly label: string;
+    readonly status: string;
+  }>;
+  readonly openIncidents: number;
+  readonly pendingChanges: number;
+}
+
 export interface PublicBusinessProfile {
   readonly id: string;
   readonly name: string;
@@ -338,6 +355,11 @@ export const api = {
       return request<{ status: 'ok' }>(`/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, {
         method: 'DELETE'
       });
+    }
+  },
+  operationsProduct: {
+    overview() {
+      return request<{ operationsProduct: OperationsProductOverview }>('/admin/operations-product/overview');
     }
   },
   categories: {

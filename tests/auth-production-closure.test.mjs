@@ -136,17 +136,15 @@ test('public UI uses Khedmah only and profile fields remain readable', async () 
 });
 
 test('retired locations directory redirects to the real map experience', async () => {
-  const [navigation, locations, organizations] = await Promise.all([
+  const [navigation, locations] = await Promise.all([
     read('apps/frontend/app/auth-navigation.tsx'),
-    read('apps/frontend/app/locations/page.tsx'),
-    read('apps/frontend/app/organizations/page.tsx')
+    read('apps/frontend/app/locations/page.tsx')
   ]);
 
   assert.match(navigation, /href: '\/map', label: 'بالقرب مني'/);
   assert.doesNotMatch(navigation, />المواقع</);
   assert.match(locations, /redirect\('\/map'\)/);
   assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
-  assert.match(organizations, /href="\/map"[^>]*>الخريطة/);
 });
 
 test('service catalog no longer renders the legacy phone navigation', async () => {

@@ -17,4 +17,7 @@ export class OperationsRbacService {
     if (!roles.some(role => ROLE_PERMISSIONS[role].includes(permission))) throw new ForbiddenException('Operations Product access denied.');
     return roles;
   }
+  permissionsFor(email: string): readonly OperationsPermission[] {
+    return [...new Set(this.rolesFor(email).flatMap(role => ROLE_PERMISSIONS[role]))];
+  }
 }

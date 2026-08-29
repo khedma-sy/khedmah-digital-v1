@@ -29,16 +29,16 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
 
 test('EO-009 navigation is wired from main and admin surfaces', async () => {
   const home = await read('app/page.tsx');
-  const organizations = await read('app/organizations/page.tsx');
   const admin = await read('app/admin/page.tsx');
 
   assert.match(home, /href="\/search"/);
   assert.match(home, /href="\/auth\/register"/);
 
-  for (const href of ['/business-profiles', '/professional-profiles', '/categories', '/map', '/search']) {
-    assert.match(organizations, new RegExp(`href=\\"${href}\\"`));
-    assert.match(admin, new RegExp(`href=\\"${href}\\"`));
-  }
+  for (const href of ['/admin/moderation', '/categories', '/admin/operations-product']) assert.match(admin, new RegExp(`href=\\"${href}\\"`));
+  assert.match(admin, /api\.operationsProduct\.overview\(\)/);
+  assert.match(admin, /canManageModeration \? <Link href="\/admin\/moderation"/);
+  assert.match(admin, /overview\.permissions\.includes\('security\.manage'\)/);
+  assert.doesNotMatch(admin, /organizations|منظمات/);
 });
 
 test('EO-009 frontend API client exposes integration endpoints', async () => {

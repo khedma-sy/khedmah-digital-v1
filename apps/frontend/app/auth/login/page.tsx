@@ -12,7 +12,7 @@ import { SocialProviderIcon } from '../social-provider-icon';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [destination, setDestination] = useState('/organizations');
+  const [destination, setDestination] = useState('/users/me');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);

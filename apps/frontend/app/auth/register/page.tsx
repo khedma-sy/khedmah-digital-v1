@@ -52,7 +52,7 @@ export default function RegisterPage() {
     setIsGoogleLoading(true);
     try {
       await identityApi.google(await getGoogleIdToken());
-      router.push('/organizations');
+      router.push('/users/me');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر المتابعة عبر Google.');
     } finally {
@@ -65,7 +65,7 @@ export default function RegisterPage() {
     setIsFacebookLoading(true);
     try {
       await identityApi.facebook(await getFacebookIdToken());
-      router.push('/organizations');
+      router.push('/users/me');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر المتابعة عبر Facebook.');
     } finally {
