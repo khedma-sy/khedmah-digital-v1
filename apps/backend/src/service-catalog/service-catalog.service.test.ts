@@ -89,7 +89,14 @@ async function createFixture() {
   const businessRepo = new BusinessProfileRepository(pool);
   const professionalRepo = new ProfessionalProfileRepository(pool);
   const serviceRepo = new ServiceCatalogRepository(pool);
-  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('test', 'اختبار') ON CONFLICT (code) DO NOTHING`);
+  await pool.query(`
+    INSERT INTO categories (code, name_ar, parent_code, sort_order) VALUES
+      ('test_root', 'اختبارات', NULL, 9000),
+      ('test', 'اختبار', 'test_root', 9001)
+    ON CONFLICT (code) DO UPDATE SET
+      parent_code = EXCLUDED.parent_code,
+      sort_order = EXCLUDED.sort_order
+  `);
   const categories = new CategoryService(new CategoryRepository(pool));
   const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo, categories);
 
