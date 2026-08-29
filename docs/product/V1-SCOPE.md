@@ -21,12 +21,15 @@ Where an older foundation report or placeholder statement conflicts with the MVP
 - Persistence and reversible migrations needed only by the approved MVP capabilities.
 - Internal audit evidence required to support those capabilities.
 - Canonical Arabic-first Category authority, root/leaf browsing, category-filtered Business Profile and Service Listing discovery, separate keyword/location Professional discovery, and consistent Web/Android hierarchy presentation defined by MVP-09.
+- Moderated classifieds tied to approved Business Profiles, capped at five images, with direct seller contact and no cart, checkout, or payment handling.
+- Location-based discovery of approved taxi and delivery providers with direct contact; no internal dispatch, assignment, tracking, pricing, or payment workflow.
+- Arabic routing assistant and optional browser speech-to-text without platform-side audio storage.
 
 Acceptance criteria and exact exclusions are defined only in the linked MVP definition.
 
 ## Out of Scope for MVP
 
-- Marketplace, products, inventory, orders, payments, commissions, paid ranking, advertising, and delivery ordering/dispatch/tracking. Discovering a delivery provider remains allowed as a category search.
+- Orders, inventory, cart, checkout, payments, commissions, paid ranking, internal dispatch, assignment, or tracking. Moderated classified listings and provider discovery remain informational/direct-contact features only.
 - Social-network behavior, feeds, comments, reactions, or individual behavioral tracking.
 - Advanced market intelligence, scoring, recommendations, competitor analytics, or sale of data.
 - New sector-specific workflows, production infrastructure, or integrations not explicitly listed in the MVP definition.
