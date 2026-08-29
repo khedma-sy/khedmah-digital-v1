@@ -15,5 +15,5 @@ test('public business profile exposes explicit WhatsApp and copy-link actions', 
 test('home empty state uses direct discovery language without the ambiguous waiting message', async () => {
   const recent = await readFile(new URL('../app/components/recently-added.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(recent, /بانتظار أول نشاط موثّق|ستظهر هنا الأنشطة المنشورة/);
-  assert.match(recent, /فتح دليل الخدمات/);
+  assert.match(recent, /فتح صفحة الإعلانات المبوبة/);
 });
