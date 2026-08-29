@@ -153,7 +153,7 @@ function MapDiscovery() {
       insertedScript.id = MAP_SCRIPT_ID;
       insertedScript.async = true;
       insertedScript.defer = true;
-      insertedScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async&callback=initKhedmahMap`;
+      insertedScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&libraries=places&loading=async&callback=initKhedmahMap`;
       insertedScript.onerror = () => failMap('تعذر الاتصال بخدمة خرائط Google. تحقق من الاتصال أو تابع من عرض النتائج.');
       document.head.appendChild(insertedScript);
     }
