@@ -71,6 +71,21 @@ export default function BusinessProfilePage() {
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 
+  async function shareViaDevice() {
+    if (!business) return;
+    if (!navigator.share) {
+      await copyProfileLink();
+      return;
+    }
+    try {
+      await navigator.share({ title: business.name, url: window.location.href });
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') return;
+      setShareMsg('تعذرت المشاركة عبر الجهاز');
+      setTimeout(() => setShareMsg(''), 2000);
+    }
+  }
+
   if (isLoading) return <PageShell className={styles.page} label="جاري تحميل ملف النشاط"><SkeletonGrid count={5} label="جاري تحميل معلومات النشاط" /></PageShell>;
   if (error || !business) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح ملف النشاط" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<ActionLink href="/search">العودة إلى البحث</ActionLink>} /></PageShell>;
 
@@ -109,6 +124,7 @@ export default function BusinessProfilePage() {
           <ProviderQrAction providerName={business.name} />
           <ActionButton type="button" variant="secondary" onClick={shareViaWhatsapp}>مشاركة عبر واتساب</ActionButton>
           <ActionButton type="button" variant="secondary" onClick={() => void copyProfileLink()}>نسخ رابط النشاط</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={() => void shareViaDevice()}>مشاركة عبر الجهاز</ActionButton>
           {business.visibility === 'public' && <ProviderReportForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
           {shareMsg && <span className={styles.shareStatus} role="status">{shareMsg}</span>}
         </div>

@@ -23,4 +23,12 @@ export class CategoryService {
     }
     return code;
   }
+
+  async assertActiveCategoryFilter(codeValue: unknown): Promise<string> {
+    const code = validateCategoryCode(codeValue);
+    if (!await this.repository.findActiveByCode(code)) {
+      throw new BadRequestException('categoryCode must identify an active canonical category.');
+    }
+    return code;
+  }
 }

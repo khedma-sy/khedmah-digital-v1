@@ -8,6 +8,8 @@ test('public business profile exposes explicit WhatsApp and copy-link actions', 
   assert.match(page, /مشاركة عبر واتساب/);
   assert.match(page, /navigator\.clipboard\.writeText\(window\.location\.href\)/);
   assert.match(page, /نسخ رابط النشاط/);
+  assert.match(page, /navigator\.share/);
+  assert.match(page, /مشاركة عبر الجهاز/);
 });
 
 test('home empty state uses direct discovery language without the ambiguous waiting message', async () => {

@@ -25,3 +25,9 @@ test('Category writes reject a root category that has active children', async ()
   const service = new CategoryService(repository as never);
   await assert.rejects(() => service.assertActiveCategory(active.code), BadRequestException);
 });
+
+test('Category discovery accepts an active root category', async () => {
+  const repository = { listActive: async () => [active], findActiveByCode: async () => active, hasActiveChildren: async () => true };
+  const service = new CategoryService(repository as never);
+  assert.equal(await service.assertActiveCategoryFilter(active.code), active.code);
+});

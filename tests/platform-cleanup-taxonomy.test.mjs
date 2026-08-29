@@ -22,9 +22,11 @@ test('migration 022 installs the full hierarchical taxonomy requested for discov
 });
 
 test('category discovery accepts parent filters and Arabic aliases while owner writes require a leaf', async () => {
-  const [businessRepository, serviceRepository, categoryService, categoryUi] = await Promise.all([
+  const [businessRepository, serviceRepository, businessService, serviceCatalogService, categoryService, categoryUi] = await Promise.all([
     read('apps/backend/src/business-profiles/business-profile.repository.ts'),
     read('apps/backend/src/service-catalog/service-catalog.repository.ts'),
+    read('apps/backend/src/business-profiles/business-profile.service.ts'),
+    read('apps/backend/src/service-catalog/service-catalog.service.ts'),
     read('apps/backend/src/categories/category.service.ts'),
     read('apps/frontend/app/components/category-select-options.tsx')
   ]);
@@ -33,6 +35,9 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
     assert.match(repository, /search_aliases_ar/);
   }
   assert.match(categoryService, /hasActiveChildren/);
+  assert.match(categoryService, /assertActiveCategoryFilter/);
+  assert.match(businessService, /async search[\s\S]*assertActiveCategoryFilter/);
+  assert.match(serviceCatalogService, /async search[\s\S]*assertActiveCategoryFilter/);
   assert.match(categoryUi, /allowRoots/);
   assert.match(categoryUi, /<optgroup/);
 });

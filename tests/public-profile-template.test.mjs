@@ -30,6 +30,7 @@ test('profile preserves discovery, contact, trust and structured-data journeys',
   assert.match(page, /ProviderQrAction/);
   assert.match(page, /https:\/\/wa\.me\/\?text=/);
   assert.match(page, /navigator\.clipboard\.writeText/);
+  assert.match(page, /navigator\.share/);
   assert.match(page, /عرض الموقع على خرائط جوجل/);
 });
 

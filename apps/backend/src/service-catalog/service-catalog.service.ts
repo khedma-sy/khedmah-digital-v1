@@ -130,7 +130,7 @@ export class ServiceCatalogService {
 
   async search(request: SearchServicesRequest): Promise<{ readonly services: PublicServiceListing[]; readonly total: number; readonly page: number; }> {
     const input = validateServiceSearchRequest(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode) await this.categories.assertActiveCategoryFilter(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [services, total] = await Promise.all([

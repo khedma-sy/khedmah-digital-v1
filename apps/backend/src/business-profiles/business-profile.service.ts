@@ -121,7 +121,7 @@ export class BusinessProfileService {
 
   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
     const input = validateBusinessProfileSearch(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode) await this.categories.assertActiveCategoryFilter(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [profiles, total] = await Promise.all([
