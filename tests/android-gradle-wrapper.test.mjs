@@ -9,6 +9,7 @@ const wrapperJar = new URL('gradle/wrapper/gradle-wrapper.jar', wrapperRoot);
 const unixLauncher = new URL('gradlew', wrapperRoot);
 const windowsLauncher = new URL('gradlew.bat', wrapperRoot);
 const buildScript = new URL('../scripts/build-android.sh', import.meta.url);
+const androidReadme = new URL('README.md', wrapperRoot);
 const readinessWorkflow = new URL('../.github/workflows/google-production-readiness.yml', import.meta.url);
 
 const expectedDistributionChecksum =
@@ -36,9 +37,10 @@ test('Android Gradle Wrapper is complete and pins the verified 8.11.1 distributi
   assert.notEqual(launcherStat.mode & 0o111, 0, 'apps/android/gradlew must be executable');
 });
 
-test('Android builds use the repository wrapper locally and in CI', async () => {
-  const [script, workflow] = await Promise.all([
+test('Android builds use the repository wrapper and its selected JDK locally and in CI', async () => {
+  const [script, readme, workflow] = await Promise.all([
     readFile(buildScript, 'utf8'),
+    readFile(androidReadme, 'utf8'),
     readFile(readinessWorkflow, 'utf8'),
   ]);
 
@@ -46,6 +48,11 @@ test('Android builds use the repository wrapper locally and in CI', async () => 
   assert.match(script, /gradlew/);
   assert.doesNotMatch(script, /command -v gradle/);
   assert.doesNotMatch(script, /^gradle\s/m);
+  assert.match(script, /java_command="\$\{JAVA_HOME\}\/bin\/java"/);
+  assert.match(script, /java_major_version="\$\("\$java_command" -version/);
+  assert.match(readme, /tracks the complete Gradle Wrapper/);
+  assert.match(readme, /Do not install or invoke a system Gradle version/);
+  assert.doesNotMatch(readme, /intentionally does not track the standard Gradle Wrapper/);
   assert.match(workflow, /npm run build:android/);
   assert.doesNotMatch(workflow, /gradle-version:\s*['"]?8\.11\.1/);
 });

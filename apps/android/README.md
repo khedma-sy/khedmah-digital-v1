@@ -6,6 +6,6 @@ The Firebase BoM supplies compatible Auth, Firestore, Storage, Analytics, and Me
 
 ## Build prerequisites
 
-Install JDK 17, Android SDK 35, and Gradle 8.11.1. Set `JAVA_HOME` to JDK 17 and `ANDROID_HOME` or `ANDROID_SDK_ROOT` to the SDK, then run `npm run build:android` from the repository root. The script rejects a missing or different Gradle version so local and CI builds use the same toolchain.
+Install JDK 17 and Android SDK 35. Set `JAVA_HOME` to JDK 17 and `ANDROID_HOME` or `ANDROID_SDK_ROOT` to the SDK, then run `npm run build:android` from the repository root.
 
-This repository intentionally does not track the standard Gradle Wrapper because its required executable JAR is a binary and the repository's Create PR transport rejects binary diffs. CI installs pinned Gradle 8.11.1 using `gradle/actions/setup-gradle@v4`; local development uses the same version through the documented build script. The Android Gradle source/configuration is unchanged. A build without `google-services.json` validates the non-production source graph but deliberately leaves Firebase uninitialized at runtime.
+The repository tracks the complete Gradle Wrapper and pins Gradle 8.11.1 with the official distribution checksum. Do not install or invoke a system Gradle version. Both local and CI builds run `apps/android/gradlew`; the CI setup action only prepares caching and build metadata. A build without `google-services.json` validates the non-production source graph but deliberately leaves Firebase uninitialized at runtime.
