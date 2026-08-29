@@ -26,14 +26,14 @@ test('organization database SQL creates only approved organization tables and re
   assert.doesNotMatch(sql, /business_profiles|categories|locations|marketplace|payments|messaging|analytics/i);
 });
 
-test('organization frontend creates only list, create, and details pages', async () => {
+test('legacy organization creation redirects while existing data remains readable', async () => {
   const list = await read('apps/frontend/app/organizations/page.tsx');
   const create = await read('apps/frontend/app/organizations/new/page.tsx');
   const details = await read('apps/frontend/app/organizations/[id]/page.tsx');
 
   assert.match(list, /مساحة الأعمال/);
   assert.match(list, /تجمع فريقك وملفات أعمالك/);
-  assert.match(create, /إنشاء مؤسسة أو جهة/);
+  assert.match(create, /redirect\('\/business-profiles'\)/);
   assert.match(details, /إدارة الجهة/);
   assert.doesNotMatch(`${list}\n${create}\n${details}`, /business profile|marketplace|payments|messaging|analytics/i);
 });
