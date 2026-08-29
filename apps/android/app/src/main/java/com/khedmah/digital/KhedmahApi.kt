@@ -11,7 +11,14 @@ import org.json.JSONObject
 import android.util.Base64
 
 data class KhedmahCategory(val code: String, val nameAr: String, val parentCode: String?)
-data class KhedmahResult(val id: String, val title: String, val subtitle: String, val type: String)
+data class KhedmahResult(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val type: String,
+    val phone: String? = null,
+    val distanceKm: Double? = null
+)
 data class KhedmahUser(val id: String, val email: String, val displayName: String)
 data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
 data class KhedmahMedia(val id: String, val publicUrl: String, val assetType: String)
