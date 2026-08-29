@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -30,6 +31,9 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(runner, /APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'/);
   assert.match(runner, /APPROVED_MIGRATION_022='022_expand_category_taxonomy'/);
   assert.match(runner, /APPROVED_SHA256_022='f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330'/);
+  const migrationSha256 = createHash('sha256').update(migration).digest('hex');
+  assert.match(workflow, new RegExp(`MIGRATION_SHA256:[^\\n]+${migrationSha256}`));
+  assert.match(runner, new RegExp(`APPROVED_SHA256_022='${migrationSha256}'`));
   assert.match(runner, /MIGRATION_022_ORGANIZATIONS_COMPATIBILITY_MISSING/);
   assert.match(runner, /MIGRATION_022_NONCANONICAL_ACTIVE_POSTCONDITION_FAILED/);
   assert.match(runner, /MIGRATION_022_BEFORE_IMAGE_POSTCONDITION_FAILED/);

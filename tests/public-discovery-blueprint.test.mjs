@@ -39,11 +39,12 @@ test('public discovery blueprint exists and defines the official discovery model
   assert.match(doc, /Country\n↓\nCity\n↓\nArea\n↓\nService Coverage/);
 });
 
-test('public discovery blueprint preserves V1 boundaries and forbidden feature exclusions', async () => {
+test('public discovery blueprint records bounded runtime discovery and preserves exclusions', async () => {
   const doc = await read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md');
 
-  assert.match(doc, /documentation and architecture preparation only/i);
-  assert.match(doc, /does not implement production features, APIs, database models, UI screens, marketplace, payments, ordering, messaging\/chat, commissions, advertising, ranking, or AI recommendations/i);
+  assert.match(doc, /approved bounded V1 discovery implementation/i);
+  assert.match(doc, /canonical root\/leaf Category authority/i);
+  assert.match(doc, /Recursive root\/leaf category filtering/);
   assert.match(doc, /does not authorize or implement/i);
   assert.match(doc, /Marketplace/);
   assert.match(doc, /Payments/);

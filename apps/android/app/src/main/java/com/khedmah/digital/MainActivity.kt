@@ -254,9 +254,23 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     Button(onSearch, Modifier.height(56.dp), shape = RoundedCornerShape(14.dp)) { Text("ابحث") }
 }
 
-@Composable private fun CategoryRow(categories: List<KhedmahCategory>, selected: String?, onSelect: (String?) -> Unit) = LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    item { FilterChip(selected == null, { onSelect(null) }, label = { Text("الكل") }) }
+@Composable private fun CategoryRow(categories: List<KhedmahCategory>, selected: String?, onSelect: (String?) -> Unit, allCode: String? = null, allLabel: String = "الكل") = LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    item { FilterChip(selected == allCode, { onSelect(allCode) }, label = { Text(allLabel) }) }
     items(categories, key = { it.code }) { category -> FilterChip(selected == category.code, { onSelect(category.code) }, label = { Text(category.nameAr) }) }
+}
+
+@Composable private fun CategoryHierarchy(categories: List<KhedmahCategory>, selected: String?, onSelect: (String?) -> Unit) {
+    val roots = remember(categories) { categories.filter { it.parentCode == null } }
+    val selectedCategory = categories.firstOrNull { it.code == selected }
+    val selectedRootCode = selectedCategory?.parentCode ?: selectedCategory?.code
+    val children = remember(categories, selectedRootCode) { categories.filter { it.parentCode == selectedRootCode } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        CategoryRow(roots, selectedRootCode, onSelect)
+        if (selectedRootCode != null && children.isNotEmpty()) {
+            Text("الخدمات الفرعية", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            CategoryRow(children, selected, onSelect, allCode = selectedRootCode, allLabel = "كل القسم")
+        }
+    }
 }
 
 @Composable private fun HomeScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, onSearch: () -> Unit) {
@@ -265,7 +279,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
         item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
-        item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryRow(categories, selected, onCategory) } }
+        item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryHierarchy(categories, selected, onCategory) } }
         item { KhedmahStateCard("وصول أوضح إلى الخدمة المناسبة", "معلومات واضحة · بحث حسب الموقع · تواصل مباشر") }
     }
 }
@@ -273,7 +287,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
 @Composable private fun SearchScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, results: List<KhedmahResult>, loading: Boolean, error: String?, onSearch: () -> Unit) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("اكتشف الخدمات", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Black)
-        SearchBox(query, onQuery, onSearch); CategoryRow(categories, selected, onCategory)
+        SearchBox(query, onQuery, onSearch); CategoryHierarchy(categories, selected, onCategory)
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
             error != null -> KhedmahStateCard("تعذر تحميل النتائج", error, KhedmahStateTone.Error)

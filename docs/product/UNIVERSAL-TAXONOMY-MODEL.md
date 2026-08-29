@@ -2,11 +2,23 @@
 
 ## Purpose
 
-This document defines a documentation-only taxonomy foundation for Khedmah Digital business and service categories. It prepares a unified language for future business discovery, service catalogs, location-aware browsing, and trust-aware presentation while preserving V1 scope.
+This document governs the implemented V1 category taxonomy and the reserved layers that may extend it later. It is the product authority for Arabic-first category discovery, owner classification, and category presentation across Web and Android while preserving the bounded V1 scope.
 
 ## Scope Boundary
 
-This model is architecture and product documentation only. It does not create marketplace, payments, ordering, commissions, delivery, messaging, AI, backend APIs, frontend screens, database models, migrations, workflows, automations, or production infrastructure.
+The V1 implementation authority is limited to a two-level `Category → Subcategory` slice: 15 canonical roots, 99 selectable leaves, Migration `022_expand_category_taxonomy`, the read-only Category API, category validation on existing business/service writes, and category/search presentation in the existing Web and Android clients. The broader Business Type, Service, Workflow Type, Location, and Trust layers remain governed by their own existing contracts; this amendment does not authorize new transaction systems or production infrastructure.
+
+## Implemented V1 Category Authority
+
+| Decision | Approved V1 behavior |
+| --- | --- |
+| Source of truth | The `categories` table and ordered Migration `022_expand_category_taxonomy`. |
+| Shape | Exactly 15 active root categories and 99 active leaf categories in the shipped catalog. Root and leaf codes are stable governed identifiers. |
+| Owner writes | Business profiles and service listings select an active leaf. A broad root is not a writable activity classification. |
+| Discovery | Search accepts an active root or leaf. A root includes all descendants; Arabic and English aliases from the selected category lineage are searchable. |
+| Presentation | Web groups roots and leaves. Android carries `parentCode`, shows roots as the main row, and reveals the selected root's leaves. |
+| Compatibility | Pre-existing referenced category rows are preserved. Noncanonical legacy roots are hidden from active public/owner selection, and the rollback restores their exact pre-022 state. |
+| Change control | Adding, renaming, moving, or reactivating categories requires a reviewed migration, updated aliases/presentation, tests, and synchronized product/contract documentation. |
 
 ## Taxonomy Principles
 
@@ -14,8 +26,8 @@ This model is architecture and product documentation only. It does not create ma
 - A business can have more than one classification dimension; the taxonomy must not collapse all meaning into one flat category.
 - Business identity, offered services, workflows, locations, and trust level are separate concepts.
 - Internal organization membership must remain separate from external commercial roles such as representative, broker, supplier, or partner.
-- Future implementation must use governed values instead of uncontrolled free-form category strings.
-- Sector-specific expansions must remain reserved until approved through governance and domain contracts.
+- The implemented category slice uses governed values instead of uncontrolled free-form category strings.
+- Expansion beyond the approved 15 roots and 99 leaves remains reserved until product and domain governance are updated with the same change.
 
 ## Business Types
 
@@ -283,50 +295,21 @@ Architecture note: representative identity must remain separate from organizatio
 
 ### Compatibility With `business_profiles`
 
-The taxonomy is compatible with future `business_profiles` if profiles are designed as public business identity records with structured classification references. A future profile should not store only one flat category string. It should be able to reference business type, categories, subcategories, public services, locations, and trust state through governed contracts.
+The implemented Business Profile contract stores one governed leaf `category_code`. Category labels remain platform-owned, Arabic-first records rather than owner-entered profile text. Root categories are discovery filters only. Existing ownership, visibility, moderation, organization compatibility, and public-field rules remain unchanged; this taxonomy amendment does not grant organization membership or create a second profile owner model.
 
-Required future decisions before implementation:
-
-- Whether a profile can have multiple business types.
-- Whether one organization can own multiple profiles.
-- Which profile fields are public, private, moderated, or owner-only.
-- How Arabic and optional secondary-language labels are stored.
-- How profile visibility interacts with trust level.
+Reserved beyond this implementation: multiple classifications per profile, multiple business types, category-specific credentials, and owner-proposed taxonomy values.
 
 ### Compatibility With Service Catalog
 
-The hierarchy reserves a Service layer between Subcategory and Workflow Type. This supports a future service catalog without turning categories into service records. It also allows businesses in the same subcategory to expose different services.
-
-Required future decisions before implementation:
-
-- Governed service identifiers and Arabic labels.
-- Whether services are global, category-specific, or profile-specific.
-- Whether services can be owner-proposed and moderation-approved.
-- Whether workflow type belongs to the service, the profile-service relationship, or a separate inquiry/contact contract.
+The existing Service Catalog keeps service listings separate from category records. Each listing selects one active leaf `category_code`; the Category API does not turn roots or leaves into orderable services. Workflow Type, owner-proposed taxonomy, and any many-to-many service taxonomy remain reserved for separate approval.
 
 ### Compatibility With Locations
 
-The taxonomy is compatible with future structured locations if location is treated as a separate governed model. It should support physical presence, service coverage, headquarters, branches, and territories.
-
-Required future decisions before implementation:
-
-- Country, city, and area source of truth.
-- Address privacy and public display rules.
-- Service coverage versus physical address.
-- Cross-border representation and partner-need territories.
-- Arabic labels for geographic values.
+Category filtering remains independent of the existing governed Locations source and `cityCode` search filter. The taxonomy does not embed addresses, precise coordinates, service coverage, branches, or territories. Cross-border coverage and partner/representative territories remain reserved.
 
 ### Compatibility With Discovery
 
-The taxonomy can support future discovery because it separates actor type, category, service, workflow intent, geography, and trust. Discovery can later filter by these dimensions without forcing all use cases into one overloaded field.
-
-Required future decisions before implementation:
-
-- Which taxonomy levels are searchable.
-- Which taxonomy levels are shown publicly.
-- Whether discovery is profile-first, service-first, or location-first.
-- How moderation and trust affect visibility.
-- How reserved modules remain excluded from discovery behavior.
+V1 discovery searches approved public businesses, professionals, and services by keyword, governed location, and category. Both roots and leaves are searchable; a root recursively includes its leaves, and category-lineage aliases participate in keyword matching. Public results continue to obey the existing publication, moderation, and visibility rules. Paid ranking, recommendation, personalization, and reserved network roles are not introduced.
 
 ## Architecture Decisions
 
@@ -337,6 +320,8 @@ Required future decisions before implementation:
 5. Keep Location structured and separate from profile text to support country, city, area, coverage, headquarters, branches, and territories.
 6. Keep Trust Level separate from paid ranking, advertising, recommendation, or marketplace eligibility.
 7. Keep representative and partner roles separate from internal organization membership.
+8. Implement the V1 Category and Subcategory layers as root and leaf rows in one canonical `categories` authority.
+9. Allow roots for broad discovery but require leaves for owner-authored Business Profile and Service Listing classification.
 
 ## Risks
 
@@ -349,15 +334,15 @@ Required future decisions before implementation:
 
 ## Explicit Exclusions
 
-This taxonomy foundation does not authorize or implement:
+The implemented V1 category slice does not authorize or implement:
 
 - Marketplace.
 - Payments.
 - Ordering.
 - Commissions.
-- Delivery.
+- Delivery ordering, dispatch, fulfillment, or tracking. `Delivery & courier` is only a discoverable provider category.
 - Messaging.
 - AI.
 - Inventory.
 - Supplier transactions.
-- Production infrastructure.
+- New production infrastructure beyond the existing reviewed migration/deployment path.

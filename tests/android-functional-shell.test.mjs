@@ -17,6 +17,7 @@ test('Android is a branded service app rather than a map-only activity', async (
 
 test('Android public discovery uses the canonical backend contracts', async () => {
   const api = await read('apps/android/app/src/main/java/com/khedmah/digital/KhedmahApi.kt');
+  const activity = await read('apps/android/app/src/main/java/com/khedmah/digital/MainActivity.kt');
   const gradle = await read('apps/android/app/build.gradle.kts');
   assert.match(api, /\/api\/v1\/categories/);
   assert.match(api, /\/api\/v1\/search/);
@@ -25,6 +26,11 @@ test('Android public discovery uses the canonical backend contracts', async () =
   assert.match(api, /\/api\/v1\/auth\/google/);
   assert.match(api, /CookieManager/);
   assert.match(api, /startsWith\("https:\/\/"\)/);
+  assert.match(api, /KhedmahCategory\(val code: String, val nameAr: String, val parentCode: String\?\)/);
+  assert.match(api, /item\.isNull\("parentCode"\)/);
+  assert.match(activity, /categories\.filter \{ it\.parentCode == null \}/);
+  assert.match(activity, /categories\.filter \{ it\.parentCode == selectedRootCode \}/);
+  assert.match(activity, /CategoryHierarchy\(categories, selected/);
   assert.match(gradle, /KHEDMAH_API_BASE_URL/);
   assert.match(gradle, /material3/);
   assert.match(gradle, /androidx\.credentials:credentials/);

@@ -22,12 +22,15 @@ test('universal taxonomy documentation exists and defines the approved hierarchy
   assert.match(doc, /Marketer/);
 });
 
-test('universal taxonomy preserves V1 documentation-only boundaries', async () => {
+test('universal taxonomy authorizes the bounded V1 category slice and preserves exclusions', async () => {
   const doc = await read('docs/product/UNIVERSAL-TAXONOMY-MODEL.md');
 
-  assert.match(doc, /documentation-only taxonomy foundation/i);
-  assert.match(doc, /does not create marketplace, payments, ordering, commissions, delivery, messaging, AI, backend APIs, frontend screens, database models, migrations, workflows, automations, or production infrastructure/i);
-  assert.match(doc, /does not authorize or implement/i);
+  assert.match(doc, /Implemented V1 Category Authority/);
+  assert.match(doc, /15 canonical roots, 99 selectable leaves/);
+  assert.match(doc, /Migration `022_expand_category_taxonomy`/);
+  assert.match(doc, /Search accepts an active root or leaf/);
+  assert.match(doc, /Android carries `parentCode`/);
+  assert.doesNotMatch(doc, /documentation-only taxonomy foundation/i);
   assert.match(doc, /Marketplace/);
   assert.match(doc, /Payments/);
   assert.match(doc, /Ordering/);
