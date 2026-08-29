@@ -321,4 +321,7 @@ test('unchanged inactive legacy category does not block unrelated service edits'
     () => service.update(cookie, listing.id, { categoryCode: 'legacy_service_other' }),
     BadRequestException
   );
+  const reclassified = await service.update(cookie, listing.id, { categoryCode: 'test' });
+  assert.equal(reclassified.categoryCode, 'test');
+  assert.equal(reclassified.categoryNameAr, 'اختبار');
 });

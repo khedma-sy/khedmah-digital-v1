@@ -68,7 +68,7 @@ export class ServiceCatalogService {
     };
 
     await this.repository.save(service);
-    return this.toPublic(service);
+    return this.toPublic(await this.repository.findById(service.id) ?? service);
   }
 
   async listForOwner(cookieHeader: string | undefined, ownerId: string, request: ListOwnerServicesRequest): Promise<PublicServiceListing[]> {
@@ -120,7 +120,7 @@ export class ServiceCatalogService {
     };
 
     await this.repository.save(updated);
-    return this.toPublic(updated);
+    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<{ readonly status: 'ok' }> {

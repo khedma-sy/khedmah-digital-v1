@@ -107,6 +107,9 @@ test('public projections preserve readable Arabic labels for inactive legacy ref
   for (const projection of [businessService, serviceService, combinedSearch, client]) {
     assert.match(projection, /categoryNameAr/);
   }
+  for (const mutationService of [businessService, serviceService]) {
+    assert.match(mutationService, /repository\.save\(updated\)[\s\S]*repository\.findById\(updated\.id\)/);
+  }
   assert.match(searchPage, /categoryNameAr/);
   assert.doesNotMatch(searchPage, /\?\? code;/);
   assert.match(contract, /authoritative `categoryNameAr` resolved by code/);

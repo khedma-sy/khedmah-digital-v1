@@ -47,7 +47,7 @@ export class BusinessProfileService {
     };
 
     await this.repository.save(profile);
-    return this.toPublic(profile);
+    return this.toPublic(await this.repository.findById(profile.id) ?? profile);
   }
 
   async listMine(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {
@@ -94,7 +94,7 @@ export class BusinessProfileService {
     };
 
     await this.repository.save(updated);
-    return this.toPublic(updated);
+    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
   }
 
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {

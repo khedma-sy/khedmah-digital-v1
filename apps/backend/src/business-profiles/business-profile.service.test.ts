@@ -191,4 +191,7 @@ test('unchanged inactive legacy category does not block unrelated profile edits'
     () => service.update(ownerCookie, businessId, { categoryCode: 'legacy_other' }),
     BadRequestException
   );
+  const reclassified = await service.update(ownerCookie, businessId, { categoryCode: 'restaurant' });
+  assert.equal(reclassified.categoryCode, 'restaurant');
+  assert.equal(reclassified.categoryNameAr, 'مطاعم');
 });
