@@ -320,13 +320,29 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     }
 }
 
-@Composable private fun HomeScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, onSearch: () -> Unit) {
+@Composable private fun HomeScreen(
+    modifier: Modifier,
+    query: String,
+    onQuery: (String) -> Unit,
+    categories: List<KhedmahCategory>,
+    selected: String?,
+    onCategory: (String?) -> Unit,
+    onSearch: () -> Unit,
+    onOpenStore: () -> Unit,
+    onOpenMobility: () -> Unit
+) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Spacer(Modifier.height(18.dp)); BrandHeader() }
         item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
         item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryHierarchy(categories, selected, onCategory) } }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onOpenStore, Modifier.weight(1f)) { Text("الإعلانات") }
+                OutlinedButton(onOpenMobility, Modifier.weight(1f)) { Text("تاكسي وتوصيل") }
+            }
+        }
         item { KhedmahStateCard("وصول أوضح إلى الخدمة المناسبة", "معلومات واضحة · بحث حسب الموقع · تواصل مباشر") }
     }
 }
