@@ -12,6 +12,7 @@ import { CategoryService } from '../categories/category.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
+import { SearchService } from '../search/search.service';
 
 const rawPool = createTestPool();
 
@@ -214,6 +215,63 @@ test('public service projection does not include owner user identifier', async (
   for (const svc of result.services) {
     assert.equal('ownerUserId' in svc, false, 'ownerUserId must not appear in public service projection');
   }
+});
+
+test('service and combined discovery filter listings by the governed city of either owner type', async () => {
+  const { pool, service, serviceRepo, businessRepo, professionalRepo, cookie, ownerId } = await createFixture();
+  const now = new Date().toISOString();
+  const businessId = `bp-city-${Date.now()}`;
+  const professionalId = `pp-city-${Date.now()}`;
+
+  await businessRepo.save({
+    id: businessId,
+    name: 'عمل دمشق',
+    ownerUserId: ownerId,
+    visibility: 'public',
+    trustStatus: 'approved',
+    status: 'active',
+    categoryCode: 'test',
+    cityCode: 'damascus',
+    countryCode: 'SY',
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  await professionalRepo.save({
+    id: professionalId,
+    userId: ownerId,
+    headlineAr: 'مهني حلب',
+    availability: 'available',
+    cityCode: 'aleppo',
+    countryCode: 'SY',
+    skills: ['اختبار'],
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  await pool.query(
+    `UPDATE professional_profiles SET visibility = 'public', moderation_status = 'approved', lifecycle_status = 'active'
+     WHERE professional_profile_identifier = $1`,
+    [professionalId]
+  );
+
+  await service.create(cookie, {
+    titleAr: 'خدمة دمشق', categoryCode: 'test', priceType: 'negotiable',
+    ownerId: businessId, ownerType: 'business', ownerUserId: ownerId
+  });
+  await service.create(cookie, {
+    titleAr: 'خدمة حلب', categoryCode: 'test', priceType: 'negotiable',
+    ownerId: professionalId, ownerType: 'professional', ownerUserId: ownerId
+  });
+
+  const damascus = await service.search({ cityCode: 'damascus' });
+  assert.deepEqual(damascus.services.map((item) => item.titleAr), ['خدمة دمشق']);
+  const aleppo = await service.search({ cityCode: 'aleppo' });
+  assert.deepEqual(aleppo.services.map((item) => item.titleAr), ['خدمة حلب']);
+  await assert.rejects(() => service.search({ cityCode: 'unsupported-city' }), BadRequestException);
+
+  const combined = await new SearchService(businessRepo, serviceRepo).search({ cityCode: 'damascus', type: 'all' });
+  assert.deepEqual(combined.services.map((item) => item.titleAr), ['خدمة دمشق']);
 });
 
 test('unchanged inactive legacy category does not block unrelated service edits', async () => {

@@ -86,6 +86,8 @@ Implemented V1 search capabilities include:
 
 Professional Profiles use their separate keyword-and-location endpoint in V1. Their implemented data contract has no Category relationship, so the Professional tab must hide and clear the Category filter; the combined Category query does not include Professional results.
 
+Service Listings do not duplicate a location field. City filtering derives the governed city from the eligible public owner: the Business Profile city for a Business-owned listing or the Professional Profile city for a Professional-owned listing. The dedicated Service endpoint and combined discovery endpoint apply the same rule.
+
 Service-type and Business-type filters remain future decisions.
 
 The current search implementation uses validated existing API contracts, Arabic/English category-lineage aliases, governed visibility, and bounded result projections. Any replacement index or new search infrastructure still requires explicit privacy, abuse, audit, and language governance.

@@ -167,6 +167,7 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 5. Search results continue to enforce existing public visibility and moderation rules and expose no private or internal fields.
 6. Category names, aliases, hierarchy, product documentation, contract documentation, and cross-client tests change together.
 7. The Web search surface must not show or retain a Category filter on the Professional tab; the combined Category search returns Business Profiles and Service Listings only.
+8. Dedicated and combined Service Listing search apply `cityCode` through the eligible public owner's governed city for both Business and Professional owners.
 
 ## 4. Explicitly Excluded from MVP
 

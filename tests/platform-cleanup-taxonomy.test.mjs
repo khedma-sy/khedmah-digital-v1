@@ -66,3 +66,24 @@ test('professional discovery does not present or retain an unsupported category 
   assert.match(taxonomy, /Professional Profiles remain discoverable only through their separate keyword-and-governed-location search/);
   assert.match(blueprint, /Professional tab must hide and clear the Category filter/);
 });
+
+test('service discovery applies the selected governed city through its public owner', async () => {
+  const [repository, service, combinedSearch, controller, request, client, page] = await Promise.all([
+    read('apps/backend/src/service-catalog/service-catalog.repository.ts'),
+    read('apps/backend/src/service-catalog/service-catalog.service.ts'),
+    read('apps/backend/src/search/search.service.ts'),
+    read('apps/backend/src/service-catalog/service-catalog.controller.ts'),
+    read('apps/backend/src/service-catalog/dto/service-catalog.dto.ts'),
+    read('apps/frontend/lib/api-client.ts'),
+    read('apps/frontend/app/search/page.tsx')
+  ]);
+
+  assert.match(repository, /bp\.city_code = \$\$\{params\.length\}/);
+  assert.match(repository, /pp\.city_code = \$\$\{params\.length\}/);
+  assert.match(service, /cityCode: input\.cityCode/);
+  assert.match(combinedSearch, /cityCode: input\.cityCode/);
+  assert.match(controller, /@Query\('cityCode'\) cityCode/);
+  assert.match(request, /readonly cityCode\?: unknown/);
+  assert.match(client, /services\/search\?\$\{qs\}/);
+  assert.match(page, /api\.services\.search\(\{[\s\S]*cityCode: next\.cityCode/);
+});

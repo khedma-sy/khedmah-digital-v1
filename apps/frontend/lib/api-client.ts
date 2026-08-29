@@ -644,10 +644,11 @@ export const api = {
     getMedia(id: string) {
       return request<{ assets: MediaAsset[] }>(`/services/${id}/media`);
     },
-    search(params: { q?: string; categoryCode?: string; page?: number }) {
+    search(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
+      if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
       return request<{ services: PublicServiceListing[]; total: number }>(`/services/search?${qs}`);
     }

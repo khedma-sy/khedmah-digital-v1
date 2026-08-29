@@ -50,7 +50,7 @@ function SearchContent() {
         const data = await api.professionals.search({ q: next.q || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setProfessionals(data.professionals); setBusinesses([]); setServices([]); setTotal(data.professionals.length);
       } else if (next.tab === 'service') {
-        const data = await api.services.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, page: next.page });
+        const data = await api.services.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setServices(data.services); setBusinesses([]); setProfessionals([]); setTotal(data.total);
       } else if (next.tab === 'business') {
         const data = await api.businesses.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });

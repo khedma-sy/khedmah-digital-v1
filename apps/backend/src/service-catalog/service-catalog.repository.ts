@@ -139,7 +139,7 @@ export class ServiceCatalogRepository {
     return rows[0] ? this.map(rows[0]) : undefined;
   }
 
-  async listPublicEligible(filters: { categoryCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
+  async listPublicEligible(filters: { categoryCode?: string; cityCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
@@ -153,7 +153,7 @@ export class ServiceCatalogRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async countPublicEligible(filters: { categoryCode?: string; q?: string }): Promise<number> {
+  async countPublicEligible(filters: { categoryCode?: string; cityCode?: string; q?: string }): Promise<number> {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM service_listings sl WHERE ${whereClauses.join(' AND ')}`,
@@ -175,7 +175,15 @@ export class ServiceCatalogRepository {
     return rows.map((row) => this.map(row));
   }
 
-  private publicEligibleWhere(filters: { categoryCode?: string; q?: string }) {
+  private publicEligibleWhere(filters: { categoryCode?: string; cityCode?: string; q?: string }) {
+    const params: unknown[] = [];
+    let businessCityClause = '';
+    let professionalCityClause = '';
+    if (filters.cityCode) {
+      params.push(filters.cityCode);
+      businessCityClause = `AND bp.city_code = $${params.length}`;
+      professionalCityClause = `AND pp.city_code = $${params.length}`;
+    }
     const whereClauses: string[] = [
       "sl.status = 'active'",
       `(
@@ -185,16 +193,17 @@ export class ServiceCatalogRepository {
             AND bp.visibility = 'public'
             AND bp.trust_status = 'approved'
             AND bp.status = 'active'
+            ${businessCityClause}
         ))
         OR
         (sl.owner_type = 'professional' AND EXISTS (
           SELECT 1 FROM professional_profiles pp
           WHERE pp.professional_profile_identifier = sl.owner_id
             AND pp.visibility = 'public' AND pp.moderation_status = 'approved' AND pp.lifecycle_status = 'active'
+            ${professionalCityClause}
         ))
       )`
     ];
-    const params: unknown[] = [];
     if (filters.categoryCode) {
       params.push(filters.categoryCode);
       whereClauses.push(`sl.category_code IN (

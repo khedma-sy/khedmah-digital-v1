@@ -60,8 +60,8 @@ export class SearchService {
 
     if (input.type === 'all' || input.type === 'service') {
       const [listings, listingTotal] = await Promise.all([
-        this.services.listPublicEligible({ q: input.q, categoryCode: input.categoryCode }, limit, offset),
-        this.services.countPublicEligible({ q: input.q, categoryCode: input.categoryCode })
+        this.services.listPublicEligible({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode }, limit, offset),
+        this.services.countPublicEligible({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode })
       ]);
       services = listings.map((service) => ({
         id: service.id,
