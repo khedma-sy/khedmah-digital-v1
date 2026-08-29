@@ -2,7 +2,7 @@ name: Google production readiness
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
 
 permissions: { contents: read }
 jobs:
@@ -15,8 +15,9 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17, cache: gradle }
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.11.1' }
       - run: npm ci
+      - name: Verify the repository Gradle Wrapper
+        run: node --test tests/android-gradle-wrapper.test.mjs
       - run: npm run validate:google
       - run: npm run validate:firebase
       - run: npm run verify:firebase-secrets
@@ -34,8 +35,9 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17, cache: gradle }
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.11.1' }
       - run: npm ci
+      - name: Verify the repository Gradle Wrapper
+        run: node --test tests/android-gradle-wrapper.test.mjs
       - name: Block release unless all production values are injected
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
