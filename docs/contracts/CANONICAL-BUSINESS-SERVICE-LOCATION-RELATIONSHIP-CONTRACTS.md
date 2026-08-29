@@ -361,7 +361,7 @@ Trust Level
 
 - `Category` maps to one of 15 active parentless root records in the canonical `categories` table.
 - `Subcategory` maps to one of 99 active leaf records whose `parent_code` references a root.
-- The public Category API returns `parentCode`, Arabic-first labels, optional English labels, aliases, visual keys, and feature state from that authority.
+- The public Category API returns `code`, `parentCode`, Arabic-first and optional English labels, `visualKey`, `isFeatured`, `status`, and `sortOrder` from that authority. Arabic/English alias arrays remain server-side search fields and are not part of the public Category payload.
 - Business Profile and Service Listing owner writes require an active leaf; roots are rejected as overly broad classifications.
 - Discovery accepts a root or leaf. Root filtering recursively includes descendants, and keyword search includes aliases from the category lineage.
 - Web and Android must preserve the hierarchy rather than render a flat 114-item primary list.

@@ -64,6 +64,8 @@ test('canonical contract verifies taxonomy examples and V1 boundaries', async ()
   assert.match(doc, /owner writes require an active leaf/);
   assert.match(doc, /Discovery accepts a root or leaf/);
   assert.match(doc, /Web and Android must preserve the hierarchy/);
+  assert.match(doc, /alias arrays remain server-side search fields/);
+  assert.match(doc, /not part of the public Category payload/);
   assert.match(doc, /This mission does not implement/);
   assert.match(doc, /Marketplace/);
   assert.match(doc, /Payments/);
