@@ -7,7 +7,6 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 test('organization workspace uses the shared Khedmah identity without legacy inline styling', async () => {
   const files = await Promise.all([
     read('apps/frontend/app/organizations/page.tsx'),
-    read('apps/frontend/app/organizations/new/page.tsx'),
     read('apps/frontend/app/organizations/[id]/page.tsx')
   ]);
   for (const source of files) {
@@ -16,6 +15,8 @@ test('organization workspace uses the shared Khedmah identity without legacy inl
     assert.doesNotMatch(source, /identity-shell|identity-card|foundation-action|style=\{\{/);
     assert.doesNotMatch(source, /Khedmah Digital|خدمة ديجتل/);
   }
+  const retiredCreate = await read('apps/frontend/app/organizations/new/page.tsx');
+  assert.match(retiredCreate, /redirect\('\/business-profiles'\)/);
 });
 
 test('organization details use real APIs and contain no simulated persistence', async () => {
