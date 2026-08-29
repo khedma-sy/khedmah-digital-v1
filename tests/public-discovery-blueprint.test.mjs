@@ -34,7 +34,7 @@ test('public discovery blueprint exists and defines the official discovery model
   assert.match(doc, /Business discovery/);
   assert.match(doc, /Professional discovery/);
   assert.match(doc, /Location-based discovery/);
-  assert.match(doc, /Category-based discovery/);
+  assert.match(doc, /Category-based Business Profile and Service Listing discovery/);
   assert.match(doc, /User Need\n↓\nSearch \/ Browse\n↓\nCategory\n↓\nSubcategory\n↓\nService\n↓\nProvider \/ Business Profile\n↓\nLocation\n↓\nTrust Information/);
   assert.match(doc, /Country\n↓\nCity\n↓\nArea\n↓\nService Coverage/);
 });

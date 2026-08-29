@@ -49,3 +49,20 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
   assert.match(categoryUi, /<optgroup/);
   assert.match(categoryUi, /children\.length === 0[\s\S]*return allowRoots \?/);
 });
+
+test('professional discovery does not present or retain an unsupported category filter', async () => {
+  const [searchPage, mvpDefinition, taxonomy, blueprint] = await Promise.all([
+    read('apps/frontend/app/search/page.tsx'),
+    read('docs/product/KHEDMAH-DIGITAL-MVP-DEFINITION.md'),
+    read('docs/product/UNIVERSAL-TAXONOMY-MODEL.md'),
+    read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md')
+  ]);
+
+  assert.match(searchPage, /nextState\.tab !== 'professional'/);
+  assert.match(searchPage, /nextTab === 'professional' \? '' : categoryCode/);
+  assert.match(searchPage, /tab !== 'professional' && <div className=\{styles\.field\}><label htmlFor="category">/);
+  assert.match(searchPage, /بحث المهنيين متاح بالكلمة والمدينة/);
+  assert.match(mvpDefinition, /Professional discovery remains a separate keyword-and-location search/);
+  assert.match(taxonomy, /Professional Profiles remain discoverable only through their separate keyword-and-governed-location search/);
+  assert.match(blueprint, /Professional tab must hide and clear the Category filter/);
+});

@@ -155,7 +155,7 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 **Required function**
 
 - Maintain one Arabic-first canonical root/leaf Category authority for Business Profiles and Service Listings.
-- Let users discover approved public businesses, professionals, and services by keyword, governed location, and root or leaf category.
+- Let users discover approved public businesses and services by keyword, governed location, and root or leaf category. Professional discovery remains a separate keyword-and-location search until a governed professional-category relationship is approved and implemented.
 - Present the hierarchy consistently on Web and Android without a flat, random, or single-category primary surface.
 
 **Acceptance criteria**
@@ -166,6 +166,7 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 4. Migration 022 is ordered, checksum-bound, reversible, preserves references, and restores all pre-existing category state on rollback.
 5. Search results continue to enforce existing public visibility and moderation rules and expose no private or internal fields.
 6. Category names, aliases, hierarchy, product documentation, contract documentation, and cross-client tests change together.
+7. The Web search surface must not show or retain a Category filter on the Professional tab; the combined Category search returns Business Profiles and Service Listings only.
 
 ## 4. Explicitly Excluded from MVP
 

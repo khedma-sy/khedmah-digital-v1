@@ -20,7 +20,7 @@ Where an older foundation report or placeholder statement conflicts with the MVP
 - Arabic-first RTL user interfaces for the approved identity and organization journeys.
 - Persistence and reversible migrations needed only by the approved MVP capabilities.
 - Internal audit evidence required to support those capabilities.
-- Canonical Arabic-first Category authority, root/leaf browsing, governed location/category search, and consistent Web/Android hierarchy presentation defined by MVP-09.
+- Canonical Arabic-first Category authority, root/leaf browsing, category-filtered Business Profile and Service Listing discovery, separate keyword/location Professional discovery, and consistent Web/Android hierarchy presentation defined by MVP-09.
 
 Acceptance criteria and exact exclusions are defined only in the linked MVP definition.
 

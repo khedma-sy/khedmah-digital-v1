@@ -2,7 +2,7 @@
 
 ## Mission Boundary
 
-This blueprint now records the approved bounded V1 discovery implementation: keyword search, governed `cityCode`, the canonical root/leaf Category authority, and public business/professional/service results on existing Web and Android surfaces. It does not authorize marketplace, payments, ordering, messaging/chat, commissions, advertising, paid ranking, AI recommendations, or new discovery infrastructure beyond the reviewed runtime and migration paths.
+This blueprint now records the approved bounded V1 discovery implementation: keyword search, governed `cityCode`, the canonical root/leaf Category authority for Business Profiles and Service Listings, and a separate keyword/location search for public Professional Profiles on existing Web and Android surfaces. It does not authorize marketplace, payments, ordering, messaging/chat, commissions, advertising, paid ranking, AI recommendations, or new discovery infrastructure beyond the reviewed runtime and migration paths.
 
 ## Discovery Experience Goal
 
@@ -14,7 +14,7 @@ The current bounded discovery experience supports:
 - Business discovery.
 - Professional discovery.
 - Location-based discovery.
-- Category-based discovery.
+- Category-based Business Profile and Service Listing discovery.
 - Supplier and partner discovery as future governed scope.
 
 ## Discovery Structure
@@ -80,9 +80,11 @@ Potential future sections:
 Implemented V1 search capabilities include:
 
 - Keyword search.
-- Category filtering.
+- Category filtering for Business Profiles and Service Listings.
 - Location filtering.
 - Recursive root/leaf category filtering.
+
+Professional Profiles use their separate keyword-and-location endpoint in V1. Their implemented data contract has no Category relationship, so the Professional tab must hide and clear the Category filter; the combined Category query does not include Professional results.
 
 Service-type and Business-type filters remain future decisions.
 

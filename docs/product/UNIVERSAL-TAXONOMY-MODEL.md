@@ -309,7 +309,7 @@ Category filtering remains independent of the existing governed Locations source
 
 ### Compatibility With Discovery
 
-V1 discovery searches approved public businesses, professionals, and services by keyword, governed location, and category. Both roots and leaves are searchable; a root recursively includes its leaves, and category-lineage aliases participate in keyword matching. Public results continue to obey the existing publication, moderation, and visibility rules. Paid ranking, recommendation, personalization, and reserved network roles are not introduced.
+V1 Category discovery searches approved public Business Profiles and Service Listings by keyword, governed location where supported by the existing endpoint, and category. Both roots and leaves are searchable; a root recursively includes its leaves, and category-lineage aliases participate in keyword matching. Professional Profiles remain discoverable only through their separate keyword-and-governed-location search because their implemented data contract has no Category relationship. The Web Professional tab therefore neither displays nor retains a Category filter, and the combined Category search contains Business Profiles and Service Listings only. Public results continue to obey the existing publication, moderation, and visibility rules. Paid ranking, recommendation, personalization, and reserved network roles are not introduced.
 
 ## Architecture Decisions
 
