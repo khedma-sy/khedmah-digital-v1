@@ -203,7 +203,7 @@ export class BusinessProfileRepository {
   async countPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }): Promise<number> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM business_profiles ${where}`,
+      `SELECT COUNT(*) AS count FROM business_profiles b ${where}`,
       params
     );
     return Number.parseInt(rows[0]?.count ?? '0', 10);
@@ -380,25 +380,47 @@ export class BusinessProfileRepository {
   }
 
   private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }) {
-    const clauses = ["visibility = 'public'", "moderation_status = 'approved'", "trust_status = 'approved'", "status = 'active'", "LOWER(BTRIM(name)) NOT IN ('khedmah production test', 'خدمة production test')"];
+    const clauses = ["b.visibility = 'public'", "b.moderation_status = 'approved'", "b.trust_status = 'approved'", "b.status = 'active'", "LOWER(BTRIM(b.name)) NOT IN ('khedmah production test', 'خدمة production test')"];
     const params: unknown[] = [];
 
     if (filters.categoryCode) {
       params.push(filters.categoryCode);
-      clauses.push(`category_code = $${params.length}`);
+      clauses.push(`b.category_code IN (
+        WITH RECURSIVE category_tree AS (
+          SELECT code FROM categories WHERE code = $${params.length} AND status = 'active'
+          UNION ALL
+          SELECT child.code FROM categories child JOIN category_tree parent ON child.parent_code = parent.code
+          WHERE child.status = 'active'
+        ) SELECT code FROM category_tree
+      )`);
     }
     if (filters.cityCode) {
       params.push(filters.cityCode);
-      clauses.push(`city_code = $${params.length}`);
+      clauses.push(`b.city_code = $${params.length}`);
     }
     if (filters.q) {
       params.push(`%${filters.q}%`);
-      clauses.push(`(name ILIKE $${params.length} OR COALESCE(description_ar, '') ILIKE $${params.length} OR COALESCE(description_en, '') ILIKE $${params.length} OR category_code ILIKE $${params.length})`);
+      clauses.push(`(
+        b.name ILIKE $${params.length}
+        OR COALESCE(b.description_ar, '') ILIKE $${params.length}
+        OR COALESCE(b.description_en, '') ILIKE $${params.length}
+        OR b.category_code ILIKE $${params.length}
+        OR EXISTS (
+          SELECT 1 FROM categories c
+          WHERE c.code = b.category_code
+            AND (
+              c.name_ar ILIKE $${params.length}
+              OR COALESCE(c.name_en, '') ILIKE $${params.length}
+              OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
+              OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
+            )
+        )
+      )`);
     }
     if (filters.boundaries) {
       params.push(filters.boundaries.south, filters.boundaries.north, filters.boundaries.west, filters.boundaries.east);
-      clauses.push(`lat BETWEEN $${params.length - 3} AND $${params.length - 2}`);
-      clauses.push(`lng BETWEEN $${params.length - 1} AND $${params.length}`);
+      clauses.push(`b.lat BETWEEN $${params.length - 3} AND $${params.length - 2}`);
+      clauses.push(`b.lng BETWEEN $${params.length - 1} AND $${params.length}`);
     }
 
     return {

@@ -20,6 +20,7 @@ export function CategoryDirectory() {
   const [activeCategory, setActiveCategory] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const { categories, error: categoriesError } = useCategories();
+  const roots = categories.filter((category) => !category.parentCode);
 
   async function loadServices(categoryCode: string) {
     setIsLoading(true);
@@ -49,6 +50,11 @@ export function CategoryDirectory() {
   }
 
   const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
+  const active = categories.find(({ code }) => code === activeCategory);
+  const activeRootCode = active?.parentCode ?? active?.code;
+  const subcategories = activeRootCode
+    ? categories.filter((category) => category.parentCode === activeRootCode)
+    : [];
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
@@ -59,19 +65,24 @@ export function CategoryDirectory() {
         {showFilters ? (
           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
             <button type="button" className={activeCategory === '' ? 'active' : ''} onClick={() => selectCategory('')}>كل الخدمات</button>
-            {categories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
+            {roots.map((category) => <button key={category.code} type="button" className={activeRootCode === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
           </nav>
         ) : null}
 
         {categoriesError ? <StatusMessage tone="warning">{categoriesError}</StatusMessage> : null}
 
+        {activeRootCode && subcategories.length > 0 ? <nav className="catalog-filters" aria-label="التخصصات الفرعية">
+          <button type="button" className={activeCategory === activeRootCode ? 'active' : ''} onClick={() => selectCategory(activeRootCode)}>كل {categories.find((category) => category.code === activeRootCode)?.nameAr}</button>
+          {subcategories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
+        </nav> : null}
+
         {!activeCategory && categories.length > 0 ? (
           <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
-            {categories.map((category) => (
+            {roots.map((category) => (
               <button key={category.code} type="button" onClick={() => selectCategory(category.code)}>
                 <span className="catalog-category-icon"><PlatformIcon name="tools" /></span>
                 <strong>{category.nameAr}</strong>
-                <small>استعرض مقدمي الخدمة</small>
+                <small>{categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')} تخصصات</small>
                 <PlatformIcon name="arrow" />
               </button>
             ))}

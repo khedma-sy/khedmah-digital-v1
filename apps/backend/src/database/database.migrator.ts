@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '021';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '022';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -62,10 +62,14 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   constraint('idempotency', '016', 'contact_submission_idempotency', 'contact_submission_idempotency_submitter_key_unique'),
   table('categories', '017', 'categories'),
   ...['code', 'name_ar', 'name_en', 'status', 'sort_order'].map((name) => column('categories', '017', 'categories', name)),
+  ...['parent_code', 'visual_key', 'search_aliases_ar', 'search_aliases_en', 'is_featured'].map((name) => column('categories', '022', 'categories', name)),
   constraint('categories', '017', 'categories', 'categories_code_format_check'),
+  constraint('categories', '022', 'categories', 'categories_parent_code_fk'),
+  constraint('categories', '022', 'categories', 'categories_parent_not_self_check'),
   constraint('categories', '017', 'business_profiles', 'business_profiles_category_code_fk'),
   constraint('categories', '017', 'service_listings', 'service_listings_category_code_fk'),
   index('categories', '017', 'categories', 'categories_public_order_idx'),
+  index('categories', '022', 'categories', 'categories_parent_public_order_idx'),
   table('rate-limit', '018', 'rate_limit_buckets'),
   ...['bucket_key', 'request_count', 'reset_at', 'updated_at'].map((name) => column('rate-limit', '018', 'rate_limit_buckets', name)),
   constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_key_format'),

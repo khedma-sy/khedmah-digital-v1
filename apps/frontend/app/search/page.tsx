@@ -5,6 +5,7 @@ import { api, type PublicBusinessProfile, type PublicProfessionalProfile, type P
 import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
 import { useCategories } from '../../lib/use-categories';
 import { PlatformIcon } from '../components/platform-icon';
+import { CategorySelectOptions } from '../components/category-select-options';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import styles from '../discovery.module.css';
 
@@ -85,7 +86,7 @@ function SearchContent() {
     <Surface as="div"><form className={styles.form} onSubmit={submit} role="search" aria-label="البحث في خدمة" aria-busy={isLoading}>
       <div className={styles.field}><label htmlFor="q">ما الخدمة التي تحتاجها؟</label><input id="q" value={q} onChange={(event) => setQ(event.target.value)} placeholder="مثال: طبيب أسنان، نجار، مطعم" /></div>
       <div className={styles.field}><label htmlFor="city">المدينة</label><select id="city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setCityCode(event.target.value)}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></div>
-      <div className={styles.field}><label htmlFor="category">التصنيف</label><select id="category" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)}><option value="">كل التصنيفات</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.nameAr}</option>)}</select></div>
+      <div className={styles.field}><label htmlFor="category">التصنيف</label><select id="category" value={categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setCategoryCode(event.target.value)}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories} /></select></div>
       <div className={styles.formActions}><ActionButton type="submit" disabled={isLoading}><PlatformIcon name="search" size={17}/>{isLoading ? 'جاري البحث' : 'بحث'}</ActionButton>{(q || cityCode || categoryCode) && <ActionButton type="button" variant="secondary" onClick={clear}>مسح</ActionButton>}</div>
     </form></Surface>
     {citiesError && <StatusMessage tone="danger">{citiesError} <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}

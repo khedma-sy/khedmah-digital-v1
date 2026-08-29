@@ -197,11 +197,33 @@ export class ServiceCatalogRepository {
     const params: unknown[] = [];
     if (filters.categoryCode) {
       params.push(filters.categoryCode);
-      whereClauses.push(`sl.category_code = $${params.length}`);
+      whereClauses.push(`sl.category_code IN (
+        WITH RECURSIVE category_tree AS (
+          SELECT code FROM categories WHERE code = $${params.length} AND status = 'active'
+          UNION ALL
+          SELECT child.code FROM categories child JOIN category_tree parent ON child.parent_code = parent.code
+          WHERE child.status = 'active'
+        ) SELECT code FROM category_tree
+      )`);
     }
     if (filters.q) {
       params.push(`%${filters.q}%`);
-      whereClauses.push(`(sl.title_ar ILIKE $${params.length} OR sl.title_en ILIKE $${params.length})`);
+      whereClauses.push(`(
+        sl.title_ar ILIKE $${params.length}
+        OR COALESCE(sl.title_en, '') ILIKE $${params.length}
+        OR COALESCE(sl.description_ar, '') ILIKE $${params.length}
+        OR COALESCE(sl.description_en, '') ILIKE $${params.length}
+        OR EXISTS (
+          SELECT 1 FROM categories c
+          WHERE c.code = sl.category_code
+            AND (
+              c.name_ar ILIKE $${params.length}
+              OR COALESCE(c.name_en, '') ILIKE $${params.length}
+              OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
+              OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
+            )
+        )
+      )`);
     }
     return { whereClauses, params };
   }

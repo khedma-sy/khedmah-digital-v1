@@ -29,7 +29,11 @@ export function FeaturedCategories() {
     return <div className={styles.categoryState}><p>ستظهر التصنيفات هنا عند توفرها.</p><Link href="/search">استكشف الخدمات</Link></div>;
   }
 
-  return <div className={styles.categoryGrid}>{categories.slice(0, 6).map((category, index) => {
+  const roots = categories.filter((category) => !category.parentCode);
+  const featured = roots.filter((category) => category.isFeatured);
+  const visible = (featured.length ? featured : roots).slice(0, 6);
+
+  return <div className={styles.categoryGrid}>{visible.map((category, index) => {
     const visual = categoryVisuals.find(item => item.match.test(`${category.code} ${category.nameAr}`)) ?? categoryVisuals[index % categoryVisuals.length];
     return <Link key={category.code} href={`/search?categoryCode=${encodeURIComponent(category.code)}`} className={styles.categoryCard}>
       <span className={styles.categoryImage}><Image src={visual.image} alt="" fill sizes="(max-width: 700px) 100vw, (max-width: 1000px) 50vw, 33vw" /></span>

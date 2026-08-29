@@ -55,12 +55,20 @@ export default function BusinessProfilePage() {
     void load(); return () => { active = false; };
   }, [id]);
 
-  async function handleShare() {
-    const url = window.location.href;
+  async function copyProfileLink() {
     try {
-      if (navigator.share) await navigator.share({ title: business?.name ?? 'خدمة', url });
-      else { await navigator.clipboard.writeText(url); setShareMsg('تم نسخ الرابط'); setTimeout(() => setShareMsg(''), 2000); }
-    } catch { setShareMsg('تعذرت المشاركة'); setTimeout(() => setShareMsg(''), 2000); }
+      await navigator.clipboard.writeText(window.location.href);
+      setShareMsg('تم نسخ رابط النشاط');
+    } catch {
+      setShareMsg('تعذر نسخ الرابط');
+    }
+    setTimeout(() => setShareMsg(''), 2000);
+  }
+
+  function shareViaWhatsapp() {
+    if (!business) return;
+    const text = encodeURIComponent(`${business.name}\n${window.location.href}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 
   if (isLoading) return <PageShell className={styles.page} label="جاري تحميل ملف النشاط"><SkeletonGrid count={5} label="جاري تحميل معلومات النشاط" /></PageShell>;
@@ -99,7 +107,8 @@ export default function BusinessProfilePage() {
           {business.phone && <a className="ui-action ui-action-secondary" href={`tel:${business.phone}`}><PlatformIcon name="phone" size={17}/> اتصال</a>}
           <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
           <ProviderQrAction providerName={business.name} />
-          <ActionButton type="button" variant="secondary" onClick={() => void handleShare()}><PlatformIcon name="arrow" size={17}/> مشاركة</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={shareViaWhatsapp}>مشاركة عبر واتساب</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={() => void copyProfileLink()}>نسخ رابط النشاط</ActionButton>
           {business.visibility === 'public' && <ProviderReportForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
           {shareMsg && <span className={styles.shareStatus} role="status">{shareMsg}</span>}
         </div>
