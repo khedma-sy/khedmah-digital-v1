@@ -32,6 +32,8 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
   ]);
   for (const repository of [businessRepository, serviceRepository]) {
     assert.match(repository, /WITH RECURSIVE category_tree/);
+    assert.match(repository, /WITH RECURSIVE category_lineage/);
+    assert.match(repository, /parent\.code = child\.parent_code/);
     assert.match(repository, /search_aliases_ar/);
   }
   assert.match(categoryService, /hasActiveChildren/);

@@ -406,14 +406,21 @@ export class BusinessProfileRepository {
         OR COALESCE(b.description_en, '') ILIKE $${params.length}
         OR b.category_code ILIKE $${params.length}
         OR EXISTS (
-          SELECT 1 FROM categories c
-          WHERE c.code = b.category_code
-            AND (
-              c.name_ar ILIKE $${params.length}
-              OR COALESCE(c.name_en, '') ILIKE $${params.length}
-              OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
-              OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
-            )
+          WITH RECURSIVE category_lineage AS (
+            SELECT code, parent_code, name_ar, name_en, search_aliases_ar, search_aliases_en
+            FROM categories WHERE code = b.category_code AND status = 'active'
+            UNION
+            SELECT parent.code, parent.parent_code, parent.name_ar, parent.name_en,
+              parent.search_aliases_ar, parent.search_aliases_en
+            FROM categories parent
+            JOIN category_lineage child ON parent.code = child.parent_code
+            WHERE parent.status = 'active'
+          )
+          SELECT 1 FROM category_lineage c
+          WHERE c.name_ar ILIKE $${params.length}
+            OR COALESCE(c.name_en, '') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
         )
       )`);
     }
