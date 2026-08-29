@@ -11,6 +11,7 @@ interface ServiceListingRow extends Record<string, unknown> {
   readonly description_ar: string | null;
   readonly description_en: string | null;
   readonly category_code: string;
+  readonly category_name_ar: string | null;
   readonly price: string | number | null;
   readonly price_currency: string | null;
   readonly price_type: string;
@@ -65,7 +66,9 @@ export class ServiceCatalogRepository {
   async findById(id: string): Promise<ServiceListing | undefined> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE id = $1
        LIMIT 1`,
@@ -77,7 +80,9 @@ export class ServiceCatalogRepository {
   async listForOwner(ownerId: string, ownerType: ServiceOwnerType): Promise<ServiceListing[]> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE owner_id = $1 AND owner_type = $2
        ORDER BY created_at DESC`,
@@ -99,7 +104,9 @@ export class ServiceCatalogRepository {
     }
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE ${clauses.join(' AND ')}
        ORDER BY created_at DESC
@@ -130,7 +137,9 @@ export class ServiceCatalogRepository {
   async findAndVerifyOwnership(id: string, ownerId: string): Promise<ServiceListing | undefined> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE id = $1 AND owner_id = $2
        LIMIT 1`,
@@ -143,7 +152,9 @@ export class ServiceCatalogRepository {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
-              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.created_at, sl.updated_at
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.created_at, sl.updated_at
        FROM service_listings sl
        WHERE ${whereClauses.join(' AND ')}
        ORDER BY sl.created_at DESC
@@ -165,7 +176,9 @@ export class ServiceCatalogRepository {
   async listFeatured(limit = 6): Promise<ServiceListing[]> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
-              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
        FROM service_listings sl
        WHERE sl.status = 'active' AND sl.is_featured = TRUE
        ORDER BY sl.featured_at DESC
@@ -254,6 +267,7 @@ export class ServiceCatalogRepository {
       descriptionAr: row.description_ar ?? undefined,
       descriptionEn: row.description_en ?? undefined,
       categoryCode: row.category_code,
+      categoryNameAr: row.category_name_ar ?? undefined,
       price: row.price === null ? undefined : Number(row.price),
       priceCurrency: row.price_currency === null ? undefined : row.price_currency as ServiceListing['priceCurrency'],
       priceType: row.price_type as ServiceListing['priceType'],

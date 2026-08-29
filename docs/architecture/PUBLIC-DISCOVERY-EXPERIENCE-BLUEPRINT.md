@@ -54,7 +54,7 @@ Trust Information
 
 ## Homepage Discovery Concept
 
-The homepage implements search and grouped canonical category browsing while preserving V1 simplicity and avoiding marketplace or social-feed behavior. Other sections below remain conditional on their own approved data and contracts.
+The homepage implements search and grouped canonical category browsing while preserving V1 simplicity and avoiding marketplace or social-feed behavior. Category-directory results use the paginated Service discovery contract so every eligible listing remains reachable, including broad root selections. Public cards prefer the resolved Arabic category label carried by Business and Service projections, including preserved legacy references. Other sections below remain conditional on their own approved data and contracts.
 
 Potential future sections:
 

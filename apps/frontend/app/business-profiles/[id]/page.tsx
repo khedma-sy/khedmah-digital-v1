@@ -93,7 +93,7 @@ export default function BusinessProfilePage() {
   const cover = media.find((asset) => asset.assetType === 'cover');
   const gallery = media.filter((asset) => asset.assetType === 'gallery');
   const activeServices = services.filter((service) => service.status === 'active');
-  const categoryLabel = categories.find((category) => category.code === business.categoryCode)?.nameAr ?? 'خدمة محلية';
+  const categoryLabel = business.categoryNameAr ?? categories.find((category) => category.code === business.categoryCode)?.nameAr ?? 'خدمة محلية';
   const localizedCity = cityLabel(business.cityCode, cities);
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name,
@@ -136,7 +136,7 @@ export default function BusinessProfilePage() {
         <div className={styles.main}>
           {(business.descriptionAr || business.descriptionEn) && <Surface className={styles.section}><h2>عن النشاط</h2>{business.descriptionAr && <p>{business.descriptionAr}</p>}{business.descriptionEn && <p className={styles.secondaryText}>{business.descriptionEn}</p>}</Surface>}
 
-          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
+          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
 
           {gallery.length > 0 && <Surface className={styles.section}><h2>معرض الصور ({gallery.length})</h2><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`صورة من ${business.name}`} loading="lazy" />)}</div></Surface>}
 

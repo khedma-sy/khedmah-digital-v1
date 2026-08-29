@@ -7,6 +7,8 @@ import { PlatformIcon } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage } from './ui-primitives';
 
+const PAGE_SIZE = 20;
+
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
     ? `/business-profiles/${service.ownerId}`
@@ -18,16 +20,20 @@ export function CategoryDirectory() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const { categories, error: categoriesError } = useCategories();
   const roots = categories.filter((category) => !category.parentCode);
 
-  async function loadServices(categoryCode: string) {
+  async function loadServices(categoryCode: string, pageNumber = 1) {
     setIsLoading(true);
     setError('');
     try {
-      const data = await api.services.search({ categoryCode: categoryCode || undefined });
+      const data = await api.services.search({ categoryCode: categoryCode || undefined, page: pageNumber });
       setServices(data.services);
+      setPage(data.page);
+      setTotal(data.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات. حاول مرة أخرى.');
     } finally {
@@ -37,16 +43,30 @@ export function CategoryDirectory() {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('category') ?? '';
+    const requestedPage = Math.max(1, Number(new URLSearchParams(window.location.search).get('page')) || 1);
     const initialCategory = categories.some(({ code }) => code === requested) ? requested : '';
     setActiveCategory(initialCategory);
-    void loadServices(initialCategory);
+    void loadServices(initialCategory, requestedPage);
   }, [categories]);
+
+  function syncUrl(categoryCode: string, pageNumber: number) {
+    const params = new URLSearchParams();
+    if (categoryCode) params.set('category', categoryCode);
+    if (pageNumber > 1) params.set('page', String(pageNumber));
+    window.history.replaceState(null, '', params.size ? `/categories?${params}` : '/categories');
+  }
 
   function selectCategory(categoryCode: string) {
     setActiveCategory(categoryCode);
     setShowFilters(false);
-    window.history.replaceState(null, '', categoryCode ? `/categories?category=${categoryCode}` : '/categories');
-    void loadServices(categoryCode);
+    syncUrl(categoryCode, 1);
+    void loadServices(categoryCode, 1);
+  }
+
+  function goToPage(pageNumber: number) {
+    syncUrl(activeCategory, pageNumber);
+    void loadServices(activeCategory, pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
@@ -55,6 +75,7 @@ export function CategoryDirectory() {
   const subcategories = activeRootCode
     ? categories.filter((category) => category.parentCode === activeRootCode)
     : [];
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
@@ -93,7 +114,7 @@ export function CategoryDirectory() {
         {isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 
         {!isLoading && !error && services.length > 0 ? (
-          <section className="catalog-results" aria-label={`${services.length} خدمة متاحة`}>
+          <section className="catalog-results" aria-label={`${total} خدمة متاحة`}>
             {services.map((service) => (
               <article className="catalog-service" key={service.id}>
                 <span className="catalog-service-icon"><PlatformIcon name="tools" /></span>
@@ -103,6 +124,12 @@ export function CategoryDirectory() {
             ))}
           </section>
         ) : null}
+
+        {!isLoading && !error && totalPages > 1 ? <nav className="catalog-pagination" aria-label="صفحات دليل الخدمات">
+          <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>السابق</button>
+          <span>الصفحة {page.toLocaleString('ar-SY')} من {totalPages.toLocaleString('ar-SY')}</span>
+          <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
+        </nav> : null}
 
         {!isLoading && !error && services.length === 0 && activeCategory ? (
           <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>

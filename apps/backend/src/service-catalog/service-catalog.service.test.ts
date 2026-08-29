@@ -130,7 +130,6 @@ test('service owned by non-public business is not returned in public search', as
     createdAt: now,
     updatedAt: now
   });
-
   await service.create(cookie, {
     titleAr: 'خدمة لعمل خاص',
     categoryCode: 'test',
@@ -282,8 +281,8 @@ test('unchanged inactive legacy category does not block unrelated service edits'
     id: businessId,
     name: 'عمل بتصنيف قديم',
     ownerUserId: ownerId,
-    visibility: 'private',
-    trustStatus: 'pending',
+    visibility: 'public',
+    trustStatus: 'approved',
     status: 'active',
     categoryCode: 'test',
     cityCode: 'damascus',
@@ -292,6 +291,7 @@ test('unchanged inactive legacy category does not block unrelated service edits'
     createdAt: now,
     updatedAt: now
   });
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [businessId]);
   const listing = await service.create(cookie, {
     titleAr: 'خدمة قديمة',
     categoryCode: 'test',
@@ -313,7 +313,10 @@ test('unchanged inactive legacy category does not block unrelated service edits'
     categoryCode: 'legacy_service'
   });
   assert.equal(updated.categoryCode, 'legacy_service');
+  assert.equal(updated.categoryNameAr, 'تصنيف خدمة قديم');
   assert.equal(updated.titleAr, 'خدمة قديمة معدلة');
+  const publicResult = await service.search({ q: 'خدمة قديمة معدلة' });
+  assert.equal(publicResult.services[0]?.categoryNameAr, 'تصنيف خدمة قديم');
   await assert.rejects(
     () => service.update(cookie, listing.id, { categoryCode: 'legacy_service_other' }),
     BadRequestException

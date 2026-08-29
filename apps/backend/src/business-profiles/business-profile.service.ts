@@ -424,6 +424,7 @@ export class BusinessProfileService {
       email: profile.email,
       website: profile.website,
       categoryCode: profile.categoryCode,
+      categoryNameAr: profile.categoryNameAr,
       cityCode: profile.cityCode,
       countryCode: profile.countryCode,
       lat: profile.lat,

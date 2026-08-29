@@ -87,3 +87,43 @@ test('service discovery applies the selected governed city through its public ow
   assert.match(client, /services\/search\?\$\{qs\}/);
   assert.match(page, /api\.services\.search\(\{[\s\S]*cityCode: next\.cityCode/);
 });
+
+test('public projections preserve readable Arabic labels for inactive legacy references', async () => {
+  const [businessRepository, serviceRepository, businessService, serviceService, combinedSearch, client, searchPage, contract] = await Promise.all([
+    read('apps/backend/src/business-profiles/business-profile.repository.ts'),
+    read('apps/backend/src/service-catalog/service-catalog.repository.ts'),
+    read('apps/backend/src/business-profiles/business-profile.service.ts'),
+    read('apps/backend/src/service-catalog/service-catalog.service.ts'),
+    read('apps/backend/src/search/search.service.ts'),
+    read('apps/frontend/lib/api-client.ts'),
+    read('apps/frontend/app/search/page.tsx'),
+    read('docs/contracts/CANONICAL-BUSINESS-SERVICE-LOCATION-RELATIONSHIP-CONTRACTS.md')
+  ]);
+
+  for (const repository of [businessRepository, serviceRepository]) {
+    assert.match(repository, /AS category_name_ar/);
+    assert.match(repository, /categoryNameAr: row\.category_name_ar/);
+  }
+  for (const projection of [businessService, serviceService, combinedSearch, client]) {
+    assert.match(projection, /categoryNameAr/);
+  }
+  assert.match(searchPage, /categoryNameAr/);
+  assert.doesNotMatch(searchPage, /\?\? code;/);
+  assert.match(contract, /authoritative `categoryNameAr` resolved by code/);
+});
+
+test('category directory paginates every service result instead of stopping at twenty', async () => {
+  const [directory, styles, contract] = await Promise.all([
+    read('apps/frontend/app/components/category-directory.tsx'),
+    read('apps/frontend/app/brand-system.css'),
+    read('docs/contracts/CANONICAL-BUSINESS-SERVICE-LOCATION-RELATIONSHIP-CONTRACTS.md')
+  ]);
+
+  assert.match(directory, /api\.services\.search\(\{ categoryCode: categoryCode \|\| undefined, page: pageNumber \}\)/);
+  assert.match(directory, /setTotal\(data\.total\)/);
+  assert.match(directory, /const totalPages = Math\.ceil\(total \/ PAGE_SIZE\)/);
+  assert.match(directory, /aria-label="صفحات دليل الخدمات"/);
+  assert.match(directory, /goToPage\(page \+ 1\)/);
+  assert.match(styles, /\.catalog-pagination/);
+  assert.match(contract, /broad roots must not stop at the first 20 eligible listings/);
+});

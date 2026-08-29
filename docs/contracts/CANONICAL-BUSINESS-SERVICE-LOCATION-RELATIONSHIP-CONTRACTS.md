@@ -364,6 +364,8 @@ Trust Level
 - The public Category API returns `code`, `parentCode`, Arabic-first and optional English labels, `visualKey`, `isFeatured`, `status`, and `sortOrder` from that authority. Arabic/English alias arrays remain server-side search fields and are not part of the public Category payload.
 - New or changed Business Profile and Service Listing category selections require an active leaf; roots and inactive values are rejected. An unchanged preserved legacy reference may pass through an unrelated edit so migration 022 does not strand existing owners.
 - Discovery accepts a root or leaf. Root filtering recursively includes descendants, and keyword search includes aliases from the category lineage.
+- Public Business Profile and Service Listing projections include the authoritative `categoryNameAr` resolved by code even when a preserved legacy category is inactive; clients must prefer it over exposing an internal code or generic label.
+- The category directory consumes `total` and `page` from Service discovery and provides previous/next navigation for every result page; broad roots must not stop at the first 20 eligible listings.
 - City-filtered Service Listing discovery derives location from the eligible public owner (`business_profiles.city_code` or `professional_profiles.city_code`) in both dedicated and combined search; listings do not duplicate location state.
 - Web and Android must preserve the hierarchy rather than render a flat 114-item primary list.
 - Existing organization records and memberships remain compatible data but gain no category ownership authority.

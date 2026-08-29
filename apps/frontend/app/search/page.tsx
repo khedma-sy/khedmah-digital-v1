@@ -80,7 +80,10 @@ function SearchContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cities, params]);
 
-  const categoryName = (code: string) => categories.find((item) => item.code === code)?.nameAr ?? code;
+  const categoryName = (code: string) => categories.find((item) => item.code === code)?.nameAr
+    ?? businesses.find((item) => item.categoryCode === code)?.categoryNameAr
+    ?? services.find((item) => item.categoryCode === code)?.categoryNameAr
+    ?? 'تصنيف محفوظ سابقاً';
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const noResults = !businesses.length && !professionals.length && !services.length;
 

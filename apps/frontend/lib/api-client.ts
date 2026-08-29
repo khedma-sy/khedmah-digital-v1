@@ -57,6 +57,7 @@ export interface PublicBusinessProfile {
   readonly email?: string;
   readonly website?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly cityCode: string;
   readonly countryCode: string;
   readonly lat?: number;
@@ -112,6 +113,7 @@ export interface PublicServiceListing {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly price?: number;
   readonly priceCurrency?: string;
   readonly priceType: 'fixed' | 'hourly' | 'negotiable';
@@ -650,7 +652,7 @@ export const api = {
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ services: PublicServiceListing[]; total: number }>(`/services/search?${qs}`);
+      return request<{ services: PublicServiceListing[]; total: number; page: number }>(`/services/search?${qs}`);
     }
   },
   locations: {

@@ -177,7 +177,16 @@ test('unchanged inactive legacy category does not block unrelated profile edits'
     categoryCode: 'legacy_business'
   });
   assert.equal(updated.categoryCode, 'legacy_business');
+  assert.equal(updated.categoryNameAr, 'تصنيف نشاط قديم');
   assert.equal(updated.descriptionAr, 'تعديل لا يغير التصنيف القديم');
+  await pool.query(
+    `UPDATE business_profiles
+     SET visibility = 'public', moderation_status = 'approved', trust_status = 'approved'
+     WHERE id = $1`,
+    [businessId]
+  );
+  const publicProfile = await service.getPublic(businessId);
+  assert.equal(publicProfile.categoryNameAr, 'تصنيف نشاط قديم');
   await assert.rejects(
     () => service.update(ownerCookie, businessId, { categoryCode: 'legacy_other' }),
     BadRequestException

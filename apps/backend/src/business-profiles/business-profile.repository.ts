@@ -17,6 +17,7 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly email: string | null;
   readonly website: string | null;
   readonly category_code: string;
+  readonly category_name_ar: string | null;
   readonly city_code: string;
   readonly country_code: string;
   readonly lat: string | null;
@@ -96,7 +97,9 @@ export class BusinessProfileRepository {
   async findById(id: string): Promise<BusinessProfile | undefined> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -113,7 +116,9 @@ export class BusinessProfileRepository {
   async listForUser(userId: string): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -130,7 +135,9 @@ export class BusinessProfileRepository {
   async listPendingModeration(): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -147,7 +154,9 @@ export class BusinessProfileRepository {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -165,7 +174,9 @@ export class BusinessProfileRepository {
   async listFeatured(limit = 6): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -184,7 +195,9 @@ export class BusinessProfileRepository {
   async listRecentlyAdded(limit = 10): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -452,6 +465,7 @@ export class BusinessProfileRepository {
       email: row.email ?? undefined,
       website: row.website ?? undefined,
       categoryCode: row.category_code,
+      categoryNameAr: row.category_name_ar ?? undefined,
       cityCode: row.city_code,
       countryCode: row.country_code,
       lat: row.lat ? Number(row.lat) : undefined,

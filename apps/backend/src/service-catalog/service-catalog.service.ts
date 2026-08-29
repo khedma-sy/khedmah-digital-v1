@@ -200,6 +200,7 @@ export class ServiceCatalogService {
       descriptionAr: service.descriptionAr,
       descriptionEn: service.descriptionEn,
       categoryCode: service.categoryCode,
+      categoryNameAr: service.categoryNameAr,
       price: service.price,
       priceCurrency: service.priceCurrency,
       priceType: service.priceType,

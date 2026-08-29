@@ -45,7 +45,8 @@ test('categories owns the canonical directory route and the old catalog redirect
   assert.match(navigation, /href: '\/categories'/);
   assert.match(categories, /CategoryDirectory/);
   assert.match(legacy, /redirect\('\/categories'\)/);
-  assert.match(directory, /`\/categories\?category=/);
+  assert.match(directory, /params\.set\('category', categoryCode\)/);
+  assert.match(directory, /`\/categories\?\$\{params\}`/);
   assert.match(sitemap, /\/categories/);
   assert.doesNotMatch(sitemap, /\/service-catalog/);
 });
