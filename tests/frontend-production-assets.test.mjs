@@ -13,5 +13,10 @@ test('homepage category cards use canonical backend categories and codes', async
 
   assert.match(component, /useCategories\(\)/);
   assert.match(component, /categoryCode=\$\{encodeURIComponent\(category\.code\)\}/);
+  assert.match(component, /categoryVisuals\[category\.visualKey\]/);
+  assert.doesNotMatch(component, /index % categoryVisuals\.length/);
+  for (const visualKey of ['home', 'food', 'health', 'education', 'professional', 'beauty', 'shopping', 'automotive', 'transport', 'technology', 'construction', 'events', 'agriculture', 'industry', 'travel']) {
+    assert.match(component, new RegExp(`\\b${visualKey}:`));
+  }
   assert.match(component, /aria-busy="true"/);
 });
