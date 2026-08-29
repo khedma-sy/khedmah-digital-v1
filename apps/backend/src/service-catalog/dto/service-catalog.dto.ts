@@ -27,6 +27,7 @@ export interface UpdateServiceRequest {
 export interface SearchServicesRequest {
   readonly q?: unknown;
   readonly categoryCode?: unknown;
+  readonly cityCode?: unknown;
   readonly page?: unknown;
 }
 

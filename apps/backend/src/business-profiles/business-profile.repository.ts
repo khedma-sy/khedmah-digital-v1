@@ -17,6 +17,7 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly email: string | null;
   readonly website: string | null;
   readonly category_code: string;
+  readonly category_name_ar: string | null;
   readonly city_code: string;
   readonly country_code: string;
   readonly lat: string | null;
@@ -96,7 +97,9 @@ export class BusinessProfileRepository {
   async findById(id: string): Promise<BusinessProfile | undefined> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -113,7 +116,9 @@ export class BusinessProfileRepository {
   async listForUser(userId: string): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -130,7 +135,9 @@ export class BusinessProfileRepository {
   async listPendingModeration(): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -147,7 +154,9 @@ export class BusinessProfileRepository {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -165,7 +174,9 @@ export class BusinessProfileRepository {
   async listFeatured(limit = 6): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -184,7 +195,9 @@ export class BusinessProfileRepository {
   async listRecentlyAdded(limit = 10): Promise<BusinessProfile[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
-              status, phone, email, website, category_code, city_code, country_code,
+              status, phone, email, website, category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
+              city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -203,7 +216,7 @@ export class BusinessProfileRepository {
   async countPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }): Promise<number> {
     const { where, params } = this.publicApprovedWhere(filters);
     const rows = await this.db.query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM business_profiles ${where}`,
+      `SELECT COUNT(*) AS count FROM business_profiles b ${where}`,
       params
     );
     return Number.parseInt(rows[0]?.count ?? '0', 10);
@@ -380,25 +393,54 @@ export class BusinessProfileRepository {
   }
 
   private publicApprovedWhere(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }) {
-    const clauses = ["visibility = 'public'", "moderation_status = 'approved'", "trust_status = 'approved'", "status = 'active'", "LOWER(BTRIM(name)) NOT IN ('khedmah production test', 'خدمة production test')"];
+    const clauses = ["b.visibility = 'public'", "b.moderation_status = 'approved'", "b.trust_status = 'approved'", "b.status = 'active'", "LOWER(BTRIM(b.name)) NOT IN ('khedmah production test', 'خدمة production test')"];
     const params: unknown[] = [];
 
     if (filters.categoryCode) {
       params.push(filters.categoryCode);
-      clauses.push(`category_code = $${params.length}`);
+      clauses.push(`b.category_code IN (
+        WITH RECURSIVE category_tree AS (
+          SELECT code FROM categories WHERE code = $${params.length} AND status = 'active'
+          UNION ALL
+          SELECT child.code FROM categories child JOIN category_tree parent ON child.parent_code = parent.code
+          WHERE child.status = 'active'
+        ) SELECT code FROM category_tree
+      )`);
     }
     if (filters.cityCode) {
       params.push(filters.cityCode);
-      clauses.push(`city_code = $${params.length}`);
+      clauses.push(`b.city_code = $${params.length}`);
     }
     if (filters.q) {
       params.push(`%${filters.q}%`);
-      clauses.push(`(name ILIKE $${params.length} OR COALESCE(description_ar, '') ILIKE $${params.length} OR COALESCE(description_en, '') ILIKE $${params.length} OR category_code ILIKE $${params.length})`);
+      clauses.push(`(
+        b.name ILIKE $${params.length}
+        OR COALESCE(b.description_ar, '') ILIKE $${params.length}
+        OR COALESCE(b.description_en, '') ILIKE $${params.length}
+        OR b.category_code ILIKE $${params.length}
+        OR EXISTS (
+          WITH RECURSIVE category_lineage AS (
+            SELECT code, parent_code, name_ar, name_en, search_aliases_ar, search_aliases_en
+            FROM categories WHERE code = b.category_code AND status = 'active'
+            UNION
+            SELECT parent.code, parent.parent_code, parent.name_ar, parent.name_en,
+              parent.search_aliases_ar, parent.search_aliases_en
+            FROM categories parent
+            JOIN category_lineage child ON parent.code = child.parent_code
+            WHERE parent.status = 'active'
+          )
+          SELECT 1 FROM category_lineage c
+          WHERE c.name_ar ILIKE $${params.length}
+            OR COALESCE(c.name_en, '') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
+        )
+      )`);
     }
     if (filters.boundaries) {
       params.push(filters.boundaries.south, filters.boundaries.north, filters.boundaries.west, filters.boundaries.east);
-      clauses.push(`lat BETWEEN $${params.length - 3} AND $${params.length - 2}`);
-      clauses.push(`lng BETWEEN $${params.length - 1} AND $${params.length}`);
+      clauses.push(`b.lat BETWEEN $${params.length - 3} AND $${params.length - 2}`);
+      clauses.push(`b.lng BETWEEN $${params.length - 1} AND $${params.length}`);
     }
 
     return {
@@ -423,6 +465,7 @@ export class BusinessProfileRepository {
       email: row.email ?? undefined,
       website: row.website ?? undefined,
       categoryCode: row.category_code,
+      categoryNameAr: row.category_name_ar ?? undefined,
       cityCode: row.city_code,
       countryCode: row.country_code,
       lat: row.lat ? Number(row.lat) : undefined,

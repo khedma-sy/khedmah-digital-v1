@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { BadRequestException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
@@ -11,6 +12,7 @@ import { CategoryService } from '../categories/category.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
 import { SessionTokenService } from '../identity/security/session-token.service';
+import { SearchService } from '../search/search.service';
 
 const rawPool = createTestPool();
 
@@ -89,7 +91,14 @@ async function createFixture() {
   const businessRepo = new BusinessProfileRepository(pool);
   const professionalRepo = new ProfessionalProfileRepository(pool);
   const serviceRepo = new ServiceCatalogRepository(pool);
-  await pool.query(`INSERT INTO categories (code, name_ar) VALUES ('test', 'اختبار') ON CONFLICT (code) DO NOTHING`);
+  await pool.query(`
+    INSERT INTO categories (code, name_ar, parent_code, sort_order) VALUES
+      ('test_root', 'اختبارات', NULL, 9000),
+      ('test', 'اختبار', 'test_root', 9001)
+    ON CONFLICT (code) DO UPDATE SET
+      parent_code = EXCLUDED.parent_code,
+      sort_order = EXCLUDED.sort_order
+  `);
   const categories = new CategoryService(new CategoryRepository(pool));
   const service = new ServiceCatalogService(serviceRepo, identity, businessRepo, professionalRepo, categories);
 
@@ -121,7 +130,6 @@ test('service owned by non-public business is not returned in public search', as
     createdAt: now,
     updatedAt: now
   });
-
   await service.create(cookie, {
     titleAr: 'خدمة لعمل خاص',
     categoryCode: 'test',
@@ -206,4 +214,114 @@ test('public service projection does not include owner user identifier', async (
   for (const svc of result.services) {
     assert.equal('ownerUserId' in svc, false, 'ownerUserId must not appear in public service projection');
   }
+});
+
+test('service and combined discovery filter listings by the governed city of either owner type', async () => {
+  const { pool, service, serviceRepo, businessRepo, professionalRepo, cookie, ownerId } = await createFixture();
+  const now = new Date().toISOString();
+  const businessId = `bp-city-${Date.now()}`;
+  const professionalId = `professional_profile_city_${Date.now()}`;
+
+  await businessRepo.save({
+    id: businessId,
+    name: 'عمل دمشق',
+    ownerUserId: ownerId,
+    visibility: 'public',
+    trustStatus: 'approved',
+    status: 'active',
+    categoryCode: 'test',
+    cityCode: 'damascus',
+    countryCode: 'SY',
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  await professionalRepo.save({
+    id: professionalId,
+    userId: ownerId,
+    headlineAr: 'مهني حلب',
+    availability: 'available',
+    cityCode: 'aleppo',
+    countryCode: 'SY',
+    skills: ['اختبار'],
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  await pool.query(
+    `UPDATE professional_profiles SET visibility = 'public', moderation_status = 'approved', lifecycle_status = 'active'
+     WHERE professional_profile_identifier = $1`,
+    [professionalId]
+  );
+
+  await service.create(cookie, {
+    titleAr: 'خدمة دمشق', categoryCode: 'test', priceType: 'negotiable',
+    ownerId: businessId, ownerType: 'business', ownerUserId: ownerId
+  });
+  await service.create(cookie, {
+    titleAr: 'خدمة حلب', categoryCode: 'test', priceType: 'negotiable',
+    ownerId: professionalId, ownerType: 'professional', ownerUserId: ownerId
+  });
+
+  const damascus = await service.search({ cityCode: 'damascus' });
+  assert.deepEqual(damascus.services.map((item) => item.titleAr), ['خدمة دمشق']);
+  const aleppo = await service.search({ cityCode: 'aleppo' });
+  assert.deepEqual(aleppo.services.map((item) => item.titleAr), ['خدمة حلب']);
+  await assert.rejects(() => service.search({ cityCode: 'unsupported-city' }), BadRequestException);
+
+  const combined = await new SearchService(businessRepo, serviceRepo).search({ cityCode: 'damascus', type: 'all' });
+  assert.deepEqual(combined.services.map((item) => item.titleAr), ['خدمة دمشق']);
+});
+
+test('unchanged inactive legacy category does not block unrelated service edits', async () => {
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
+  const now = new Date().toISOString();
+  const businessId = `bp-legacy-${Date.now()}`;
+  await businessRepo.save({
+    id: businessId,
+    name: 'عمل بتصنيف قديم',
+    ownerUserId: ownerId,
+    visibility: 'public',
+    trustStatus: 'approved',
+    status: 'active',
+    categoryCode: 'test',
+    cityCode: 'damascus',
+    countryCode: 'SY',
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [businessId]);
+  const listing = await service.create(cookie, {
+    titleAr: 'خدمة قديمة',
+    categoryCode: 'test',
+    priceType: 'negotiable',
+    ownerId: businessId,
+    ownerType: 'business',
+    ownerUserId: ownerId
+  });
+  await pool.query(`
+    INSERT INTO categories (code, name_ar, status) VALUES
+      ('legacy_service', 'تصنيف خدمة قديم', 'inactive'),
+      ('legacy_service_other', 'تصنيف خدمة قديم آخر', 'inactive')
+    ON CONFLICT (code) DO UPDATE SET status = 'inactive', parent_code = NULL
+  `);
+  await pool.query('UPDATE service_listings SET category_code = $2 WHERE id = $1', [listing.id, 'legacy_service']);
+
+  const updated = await service.update(cookie, listing.id, {
+    titleAr: 'خدمة قديمة معدلة',
+    categoryCode: 'legacy_service'
+  });
+  assert.equal(updated.categoryCode, 'legacy_service');
+  assert.equal(updated.categoryNameAr, 'تصنيف خدمة قديم');
+  assert.equal(updated.titleAr, 'خدمة قديمة معدلة');
+  const publicResult = await service.search({ q: 'خدمة قديمة معدلة' });
+  assert.equal(publicResult.services[0]?.categoryNameAr, 'تصنيف خدمة قديم');
+  await assert.rejects(
+    () => service.update(cookie, listing.id, { categoryCode: 'legacy_service_other' }),
+    BadRequestException
+  );
+  const reclassified = await service.update(cookie, listing.id, { categoryCode: 'test' });
+  assert.equal(reclassified.categoryCode, 'test');
+  assert.equal(reclassified.categoryNameAr, 'اختبار');
 });

@@ -68,7 +68,7 @@ export class ServiceCatalogService {
     };
 
     await this.repository.save(service);
-    return this.toPublic(service);
+    return this.toPublic(await this.repository.findById(service.id) ?? service);
   }
 
   async listForOwner(cookieHeader: string | undefined, ownerId: string, request: ListOwnerServicesRequest): Promise<PublicServiceListing[]> {
@@ -102,7 +102,9 @@ export class ServiceCatalogService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const service = await this.requireOwnedService(id, actor.id);
     const input = validateUpdateServiceRequest(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode && input.categoryCode !== service.categoryCode) {
+      await this.categories.assertActiveCategory(input.categoryCode);
+    }
     const updated: ServiceListing = {
       ...service,
       titleAr: input.titleAr ?? service.titleAr,
@@ -118,7 +120,7 @@ export class ServiceCatalogService {
     };
 
     await this.repository.save(updated);
-    return this.toPublic(updated);
+    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<{ readonly status: 'ok' }> {
@@ -130,12 +132,12 @@ export class ServiceCatalogService {
 
   async search(request: SearchServicesRequest): Promise<{ readonly services: PublicServiceListing[]; readonly total: number; readonly page: number; }> {
     const input = validateServiceSearchRequest(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode) await this.categories.assertActiveCategoryFilter(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [services, total] = await Promise.all([
-      this.repository.listPublicEligible({ q: input.q, categoryCode: input.categoryCode }, limit, offset),
-      this.repository.countPublicEligible({ q: input.q, categoryCode: input.categoryCode })
+      this.repository.listPublicEligible({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode }, limit, offset),
+      this.repository.countPublicEligible({ q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode })
     ]);
 
     return {
@@ -198,6 +200,7 @@ export class ServiceCatalogService {
       descriptionAr: service.descriptionAr,
       descriptionEn: service.descriptionEn,
       categoryCode: service.categoryCode,
+      categoryNameAr: service.categoryNameAr,
       price: service.price,
       priceCurrency: service.priceCurrency,
       priceType: service.priceType,

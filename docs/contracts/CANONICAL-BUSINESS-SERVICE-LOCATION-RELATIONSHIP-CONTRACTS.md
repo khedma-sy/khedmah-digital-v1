@@ -2,7 +2,7 @@
 
 ## Mission Boundary
 
-This document is documentation and architecture reconciliation only. It does not implement production features, APIs, database models, migrations, UI screens, backend code, frontend code, authentication changes, workflows, payments, marketplace features, ordering, delivery systems, commissions, subscriptions, social network features, AI, advertising, ranking, or production infrastructure.
+This contract began as architecture reconciliation and now also governs the approved V1 Category authority. The bounded implementation consists of Migration `022_expand_category_taxonomy`, the existing Category API, leaf validation for Business Profile and Service Listing writes, root/leaf discovery filters, and grouped Web/Android presentation. All other future layers described here remain documentation until separately approved. This amendment does not authorize authentication changes, workflow engines, payments, marketplace features, ordering, delivery systems, commissions, subscriptions, social-network features, AI, advertising, paid ranking, or new production infrastructure.
 
 ## 1. Repository Identity Check
 
@@ -357,22 +357,39 @@ Location
 Trust Level
 ```
 
+### Implemented V1 Category Contract
+
+- `Category` maps to one of 15 active parentless root records in the canonical `categories` table.
+- `Subcategory` maps to one of 99 active leaf records whose `parent_code` references a root.
+- The public Category API returns `code`, `parentCode`, Arabic-first and optional English labels, `visualKey`, `isFeatured`, `status`, and `sortOrder` from that authority. Arabic/English alias arrays remain server-side search fields and are not part of the public Category payload.
+- New or changed Business Profile and Service Listing category selections require an active leaf; roots and inactive values are rejected. An unchanged preserved legacy reference may pass through an unrelated edit so migration 022 does not strand existing owners.
+- Discovery accepts a root or leaf. Root filtering recursively includes descendants, and keyword search includes aliases from the category lineage.
+- Public Business Profile and Service Listing projections include the authoritative `categoryNameAr` resolved by code even when a preserved legacy category is inactive; clients must prefer it over exposing an internal code or generic label.
+- The category directory consumes `total` and `page` from Service discovery and provides previous/next navigation for every result page; broad roots must not stop at the first 20 eligible listings.
+- City-filtered Service Listing discovery derives location from the eligible public owner (`business_profiles.city_code` or `professional_profiles.city_code`) in both dedicated and combined search; listings do not duplicate location state.
+- Web and Android must preserve the hierarchy rather than render a flat 114-item primary list.
+- Existing organization records and memberships remain compatible data but gain no category ownership authority.
+- The forward path preserves legacy referenced category rows and hides them when noncanonical. Governed rollback restores the exact pre-022 catalog, removes unreferenced post-snapshot rows, and aborts before mutation when a post-snapshot category is referenced so an operator can remap it explicitly.
+- Category changes require reviewed migration, rollback, checksum synchronization, product/contract updates, and cross-client tests.
+
+`Service`, `Workflow Type`, expanded location coverage, category-specific trust policy, representative relationships, and Job Work execution remain separate contracts and are not implied by this Category implementation.
+
 ### Registered Example Compatibility
 
 | Example | Canonical placement | Notes |
 | --- | --- | --- |
-| Doctors | Individual Professional or Organization-linked Professional → Healthcare → Doctor → Consultation/Medical examination. | Needs professional verification category rules. |
-| Dentists | Individual Professional or Clinic-linked Professional → Healthcare → Dentist → Consultation/Dental examination. | Add explicit dental subcategory. |
-| Engineers | Individual Professional or Organization-linked Professional → Engineering → Engineer → Design/Inspection/Project service. | Distinguish professional identity and project delivery. |
-| Lawyers | Individual Professional or Firm-linked Professional → Legal → Lawyer → Consultation/Legal service. | Add Legal category and regulated service rules. |
-| Restaurants | Business → Food & Hospitality → Restaurant → Food/Catering. | Cuisine, branch, and service coverage remain future category dimensions. |
-| Supermarkets | Business → Retail/Grocery → Supermarket → Grocery retail/local service. | Add Retail/Grocery category. |
-| Factories | Organization → Manufacturing → Factory → Manufacturing/Supply. | Add product-family dimensions. |
-| Suppliers | Supplier or Organization → Supply & Distribution → Supplier → Supply. | Distinguish wholesaler/distributor/importer. |
-| Real Estate | Business or Professional → Real Estate → Agency/Broker/Developer → Property service. | Add Real Estate category and broker rules. |
-| Tourism | Business or Professional → Tourism → Travel/Hotel/Guide → Tourism service. | Add Tourism category. |
-| Education | Organization or Professional → Education → School/Tutor/Training center → Education service. | Add Education category and child-safety rules. |
-| Technology | Business/Professional/Digital Partner → Technology Services → Maintenance/Software/Digital specialist → Technical service. | Add Technology Services category depth. |
+| Doctors | Individual Professional or Organization-linked Professional → `health_medical` → `doctor` → Consultation/Medical examination. | Professional verification policy remains separate. |
+| Dentists | Individual Professional or Clinic-linked Professional → `health_medical` → `dentist` → Consultation/Dental examination. | The leaf exists; regulated verification policy remains separate. |
+| Engineers | Individual Professional or Organization-linked Professional → `professional_services` → `engineer` → Design/Inspection/Project service. | Professional identity remains separate from project execution. |
+| Lawyers | Individual Professional or Firm-linked Professional → `professional_services` → `lawyer` → Consultation/Legal service. | Regulated service rules remain separate. |
+| Restaurants | Business → `food_hospitality` → `restaurant` → Food/Catering. | Cuisine, branch, and service coverage remain future dimensions. |
+| Supermarkets | Business → `food_hospitality` → `grocery` → Grocery retail/local service. | `supermarket` is an approved search alias for the governed leaf. |
+| Factories | Organization → `industrial_supply` → `factory` → Manufacturing/Supply. | Product-family dimensions remain future scope. |
+| Suppliers | Supplier or Organization → `industrial_supply` → `wholesale_supplier` → Supply. | Wholesaler/distributor/importer roles remain separate. |
+| Real Estate | Business or Professional → `construction_real_estate` → `real_estate_agent` → Property service. | Broker/developer relationships remain separate. |
+| Tourism | Business or Professional → `travel_tourism` → `travel_agency` / `hotel` / `tour_guide` → Tourism service. | Booking and payment remain excluded. |
+| Education | Organization or Professional → `education_training` → `school` / `private_tutor` → Education service. | Child-safety policy remains separate. |
+| Technology | Business/Professional → `technology_digital` → `software_development` / `it_support` → Technical service. | Digital partner relationships remain separate. |
 | Workers | Future Worker/Field Actor → Service Execution → Worker subtype → Execution support. | Worker should be relationship/execution role, not necessarily Business Type. |
 | Representatives | Representative → Business Services/Supply & Distribution → Representative subtype → Representation service. | Relationship authority must be explicit. |
 
@@ -471,11 +488,11 @@ This mission does not implement:
 6. Location separates physical location, service coverage, network coverage, headquarters, and branch.
 7. Trust attaches by scoped entity type and must not collapse into a single verified boolean.
 8. Job Work compatibility remains future-only and does not implement workflows.
-9. Taxonomy requires expansion for Legal, Retail/Grocery, Real Estate, Tourism, Education, Technology Services, Dental, and regulated professions.
+9. The implemented taxonomy supplies governed V1 roots and leaves for Legal, Retail/Grocery, Real Estate, Tourism, Education, Technology, Dental, and other approved discovery categories; regulated credential policy remains separate.
 
 ## 14. Remaining Risks
 
-- Contracts still need a future field-level schema before implementation.
+- Deeper Business Type, Service, Workflow Type, coverage, relationship, and Trust layers still require their own implementation decisions.
 - Permissions and lifecycle state machines remain documentation-only.
 - Cross-border partner/supplier/representative relationships need deeper governance.
 - Regulated categories need category-specific review and trust policy.

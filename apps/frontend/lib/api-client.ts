@@ -57,6 +57,7 @@ export interface PublicBusinessProfile {
   readonly email?: string;
   readonly website?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly cityCode: string;
   readonly countryCode: string;
   readonly lat?: number;
@@ -76,6 +77,9 @@ export interface Category {
   readonly code: string;
   readonly nameAr: string;
   readonly nameEn?: string;
+  readonly parentCode?: string;
+  readonly visualKey: string;
+  readonly isFeatured: boolean;
   readonly status: 'active';
   readonly sortOrder: number;
 }
@@ -109,6 +113,7 @@ export interface PublicServiceListing {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly price?: number;
   readonly priceCurrency?: string;
   readonly priceType: 'fixed' | 'hourly' | 'negotiable';
@@ -641,12 +646,13 @@ export const api = {
     getMedia(id: string) {
       return request<{ assets: MediaAsset[] }>(`/services/${id}/media`);
     },
-    search(params: { q?: string; categoryCode?: string; page?: number }) {
+    search(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
+      if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ services: PublicServiceListing[]; total: number }>(`/services/search?${qs}`);
+      return request<{ services: PublicServiceListing[]; total: number; page: number }>(`/services/search?${qs}`);
     }
   },
   locations: {

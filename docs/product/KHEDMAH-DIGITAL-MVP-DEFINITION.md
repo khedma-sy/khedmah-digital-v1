@@ -2,9 +2,11 @@
 
 **Status:** Approved scope baseline  
 **Authority:** Council directive — 2026-07-27  
-**Version:** 1.0  
+**Version:** 1.1
 **Product direction:** Arabic-first business growth platform  
 **Scope rule:** Capabilities not explicitly listed as required below are not part of MVP.
+
+**Approved amendment — 2026-08-29:** MVP-09 authorizes only the bounded canonical category and discovery slice defined below. It does not authorize transactional delivery, marketplace, or any other reserved capability.
 
 ## 1. Purpose and Authority
 
@@ -14,7 +16,7 @@ Approval of this definition approves **scope**, not Alpha release and not produc
 
 ## 2. MVP Product Outcome
 
-The MVP must let an Arabic-speaking user establish and access a basic account, maintain a basic personal profile, create and manage a basic organization and its members, and submit or record a privacy-safe contact interaction with an eligible public business. The platform may record a minimal allowlisted set of operational events needed to evaluate these journeys. Supporting health, configuration, persistence, migration, security, and audit controls are part of the MVP technical boundary.
+The MVP must let an Arabic-speaking user establish and access a basic account, maintain a basic personal profile, discover approved providers through a canonical Arabic-first category hierarchy and governed location/search filters, and submit or record a privacy-safe contact interaction with an eligible public business. Existing organization data remains compatibility scope while its retired user-facing journey is not restored by this amendment. The platform may record a minimal allowlisted set of operational events needed to evaluate these journeys. Supporting health, configuration, persistence, migration, security, and audit controls are part of the MVP technical boundary.
 
 The MVP is not a marketplace, social network, job-execution engine, payment system, or market-intelligence product.
 
@@ -148,16 +150,35 @@ The MVP is not a marketplace, social network, job-execution engine, payment syst
 4. Audit is separated from analytics, application logging, authorization, and personal tracking.
 5. Required evidence persists and can be retrieved for an authorized operational review before Alpha.
 
+### MVP-09 — Canonical Category Discovery
+
+**Required function**
+
+- Maintain one Arabic-first canonical root/leaf Category authority for Business Profiles and Service Listings.
+- Let users discover approved public businesses and services by keyword, governed location, and root or leaf category. Professional discovery remains a separate keyword-and-location search until a governed professional-category relationship is approved and implemented.
+- Present the hierarchy consistently on Web and Android without a flat, random, or single-category primary surface.
+
+**Acceptance criteria**
+
+1. The governed catalog contains 15 active roots and 99 active leaves; new or changed owner category selections accept active leaves only, while an unchanged preserved legacy reference does not block unrelated edits.
+2. Root discovery recursively includes descendants, and keyword matching includes Arabic and English aliases from category lineage.
+3. Web and Android consume `parentCode`; the primary category surface displays roots and exposes leaves within their selected root.
+4. Migration 022 is ordered, checksum-bound, and reversible. Its forward path preserves legacy references; rollback restores the exact pre-022 catalog by deleting unreferenced post-snapshot rows and aborts before mutation when a post-snapshot category is referenced.
+5. Search results continue to enforce existing public visibility and moderation rules and expose no private or internal fields.
+6. Category names, aliases, hierarchy, product documentation, contract documentation, and cross-client tests change together.
+7. The Web search surface must not show or retain a Category filter on the Professional tab; the combined Category search returns Business Profiles and Service Listings only.
+8. Dedicated and combined Service Listing search apply `cityCode` through the eligible public owner's governed city for both Business and Professional owners.
+
 ## 4. Explicitly Excluded from MVP
 
 The following are prohibited MVP additions:
 
 - Marketplace, seller storefront, products, inventory, orders, carts, checkout, payments, commissions, subscriptions, invoicing, advertising, or paid ranking.
-- Delivery, worker, user, device, GPS, or behavioral tracking.
+- Delivery ordering, dispatch, fulfillment, worker/user/device/GPS tracking, or behavioral tracking. Provider discovery under the `Delivery & courier` category is allowed by MVP-09.
 - Social feeds, public posts, comments, likes, reactions, follower graphs, or direct social messaging.
 - Automated ranking, recommendation, trust score, credit score, competitor comparison, data brokerage, or advanced market intelligence.
 - Production infrastructure creation, new external integrations, or sector-specific flows not required by MVP-01 through MVP-08.
-- New public APIs, screens, database tables, or workflows for a reserved capability.
+- New public APIs, screens, database tables, or workflows for a reserved capability outside MVP-09.
 
 ## 5. Deferred Until After MVP
 
@@ -168,7 +189,7 @@ These recognized directions remain documentation-only and are not included in MV
 - Job Work execution and worker lifecycle.
 - Khedmah Sharing beyond the minimal privacy-safe operational events in MVP-05.
 - Partner and representative network execution.
-- Full service catalog, geographic coverage, relationship, trust-verification, professional-profile, business-profile, public-discovery, and business-search workflows beyond references strictly required by the approved MVP journeys.
+- Full service catalog, geographic coverage, relationship, trust-verification, professional-profile, business-profile, public-discovery, and business-search workflows beyond the bounded MVP-09 category/search journey.
 - Advanced analytics and market intelligence.
 
 ## 6. Current Implementation-to-Documentation Conflicts

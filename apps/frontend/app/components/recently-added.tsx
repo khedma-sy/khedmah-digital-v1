@@ -48,9 +48,9 @@ export function RecentlyAdded() {
         <div className={styles.recentFooter}><span><PlatformIcon name="pin" /> {cityLabel(business.cityCode, cities)}</span><Link href={`/business-profiles/${encodeURIComponent(business.id)}?source=whats-new`}>عرض النشاط <PlatformIcon name="arrow" /></Link></div>
       </article>)}</div> : <div className={styles.recentEmpty} role={error ? 'alert' : 'status'}>
         <PlatformIcon name={error ? 'search' : 'briefcase'} size={30} />
-        <h3>{error ? 'تعذر تحميل الأنشطة الجديدة' : 'بانتظار أول نشاط موثّق'}</h3>
-        <p>{error ? 'يمكنك متابعة اكتشاف الخدمات المنشورة ريثما نعيد الاتصال.' : 'ستظهر هنا الأنشطة المنشورة والموثقة فور انضمامها إلى خدمة.'}</p>
-        <Link href="/search">استكشف الخدمات المنشورة</Link>
+        <h3>{error ? 'تعذر تحميل الأنشطة الجديدة' : 'لا توجد إضافات جديدة حاليًا'}</h3>
+        <p>{error ? 'يمكنك متابعة اكتشاف الخدمات المنشورة ريثما نعيد الاتصال.' : 'ابحث في دليل الأنشطة والخدمات الحالي أو اختر تصنيفًا للبدء.'}</p>
+        <Link href="/search">فتح دليل الخدمات</Link>
       </div>}
     <div className={styles.recentAction}><Link href="/search">عرض جميع الخدمات</Link></div>
   </section>;

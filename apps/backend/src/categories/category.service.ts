@@ -18,6 +18,15 @@ export class CategoryService {
 
   async assertActiveCategory(codeValue: unknown): Promise<string> {
     const code = validateCategoryCode(codeValue);
+    const category = await this.repository.findActiveByCode(code);
+    if (!category?.parentCode) {
+      throw new BadRequestException('categoryCode must identify an active canonical category.');
+    }
+    return code;
+  }
+
+  async assertActiveCategoryFilter(codeValue: unknown): Promise<string> {
+    const code = validateCategoryCode(codeValue);
     if (!await this.repository.findActiveByCode(code)) {
       throw new BadRequestException('categoryCode must identify an active canonical category.');
     }

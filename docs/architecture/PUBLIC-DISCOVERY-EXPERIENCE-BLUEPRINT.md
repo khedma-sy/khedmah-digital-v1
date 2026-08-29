@@ -2,19 +2,19 @@
 
 ## Mission Boundary
 
-This blueprint is documentation and architecture preparation only. It does not implement production features, APIs, database models, UI screens, marketplace, payments, ordering, messaging/chat, commissions, advertising, ranking, or AI recommendations.
+This blueprint now records the approved bounded V1 discovery implementation: keyword search, governed `cityCode`, the canonical root/leaf Category authority for Business Profiles and Service Listings, and a separate keyword/location search for public Professional Profiles on existing Web and Android surfaces. It does not authorize marketplace, payments, ordering, messaging/chat, commissions, advertising, paid ranking, AI recommendations, or new discovery infrastructure beyond the reviewed runtime and migration paths.
 
 ## Discovery Experience Goal
 
 Khedmah Digital public discovery should help users find the right service, professional, business, supplier, or partner through an Arabic-first, location-aware, category-aware experience. The experience should remain simple in V1 and should prioritize clear public information, trusted visibility, and safe contact intent over transactions or social behavior.
 
-The future discovery experience must support:
+The current bounded discovery experience supports:
 
 - Service discovery.
 - Business discovery.
 - Professional discovery.
 - Location-based discovery.
-- Category-based discovery.
+- Category-based Business Profile and Service Listing discovery.
 - Supplier and partner discovery as future governed scope.
 
 ## Discovery Structure
@@ -44,9 +44,9 @@ Trust Information
 | Layer | Purpose | Boundary |
 | --- | --- | --- |
 | User Need | The user's intent, phrased as a need, service, profession, business type, or location. | Does not create personalization or AI recommendations. |
-| Search / Browse | The entry path for keyword search or guided category browsing. | Does not implement a search engine in this mission. |
+| Search / Browse | The entry path for keyword search or guided category browsing. | Uses the approved existing search API and does not add an external index or recommendation engine. |
 | Category | Broad governed classification such as Healthcare, Food & Hospitality, Manufacturing, Engineering, Marketing, or Supply & Distribution. | Must not become a flat uncontrolled string. |
-| Subcategory | Narrower classification such as Doctor, Restaurant, Water Factory, Civil Engineer, Digital Marketer, or Food Supplier. | Must align with future taxonomy governance. |
+| Subcategory | Narrower governed leaf such as Doctor, Restaurant, Water Factory, Civil Engineer, Digital Marketer, or Food Supplier. | Must be an active child in the canonical Category authority. |
 | Service | Specific public offering such as consultation, catering, structural design, or wholesale supply. | Must not imply ordering, payments, commissions, inventory, or transactions. |
 | Provider / Business Profile | Public profile for an approved business, professional, supplier, partner, representative, or broker. | Must separate public profile data from private owner/user data. |
 | Location | Structured country, city, area, and service coverage context. | Must avoid dependency on free-text location only. |
@@ -54,7 +54,7 @@ Trust Information
 
 ## Homepage Discovery Concept
 
-The future homepage may introduce simple discovery sections after the required domain contracts and implementation governance are approved. The concept should preserve V1 simplicity and avoid becoming a marketplace or social feed.
+The homepage implements search and grouped canonical category browsing while preserving V1 simplicity and avoiding marketplace or social-feed behavior. Category-directory results use the paginated Service discovery contract so every eligible listing remains reachable, including broad root selections. Public cards prefer the resolved Arabic category label carried by Business and Service projections, including preserved legacy references. Other sections below remain conditional on their own approved data and contracts.
 
 Potential future sections:
 
@@ -77,15 +77,20 @@ Potential future sections:
 
 ## Search Foundation
 
-Future search capabilities may include:
+Implemented V1 search capabilities include:
 
 - Keyword search.
-- Category filtering.
+- Category filtering for Business Profiles and Service Listings.
 - Location filtering.
-- Service type filtering.
-- Business type filtering.
+- Recursive root/leaf category filtering.
 
-This blueprint does not implement a search engine. Future implementation must define indexing, query validation, privacy boundaries, abuse controls, audit requirements, language handling, and result visibility rules before runtime work begins.
+Professional Profiles use their separate keyword-and-location endpoint in V1. Their implemented data contract has no Category relationship, so the Professional tab must hide and clear the Category filter; the combined Category query does not include Professional results.
+
+Service Listings do not duplicate a location field. City filtering derives the governed city from the eligible public owner: the Business Profile city for a Business-owned listing or the Professional Profile city for a Professional-owned listing. The dedicated Service endpoint and combined discovery endpoint apply the same rule.
+
+Service-type and Business-type filters remain future decisions.
+
+The current search implementation uses validated existing API contracts, Arabic/English category-lineage aliases, governed visibility, and bounded result projections. Any replacement index or new search infrastructure still requires explicit privacy, abuse, audit, and language governance.
 
 ### Search Architecture Expectations
 
@@ -100,7 +105,7 @@ This blueprint does not implement a search engine. Future implementation must de
 
 ### `business_profiles`
 
-Public discovery is compatible with future `business_profiles` if profiles become approved public identity records with clear ownership, moderation, visibility, taxonomy references, service references, location references, and trust state. A profile should not be treated as an orderable product listing or a chat identity.
+Public discovery reads approved public Business Profiles under the existing ownership, moderation, visibility, taxonomy, location, and trust boundaries. A profile is not an orderable product listing or a chat identity.
 
 ### Categories
 
@@ -112,7 +117,7 @@ Discovery requires structured locations that can support country, city, area, an
 
 ### Service Taxonomy
 
-Discovery should support service-level navigation without mixing services into categories. A future service catalog can allow profiles to expose approved services under governed categories and subcategories.
+Discovery keeps Service Listings separate from category records. Existing listings reference an approved leaf; categories themselves are not services or products.
 
 ### Trust Foundation
 

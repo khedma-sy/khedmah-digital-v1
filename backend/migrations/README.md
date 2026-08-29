@@ -1,6 +1,6 @@
 # Canonical database migrations
 
-`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version from `001` through `021`.
+`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version from `001` through `022`.
 
 Migrations are never executed by application startup. Startup performs read-only PostgreSQL catalog verification and fails with `CANONICAL_SCHEMA_INCOMPATIBLE` when the installed schema does not meet the required canonical level.
 
@@ -29,6 +29,7 @@ Migrations are never executed by application startup. Startup performs read-only
 | 019 | V1 scope reconciliation: remove unused historical subscription schema |
 | 020 | Password recovery and external identity linkage |
 | 021 | Structured provider reports and moderation lifecycle |
+| 022 | Hierarchical Arabic-first Category catalog, search aliases, and governed seed records |
 
 ## Safety rules
 

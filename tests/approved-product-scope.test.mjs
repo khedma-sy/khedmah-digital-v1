@@ -10,6 +10,9 @@ test('approved product scope preserves Khedmah as a local discovery directory', 
   assert.match(scope, /الاسم الرسمي: \*\*خدمة\*\*/);
   assert.match(scope, /شعار الهوية: \*\*تحت مظلة واحدة\*\*/);
   assert.match(scope, /العبارة التسويقية: \*\*مع خدمة\*\*/);
+  assert.match(scope, /15 قسماً رئيسياً و99 تصنيفاً فرعياً/);
+  assert.match(scope, /يختار صاحب النشاط تصنيفاً فرعياً/);
+  assert.match(scope, /Web وAndroid/);
 });
 
 test('V1 remains contact-first and excludes scope-changing features', async () => {

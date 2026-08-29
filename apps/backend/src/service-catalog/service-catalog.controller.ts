@@ -17,8 +17,8 @@ export class ServiceCatalogController {
   }
 
   @Get('search')
-  async search(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('page') page?: string) {
-    const query: SearchServicesRequest = { q, categoryCode, page };
+  async search(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('cityCode') cityCode?: string, @Query('page') page?: string) {
+    const query: SearchServicesRequest = { q, categoryCode, cityCode, page };
     return await this.services.search(query);
   }
 

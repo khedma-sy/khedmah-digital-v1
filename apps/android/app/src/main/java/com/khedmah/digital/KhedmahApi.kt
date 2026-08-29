@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import android.util.Base64
 
-data class KhedmahCategory(val code: String, val nameAr: String)
+data class KhedmahCategory(val code: String, val nameAr: String, val parentCode: String?)
 data class KhedmahResult(val id: String, val title: String, val subtitle: String, val type: String)
 data class KhedmahUser(val id: String, val email: String, val displayName: String)
 data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
@@ -25,7 +25,11 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         val values = payload.optJSONArray("categories") ?: return@withContext emptyList()
         List(values.length()) { index ->
             val item = values.getJSONObject(index)
-            KhedmahCategory(item.getString("code"), item.getString("nameAr"))
+            KhedmahCategory(
+                code = item.getString("code"),
+                nameAr = item.getString("nameAr"),
+                parentCode = if (item.isNull("parentCode")) null else item.optString("parentCode").takeIf { it.isNotBlank() }
+            )
         }
     }
 

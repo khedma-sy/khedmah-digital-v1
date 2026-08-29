@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { isSyrianCityCode } from '../locations/locations.service';
 import { CreateServiceRequest, ListOwnerServicesRequest, SearchServicesRequest, UpdateServiceRequest } from './dto/service-catalog.dto';
 import { ServiceOwnerType, ServicePriceCurrency, ServicePriceType, ServiceStatus } from './service-catalog.types';
 
@@ -127,9 +128,14 @@ export function validateUpdateServiceRequest(request: UpdateServiceRequest) {
 }
 
 export function validateServiceSearchRequest(request: SearchServicesRequest) {
+  const cityCode = request.cityCode === undefined ? undefined : optionalString(request.cityCode, 'cityCode', 50);
+  if (cityCode && !isSyrianCityCode(cityCode)) {
+    throw new BadRequestException('cityCode must identify a supported Syrian city.');
+  }
   return {
     q: request.q === undefined ? undefined : optionalString(request.q, 'q', 200),
     categoryCode: request.categoryCode === undefined ? undefined : optionalString(request.categoryCode, 'categoryCode', 50),
+    cityCode,
     page: validatePage(request.page)
   };
 }

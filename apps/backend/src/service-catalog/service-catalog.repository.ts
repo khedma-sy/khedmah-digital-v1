@@ -11,6 +11,7 @@ interface ServiceListingRow extends Record<string, unknown> {
   readonly description_ar: string | null;
   readonly description_en: string | null;
   readonly category_code: string;
+  readonly category_name_ar: string | null;
   readonly price: string | number | null;
   readonly price_currency: string | null;
   readonly price_type: string;
@@ -65,7 +66,9 @@ export class ServiceCatalogRepository {
   async findById(id: string): Promise<ServiceListing | undefined> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE id = $1
        LIMIT 1`,
@@ -77,7 +80,9 @@ export class ServiceCatalogRepository {
   async listForOwner(ownerId: string, ownerType: ServiceOwnerType): Promise<ServiceListing[]> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE owner_id = $1 AND owner_type = $2
        ORDER BY created_at DESC`,
@@ -99,7 +104,9 @@ export class ServiceCatalogRepository {
     }
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE ${clauses.join(' AND ')}
        ORDER BY created_at DESC
@@ -130,7 +137,9 @@ export class ServiceCatalogRepository {
   async findAndVerifyOwnership(id: string, ownerId: string): Promise<ServiceListing | undefined> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
-              category_code, price, price_currency, price_type, status, created_at, updated_at
+              category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = service_listings.category_code) AS category_name_ar,
+              price, price_currency, price_type, status, created_at, updated_at
        FROM service_listings
        WHERE id = $1 AND owner_id = $2
        LIMIT 1`,
@@ -139,11 +148,13 @@ export class ServiceCatalogRepository {
     return rows[0] ? this.map(rows[0]) : undefined;
   }
 
-  async listPublicEligible(filters: { categoryCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
+  async listPublicEligible(filters: { categoryCode?: string; cityCode?: string; q?: string }, limit = 20, offset = 0): Promise<ServiceListing[]> {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
-              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.created_at, sl.updated_at
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.created_at, sl.updated_at
        FROM service_listings sl
        WHERE ${whereClauses.join(' AND ')}
        ORDER BY sl.created_at DESC
@@ -153,7 +164,7 @@ export class ServiceCatalogRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async countPublicEligible(filters: { categoryCode?: string; q?: string }): Promise<number> {
+  async countPublicEligible(filters: { categoryCode?: string; cityCode?: string; q?: string }): Promise<number> {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM service_listings sl WHERE ${whereClauses.join(' AND ')}`,
@@ -165,7 +176,9 @@ export class ServiceCatalogRepository {
   async listFeatured(limit = 6): Promise<ServiceListing[]> {
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
-              sl.category_code, sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
        FROM service_listings sl
        WHERE sl.status = 'active' AND sl.is_featured = TRUE
        ORDER BY sl.featured_at DESC
@@ -175,7 +188,15 @@ export class ServiceCatalogRepository {
     return rows.map((row) => this.map(row));
   }
 
-  private publicEligibleWhere(filters: { categoryCode?: string; q?: string }) {
+  private publicEligibleWhere(filters: { categoryCode?: string; cityCode?: string; q?: string }) {
+    const params: unknown[] = [];
+    let businessCityClause = '';
+    let professionalCityClause = '';
+    if (filters.cityCode) {
+      params.push(filters.cityCode);
+      businessCityClause = `AND bp.city_code = $${params.length}`;
+      professionalCityClause = `AND pp.city_code = $${params.length}`;
+    }
     const whereClauses: string[] = [
       "sl.status = 'active'",
       `(
@@ -185,23 +206,53 @@ export class ServiceCatalogRepository {
             AND bp.visibility = 'public'
             AND bp.trust_status = 'approved'
             AND bp.status = 'active'
+            ${businessCityClause}
         ))
         OR
         (sl.owner_type = 'professional' AND EXISTS (
           SELECT 1 FROM professional_profiles pp
           WHERE pp.professional_profile_identifier = sl.owner_id
             AND pp.visibility = 'public' AND pp.moderation_status = 'approved' AND pp.lifecycle_status = 'active'
+            ${professionalCityClause}
         ))
       )`
     ];
-    const params: unknown[] = [];
     if (filters.categoryCode) {
       params.push(filters.categoryCode);
-      whereClauses.push(`sl.category_code = $${params.length}`);
+      whereClauses.push(`sl.category_code IN (
+        WITH RECURSIVE category_tree AS (
+          SELECT code FROM categories WHERE code = $${params.length} AND status = 'active'
+          UNION ALL
+          SELECT child.code FROM categories child JOIN category_tree parent ON child.parent_code = parent.code
+          WHERE child.status = 'active'
+        ) SELECT code FROM category_tree
+      )`);
     }
     if (filters.q) {
       params.push(`%${filters.q}%`);
-      whereClauses.push(`(sl.title_ar ILIKE $${params.length} OR sl.title_en ILIKE $${params.length})`);
+      whereClauses.push(`(
+        sl.title_ar ILIKE $${params.length}
+        OR COALESCE(sl.title_en, '') ILIKE $${params.length}
+        OR COALESCE(sl.description_ar, '') ILIKE $${params.length}
+        OR COALESCE(sl.description_en, '') ILIKE $${params.length}
+        OR EXISTS (
+          WITH RECURSIVE category_lineage AS (
+            SELECT code, parent_code, name_ar, name_en, search_aliases_ar, search_aliases_en
+            FROM categories WHERE code = sl.category_code AND status = 'active'
+            UNION
+            SELECT parent.code, parent.parent_code, parent.name_ar, parent.name_en,
+              parent.search_aliases_ar, parent.search_aliases_en
+            FROM categories parent
+            JOIN category_lineage child ON parent.code = child.parent_code
+            WHERE parent.status = 'active'
+          )
+          SELECT 1 FROM category_lineage c
+          WHERE c.name_ar ILIKE $${params.length}
+            OR COALESCE(c.name_en, '') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_ar, ' ') ILIKE $${params.length}
+            OR array_to_string(c.search_aliases_en, ' ') ILIKE $${params.length}
+        )
+      )`);
     }
     return { whereClauses, params };
   }
@@ -216,6 +267,7 @@ export class ServiceCatalogRepository {
       descriptionAr: row.description_ar ?? undefined,
       descriptionEn: row.description_en ?? undefined,
       categoryCode: row.category_code,
+      categoryNameAr: row.category_name_ar ?? undefined,
       price: row.price === null ? undefined : Number(row.price),
       priceCurrency: row.price_currency === null ? undefined : row.price_currency as ServiceListing['priceCurrency'],
       priceType: row.price_type as ServiceListing['priceType'],

@@ -47,7 +47,7 @@ export class BusinessProfileService {
     };
 
     await this.repository.save(profile);
-    return this.toPublic(profile);
+    return this.toPublic(await this.repository.findById(profile.id) ?? profile);
   }
 
   async listMine(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {
@@ -72,7 +72,9 @@ export class BusinessProfileService {
     }
 
     const input = validateUpdateBusinessProfile(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode && input.categoryCode !== profile.categoryCode) {
+      await this.categories.assertActiveCategory(input.categoryCode);
+    }
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,
@@ -92,7 +94,7 @@ export class BusinessProfileService {
     };
 
     await this.repository.save(updated);
-    return this.toPublic(updated);
+    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
   }
 
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {
@@ -121,7 +123,7 @@ export class BusinessProfileService {
 
   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
     const input = validateBusinessProfileSearch(request);
-    if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
+    if (input.categoryCode) await this.categories.assertActiveCategoryFilter(input.categoryCode);
     const limit = 20;
     const offset = (input.page - 1) * limit;
     const [profiles, total] = await Promise.all([
@@ -422,6 +424,7 @@ export class BusinessProfileService {
       email: profile.email,
       website: profile.website,
       categoryCode: profile.categoryCode,
+      categoryNameAr: profile.categoryNameAr,
       cityCode: profile.cityCode,
       countryCode: profile.countryCode,
       lat: profile.lat,

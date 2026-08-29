@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CategoryService } from './category.service';
 
-const active = { code: 'maintenance', nameAr: 'الصيانة', status: 'active' as const, sortOrder: 1 };
+const active = { code: 'maintenance', nameAr: 'الصيانة', visualKey: 'home', isFeatured: false, status: 'active' as const, sortOrder: 1 };
+const activeLeaf = { ...active, code: 'electrician', parentCode: active.code };
 
 test('Category API authority lists and resolves active canonical categories', async () => {
   const repository = { listActive: async () => [active], findActiveByCode: async (code: string) => code === active.code ? active : undefined };
@@ -18,4 +19,17 @@ test('Category authority rejects malformed, inactive, and unknown codes', async 
   await assert.rejects(() => service.assertActiveCategory('Not Canonical'), BadRequestException);
   await assert.rejects(() => service.assertActiveCategory('inactive'), BadRequestException);
   await assert.rejects(() => service.getActive('unknown'), NotFoundException);
+});
+
+test('Category writes use structural parentage: roots are rejected and leaves are accepted', async () => {
+  const repository = { listActive: async () => [active, activeLeaf], findActiveByCode: async (code: string) => code === active.code ? active : activeLeaf };
+  const service = new CategoryService(repository as never);
+  await assert.rejects(() => service.assertActiveCategory(active.code), BadRequestException);
+  assert.equal(await service.assertActiveCategory(activeLeaf.code), activeLeaf.code);
+});
+
+test('Category discovery accepts an active root category', async () => {
+  const repository = { listActive: async () => [active], findActiveByCode: async () => active };
+  const service = new CategoryService(repository as never);
+  assert.equal(await service.assertActiveCategoryFilter(active.code), active.code);
 });

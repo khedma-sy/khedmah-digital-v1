@@ -12,6 +12,7 @@ export interface ServiceListing {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly price?: number;
   readonly priceCurrency?: ServicePriceCurrency;
   readonly priceType: ServicePriceType;
@@ -31,6 +32,7 @@ export interface PublicServiceListing {
   readonly descriptionAr?: string;
   readonly descriptionEn?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly price?: number;
   readonly priceCurrency?: ServicePriceCurrency;
   readonly priceType: ServicePriceType;

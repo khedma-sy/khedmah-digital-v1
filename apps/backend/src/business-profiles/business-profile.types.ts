@@ -18,6 +18,7 @@ export interface BusinessProfile {
   readonly email?: string;
   readonly website?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly cityCode: string;
   readonly countryCode: string;
   readonly lat?: number;
@@ -46,6 +47,7 @@ export interface PublicBusinessProfile {
   readonly email?: string;
   readonly website?: string;
   readonly categoryCode: string;
+  readonly categoryNameAr?: string;
   readonly cityCode: string;
   readonly countryCode: string;
   readonly lat?: number;

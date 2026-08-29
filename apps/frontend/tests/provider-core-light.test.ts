@@ -33,3 +33,11 @@ test('provider core remains mobile-first with one primary and two secondary path
   assert.match(styles, /@media\(min-width:48rem\)/);
   assert.match(styles, /@media\(max-width:26rem\)/);
 });
+
+test('provider edit control preserves a current non-selectable legacy category', async () => {
+  const manage = await read('../app/business-profiles/[id]/manage/page.tsx');
+
+  assert.match(manage, /hasSelectableCurrentCategory/);
+  assert.match(manage, /<option value=\{profileForm\.categoryCode\}>التصنيف الحالي المحفوظ \(قديم\)<\/option>/);
+  assert.match(manage, /يمكنك إبقاء التصنيف الحالي عند تعديل معلومات أخرى/);
+});

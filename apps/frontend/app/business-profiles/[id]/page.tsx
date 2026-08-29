@@ -55,12 +55,35 @@ export default function BusinessProfilePage() {
     void load(); return () => { active = false; };
   }, [id]);
 
-  async function handleShare() {
-    const url = window.location.href;
+  async function copyProfileLink() {
     try {
-      if (navigator.share) await navigator.share({ title: business?.name ?? 'خدمة', url });
-      else { await navigator.clipboard.writeText(url); setShareMsg('تم نسخ الرابط'); setTimeout(() => setShareMsg(''), 2000); }
-    } catch { setShareMsg('تعذرت المشاركة'); setTimeout(() => setShareMsg(''), 2000); }
+      await navigator.clipboard.writeText(window.location.href);
+      setShareMsg('تم نسخ رابط النشاط');
+    } catch {
+      setShareMsg('تعذر نسخ الرابط');
+    }
+    setTimeout(() => setShareMsg(''), 2000);
+  }
+
+  function shareViaWhatsapp() {
+    if (!business) return;
+    const text = encodeURIComponent(`${business.name}\n${window.location.href}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async function shareViaDevice() {
+    if (!business) return;
+    if (!navigator.share) {
+      await copyProfileLink();
+      return;
+    }
+    try {
+      await navigator.share({ title: business.name, url: window.location.href });
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') return;
+      setShareMsg('تعذرت المشاركة عبر الجهاز');
+      setTimeout(() => setShareMsg(''), 2000);
+    }
   }
 
   if (isLoading) return <PageShell className={styles.page} label="جاري تحميل ملف النشاط"><SkeletonGrid count={5} label="جاري تحميل معلومات النشاط" /></PageShell>;
@@ -70,7 +93,7 @@ export default function BusinessProfilePage() {
   const cover = media.find((asset) => asset.assetType === 'cover');
   const gallery = media.filter((asset) => asset.assetType === 'gallery');
   const activeServices = services.filter((service) => service.status === 'active');
-  const categoryLabel = categories.find((category) => category.code === business.categoryCode)?.nameAr ?? 'خدمة محلية';
+  const categoryLabel = business.categoryNameAr ?? categories.find((category) => category.code === business.categoryCode)?.nameAr ?? 'خدمة محلية';
   const localizedCity = cityLabel(business.cityCode, cities);
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name,
@@ -99,7 +122,9 @@ export default function BusinessProfilePage() {
           {business.phone && <a className="ui-action ui-action-secondary" href={`tel:${business.phone}`}><PlatformIcon name="phone" size={17}/> اتصال</a>}
           <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
           <ProviderQrAction providerName={business.name} />
-          <ActionButton type="button" variant="secondary" onClick={() => void handleShare()}><PlatformIcon name="arrow" size={17}/> مشاركة</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={shareViaWhatsapp}>مشاركة عبر واتساب</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={() => void copyProfileLink()}>نسخ رابط النشاط</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={() => void shareViaDevice()}>مشاركة عبر الجهاز</ActionButton>
           {business.visibility === 'public' && <ProviderReportForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
           {shareMsg && <span className={styles.shareStatus} role="status">{shareMsg}</span>}
         </div>
@@ -111,7 +136,7 @@ export default function BusinessProfilePage() {
         <div className={styles.main}>
           {(business.descriptionAr || business.descriptionEn) && <Surface className={styles.section}><h2>عن النشاط</h2>{business.descriptionAr && <p>{business.descriptionAr}</p>}{business.descriptionEn && <p className={styles.secondaryText}>{business.descriptionEn}</p>}</Surface>}
 
-          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
+          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
 
           {gallery.length > 0 && <Surface className={styles.section}><h2>معرض الصور ({gallery.length})</h2><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`صورة من ${business.name}`} loading="lazy" />)}</div></Surface>}
 

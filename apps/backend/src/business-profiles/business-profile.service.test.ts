@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from './business-profile.repository';
@@ -160,4 +160,38 @@ test('listMine does not expose ownerUserId in owner projection', async () => {
   for (const business of businesses) {
     assert.equal('ownerUserId' in business, false, 'ownerUserId must not appear in owner list');
   }
+});
+
+test('unchanged inactive legacy category does not block unrelated profile edits', async () => {
+  const { pool, service, ownerCookie, businessId } = await createFixture();
+  await pool.query(`
+    INSERT INTO categories (code, name_ar, status) VALUES
+      ('legacy_business', 'تصنيف نشاط قديم', 'inactive'),
+      ('legacy_other', 'تصنيف قديم آخر', 'inactive')
+    ON CONFLICT (code) DO UPDATE SET status = 'inactive', parent_code = NULL
+  `);
+  await pool.query('UPDATE business_profiles SET category_code = $2 WHERE id = $1', [businessId, 'legacy_business']);
+
+  const updated = await service.update(ownerCookie, businessId, {
+    descriptionAr: 'تعديل لا يغير التصنيف القديم',
+    categoryCode: 'legacy_business'
+  });
+  assert.equal(updated.categoryCode, 'legacy_business');
+  assert.equal(updated.categoryNameAr, 'تصنيف نشاط قديم');
+  assert.equal(updated.descriptionAr, 'تعديل لا يغير التصنيف القديم');
+  await pool.query(
+    `UPDATE business_profiles
+     SET visibility = 'public', moderation_status = 'approved', trust_status = 'approved'
+     WHERE id = $1`,
+    [businessId]
+  );
+  const publicProfile = await service.getPublic(businessId);
+  assert.equal(publicProfile.categoryNameAr, 'تصنيف نشاط قديم');
+  await assert.rejects(
+    () => service.update(ownerCookie, businessId, { categoryCode: 'legacy_other' }),
+    BadRequestException
+  );
+  const reclassified = await service.update(ownerCookie, businessId, { categoryCode: 'restaurant' });
+  assert.equal(reclassified.categoryCode, 'restaurant');
+  assert.equal(reclassified.categoryNameAr, 'مطاعم');
 });

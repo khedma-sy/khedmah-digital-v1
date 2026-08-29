@@ -50,6 +50,7 @@ jobs:
             019_remove_out_of_scope_subscription_schema
             020_identity_recovery_oauth
             021_provider_reports
+            022_expand_category_taxonomy
           )
 
           for migration in "${migrations[@]}"; do
@@ -116,6 +117,8 @@ jobs:
             020_identity_recovery_oauth_rollback.sql \
             021_provider_reports.sql \
             021_provider_reports_rollback.sql \
+            022_expand_category_taxonomy.sql \
+            022_expand_category_taxonomy_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
