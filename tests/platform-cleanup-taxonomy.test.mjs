@@ -36,10 +36,11 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
     assert.match(repository, /parent\.code = child\.parent_code/);
     assert.match(repository, /search_aliases_ar/);
   }
-  assert.match(categoryService, /hasActiveChildren/);
+  assert.match(categoryService, /category\?\.parentCode/);
   assert.match(categoryService, /assertActiveCategoryFilter/);
   assert.match(businessService, /async search[\s\S]*assertActiveCategoryFilter/);
   assert.match(serviceCatalogService, /async search[\s\S]*assertActiveCategoryFilter/);
   assert.match(categoryUi, /allowRoots/);
   assert.match(categoryUi, /<optgroup/);
+  assert.match(categoryUi, /children\.length === 0[\s\S]*return allowRoots \?/);
 });

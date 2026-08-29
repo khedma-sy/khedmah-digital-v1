@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - VERIFY_ONLY
+          - APPLY_MIGRATION_021
           - APPLY_MIGRATION_022
           - DEPLOY_PRODUCTION
       commit_sha:
@@ -21,7 +22,7 @@ on:
         required: false
         type: string
       backup_id:
-        description: Successful Cloud SQL on-demand backup ID required for migration 022
+        description: Successful Cloud SQL on-demand backup ID required for migration 021 or 022
         required: false
         type: string
 
@@ -84,9 +85,9 @@ jobs:
           set -euo pipefail
           bash scripts/validate-firebase-social-auth-readiness.sh
 
-  migrate-category-taxonomy:
-    name: Apply reviewed database migration 022
-    if: ${{ inputs.mode == 'APPLY_MIGRATION_022' }}
+  migrate-database:
+    name: Apply reviewed database migration
+    if: ${{ inputs.mode == 'APPLY_MIGRATION_021' || inputs.mode == 'APPLY_MIGRATION_022' }}
     needs: authenticate
     runs-on: ubuntu-latest
     environment: production
@@ -100,7 +101,9 @@ jobs:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       CONFIRMATION: ${{ inputs.confirmation }}
       EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
-      MIGRATION_SHA256: ac385b1262a80a75d4443662fce2fb1a858ebd8778a2bc6fdec65d8c1c805a8a
+      MIGRATION_NUMBER: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021' || '022' }}
+      MIGRATION_VERSION: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021_provider_reports' || '022_expand_category_taxonomy' }}
+      MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || 'ac385b1262a80a75d4443662fce2fb1a858ebd8778a2bc6fdec65d8c1c805a8a' }}
     steps:
       - name: Check out requested commit
         uses: actions/checkout@v4
@@ -117,7 +120,7 @@ jobs:
           MAIN_SHA="$(git rev-parse origin/main)"
           test "$ACTUAL_SHA" = "$REQUESTED_SHA"
           test "$REQUESTED_SHA" = "$MAIN_SHA"
-          EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MIGRATION_022_${REQUESTED_SHA:0:7}"
+          EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MIGRATION_${MIGRATION_NUMBER}_${REQUESTED_SHA:0:7}"
           test "$CONFIRMATION" = "$EXPECTED_CONFIRMATION"
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
@@ -134,7 +137,7 @@ jobs:
           set -euo pipefail
           [[ "$EXPECTED_BACKUP_ID" =~ ^[0-9]+$ ]]
           SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
-          EXPECTED_DESCRIPTION="khedmah-before-022-${REQUESTED_SHA:0:7}"
+          EXPECTED_DESCRIPTION="khedmah-before-${MIGRATION_NUMBER}-${REQUESTED_SHA:0:7}"
           BACKUP_STATUS="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --instance "$SQL_INSTANCE_NAME" \
@@ -178,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${OPERATIONS_ARTIFACT_REPOSITORY}/database-migrations:${REQUESTED_SHA}"
-          JOB="khedmah-database-migration-022"
+          JOB="khedmah-database-migration-${MIGRATION_NUMBER}"
           gcloud run jobs deploy "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
@@ -186,7 +189,7 @@ jobs:
             --service-account "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
             --set-secrets 'DATABASE_URL=DATABASE_URL:latest' \
-            --set-env-vars "MIGRATION_VERSION=022_expand_category_taxonomy,MIGRATION_SHA256=${MIGRATION_SHA256}" \
+            --set-env-vars "MIGRATION_VERSION=${MIGRATION_VERSION},MIGRATION_SHA256=${MIGRATION_SHA256}" \
             --tasks 1 \
             --parallelism 1 \
             --max-retries 0 \
@@ -203,7 +206,7 @@ jobs:
           JOB_RESULT: ${{ job.status }}
         run: |
           {
-            printf '%s\n' '### Production database migration 022'
+            printf '### Production database migration %s\n' "$MIGRATION_NUMBER"
             printf -- '- Commit: `%s`\n' "$REQUESTED_SHA"
             printf -- '- Checksum: `%s`\n' "$MIGRATION_SHA256"
             printf -- '- Backup: `%s`\n' "${EXPECTED_BACKUP_ID:-not-provided}"

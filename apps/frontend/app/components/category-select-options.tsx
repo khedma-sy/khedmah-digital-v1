@@ -10,7 +10,7 @@ export function CategorySelectOptions({ categories, allowRoots = true }: { categ
     groupedCodes.add(root.code);
     children.forEach((child) => groupedCodes.add(child.code));
     if (children.length === 0) {
-      return <option key={root.code} value={root.code}>{root.nameAr}</option>;
+      return allowRoots ? <option key={root.code} value={root.code}>{root.nameAr}</option> : null;
     }
     return <Fragment key={root.code}>
       {allowRoots ? <option value={root.code}>{root.nameAr} — كل التصنيف</option> : null}
@@ -21,5 +21,5 @@ export function CategorySelectOptions({ categories, allowRoots = true }: { categ
   });
 
   const ungrouped = categories.filter((category) => !groupedCodes.has(category.code));
-  return <>{groups}{ungrouped.map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</>;
+  return <>{groups}{ungrouped.filter((category) => allowRoots || category.parentCode).map((category) => <option key={category.code} value={category.code}>{category.nameAr}</option>)}</>;
 }

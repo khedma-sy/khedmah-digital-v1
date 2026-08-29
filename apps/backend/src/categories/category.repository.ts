@@ -27,15 +27,6 @@ export class CategoryRepository {
     return row ? toCategory(row) : undefined;
   }
 
-  async hasActiveChildren(code: string): Promise<boolean> {
-    const [row] = await this.pool.query<{ exists: boolean }>(
-      `SELECT EXISTS(
-         SELECT 1 FROM categories WHERE parent_code = $1 AND status = 'active'
-       ) AS exists`,
-      [code]
-    );
-    return row?.exists ?? false;
-  }
 }
 
 function toCategory(row: CategoryRow): Category {
