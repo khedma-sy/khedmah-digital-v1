@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
-required_gradle_version="8.11.1"
-command -v gradle >/dev/null || {
-  echo "Gradle ${required_gradle_version} is required. Install it before building Android." >&2
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+android_root="${repository_root}/apps/android"
+gradle_wrapper="${android_root}/gradlew"
+
+[[ -x "$gradle_wrapper" ]] || {
+  echo "Android Gradle Wrapper is missing or not executable: ${gradle_wrapper}" >&2
   exit 3
 }
-installed_gradle_version="$(gradle --version | awk '/^Gradle / { print $2; exit }')"
-[[ "$(printf '%s\n%s\n' "$required_gradle_version" "$installed_gradle_version" | sort -V | head -n1)" == "$required_gradle_version" ]] || {
-  echo "Gradle ${required_gradle_version} or newer is required; found ${installed_gradle_version:-unknown}." >&2
+
+command -v java >/dev/null || {
+  echo 'JDK 17 is required to build Android.' >&2
   exit 4
 }
-[[ -n "${JAVA_HOME:-}" ]] || {
-  echo 'JAVA_HOME must reference JDK 17.' >&2
+
+java_major_version="$(java -version 2>&1 | awk -F '[\".]' '/version/ { print $2; exit }')"
+[[ "$java_major_version" == "17" ]] || {
+  echo "JDK 17 is required to build Android; found ${java_major_version:-unknown}." >&2
   exit 5
 }
-gradle --no-daemon -p apps/android :app:assembleDebug
+
+"$gradle_wrapper" --no-daemon -p "$android_root" :app:assembleDebug
