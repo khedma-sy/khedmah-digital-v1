@@ -18,4 +18,7 @@ if (!deployment.includes('Refusing to deploy to the production project')) throw 
 const previewBuild = await readFile('cloudbuild.preview.yaml', 'utf8');
 if (previewBuild.includes('backend-774201339973.europe-west1.run.app')) throw new Error('Preview frontend must never target the production backend');
 if (!deployment.includes('_NEXT_PUBLIC_API_URL=${backend_url}')) throw new Error('Preview frontend must be built against its isolated backend URL');
+for (const required of ['PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME', '--add-cloudsql-instances', 'DATABASE_URL=DATABASE_URL:latest', 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME}', 'Preview Cloud SQL instance must belong to the preview project and region']) {
+  if (!joined.includes(required)) throw new Error(`Preview database isolation is missing: ${required}`);
+}
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);
