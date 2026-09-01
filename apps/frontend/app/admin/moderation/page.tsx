@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, ModerationProviderReport, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [professionals, setProfessionals] = useState<PublicProfessionalProfile[]>([]);
+  const [products, setProducts] = useState<ProductListing[]>([]);
   const [reports, setReports] = useState<ModerationProviderReport[]>([]);
   const [rejectingEntity, setRejectingEntity] = useState<{ type: 'business' | 'professional'; id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -17,9 +18,14 @@ export default function ModerationPage() {
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const [{ businesses, professionals }, { reports }] = await Promise.all([api.moderation.listPending(), api.moderation.listReports()]);
+      const [{ businesses, professionals }, { products }, { reports }] = await Promise.all([
+        api.moderation.listPending(),
+        api.adminProducts.pending(),
+        api.moderation.listReports()
+      ]);
       setBusinesses(businesses);
       setProfessionals(professionals);
+      setProducts(products);
       setReports(reports);
       setError(null);
     } catch (err: unknown) {
@@ -78,12 +84,49 @@ export default function ModerationPage() {
     }
   };
 
+  const reviewProduct = async (id: string, status: 'approved' | 'rejected') => {
+    let reason: string | undefined;
+    if (status === 'rejected') {
+      const entered = prompt('اكتب سبب رفض المنتج (5 أحرف على الأقل):');
+      if (!entered || entered.trim().length < 5) return;
+      reason = entered.trim();
+    } else if (!confirm('هل تريد نشر هذا المنتج في متجر خدمة؟')) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.adminProducts.review(id, status, reason);
+      await loadQueue();
+    } catch (err: unknown) {
+      alert(messageFor(err, 'تعذر تحديث مراجعة المنتج'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) return <main id="foundation-content" className="operations-shell moderation-state" aria-busy="true">جاري تحميل قائمة المراجعة...</main>;
   if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}</main>;
 
   return (
     <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
-      <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length} بانتظار المراجعة</span></header>
+      <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length} بانتظار المراجعة</span></header>
+
+      <section className="operations-panel moderation-section" aria-labelledby="products-title">
+        <div className="panel-heading"><h2 id="products-title">منتجات متجر خدمة</h2><span>{products.length}</span></div>
+        {products.length === 0 ? <p className="moderation-empty">لا توجد منتجات بانتظار المراجعة.</p> : <div className="moderation-list">
+          {products.map((product) => <article key={product.id} className="moderation-card">
+            <div>
+              <h3>{product.titleAr}</h3>
+              <p>{product.businessName ?? 'نشاط على خدمة'} · {product.price.toLocaleString('ar-SY')} {product.currency} · {product.categoryCode}</p>
+              {product.imageUrl && <a href={product.imageUrl} target="_blank" rel="noreferrer">فتح صورة المنتج</a>}
+            </div>
+            <div className="moderation-actions">
+              <button disabled={actionLoading} onClick={() => void reviewProduct(product.id, 'approved')} className="moderation-approve">نشر</button>
+              <button disabled={actionLoading} onClick={() => void reviewProduct(product.id, 'rejected')} className="moderation-reject">رفض</button>
+            </div>
+          </article>)}
+        </div>}
+      </section>
 
       <section className="operations-panel moderation-section">
         <div className="panel-heading"><h2>الأعمال المعلقة</h2><span>{businesses.length}</span></div>

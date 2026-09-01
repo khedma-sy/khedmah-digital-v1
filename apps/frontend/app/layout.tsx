@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
+import { SmartAssistant } from './components/smart-assistant';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
         {children}
+        <SmartAssistant />
       </body>
     </html>
   );

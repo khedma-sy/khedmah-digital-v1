@@ -12,6 +12,7 @@ on:
           - VERIFY_ONLY
           - APPLY_MIGRATION_021
           - APPLY_MIGRATION_022
+          - APPLY_MIGRATION_024
           - DEPLOY_PRODUCTION
       commit_sha:
         description: Exact latest main commit SHA (required for migration or deployment)
@@ -22,7 +23,7 @@ on:
         required: false
         type: string
       backup_id:
-        description: Successful Cloud SQL on-demand backup ID required for migration 021 or 022
+        description: Successful Cloud SQL on-demand backup ID required for migrations
         required: false
         type: string
 
@@ -87,7 +88,7 @@ jobs:
 
   migrate-database:
     name: Apply reviewed database migration
-    if: ${{ inputs.mode == 'APPLY_MIGRATION_021' || inputs.mode == 'APPLY_MIGRATION_022' }}
+    if: ${{ startsWith(inputs.mode, 'APPLY_MIGRATION_') }}
     needs: authenticate
     runs-on: ubuntu-latest
     environment: production
@@ -101,9 +102,9 @@ jobs:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       CONFIRMATION: ${{ inputs.confirmation }}
       EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
-      MIGRATION_NUMBER: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021' || '022' }}
-      MIGRATION_VERSION: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021_provider_reports' || '022_expand_category_taxonomy' }}
-      MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || 'f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330' }}
+      MIGRATION_NUMBER: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021' || inputs.mode == 'APPLY_MIGRATION_022' && '022' || '024' }}
+      MIGRATION_VERSION: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '021_provider_reports' || inputs.mode == 'APPLY_MIGRATION_022' && '022_expand_category_taxonomy' || '024_product_store' }}
+      MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || inputs.mode == 'APPLY_MIGRATION_022' && 'f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330' || 'd2141fab35a163cd46511d35bef13a060f9ceb4b2d25acbedb0afa44a4be16a6' }}
     steps:
       - name: Check out requested commit
         uses: actions/checkout@v4

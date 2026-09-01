@@ -32,14 +32,15 @@ export class MediaService {
     const storageKey = `media/${input.ownerType}/${input.ownerId}/${id}.${ext}`;
     const now = new Date().toISOString();
 
-    const existing = input.ownerType === 'business_profile' && input.assetType
+    const existing = (input.ownerType === 'business_profile' || input.ownerType === 'product_listing') && input.assetType
       ? await this.db.query<{ id: string; storage_key: string }>(
           `SELECT id, storage_key FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3 ORDER BY created_at ASC`,
           [input.ownerType, input.ownerId, input.assetType]
         )
       : [];
-    if (input.assetType === 'gallery' && existing.length >= 12) {
-      throw new BadRequestException('Business gallery supports up to 12 images.');
+    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : undefined;
+    if (imageLimit !== undefined && existing.length >= imageLimit) {
+      throw new BadRequestException(`يمكن رفع ${imageLimit} صورة كحد أقصى.`);
     }
 
     await this.storage.save(storageKey, content, input.mimeType);
@@ -170,9 +171,9 @@ export class MediaService {
       if (ownerId !== actorId) throw new ForbiddenException('Access denied.');
       return;
     }
-    const table = ownerType === 'business_profile' ? 'business_profiles' : 'professional_profiles';
-    const ownerColumn = ownerType === 'business_profile' ? 'owner_user_id' : 'user_identifier';
-    const idColumn = ownerType === 'business_profile' ? 'id' : 'professional_profile_identifier';
+    const table = ownerType === 'business_profile' ? 'business_profiles' : ownerType === 'product_listing' ? 'product_listings' : 'professional_profiles';
+    const ownerColumn = ownerType === 'professional_profile' ? 'user_identifier' : 'owner_user_id';
+    const idColumn = ownerType === 'professional_profile' ? 'professional_profile_identifier' : 'id';
     const rows = await this.db.query<{ owner_user_id: string }>(`SELECT ${ownerColumn} AS owner_user_id FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [ownerId]);
     if (!rows[0]) throw new NotFoundException('Media owner not found.');
     if (rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');

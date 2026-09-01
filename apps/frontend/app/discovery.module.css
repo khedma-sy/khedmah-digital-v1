@@ -43,7 +43,7 @@
 .mapStage { position:relative; min-width:0; min-height:calc(100svh - 3.8rem); overflow:hidden; }
 .mapCanvas { min-height:inherit; background:linear-gradient(135deg,var(--k-color-primary-soft),var(--k-color-canvas-soft)); }
 .mapFallback { position:absolute; inset:0; display:grid; place-content:center; justify-items:center; gap:.65rem; padding:2rem; color:var(--k-color-text); background:radial-gradient(circle at center,color-mix(in srgb,var(--k-glass) 76%,transparent),color-mix(in srgb,var(--k-color-canvas-soft) 72%,transparent)); text-align:center; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
-.mapFallback::before { content:""; position:absolute; inset:0; z-index:-1; opacity:.34; background:url('/brand/umbrella-pattern.svg') center/30rem auto repeat; filter:saturate(1.45); }
+.mapFallback::before { content:none; }
 .mapFallback svg { color:var(--k-color-primary); }
 .mapFallback h2,.mapFallback p { margin:0; }
 .mapFallback p { max-width:32rem; color:var(--k-color-text-muted); line-height:1.7; }

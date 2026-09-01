@@ -122,11 +122,30 @@ export interface PublicServiceListing {
   readonly createdAt: string;
 }
 
+export interface ProductListing {
+  readonly id: string;
+  readonly businessProfileId: string;
+  readonly titleAr: string;
+  readonly descriptionAr?: string;
+  readonly price: number;
+  readonly currency: 'SYP' | 'USD';
+  readonly categoryCode: string;
+  readonly availability: 'in_stock' | 'out_of_stock' | 'made_to_order';
+  readonly status: 'draft' | 'active' | 'inactive';
+  readonly moderationStatus: 'pending' | 'approved' | 'rejected';
+  readonly rejectionReason?: string;
+  readonly imageUrl?: string;
+  readonly imageUrls?: string[];
+  readonly businessName?: string;
+  readonly cityCode?: string;
+  readonly createdAt: string;
+}
+
 export interface MediaAsset {
   readonly id: string;
   readonly entityType: string;
   readonly entityId: string;
-  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image';
+  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -137,7 +156,7 @@ export interface MediaAsset {
 
 export interface UploadedMediaAsset {
   readonly id: string;
-  readonly ownerType: 'business_profile' | 'professional_profile' | 'user';
+  readonly ownerType: 'business_profile' | 'professional_profile' | 'product_listing' | 'user';
   readonly ownerId: string;
   readonly filename: string;
   readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
@@ -378,7 +397,34 @@ export const api = {
         body: JSON.stringify({ ownerType: 'business_profile', ownerId: id, visibility: 'public', ...data })
       });
     },
+    uploadProduct(id: string, data: { filename: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sizeBytes: number; content: string; sortOrder?: number }) {
+      return request<UploadedMediaAsset>('/media', {
+        method: 'POST',
+        body: JSON.stringify({ ownerType: 'product_listing', ownerId: id, visibility: 'public', assetType: 'product_image', ...data })
+      });
+    },
+    listForOwner(ownerType: UploadedMediaAsset['ownerType'], ownerId: string) {
+      return request<UploadedMediaAsset[]>(`/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`);
+    },
     delete(id: string) { return request<{ deleted: boolean }>(`/media/${id}`, { method: 'DELETE' }); }
+  },
+  products: {
+    list(filters: { q?: string; categoryCode?: string; cityCode?: string } = {}) {
+      const params = new URLSearchParams();
+      if (filters.q) params.set('q', filters.q);
+      if (filters.categoryCode) params.set('categoryCode', filters.categoryCode);
+      if (filters.cityCode) params.set('cityCode', filters.cityCode);
+      return request<{ products: ProductListing[] }>(`/products${params.size ? `?${params}` : ''}`);
+    },
+    get(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`); },
+    listMine() { return request<{ products: ProductListing[] }>('/products/mine'); },
+    create(data: Record<string, unknown>) { return request<{ product: ProductListing }>('/products', { method: 'POST', body: JSON.stringify(data) }); },
+    update(id: string, data: Record<string, unknown>) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); },
+    submit(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}/submit`, { method: 'POST' }); }
+  },
+  adminProducts: {
+    pending() { return request<{ products: ProductListing[] }>('/admin/products/pending'); },
+    review(id: string, status: 'approved' | 'rejected', reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }); }
   },
   businesses: {
     create(data: {

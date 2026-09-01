@@ -19,8 +19,8 @@ test('V1 remains contact-first and excludes scope-changing features', async () =
   const scope = await readFile(scopeUrl, 'utf8');
   assert.match(scope, /الدفع والتجارة الإلكترونية/);
   assert.match(scope, /الدردشة الفورية/);
-  assert.match(scope, /الإعلانات المبوبة العامة/);
-  assert.match(scope, /إعلانات مرتبطة بأنشطة منشورة فقط/);
+  assert.match(scope, /الإعلانات غير المرتبطة بنشاط منشور أو غير الخاضعة للمراجعة/);
+  assert.match(scope, /كل إعلان مرتبط بنشاط منشور/);
 });
 
 test('smart administration remains advisory and human-controlled', async () => {

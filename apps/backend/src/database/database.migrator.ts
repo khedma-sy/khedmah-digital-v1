@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '022';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -87,7 +87,10 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('reports', '021', 'provider_reports'),
   ...['report_identifier', 'reporter_user_identifier', 'target_type', 'reason_code', 'details', 'status', 'reviewed_by_user_identifier', 'resolution_note', 'created_at'].map((name) => column('reports', '021', 'provider_reports', name)),
   constraint('reports', '021', 'provider_reports', 'provider_reports_exactly_one_target_check'),
-  index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx')
+  index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
+  table('classifieds', '024', 'product_listings'),
+  ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
+  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

@@ -4,28 +4,28 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('new in Khedmah is a real approved-business feed with no fixture content', async () => {
+test('home classifieds strip uses only the moderated product API with no fixture content', async () => {
   const home = await read('app/page.tsx');
   const feed = await read('app/components/recently-added.tsx');
 
   assert.match(home, /<RecentlyAdded \/>/);
-  assert.match(feed, /api\.businesses\.getRecentlyAdded\(\)/);
-  assert.match(feed, /business\.moderationStatus === 'approved'/);
-  assert.match(feed, /business\.trustStatus === 'approved'/);
-  assert.match(feed, /source=whats-new/);
-  assert.match(feed, /KNOWN_TEST_NAMES/);
+  assert.match(feed, /api\.products\.list\(\{\}\)/);
+  assert.match(feed, /products\.slice\(0, 8\)/);
+  assert.match(feed, /الإعلانات المبوبة/);
+  assert.match(feed, /href="\/classifieds"/);
   assert.doesNotMatch(feed, /setTimeout|Math\.random|localStorage/);
   assert.doesNotMatch(feed, /return null/);
-  assert.match(feed, /لا توجد إضافات جديدة حاليًا/);
+  assert.match(feed, /لا توجد إعلانات منشورة حاليًا/);
   assert.doesNotMatch(feed, /بانتظار أول نشاط موثّق/);
-  assert.match(feed, /تعذر تحميل الأنشطة الجديدة/);
+  assert.match(feed, /تعذر تحميل الإعلانات/);
 });
 
-test('shared internal surfaces use the approved glass and umbrella system', async () => {
+test('shared internal surfaces use approved glass without decorative umbrella backgrounds', async () => {
   const primitives = await read('app/ui-primitives.css');
   const discovery = await read('app/discovery.module.css');
 
-  assert.match(primitives, /umbrella-pattern\.svg/);
+  assert.doesNotMatch(primitives, /umbrella-pattern\.svg/);
+  assert.doesNotMatch(discovery, /umbrella-pattern\.svg/);
   assert.match(primitives, /backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
   assert.match(discovery, /mapPanel[\s\S]*backdrop-filter:blur\(24px\)/);
 });
@@ -63,7 +63,7 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   assert.match(home, /overflow-x:clip/);
   assert.match(home, /font-size:var\(--k-type-display\)/);
   assert.match(home, /aspect-ratio:1200\/804/);
-  assert.match(home, /\.discovery::before[\s\S]*umbrella-pattern\.svg/);
+  assert.doesNotMatch(home, /umbrella-pattern\.svg/);
   assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
   assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
   assert.match(home, /\.heroCopy::before[\s\S]*opacity:\.7/);

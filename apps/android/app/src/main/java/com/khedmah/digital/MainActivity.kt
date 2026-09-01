@@ -1,7 +1,10 @@
 package com.khedmah.digital
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.location.LocationListener
 import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
@@ -35,24 +38,44 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private enum class Destination(val label: String, val symbol: String) {
-    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Account("حسابي", "◎")
+    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Store("المتجر", "▣"), Mobility("تاكسي", "◇"), Account("حسابي", "◎")
 }
 
 class MainActivity : ComponentActivity() {
     private var locationGranted by mutableStateOf(false)
+    private var currentLocation by mutableStateOf<LatLng?>(null)
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         locationGranted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true || grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        refreshLocation()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun refreshLocation() {
+        if (!locationGranted) { currentLocation = null; return }
+        val manager = getSystemService(LocationManager::class.java)
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        currentLocation = providers
+            .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
+            .maxByOrNull { it.time }
+            ?.let { LatLng(it.latitude, it.longitude) }
+        if (currentLocation == null) {
+            val provider = providers.firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) } ?: return
+            manager.requestSingleUpdate(provider, LocationListener { location ->
+                currentLocation = LatLng(location.latitude, location.longitude)
+            }, mainLooper)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         locationGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        setContent { KhedmahApplication(locationGranted) { locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) } }
+        refreshLocation()
+        setContent { KhedmahApplication(locationGranted, currentLocation, { refreshLocation() }) { locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) } }
     }
 }
 
 @Composable
-private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -> Unit) {
+private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng?, onRefreshLocation: () -> Unit, onRequestLocation: () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         val context = LocalContext.current
         var themePreference by remember { mutableStateOf(loadThemePreference(context)) }
@@ -74,6 +97,10 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
             var businessMedia by remember { mutableStateOf<List<KhedmahMedia>>(emptyList()) }
             var ownerMessage by remember { mutableStateOf<String?>(null) }
             var ownerError by remember { mutableStateOf<String?>(null) }
+            var products by remember { mutableStateOf<List<KhedmahProduct>>(emptyList()) }
+            var storeError by remember { mutableStateOf<String?>(null) }
+            var mobilityProviders by remember { mutableStateOf<List<KhedmahResult>>(emptyList()) }
+            var mobilityError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
 
             fun runSearch() {
@@ -103,6 +130,22 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                 scope.launch { loading = true; runCatching { api.businessMedia(business.id) }.onSuccess { businessMedia = it }.onFailure { ownerError = it.message }; loading = false }
             }
 
+            fun loadStore() {
+                destination = Destination.Store
+                if (!api.configured) { storeError = "عنوان خادم خدمة غير مضبوط في نسخة التطبيق."; return }
+                scope.launch {
+                    loading = true; storeError = null
+                    runCatching { api.products() }.onSuccess { products = it }.onFailure { storeError = it.message ?: "تعذر تحميل المنتجات." }
+                    loading = false
+                }
+            }
+
+            fun openMobility() {
+                destination = Destination.Mobility
+                mobilityProviders = emptyList(); mobilityError = null
+                onRefreshLocation()
+            }
+
             Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
                 ThemePreferenceBar(themePreference) { selected ->
                     themePreference = selected
@@ -110,15 +153,27 @@ private fun KhedmahApplication(locationGranted: Boolean, onRequestLocation: () -
                 }
             }, bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    Destination.entries.forEach { item ->
+                    listOf(Destination.Home, Destination.Search, Destination.Map, Destination.Account).forEach { item ->
                         NavigationBarItem(selected = destination == item, onClick = { destination = item }, icon = { Text(item.symbol, fontSize = 18.sp) }, label = { Text(item.label) })
                     }
                 }
             }) { padding ->
                 when (destination) {
-                    Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch)
+                    Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch, ::loadStore, ::openMobility)
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
+                    Destination.Store -> StoreScreen(Modifier.padding(padding), products, loading, storeError, ::loadStore)
+                    Destination.Mobility -> MobilityScreen(
+                        Modifier.padding(padding), currentLocation, locationGranted, loading, mobilityError, mobilityProviders, onRequestLocation
+                    ) { category, location ->
+                        scope.launch {
+                            loading = true; mobilityError = null
+                            runCatching { api.search("", category, location.latitude, location.longitude) }
+                                .onSuccess { mobilityProviders = it }
+                                .onFailure { mobilityError = it.message ?: "تعذر البحث عن مقدمي الخدمة." }
+                            loading = false
+                        }
+                    }
                     Destination.Account -> if (selectedOwnedBusiness != null) OwnerBusinessScreen(
                         modifier = Modifier.padding(padding),
                         business = selectedOwnedBusiness!!, media = businessMedia, loading = loading, message = ownerMessage, error = ownerError,
@@ -273,13 +328,29 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     }
 }
 
-@Composable private fun HomeScreen(modifier: Modifier, query: String, onQuery: (String) -> Unit, categories: List<KhedmahCategory>, selected: String?, onCategory: (String?) -> Unit, onSearch: () -> Unit) {
+@Composable private fun HomeScreen(
+    modifier: Modifier,
+    query: String,
+    onQuery: (String) -> Unit,
+    categories: List<KhedmahCategory>,
+    selected: String?,
+    onCategory: (String?) -> Unit,
+    onSearch: () -> Unit,
+    onOpenStore: () -> Unit,
+    onOpenMobility: () -> Unit
+) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Spacer(Modifier.height(18.dp)); BrandHeader() }
         item { Text("كل ما تحتاجه أقرب إليك", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
         item { Text("ابحث حسب الفئة والموقع وتواصل مباشرة مع مقدم الخدمة.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         item { SearchBox(query, onQuery, onSearch) }
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("التصنيفات الرئيسية", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold); CategoryHierarchy(categories, selected, onCategory) } }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onOpenStore, Modifier.weight(1f)) { Text("الإعلانات") }
+                OutlinedButton(onOpenMobility, Modifier.weight(1f)) { Text("تاكسي وتوصيل") }
+            }
+        }
         item { KhedmahStateCard("وصول أوضح إلى الخدمة المناسبة", "معلومات واضحة · بحث حسب الموقع · تواصل مباشر") }
     }
 }

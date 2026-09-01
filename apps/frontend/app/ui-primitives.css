@@ -9,7 +9,7 @@
     radial-gradient(circle at 90% 78%,color-mix(in srgb,var(--k-color-accent) 6%,transparent),transparent 26rem),
     linear-gradient(145deg,var(--k-color-canvas-soft),var(--k-color-canvas));
 }
-.ui-page::before { content:""; position:absolute; z-index:-1; inset:-4rem; opacity:.18; pointer-events:none; background:url('/brand/umbrella-pattern.svg') center/30rem auto repeat; filter:saturate(1.5); }
+.ui-page::before { content:none; }
 .ui-container { width:min(calc(100% - 2rem),76rem); margin-inline:auto; padding-block:clamp(1.4rem,3.5vw,3rem); }
 .ui-page-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-block-end:1.5rem; }
 .ui-page-heading { display:flex; align-items:center; gap:.8rem; min-width:0; }
