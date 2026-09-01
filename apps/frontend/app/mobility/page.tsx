@@ -12,13 +12,11 @@ type GooglePoint = { lat(): number; lng(): number };
 type Place = { formatted_address?: string; geometry?: { location?: GooglePoint } };
 type Autocomplete = { addListener(name: 'place_changed', callback: () => void): void; getPlace(): Place };
 type MapHandle = { panTo(point: { lat: number; lng: number }): void; setZoom(zoom: number): void; fitBounds(bounds: BoundsHandle, padding?: number): void; addListener(name: 'click', callback: (event: { latLng?: GooglePoint }) => void): void };
-type MarkerHandle = { setMap(map: MapHandle | null): void };
-type LineHandle = { setMap(map: MapHandle | null): void };
 type BoundsHandle = { extend(point: { lat: number; lng: number }): void };
 type MobilityMapsApi = {
   Map: new (node: HTMLElement, options: object) => MapHandle;
-  Marker: new (options: object) => MarkerHandle;
-  Polyline: new (options: object) => LineHandle;
+  Marker: new (options: object) => { setMap(map: MapHandle | null): void };
+  Polyline: new (options: object) => { setMap(map: MapHandle | null): void };
   LatLngBounds: new () => BoundsHandle;
   places?: { Autocomplete: new (input: HTMLInputElement, options: object) => Autocomplete };
   Geocoder?: new () => { geocode(request: object, callback: (results: Place[] | null, status: string) => void): void };
@@ -36,7 +34,7 @@ export default function MobilityPage() {
   const destinationInput = useRef<HTMLInputElement>(null);
   const mapNode = useRef<HTMLDivElement>(null);
   const map = useRef<MapHandle | null>(null);
-  const overlays = useRef<Array<MarkerHandle | LineHandle>>([]);
+  const removeOverlays = useRef<Array<() => void>>([]);
   const activePointRef = useRef<'pickup' | 'destination'>('pickup');
   const [type, setType] = useState<'taxi' | 'delivery'>('taxi');
   const [pickup, setPickup] = useState('');
@@ -69,28 +67,32 @@ export default function MobilityPage() {
   const renderMap = useCallback(() => {
     if (!map.current || !(window as MobilityWindow).google?.maps) return;
     const maps = (window as MobilityWindow).google!.maps!;
-    overlays.current.forEach((overlay) => overlay.setMap(null));
-    overlays.current = [];
+    removeOverlays.current.forEach((remove) => remove());
+    removeOverlays.current = [];
     const bounds = new maps.LatLngBounds();
     const points: Coordinates[] = [];
     if (pickupCoordinates) {
       const point = toMapPoint(pickupCoordinates);
       bounds.extend(point); points.push(pickupCoordinates);
-      overlays.current.push(new maps.Marker({ map: map.current, position: point, label: 'أ', title: 'نقطة الانطلاق' }));
+      const marker = new maps.Marker({ map: map.current, position: point, label: 'أ', title: 'نقطة الانطلاق' });
+      removeOverlays.current.push(() => marker.setMap(null));
     }
     if (destinationCoordinates) {
       const point = toMapPoint(destinationCoordinates);
       bounds.extend(point); points.push(destinationCoordinates);
-      overlays.current.push(new maps.Marker({ map: map.current, position: point, label: 'ب', title: 'الوجهة' }));
+      const marker = new maps.Marker({ map: map.current, position: point, label: 'ب', title: 'الوجهة' });
+      removeOverlays.current.push(() => marker.setMap(null));
     }
     providers.forEach((provider) => {
       if (provider.lat === undefined || provider.lng === undefined) return;
       const point = { lat: provider.lat, lng: provider.lng };
       bounds.extend(point); points.push({ latitude: provider.lat, longitude: provider.lng });
-      overlays.current.push(new maps.Marker({ map: map.current, position: point, title: provider.name, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' } }));
+      const marker = new maps.Marker({ map: map.current, position: point, title: provider.name, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' } });
+      removeOverlays.current.push(() => marker.setMap(null));
     });
     if (pickupCoordinates && destinationCoordinates) {
-      overlays.current.push(new maps.Polyline({ map: map.current, path: [toMapPoint(pickupCoordinates), toMapPoint(destinationCoordinates)], geodesic: true, strokeColor: '#075591', strokeOpacity: .8, strokeWeight: 4 }));
+      const line = new maps.Polyline({ map: map.current, path: [toMapPoint(pickupCoordinates), toMapPoint(destinationCoordinates)], geodesic: true, strokeColor: '#075591', strokeOpacity: .8, strokeWeight: 4 });
+      removeOverlays.current.push(() => line.setMap(null));
     }
     if (points.length > 1) map.current.fitBounds(bounds, 72);
     else if (points.length === 1) { map.current.panTo(toMapPoint(points[0])); map.current.setZoom(15); }
