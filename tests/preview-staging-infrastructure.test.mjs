@@ -19,8 +19,9 @@ test('preview isolation does not require a cloud-hosted development project', ()
   const env = { DEPLOYMENT_ENVIRONMENT: 'preview' };
   for (const environment of ['PREVIEW', 'STAGING', 'PRODUCTION']) {
     env[`${environment}_GOOGLE_CLOUD_PROJECT`] = `${environment.toLowerCase()}-cloud`;
-    env[`${environment}_FIREBASE_PROJECT_ID`] = `${environment.toLowerCase()}-firebase`;
   }
+  env.PREVIEW_FIREBASE_PROJECT_ID = 'preview-firebase';
+  env.PRODUCTION_FIREBASE_PROJECT_ID = 'production-firebase';
   assert.match(execFileSync(process.execPath, ['scripts/validate-environment-separation.mjs'], { env, encoding: 'utf8' }), /preview, staging, production/);
   env.STAGING_GOOGLE_CLOUD_PROJECT = env.PRODUCTION_GOOGLE_CLOUD_PROJECT;
   assert.throws(() => execFileSync(process.execPath, ['scripts/validate-environment-separation.mjs'], { env, stdio: 'pipe' }));
