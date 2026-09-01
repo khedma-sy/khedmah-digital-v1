@@ -26,7 +26,17 @@ export default function StorePage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل المنتجات.'); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const initial = {
+      q: query.get('q')?.trim() ?? '',
+      categoryCode: query.get('categoryCode')?.trim() ?? '',
+      cityCode: query.get('cityCode')?.trim() ?? ''
+    };
+    setFilters(initial);
+    void load(initial);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
   function search(event: FormEvent) { event.preventDefault(); void load(); }
 
   return <PageShell className={styles.page} label="الإعلانات المبوبة">

@@ -31,6 +31,9 @@ test('public product reads fail closed when the seller business is not publicly 
     "b.status='active'"
   ]) assert.match(repository, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(service, /repository\.findPublicById/);
+  assert.match(service, /toPublicProduct/);
+  assert.match(service, /ownerUserId: _ownerUserId/);
+  assert.match(service, /rejectionReason: _rejectionReason/);
   assert.match(service, /business\.ownerUserId !== actor\.id/);
   assert.match(service, /hasPublicImage/);
   assert.match(service, /Seller business must be public, approved, trusted, and active/);
@@ -49,4 +52,6 @@ test('product image ownership and media type are enforced by the canonical media
   assert.match(validation, /ownerType === 'product_listing'/);
   assert.match(validation, /assetType !== 'product_image'/);
   assert.match(service, /ownerType === 'product_listing' \? 'product_listings'/);
+  assert.match(service, /input\.assetType === 'gallery' \? 12/);
+  assert.match(service, /input\.assetType === 'product_image' \? 5/);
 });

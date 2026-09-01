@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.location.LocationListener
 import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
@@ -52,10 +53,17 @@ class MainActivity : ComponentActivity() {
     private fun refreshLocation() {
         if (!locationGranted) { currentLocation = null; return }
         val manager = getSystemService(LocationManager::class.java)
-        currentLocation = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        currentLocation = providers
             .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
             .maxByOrNull { it.time }
             ?.let { LatLng(it.latitude, it.longitude) }
+        if (currentLocation == null) {
+            val provider = providers.firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) } ?: return
+            manager.requestSingleUpdate(provider, LocationListener { location ->
+                currentLocation = LatLng(location.latitude, location.longitude)
+            }, mainLooper)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -6,7 +6,7 @@ import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ProductRepository } from './product.repository';
-import type { ProductListing } from './product.types';
+import type { ProductListing, PublicProductListing } from './product.types';
 import { validateProductWrite } from './product.validation';
 
 @Injectable()
@@ -39,12 +39,14 @@ export class ProductService {
     return this.repository.listMine(actor.id);
   }
 
-  listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }) { return this.repository.listPublic(filters); }
+  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<PublicProductListing[]> {
+    return (await this.repository.listPublic(filters)).map(toPublicProduct);
+  }
 
   async getPublic(id: string) {
     const product = await this.repository.findPublicById(id);
     if (!product) throw new NotFoundException('Product was not found.');
-    return product;
+    return toPublicProduct(product);
   }
 
   async update(cookie: string | undefined, id: string, request: Record<string, unknown>) {
@@ -98,4 +100,9 @@ export class ProductService {
     if (product.ownerUserId !== ownerUserId) throw new ForbiddenException('Access denied.');
     return product;
   }
+}
+
+function toPublicProduct(product: ProductListing): PublicProductListing {
+  const { ownerUserId: _ownerUserId, rejectionReason: _rejectionReason, ...publicProduct } = product;
+  return publicProduct;
 }

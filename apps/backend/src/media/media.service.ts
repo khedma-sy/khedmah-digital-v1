@@ -38,8 +38,9 @@ export class MediaService {
           [input.ownerType, input.ownerId, input.assetType]
         )
       : [];
-    if ((input.assetType === 'gallery' || input.assetType === 'product_image') && existing.length >= 5) {
-      throw new BadRequestException('يمكن رفع خمس صور كحد أقصى.');
+    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : undefined;
+    if (imageLimit !== undefined && existing.length >= imageLimit) {
+      throw new BadRequestException(`يمكن رفع ${imageLimit} صورة كحد أقصى.`);
     }
 
     await this.storage.save(storageKey, content, input.mimeType);

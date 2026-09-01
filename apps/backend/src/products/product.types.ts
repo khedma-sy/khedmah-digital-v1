@@ -22,3 +22,5 @@ export interface ProductListing {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export type PublicProductListing = Omit<ProductListing, 'ownerUserId' | 'rejectionReason'>;

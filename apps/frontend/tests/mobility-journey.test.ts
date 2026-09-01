@@ -7,6 +7,8 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 test('taxi and delivery journey uses canonical categories and location-ranked search', async () => {
   const page = await read('app/mobility/page.tsx');
   assert.match(page, /type === 'taxi' \? 'taxi' : 'delivery_courier'/);
+  assert.match(page, /searchParams\(window\.location\.search\)|URLSearchParams\(window\.location\.search\)/);
+  assert.match(page, /get\('type'\) === 'delivery'/);
   assert.match(page, /api\.search\.query/);
   assert.match(page, /categoryCode: categoryFor\(type\)/);
   assert.match(page, /latitude: pickupCoordinates\.latitude/);

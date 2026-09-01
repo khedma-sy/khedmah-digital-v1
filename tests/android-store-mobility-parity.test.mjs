@@ -27,6 +27,7 @@ test('Android taxi and delivery use current location, canonical search and Googl
   ]);
   assert.match(activity, /Destination\.Mobility/);
   assert.match(activity, /LocationManager\.GPS_PROVIDER/);
+  assert.match(activity, /requestSingleUpdate/);
   assert.match(activity, /api\.search\("", category, location\.latitude, location\.longitude\)/);
   assert.match(api, /add\("map=true"\)/);
   assert.match(api, /add\("type=business"\)/);

@@ -34,6 +34,10 @@ export default function MobilityPage() {
   const [message, setMessage] = useState(MAPS_KEY ? 'اكتب العنوان واختره من اقتراحات Google.' : 'اقتراحات Google غير مهيأة حاليًا؛ استخدم موقعك الحالي للبحث القريب.');
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('type') === 'delivery') setType('delivery');
+  }, []);
+
+  useEffect(() => {
     if (!MAPS_KEY) return;
     const runtime = window as MobilityWindow;
     let cancelled = false;

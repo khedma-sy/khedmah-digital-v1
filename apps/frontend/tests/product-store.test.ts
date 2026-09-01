@@ -14,6 +14,7 @@ test('store journey includes discovery, selling, owner management and public det
     read('lib/api-client.ts')
   ]);
   assert.match(store, /api\.products\.list/);
+  assert.match(store, /query\.get\('q'\)/);
   assert.match(store, /كل التصنيفات/);
   assert.match(store, /كل المدن/);
   assert.match(sell, /api\.businesses\.listMine/);
@@ -24,6 +25,9 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(manage, /تعديل المنتج/);
   assert.match(edit, /api\.products\.update/);
   assert.match(edit, /api\.products\.submit/);
+  assert.match(edit, /api\.media\.listForOwner/);
+  assert.match(edit, /api\.media\.delete/);
+  assert.match(edit, /حذف واستبدال/);
   assert.match(detail, /https:\/\/wa\.me/);
   assert.match(detail, /navigator\.clipboard\.writeText/);
   assert.match(client, /\/admin\/products\/pending/);

@@ -403,6 +403,9 @@ export const api = {
         body: JSON.stringify({ ownerType: 'product_listing', ownerId: id, visibility: 'public', assetType: 'product_image', ...data })
       });
     },
+    listForOwner(ownerType: UploadedMediaAsset['ownerType'], ownerId: string) {
+      return request<UploadedMediaAsset[]>(`/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`);
+    },
     delete(id: string) { return request<{ deleted: boolean }>(`/media/${id}`, { method: 'DELETE' }); }
   },
   products: {
