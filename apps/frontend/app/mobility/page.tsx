@@ -21,7 +21,7 @@ type MobilityMapsApi = {
   places?: { Autocomplete: new (input: HTMLInputElement, options: object) => Autocomplete };
   Geocoder?: new () => { geocode(request: object, callback: (results: Place[] | null, status: string) => void): void };
 };
-type MobilityWindow = Window & { google?: { maps?: MobilityMapsApi }; initKhedmahMobility?: () => void; gm_authFailure?: () => void };
+type MobilityRuntime = { google?: { maps?: MobilityMapsApi }; initKhedmahMobility?: () => void; gm_authFailure?: () => void };
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const SCRIPT_ID = 'khedmah-google-maps';
@@ -55,7 +55,7 @@ export default function MobilityPage() {
   useEffect(() => { activePointRef.current = activePoint; }, [activePoint]);
 
   const reverseGeocode = useCallback((coordinates: Coordinates, target: 'pickup' | 'destination') => {
-    const maps = (window as MobilityWindow).google?.maps;
+    const maps = (window as unknown as MobilityRuntime).google?.maps;
     const fallback = `${coordinates.latitude.toFixed(6)},${coordinates.longitude.toFixed(6)}`;
     const apply = (value: string) => target === 'pickup' ? setPickup(value) : setDestination(value);
     if (!maps?.Geocoder) return apply(fallback);
@@ -65,8 +65,8 @@ export default function MobilityPage() {
   }, []);
 
   const renderMap = useCallback(() => {
-    if (!map.current || !(window as MobilityWindow).google?.maps) return;
-    const maps = (window as MobilityWindow).google!.maps!;
+    if (!map.current || !(window as unknown as MobilityRuntime).google?.maps) return;
+    const maps = (window as unknown as MobilityRuntime).google!.maps!;
     removeOverlays.current.forEach((remove) => remove());
     removeOverlays.current = [];
     const bounds = new maps.LatLngBounds();
@@ -102,7 +102,7 @@ export default function MobilityPage() {
 
   useEffect(() => {
     if (!MAPS_KEY) return;
-    const runtime = window as MobilityWindow;
+    const runtime = window as unknown as MobilityRuntime;
     let cancelled = false;
     const previousAuthFailure = runtime.gm_authFailure;
 
@@ -167,7 +167,7 @@ export default function MobilityPage() {
   }
 
   function geocodeAddress(address: string): Promise<Coordinates | undefined> {
-    const maps = (window as MobilityWindow).google?.maps;
+    const maps = (window as unknown as MobilityRuntime).google?.maps;
     if (!address.trim() || !maps?.Geocoder) return Promise.resolve(undefined);
     const Geocoder = maps.Geocoder;
     return new Promise((resolve) => new Geocoder().geocode({ address, componentRestrictions: { country: 'SY' } }, (results, status) => {
