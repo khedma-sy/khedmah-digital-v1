@@ -3,11 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
-import { PlatformIcon } from './platform-icon';
+import { PlatformIcon, type PlatformIconName } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage } from './ui-primitives';
 
 const PAGE_SIZE = 20;
+const visualIcons: Record<string, PlatformIconName> = {
+  home: 'home', food: 'food', health: 'health', education: 'education', professional: 'briefcase', beauty: 'beauty', shopping: 'cart',
+  automotive: 'car', transport: 'car', technology: 'technology', construction: 'construction', events: 'events', agriculture: 'agriculture',
+  industry: 'industry', travel: 'travel'
+};
+const iconFor = (visualKey?: string) => visualIcons[visualKey ?? ''] ?? 'tools';
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -77,11 +83,12 @@ export function CategoryDirectory() {
     ? categories.filter((category) => category.parentCode === activeRootCode)
     : [];
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const searchHref = `/search?${new URLSearchParams({ ...(activeCategory ? { categoryCode: activeCategory } : {}), type: 'all' }).toString()}`;
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
-        <PageHeader title={title} description="اختر خدمة للاطلاع على ملف مقدمها ووسائل التواصل المتاحة." backHref="/" actions={
-          <ActionButton variant="secondary" type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تصفية</ActionButton>
+        <PageHeader title={title} description="اختر التخصص، ثم قارن مقدمي الخدمة المنشورين وتواصل مع الأنسب لك." backHref="/" actions={
+          <><ActionLink href={searchHref}><PlatformIcon name="search" /> بحث متقدم</ActionLink><ActionButton variant="secondary" type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> التصنيفات</ActionButton></>
         } />
 
         {showFilters ? (
@@ -93,16 +100,16 @@ export function CategoryDirectory() {
 
         {categoriesError ? <StatusMessage tone="warning">{categoriesError}</StatusMessage> : null}
 
-        {activeRootCode && subcategories.length > 0 ? <nav className="catalog-filters" aria-label="التخصصات الفرعية">
-          <button type="button" className={activeCategory === activeRootCode ? 'active' : ''} onClick={() => selectCategory(activeRootCode)}>كل {categories.find((category) => category.code === activeRootCode)?.nameAr}</button>
-          {subcategories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
-        </nav> : null}
+        {activeRootCode && subcategories.length > 0 ? <section className="catalog-specialties" aria-labelledby="catalog-specialties-title">
+          <div className="catalog-section-heading"><div><span>اختر التخصص</span><h2 id="catalog-specialties-title">ما الخدمة التي تحتاجها؟</h2></div><button type="button" onClick={() => selectCategory(activeRootCode)}>عرض الكل</button></div>
+          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{category.nameAr}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
+        </section> : null}
 
         {!activeCategory && categories.length > 0 ? (
           <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
             {roots.map((category) => (
               <button key={category.code} type="button" onClick={() => selectCategory(category.code)}>
-                <span className="catalog-category-icon"><PlatformIcon name="tools" /></span>
+                <span className="catalog-category-icon"><PlatformIcon name={iconFor(category.visualKey)} /></span>
                 <strong>{category.nameAr}</strong>
                 <small>{categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')} تخصصات</small>
                 <PlatformIcon name="arrow" />
@@ -133,10 +140,11 @@ export function CategoryDirectory() {
         </nav> : null}
 
         {!isLoading && !error && services.length === 0 && activeCategory ? (
-          <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>
-            <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
-            <ActionLink href="/map">فتح الخريطة</ActionLink>
-            <ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink>
+          <EmptyState icon={<PlatformIcon name="search" size={30} />} title={`لا يوجد مقدم ${title} منشور في هذا النطاق بعد`} description="الخدمة تعمل، لكن بيانات المزودين المعتمدين غير متوفرة هنا حاليًا. وسّع البحث أو اختر تخصصًا قريبًا بدل التوقف." actions={<>
+            <ActionLink href={searchHref}>توسيع البحث</ActionLink>
+            <ActionLink href={`/map?q=${encodeURIComponent(title)}`} variant="secondary">البحث على الخريطة</ActionLink>
+            <ActionButton variant="secondary" type="button" onClick={() => selectCategory(activeRootCode ?? '')}>تخصصات قريبة</ActionButton>
+            <ActionLink href="/business-profiles/new" variant="secondary">سجّل كمقدم خدمة</ActionLink>
           </>} />
         ) : null}
     </PageShell>
