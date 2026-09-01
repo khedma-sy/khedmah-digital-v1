@@ -48,3 +48,21 @@ test('all journey icons use the shared SVG icon system', async () => {
   assert.match(home, /PlatformIcon name="briefcase"/);
   assert.match(catalog, /PlatformIcon name="filter"/);
 });
+
+test('catalog keeps specialties visible and empty results recoverable', async () => {
+  const [catalog, icons, styles] = await Promise.all([
+    read('app/components/category-directory.tsx'),
+    read('app/components/platform-icon.tsx'),
+    read('app/brand-system.css')
+  ]);
+
+  assert.match(catalog, /catalog-specialty-grid/);
+  assert.match(catalog, /iconFor\(category\.visualKey\)/);
+  assert.match(catalog, /توسيع البحث/);
+  assert.match(catalog, /البحث على الخريطة/);
+  assert.match(catalog, /تخصصات قريبة/);
+  assert.match(catalog, /سجّل كمقدم خدمة/);
+  assert.doesNotMatch(catalog, /catalog-category-icon"><PlatformIcon name="tools"/);
+  for (const icon of ['food', 'health', 'education', 'technology', 'travel']) assert.match(icons, new RegExp(`${icon}:`));
+  assert.match(styles, /@media\(max-width:36rem\).*catalog-specialty-grid/s);
+});
