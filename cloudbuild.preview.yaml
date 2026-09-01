@@ -1,7 +1,4 @@
 steps:
-  - id: build-backend
-    name: gcr.io/cloud-builders/docker
-    args: [build, --file=Dockerfile.backend, '--tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/backend:${_IMAGE_TAG}', .]
   - id: build-frontend
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -23,9 +20,8 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="$$FIREBASE_MEASUREMENT_ID" \
           --tag="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:${_IMAGE_TAG}" .
 images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/backend:${_IMAGE_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:${_IMAGE_TAG}'
-substitutions: { _REGION: me-central1, _REPOSITORY: khedmah-preview, _IMAGE_TAG: manual, _NEXT_PUBLIC_API_URL: https://backend-774201339973.europe-west1.run.app }
+substitutions: { _REGION: europe-west1, _REPOSITORY: khedmah-preview, _IMAGE_TAG: manual, _NEXT_PUBLIC_API_URL: https://preview.invalid }
 availableSecrets:
   secretManager:
     - versionName: projects/$PROJECT_ID/secrets/GOOGLE_MAPS_BROWSER_API_KEY/versions/latest

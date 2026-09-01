@@ -20,11 +20,12 @@ test('home classifieds strip uses only the moderated product API with no fixture
   assert.match(feed, /تعذر تحميل الإعلانات/);
 });
 
-test('shared internal surfaces use the approved glass and umbrella system', async () => {
+test('shared internal surfaces use approved glass without decorative umbrella backgrounds', async () => {
   const primitives = await read('app/ui-primitives.css');
   const discovery = await read('app/discovery.module.css');
 
-  assert.match(primitives, /umbrella-pattern\.svg/);
+  assert.doesNotMatch(primitives, /umbrella-pattern\.svg/);
+  assert.doesNotMatch(discovery, /umbrella-pattern\.svg/);
   assert.match(primitives, /backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
   assert.match(discovery, /mapPanel[\s\S]*backdrop-filter:blur\(24px\)/);
 });
