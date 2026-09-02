@@ -94,7 +94,7 @@ export default function EditProductPage() {
   if (!product) return <PageShell label="تعديل المنتج"><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="المنتج غير موجود ضمن منتجاتك" description={error || 'تحقق من الرابط أو عد إلى قائمة منتجاتك.'} actions={<ActionLink href="/store/manage">منتجاتي</ActionLink>}/></PageShell>;
 
   return <PageShell className={styles.page} label="تعديل المنتج"><div className={styles.formShell}>
-    <PageHeader eyebrow="مساحة البائع" title="تعديل المنتج وإعادة إرساله" description="أي تعديل يعيد المنتج إلى المراجعة قبل ظهوره للعامة." backHref="/store/manage"/>
+    <PageHeader eyebrow="مساحة البائع" title="تعديل المنتج وإعادة التحقق" description="أي تعديل يعيد فحص الشروط؛ الإعلان المطابق يُنشر تلقائيًا، وغيره يبقى قيد المراجعة." backHref="/store/manage"/>
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
     {categoryError && <StatusMessage tone="danger">{categoryError}</StatusMessage>}
     <Surface as="form" className={styles.form} onSubmit={submit}>

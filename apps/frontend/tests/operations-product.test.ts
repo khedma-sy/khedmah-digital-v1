@@ -15,17 +15,20 @@ test('Operations Product dashboard is permission-gated and renders live backend 
   assert.doesNotMatch(page, /<strong>0<\/strong>|disabled title=/);
 });
 
-test('smart admin is aggregated, privacy-preserving and human-controlled', async () => {
+test('smart admin is aggregated, privacy-preserving and bounded in automation', async () => {
   const [page, client, admin] = await Promise.all([
     readFile(new URL('../app/admin/smart-report/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../lib/api-client.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8')
   ]);
   assert.match(page, /api\.operationsProduct\.smartAdminReport/);
-  assert.match(page, /مراجعة بشرية إلزامية/);
+  assert.match(page, /الاستثناءات تُراجع بشريًا/);
+  assert.match(page, /إعلانات قُبلت آليًا/);
+  assert.match(page, /لا ينفذ حذفًا أو حظرًا أو رفضًا آليًا/);
   assert.match(page, /لا يعرض التقرير هوية المستخدم/);
   assert.match(client, /minimumSearchCohort/);
   assert.match(client, /rawUserTextExposed: false/);
+  assert.match(client, /canAutoApproveEligibleProducts: true/);
   assert.match(client, /api\.analytics|recordSearch/);
   assert.match(admin, /href="\/admin\/smart-report"/);
 });

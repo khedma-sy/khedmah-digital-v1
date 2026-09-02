@@ -8,6 +8,14 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 import { ProductRepository } from './product.repository';
 import type { ProductListing, PublicProductListing } from './product.types';
 import { validateProductWrite } from './product.validation';
+import { evaluateProductAutoModeration } from './product-auto-moderation';
+
+const DEFAULT_PRODUCT_LIMIT_PER_USER = 20;
+
+function productLimitPerUser(): number {
+  const configured = Number.parseInt(process.env.PRODUCT_LISTING_LIMIT_PER_USER ?? '', 10);
+  return Number.isSafeInteger(configured) && configured > 0 && configured <= 1000 ? configured : DEFAULT_PRODUCT_LIMIT_PER_USER;
+}
 
 @Injectable()
 export class ProductService {
@@ -30,7 +38,10 @@ export class ProductService {
     const product: ProductListing = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
       descriptionAr: input.descriptionAr, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
       availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
-    await this.repository.insert(product);
+    const limit = productLimitPerUser();
+    if (!await this.repository.insertWithinOwnerLimit(product, limit)) {
+      throw new BadRequestException(`You have reached the limit of ${limit} product listings per user.`);
+    }
     return product;
   }
 
@@ -38,6 +49,8 @@ export class ProductService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     return this.repository.listMine(actor.id);
   }
+
+  listingLimitPerUser() { return productLimitPerUser(); }
 
   async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<PublicProductListing[]> {
     return (await this.repository.listPublic(filters)).map(toPublicProduct);
@@ -64,9 +77,24 @@ export class ProductService {
   async submit(cookie: string | undefined, id: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const product = await this.requireOwner(actor.id, id);
-    if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Add a product image before submitting it for review.');
-    const updated: ProductListing = { ...product, status: 'active', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    const hasPublicImage = await this.repository.hasPublicImage(id);
+    if (!hasPublicImage) throw new BadRequestException('Add a product image before submitting it for review.');
+    const business = await this.businesses.findById(product.businessProfileId);
+    let categoryIsActive = true;
+    try { await this.categories.assertActiveCategory(product.categoryCode); } catch { categoryIsActive = false; }
+    const decision = evaluateProductAutoModeration(product, business, categoryIsActive, hasPublicImage);
+    const updated: ProductListing = { ...product, status: 'active', moderationStatus: decision.approved ? 'approved' : 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
+    await this.repository.updateWithAutoModerationAudit(updated, decision.approved);
+    return updated;
+  }
+
+  async deactivate(cookie: string | undefined, id: string) {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const product = await this.requireOwner(actor.id, id);
+    if (product.status === 'inactive') return product;
+    const updated: ProductListing = { ...product, status: 'inactive', updatedAt: new Date().toISOString() };
+    await this.repository.update(updated);
+    return updated;
   }
 
   async listPending(cookie: string | undefined) { await this.authorizeAdmin(cookie); return this.repository.listPending(); }

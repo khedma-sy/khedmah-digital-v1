@@ -48,8 +48,9 @@ export interface SmartAdminReport {
   readonly generatedAt: string;
   readonly privacy: { aggregationOnly: true; minimumSearchCohort: number; rawUserTextExposed: false };
   readonly analytics: { periodDays: number; totalEvents: number; eventCounts: Record<'business_view' | 'search_action' | 'contact_click' | 'inquiry_submitted', number>; topSearches: Array<{ term: string; count: number }>; unmetSearches: Array<{ term: string; count: number }> };
+  readonly productModeration: { periodDays: number; autoApproved: number; reviewRequired: number; policyVersion: 'product-auto-v1' };
   readonly recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; reason: string; action: string }>;
-  readonly automation: { canExecuteActions: false; humanApprovalRequired: true };
+  readonly automation: { canAutoApproveEligibleProducts: true; humanApprovalRequiredForExceptions: true };
 }
 
 export interface PublicBusinessProfile {
@@ -433,10 +434,11 @@ export const api = {
       return request<{ products: ProductListing[] }>(`/products${params.size ? `?${params}` : ''}`);
     },
     get(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`); },
-    listMine() { return request<{ products: ProductListing[] }>('/products/mine'); },
+    listMine() { return request<{ products: ProductListing[]; count: number; limit: number }>('/products/mine'); },
     create(data: Record<string, unknown>) { return request<{ product: ProductListing }>('/products', { method: 'POST', body: JSON.stringify(data) }); },
     update(id: string, data: Record<string, unknown>) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); },
-    submit(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}/submit`, { method: 'POST' }); }
+    submit(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}/submit`, { method: 'POST' }); },
+    deactivate(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}/deactivate`, { method: 'POST' }); }
   },
   adminProducts: {
     pending() { return request<{ products: ProductListing[] }>('/admin/products/pending'); },

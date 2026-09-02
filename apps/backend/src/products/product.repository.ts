@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { DatabasePool } from '../database/database.pool';
 import type { ProductListing } from './product.types';
 
@@ -26,6 +27,24 @@ export class ProductRepository {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
     );
+  }
+
+  async insertWithinOwnerLimit(product: ProductListing, limit: number): Promise<boolean> {
+    return this.db.transaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [product.ownerUserId]);
+      const countResult = await client.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM product_listings WHERE owner_user_id=$1 AND status <> 'inactive'`,
+        [product.ownerUserId]
+      );
+      if (Number(countResult.rows[0]?.count ?? 0) >= limit) return false;
+      await client.query(
+        `INSERT INTO product_listings
+          (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
+      );
+      return true;
+    });
   }
 
   async update(product: ProductListing): Promise<void> {
@@ -85,6 +104,20 @@ export class ProductRepository {
   async hasPublicImage(id: string): Promise<boolean> {
     const [row] = await this.db.query<{ exists: boolean }>(`SELECT EXISTS(SELECT 1 FROM media_assets WHERE owner_type='product_listing' AND owner_id=$1 AND asset_type='product_image' AND visibility='public') AS exists`, [id]);
     return row?.exists ?? false;
+  }
+
+  async updateWithAutoModerationAudit(product: ProductListing, approved: boolean): Promise<void> {
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `UPDATE product_listings SET title_ar=$2,description_ar=$3,price=$4,currency=$5,category_code=$6,
+         availability=$7,status=$8,moderation_status=$9,rejection_reason=$10,updated_at=$11 WHERE id=$1`,
+        [product.id, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.updatedAt]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, event_type, actor_user_id, correlation_id, occurred_at) VALUES ($1,$2,$3,$4,NOW())`,
+        [randomUUID(), approved ? 'product.auto_approved' : 'product.auto_review_required', product.ownerUserId, product.id]
+      );
+    });
   }
 }
 

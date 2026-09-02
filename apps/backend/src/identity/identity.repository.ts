@@ -137,6 +137,21 @@ export class IdentityRepository {
     }));
   }
 
+  async countAuditEvents(eventTypes: readonly AuditEventType[], periodDays: number): Promise<Record<string, number>> {
+    const rows = await this.db.query<{ event_type: string; count: string }>(
+      `SELECT event_type, COUNT(*)::text AS count
+       FROM audit_logs
+       WHERE event_type = ANY($1::text[])
+         AND occurred_at >= NOW() - ($2 * INTERVAL '1 day')
+       GROUP BY event_type`,
+      [eventTypes, periodDays]
+    );
+    return Object.fromEntries(eventTypes.map((eventType) => [
+      eventType,
+      Number(rows.find((row) => row.event_type === eventType)?.count ?? 0)
+    ]));
+  }
+
   private mapAccount(r: { user_identifier: string; email: string; password_hash: string; account_status: string; created_at: Date; updated_at: Date }): UserAccount {
     return {
       id: r.user_identifier,
