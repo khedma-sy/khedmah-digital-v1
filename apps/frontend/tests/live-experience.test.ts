@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
@@ -51,12 +51,18 @@ test('registration requires email verification before the protected welcome expe
 test('navigation avoids duplicate links and interactions respect reduced motion', async () => {
   const layout = await read('app/layout.tsx');
   const navigation = await read('app/auth-navigation.tsx');
+  const mobileNavigation = await read('app/components/mobile-navigation.tsx');
   const styles = await read('app/globals.css');
+  const brandStyles = await read('app/brand-system.css');
 
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.match(navigation, /label: 'التصنيفات'/);
   assert.match(layout, /className="khedma-header"/);
+  assert.match(layout, /MobileNavigation/);
+  assert.match(mobileNavigation, /التنقل الرئيسي للهاتف/);
+  assert.equal((mobileNavigation.match(/\{ href: '[^']+', label:/g) ?? []).length, 5);
+  assert.match(brandStyles, /grid-template-columns:repeat\(5,1fr\)/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
