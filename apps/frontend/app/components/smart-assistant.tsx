@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PlatformIcon } from './platform-icon';
 import styles from './smart-assistant.module.css';
 
 type SpeechResult = { 0: { transcript: string } };
@@ -20,6 +21,8 @@ export function SmartAssistant() {
     if (!text) return setMessage('اكتب الخدمة أو الإعلان الذي تبحث عنه.');
     if (/تكسي|تاكسي|سيارة|سائق/.test(text)) return router.push('/mobility?type=taxi');
     if (/مندوب|توصيل|شحن/.test(text)) return router.push('/mobility?type=delivery');
+    if (/مطعم|طعام|اكل|أكل|شاورما|حلويات|مخبز/.test(text)) return router.push(`/restaurants?q=${encodeURIComponent(text)}`);
+    if (/خصم|عرض|عروض|تخفيض/.test(text)) return router.push(`/promotions?q=${encodeURIComponent(text)}`);
     if (/إعلان|اعلان|منتج|بيع|شراء|مستعمل/.test(text)) return router.push(`/classifieds?q=${encodeURIComponent(text)}`);
     router.push(`/search?q=${encodeURIComponent(text)}`);
   }
@@ -38,7 +41,7 @@ export function SmartAssistant() {
   }
 
   return <aside className={styles.root} aria-label="مساعد خدمة الذكي">
-    {open && <div className={styles.panel}><div className={styles.heading}><strong>مساعد خدمة</strong><button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المساعد">×</button></div><p>{message}</p><form onSubmit={submit}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}>{listening ? 'جاري الاستماع…' : '🎙 تحدث'}</button><button type="submit">اعثر عليها</button></div></form><div className={styles.quick}><button onClick={() => go('تكسي')} type="button">تكسي</button><button onClick={() => go('مندوب توصيل')} type="button">مندوب</button><button onClick={() => go('إعلانات')} type="button">إعلانات</button></div><small>لا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
-    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>☂ <span>اسأل خدمة</span></button>
+    {open && <div className={styles.panel}><div className={styles.heading}><strong><PlatformIcon name="sparkles" size={19}/>مساعد خدمة</strong><button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المساعد"><PlatformIcon name="close"/></button></div><p>{message}</p><form onSubmit={submit}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد مطعمًا قريبًا أو تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}><PlatformIcon name="microphone" size={18}/>{listening ? 'جاري الاستماع…' : 'تحدث'}</button><button type="submit"><PlatformIcon name="search" size={18}/>اعثر عليها</button></div></form><div className={styles.quick} aria-label="مسارات سريعة"><button onClick={() => go('طعام')} type="button"><PlatformIcon name="food" size={17}/>طعام</button><button onClick={() => go('تكسي')} type="button"><PlatformIcon name="car" size={17}/>تكسي</button><button onClick={() => go('مندوب توصيل')} type="button"><PlatformIcon name="delivery" size={17}/>مندوب</button><button onClick={() => go('عروض')} type="button"><PlatformIcon name="tag" size={17}/>عروض</button><button onClick={() => go('إعلانات')} type="button"><PlatformIcon name="storefront" size={17}/>متاجر</button></div><small>الإملاء اختياري، ولا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
+    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'إغلاق مساعد خدمة' : 'فتح مساعد خدمة'}><PlatformIcon name="sparkles" size={19}/><span>اسأل خدمة</span></button>
   </aside>;
 }
