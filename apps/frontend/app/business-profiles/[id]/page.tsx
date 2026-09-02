@@ -11,6 +11,7 @@ import { ProviderReportForm } from '../../../components/provider-report-form';
 import { ActionButton, ActionLink, EmptyState, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import { ProviderQrAction } from './provider-qr-action';
+import { buildKhedmaShareText } from '../../../lib/launch-campaign';
 import styles from './public-profile.module.css';
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -57,8 +58,8 @@ export default function BusinessProfilePage() {
 
   async function copyProfileLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setShareMsg('تم نسخ رابط النشاط');
+      await navigator.clipboard.writeText(buildKhedmaShareText(business?.name ?? 'نشاط على خدمة', window.location.href));
+      setShareMsg('تم نسخ رسالة النشاط والرابط');
     } catch {
       setShareMsg('تعذر نسخ الرابط');
     }
@@ -67,7 +68,7 @@ export default function BusinessProfilePage() {
 
   function shareViaWhatsapp() {
     if (!business) return;
-    const text = encodeURIComponent(`${business.name}\n${window.location.href}`);
+    const text = encodeURIComponent(buildKhedmaShareText(business.name, window.location.href));
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 
@@ -78,7 +79,7 @@ export default function BusinessProfilePage() {
       return;
     }
     try {
-      await navigator.share({ title: business.name, url: window.location.href });
+      await navigator.share({ title: `☂ خدمة | ${business.name}`, text: buildKhedmaShareText(business.name, window.location.href), url: window.location.href });
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') return;
       setShareMsg('تعذرت المشاركة عبر الجهاز');

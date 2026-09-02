@@ -696,6 +696,23 @@ p {
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .share-action-wrap { position: relative; display: inline-flex; }
 .share-action-status { position: absolute; inset-block-start: calc(100% + .35rem); inset-inline-start: 0; white-space: nowrap; color: var(--muted); font-size: .75rem; }
+
+.launch-campaign {
+  min-height: 2.75rem;
+  padding: .55rem clamp(1rem, 4vw, 4rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem;
+  color: #fff;
+  background: linear-gradient(90deg, #0d4f87, #14865f);
+  text-align: center;
+}
+.launch-campaign-mark { color: #f7a62b; font-size: 1.35rem; line-height: 1; }
+.launch-campaign a { color: #fff; font-weight: 900; text-decoration: underline; text-underline-offset: .2rem; }
+@media (max-width: 560px) {
+  .launch-campaign { flex-wrap: wrap; gap: .3rem .55rem; font-size: .86rem; }
+}
 .welcome-loading { min-height: 70vh; display: grid; place-items: center; color: var(--muted); }
 .nav-action-error { max-width:13rem; color:#fecaca; font-size:.72rem; line-height:1.4; }
 

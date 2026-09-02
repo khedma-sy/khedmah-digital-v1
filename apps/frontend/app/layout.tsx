@@ -4,6 +4,7 @@ import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
+import { LaunchCampaignBanner } from './components/launch-campaign-banner';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
+        <LaunchCampaignBanner />
         {children}
         <SmartAssistant />
       </body>

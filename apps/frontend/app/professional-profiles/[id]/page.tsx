@@ -11,6 +11,7 @@ import { ProviderReportForm } from '../../../components/provider-report-form';
 import { ActionButton, ActionLink, EmptyState, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import styles from './professional-profile.module.css';
+import { buildKhedmaShareText } from '../../../lib/launch-campaign';
 
 const availabilityLabel = (value: PublicProfessionalProfile['availability']) => value === 'available' ? 'متاح للعمل' : value === 'busy' ? 'مشغول حالياً' : 'غير متاح حالياً';
 const priceTypeLabel = (value: string) => value === 'fixed' ? 'سعر ثابت' : value === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
@@ -47,9 +48,11 @@ export default function ProfessionalProfilePage() {
 
   async function share() {
     const url = window.location.href;
+    const subject = profile?.headlineAr ?? 'مقدم خدمة محترف';
+    const brandedText = buildKhedmaShareText(subject, url);
     try {
-      if (navigator.share) await navigator.share({ title: profile?.headlineAr ?? 'خدمة', url });
-      else { await navigator.clipboard.writeText(url); setShareMessage('تم نسخ الرابط'); setTimeout(() => setShareMessage(''), 2000); }
+      if (navigator.share) await navigator.share({ title: `☂ خدمة | ${subject}`, text: brandedText, url });
+      else { await navigator.clipboard.writeText(brandedText); setShareMessage('تم نسخ رسالة المشاركة والرابط'); setTimeout(() => setShareMessage(''), 2000); }
     } catch { setShareMessage('تعذرت المشاركة'); setTimeout(() => setShareMessage(''), 2000); }
   }
 
