@@ -44,6 +44,14 @@ export interface OperationsProductOverview {
   readonly pendingChanges: number;
 }
 
+export interface SmartAdminReport {
+  readonly generatedAt: string;
+  readonly privacy: { aggregationOnly: true; minimumSearchCohort: number; rawUserTextExposed: false };
+  readonly analytics: { periodDays: number; totalEvents: number; eventCounts: Record<'business_view' | 'search_action' | 'contact_click' | 'inquiry_submitted', number>; topSearches: Array<{ term: string; count: number }>; unmetSearches: Array<{ term: string; count: number }> };
+  readonly recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; reason: string; action: string }>;
+  readonly automation: { canExecuteActions: false; humanApprovalRequired: true };
+}
+
 export interface PublicBusinessProfile {
   readonly id: string;
   readonly name: string;
@@ -384,6 +392,14 @@ export const api = {
   operationsProduct: {
     overview() {
       return request<{ operationsProduct: OperationsProductOverview }>('/admin/operations-product/overview');
+    },
+    smartAdminReport() {
+      return request<{ smartAdminReport: SmartAdminReport }>('/admin/operations-product/smart-admin-report');
+    }
+  },
+  analytics: {
+    recordSearch(data: { query?: string; categoryCode?: string; cityCode?: string; resultsCount: number }) {
+      return request<{ analyticsEvent: { id: string } }>('/analytics/events', { method: 'POST', body: JSON.stringify({ eventType: 'search_action', entityType: 'search', entityId: 'global-search', occurredAt: new Date().toISOString(), metadata: { query: data.query?.trim().slice(0, 80) || '', category_code: data.categoryCode || '', city_code: data.cityCode || '', results_count: data.resultsCount } }) });
     }
   },
   categories: {
