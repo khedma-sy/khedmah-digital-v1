@@ -21,6 +21,7 @@ import { ProductModule } from './products/product.module';
 import { MobilityModule } from './mobility/mobility.module';
 import { OrderModule } from './orders/order.module';
 import { ProfessionalServiceModule } from './professional-services/professional-service.module';
+import { PromotionModule } from './promotions/promotion.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { ProfessionalServiceModule } from './professional-services/professional-
     ProductModule,
     MobilityModule,
     OrderModule,
-    ProfessionalServiceModule
+    ProfessionalServiceModule,
+    PromotionModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

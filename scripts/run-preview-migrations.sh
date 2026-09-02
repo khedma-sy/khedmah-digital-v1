@@ -93,6 +93,12 @@ SELECT (to_regclass(current_schema() || '.professional_service_requests') IS NOT
   \ir /migrations/027_professional_service_marketplace.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.promotions') IS NOT NULL) AS promotions_ready \gset
+\if :promotions_ready
+\else
+  \ir /migrations/028_khedmah_promotions.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
@@ -104,12 +110,15 @@ BEGIN
     OR to_regclass(current_schema() || '.professional_service_requests') IS NULL
     OR to_regclass(current_schema() || '.professional_service_offers') IS NULL
     OR to_regclass(current_schema() || '.professional_service_warranties') IS NULL
+    OR to_regclass(current_schema() || '.promotion_business_codes') IS NULL
+    OR to_regclass(current_schema() || '.promotions') IS NULL
+    OR to_regclass(current_schema() || '.promotion_claims') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_027_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_028_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_027_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_028_READY'

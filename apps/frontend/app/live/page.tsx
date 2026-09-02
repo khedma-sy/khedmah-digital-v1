@@ -1,0 +1,6 @@
+'use client';
+import { useEffect,useState } from 'react';
+import { api,KhedmahPromotion } from '../../lib/api-client';
+import { ActionLink,EmptyState,PageHeader,PageShell,SkeletonGrid,StatusMessage } from '../components/ui-primitives';
+import { PromotionCard } from '../promotions/promotion-card';
+export default function LivePage(){const[rows,setRows]=useState<KhedmahPromotion[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');useEffect(()=>{api.promotions.list().then(r=>setRows(r.promotions)).catch(()=>setError('تعذر تحديث الصفحة الحية.')).finally(()=>setLoading(false));const timer=window.setInterval(()=>{void api.promotions.list().then(r=>setRows(r.promotions)).catch(()=>undefined)},60000);return()=>window.clearInterval(timer)},[]);return <PageShell label="الصفحة الحية"><PageHeader eyebrow="مباشر من الأنشطة المعتمدة" title="عروض خدمة الحية" description="كل عرض يُعتمد يظهر هنا تلقائيًا، ويختفي عند انتهاء مدته أو نفاد العدد أو إيقافه." actions={<ActionLink href="/promotions">قارئ الخصومات</ActionLink>}/>{error&&<StatusMessage tone="danger">{error}</StatusMessage>}{loading?<SkeletonGrid/>:rows.length?<section className="ui-card-grid">{rows.map(row=><PromotionCard key={row.id} promotion={row}/>)}</section>:<EmptyState title="لا توجد عروض حية الآن" description="ستظهر العروض المعتمدة هنا فور نشرها دون نسخ أو إدخال إضافي."/>}</PageShell>}

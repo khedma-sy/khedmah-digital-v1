@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '027';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '028';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -112,7 +112,15 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('professional-services', '027', 'professional_service_events'),
   table('professional-services', '027', 'professional_service_warranties'),
   table('professional-services', '027', 'professional_service_ratings'),
-  index('professional-services','027','professional_service_requests','professional_requests_category_open_idx')
+  index('professional-services','027','professional_service_requests','professional_requests_category_open_idx'),
+  table('promotions','028','promotion_business_codes'),
+  constraint('promotions','028','promotion_business_codes','promotion_business_codes_static_code_check'),
+  table('promotions','028','promotions'),
+  ...['business_profile_id','owner_user_id','discount_type','original_price','discount_value','starts_at','ends_at','total_limit','per_user_limit','redeemed_count','moderation_status'].map((name)=>column('promotions','028','promotions',name)),
+  table('promotions','028','promotion_claims'),
+  constraint('promotions','028','promotion_claims','promotion_claims_redemption_code_check'),
+  table('promotions','028','promotion_events'),
+  index('promotions','028','promotions','promotions_public_active_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

@@ -304,6 +304,9 @@ export interface ProfessionalServiceRequest {
   readonly offers?:ProfessionalServiceOffer[];
 }
 
+export interface KhedmahPromotion { readonly id:string; readonly businessProfileId:string; readonly businessName?:string; readonly titleAr:string; readonly descriptionAr:string; readonly discountType:'percentage'|'fixed_amount'; readonly originalPrice:number; readonly discountValue:number; readonly finalPrice:number; readonly currency:'SYP'|'USD'; readonly startsAt:string; readonly endsAt:string; readonly totalLimit:number; readonly perUserLimit:number; readonly redeemedCount:number; readonly status:'active'|'inactive'; readonly moderationStatus:'pending'|'approved'|'rejected'; readonly rejectionReason?:string; readonly createdAt:string; readonly updatedAt:string; }
+export interface PromotionClaim { readonly id:string; readonly promotionId:string; readonly titleAr?:string; readonly businessName?:string; readonly redemptionCode:string; readonly status:'issued'|'redeemed'|'expired'|'cancelled'; readonly expiresAt:string; readonly redeemedAt?:string; readonly createdAt:string; }
+
 export interface OpeningHours {
   readonly id: string;
   readonly businessProfileId: string;
@@ -700,6 +703,17 @@ export const api = {
     revisit(requestId:string,reason:string){return request<{requested:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/warranty/revisit`,{method:'POST',body:JSON.stringify({reason})});},
     rate(requestId:string,data:Record<string,unknown>){return request<{rated:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/rating`,{method:'POST',body:JSON.stringify(data)});},
   },
+  promotions: {
+    list(filters:{businessId?:string;cityCode?:string;q?:string}={}){const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return request<{promotions:KhedmahPromotion[]}>(`/promotions${p.size?`?${p}`:''}`);},
+    scan(code:string){return request<{businessProfileId:string;businessName:string;promotions:KhedmahPromotion[]}>(`/promotions/scan/${encodeURIComponent(code)}`);},
+    create(businessId:string,data:Record<string,unknown>){return request<{promotion:KhedmahPromotion;moderation:{autoApproved:boolean;reasons:string[]}}>(`/promotions/business/${encodeURIComponent(businessId)}`,{method:'POST',body:JSON.stringify(data)});},
+    mine(){return request<{promotions:KhedmahPromotion[]}>('/promotions/mine');},
+    code(businessId:string){return request<{code:string;businessProfileId:string}>(`/promotions/business/${encodeURIComponent(businessId)}/code`,{method:'POST'});},
+    claim(id:string){return request<{claim:PromotionClaim}>(`/promotions/${encodeURIComponent(id)}/claim`,{method:'POST'});},
+    claims(){return request<{claims:PromotionClaim[]}>('/promotions/claims/mine');},
+    redeem(businessId:string,code:string){return request<{claim:PromotionClaim}>(`/promotions/business/${encodeURIComponent(businessId)}/redeem`,{method:'POST',body:JSON.stringify({code})});},
+    deactivate(id:string){return request<{deactivated:boolean}>(`/promotions/${encodeURIComponent(id)}/deactivate`,{method:'POST'});},
+  },
   products: {
     list(
       filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string } = {},
@@ -828,6 +842,10 @@ export const api = {
         { method: 'PATCH', body: JSON.stringify({ status, reason }) },
       );
     },
+  },
+  adminPromotions: {
+    pending(){return request<{promotions:KhedmahPromotion[]}>('/admin/promotions/pending');},
+    review(id:string,status:'approved'|'rejected',reason?:string){return request<{promotion:KhedmahPromotion}>(`/admin/promotions/${encodeURIComponent(id)}/moderation`,{method:'PATCH',body:JSON.stringify({status,reason})});},
   },
   businesses: {
     create(data: {

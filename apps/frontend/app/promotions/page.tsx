@@ -1,0 +1,11 @@
+'use client';
+import { FormEvent,useEffect,useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { api,KhedmahPromotion } from '../../lib/api-client';
+import { ActionLink,EmptyState,PageHeader,PageShell,SkeletonGrid,StatusMessage,Surface } from '../components/ui-primitives';
+import { PromotionCard } from './promotion-card';
+import { PromotionScanner } from './promotion-scanner';
+export default function PromotionsPage(){const params=useSearchParams(),code=params.get('code'),[rows,setRows]=useState<KhedmahPromotion[]>([]),[business,setBusiness]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[q,setQ]=useState('');
+ async function load(query=''){setLoading(true);setError('');try{if(code){const r=await api.promotions.scan(code);setRows(r.promotions);setBusiness(r.businessName)}else{const r=await api.promotions.list({q:query||undefined});setRows(r.promotions);setBusiness('')}}catch(c){setRows([]);setError((c as Error).message||'تعذر تحميل العروض.')}finally{setLoading(false)}}
+ useEffect(()=>{void load()},[code]);function search(e:FormEvent){e.preventDefault();void load(q.trim())}
+ return <PageShell label="خصومات وعروض خدمة"><PageHeader eyebrow="وفّر تحت مظلة خدمة" title={business?`عروض ${business}`:'خصومات وعروض خدمة'} description="عروض حقيقية من أنشطة معتمدة، بمدة وعدد استخدامات واضحين ورمز استفادة أحادي الاستخدام." actions={<><ActionLink href="/promotions/my" variant="secondary">رموزي</ActionLink><ActionLink href="/business-profiles" variant="secondary">أضف عرضًا لنشاطك</ActionLink></>}/>{!code&&<PromotionScanner/>}<Surface as="form" onSubmit={search} className="ui-form"><label>ابحث في العروض<input value={q} onChange={e=>setQ(e.target.value)} placeholder="مطعم، صيانة، متجر…"/></label><button className="ui-action ui-action-primary" type="submit">بحث</button></Surface>{error&&<StatusMessage tone="danger">{error}</StatusMessage>}{loading?<SkeletonGrid/>:rows.length?<section className="ui-card-grid">{rows.map(p=><PromotionCard key={p.id} promotion={p}/>)}</section>:<EmptyState title="لا توجد عروض نشطة الآن" description={code?'هذا النشاط معتمد لكن لا يملك عرضًا نشطًا حاليًا.':'ستظهر هنا العروض المعتمدة ضمن مدتها وحدود استخدامها.'}/>}</PageShell>}
