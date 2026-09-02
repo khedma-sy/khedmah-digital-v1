@@ -53,6 +53,7 @@ export interface AdminUserSummary {
   readonly updatedAt:string;
   readonly isAdmin:boolean;
 }
+export interface OperationsIncident { readonly id:string; readonly title:string; readonly summary:string; readonly category:string; readonly severity:'low'|'medium'|'high'|'critical'; readonly status:'open'|'in_progress'|'verification'|'resolved'; readonly reporterUserId:string; readonly assigneeUserId?:string; readonly resolutionNote?:string; readonly createdAt:string; readonly updatedAt:string; readonly resolvedAt?:string; }
 
 export interface SmartAdminReport {
   readonly generatedAt: string;
@@ -609,6 +610,9 @@ export const api = {
     },
     users(query='') { return request<{users:AdminUserSummary[]}>(`/admin/operations-product/users?q=${encodeURIComponent(query)}`); },
     changeUserStatus(id:string,status:'active'|'suspended',reason:string){return request<{user:Pick<AdminUserSummary,'id'|'email'|'status'|'createdAt'|'updatedAt'>;previousStatus:string}>(`/admin/operations-product/users/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({status,reason})});},
+    history(){return request<{incidents:OperationsIncident[]}>(`/admin/operations-product/history`);},
+    createIncident(input:{title:string;summary:string;category:string;severity:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents`,{method:'POST',body:JSON.stringify(input)});},
+    transitionIncident(id:string,input:{status:OperationsIncident['status'];note:string;assigneeUserId?:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(input)});},
   },
   analytics: {
     recordSearch(data: {

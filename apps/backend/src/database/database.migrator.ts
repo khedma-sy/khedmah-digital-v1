@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '029';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '030';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -124,7 +124,12 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('admin-users','029','admin_user_actions'),
   ...['target_user_id','actor_user_id','action','reason','previous_status','new_status','created_at'].map((name)=>column('admin-users','029','admin_user_actions',name)),
   constraint('admin-users','029','admin_user_actions','admin_user_actions_status_change_check'),
-  index('admin-users','029','admin_user_actions','admin_user_actions_target_created_idx')
+  index('admin-users','029','admin_user_actions','admin_user_actions_target_created_idx'),
+  table('operations-issues','030','operations_incidents'),
+  constraint('operations-issues','030','operations_incidents','operations_incidents_resolution_check'),
+  index('operations-issues','030','operations_incidents','operations_incidents_queue_idx'),
+  table('operations-issues','030','operations_incident_events'),
+  index('operations-issues','030','operations_incident_events','operations_incident_events_incident_time_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

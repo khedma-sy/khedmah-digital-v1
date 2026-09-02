@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query } from '@nestjs/common';
-import { ChangeUserStatusRequest, CreateIncidentRequest, CreateOperationsChangeRequest, RollbackRequest } from './dto/operations-product.dto';
+import { ChangeUserStatusRequest, CreateIncidentRequest, CreateOperationsChangeRequest, RollbackRequest, TransitionIncidentRequest } from './dto/operations-product.dto';
 import { OperationsProductService } from './operations-product.service';
 @Controller('admin/operations-product')
 export class OperationsProductController {
@@ -12,5 +12,6 @@ export class OperationsProductController {
   @Get('history') async history(@Headers('cookie') cookie: string | undefined) { return this.service.histories(cookie); }
   @Post('changes') async requestChange(@Headers('cookie') cookie: string | undefined, @Body() body: CreateOperationsChangeRequest) { return { change: await this.service.requestChange(cookie, body) }; }
   @Post('incidents') async createIncident(@Headers('cookie') cookie: string | undefined, @Body() body: CreateIncidentRequest) { return { incident: await this.service.createIncident(cookie, body) }; }
+  @Patch('incidents/:id') async transitionIncident(@Headers('cookie')cookie:string|undefined,@Param('id')id:string,@Body()body:TransitionIncidentRequest){return{incident:await this.service.transitionIncident(cookie,id,body)}}
   @Post('rollbacks') async rollback(@Headers('cookie') cookie: string | undefined, @Body() body: RollbackRequest) { return { change: await this.service.rollback(cookie, body) }; }
 }

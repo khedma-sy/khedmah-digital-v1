@@ -105,6 +105,12 @@ SELECT (to_regclass(current_schema() || '.admin_user_actions') IS NOT NULL) AS a
   \ir /migrations/029_admin_user_management.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.operations_incidents') IS NOT NULL) AS operations_issues_ready \gset
+\if :operations_issues_ready
+\else
+  \ir /migrations/030_operations_issue_center.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
@@ -120,12 +126,14 @@ BEGIN
     OR to_regclass(current_schema() || '.promotions') IS NULL
     OR to_regclass(current_schema() || '.promotion_claims') IS NULL
     OR to_regclass(current_schema() || '.admin_user_actions') IS NULL
+    OR to_regclass(current_schema() || '.operations_incidents') IS NULL
+    OR to_regclass(current_schema() || '.operations_incident_events') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_029_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_030_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_029_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_030_READY'
