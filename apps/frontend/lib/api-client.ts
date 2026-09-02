@@ -539,6 +539,9 @@ export const api = {
     getBranches(id: string) {
       return request<{ branches: BusinessBranch[] }>(`/businesses/${id}/branches`);
     },
+    deleteBranch(id: string, branchId: string) {
+      return request<{ status: string }>(`/businesses/${id}/branches/${branchId}`, { method: 'DELETE' });
+    },
     // Social links
     setSocialLink(id: string, platform: string, url: string) {
       return request<{ link: BusinessSocialLink }>(`/businesses/${id}/social-links`, {

@@ -334,6 +334,10 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, nameAr: r.name_ar, nameEn: r.name_en ?? undefined, addressAr: r.address_ar ?? undefined, phone: r.phone ?? undefined, cityCode: r.city_code, lat: r.lat ? Number(r.lat) : undefined, lng: r.lng ? Number(r.lng) : undefined, isMain: r.is_main }));
   }
 
+  async deleteBranch(businessProfileId: string, id: string): Promise<void> {
+    await this.db.query(`DELETE FROM business_branches WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
+  }
+
   async saveSocialLink(link: BusinessSocialLink): Promise<void> {
     await this.db.query(
       `INSERT INTO business_social_links (id, business_profile_id, platform, url, created_at)
