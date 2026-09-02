@@ -47,19 +47,25 @@ function SearchContent() {
   async function search(next: { tab: TabType; page: number; cityCode: string; q: string; categoryCode: string }) {
     setIsLoading(true); setError('');
     try {
+      let resultCount = 0;
       if (next.tab === 'professional') {
         const data = await api.professionals.search({ q: next.q || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setProfessionals(data.professionals); setBusinesses([]); setServices([]); setTotal(data.professionals.length);
+        resultCount = data.professionals.length;
       } else if (next.tab === 'service') {
         const data = await api.services.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setServices(data.services); setBusinesses([]); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       } else if (next.tab === 'business') {
         const data = await api.businesses.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setBusinesses(data.businesses); setServices([]); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       } else {
         const data = await api.search.query({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page, type: 'all' });
         setBusinesses(data.businesses); setServices(data.services); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       }
+      void api.analytics.recordSearch({ query: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, resultsCount: resultCount }).catch(() => undefined);
       setSearched(true);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إكمال البحث.'); }
     finally { setIsLoading(false); }
