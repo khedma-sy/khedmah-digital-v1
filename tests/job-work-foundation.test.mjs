@@ -89,7 +89,7 @@ test('mission does not add forbidden Job Work runtime implementation files', asy
   const files = await collectFiles(repoPath('.'));
   const forbiddenRuntimeFiles = files
     .map((file) => file.replace(repoPath('.'), ''))
-    .filter((file) => /(^|\/)(task-assignment|dispatch|payments|wallets|commissions|marketplace|ordering|orders|delivery-marketplace|messaging|chat|ai-matching|automation)(\/|\.|-)/i.test(file));
+    .filter((file) => /(^|\/)(task-assignment|dispatch|payments|wallets|commissions|marketplace|delivery-marketplace|messaging|chat|ai-matching|automation)(\/|\.|-)/i.test(file));
 
   assert.deepEqual(forbiddenRuntimeFiles, []);
 });

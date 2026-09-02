@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+const read=(path:string)=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
+test('cash order routes connect customer merchant courier ratings and tracking',async()=>{const[client,account,customer,merchant,courier]=await Promise.all([read('lib/api-client.ts'),read('app/users/me/page.tsx'),read('app/orders/page.tsx'),read('app/orders/merchant/page.tsx'),read('app/orders/courier/page.tsx')]);for(const route of [/\/orders\/mine/,/\/orders\/merchant/,/\/orders\/courier/,/\/ratings/,/\/tracking/,/\/location/])assert.match(client,route);assert.match(account,/href="\/orders"/);assert.match(account,/href="\/orders\/merchant"/);assert.match(account,/href="\/orders\/courier"/);assert.match(customer,/OrderTracking/);assert.match(merchant,/pharmacyApproved/);assert.match(courier,/CourierLocationButton/);});

@@ -264,6 +264,13 @@ export class BusinessProfileService {
     return this.repository.listBranches(businessId);
   }
 
+  async deleteBranch(cookieHeader: string | undefined, businessId: string, branchId: string): Promise<void> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const profile = await this.requireProfile(businessId);
+    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.repository.deleteBranch(businessId, branchId);
+  }
+
   // --- Social Links ---
   async setSocialLink(cookieHeader: string | undefined, businessId: string, platform: string, url: string): Promise<BusinessSocialLink> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));

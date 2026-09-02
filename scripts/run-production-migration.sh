@@ -7,6 +7,8 @@ readonly APPROVED_MIGRATION_022='022_expand_category_taxonomy'
 readonly APPROVED_SHA256_022='f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330'
 readonly APPROVED_MIGRATION_024='024_product_store'
 readonly APPROVED_SHA256_024='d2141fab35a163cd46511d35bef13a060f9ceb4b2d25acbedb0afa44a4be16a6'
+readonly APPROVED_MIGRATION_025='025_mobility_requests'
+readonly APPROVED_SHA256_025='d87d7c172347c0ad2a60db7894b4abfc49ca5eff726a16174171da2f8bd43243'
 
 case "${MIGRATION_VERSION:-}" in
   "$APPROVED_MIGRATION_021")
@@ -21,8 +23,12 @@ case "${MIGRATION_VERSION:-}" in
     APPROVED_SHA256="$APPROVED_SHA256_024"
     MIGRATION_FILE='/migrations/024_product_store.sql'
     ;;
+  "$APPROVED_MIGRATION_025")
+    APPROVED_SHA256="$APPROVED_SHA256_025"
+    MIGRATION_FILE='/migrations/025_mobility_requests.sql'
+    ;;
   *)
-    echo "ERROR: Only ${APPROVED_MIGRATION_021}, ${APPROVED_MIGRATION_022}, or ${APPROVED_MIGRATION_024} is approved by this image." >&2
+    echo "ERROR: Only ${APPROVED_MIGRATION_021}, ${APPROVED_MIGRATION_022}, ${APPROVED_MIGRATION_024}, or ${APPROVED_MIGRATION_025} is approved by this image." >&2
     exit 1
     ;;
 esac
@@ -99,6 +105,49 @@ COMMIT;
 SQL
 
   printf '%s\n' 'MIGRATION_021_APPLIED_AND_VERIFIED'
+  exit 0
+fi
+
+if [ "$MIGRATION_VERSION" = "$APPROVED_MIGRATION_025" ]; then
+  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('khedmah-production-schema-migration', 0));
+DO \$migration_guard\$
+BEGIN
+  IF to_regclass(current_schema() || '.product_listings') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_025_REQUIRES_SCHEMA_024';
+  END IF;
+  IF to_regclass(current_schema() || '.mobility_requests') IS NOT NULL
+    OR to_regclass(current_schema() || '.mobility_request_events') IS NOT NULL THEN
+    RAISE EXCEPTION 'MIGRATION_025_ALREADY_OR_PARTIALLY_APPLIED';
+  END IF;
+END
+\$migration_guard\$;
+\ir ${MIGRATION_FILE}
+DO \$migration_verify\$
+DECLARE required_column text;
+BEGIN
+  IF to_regclass(current_schema() || '.mobility_requests') IS NULL
+    OR to_regclass(current_schema() || '.mobility_request_events') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_025_TABLE_POSTCONDITION_FAILED';
+  END IF;
+  FOREACH required_column IN ARRAY ARRAY['rider_user_id','provider_business_id','service_type','pickup_address','destination_address','rider_contact_phone','status','idempotency_key'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mobility_requests' AND column_name=required_column) THEN
+      RAISE EXCEPTION 'MIGRATION_025_COLUMN_POSTCONDITION_FAILED: %', required_column;
+    END IF;
+  END LOOP;
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname=current_schema() AND tablename='mobility_requests' AND indexname='mobility_requests_one_open_per_rider_idx')
+    OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname=current_schema() AND tablename='mobility_request_events' AND indexname='mobility_request_events_request_time_idx') THEN
+    RAISE EXCEPTION 'MIGRATION_025_INDEX_POSTCONDITION_FAILED';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='mobility_requests' AND c.conname='mobility_requests_rider_idempotency_unique') THEN
+    RAISE EXCEPTION 'MIGRATION_025_CONSTRAINT_POSTCONDITION_FAILED';
+  END IF;
+END
+\$migration_verify\$;
+COMMIT;
+SQL
+  printf '%s\n' 'MIGRATION_025_APPLIED_AND_VERIFIED'
   exit 0
 fi
 

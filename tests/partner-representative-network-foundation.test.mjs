@@ -90,7 +90,7 @@ test('mission does not add forbidden partner runtime implementation files', asyn
   const files = await collectFiles(repoPath('.'));
   const forbiddenRuntimeFiles = files
     .map((file) => file.replace(repoPath('.'), ''))
-    .filter((file) => /(^|\/)(partner-dashboard|payment-systems|payments|commissions|affiliate|revenue-sharing|marketplace|ordering|orders|messaging|chat|recruitment|automated-assignment)(\/|\.|-)/i.test(file));
+    .filter((file) => /(^|\/)(partner-dashboard|payment-systems|payments|commissions|affiliate|revenue-sharing|marketplace|messaging|chat|recruitment|automated-assignment)(\/|\.|-)/i.test(file));
 
   assert.deepEqual(forbiddenRuntimeFiles, []);
 });

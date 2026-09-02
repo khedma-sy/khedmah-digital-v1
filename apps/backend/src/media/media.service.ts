@@ -32,13 +32,13 @@ export class MediaService {
     const storageKey = `media/${input.ownerType}/${input.ownerId}/${id}.${ext}`;
     const now = new Date().toISOString();
 
-    const existing = (input.ownerType === 'business_profile' || input.ownerType === 'product_listing') && input.assetType
+    const existing = (input.ownerType === 'business_profile' || input.ownerType === 'product_listing' || input.ownerType === 'professional_request') && input.assetType
       ? await this.db.query<{ id: string; storage_key: string }>(
           `SELECT id, storage_key FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3 ORDER BY created_at ASC`,
           [input.ownerType, input.ownerId, input.assetType]
         )
       : [];
-    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : undefined;
+    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : ['problem_image','completion_image'].includes(input.assetType ?? '') ? 5 : undefined;
     if (imageLimit !== undefined && existing.length >= imageLimit) {
       throw new BadRequestException(`يمكن رفع ${imageLimit} صورة كحد أقصى.`);
     }
@@ -87,6 +87,7 @@ export class MediaService {
 
   async listForOwner(cookieHeader: string | undefined, ownerType: string, ownerId: string): Promise<PublicMediaAsset[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const canReadPrivateRequest = ownerType === 'professional_request' ? await this.canReadProfessionalRequest(actor.id, ownerId) : false;
     const rows = await this.db.query<{
       id: string; owner_user_id: string; owner_type: string; owner_id: string;
       filename: string; mime_type: string; size_bytes: number; visibility: string;
@@ -100,8 +101,8 @@ export class MediaService {
     );
 
     return rows
-      .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id)
-      .map((r) => this.toPublic(this.mapRow(r)));
+      .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id || canReadPrivateRequest)
+      .map((r) => { const asset=this.toPublic(this.mapRow(r)); return r.visibility === 'private' ? {...asset,publicUrl:`/api/v1/media/secure/${r.id}`} : asset; });
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<void> {
@@ -126,6 +127,16 @@ export class MediaService {
     const object = await this.storage.read(rows[0].storage_key);
     return { data: object.data, mimeType: rows[0].mime_type || object.mimeType };
   }
+
+  async readSecure(cookieHeader:string|undefined,id:string):Promise<{data:Buffer;mimeType:string}>{
+    const actor=await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    const [row]=await this.db.query<{storage_key:string;mime_type:string;owner_type:string;owner_id:string;owner_user_id:string}>(`SELECT storage_key,mime_type,owner_type,owner_id,owner_user_id FROM media_assets WHERE id=$1 AND visibility='private' LIMIT 1`,[id]);
+    if(!row)throw new NotFoundException('Media asset not found.');
+    const allowed=row.owner_user_id===actor.id||(row.owner_type==='professional_request'&&await this.canReadProfessionalRequest(actor.id,row.owner_id));
+    if(!allowed)throw new ForbiddenException('Access denied.');const object=await this.storage.read(row.storage_key);return{data:object.data,mimeType:row.mime_type||object.mimeType};
+  }
+
+  private async canReadProfessionalRequest(actorId:string,requestId:string){const [r]=await this.db.query<{allowed:boolean}>(`SELECT EXISTS(SELECT 1 FROM professional_service_requests r WHERE r.id=$1 AND (r.customer_user_id=$2 OR EXISTS(SELECT 1 FROM business_profiles b WHERE b.owner_user_id=$2 AND b.category_code=r.category_code AND b.visibility='public' AND b.moderation_status='approved' AND b.trust_status='approved'))) allowed`,[requestId,actorId]);return !!r?.allowed;}
 
   private toPublic(asset: MediaAsset): PublicMediaAsset {
     return {
@@ -169,6 +180,12 @@ export class MediaService {
   private async assertOwner(actorId: string, ownerType: MediaAsset['ownerType'], ownerId: string): Promise<void> {
     if (ownerType === 'user') {
       if (ownerId !== actorId) throw new ForbiddenException('Access denied.');
+      return;
+    }
+    if (ownerType === 'professional_request') {
+      const rows = await this.db.query<{ owner_user_id: string }>(`SELECT customer_user_id AS owner_user_id FROM professional_service_requests WHERE id=$1 LIMIT 1`,[ownerId]);
+      if (!rows[0]) throw new NotFoundException('Media owner not found.');
+      if (rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
       return;
     }
     const table = ownerType === 'business_profile' ? 'business_profiles' : ownerType === 'product_listing' ? 'product_listings' : 'professional_profiles';

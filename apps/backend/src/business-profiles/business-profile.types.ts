@@ -28,6 +28,7 @@ export interface BusinessProfile {
   readonly serviceRadius?: number;
   readonly availability?: 'available' | 'busy' | 'unavailable';
   readonly rating?: number;
+  readonly ratingCount?: number;
   readonly responseSpeedMinutes?: number;
   readonly featuredAt?: string;
   readonly createdAt: string;
@@ -57,6 +58,7 @@ export interface PublicBusinessProfile {
   readonly serviceRadius?: number;
   readonly availability?: 'available' | 'busy' | 'unavailable';
   readonly rating?: number;
+  readonly ratingCount?: number;
   readonly responseSpeedMinutes?: number;
   readonly distanceKm?: number;
   readonly matchScore?: number;

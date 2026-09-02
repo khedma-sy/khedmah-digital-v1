@@ -1,0 +1,121 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
+  gap: 1.25rem;
+  align-items: start;
+}
+.menu {
+  display: grid;
+  gap: 1rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+.item {
+  display: grid;
+  gap: 0.75rem;
+}
+.image {
+  aspect-ratio: 4/3;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 84%, var(--accent) 16%);
+  display: grid;
+  place-items: center;
+}
+.image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.image span {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+.item h2,
+.cart h2 {
+  margin: 0;
+}
+.description {
+  color: var(--muted);
+  line-height: 1.65;
+}
+.itemFooter,
+.quantity,
+.cartLine,
+.total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+.price {
+  color: var(--accent);
+  font-weight: 900;
+}
+.quantity button {
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+.quantity output {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 900;
+}
+.cart {
+  position: sticky;
+  top: 6rem;
+  display: grid;
+  gap: 1rem;
+}
+.cartLines {
+  display: grid;
+  gap: 0.75rem;
+}
+.cartLine {
+  padding-block-end: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.cartLine div {
+  display: grid;
+  gap: 0.2rem;
+}
+.cartLine small {
+  color: var(--muted);
+}
+.total {
+  font-size: 1.1rem;
+}
+.empty {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.cash {
+  padding: 0.75rem;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--k-color-success) 10%, var(--surface));
+  color: var(--foreground);
+  font-weight: 800;
+  line-height: 1.65;
+}
+@media (max-width: 58rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .cart {
+    position: static;
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  }
+}

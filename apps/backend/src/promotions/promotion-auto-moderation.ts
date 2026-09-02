@@ -1,0 +1,4 @@
+import type { BusinessProfile } from '../business-profiles/business-profile.types';
+import type { Promotion } from './promotion.types';
+const RISK=/سلاح|ذخيرة|مخدر|دواء\s*بوصفة|وصفة\s*طبية|ربح\s*مضمون|مجاني\s*100|weapon|narcotic|prescription/iu;
+export function evaluatePromotionAutoModeration(p:Promotion,b?:BusinessProfile){const reasons:string[]=[];if(!b||b.visibility!=='public'||b.moderationStatus!=='approved'||b.trustStatus!=='approved'||b.status!=='active')reasons.push('business_not_eligible');if(p.discountType==='percentage'&&p.discountValue>50)reasons.push('high_discount');if(new Date(p.endsAt).getTime()-new Date(p.startsAt).getTime()>31*86400000)reasons.push('long_campaign');if(RISK.test(`${p.titleAr} ${p.descriptionAr}`))reasons.push('high_risk_content');return{approved:reasons.length===0,reasons,policyVersion:'promotion-auto-v1' as const};}

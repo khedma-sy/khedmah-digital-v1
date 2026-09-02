@@ -122,6 +122,25 @@ function validateMetadata(value: unknown): AnalyticsEventMetadata {
   return safeMetadata;
 }
 
+function validateSearchMetadata(metadata: AnalyticsEventMetadata): AnalyticsEventMetadata {
+  const query = metadata.query;
+  if (query !== undefined && (typeof query !== 'string' || query.length > 80)) {
+    throw new AnalyticsValidationError();
+  }
+
+  const resultsCount = metadata.results_count;
+  if (resultsCount !== undefined && (
+    typeof resultsCount !== 'number'
+    || !Number.isInteger(resultsCount)
+    || resultsCount < 0
+    || resultsCount > 100_000
+  )) {
+    throw new AnalyticsValidationError();
+  }
+
+  return metadata;
+}
+
 export function validateRecordAnalyticsEvent(request: RecordAnalyticsEventRequest) {
   const eventType = validateEventType(request.eventType);
   const entityType = validateEntityType(request.entityType);
@@ -134,6 +153,8 @@ export function validateRecordAnalyticsEvent(request: RecordAnalyticsEventReques
     throw new AnalyticsValidationError();
   }
 
+  const metadata = validateMetadata(request.metadata);
+
   return {
     eventType,
     entityType,
@@ -141,6 +162,6 @@ export function validateRecordAnalyticsEvent(request: RecordAnalyticsEventReques
     occurredAt: validateOccurredAt(request.occurredAt),
     anonymousId: validateContextReference(request.anonymousId),
     sessionReference: validateContextReference(request.sessionReference),
-    metadata: validateMetadata(request.metadata)
+    metadata: eventType === 'search_action' ? validateSearchMetadata(metadata) : metadata
   };
 }

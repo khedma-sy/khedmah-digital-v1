@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
+import { AnalyticsRepository } from '../analytics/analytics.repository';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { CreateIncidentRequest, CreateOperationsChangeRequest, RollbackRequest } from './dto/operations-product.dto';
@@ -9,7 +10,7 @@ import { OperationsProductRepository } from './operations-product.repository';
 import { OperationsRbacService } from './operations-rbac.service';
 @Injectable()
 export class OperationsProductService {
-  constructor(@Inject(IdentityService) private readonly identity: IdentityService, @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository, @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService, @Inject(OperationsProductRepository) private readonly repository: OperationsProductRepository) {}
+  constructor(@Inject(IdentityService) private readonly identity: IdentityService, @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository, @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService, @Inject(OperationsProductRepository) private readonly repository: OperationsProductRepository, @Inject(AnalyticsRepository) private readonly analytics: AnalyticsRepository) {}
   private async actor(cookie: string | undefined, permission: Parameters<OperationsRbacService['assert']>[1]) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie)); const roles = this.rbac.assert(actor.email, permission); const permissions = this.rbac.permissionsFor(actor.email); return { actor, roles, permissions };
   }
@@ -24,6 +25,31 @@ export class OperationsProductService {
         { id: 'monitoring', label: 'Monitoring', status: enabled('GOOGLE_MONITORING_ENABLED') ? 'enabled' : 'disabled_pre_launch' },
         { id: 'logging', label: 'Cloud Logging', status: enabled('GOOGLE_LOGGING_ENABLED') ? 'enabled' : 'disabled_pre_launch' }
       ], openIncidents: this.repository.listIncidents().length, pendingChanges: this.repository.listChanges().length };
+  }
+  async smartAdminReport(cookie: string | undefined) {
+    await this.actor(cookie, 'operations.read');
+    const periodDays = 30;
+    const [analytics, productAuditCounts] = await Promise.all([
+      this.analytics.adminSummary(periodDays),
+      this.identityRepository.countAuditEvents(['product.auto_approved', 'product.auto_review_required'], periodDays)
+    ]);
+    const recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; reason: string; action: string }> = [];
+    if (analytics.unmetSearches.length) recommendations.push({ priority: 'high', title: 'طلب غير ملبّى', reason: `${analytics.unmetSearches.length} عبارات بحث متكررة لم تنتج نتائج كافية.`, action: 'راجع التصنيفات واستقطب مزودين لهذه الخدمات.' });
+    if (analytics.eventCounts.search_action > 0 && analytics.eventCounts.contact_click === 0) recommendations.push({ priority: 'high', title: 'انقطاع قبل التواصل', reason: 'توجد عمليات بحث دون نقرات تواصل مسجلة.', action: 'راجع جودة النتائج وبطاقات مقدمي الخدمة.' });
+    if (analytics.totalEvents === 0) recommendations.push({ priority: 'medium', title: 'بيانات غير كافية', reason: 'لا توجد أحداث استخدام ضمن فترة التقرير.', action: 'تحقق من تفعيل تسجيل الأحداث في Preview قبل اتخاذ قرار.' });
+    return {
+      generatedAt: new Date().toISOString(),
+      privacy: { aggregationOnly: true, minimumSearchCohort: 3, rawUserTextExposed: false },
+      analytics,
+      productModeration: {
+        periodDays,
+        autoApproved: productAuditCounts['product.auto_approved'] ?? 0,
+        reviewRequired: productAuditCounts['product.auto_review_required'] ?? 0,
+        policyVersion: 'product-auto-v1' as const
+      },
+      recommendations,
+      automation: { canAutoApproveEligibleProducts: true, humanApprovalRequiredForExceptions: true }
+    };
   }
   async inventory(cookie: string | undefined) { await this.actor(cookie, 'operations.read'); return [
     'Cloud Run', 'Cloud Build', 'Artifact Registry', 'Secret Manager', 'IAM', 'Cloud Storage', 'Cloud Logging', 'Cloud Monitoring',

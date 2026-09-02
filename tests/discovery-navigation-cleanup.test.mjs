@@ -26,12 +26,28 @@ test('welcome is a responsive brand surface without the legacy blue phone or sta
 test('legacy governorate routes converge on canonical data-backed search', async () => {
   const [route, map, data] = await Promise.all([
     read('apps/frontend/app/locations/[slug]/page.tsx'),
-    read('apps/frontend/app/components/syria-map.tsx'),
+    read('apps/frontend/app/map/page.tsx'),
     read('apps/frontend/lib/platform-data.ts')
   ]);
   assert.match(route, /redirect\(`\/search\?cityCode=/);
-  assert.match(map, /\/search\?cityCode=/);
+  assert.match(map, /map: true/);
+  assert.doesNotMatch(map, /SyriaMap|umbrella-canopy/);
   assert.doesNotMatch(data, /serviceCategories|provinceBySlug/);
+});
+
+test('retired visual layers cannot return as parallel homepage implementations', async () => {
+  const [home, styles] = await Promise.all([
+    read('apps/frontend/app/page.tsx'),
+    read('apps/frontend/app/globals.css')
+  ]);
+  for (const retired of ['brand-hero.tsx', 'platform-cards.tsx', 'platform-action.tsx', 'syria-map.tsx']) {
+    await assert.rejects(read(`apps/frontend/app/components/${retired}`));
+  }
+  await assert.rejects(read('apps/frontend/lib/brand-hero-image.ts'));
+  assert.doesNotMatch(
+    `${home}\n${styles}`,
+    /BrandHero|SyriaMap|umbrella-canopy|live-map-panel|hero-brand-lockup|brand-dock|live-network|map-welcome|syria-map-welcome|catalog-phone|marketplace-map/
+  );
 });
 
 test('categories owns the canonical directory route and the old catalog redirects', async () => {

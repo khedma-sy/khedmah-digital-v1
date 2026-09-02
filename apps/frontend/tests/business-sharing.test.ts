@@ -6,7 +6,8 @@ test('public business profile exposes explicit WhatsApp and copy-link actions', 
   const page = await readFile(new URL('../app/business-profiles/[id]/page.tsx', import.meta.url), 'utf8');
   assert.match(page, /https:\/\/wa\.me\/\?text=/);
   assert.match(page, /مشاركة عبر واتساب/);
-  assert.match(page, /navigator\.clipboard\.writeText\(window\.location\.href\)/);
+  assert.match(page, /navigator\.clipboard\.writeText\(buildKhedmaShareText/);
+  assert.match(page, /تم نسخ رسالة النشاط والرابط/);
   assert.match(page, /نسخ رابط النشاط/);
   assert.match(page, /navigator\.share/);
   assert.match(page, /مشاركة عبر الجهاز/);

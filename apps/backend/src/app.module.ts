@@ -18,6 +18,10 @@ import { SearchModule } from './search/search.module';
 import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
 import { ReportsModule } from './reports/reports.module';
 import { ProductModule } from './products/product.module';
+import { MobilityModule } from './mobility/mobility.module';
+import { OrderModule } from './orders/order.module';
+import { ProfessionalServiceModule } from './professional-services/professional-service.module';
+import { PromotionModule } from './promotions/promotion.module';
 
 @Module({
   imports: [
@@ -36,7 +40,11 @@ import { ProductModule } from './products/product.module';
     MediaModule,
     ModerationModule,
     ReportsModule,
-    ProductModule
+    ProductModule,
+    MobilityModule,
+    OrderModule,
+    ProfessionalServiceModule,
+    PromotionModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

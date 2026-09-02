@@ -30,6 +30,37 @@ fi
 if [[ "$environment" == "preview" ]]; then
   gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config cloudbuild.preview-backend.yaml \
     --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
+  gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config cloudbuild.migration.yaml \
+    --substitutions="COMMIT_SHA=${tag},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${ARTIFACT_REPOSITORY}"
+
+  migration_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/database-migrations:${tag}"
+  migration_job="khedmah-pr-${pr_number}-migration"
+  gcloud run jobs deploy "$migration_job" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --region "$GOOGLE_CLOUD_REGION" \
+    --image "$migration_image" \
+    --command /usr/local/bin/run-preview-migrations \
+    --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+    --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+    --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
+    --set-env-vars="DEPLOYMENT_ENVIRONMENT=preview,EXPECTED_PREVIEW_DATABASE=khedmah_preview,CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME}" \
+    --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+  if ! gcloud run jobs execute "$migration_job" \
+    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait; then
+    latest_execution="$(gcloud run jobs executions list --job "$migration_job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --limit=1 --format='value(metadata.name)' 2>/dev/null || true)"
+    if [[ -n "$latest_execution" ]]; then
+      echo "Preview migration execution status: ${latest_execution}" >&2
+      gcloud run jobs executions describe "$latest_execution" \
+        --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+        --format='yaml(status.conditions,status.failedCount,status.logUri)' >&2 || true
+    fi
+    echo 'Preview migration failed; printing the bounded migration-job logs.' >&2
+    gcloud logging read \
+      "resource.type=cloud_run_job AND resource.labels.job_name=${migration_job}" \
+      --project "$GOOGLE_CLOUD_PROJECT" --freshness=20m --limit=100 \
+      --format='value(timestamp,severity,textPayload,jsonPayload.message)' >&2 || true
+    exit 6
+  fi
 else
   gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config" \
     --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '028';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -90,7 +90,37 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
   table('classifieds', '024', 'product_listings'),
   ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
-  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
+  index('classifieds', '024', 'product_listings', 'product_listings_public_idx'),
+  table('mobility', '025', 'mobility_requests'),
+  ...['rider_user_id', 'provider_business_id', 'service_type', 'pickup_address', 'destination_address', 'rider_contact_phone', 'status', 'idempotency_key'].map((name) => column('mobility', '025', 'mobility_requests', name)),
+  constraint('mobility', '025', 'mobility_requests', 'mobility_requests_rider_idempotency_unique'),
+  index('mobility', '025', 'mobility_requests', 'mobility_requests_one_open_per_rider_idx'),
+  table('mobility', '025', 'mobility_request_events'),
+  index('mobility', '025', 'mobility_request_events', 'mobility_request_events_request_time_idx'),
+  table('fulfillment', '026', 'fulfillment_orders'),
+  ...['customer_user_id', 'merchant_business_id', 'courier_business_id', 'status', 'payment_method', 'subtotal', 'delivery_address', 'idempotency_key'].map((name) => column('fulfillment', '026', 'fulfillment_orders', name)),
+  constraint('fulfillment', '026', 'fulfillment_orders', 'fulfillment_orders_customer_idempotency_unique'),
+  table('fulfillment', '026', 'fulfillment_order_items'),
+  table('fulfillment', '026', 'fulfillment_order_events'),
+  table('fulfillment', '026', 'fulfillment_order_ratings'),
+  table('fulfillment', '026', 'fulfillment_order_location_updates'),
+  constraint('fulfillment', '026', 'fulfillment_order_location_updates', 'fulfillment_order_location_order_unique')
+  ,table('professional-services', '027', 'professional_service_requests'),
+  ...['customer_user_id','category_code','status','accepted_offer_id','payment_method','payment_status','expires_at'].map((name) => column('professional-services','027','professional_service_requests',name)),
+  table('professional-services', '027', 'professional_service_offers'),
+  constraint('professional-services','027','professional_service_offers','professional_service_offers_provider_unique'),
+  table('professional-services', '027', 'professional_service_events'),
+  table('professional-services', '027', 'professional_service_warranties'),
+  table('professional-services', '027', 'professional_service_ratings'),
+  index('professional-services','027','professional_service_requests','professional_requests_category_open_idx'),
+  table('promotions','028','promotion_business_codes'),
+  constraint('promotions','028','promotion_business_codes','promotion_business_codes_static_code_check'),
+  table('promotions','028','promotions'),
+  ...['business_profile_id','owner_user_id','discount_type','original_price','discount_value','starts_at','ends_at','total_limit','per_user_limit','redeemed_count','moderation_status'].map((name)=>column('promotions','028','promotions',name)),
+  table('promotions','028','promotion_claims'),
+  constraint('promotions','028','promotion_claims','promotion_claims_redemption_code_check'),
+  table('promotions','028','promotion_events'),
+  index('promotions','028','promotions','promotions_public_active_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

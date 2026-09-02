@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { AnalyticsEventRecord } from './analytics.types';
+import { AdminAnalyticsSummary, AnalyticsEventRecord, AnalyticsEventType } from './analytics.types';
 
 @Injectable()
 export class AnalyticsRepository {
@@ -50,6 +50,45 @@ export class AnalyticsRepository {
       [limit]
     );
     return rows.map((r) => this.map(r));
+  }
+
+  async adminSummary(periodDays = 30): Promise<AdminAnalyticsSummary> {
+    const eventRows = await this.db.query<{ event_type: AnalyticsEventType; count: string }>(
+      `SELECT event_type, COUNT(*)::text AS count
+       FROM analytics_events
+       WHERE occurred_at >= NOW() - ($1::int * INTERVAL '1 day')
+       GROUP BY event_type`,
+      [periodDays]
+    );
+    const searchRows = await this.db.query<{ term: string; count: string; unmet_count: string }>(
+      `SELECT LOWER(BTRIM(metadata->>'query')) AS term,
+              COUNT(*)::text AS count,
+              COUNT(*) FILTER (
+                WHERE CASE
+                  WHEN metadata->>'results_count' ~ '^[0-9]+$'
+                    THEN (metadata->>'results_count')::int
+                  ELSE 0
+                END = 0
+              )::text AS unmet_count
+       FROM analytics_events
+       WHERE event_type='search_action'
+         AND occurred_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND LENGTH(BTRIM(COALESCE(metadata->>'query',''))) BETWEEN 2 AND 80
+       GROUP BY LOWER(BTRIM(metadata->>'query'))
+       HAVING COUNT(*) >= 3
+       ORDER BY COUNT(*) DESC, term ASC
+       LIMIT 20`,
+      [periodDays]
+    );
+    const eventCounts: Record<AnalyticsEventType, number> = { business_view: 0, search_action: 0, contact_click: 0, inquiry_submitted: 0 };
+    for (const row of eventRows) eventCounts[row.event_type] = Number(row.count);
+    return {
+      periodDays,
+      totalEvents: Object.values(eventCounts).reduce((sum, count) => sum + count, 0),
+      eventCounts,
+      topSearches: searchRows.map((row) => ({ term: row.term, count: Number(row.count) })),
+      unmetSearches: searchRows.filter((row) => Number(row.unmet_count) >= 3).map((row) => ({ term: row.term, count: Number(row.unmet_count) }))
+    };
   }
 
   private map(r: {

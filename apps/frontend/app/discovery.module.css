@@ -16,6 +16,9 @@
 .cardTop { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--k-space-3); }
 .card h3 { margin:0; font-size:1.08rem; line-height:1.45; }
 .meta,.description { margin:0; color:var(--k-color-text-muted); line-height:1.7; }
+.providerFacts { display:flex; flex-wrap:wrap; gap:.45rem .7rem; color:var(--k-color-text-muted); font-size:.78rem; font-weight:750; }
+.providerFacts span { display:inline-flex; align-items:center; gap:.25rem; }
+.providerFacts .available { color:var(--k-color-success); }
 .description { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .tags { display:flex; flex-wrap:wrap; gap:.4rem; }
 .tag,.badge { width:max-content; border-radius:999px; padding:.25rem .55rem; font-size:.72rem; font-weight:800; }

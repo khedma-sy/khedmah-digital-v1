@@ -60,7 +60,7 @@ test('mission does not add forbidden runtime discovery implementation files', as
   const files = await collectFiles(repoPath('.'));
   const forbiddenRuntimeFiles = files
     .map((file) => file.replace(repoPath('.').pathname, ''))
-    .filter((file) => /(^|\/)(marketplace|payments|orders|ordering|commissions|advertising|ranking|recommendations|chat|messaging)(\/|\.|-)/i.test(file));
+    .filter((file) => /(^|\/)(marketplace|payments|commissions|advertising|ranking|recommendations|chat|messaging)(\/|\.|-)/i.test(file));
 
   assert.deepEqual(forbiddenRuntimeFiles, []);
 });

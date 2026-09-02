@@ -108,6 +108,12 @@ export class BusinessProfilesController {
     return { branches: await this.businessProfiles.getBranches(id) };
   }
 
+  @Delete(':id/branches/:branchId')
+  async deleteBranch(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Param('branchId') branchId: string) {
+    await this.businessProfiles.deleteBranch(cookieHeader, id, branchId);
+    return { status: 'deleted' };
+  }
+
   // --- Social Links ---
   @Post(':id/social-links')
   async setSocialLink(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { platform: string; url: string }) {
@@ -171,4 +177,3 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.reactivateBusiness(cookieHeader, id) };
   }
 }
-

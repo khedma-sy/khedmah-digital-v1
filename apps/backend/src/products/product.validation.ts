@@ -30,8 +30,10 @@ export function validateProductWrite(value: Record<string, unknown>, partial = f
     result.availability = value.availability;
   }
   if (!partial || value.businessProfileId !== undefined) result.businessProfileId = text(value.businessProfileId, 'businessProfileId', 1, 100);
+  if (!partial || value.requiresPrescription !== undefined) result.requiresPrescription = value.requiresPrescription === true;
+  if (!partial || value.controlledItem !== undefined) result.controlledItem = value.controlledItem === true;
   return result as {
     titleAr?: string; descriptionAr?: string; price?: number; currency?: 'SYP' | 'USD';
-    categoryCode?: string; availability?: ProductAvailability; businessProfileId?: string;
+    categoryCode?: string; availability?: ProductAvailability; businessProfileId?: string; requiresPrescription?: boolean; controlledItem?: boolean;
   };
 }

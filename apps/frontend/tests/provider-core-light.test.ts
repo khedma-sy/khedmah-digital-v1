@@ -13,6 +13,8 @@ test('owned business profiles lead to the focused provider workspace', async () 
   assert.match(manage, /api\.services\.listForOwner/);
   assert.match(manage, /api\.services\.create/);
   assert.match(manage, /api\.services\.update/);
+  assert.match(manage, /href="\/store\/manage"/);
+  assert.match(manage, /api\.businesses\.deleteBranch/);
 });
 
 test('provider workspace lists real received inquiries without chat or booking', async () => {

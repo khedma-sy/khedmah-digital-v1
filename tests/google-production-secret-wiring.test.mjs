@@ -35,6 +35,9 @@ test('production configuration accepts only the approved media location', async 
     names.map((name) => [name, name.endsWith('_ENABLED') ? 'true' : 'injected-value']),
   );
   productionEnv.GCS_MEDIA_LOCATION = 'europe-west1';
+  productionEnv.GOOGLE_CLOUD_REGION = 'europe-west1';
+
+  assert.match(contract, /^GOOGLE_CLOUD_REGION=europe-west1$/m);
 
   assert.doesNotThrow(() => execFileSync(
     process.execPath,
@@ -48,5 +51,13 @@ test('production configuration accepts only the approved media location', async 
       { encoding: 'utf8', env: { ...productionEnv, GCS_MEDIA_LOCATION: 'US' } },
     ),
     /GCS_MEDIA_LOCATION must be europe-west1/,
+  );
+  assert.throws(
+    () => execFileSync(
+      process.execPath,
+      ['scripts/validate-google-config.mjs', '--production'],
+      { encoding: 'utf8', env: { ...productionEnv, GOOGLE_CLOUD_REGION: 'me-central1' } },
+    ),
+    /GOOGLE_CLOUD_REGION must be europe-west1/,
   );
 });

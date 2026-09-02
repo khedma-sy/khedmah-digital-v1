@@ -13,8 +13,8 @@ import styles from './store.module.css';
 const availability = (value: ProductListing['availability']) => value === 'in_stock' ? 'متوفر' : value === 'made_to_order' ? 'حسب الطلب' : 'غير متوفر';
 
 export default function StorePage() {
-  const { categories } = useCategories();
-  const { cities } = useSyrianCities();
+  const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
+  const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
   const [products, setProducts] = useState<ProductListing[]>([]);
   const [filters, setFilters] = useState({ q: '', categoryCode: '', cityCode: '' });
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,13 @@ export default function StorePage() {
     try { setProducts((await api.products.list({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined })).products); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل المنتجات.'); }
     finally { setLoading(false); }
+  }
+  function syncUrl(next: typeof filters) {
+    const query = new URLSearchParams();
+    if (next.q.trim()) query.set('q', next.q.trim());
+    if (next.categoryCode) query.set('categoryCode', next.categoryCode);
+    if (next.cityCode) query.set('cityCode', next.cityCode);
+    window.history.replaceState(null, '', query.size ? `/classifieds?${query}` : '/classifieds');
   }
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -37,22 +44,27 @@ export default function StorePage() {
     void load(initial);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
-  function search(event: FormEvent) { event.preventDefault(); void load(); }
+  function search(event: FormEvent) { event.preventDefault(); syncUrl(filters); void load(filters); }
+  function clear() { const next = { q: '', categoryCode: '', cityCode: '' }; setFilters(next); syncUrl(next); void load(next); }
+  const hasFilters = Boolean(filters.q || filters.categoryCode || filters.cityCode);
 
   return <PageShell className={styles.page} label="الإعلانات المبوبة">
     <PageHeader eyebrow="إعلانات الأنشطة المحلية" title="الإعلانات المبوبة" description="استكشف المنتجات والعروض المنشورة، ثم تواصل مباشرة مع النشاط المعلن. لا توجد مدفوعات أو طلبات داخل المنصة." actions={<><ActionLink href="/store/sell">أضف إعلانًا</ActionLink><ActionLink href="/store/manage" variant="secondary">إعلاناتي</ActionLink></>} />
-    <Surface as="form" className={styles.toolbar} onSubmit={search}>
+    <Surface><form className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في الإعلانات" aria-busy={loading}>
       <label className={styles.field}>ابحث عن منتج<input value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
-      <label className={styles.field}>التصنيف<select value={filters.categoryCode} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories}/></select></label>
-      <label className={styles.field}>المدينة<select value={filters.cityCode} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
-      <ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>
-    </Surface>
+      <label className={styles.field}>التصنيف<select value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories}/></select></label>
+      <label className={styles.field}>المدينة<select value={filters.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
+      <div className={styles.toolbarActions}><ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}>مسح</ActionButton>}</div>
+    </form></Surface>
+    {categoriesError && <StatusMessage tone="warning">تعذر تحميل التصنيفات. <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></StatusMessage>}
+    {citiesError && <StatusMessage tone="warning">تعذر تحميل المدن. <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
-    {loading ? <SkeletonGrid count={6} label="جاري تحميل المنتجات"/> : products.length ? <section className={styles.grid} aria-label="المنتجات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
-      <Link className={styles.image} href={`/store/products/${product.id}`}>{product.imageUrl ? <img src={product.imageUrl} alt={product.titleAr}/> : <span aria-hidden="true">خ</span>}</Link>
-      <div className={styles.meta}><span>{product.businessName}</span><span>·</span><span>{cityLabel(product.cityCode ?? '', cities)}</span><span>·</span><span>{availability(product.availability)}</span></div>
+    {loading ? <SkeletonGrid count={6} label="جاري تحميل المنتجات"/> : products.length ? <><p className={styles.summary} aria-live="polite">{products.length.toLocaleString('ar-SY')} إعلان مطابق</p><section className={styles.grid} aria-label="المنتجات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
+      <Link className={styles.image} href={`/store/products/${product.id}`} aria-label={`عرض ${product.titleAr}`}>{product.imageUrl ? <img src={product.imageUrl} alt={`صورة ${product.titleAr}`}/> : <span aria-hidden="true">خ</span>}</Link>
+      <div className={styles.cardTop}><span className={styles.availability} data-available={product.availability === 'in_stock'}>{availability(product.availability)}</span><span>{product.businessName ?? 'نشاط على خدمة'}</span></div>
+      <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span></div>
       <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
-      <ActionLink href={`/store/products/${product.id}`}>عرض المنتج</ActionLink>
-    </Surface>)}</section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لا توجد منتجات مطابقة" description="غيّر البحث أو كن أول نشاط يعرض منتجًا في هذا التصنيف." actions={<ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>} />}
+      <ActionLink href={`/store/products/${product.id}`}>التفاصيل والتواصل</ActionLink>
+    </Surface>)}</section></> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لا توجد إعلانات مطابقة حاليًا" description="وسّع المدينة أو التصنيف، أو امسح البحث. لن نعرض منتجات وهمية." actions={<>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}>توسيع البحث</ActionButton>}<ActionLink href="/categories" variant="secondary">استكشف الأنشطة</ActionLink><ActionLink href="/store/sell">عرض منتج للبيع</ActionLink></>} />}
   </PageShell>;
 }

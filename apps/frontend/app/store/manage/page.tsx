@@ -3,11 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, type ProductListing } from '../../../lib/api-client';
-import { ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import styles from '../store.module.css';
 
-const status = (product: ProductListing) => product.moderationStatus === 'approved'
+const status = (product: ProductListing) => product.status === 'inactive' ? 'غير نشط' : product.moderationStatus === 'approved'
   ? 'منشور'
   : product.moderationStatus === 'rejected'
     ? 'مطلوب تعديل'
@@ -18,6 +18,14 @@ export default function ManageProductsPage() {
   const [products, setProducts] = useState<ProductListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [workingId, setWorkingId] = useState('');
+
+  async function deactivate(product: ProductListing) {
+    setWorkingId(product.id); setError('');
+    try { const result = await api.products.deactivate(product.id); setProducts((items) => items.map((item) => item.id === product.id ? result.product : item)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إلغاء نشر الإعلان.'); }
+    finally { setWorkingId(''); }
+  }
 
   useEffect(() => {
     let active = true;
@@ -45,6 +53,7 @@ export default function ManageProductsPage() {
         <div className={styles.actions}>
           <ActionLink href={`/store/manage/${product.id}/edit`} variant="secondary">تعديل المنتج</ActionLink>
           {product.moderationStatus === 'approved' && <ActionLink href={`/store/products/${product.id}`}>عرض الصفحة العامة</ActionLink>}
+          {product.status !== 'inactive' && <ActionButton type="button" variant="secondary" disabled={workingId === product.id} onClick={() => void deactivate(product)}>{workingId === product.id ? 'جارٍ الإلغاء…' : 'إلغاء نشر الإعلان'}</ActionButton>}
         </div>
       </Surface>)}
     </section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لم تضف منتجات بعد" description="ابدأ بمنتج مرتبط بأحد أنشطتك." actions={<ActionLink href="/store/sell">عرض أول منتج</ActionLink>}/>} 

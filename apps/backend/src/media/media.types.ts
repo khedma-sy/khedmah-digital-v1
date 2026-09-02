@@ -1,7 +1,7 @@
 export type MediaVisibility = 'public' | 'private';
-export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'product_listing' | 'user';
+export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'product_listing' | 'professional_request' | 'user';
 export type MediaMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
-export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image';
+export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image' | 'problem_image' | 'completion_image';
 
 export interface MediaAsset {
   readonly id: string;

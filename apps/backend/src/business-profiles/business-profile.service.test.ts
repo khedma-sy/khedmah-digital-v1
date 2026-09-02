@@ -162,6 +162,24 @@ test('listMine does not expose ownerUserId in owner projection', async () => {
   }
 });
 
+test('only the business owner can delete one of its branches', async () => {
+  const { service, ownerCookie, moderatorCookie, businessId } = await createFixture();
+  const branch = await service.addBranch(ownerCookie, businessId, {
+    nameAr: 'فرع الاختبار',
+    cityCode: 'damascus',
+    isMain: false
+  });
+
+  await assert.rejects(
+    () => service.deleteBranch(moderatorCookie, businessId, branch.id),
+    ForbiddenException
+  );
+  assert.equal((await service.getBranches(businessId)).some((item) => item.id === branch.id), true);
+
+  await service.deleteBranch(ownerCookie, businessId, branch.id);
+  assert.equal((await service.getBranches(businessId)).some((item) => item.id === branch.id), false);
+});
+
 test('unchanged inactive legacy category does not block unrelated profile edits', async () => {
   const { pool, service, ownerCookie, businessId } = await createFixture();
   await pool.query(`

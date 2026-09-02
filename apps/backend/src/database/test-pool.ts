@@ -56,7 +56,11 @@ const CANONICAL_MIGRATIONS = [
   '019_remove_out_of_scope_subscription_schema',
   '020_identity_recovery_oauth',
   '021_provider_reports',
-  '022_expand_category_taxonomy'
+  '022_expand_category_taxonomy',
+  '024_product_store',
+  '025_mobility_requests',
+  '026_cash_fulfillment_orders',
+  '027_professional_service_marketplace'
 ] as const;
 
 let canonicalSchemaSetup: Promise<void> | undefined;

@@ -44,6 +44,41 @@ export interface OperationsProductOverview {
   readonly pendingChanges: number;
 }
 
+export interface SmartAdminReport {
+  readonly generatedAt: string;
+  readonly privacy: {
+    aggregationOnly: true;
+    minimumSearchCohort: number;
+    rawUserTextExposed: false;
+  };
+  readonly analytics: {
+    periodDays: number;
+    totalEvents: number;
+    eventCounts: Record<
+      'business_view' | 'search_action' | 'contact_click' | 'inquiry_submitted',
+      number
+    >;
+    topSearches: Array<{ term: string; count: number }>;
+    unmetSearches: Array<{ term: string; count: number }>;
+  };
+  readonly productModeration: {
+    periodDays: number;
+    autoApproved: number;
+    reviewRequired: number;
+    policyVersion: 'product-auto-v1';
+  };
+  readonly recommendations: Array<{
+    priority: 'high' | 'medium' | 'low';
+    title: string;
+    reason: string;
+    action: string;
+  }>;
+  readonly automation: {
+    canAutoApproveEligibleProducts: true;
+    humanApprovalRequiredForExceptions: true;
+  };
+}
+
 export interface PublicBusinessProfile {
   readonly id: string;
   readonly name: string;
@@ -68,9 +103,39 @@ export interface PublicBusinessProfile {
   readonly serviceRadius?: number;
   readonly availability?: 'available' | 'busy' | 'unavailable';
   readonly rating?: number;
+  readonly ratingCount?: number;
   readonly responseSpeedMinutes?: number;
   readonly distanceKm?: number;
   readonly matchScore?: number;
+}
+
+export interface MobilityRequest {
+  readonly id: string;
+  readonly providerBusinessId: string;
+  readonly providerName?: string;
+  readonly providerPhone?: string;
+  readonly serviceType: 'taxi' | 'delivery';
+  readonly pickupAddress: string;
+  readonly destinationAddress: string;
+  readonly riderContactPhone: string;
+  readonly pickupLatitude: number;
+  readonly pickupLongitude: number;
+  readonly destinationLatitude?: number;
+  readonly destinationLongitude?: number;
+  readonly riderNote?: string;
+  readonly status:
+    | 'requested'
+    | 'accepted'
+    | 'en_route'
+    | 'completed'
+    | 'rejected'
+    | 'cancelled';
+  readonly acceptedAt?: string;
+  readonly enRouteAt?: string;
+  readonly completedAt?: string;
+  readonly closedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }
 
 export interface Category {
@@ -98,8 +163,10 @@ export interface PublicProfessionalProfile {
   readonly createdAt: string;
   readonly contactEligibility?: {
     readonly visibility: 'public' | 'private' | 'internal';
-    readonly moderationStatus: 'approved' | 'pending' | 'rejected' | 'suspended';
-    readonly lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived';
+    readonly moderationStatus:
+      'approved' | 'pending' | 'rejected' | 'suspended';
+    readonly lifecycleStatus:
+      'created' | 'pending' | 'active' | 'suspended' | 'archived';
     readonly eligible: boolean;
   };
 }
@@ -131,6 +198,8 @@ export interface ProductListing {
   readonly currency: 'SYP' | 'USD';
   readonly categoryCode: string;
   readonly availability: 'in_stock' | 'out_of_stock' | 'made_to_order';
+  readonly requiresPrescription: boolean;
+  readonly controlledItem: boolean;
   readonly status: 'draft' | 'active' | 'inactive';
   readonly moderationStatus: 'pending' | 'approved' | 'rejected';
   readonly rejectionReason?: string;
@@ -141,11 +210,62 @@ export interface ProductListing {
   readonly createdAt: string;
 }
 
+export type FulfillmentOrderStatus =
+  | 'placed'
+  | 'quoted'
+  | 'merchant_confirmed'
+  | 'courier_assigned'
+  | 'courier_accepted'
+  | 'ready_for_pickup'
+  | 'picked_up'
+  | 'delivered'
+  | 'rejected'
+  | 'cancelled';
+export interface FulfillmentOrder {
+  readonly id: string;
+  readonly merchantBusinessId: string;
+  readonly merchantName?: string;
+  readonly courierBusinessId?: string;
+  readonly courierName?: string;
+  readonly vertical: 'food' | 'grocery' | 'pharmacy';
+  readonly status: FulfillmentOrderStatus;
+  readonly paymentMethod: 'cash';
+  readonly paymentStatus: 'pending' | 'cash_collected';
+  readonly currency: 'SYP' | 'USD';
+  readonly subtotal: number;
+  readonly deliveryFee?: number;
+  readonly total?: number;
+  readonly deliveryAddress: string;
+  readonly customerPhone: string;
+  readonly customerNote?: string;
+  readonly prescriptionAttested: boolean;
+  readonly pharmacyReviewStatus:
+    'not_required' | 'pending' | 'approved' | 'rejected';
+  readonly rejectionReason?: string;
+  readonly items: readonly {
+    productListingId: string;
+    titleAr: string;
+    unitPrice: number;
+    quantity: number;
+    requiresPrescription: boolean;
+  }[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface MediaAsset {
   readonly id: string;
   readonly entityType: string;
   readonly entityId: string;
-  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image';
+  readonly assetType:
+    | 'logo'
+    | 'cover'
+    | 'gallery'
+    | 'profile_image'
+    | 'service_image'
+    | 'product_image'
+    | 'problem_image'
+    | 'completion_image';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -156,7 +276,8 @@ export interface MediaAsset {
 
 export interface UploadedMediaAsset {
   readonly id: string;
-  readonly ownerType: 'business_profile' | 'professional_profile' | 'product_listing' | 'user';
+  readonly ownerType:
+    'business_profile' | 'professional_profile' | 'product_listing' | 'professional_request' | 'user';
   readonly ownerId: string;
   readonly filename: string;
   readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
@@ -167,6 +288,24 @@ export interface UploadedMediaAsset {
   readonly sortOrder: number;
   readonly createdAt: string;
 }
+
+export interface ProfessionalServiceOffer {
+  readonly id:string; readonly requestId:string; readonly providerBusinessId:string; readonly providerName?:string;
+  readonly inspectionFee:number; readonly laborFee:number; readonly materialsFee?:number; readonly total:number;
+  readonly currency:'SYP'|'USD'; readonly arrivalMinutes:number; readonly durationMinutes:number; readonly warrantyDays:number;
+  readonly scopeAr:string; readonly exclusionsAr?:string; readonly status:'submitted'|'accepted'|'rejected'|'withdrawn'; readonly createdAt:string;
+}
+export interface ProfessionalServiceRequest {
+  readonly id:string; readonly categoryCode:string; readonly titleAr:string; readonly descriptionAr:string;
+  readonly urgency:'urgent'|'today'|'scheduled'; readonly scheduledFor?:string; readonly budgetMin?:number; readonly budgetMax?:number;
+  readonly currency:'SYP'|'USD'; readonly address?:string; readonly areaLabel:string; readonly latitude?:number; readonly longitude?:number;
+  readonly customerPhone?:string; readonly status:'open'|'offer_selected'|'in_progress'|'completion_pending'|'completed'|'cancelled'|'disputed';
+  readonly acceptedOfferId?:string; readonly paymentMethod?:'cash'; readonly paymentStatus?:'pending'|'cash_collected'; readonly expiresAt:string; readonly completedAt?:string; readonly createdAt:string; readonly updatedAt:string;
+  readonly offers?:ProfessionalServiceOffer[];
+}
+
+export interface KhedmahPromotion { readonly id:string; readonly businessProfileId:string; readonly businessName?:string; readonly titleAr:string; readonly descriptionAr:string; readonly discountType:'percentage'|'fixed_amount'; readonly originalPrice:number; readonly discountValue:number; readonly finalPrice:number; readonly currency:'SYP'|'USD'; readonly startsAt:string; readonly endsAt:string; readonly totalLimit:number; readonly perUserLimit:number; readonly redeemedCount:number; readonly status:'active'|'inactive'; readonly moderationStatus:'pending'|'approved'|'rejected'; readonly rejectionReason?:string; readonly createdAt:string; readonly updatedAt:string; }
+export interface PromotionClaim { readonly id:string; readonly promotionId:string; readonly titleAr?:string; readonly businessName?:string; readonly redemptionCode:string; readonly status:'issued'|'redeemed'|'expired'|'cancelled'; readonly expiresAt:string; readonly redeemedAt?:string; readonly createdAt:string; }
 
 export interface OpeningHours {
   readonly id: string;
@@ -292,8 +431,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...init?.headers
-    }
+      ...init?.headers,
+    },
   });
 
   const data = await response.json().catch(() => ({}));
@@ -302,10 +441,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       (data as { message?: string | string[] }).message ??
       `خطأ في الخادم (${response.status})`;
-    const text = Array.isArray(message) ? message.join('. ') : (message as string);
+    const text = Array.isArray(message)
+      ? message.join('. ')
+      : (message as string);
     throw Object.assign(new Error(text), {
       statusCode: response.status,
-      code: (data as { code?: string }).code
+      code: (data as { code?: string }).code,
     });
   }
 
@@ -313,25 +454,60 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  contact: {
-    submitInquiry(target: { type: 'business' | 'professional'; id: string }, data: { name: string; contactEmail: string; message: string }, idempotencyKey: string) {
-      const collection = target.type === 'business' ? 'businesses' : 'professionals';
-      return request<{ inquiry: ContactInquiryReceipt }>(`/${collection}/${target.id}/inquiries`, {
-        method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(data)
+  mobility: {
+    create(data: Record<string, unknown>, idempotencyKey: string) {
+      return request<{ request: MobilityRequest }>('/mobility/requests', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(data),
       });
-    }
+    },
+    listMine() {
+      return request<{ requests: MobilityRequest[] }>(
+        '/mobility/requests/mine',
+      );
+    },
+    listForProvider(businessId: string) {
+      return request<{ requests: MobilityRequest[] }>(
+        `/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`,
+      );
+    },
+    transition(id: string, status: MobilityRequest['status'], reason?: string) {
+      return request<{ request: MobilityRequest }>(
+        `/mobility/requests/${encodeURIComponent(id)}/status`,
+        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
+      );
+    },
+  },
+  contact: {
+    submitInquiry(
+      target: { type: 'business' | 'professional'; id: string },
+      data: { name: string; contactEmail: string; message: string },
+      idempotencyKey: string,
+    ) {
+      const collection =
+        target.type === 'business' ? 'businesses' : 'professionals';
+      return request<{ inquiry: ContactInquiryReceipt }>(
+        `/${collection}/${target.id}/inquiries`,
+        {
+          method: 'POST',
+          headers: { 'Idempotency-Key': idempotencyKey },
+          body: JSON.stringify(data),
+        },
+      );
+    },
   },
   auth: {
     register(email: string, password: string, displayName: string) {
       return request<{ user: PublicUserProfile }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password, displayName })
+        body: JSON.stringify({ email, password, displayName }),
       });
     },
     login(email: string, password: string) {
       return request<{ user: PublicUserProfile }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
     },
     logout() {
@@ -339,92 +515,337 @@ export const api = {
     },
     session() {
       return request<{ user: PublicUserProfile }>('/auth/session');
-    }
+    },
   },
   organizations: {
     create(name: string) {
       return request<{ organization: PublicOrganization }>('/organizations', {
         method: 'POST',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name }),
       });
     },
     listMine() {
-      return request<{ organizations: PublicOrganization[] }>('/organizations/my');
+      return request<{ organizations: PublicOrganization[] }>(
+        '/organizations/my',
+      );
     },
     get(id: string) {
-      return request<{ organization: PublicOrganization }>(`/organizations/${encodeURIComponent(id)}`);
+      return request<{ organization: PublicOrganization }>(
+        `/organizations/${encodeURIComponent(id)}`,
+      );
     },
     update(id: string, name: string) {
-      return request<{ organization: PublicOrganization }>(`/organizations/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name })
-      });
+      return request<{ organization: PublicOrganization }>(
+        `/organizations/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ name }),
+        },
+      );
     },
     listMembers(id: string) {
-      return request<{ members: PublicOrganizationMember[] }>(`/organizations/${encodeURIComponent(id)}/members`);
+      return request<{ members: PublicOrganizationMember[] }>(
+        `/organizations/${encodeURIComponent(id)}/members`,
+      );
     },
-    addMember(id: string, userId: string, role: PublicOrganizationMember['role']) {
-      return request<{ member: PublicOrganizationMember }>(`/organizations/${encodeURIComponent(id)}/members`, {
-        method: 'POST',
-        body: JSON.stringify({ userId, role })
-      });
+    addMember(
+      id: string,
+      userId: string,
+      role: PublicOrganizationMember['role'],
+    ) {
+      return request<{ member: PublicOrganizationMember }>(
+        `/organizations/${encodeURIComponent(id)}/members`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ userId, role }),
+        },
+      );
     },
-    updateMember(id: string, memberId: string, data: { role?: PublicOrganizationMember['role']; status?: PublicOrganizationMember['status'] }) {
-      return request<{ member: PublicOrganizationMember }>(`/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data)
-      });
+    updateMember(
+      id: string,
+      memberId: string,
+      data: {
+        role?: PublicOrganizationMember['role'];
+        status?: PublicOrganizationMember['status'];
+      },
+    ) {
+      return request<{ member: PublicOrganizationMember }>(
+        `/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        },
+      );
     },
     removeMember(id: string, memberId: string) {
-      return request<{ status: 'ok' }>(`/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, {
-        method: 'DELETE'
-      });
-    }
+      return request<{ status: 'ok' }>(
+        `/organizations/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`,
+        {
+          method: 'DELETE',
+        },
+      );
+    },
   },
   operationsProduct: {
     overview() {
-      return request<{ operationsProduct: OperationsProductOverview }>('/admin/operations-product/overview');
-    }
+      return request<{ operationsProduct: OperationsProductOverview }>(
+        '/admin/operations-product/overview',
+      );
+    },
+    smartAdminReport() {
+      return request<{ smartAdminReport: SmartAdminReport }>(
+        '/admin/operations-product/smart-admin-report',
+      );
+    },
   },
-  categories: {
-    list() { return request<{ categories: Category[] }>('/categories'); },
-    get(code: string) { return request<{ category: Category }>(`/categories/${encodeURIComponent(code)}`); }
-  },
-  media: {
-    uploadBusiness(id: string, data: { filename: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sizeBytes: number; content: string; assetType: 'logo' | 'cover' | 'gallery'; sortOrder?: number }) {
-      return request<UploadedMediaAsset>('/media', {
+  analytics: {
+    recordSearch(data: {
+      query?: string;
+      categoryCode?: string;
+      cityCode?: string;
+      resultsCount: number;
+    }) {
+      return request<{ analyticsEvent: { id: string } }>('/analytics/events', {
         method: 'POST',
-        body: JSON.stringify({ ownerType: 'business_profile', ownerId: id, visibility: 'public', ...data })
+        body: JSON.stringify({
+          eventType: 'search_action',
+          entityType: 'search',
+          entityId: 'global-search',
+          occurredAt: new Date().toISOString(),
+          metadata: {
+            query: data.query?.trim().slice(0, 80) || '',
+            category_code: data.categoryCode || '',
+            city_code: data.cityCode || '',
+            results_count: data.resultsCount,
+          },
+        }),
       });
     },
-    uploadProduct(id: string, data: { filename: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sizeBytes: number; content: string; sortOrder?: number }) {
+  },
+  categories: {
+    list() {
+      return request<{ categories: Category[] }>('/categories');
+    },
+    get(code: string) {
+      return request<{ category: Category }>(
+        `/categories/${encodeURIComponent(code)}`,
+      );
+    },
+  },
+  media: {
+    uploadProblem(
+      requestId:string,
+      data:{filename:string;mimeType:'image/jpeg'|'image/png'|'image/webp';sizeBytes:number;content:string;sortOrder:number},
+    ) {
+      return request<UploadedMediaAsset>('/media',{method:'POST',body:JSON.stringify({ownerType:'professional_request',ownerId:requestId,visibility:'private',assetType:'problem_image',...data})});
+    },
+    uploadBusiness(
+      id: string,
+      data: {
+        filename: string;
+        mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+        sizeBytes: number;
+        content: string;
+        assetType: 'logo' | 'cover' | 'gallery';
+        sortOrder?: number;
+      },
+    ) {
       return request<UploadedMediaAsset>('/media', {
         method: 'POST',
-        body: JSON.stringify({ ownerType: 'product_listing', ownerId: id, visibility: 'public', assetType: 'product_image', ...data })
+        body: JSON.stringify({
+          ownerType: 'business_profile',
+          ownerId: id,
+          visibility: 'public',
+          ...data,
+        }),
+      });
+    },
+    uploadProduct(
+      id: string,
+      data: {
+        filename: string;
+        mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+        sizeBytes: number;
+        content: string;
+        sortOrder?: number;
+      },
+    ) {
+      return request<UploadedMediaAsset>('/media', {
+        method: 'POST',
+        body: JSON.stringify({
+          ownerType: 'product_listing',
+          ownerId: id,
+          visibility: 'public',
+          assetType: 'product_image',
+          ...data,
+        }),
       });
     },
     listForOwner(ownerType: UploadedMediaAsset['ownerType'], ownerId: string) {
-      return request<UploadedMediaAsset[]>(`/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`);
+      return request<UploadedMediaAsset[]>(
+        `/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`,
+      );
     },
-    delete(id: string) { return request<{ deleted: boolean }>(`/media/${id}`, { method: 'DELETE' }); }
+    delete(id: string) {
+      return request<{ deleted: boolean }>(`/media/${id}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+  professionalServices: {
+    create(data:Record<string,unknown>){return request<{request:ProfessionalServiceRequest}>('/professional-services/requests',{method:'POST',body:JSON.stringify(data)});},
+    mine(){return request<{requests:ProfessionalServiceRequest[]}>('/professional-services/requests/mine');},
+    opportunities(businessId:string){return request<{requests:ProfessionalServiceRequest[]}>(`/professional-services/opportunities?businessId=${encodeURIComponent(businessId)}`);},
+    jobs(businessId:string){return request<{requests:ProfessionalServiceRequest[]}>(`/professional-services/jobs?businessId=${encodeURIComponent(businessId)}`);},
+    offer(requestId:string,businessId:string,data:Record<string,unknown>){return request<{offer:ProfessionalServiceOffer}>(`/professional-services/requests/${encodeURIComponent(requestId)}/offers?businessId=${encodeURIComponent(businessId)}`,{method:'POST',body:JSON.stringify(data)});},
+    accept(requestId:string,offerId:string){return request<{offer:ProfessionalServiceOffer}>(`/professional-services/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,{method:'POST'});},
+    action(requestId:string,action:'start'|'request_completion'|'confirm_completion'|'cancel'|'dispute',note?:string){return request<{request:ProfessionalServiceRequest}>(`/professional-services/requests/${encodeURIComponent(requestId)}/status`,{method:'PATCH',body:JSON.stringify({action,note})});},
+    revisit(requestId:string,reason:string){return request<{requested:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/warranty/revisit`,{method:'POST',body:JSON.stringify({reason})});},
+    rate(requestId:string,data:Record<string,unknown>){return request<{rated:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/rating`,{method:'POST',body:JSON.stringify(data)});},
+  },
+  promotions: {
+    list(filters:{businessId?:string;cityCode?:string;q?:string}={}){const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return request<{promotions:KhedmahPromotion[]}>(`/promotions${p.size?`?${p}`:''}`);},
+    scan(code:string){return request<{businessProfileId:string;businessName:string;promotions:KhedmahPromotion[]}>(`/promotions/scan/${encodeURIComponent(code)}`);},
+    create(businessId:string,data:Record<string,unknown>){return request<{promotion:KhedmahPromotion;moderation:{autoApproved:boolean;reasons:string[]}}>(`/promotions/business/${encodeURIComponent(businessId)}`,{method:'POST',body:JSON.stringify(data)});},
+    mine(){return request<{promotions:KhedmahPromotion[]}>('/promotions/mine');},
+    code(businessId:string){return request<{code:string;businessProfileId:string}>(`/promotions/business/${encodeURIComponent(businessId)}/code`,{method:'POST'});},
+    claim(id:string){return request<{claim:PromotionClaim}>(`/promotions/${encodeURIComponent(id)}/claim`,{method:'POST'});},
+    claims(){return request<{claims:PromotionClaim[]}>('/promotions/claims/mine');},
+    redeem(businessId:string,code:string){return request<{claim:PromotionClaim}>(`/promotions/business/${encodeURIComponent(businessId)}/redeem`,{method:'POST',body:JSON.stringify({code})});},
+    deactivate(id:string){return request<{deactivated:boolean}>(`/promotions/${encodeURIComponent(id)}/deactivate`,{method:'POST'});},
   },
   products: {
-    list(filters: { q?: string; categoryCode?: string; cityCode?: string } = {}) {
+    list(
+      filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string } = {},
+    ) {
       const params = new URLSearchParams();
       if (filters.q) params.set('q', filters.q);
-      if (filters.categoryCode) params.set('categoryCode', filters.categoryCode);
+      if (filters.categoryCode)
+        params.set('categoryCode', filters.categoryCode);
       if (filters.cityCode) params.set('cityCode', filters.cityCode);
-      return request<{ products: ProductListing[] }>(`/products${params.size ? `?${params}` : ''}`);
+      if (filters.businessProfileId)
+        params.set('businessProfileId', filters.businessProfileId);
+      return request<{ products: ProductListing[] }>(
+        `/products${params.size ? `?${params}` : ''}`,
+      );
     },
-    get(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`); },
-    listMine() { return request<{ products: ProductListing[] }>('/products/mine'); },
-    create(data: Record<string, unknown>) { return request<{ product: ProductListing }>('/products', { method: 'POST', body: JSON.stringify(data) }); },
-    update(id: string, data: Record<string, unknown>) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); },
-    submit(id: string) { return request<{ product: ProductListing }>(`/products/${encodeURIComponent(id)}/submit`, { method: 'POST' }); }
+    get(id: string) {
+      return request<{ product: ProductListing }>(
+        `/products/${encodeURIComponent(id)}`,
+      );
+    },
+    listMine() {
+      return request<{
+        products: ProductListing[];
+        count: number;
+        limit: number;
+      }>('/products/mine');
+    },
+    create(data: Record<string, unknown>) {
+      return request<{ product: ProductListing }>('/products', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    update(id: string, data: Record<string, unknown>) {
+      return request<{ product: ProductListing }>(
+        `/products/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify(data) },
+      );
+    },
+    submit(id: string) {
+      return request<{ product: ProductListing }>(
+        `/products/${encodeURIComponent(id)}/submit`,
+        { method: 'POST' },
+      );
+    },
+    deactivate(id: string) {
+      return request<{ product: ProductListing }>(
+        `/products/${encodeURIComponent(id)}/deactivate`,
+        { method: 'POST' },
+      );
+    },
+  },
+  orders: {
+    create(data: Record<string, unknown>, idempotencyKey: string) {
+      return request<{ order: FulfillmentOrder }>('/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(data),
+      });
+    },
+    mine() {
+      return request<{ orders: FulfillmentOrder[] }>('/orders/mine');
+    },
+    merchant(businessId: string) {
+      return request<{ orders: FulfillmentOrder[] }>(
+        `/orders/merchant?businessId=${encodeURIComponent(businessId)}`,
+      );
+    },
+    courier(businessId: string) {
+      return request<{ orders: FulfillmentOrder[] }>(
+        `/orders/courier?businessId=${encodeURIComponent(businessId)}`,
+      );
+    },
+    transition(
+      id: string,
+      status: FulfillmentOrderStatus,
+      data: Record<string, unknown> = {},
+    ) {
+      return request<{ order: FulfillmentOrder }>(
+        `/orders/${encodeURIComponent(id)}/status`,
+        { method: 'PATCH', body: JSON.stringify({ status, ...data }) },
+      );
+    },
+    rate(
+      id: string,
+      targetType: 'merchant' | 'courier',
+      score: number,
+      comment?: string,
+    ) {
+      return request<{ rated: boolean }>(
+        `/orders/${encodeURIComponent(id)}/ratings`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ targetType, score, comment }),
+        },
+      );
+    },
+    recordLocation(
+      id: string,
+      data: { latitude: number; longitude: number; accuracy?: number },
+    ) {
+      return request<{ recorded: boolean }>(
+        `/orders/${encodeURIComponent(id)}/location`,
+        { method: 'POST', body: JSON.stringify(data) },
+      );
+    },
+    tracking(id: string) {
+      return request<{
+        status: FulfillmentOrderStatus;
+        location?: {
+          latitude: number;
+          longitude: number;
+          accuracyMeters?: number;
+          recordedAt: string;
+        };
+      }>(`/orders/${encodeURIComponent(id)}/tracking`);
+    },
   },
   adminProducts: {
-    pending() { return request<{ products: ProductListing[] }>('/admin/products/pending'); },
-    review(id: string, status: 'approved' | 'rejected', reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }); }
+    pending() {
+      return request<{ products: ProductListing[] }>('/admin/products/pending');
+    },
+    review(id: string, status: 'approved' | 'rejected', reason?: string) {
+      return request<{ product: ProductListing }>(
+        `/admin/products/${encodeURIComponent(id)}/moderation`,
+        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
+      );
+    },
+  },
+  adminPromotions: {
+    pending(){return request<{promotions:KhedmahPromotion[]}>('/admin/promotions/pending');},
+    review(id:string,status:'approved'|'rejected',reason?:string){return request<{promotion:KhedmahPromotion}>(`/admin/promotions/${encodeURIComponent(id)}/moderation`,{method:'PATCH',body:JSON.stringify({status,reason})});},
   },
   businesses: {
     create(data: {
@@ -440,7 +861,7 @@ export const api = {
     }) {
       return request<{ business: PublicBusinessProfile }>('/businesses', {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     listMine() {
@@ -450,50 +871,77 @@ export const api = {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}`);
     },
     getFeatured() {
-      return request<{ businesses: PublicBusinessProfile[] }>('/businesses/featured');
+      return request<{ businesses: PublicBusinessProfile[] }>(
+        '/businesses/featured',
+      );
     },
     getRecentlyAdded() {
-      return request<{ businesses: PublicBusinessProfile[] }>('/businesses/recently-added');
+      return request<{ businesses: PublicBusinessProfile[] }>(
+        '/businesses/recently-added',
+      );
     },
-    search(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number }) {
+    search(params: {
+      q?: string;
+      categoryCode?: string;
+      cityCode?: string;
+      page?: number;
+    }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ businesses: PublicBusinessProfile[]; total: number }>(`/businesses/search?${qs}`);
+      return request<{ businesses: PublicBusinessProfile[]; total: number }>(
+        `/businesses/search?${qs}`,
+      );
     },
-    update(id: string, data: Partial<{
-      name: string;
-      descriptionAr: string;
-      descriptionEn: string;
-      phone: string;
-      email: string;
-      website: string;
-      visibility: string;
-      categoryCode: string;
-      cityCode: string;
-      countryCode: string;
-      lat: number;
-      lng: number;
-      addressAr: string;
-    }>) {
+    update(
+      id: string,
+      data: Partial<{
+        name: string;
+        descriptionAr: string;
+        descriptionEn: string;
+        phone: string;
+        email: string;
+        website: string;
+        visibility: string;
+        categoryCode: string;
+        cityCode: string;
+        countryCode: string;
+        lat: number;
+        lng: number;
+        addressAr: string;
+      }>,
+    ) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     updateTrustStatus(id: string, trustStatus: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/trust-status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ trustStatus })
-      });
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/trust-status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ trustStatus }),
+        },
+      );
     },
     // Media
-    addMedia(id: string, data: { assetType: string; url: string; storagePath: string; mimeType: string; sizeBytes?: number; sortOrder?: number }) {
+    addMedia(
+      id: string,
+      data: {
+        assetType: string;
+        url: string;
+        storagePath: string;
+        mimeType: string;
+        sizeBytes?: number;
+        sortOrder?: number;
+      },
+    ) {
       return request<{ asset: MediaAsset }>(`/businesses/${id}/media`, {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     getMedia(id: string, assetType?: string) {
@@ -501,72 +949,136 @@ export const api = {
       return request<{ assets: MediaAsset[] }>(`/businesses/${id}/media${qs}`);
     },
     deleteMedia(id: string, assetId: string) {
-      return request<{ status: string }>(`/businesses/${id}/media/${assetId}`, { method: 'DELETE' });
-    },
-    // Opening hours
-    setOpeningHours(id: string, hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed?: boolean }>) {
-      return request<{ hours: OpeningHours[] }>(`/businesses/${id}/opening-hours`, {
-        method: 'POST',
-        body: JSON.stringify({ hours })
+      return request<{ status: string }>(`/businesses/${id}/media/${assetId}`, {
+        method: 'DELETE',
       });
     },
+    // Opening hours
+    setOpeningHours(
+      id: string,
+      hours: Array<{
+        dayOfWeek: number;
+        openTime: string;
+        closeTime: string;
+        isClosed?: boolean;
+      }>,
+    ) {
+      return request<{ hours: OpeningHours[] }>(
+        `/businesses/${id}/opening-hours`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ hours }),
+        },
+      );
+    },
     getOpeningHours(id: string) {
-      return request<{ hours: OpeningHours[] }>(`/businesses/${id}/opening-hours`);
+      return request<{ hours: OpeningHours[] }>(
+        `/businesses/${id}/opening-hours`,
+      );
     },
     // Branches
-    addBranch(id: string, data: { nameAr: string; nameEn?: string; addressAr?: string; phone?: string; cityCode: string; lat?: number; lng?: number; isMain?: boolean }) {
+    addBranch(
+      id: string,
+      data: {
+        nameAr: string;
+        nameEn?: string;
+        addressAr?: string;
+        phone?: string;
+        cityCode: string;
+        lat?: number;
+        lng?: number;
+        isMain?: boolean;
+      },
+    ) {
       return request<{ branch: BusinessBranch }>(`/businesses/${id}/branches`, {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     getBranches(id: string) {
-      return request<{ branches: BusinessBranch[] }>(`/businesses/${id}/branches`);
+      return request<{ branches: BusinessBranch[] }>(
+        `/businesses/${id}/branches`,
+      );
+    },
+    deleteBranch(id: string, branchId: string) {
+      return request<{ status: string }>(
+        `/businesses/${id}/branches/${branchId}`,
+        { method: 'DELETE' },
+      );
     },
     // Social links
     setSocialLink(id: string, platform: string, url: string) {
-      return request<{ link: BusinessSocialLink }>(`/businesses/${id}/social-links`, {
-        method: 'POST',
-        body: JSON.stringify({ platform, url })
-      });
+      return request<{ link: BusinessSocialLink }>(
+        `/businesses/${id}/social-links`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ platform, url }),
+        },
+      );
     },
     getSocialLinks(id: string) {
-      return request<{ links: BusinessSocialLink[] }>(`/businesses/${id}/social-links`);
+      return request<{ links: BusinessSocialLink[] }>(
+        `/businesses/${id}/social-links`,
+      );
     },
     deleteSocialLink(id: string, linkId: string) {
-      return request<{ status: string }>(`/businesses/${id}/social-links/${linkId}`, { method: 'DELETE' });
+      return request<{ status: string }>(
+        `/businesses/${id}/social-links/${linkId}`,
+        { method: 'DELETE' },
+      );
     },
     // Verification
     requestVerification(id: string) {
-      return request<{ request: VerificationRequest }>(`/businesses/${id}/verification-request`, { method: 'POST' });
+      return request<{ request: VerificationRequest }>(
+        `/businesses/${id}/verification-request`,
+        { method: 'POST' },
+      );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(`/businesses/${id}/verification-status`);
+      return request<{ status: VerificationRequest | null }>(
+        `/businesses/${id}/verification-status`,
+      );
     },
     getTrustHistory(id: string) {
-      return request<{ history: TrustHistoryEntry[] }>(`/businesses/${id}/trust-history`);
+      return request<{ history: TrustHistoryEntry[] }>(
+        `/businesses/${id}/trust-history`,
+      );
     },
     listReceivedInquiries(id: string) {
-      return request<{ inquiries: ProviderContactInquiry[] }>(`/businesses/${id}/inquiries`);
+      return request<{ inquiries: ProviderContactInquiry[] }>(
+        `/businesses/${id}/inquiries`,
+      );
     },
     submitForReview(id: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/submit`, { method: 'POST' });
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/submit`,
+        { method: 'POST' },
+      );
     },
     approveModeration(id: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST' });
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
     },
     rejectModeration(id: string, reason: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/moderation/reject`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        },
+      );
     },
     suspend(id: string, reason: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/suspend`, {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
-    }
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/suspend`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        },
+      );
+    },
   },
   professionals: {
     createOrUpdate(data: {
@@ -579,78 +1091,135 @@ export const api = {
       countryCode: string;
       skills?: string[];
     }) {
-      return request<{ professional: PublicProfessionalProfile }>('/professionals', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return request<{ professional: PublicProfessionalProfile }>(
+        '/professionals',
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      );
     },
     getMine() {
-      return request<{ professional: PublicProfessionalProfile | null }>('/professionals/me');
+      return request<{ professional: PublicProfessionalProfile | null }>(
+        '/professionals/me',
+      );
     },
     getProfile(id: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}`);
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}`,
+      );
     },
     getFeatured() {
-      return request<{ professionals: PublicProfessionalProfile[] }>('/professionals/featured');
+      return request<{ professionals: PublicProfessionalProfile[] }>(
+        '/professionals/featured',
+      );
     },
-    search(params: { q?: string; cityCode?: string; availability?: string; page?: number }) {
+    search(params: {
+      q?: string;
+      cityCode?: string;
+      availability?: string;
+      page?: number;
+    }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.availability) qs.set('availability', params.availability);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ professionals: PublicProfessionalProfile[]; page: number }>(`/professionals/search?${qs}`);
+      return request<{
+        professionals: PublicProfessionalProfile[];
+        page: number;
+      }>(`/professionals/search?${qs}`);
     },
     // Media
-    addMedia(id: string, data: { assetType: string; url: string; storagePath: string; mimeType: string; sizeBytes?: number }) {
+    addMedia(
+      id: string,
+      data: {
+        assetType: string;
+        url: string;
+        storagePath: string;
+        mimeType: string;
+        sizeBytes?: number;
+      },
+    ) {
       return request<{ asset: MediaAsset }>(`/professionals/${id}/media`, {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     getMedia(id: string, assetType?: string) {
       const qs = assetType ? `?assetType=${assetType}` : '';
-      return request<{ assets: MediaAsset[] }>(`/professionals/${id}/media${qs}`);
+      return request<{ assets: MediaAsset[] }>(
+        `/professionals/${id}/media${qs}`,
+      );
     },
     // Verification
     requestVerification(id: string) {
-      return request<{ request: VerificationRequest }>(`/professionals/${id}/verification-request`, { method: 'POST' });
+      return request<{ request: VerificationRequest }>(
+        `/professionals/${id}/verification-request`,
+        { method: 'POST' },
+      );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(`/professionals/${id}/verification-status`);
+      return request<{ status: VerificationRequest | null }>(
+        `/professionals/${id}/verification-status`,
+      );
     },
     getTrustHistory(id: string) {
-      return request<{ history: TrustHistoryEntry[] }>(`/professionals/${id}/trust-history`);
+      return request<{ history: TrustHistoryEntry[] }>(
+        `/professionals/${id}/trust-history`,
+      );
     },
     submitForReview(id: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/submit`, { method: 'POST' });
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/submit`,
+        { method: 'POST' },
+      );
     },
     approveModeration(id: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST' });
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
     },
     rejectModeration(id: string, reason: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/moderation/reject`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        },
+      );
     },
     suspend(id: string, reason: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/suspend`, {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
-    }
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/moderation/suspend`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        },
+      );
+    },
   },
   moderation: {
     listPending() {
-      return request<{ businesses: PublicBusinessProfile[]; professionals: PublicProfessionalProfile[] }>('/admin/moderation/pending');
+      return request<{
+        businesses: PublicBusinessProfile[];
+        professionals: PublicProfessionalProfile[];
+      }>('/admin/moderation/pending');
     },
     listReports() {
       return request<{ reports: ModerationProviderReport[] }>('/admin/reports');
     },
-    reviewReport(id: string, status: 'in_review' | 'resolved' | 'dismissed', note: string) {
-      return request<{ report: { id: string; status: string } }>(`/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
-    }
+    reviewReport(
+      id: string,
+      status: 'in_review' | 'resolved' | 'dismissed',
+      note: string,
+    ) {
+      return request<{ report: { id: string; status: string } }>(
+        `/admin/reports/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ status, note }) },
+      );
+    },
   },
   services: {
     create(data: {
@@ -668,38 +1237,70 @@ export const api = {
     }) {
       return request<{ service: PublicServiceListing }>('/services', {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     listForOwner(ownerId: string, ownerType: string) {
-      return request<{ services: PublicServiceListing[] }>(`/services/owner/${ownerId}?ownerType=${ownerType}`);
+      return request<{ services: PublicServiceListing[] }>(
+        `/services/owner/${ownerId}?ownerType=${ownerType}`,
+      );
     },
-    update(id: string, data: Partial<{ titleAr: string; descriptionAr: string; categoryCode: string; price: number; priceCurrency: string; priceType: string; status: string }>) {
+    update(
+      id: string,
+      data: Partial<{
+        titleAr: string;
+        descriptionAr: string;
+        categoryCode: string;
+        price: number;
+        priceCurrency: string;
+        priceType: string;
+        status: string;
+      }>,
+    ) {
       return request<{ service: PublicServiceListing }>(`/services/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     getFeatured() {
-      return request<{ services: PublicServiceListing[] }>('/services/featured');
+      return request<{ services: PublicServiceListing[] }>(
+        '/services/featured',
+      );
     },
-    addMedia(id: string, data: { url: string; storagePath: string; mimeType: string; sizeBytes?: number }) {
+    addMedia(
+      id: string,
+      data: {
+        url: string;
+        storagePath: string;
+        mimeType: string;
+        sizeBytes?: number;
+      },
+    ) {
       return request<{ asset: MediaAsset }>(`/services/${id}/media`, {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
     },
     getMedia(id: string) {
       return request<{ assets: MediaAsset[] }>(`/services/${id}/media`);
     },
-    search(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number }) {
+    search(params: {
+      q?: string;
+      categoryCode?: string;
+      cityCode?: string;
+      page?: number;
+    }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
       if (params.cityCode) qs.set('cityCode', params.cityCode);
       if (params.page) qs.set('page', String(params.page));
-      return request<{ services: PublicServiceListing[]; total: number; page: number }>(`/services/search?${qs}`);
-    }
+      return request<{
+        services: PublicServiceListing[];
+        total: number;
+        page: number;
+      }>(`/services/search?${qs}`);
+    },
   },
   locations: {
     cities() {
@@ -707,10 +1308,20 @@ export const api = {
     },
     countries() {
       return request<{ countries: Country[] }>('/locations/countries');
-    }
+    },
   },
   search: {
-    query(params: { q?: string; categoryCode?: string; cityCode?: string; page?: number; type?: string; map?: boolean; boundaries?: { south: number; west: number; north: number; east: number }; latitude?: number; longitude?: number }) {
+    query(params: {
+      q?: string;
+      categoryCode?: string;
+      cityCode?: string;
+      page?: number;
+      type?: string;
+      map?: boolean;
+      boundaries?: { south: number; west: number; north: number; east: number };
+      latitude?: number;
+      longitude?: number;
+    }) {
       const qs = new URLSearchParams();
       if (params.q) qs.set('q', params.q);
       if (params.categoryCode) qs.set('categoryCode', params.categoryCode);
@@ -724,15 +1335,24 @@ export const api = {
         qs.set('north', String(params.boundaries.north));
         qs.set('east', String(params.boundaries.east));
       }
-      if (params.latitude !== undefined) qs.set('latitude', String(params.latitude));
-      if (params.longitude !== undefined) qs.set('longitude', String(params.longitude));
+      if (params.latitude !== undefined)
+        qs.set('latitude', String(params.latitude));
+      if (params.longitude !== undefined)
+        qs.set('longitude', String(params.longitude));
       return request<SearchResults>(`/search?${qs}`);
-    }
+    },
   },
   reports: {
-    submit(target: { type: 'business' | 'professional'; id: string }, data: { reasonCode: string; details: string }) {
-      const collection = target.type === 'business' ? 'businesses' : 'professionals';
-      return request<{ report: PublicProviderReportReceipt }>(`/${collection}/${target.id}/reports`, { method: 'POST', body: JSON.stringify(data) });
-    }
-  }
+    submit(
+      target: { type: 'business' | 'professional'; id: string },
+      data: { reasonCode: string; details: string },
+    ) {
+      const collection =
+        target.type === 'business' ? 'businesses' : 'professionals';
+      return request<{ report: PublicProviderReportReceipt }>(
+        `/${collection}/${target.id}/reports`,
+        { method: 'POST', body: JSON.stringify(data) },
+      );
+    },
+  },
 };

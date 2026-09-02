@@ -29,3 +29,11 @@ export interface PublicAnalyticsEventReceipt {
   readonly entityId: string;
   readonly recordedAt: string;
 }
+
+export interface AdminAnalyticsSummary {
+  readonly periodDays: number;
+  readonly totalEvents: number;
+  readonly eventCounts: Record<AnalyticsEventType, number>;
+  readonly topSearches: Array<{ term: string; count: number }>;
+  readonly unmetSearches: Array<{ term: string; count: number }>;
+}

@@ -14,6 +14,7 @@ const PAGE_SIZE = 12;
 const tabs: [TabType, string][] = [['all', 'الأنشطة والخدمات'], ['business', 'الأنشطة'], ['professional', 'المهنيون'], ['service', 'الخدمات']];
 const priceLabel = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
 const availabilityLabel = (value: string) => value === 'available' ? 'متاح' : value === 'busy' ? 'مشغول' : 'حسب الموعد';
+const responseLabel = (minutes?: number) => minutes === undefined ? undefined : minutes < 60 ? `يرد عادة خلال ${minutes} دقيقة` : `يرد عادة خلال ${Math.ceil(minutes / 60)} ساعة`;
 
 function SearchContent() {
   const router = useRouter();
@@ -46,19 +47,25 @@ function SearchContent() {
   async function search(next: { tab: TabType; page: number; cityCode: string; q: string; categoryCode: string }) {
     setIsLoading(true); setError('');
     try {
+      let resultCount = 0;
       if (next.tab === 'professional') {
         const data = await api.professionals.search({ q: next.q || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setProfessionals(data.professionals); setBusinesses([]); setServices([]); setTotal(data.professionals.length);
+        resultCount = data.professionals.length;
       } else if (next.tab === 'service') {
         const data = await api.services.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setServices(data.services); setBusinesses([]); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       } else if (next.tab === 'business') {
         const data = await api.businesses.search({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page });
         setBusinesses(data.businesses); setServices([]); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       } else {
         const data = await api.search.query({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page, type: 'all' });
         setBusinesses(data.businesses); setServices(data.services); setProfessionals([]); setTotal(data.total);
+        resultCount = data.total;
       }
+      void api.analytics.recordSearch({ query: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, resultsCount: resultCount }).catch(() => undefined);
       setSearched(true);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إكمال البحث.'); }
     finally { setIsLoading(false); }
@@ -102,10 +109,10 @@ function SearchContent() {
     {error && <div role="alert"><StatusMessage tone="danger">{error}</StatusMessage></div>}
     {isLoading && <SkeletonGrid count={6} label="جاري البحث في الأنشطة والخدمات" />}
     {!isLoading && searched && <><p className={styles.resultSummary} aria-live="polite">{total ? `${total} نتيجة مطابقة${page > 1 ? ` — الصفحة ${page}` : ''}` : 'لم نعثر على نتيجة مطابقة'}</p>
-      {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.name}</h3><span className={styles.badge}><PlatformIcon name="check" size={14}/>{item.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)} · {cityLabel(item.cityCode,cities)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${item.id}`}>عرض النشاط <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><div><h3>{item.name}</h3><p className={styles.meta}>{categoryName(item.categoryCode)}</p></div>{item.trustStatus === 'approved' && <span className={styles.badge}><PlatformIcon name="check" size={14}/> موثّق</span>}</div><div className={styles.providerFacts}><span><PlatformIcon name="pin" size={14}/>{cityLabel(item.cityCode,cities)}{item.distanceKm !== undefined ? ` · ${item.distanceKm.toFixed(1)} كم` : ''}</span>{item.availability && <span className={item.availability === 'available' ? styles.available : undefined}>{availabilityLabel(item.availability)}</span>}{item.rating !== undefined && <span aria-label={`التقييم ${item.rating.toFixed(1)} من 5`}>★ {item.rating.toFixed(1)}</span>}{responseLabel(item.responseSpeedMinutes) && <span><PlatformIcon name="refresh" size={14}/>{responseLabel(item.responseSpeedMinutes)}</span>}</div>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${item.id}`}>عرض الملف والتواصل <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
       {professionals.length > 0 && <ResultSection title="المهنيون">{professionals.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.headlineAr}</h3><span className={styles.badge}>{availabilityLabel(item.availability)}</span></div><p className={styles.meta}><PlatformIcon name="pin" size={14}/> {cityLabel(item.cityCode,cities)}</p><div className={styles.tags}>{item.skills.slice(0,4).map((skill) => <span className={styles.tag} key={skill}>{skill}</span>)}</div><div className={styles.cardAction}><ActionLink href={`/professional-profiles/${item.id}`}>عرض الملف <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
       {services.length > 0 && <ResultSection title={tab === 'all' ? 'الخدمات' : undefined}>{services.map((s) => <Surface as="article" className={styles.card} key={s.id}><div className={styles.cardTop}><h3>{s.titleAr}</h3><span className={styles.badge}>{priceLabel(s.priceType)}</span></div><p className={styles.meta}>{categoryName(s.categoryCode)}</p>{s.descriptionAr && <p className={styles.description}>{s.descriptionAr}</p>}{s.price != null && <p className={styles.price}>{s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}</p>}<div className={styles.cardAction}><ActionLink href={s.ownerType === 'business' ? `/business-profiles/${s.ownerId}` : `/professional-profiles/${s.ownerId}`}>عرض مقدم الخدمة <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
-      {noResults && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="لا توجد نتائج مطابقة" description={tab === 'professional' ? 'جرّب كلمة أخرى أو وسّع المدينة.' : 'جرّب كلمة أخرى أو وسّع المدينة والتصنيف.'} actions={<ActionButton type="button" variant="secondary" onClick={clear}>مسح عوامل البحث</ActionButton>} />}
+      {noResults && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="لا يوجد مزود منشور بهذه المواصفات حاليًا" description={tab === 'professional' ? 'وسّع المدينة أو جرّب تخصصًا قريبًا؛ لن نعرض ملفًا وهميًا.' : 'وسّع المدينة أو التصنيف، أو تابع البحث على الخريطة؛ لن نعرض نتائج وهمية.'} actions={<><ActionButton type="button" variant="secondary" onClick={clear}>توسيع البحث</ActionButton><ActionLink href={`/map?q=${encodeURIComponent(q)}`} variant="secondary">فتح الخريطة</ActionLink><ActionLink href="/categories" variant="secondary">تخصصات قريبة</ActionLink></>} />}
       {totalPages > 1 && <nav className={styles.pagination} aria-label="صفحات النتائج"><button disabled={page <= 1} onClick={() => goToPage(page-1)}>السابق</button>{Array.from({length:Math.min(totalPages,7)},(_,index)=>index+1).map((value)=><button key={value} aria-current={value===page?'page':undefined} onClick={()=>goToPage(value)}>{value}</button>)}<button disabled={page >= totalPages} onClick={() => goToPage(page+1)}>التالي</button></nav>}
     </>}
     {!searched && !isLoading && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="كل ما تحتاجه أقرب إليك" description={tab === 'professional' ? 'ابدأ بكلمة بحث أو اختر مدينة لاستعراض المهنيين.' : 'ابدأ بكلمة بحث، أو اختر مدينة وتصنيفاً لاستعراض الأنشطة والخدمات المنشورة.'} actions={tab === 'professional' ? undefined : <ActionLink href="/categories" variant="secondary">استكشف التصنيفات</ActionLink>} />}

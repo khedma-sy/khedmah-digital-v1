@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
@@ -9,6 +9,7 @@ export default function ModerationPage() {
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [professionals, setProfessionals] = useState<PublicProfessionalProfile[]>([]);
   const [products, setProducts] = useState<ProductListing[]>([]);
+  const [promotions, setPromotions] = useState<KhedmahPromotion[]>([]);
   const [reports, setReports] = useState<ModerationProviderReport[]>([]);
   const [rejectingEntity, setRejectingEntity] = useState<{ type: 'business' | 'professional'; id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -18,15 +19,17 @@ export default function ModerationPage() {
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const [{ businesses, professionals }, { products }, { reports }] = await Promise.all([
+      const [{ businesses, professionals }, { products }, { reports }, { promotions }] = await Promise.all([
         api.moderation.listPending(),
         api.adminProducts.pending(),
-        api.moderation.listReports()
+        api.moderation.listReports(),
+        api.adminPromotions.pending()
       ]);
       setBusinesses(businesses);
       setProfessionals(professionals);
       setProducts(products);
       setReports(reports);
+      setPromotions(promotions);
       setError(null);
     } catch (err: unknown) {
       setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
@@ -104,12 +107,16 @@ export default function ModerationPage() {
     }
   };
 
+  const reviewPromotion = async (id:string,status:'approved'|'rejected')=>{let reason: string|undefined;if(status==='rejected'){const entered=prompt('اكتب سبب رفض العرض:');if(!entered||entered.trim().length<5)return;reason=entered.trim()}else if(!confirm('اعتماد العرض وإظهاره فورًا في الصفحة الحية؟'))return;setActionLoading(true);try{await api.adminPromotions.review(id,status,reason);await loadQueue()}catch(err){alert(messageFor(err,'تعذر تحديث العرض'))}finally{setActionLoading(false)}};
+
   if (loading) return <main id="foundation-content" className="operations-shell moderation-state" aria-busy="true">جاري تحميل قائمة المراجعة...</main>;
   if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}</main>;
 
   return (
     <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
-      <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length} بانتظار المراجعة</span></header>
+      <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والعروض قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length + promotions.length} بانتظار المراجعة</span></header>
+
+      <section className="operations-panel moderation-section" aria-labelledby="promotions-title"><div className="panel-heading"><h2 id="promotions-title">خصومات وعروض خدمة</h2><span>{promotions.length}</span></div>{promotions.length===0?<p className="moderation-empty">لا توجد عروض تحتاج مراجعة؛ العروض منخفضة المخاطر تُعتمد آليًا.</p>:<div className="moderation-list">{promotions.map(p=><article key={p.id} className="moderation-card"><div><h3>{p.titleAr}</h3><p>{p.businessName} · السعر {p.originalPrice.toLocaleString('ar-SY')} · الخصم {p.discountValue.toLocaleString('ar-SY')} {p.discountType==='percentage'?'٪':p.currency}</p><small>من {new Date(p.startsAt).toLocaleString('ar-SY')} إلى {new Date(p.endsAt).toLocaleString('ar-SY')}</small></div><div className="moderation-actions"><button disabled={actionLoading} onClick={()=>void reviewPromotion(p.id,'approved')} className="moderation-approve">اعتماد ونشر حي</button><button disabled={actionLoading} onClick={()=>void reviewPromotion(p.id,'rejected')} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
 
       <section className="operations-panel moderation-section" aria-labelledby="products-title">
         <div className="panel-heading"><h2 id="products-title">منتجات متجر خدمة</h2><span>{products.length}</span></div>

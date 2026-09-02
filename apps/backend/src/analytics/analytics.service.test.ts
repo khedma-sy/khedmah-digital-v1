@@ -83,6 +83,24 @@ test('private data is rejected', async () => {
   );
 });
 
+test('search analytics rejects malformed result counts and oversized queries', async () => {
+  const { service } = await createService();
+  const base = { eventType: 'search_action' as const, entityType: 'search' as const, entityId: 'global-search', occurredAt };
+
+  await assert.rejects(
+    () => service.recordEvent({ ...base, metadata: { query: 'كهربائي', results_count: -1 } }),
+    AnalyticsValidationError
+  );
+  await assert.rejects(
+    () => service.recordEvent({ ...base, metadata: { query: 'كهربائي', results_count: 1.5 } }),
+    AnalyticsValidationError
+  );
+  await assert.rejects(
+    () => service.recordEvent({ ...base, metadata: { query: 'خ'.repeat(81), results_count: 0 } }),
+    AnalyticsValidationError
+  );
+});
+
 test('safe metadata is stored with a privacy-safe receipt', async () => {
   const { repository, service } = await createService();
   const receipt = await service.recordEvent({
