@@ -1,4 +1,4 @@
-"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { api, type PublicBusinessProfile } from "../../lib/api-client";
@@ -138,10 +138,9 @@ export default function RestaurantsPage() {
             <Surface as="article" className={styles.card} key={business.id}>
               <h2>{business.name}</h2>
               <div className={styles.meta}>
-                <span>{business.categoryNameAr ?? "مطعم وأغذية"}</span>
-                <span>·</span>
-                <span>{business.cityCode}</span>
-                {business.isFeatured && <span>· مميز</span>}
+                <span><PlatformIcon name="food" size={15}/>{business.categoryNameAr ?? "مطعم وأغذية"}</span>
+                <span><PlatformIcon name="pin" size={15}/>{business.cityCode}</span>
+                {business.isFeatured && <span><PlatformIcon name="sparkles" size={15}/>مميز</span>}
               </div>
               {business.descriptionAr && (
                 <p className={styles.description}>{business.descriptionAr}</p>
@@ -153,7 +152,7 @@ export default function RestaurantsPage() {
                 </span>
               )}
               <ActionLink href={`/restaurants/${business.id}`}>
-                عرض قائمة الطعام
+                <PlatformIcon name="cart" size={18}/>عرض قائمة الطعام
               </ActionLink>
             </Surface>
           ))}
