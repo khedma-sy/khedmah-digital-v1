@@ -34,6 +34,11 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(sell, /api\.media\.uploadProduct/);
   assert.match(sell, /api\.products\.submit/);
   assert.match(manage, /api\.products\.listMine/);
+  assert.match(manage, /رصيد الإعلانات/);
+  assert.match(manage, /advertisingPolicy\.listingLimitPerUser/);
+  assert.match(manage, /إعلانات متبقية/);
+  assert.match(manage, /<progress/);
+  assert.match(manage, /الباقات المدفوعة غير مفعّلة بعد/);
   assert.match(manage, /تعديل المنتج/);
   assert.match(manage, /api\.products\.deactivate/);
   assert.match(manage, /إلغاء نشر الإعلان/);

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, type ProductListing } from '../../../lib/api-client';
+import { api, type AdvertisingPolicy, type ProductListing } from '../../../lib/api-client';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import styles from '../store.module.css';
@@ -16,6 +16,7 @@ const status = (product: ProductListing) => product.status === 'inactive' ? 'غ�
 export default function ManageProductsPage() {
   const router = useRouter();
   const [products, setProducts] = useState<ProductListing[]>([]);
+  const [advertisingPolicy, setAdvertisingPolicy] = useState<AdvertisingPolicy>({ phase: 'free_launch', listingLimitPerUser: 3, paymentsEnabled: false, pricingPublished: false, checkoutEnabled: false, paidPlansStatus: 'planned' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workingId, setWorkingId] = useState('');
@@ -30,7 +31,7 @@ export default function ManageProductsPage() {
   useEffect(() => {
     let active = true;
     void api.products.listMine()
-      .then(({ products: items }) => { if (active) setProducts(items); })
+      .then(({ products: items, advertisingPolicy: policy }) => { if (active) { setProducts(items); setAdvertisingPolicy(policy); } })
       .catch((cause) => {
         const code = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
         if (code === 401) router.replace('/auth/login?next=%2Fstore%2Fmanage');
@@ -40,9 +41,13 @@ export default function ManageProductsPage() {
     return () => { active = false; };
   }, [router]);
 
+  const activeCount=products.filter(product=>product.status!=='inactive').length;
+  const remaining=Math.max(0,advertisingPolicy.listingLimitPerUser-activeCount);
+
   return <PageShell className={styles.page} label="منتجاتي">
-    <PageHeader eyebrow="مساحة البائع" title="منتجاتي" description="تابع المسودات والمراجعة والمنتجات المنشورة من مكان واحد." actions={<ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>}/>
+    <PageHeader eyebrow="مساحة البائع" title="منتجاتي" description="تابع المسودات والمراجعة والمنتجات المنشورة من مكان واحد." actions={remaining>0?<ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>:undefined}/>
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {!loading&&<Surface className={styles.quota} aria-labelledby="advertising-quota-title"><div><span>مرحلة الإطلاق المجاني</span><h2 id="advertising-quota-title">رصيد الإعلانات</h2><p>استخدمت {activeCount.toLocaleString('ar-SY')} من {advertisingPolicy.listingLimitPerUser.toLocaleString('ar-SY')} إعلانات مجانية.</p></div><div className={styles.quotaStatus}><strong>{remaining.toLocaleString('ar-SY')}</strong><span>إعلانات متبقية</span><progress max={advertisingPolicy.listingLimitPerUser} value={activeCount} aria-label="الإعلانات المجانية المستخدمة"/></div>{remaining===0&&<p className={styles.quotaNotice}>اكتمل الرصيد المجاني. يمكنك إلغاء نشر إعلان غير مطلوب لتحرير مكان جديد. الباقات المدفوعة غير مفعّلة بعد.</p>}</Surface>}
     {loading ? <SkeletonGrid count={4}/> : products.length ? <section className={styles.grid}>
       {products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
         <div className={styles.image}>{product.imageUrl ? <img src={product.imageUrl} alt={product.titleAr}/> : <span>خ</span>}</div>
