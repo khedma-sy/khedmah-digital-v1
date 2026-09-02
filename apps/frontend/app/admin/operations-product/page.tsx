@@ -63,6 +63,7 @@ export default function OperationsProductPage() {
       <Link href="/admin">لوحة الإدارة</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       <Link href="/categories">التصنيفات الحية</Link>
+      {overview.permissions.includes('orders.monitor')?<Link href="/admin/orders">مراقبة الطلبات</Link>:null}
     </nav>
 
     <section className="operations-summary" aria-label="ملخص التشغيل">

@@ -11,6 +11,7 @@ test('Operations Product dashboard is permission-gated and renders live backend 
   assert.match(page, /overview\.openIncidents/);
   assert.match(page, /مركز المشاكل والإصلاحات/);
   assert.match(page, /transitionIncident/);
+  assert.match(page, /href="\/admin\/orders"/);
   assert.match(page, /overview\.pendingChanges/);
   assert.match(page, /overview\.permissions\.includes\('security\.manage'\)/);
   assert.match(page, /canManageModeration \? <Link href="\/admin\/moderation"/);

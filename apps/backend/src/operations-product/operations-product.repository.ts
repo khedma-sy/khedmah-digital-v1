@@ -36,6 +36,13 @@ export class OperationsProductRepository {
       return mapIncident(updated.rows[0]);
     });
   }
+  async orderMonitor(){
+    const rows=await this.db.query<any>(`SELECT o.id,o.vertical,o.status,o.payment_status,o.currency,o.total,o.created_at,o.updated_at,merchant.name_ar merchant_name,courier.name_ar courier_name,l.recorded_at latest_location_at,(SELECT COUNT(*)::int FROM fulfillment_order_events e WHERE e.order_id=o.id) event_count FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id LEFT JOIN fulfillment_order_location_updates l ON l.order_id=o.id ORDER BY CASE WHEN o.status IN ('delivered','rejected','cancelled') THEN 1 ELSE 0 END,o.updated_at ASC LIMIT 200`);
+    const now=Date.now();const terminal=new Set(['delivered','rejected','cancelled']);
+    const orders=rows.map(row=>({id:row.id,vertical:row.vertical,status:row.status,paymentStatus:row.payment_status,currency:row.currency,total:row.total===null?undefined:Number(row.total),merchantName:row.merchant_name,courierName:row.courier_name??undefined,createdAt:new Date(row.created_at).toISOString(),updatedAt:new Date(row.updated_at).toISOString(),latestLocationAt:row.latest_location_at?new Date(row.latest_location_at).toISOString():undefined,eventCount:Number(row.event_count??0),stale:!terminal.has(row.status)&&now-new Date(row.updated_at).getTime()>30*60*1000}));
+    const counts:Record<string,number>={};for(const order of orders)counts[order.status]=(counts[order.status]??0)+1;
+    return{generatedAt:new Date().toISOString(),privacy:{contactDataExposed:false,addressExposed:false,coordinatesExposed:false},summary:{total:orders.length,active:orders.filter(order=>!terminal.has(order.status)).length,stale:orders.filter(order=>order.stale).length,unassigned:orders.filter(order=>!terminal.has(order.status)&&!order.courierName).length,byStatus:counts},orders};
+  }
   audit(record: Omit<OperationsAuditRecord, 'id' | 'occurredAt'>) { this.audits.unshift({ ...record, id: randomUUID(), occurredAt: new Date().toISOString() }); }
   listAudit() { return [...this.audits]; }
 }

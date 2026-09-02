@@ -7,6 +7,7 @@ export class OperationsProductController {
   @Get('overview') async overview(@Headers('cookie') cookie: string | undefined) { return { operationsProduct: await this.service.overview(cookie) }; }
   @Get('smart-admin-report') async smartAdminReport(@Headers('cookie') cookie: string | undefined) { return { smartAdminReport: await this.service.smartAdminReport(cookie) }; }
   @Get('users') async users(@Headers('cookie') cookie:string|undefined,@Query('q')query?:string){return{users:await this.service.listUsers(cookie,query??'')}}
+  @Get('order-monitor') async orderMonitor(@Headers('cookie')cookie:string|undefined){return{orderMonitor:await this.service.orderMonitor(cookie)}}
   @Patch('users/:id/status') async changeUserStatus(@Headers('cookie')cookie:string|undefined,@Param('id')id:string,@Body()body:ChangeUserStatusRequest){return this.service.changeUserStatus(cookie,id,body.status,body.reason)}
   @Get('inventory') async inventory(@Headers('cookie') cookie: string | undefined) { return { resources: await this.service.inventory(cookie) }; }
   @Get('history') async history(@Headers('cookie') cookie: string | undefined) { return this.service.histories(cookie); }

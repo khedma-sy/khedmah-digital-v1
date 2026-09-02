@@ -54,6 +54,7 @@ export interface AdminUserSummary {
   readonly isAdmin:boolean;
 }
 export interface OperationsIncident { readonly id:string; readonly title:string; readonly summary:string; readonly category:string; readonly severity:'low'|'medium'|'high'|'critical'; readonly status:'open'|'in_progress'|'verification'|'resolved'; readonly reporterUserId:string; readonly assigneeUserId?:string; readonly resolutionNote?:string; readonly createdAt:string; readonly updatedAt:string; readonly resolvedAt?:string; }
+export interface AdminOrderMonitor { readonly generatedAt:string; readonly privacy:{contactDataExposed:false;addressExposed:false;coordinatesExposed:false}; readonly summary:{total:number;active:number;stale:number;unassigned:number;byStatus:Record<string,number>}; readonly orders:Array<{id:string;vertical:'food'|'grocery'|'pharmacy';status:string;paymentStatus:string;currency:string;total?:number;merchantName:string;courierName?:string;createdAt:string;updatedAt:string;latestLocationAt?:string;eventCount:number;stale:boolean}>; }
 
 export interface SmartAdminReport {
   readonly generatedAt: string;
@@ -613,6 +614,7 @@ export const api = {
     history(){return request<{incidents:OperationsIncident[]}>(`/admin/operations-product/history`);},
     createIncident(input:{title:string;summary:string;category:string;severity:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents`,{method:'POST',body:JSON.stringify(input)});},
     transitionIncident(id:string,input:{status:OperationsIncident['status'];note:string;assigneeUserId?:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(input)});},
+    orderMonitor(){return request<{orderMonitor:AdminOrderMonitor}>(`/admin/operations-product/order-monitor`);},
   },
   analytics: {
     recordSearch(data: {
