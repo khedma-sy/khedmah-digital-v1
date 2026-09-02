@@ -1,11 +1,11 @@
-'use client';
+'use client';
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { api, type ProductListing } from '../../lib/api-client';
 import { useCategories } from '../../lib/use-categories';
 import { cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
-import { CategorySelectOptions } from '../components/category-select-options';
+import { HierarchicalCategoryFilter } from '../components/hierarchical-category-filter';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './store.module.css';
@@ -52,7 +52,7 @@ export default function StorePage() {
     <PageHeader eyebrow="سوق الأنشطة المحلية" title="المتاجر والإعلانات" description="ابحث عن منتج حقيقي منشور من نشاط معتمد، ثم راجع التفاصيل وتواصل مباشرة مع البائع." actions={<><ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف منتجًا</ActionLink><ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink></>} />
     <Surface><form className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في الإعلانات" aria-busy={loading}>
       <label className={styles.field}>ابحث عن منتج<input type="search" autoComplete="off" value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
-      <label className={styles.field}>التصنيف<select value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories}/></select></label>
+      <HierarchicalCategoryFilter categories={categories} value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(categoryCode) => setFilters((value) => ({ ...value, categoryCode }))}/>
       <label className={styles.field}>المدينة<select value={filters.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
       <div className={styles.toolbarActions}><ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}>مسح</ActionButton>}</div>
     </form></Surface>
