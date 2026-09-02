@@ -50,6 +50,7 @@ export default function AdminPage() {
   }
 
   const canManageModeration = overview.permissions.includes('security.manage');
+  const canManageUsers = overview.permissions.includes('users.manage');
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
@@ -61,6 +62,7 @@ export default function AdminPage() {
       <Link href="/">الرئيسية</Link>
       <Link href="/admin/smart-report">تقرير الإدارة الذكية</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
+      {canManageUsers ? <Link href="/admin/users">المستخدمون</Link> : null}
       <Link href="/categories">التصنيفات</Link>
       <Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
@@ -75,6 +77,7 @@ export default function AdminPage() {
     <section className="operations-grid" aria-label="أقسام الإدارة">
       <article className="operations-panel"><div className="panel-heading"><h2>الموظف الإداري الذكي</h2><span>مساعد فقط</span></div><p>تحليل مجمع لما يبحث عنه المستخدمون وفجوات النتائج ومشكلات التحويل، مع توصيات تحتاج قرارًا بشريًا.</p><Link href="/admin/smart-report">فتح تقرير التطوير</Link></article>
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
+      {canManageUsers ? <article className="operations-panel"><div className="panel-heading"><h2>إدارة المستخدمين</h2><span>مسجل</span></div><p>البحث عن الحسابات وتعليقها أو إعادة تفعيلها مع إبطال الجلسات وسجل تدقيق دائم.</p><Link href="/admin/users">فتح إدارة المستخدمين</Link></article> : null}
       <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>
       <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>{overview.health.status === 'ready' ? 'جاهز' : overview.health.status}</span></div><p>حالة الخدمات والتغييرات والحوادث دون عرض أي أسرار.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>

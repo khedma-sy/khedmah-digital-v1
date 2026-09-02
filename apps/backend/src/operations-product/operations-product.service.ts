@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { AnalyticsRepository } from '../analytics/analytics.repository';
@@ -51,6 +51,8 @@ export class OperationsProductService {
       automation: { canAutoApproveEligibleProducts: true, humanApprovalRequiredForExceptions: true }
     };
   }
+  async listUsers(cookie:string|undefined,query=''){await this.actor(cookie,'users.manage');return this.identityRepository.listAccountsForAdmin(query.slice(0,100));}
+  async changeUserStatus(cookie:string|undefined,targetUserId:string,status:'active'|'suspended',reason:string){const {actor}=await this.actor(cookie,'users.manage');if(actor.id===targetUserId)throw new ForbiddenException('Administrators cannot change their own account status.');const target=await this.identityRepository.findAccountById(targetUserId);if(!target)throw new NotFoundException('User was not found.');if((await this.identityRepository.findAdminRoles(targetUserId)).length)throw new ForbiddenException('Administrator accounts require a separate privileged review.');if(target.status===status)throw new BadRequestException('Account already has the requested status.');const cleanReason=reason.trim();if(cleanReason.length<5||cleanReason.length>500)throw new BadRequestException('Reason must be between 5 and 500 characters.');const context=getRequestContext();let changed;try{changed=await this.identityRepository.changeAccountStatus({targetUserId,actorUserId:actor.id,status,reason:cleanReason,requestId:context?.requestId,correlationId:context?.correlationId});}catch(error){if(error instanceof Error&&error.message==='USER_STATUS_NOT_MANAGEABLE')throw new BadRequestException('Pending or archived accounts cannot be changed here.');throw error;}await this.identityRepository.appendAuditLog(status==='suspended'?'admin.user.suspended':'admin.user.reactivated',{actorUserId:actor.id,requestId:context?.requestId,correlationId:context?.correlationId});return{user:{id:target.id,email:target.email,status:changed.newStatus,createdAt:target.createdAt,updatedAt:new Date().toISOString()},previousStatus:changed.previousStatus};}
   async inventory(cookie: string | undefined) { await this.actor(cookie, 'operations.read'); return [
     'Cloud Run', 'Cloud Build', 'Artifact Registry', 'Secret Manager', 'IAM', 'Cloud Storage', 'Cloud Logging', 'Cloud Monitoring',
     'Service Accounts', 'Networking', 'Domains', 'SSL Certificates', 'Firebase Auth', 'Analytics', 'Cloud Messaging', 'Crashlytics',

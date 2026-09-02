@@ -44,6 +44,16 @@ export interface OperationsProductOverview {
   readonly pendingChanges: number;
 }
 
+export interface AdminUserSummary {
+  readonly id:string;
+  readonly email:string;
+  readonly displayName:string;
+  readonly status:'created'|'pending'|'active'|'suspended'|'archived';
+  readonly createdAt:string;
+  readonly updatedAt:string;
+  readonly isAdmin:boolean;
+}
+
 export interface SmartAdminReport {
   readonly generatedAt: string;
   readonly privacy: {
@@ -597,6 +607,8 @@ export const api = {
         '/admin/operations-product/smart-admin-report',
       );
     },
+    users(query='') { return request<{users:AdminUserSummary[]}>(`/admin/operations-product/users?q=${encodeURIComponent(query)}`); },
+    changeUserStatus(id:string,status:'active'|'suspended',reason:string){return request<{user:Pick<AdminUserSummary,'id'|'email'|'status'|'createdAt'|'updatedAt'>;previousStatus:string}>(`/admin/operations-product/users/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({status,reason})});},
   },
   analytics: {
     recordSearch(data: {

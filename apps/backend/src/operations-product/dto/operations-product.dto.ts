@@ -10,3 +10,7 @@ export class CreateIncidentRequest {
   @IsString() @Length(10, 500) readonly summary!: string;
 }
 export class RollbackRequest { @IsString() @Length(3, 120) readonly deploymentId!: string; @IsString() @Length(10, 500) readonly reason!: string; }
+export class ChangeUserStatusRequest {
+  @IsIn(['active', 'suspended']) readonly status!: 'active' | 'suspended';
+  @IsString() @Length(5, 500) readonly reason!: string;
+}

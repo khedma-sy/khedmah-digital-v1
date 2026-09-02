@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '028';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '029';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -120,7 +120,11 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('promotions','028','promotion_claims'),
   constraint('promotions','028','promotion_claims','promotion_claims_redemption_code_check'),
   table('promotions','028','promotion_events'),
-  index('promotions','028','promotions','promotions_public_active_idx')
+  index('promotions','028','promotions','promotions_public_active_idx'),
+  table('admin-users','029','admin_user_actions'),
+  ...['target_user_id','actor_user_id','action','reason','previous_status','new_status','created_at'].map((name)=>column('admin-users','029','admin_user_actions',name)),
+  constraint('admin-users','029','admin_user_actions','admin_user_actions_status_change_check'),
+  index('admin-users','029','admin_user_actions','admin_user_actions_target_created_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

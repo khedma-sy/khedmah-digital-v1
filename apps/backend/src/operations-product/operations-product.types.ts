@@ -3,15 +3,15 @@ export const OPERATIONS_PRODUCT_ROLES = [
   'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer'
 ] as const;
 export type OperationsProductRole = typeof OPERATIONS_PRODUCT_ROLES[number];
-export type OperationsPermission = 'operations.read' | 'infrastructure.manage' | 'deployments.manage' | 'releases.manage' | 'security.manage' | 'incidents.manage' | 'rbac.manage';
+export type OperationsPermission = 'operations.read' | 'users.manage' | 'infrastructure.manage' | 'deployments.manage' | 'releases.manage' | 'security.manage' | 'incidents.manage' | 'rbac.manage';
 export const ROLE_PERMISSIONS: Readonly<Record<OperationsProductRole, readonly OperationsPermission[]>> = Object.freeze({
-  operations_product_director: ['operations.read', 'infrastructure.manage', 'deployments.manage', 'releases.manage', 'security.manage', 'incidents.manage', 'rbac.manage'],
+  operations_product_director: ['operations.read', 'users.manage', 'infrastructure.manage', 'deployments.manage', 'releases.manage', 'security.manage', 'incidents.manage', 'rbac.manage'],
   infrastructure_manager: ['operations.read', 'infrastructure.manage', 'deployments.manage'],
   cloud_administrator: ['operations.read', 'infrastructure.manage', 'security.manage'],
   devops_engineer: ['operations.read', 'deployments.manage', 'releases.manage'],
   production_engineer: ['operations.read', 'deployments.manage', 'incidents.manage'],
   release_manager: ['operations.read', 'releases.manage'],
-  security_operations_engineer: ['operations.read', 'security.manage', 'incidents.manage'],
+  security_operations_engineer: ['operations.read', 'users.manage', 'security.manage', 'incidents.manage'],
   site_reliability_engineer: ['operations.read', 'deployments.manage', 'incidents.manage']
 });
 export type OperationsArea = 'google-cloud' | 'firebase' | 'ci-cd' | 'production' | 'monitoring' | 'security';

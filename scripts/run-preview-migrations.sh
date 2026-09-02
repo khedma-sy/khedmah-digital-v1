@@ -99,6 +99,12 @@ SELECT (to_regclass(current_schema() || '.promotions') IS NOT NULL) AS promotion
   \ir /migrations/028_khedmah_promotions.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.admin_user_actions') IS NOT NULL) AS admin_users_ready \gset
+\if :admin_users_ready
+\else
+  \ir /migrations/029_admin_user_management.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
@@ -113,12 +119,13 @@ BEGIN
     OR to_regclass(current_schema() || '.promotion_business_codes') IS NULL
     OR to_regclass(current_schema() || '.promotions') IS NULL
     OR to_regclass(current_schema() || '.promotion_claims') IS NULL
+    OR to_regclass(current_schema() || '.admin_user_actions') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_028_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_029_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_028_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_029_READY'
