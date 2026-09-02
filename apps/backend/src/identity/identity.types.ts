@@ -64,6 +64,8 @@ export type AuditEventType =
   | 'service.delete'
   | 'product.auto_approved'
   | 'product.auto_review_required'
+  | 'mobility.request.created'
+  | 'mobility.request.status_changed'
   | 'admin.bootstrap'
   | 'email.verification.requested'
   | 'email.verification.confirmed'

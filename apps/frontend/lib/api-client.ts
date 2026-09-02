@@ -82,6 +82,29 @@ export interface PublicBusinessProfile {
   readonly matchScore?: number;
 }
 
+export interface MobilityRequest {
+  readonly id: string;
+  readonly providerBusinessId: string;
+  readonly providerName?: string;
+  readonly providerPhone?: string;
+  readonly serviceType: 'taxi' | 'delivery';
+  readonly pickupAddress: string;
+  readonly destinationAddress: string;
+  readonly riderContactPhone: string;
+  readonly pickupLatitude: number;
+  readonly pickupLongitude: number;
+  readonly destinationLatitude?: number;
+  readonly destinationLongitude?: number;
+  readonly riderNote?: string;
+  readonly status: 'requested' | 'accepted' | 'en_route' | 'completed' | 'rejected' | 'cancelled';
+  readonly acceptedAt?: string;
+  readonly enRouteAt?: string;
+  readonly completedAt?: string;
+  readonly closedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface Category {
   readonly code: string;
   readonly nameAr: string;
@@ -322,6 +345,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  mobility: {
+    create(data: Record<string, unknown>, idempotencyKey: string) {
+      return request<{ request: MobilityRequest }>('/mobility/requests', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(data) });
+    },
+    listMine() { return request<{ requests: MobilityRequest[] }>('/mobility/requests/mine'); },
+    listForProvider(businessId: string) { return request<{ requests: MobilityRequest[] }>(`/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`); },
+    transition(id: string, status: MobilityRequest['status'], reason?: string) {
+      return request<{ request: MobilityRequest }>(`/mobility/requests/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) });
+    }
+  },
   contact: {
     submitInquiry(target: { type: 'business' | 'professional'; id: string }, data: { name: string; contactEmail: string; message: string }, idempotencyKey: string) {
       const collection = target.type === 'business' ? 'businesses' : 'professionals';

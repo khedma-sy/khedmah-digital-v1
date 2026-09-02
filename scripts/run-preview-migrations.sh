@@ -66,16 +66,23 @@ SELECT (to_regclass(current_schema() || '.product_listings') IS NOT NULL) AS sch
   \ir /migrations/024_product_store.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.mobility_requests') IS NOT NULL) AS mobility_ready \gset
+\if :mobility_ready
+\else
+  \ir /migrations/025_mobility_requests.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
+    OR to_regclass(current_schema() || '.mobility_requests') IS NULL
     OR to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_024_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_025_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_024_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_025_READY'

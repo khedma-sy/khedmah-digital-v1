@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '025';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -90,7 +90,13 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
   table('classifieds', '024', 'product_listings'),
   ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
-  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
+  index('classifieds', '024', 'product_listings', 'product_listings_public_idx'),
+  table('mobility', '025', 'mobility_requests'),
+  ...['rider_user_id', 'provider_business_id', 'service_type', 'pickup_address', 'destination_address', 'rider_contact_phone', 'status', 'idempotency_key'].map((name) => column('mobility', '025', 'mobility_requests', name)),
+  constraint('mobility', '025', 'mobility_requests', 'mobility_requests_rider_idempotency_unique'),
+  index('mobility', '025', 'mobility_requests', 'mobility_requests_one_open_per_rider_idx'),
+  table('mobility', '025', 'mobility_request_events'),
+  index('mobility', '025', 'mobility_request_events', 'mobility_request_events_request_time_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

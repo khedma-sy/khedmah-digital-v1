@@ -4,15 +4,22 @@ import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('mobility journey keeps canonical provider discovery without pretending to dispatch', async () => {
-  const page = await read('app/mobility/page.tsx');
+test('mobility journey creates a bounded real request without pretending to price or track', async () => {
+  const [page, client, provider] = await Promise.all([read('app/mobility/page.tsx'), read('lib/api-client.ts'), read('app/mobility/manage/page.tsx')]);
   assert.match(page, /type === 'taxi' \? 'taxi' : 'delivery_courier'/);
   assert.match(page, /get\('type'\) === 'delivery'/);
   assert.match(page, /categoryCode: categoryFor\(type\)/);
   assert.match(page, /latitude: resolvedPickup\.latitude/);
   assert.match(page, /longitude: resolvedPickup\.longitude/);
   assert.match(page, /result\.businesses\.slice\(0, 12\)/);
-  assert.match(page, /لا تعني حجزًا أو تسعيرًا أو تتبعًا لحظيًا/);
+  assert.match(page, /api\.mobility\.create/);
+  assert.match(page, /التسجيل والاستخدام مجانيان خلال المرحلة التجريبية/);
+  assert.match(page, /لا يوجد بعد تسعير آلي أو دفع أو تتبع حي/);
+  assert.match(client, /Idempotency-Key/);
+  assert.match(provider, /api\.mobility\.listForProvider/);
+  assert.match(provider, /قبول الطلب/);
+  assert.match(provider, /أنا في الطريق/);
+  assert.match(provider, /إكمال الرحلة/);
   assert.doesNotMatch(page, /تم تعيين السائق|تم تأكيد الرحلة|سعر الرحلة/);
 });
 

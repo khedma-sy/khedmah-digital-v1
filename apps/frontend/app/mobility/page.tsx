@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { api, type PublicBusinessProfile } from '../../lib/api-client';
+import { api, type MobilityRequest, type PublicBusinessProfile } from '../../lib/api-client';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './mobility.module.css';
+import promoStyles from './mobility-promotion.module.css';
 
 type Coordinates = { latitude: number; longitude: number };
 type GooglePoint = { lat(): number; lng(): number };
@@ -39,6 +40,7 @@ export default function MobilityPage() {
   const [type, setType] = useState<'taxi' | 'delivery'>('taxi');
   const [pickup, setPickup] = useState('');
   const [destination, setDestination] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [pickupCoordinates, setPickupCoordinates] = useState<Coordinates>();
   const [destinationCoordinates, setDestinationCoordinates] = useState<Coordinates>();
   const [activePoint, setActivePoint] = useState<'pickup' | 'destination'>('pickup');
@@ -47,9 +49,12 @@ export default function MobilityPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [message, setMessage] = useState(MAPS_KEY ? 'حدد نقطة الانطلاق والوجهة، أو اكتب العنوان وسنحاول تحديده.' : 'الخريطة غير مهيأة حاليًا؛ استخدم موقعك الحالي للبحث القريب.');
+  const [activeRequest, setActiveRequest] = useState<MobilityRequest>();
+  const [requestingProviderId, setRequestingProviderId] = useState('');
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('type') === 'delivery') setType('delivery');
+    void api.mobility.listMine().then(({ requests }) => setActiveRequest(requests.find((item) => ['requested','accepted','en_route'].includes(item.status)))).catch(() => undefined);
   }, []);
 
   useEffect(() => { activePointRef.current = activePoint; }, [activePoint]);
@@ -201,8 +206,31 @@ export default function MobilityPage() {
     window.open(route.toString(), '_blank', 'noopener,noreferrer');
   }
 
+  async function requestProvider(provider: PublicBusinessProfile) {
+    if (!pickupCoordinates || !pickup.trim() || !destination.trim() || contactPhone.trim().length < 6) return setMessage('حدد الانطلاق والوجهة وأدخل رقم تواصل صالحًا قبل إرسال الطلب.');
+    setRequestingProviderId(provider.id); setMessage('جاري إرسال الطلب إلى المزود…');
+    try {
+      const result = await api.mobility.create({ providerBusinessId: provider.id, serviceType: type, pickupAddress: pickup, destinationAddress: destination, riderContactPhone: contactPhone,
+        pickupLatitude: pickupCoordinates.latitude, pickupLongitude: pickupCoordinates.longitude,
+        destinationLatitude: destinationCoordinates?.latitude, destinationLongitude: destinationCoordinates?.longitude }, crypto.randomUUID());
+      setActiveRequest(result.request); setMessage('تم إرسال الطلب. لا تبدأ الرحلة حتى يقبله المزود.');
+    } catch (cause) {
+      const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+      if (status === 401) return window.location.assign('/auth/login?next=%2Fmobility');
+      setMessage(cause instanceof Error ? cause.message : 'تعذر إرسال طلب الرحلة.');
+    } finally { setRequestingProviderId(''); }
+  }
+
+  async function cancelRequest() {
+    if (!activeRequest) return;
+    try { const result = await api.mobility.transition(activeRequest.id, 'cancelled'); setActiveRequest(result.request); setMessage('تم إلغاء الطلب.'); }
+    catch (cause) { setMessage(cause instanceof Error ? cause.message : 'تعذر إلغاء الطلب.'); }
+  }
+
   return <PageShell className={styles.page} label="التاكسي والتوصيل">
     <PageHeader eyebrow="تنقّل وتوصيل" title={type === 'taxi' ? 'إلى أين تريد الذهاب؟' : 'ماذا تريد أن نوصّل؟'} description="حدد الانطلاق والوجهة، ثم اختر مزودًا معتمدًا قريبًا وتواصل معه مباشرة." backHref="/"/>
+    <Surface className={promoStyles.promotion} aria-label="عرض المرحلة التجريبية"><div><strong>التسجيل والاستخدام مجانيان خلال المرحلة التجريبية</strong><p>لا توجد رسوم منصة حاليًا. الأجرة وأي تكلفة توصيل يتم الاتفاق عليها مباشرة مع المزود إلى أن يُطلق التسعير والدفع الآمن.</p></div><ActionLink href="/business-profiles/new">سجّل كسائق أو مندوب</ActionLink></Surface>
+    {activeRequest && ['requested','accepted','en_route'].includes(activeRequest.status) && <Surface className={promoStyles.activeRequest} aria-live="polite"><div><strong>{activeRequest.status === 'requested' ? 'بانتظار قبول المزود' : activeRequest.status === 'accepted' ? 'تم قبول الطلب' : 'المزود في الطريق'}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p></div>{activeRequest.status !== 'en_route' && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
@@ -213,6 +241,7 @@ export default function MobilityPage() {
         <div className={styles.fields}>
           <label className={activePoint === 'pickup' ? styles.activeField : ''}><span><b>أ</b> نقطة الانطلاق</span><input ref={pickupInput} value={pickup} onFocus={() => setActivePoint('pickup')} onChange={(event) => { setPickup(event.target.value); setPickupCoordinates(undefined); }} placeholder="موقعك أو اسم المكان" autoComplete="off"/></label>
           <label className={activePoint === 'destination' ? styles.activeField : ''}><span><b>ب</b> الوجهة</span><input ref={destinationInput} value={destination} onFocus={() => setActivePoint('destination')} onChange={(event) => { setDestination(event.target.value); setDestinationCoordinates(undefined); }} placeholder="إلى أين؟" autoComplete="off"/></label>
+          <label><span><b>ه</b> رقم التواصل</span><input type="tel" dir="ltr" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="09xxxxxxxx" autoComplete="tel"/></label>
         </div>
         <div className={styles.actions}>
           <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin"/> موقعي الحالي</ActionButton>
@@ -230,9 +259,9 @@ export default function MobilityPage() {
     {loading ? <SkeletonGrid count={4} label="جاري البحث عن مزودي الخدمة"/> : providers.length ? <section className={styles.results} aria-label="مزودو النقل والتوصيل">
       {providers.map((provider, index) => <Surface as="article" className={styles.provider} key={provider.id}>
         <div className={styles.providerTop}><span className={styles.rank}>{index + 1}</span><div><span className={styles.badge}>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الاتفاق'}</span><h2>{provider.name} {provider.trustStatus === 'approved' && <small aria-label="موثق">✓</small>}</h2><p>{provider.addressAr ?? provider.cityCode}{provider.distanceKm !== undefined ? ` · ${provider.distanceKm.toFixed(1)} كم` : ''}{provider.rating !== undefined ? ` · ⭐ ${provider.rating.toFixed(1)}` : ''}</p></div></div>
-        <div className={styles.providerActions}><ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=mobility`}>الملف والتواصل</ActionLink>{provider.phone && <a href={`tel:${provider.phone}`}>اتصال مباشر</a>}</div>
+        <div className={styles.providerActions}><ActionButton type="button" disabled={!!activeRequest && ['requested','accepted','en_route'].includes(activeRequest.status) || requestingProviderId === provider.id} onClick={() => void requestProvider(provider)}>{requestingProviderId === provider.id ? 'جارٍ الإرسال…' : 'إرسال طلب'}</ActionButton><ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=mobility`}>الملف والتواصل</ActionLink>{provider.phone && <a href={`tel:${provider.phone}`}>اتصال مباشر</a>}</div>
       </Surface>)}
     </section> : searched && <EmptyState icon={<PlatformIcon name={type === 'taxi' ? 'car' : 'cart'} size={34}/>} title="الخدمة تعمل، لكن لا يوجد مزود معتمد منشور هنا" description="لن نعرض سائقًا وهميًا. وسّع البحث على الخريطة أو ساعد مزودي النقل والتوصيل في منطقتك على التسجيل." actions={<><ActionLink href={`/map?q=${encodeURIComponent(type === 'taxi' ? 'تاكسي' : 'مندوب توصيل')}`}>توسيع البحث على الخريطة</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">تسجيل مزود خدمة</ActionLink></>}/>} 
-    <p className={styles.disclaimer}>هذه النسخة للعثور على مزود معتمد والتواصل المباشر؛ لا تعني حجزًا أو تسعيرًا أو تتبعًا لحظيًا حتى يقبل المزود. <Link href="/search">عرض كل الخدمات</Link></p>
+    <p className={styles.disclaimer}>إنشاء الطلب لا يعني بدء الرحلة؛ انتظر قبول المزود. لا يوجد بعد تسعير آلي أو دفع أو تتبع حي. <Link href="/search">عرض كل الخدمات</Link></p>
   </PageShell>;
 }

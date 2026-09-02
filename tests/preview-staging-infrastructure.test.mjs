@@ -62,5 +62,6 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /PREVIEW_SCHEMA_PARTIAL_REQUIRES_MANUAL_REPAIR/);
   assert.match(runner, /024_product_store\.sql/);
+  assert.match(runner, /025_mobility_requests\.sql/);
   assert.match(image, /run-preview-migrations/);
 });
