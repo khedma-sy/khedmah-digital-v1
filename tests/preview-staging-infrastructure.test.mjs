@@ -75,3 +75,14 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(runner, /PREVIEW_SCHEMA_031_READY/);
   assert.match(image, /run-preview-migrations/);
 });
+
+test('preview mounts admin role bindings from Secret Manager and verifies only the reference', () => {
+  const workflow = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(deployment, /--set-secrets="DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest"/);
+  assert.match(deployment, /valueFrom.*secretKeyRef.*name/s);
+  assert.match(deployment, /valueSource.*secretKeyRef.*secret/s);
+  assert.match(deployment, /Preview backend is missing the governed admin role binding secret/);
+  assert.doesNotMatch(deployment, /--set-env-vars="[^"]*OPERATIONS_PRODUCT_ROLE_BINDINGS/);
+  assert.doesNotMatch(workflow, /secrets\.OPERATIONS_PRODUCT_ROLE_BINDINGS/);
+});
