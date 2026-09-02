@@ -1,4 +1,4 @@
-/* Route-specific brand rules. Shared color, type and glass tokens live in design-tokens.css. */
+/* Route-specific brand rules. Shared color, type and glass tokens live in design-tokens.css. */
 body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
 
 .khedma-header .nav-session { display:flex; align-items:center; flex-wrap:nowrap; gap:.3rem; min-width:0; }
