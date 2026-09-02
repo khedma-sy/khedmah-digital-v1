@@ -52,6 +52,7 @@ export default function AdminPage() {
   const canManageModeration = overview.permissions.includes('security.manage');
   const canManageUsers = overview.permissions.includes('users.manage');
   const canMonitorOrders = overview.permissions.includes('orders.monitor');
+  const canManageCatalog = overview.permissions.includes('catalog.manage');
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
@@ -65,7 +66,7 @@ export default function AdminPage() {
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       {canManageUsers ? <Link href="/admin/users">المستخدمون</Link> : null}
       {canMonitorOrders ? <Link href="/admin/orders">مراقبة الطلبات</Link> : null}
-      <Link href="/categories">التصنيفات</Link>
+      {canManageCatalog?<Link href="/admin/catalog">إدارة التصنيفات</Link>:<Link href="/categories">التصنيفات</Link>}
       <Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
 
@@ -81,7 +82,7 @@ export default function AdminPage() {
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageUsers ? <article className="operations-panel"><div className="panel-heading"><h2>إدارة المستخدمين</h2><span>مسجل</span></div><p>البحث عن الحسابات وتعليقها أو إعادة تفعيلها مع إبطال الجلسات وسجل تدقيق دائم.</p><Link href="/admin/users">فتح إدارة المستخدمين</Link></article> : null}
       {canMonitorOrders ? <article className="operations-panel"><div className="panel-heading"><h2>مراقبة الطلبات والتوصيل</h2><span>قراءة آمنة</span></div><p>اكتشاف الطلبات المتأخرة أو غير المسندة ومتابعة حالتها دون كشف عنوان العميل أو هاتفه.</p><Link href="/admin/orders">فتح شاشة المراقبة</Link></article> : null}
-      <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات والأنشطة</h2><span>{canManageCatalog?'إدارة محمية':'قراءة'}</span></div><p>مصدر التصنيفات المعتمد مع قياس الأنشطة والخدمات والمنتجات المرتبطة وحماية التصنيف المستخدم.</p><Link href={canManageCatalog?'/admin/catalog':'/categories'}>{canManageCatalog?'فتح إدارة التصنيفات':'عرض التصنيفات الحية'}</Link></article>
       <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>{overview.health.status === 'ready' ? 'جاهز' : overview.health.status}</span></div><p>حالة الخدمات والتغييرات والحوادث دون عرض أي أسرار.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>
   </main>;

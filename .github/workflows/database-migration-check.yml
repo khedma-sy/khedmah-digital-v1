@@ -58,6 +58,7 @@ jobs:
             028_khedmah_promotions
             029_admin_user_management
             030_operations_issue_center
+            031_admin_catalog_management
           )
 
           for migration in "${migrations[@]}"; do
@@ -140,6 +141,8 @@ jobs:
             029_admin_user_management_rollback.sql \
             030_operations_issue_center.sql \
             030_operations_issue_center_rollback.sql \
+            031_admin_catalog_management.sql \
+            031_admin_catalog_management_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"

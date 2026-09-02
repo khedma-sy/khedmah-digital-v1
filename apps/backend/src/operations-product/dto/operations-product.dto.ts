@@ -20,3 +20,7 @@ export class TransitionIncidentRequest {
   @IsString() @Length(5, 2000) readonly note!: string;
   @IsOptional() @IsString() @Length(1, 200) readonly assigneeUserId?: string;
 }
+export class ChangeCategoryStatusRequest {
+  @IsIn(['active','inactive']) readonly status!: 'active'|'inactive';
+  @IsString() @Length(5,500) readonly reason!: string;
+}
