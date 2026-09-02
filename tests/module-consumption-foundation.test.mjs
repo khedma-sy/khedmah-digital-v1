@@ -35,6 +35,21 @@ test('Mission 069G adapter and application port scaffolding exists without runti
   assert.doesNotMatch(appModule, /integration|CanonicalApplicationPort|ModuleAdapter/);
 });
 
+test('repository keeps one executable backend host and documents its authority', async () => {
+  const [runtimeReadme, canonicalReadme, runtimePackage] = await Promise.all([
+    read('apps/backend/README.md'),
+    read('backend/README.md'),
+    read('apps/backend/package.json')
+  ]);
+  assert.match(runtimeReadme, /only executable backend host/);
+  assert.match(canonicalReadme, /not.*executable server/i);
+  assert.match(runtimePackage, /"start":\s*"node dist\/main\.js"/);
+
+  for (const forbiddenRuntime of ['backend/package.json', 'backend/main.ts', 'backend/app.module.ts']) {
+    await assert.rejects(stat(path.join(root, forbiddenRuntime)));
+  }
+});
+
 test('application port foundation defines identity profile and organization boundaries only', async () => {
   const ports = await read('apps/backend/src/integration/application-ports.ts');
   for (const name of ['IdentityApplicationPort', 'ProfileApplicationPort', 'OrganizationApplicationPort']) assert.match(ports, new RegExp(`interface ${name}`));

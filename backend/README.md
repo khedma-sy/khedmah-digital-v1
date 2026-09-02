@@ -1,4 +1,25 @@
-# Khedmah Digital V1 Backend Foundation
+# Khedmah Canonical Backend Foundation
+
+## Current authority
+
+This tree is the canonical, framework-neutral domain and migration foundation.
+It is **not** an executable server. The only NestJS bootstrap and production
+backend host lives in `apps/backend`.
+
+- `backend/modules`: canonical domain rules and repository contracts;
+- `backend/operations`: governed application/domain operation foundations;
+- `backend/migrations`: canonical ordered SQL migration lineage;
+- `backend/core`, `backend/shared`, and `backend/database`: shared foundations;
+- `backend/seeds`: controlled seed data.
+
+Do not add `package.json`, `main.ts`, `app.module.ts`, an HTTP listener, or a
+second framework runtime beneath this directory. Runtime integration proceeds
+from `apps/backend` through explicit adapters and ports without reversing the
+dependency direction.
+
+The historical mission notes below describe the boundary at the time the
+foundation was introduced. They are retained as provenance, not as a statement
+that the present repository has no implemented runtime features.
 
 ## Purpose
 
