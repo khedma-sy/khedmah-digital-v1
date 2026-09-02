@@ -263,7 +263,9 @@ export interface MediaAsset {
     | 'gallery'
     | 'profile_image'
     | 'service_image'
-    | 'product_image';
+    | 'product_image'
+    | 'problem_image'
+    | 'completion_image';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -275,7 +277,7 @@ export interface MediaAsset {
 export interface UploadedMediaAsset {
   readonly id: string;
   readonly ownerType:
-    'business_profile' | 'professional_profile' | 'product_listing' | 'user';
+    'business_profile' | 'professional_profile' | 'product_listing' | 'professional_request' | 'user';
   readonly ownerId: string;
   readonly filename: string;
   readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
@@ -285,6 +287,21 @@ export interface UploadedMediaAsset {
   readonly assetType?: MediaAsset['assetType'];
   readonly sortOrder: number;
   readonly createdAt: string;
+}
+
+export interface ProfessionalServiceOffer {
+  readonly id:string; readonly requestId:string; readonly providerBusinessId:string; readonly providerName?:string;
+  readonly inspectionFee:number; readonly laborFee:number; readonly materialsFee?:number; readonly total:number;
+  readonly currency:'SYP'|'USD'; readonly arrivalMinutes:number; readonly durationMinutes:number; readonly warrantyDays:number;
+  readonly scopeAr:string; readonly exclusionsAr?:string; readonly status:'submitted'|'accepted'|'rejected'|'withdrawn'; readonly createdAt:string;
+}
+export interface ProfessionalServiceRequest {
+  readonly id:string; readonly categoryCode:string; readonly titleAr:string; readonly descriptionAr:string;
+  readonly urgency:'urgent'|'today'|'scheduled'; readonly scheduledFor?:string; readonly budgetMin?:number; readonly budgetMax?:number;
+  readonly currency:'SYP'|'USD'; readonly address?:string; readonly areaLabel:string; readonly latitude?:number; readonly longitude?:number;
+  readonly customerPhone?:string; readonly status:'open'|'offer_selected'|'in_progress'|'completion_pending'|'completed'|'cancelled'|'disputed';
+  readonly acceptedOfferId?:string; readonly paymentMethod?:'cash'; readonly paymentStatus?:'pending'|'cash_collected'; readonly expiresAt:string; readonly completedAt?:string; readonly createdAt:string; readonly updatedAt:string;
+  readonly offers?:ProfessionalServiceOffer[];
 }
 
 export interface OpeningHours {
@@ -613,6 +630,12 @@ export const api = {
     },
   },
   media: {
+    uploadProblem(
+      requestId:string,
+      data:{filename:string;mimeType:'image/jpeg'|'image/png'|'image/webp';sizeBytes:number;content:string;sortOrder:number},
+    ) {
+      return request<UploadedMediaAsset>('/media',{method:'POST',body:JSON.stringify({ownerType:'professional_request',ownerId:requestId,visibility:'private',assetType:'problem_image',...data})});
+    },
     uploadBusiness(
       id: string,
       data: {
@@ -665,6 +688,17 @@ export const api = {
         method: 'DELETE',
       });
     },
+  },
+  professionalServices: {
+    create(data:Record<string,unknown>){return request<{request:ProfessionalServiceRequest}>('/professional-services/requests',{method:'POST',body:JSON.stringify(data)});},
+    mine(){return request<{requests:ProfessionalServiceRequest[]}>('/professional-services/requests/mine');},
+    opportunities(businessId:string){return request<{requests:ProfessionalServiceRequest[]}>(`/professional-services/opportunities?businessId=${encodeURIComponent(businessId)}`);},
+    jobs(businessId:string){return request<{requests:ProfessionalServiceRequest[]}>(`/professional-services/jobs?businessId=${encodeURIComponent(businessId)}`);},
+    offer(requestId:string,businessId:string,data:Record<string,unknown>){return request<{offer:ProfessionalServiceOffer}>(`/professional-services/requests/${encodeURIComponent(requestId)}/offers?businessId=${encodeURIComponent(businessId)}`,{method:'POST',body:JSON.stringify(data)});},
+    accept(requestId:string,offerId:string){return request<{offer:ProfessionalServiceOffer}>(`/professional-services/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,{method:'POST'});},
+    action(requestId:string,action:'start'|'request_completion'|'confirm_completion'|'cancel'|'dispute',note?:string){return request<{request:ProfessionalServiceRequest}>(`/professional-services/requests/${encodeURIComponent(requestId)}/status`,{method:'PATCH',body:JSON.stringify({action,note})});},
+    revisit(requestId:string,reason:string){return request<{requested:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/warranty/revisit`,{method:'POST',body:JSON.stringify({reason})});},
+    rate(requestId:string,data:Record<string,unknown>){return request<{rated:boolean}>(`/professional-services/requests/${encodeURIComponent(requestId)}/rating`,{method:'POST',body:JSON.stringify(data)});},
   },
   products: {
     list(

@@ -68,6 +68,8 @@ export type AuditEventType =
   | 'mobility.request.status_changed'
   | 'fulfillment.order.created'
   | 'fulfillment.order.status_changed'
+  | 'professional_request.created'
+  | 'professional_offer.accepted'
   | 'admin.bootstrap'
   | 'email.verification.requested'
   | 'email.verification.confirmed'

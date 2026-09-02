@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '026';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '027';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -105,6 +105,14 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('fulfillment', '026', 'fulfillment_order_ratings'),
   table('fulfillment', '026', 'fulfillment_order_location_updates'),
   constraint('fulfillment', '026', 'fulfillment_order_location_updates', 'fulfillment_order_location_order_unique')
+  ,table('professional-services', '027', 'professional_service_requests'),
+  ...['customer_user_id','category_code','status','accepted_offer_id','payment_method','payment_status','expires_at'].map((name) => column('professional-services','027','professional_service_requests',name)),
+  table('professional-services', '027', 'professional_service_offers'),
+  constraint('professional-services','027','professional_service_offers','professional_service_offers_provider_unique'),
+  table('professional-services', '027', 'professional_service_events'),
+  table('professional-services', '027', 'professional_service_warranties'),
+  table('professional-services', '027', 'professional_service_ratings'),
+  index('professional-services','027','professional_service_requests','professional_requests_category_open_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

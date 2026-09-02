@@ -21,6 +21,10 @@ export class MediaController {
     return new StreamableFile(asset.data, { type: asset.mimeType });
   }
 
+  @Get('secure/:id')
+  @Header('Cache-Control','private, no-store')
+  async readSecure(@Headers('cookie')cookie:string|undefined,@Param('id')id:string):Promise<StreamableFile>{const asset=await this.media.readSecure(cookie,id);return new StreamableFile(asset.data,{type:asset.mimeType});}
+
   @Get(':ownerType/:ownerId')
   async listForOwner(
     @Headers('cookie') cookieHeader: string | undefined,

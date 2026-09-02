@@ -20,6 +20,7 @@ import { ReportsModule } from './reports/reports.module';
 import { ProductModule } from './products/product.module';
 import { MobilityModule } from './mobility/mobility.module';
 import { OrderModule } from './orders/order.module';
+import { ProfessionalServiceModule } from './professional-services/professional-service.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { OrderModule } from './orders/order.module';
     ReportsModule,
     ProductModule,
     MobilityModule,
-    OrderModule
+    OrderModule,
+    ProfessionalServiceModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

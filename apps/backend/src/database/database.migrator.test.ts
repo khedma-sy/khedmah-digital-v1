@@ -12,8 +12,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name 
 const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
 
-test('canonical schema 026 passes when every contract anchor is present', () => {
-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '026');
+test('canonical schema 027 passes when every contract anchor is present', () => {
+  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '027');
   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
 });
 
@@ -39,7 +39,7 @@ for (const scenario of [
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=026 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=027 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });

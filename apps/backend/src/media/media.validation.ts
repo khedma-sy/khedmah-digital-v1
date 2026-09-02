@@ -2,10 +2,10 @@ import { BadRequestException } from '@nestjs/common';
 import type { MediaAssetType, MediaMimeType, MediaOwnerType, MediaVisibility, UploadMediaRequest } from './media.types';
 
 const ALLOWED_MIME_TYPES: MediaMimeType[] = ['image/jpeg', 'image/png', 'image/webp'];
-const ALLOWED_OWNER_TYPES: MediaOwnerType[] = ['business_profile', 'professional_profile', 'product_listing', 'user'];
+const ALLOWED_OWNER_TYPES: MediaOwnerType[] = ['business_profile', 'professional_profile', 'product_listing', 'professional_request', 'user'];
 const ALLOWED_VISIBILITIES: MediaVisibility[] = ['public', 'private'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_ASSET_TYPES: MediaAssetType[] = ['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image'];
+const ALLOWED_ASSET_TYPES: MediaAssetType[] = ['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image', 'problem_image', 'completion_image'];
 
 export function validateUploadMediaRequest(req: UploadMediaRequest): {
   ownerType: MediaOwnerType;
@@ -47,6 +47,9 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
   }
   if (req.ownerType === 'product_listing' && req.assetType !== 'product_image') {
     throw new BadRequestException('Product media requires product_image assetType.');
+  }
+  if (req.ownerType === 'professional_request' && req.assetType !== 'problem_image' && req.assetType !== 'completion_image') {
+    throw new BadRequestException('Professional request media requires problem_image or completion_image assetType.');
   }
   const sortOrder = req.sortOrder === undefined ? 0 : req.sortOrder;
   if (!Number.isInteger(sortOrder) || (sortOrder as number) < 0 || (sortOrder as number) > 1000) {
