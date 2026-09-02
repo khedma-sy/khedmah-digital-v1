@@ -1,4 +1,4 @@
-.toolbar {
+.toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
@@ -59,6 +59,7 @@
   gap: 0.45rem;
   color: var(--muted);
 }
+.meta span { display:inline-flex; align-items:center; gap:.25rem; }
 .description {
   color: var(--muted);
   line-height: 1.7;
