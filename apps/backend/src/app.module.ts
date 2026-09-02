@@ -19,6 +19,7 @@ import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
 import { ReportsModule } from './reports/reports.module';
 import { ProductModule } from './products/product.module';
 import { MobilityModule } from './mobility/mobility.module';
+import { OrderModule } from './orders/order.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { MobilityModule } from './mobility/mobility.module';
     ModerationModule,
     ReportsModule,
     ProductModule,
-    MobilityModule
+    MobilityModule,
+    OrderModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

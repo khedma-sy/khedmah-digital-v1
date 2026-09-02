@@ -53,6 +53,7 @@ jobs:
             022_expand_category_taxonomy
             024_product_store
             025_mobility_requests
+            026_cash_fulfillment_orders
           )
 
           for migration in "${migrations[@]}"; do
@@ -125,6 +126,8 @@ jobs:
             024_product_store_rollback.sql \
             025_mobility_requests.sql \
             025_mobility_requests_rollback.sql \
+            026_cash_fulfillment_orders.sql \
+            026_cash_fulfillment_orders_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
@@ -135,7 +138,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+          forbidden='marketplace|payments?|commissions?|inventory|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
             "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \

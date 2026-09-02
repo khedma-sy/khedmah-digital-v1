@@ -12,8 +12,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name 
 const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
 
-test('canonical schema 025 passes when every contract anchor is present', () => {
-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '025');
+test('canonical schema 026 passes when every contract anchor is present', () => {
+  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '026');
   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
 });
 
@@ -33,12 +33,13 @@ for (const scenario of [
   ['missing 022 category hierarchy', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'categories_parent_code_fk'],
   ['missing 024 classifieds table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'product_listings' && a.kind === 'table'],
   ['missing 025 mobility table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'mobility_requests' && a.kind === 'table'],
+  ['missing 026 fulfillment table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.kind === 'table'],
   ['014-equivalent schema missing 015 index', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'contact_inquiries_professional_created_idx']
 ] as const) {
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=025 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=026 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });

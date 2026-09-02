@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '025';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '026';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -96,7 +96,15 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   constraint('mobility', '025', 'mobility_requests', 'mobility_requests_rider_idempotency_unique'),
   index('mobility', '025', 'mobility_requests', 'mobility_requests_one_open_per_rider_idx'),
   table('mobility', '025', 'mobility_request_events'),
-  index('mobility', '025', 'mobility_request_events', 'mobility_request_events_request_time_idx')
+  index('mobility', '025', 'mobility_request_events', 'mobility_request_events_request_time_idx'),
+  table('fulfillment', '026', 'fulfillment_orders'),
+  ...['customer_user_id', 'merchant_business_id', 'courier_business_id', 'status', 'payment_method', 'subtotal', 'delivery_address', 'idempotency_key'].map((name) => column('fulfillment', '026', 'fulfillment_orders', name)),
+  constraint('fulfillment', '026', 'fulfillment_orders', 'fulfillment_orders_customer_idempotency_unique'),
+  table('fulfillment', '026', 'fulfillment_order_items'),
+  table('fulfillment', '026', 'fulfillment_order_events'),
+  table('fulfillment', '026', 'fulfillment_order_ratings'),
+  table('fulfillment', '026', 'fulfillment_order_location_updates'),
+  constraint('fulfillment', '026', 'fulfillment_order_location_updates', 'fulfillment_order_location_order_unique')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

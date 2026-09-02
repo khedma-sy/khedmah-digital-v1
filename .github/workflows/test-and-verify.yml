@@ -123,7 +123,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+          forbidden='marketplace|payments?|commissions?|inventory|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
             "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \

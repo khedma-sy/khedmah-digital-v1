@@ -37,7 +37,8 @@ export class ProductService {
     const now = new Date().toISOString();
     const product: ProductListing = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
       descriptionAr: input.descriptionAr, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
-      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
+      availability: input.availability!, requiresPrescription: input.requiresPrescription ?? false, controlledItem: input.controlledItem ?? false,
+      status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
     const limit = productLimitPerUser();
     if (!await this.repository.insertWithinOwnerLimit(product, limit)) {
       throw new BadRequestException(`You have reached the limit of ${limit} product listings per user.`);
@@ -71,12 +72,14 @@ export class ProductService {
       descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
       availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    const governedUpdated: ProductListing = { ...updated, requiresPrescription: input.requiresPrescription ?? product.requiresPrescription, controlledItem: input.controlledItem ?? product.controlledItem };
+    await this.repository.update(governedUpdated); return governedUpdated;
   }
 
   async submit(cookie: string | undefined, id: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const product = await this.requireOwner(actor.id, id);
+    if (product.controlledItem) throw new BadRequestException('Controlled pharmacy items cannot be published through the platform.');
     const hasPublicImage = await this.repository.hasPublicImage(id);
     if (!hasPublicImage) throw new BadRequestException('Add a product image before submitting it for review.');
     const business = await this.businesses.findById(product.businessProfileId);

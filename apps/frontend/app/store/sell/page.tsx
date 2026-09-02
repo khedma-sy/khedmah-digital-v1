@@ -19,7 +19,7 @@ export default function SellProductPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ businessProfileId: '', titleAr: '', descriptionAr: '', price: '', currency: 'SYP', categoryCode: '', availability: 'in_stock' });
+  const [form, setForm] = useState({ businessProfileId: '', titleAr: '', descriptionAr: '', price: '', currency: 'SYP', categoryCode: '', availability: 'in_stock', requiresPrescription: false, controlledItem: false });
 
   useEffect(() => {
     let active = true;
@@ -31,6 +31,7 @@ export default function SellProductPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError('');
+    if (form.controlledItem) { setError('لا تسمح خدمة بنشر أو طلب الأدوية والمواد المقيدة.'); setSaving(false); return; }
     const images = Array.from((event.currentTarget.elements.namedItem('productImage') as HTMLInputElement).files ?? []);
     if (!images.length || images.length > 5 || images.some((image) => !allowedTypes.includes(image.type as typeof allowedTypes[number]) || image.size <= 0 || image.size > 5 * 1024 * 1024)) { setError('أضف من صورة إلى خمس صور بصيغة JPG أو PNG أو WebP، وبحد 5 ميغابايت للصورة.'); setSaving(false); return; }
     try {
@@ -52,6 +53,7 @@ export default function SellProductPage() {
       <label className={styles.field}>الوصف<textarea rows={5} maxLength={2000} value={form.descriptionAr} onChange={(event) => setForm((value) => ({ ...value, descriptionAr: event.target.value }))}/></label>
       <div className={styles.formGrid}><label className={styles.field}>السعر<input type="number" min="1" step="0.01" value={form.price} required onChange={(event) => setForm((value) => ({ ...value, price: event.target.value }))}/></label><label className={styles.field}>العملة<select value={form.currency} onChange={(event) => setForm((value) => ({ ...value, currency: event.target.value }))}><option value="SYP">ليرة سورية</option><option value="USD">دولار أمريكي</option></select></label></div>
       <div className={styles.formGrid}><label className={styles.field}>تصنيف المنتج<select value={form.categoryCode} disabled={categoryLoading || !!categoryError} required onChange={(event) => setForm((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">اختر تخصصًا دقيقًا</option><CategorySelectOptions categories={categories} allowRoots={false}/></select></label><label className={styles.field}>التوفر<select value={form.availability} onChange={(event) => setForm((value) => ({ ...value, availability: event.target.value }))}><option value="in_stock">متوفر</option><option value="made_to_order">حسب الطلب</option><option value="out_of_stock">غير متوفر</option></select></label></div>
+      {businesses.find((business) => business.id === form.businessProfileId)?.categoryCode === 'pharmacy' && <Surface><h3>ضوابط الصيدلية</h3><label><input type="checkbox" checked={form.requiresPrescription} onChange={(event) => setForm((value) => ({ ...value, requiresPrescription: event.target.checked }))}/> يحتاج وصفة ومراجعة صيدلي قبل التأكيد</label><label><input type="checkbox" checked={form.controlledItem} onChange={(event) => setForm((value) => ({ ...value, controlledItem: event.target.checked }))}/> دواء أو مادة مقيدة — يمنع النظام نشرها وطلبها</label></Surface>}
       <label className={styles.field}>صور الإعلان — حتى 5 صور<input name="productImage" type="file" accept="image/jpeg,image/png,image/webp" multiple required/></label>
       <p className={styles.notice}>الصورة الأولى هي الرئيسية. تُعرض الصور كاملة دون قص، ولا ينشئ النشر طلبًا أو دفعة. استخدمت {listingUsage.count.toLocaleString('ar-SY')} من {listingUsage.limit.toLocaleString('ar-SY')} إعلانًا.</p>
       <ActionButton type="submit" disabled={saving || categoryLoading}>{saving ? 'جارٍ التحقق والنشر…' : 'تحقق وانشر الإعلان'}</ActionButton>

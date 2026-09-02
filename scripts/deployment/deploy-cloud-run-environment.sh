@@ -45,8 +45,15 @@ if [[ "$environment" == "preview" ]]; then
     --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
     --set-env-vars="DEPLOYMENT_ENVIRONMENT=preview,EXPECTED_PREVIEW_DATABASE=khedmah_preview" \
     --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
-  gcloud run jobs execute "$migration_job" \
-    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait
+  if ! gcloud run jobs execute "$migration_job" \
+    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait; then
+    echo 'Preview migration failed; printing the bounded migration-job logs.' >&2
+    gcloud logging read \
+      "resource.type=cloud_run_job AND resource.labels.job_name=${migration_job}" \
+      --project "$GOOGLE_CLOUD_PROJECT" --freshness=20m --limit=100 \
+      --format='value(timestamp,severity,textPayload,jsonPayload.message)' >&2 || true
+    exit 6
+  fi
 else
   gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config" \
     --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"

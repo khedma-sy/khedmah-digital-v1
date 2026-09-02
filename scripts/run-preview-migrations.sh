@@ -72,17 +72,26 @@ SELECT (to_regclass(current_schema() || '.mobility_requests') IS NOT NULL) AS mo
   \ir /migrations/025_mobility_requests.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.fulfillment_orders') IS NOT NULL) AS fulfillment_ready \gset
+\if :fulfillment_ready
+\else
+  \ir /migrations/026_cash_fulfillment_orders.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
     OR to_regclass(current_schema() || '.mobility_requests') IS NULL
+    OR to_regclass(current_schema() || '.fulfillment_orders') IS NULL
+    OR to_regclass(current_schema() || '.fulfillment_order_ratings') IS NULL
+    OR to_regclass(current_schema() || '.fulfillment_order_location_updates') IS NULL
     OR to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_025_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_026_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_025_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_026_READY'
