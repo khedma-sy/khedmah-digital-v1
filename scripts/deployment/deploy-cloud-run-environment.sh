@@ -79,20 +79,13 @@ backend_deploy_args=(
 if [[ "$environment" == "preview" ]]; then
   backend_deploy_args+=(
     --add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
-    --set-secrets="DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest"
+    --set-secrets="DATABASE_URL=DATABASE_URL:latest"
   )
 fi
 "${backend_deploy_args[@]}"
 backend_url="$(gcloud run services describe "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 
 if [[ "$environment" == "preview" ]]; then
-  role_binding_secret="$(gcloud run services describe "$backend_service" \
-    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
-    | python3 -c 'import json,sys; data=json.load(sys.stdin); containers=data.get("spec",{}).get("template",{}).get("spec",{}).get("containers",[]) or [{}]; env=containers[0].get("env",[]); item=next((value for value in env if value.get("name")=="OPERATIONS_PRODUCT_ROLE_BINDINGS"),{}); legacy=item.get("valueFrom",{}).get("secretKeyRef",{}).get("name",""); current=item.get("valueSource",{}).get("secretKeyRef",{}).get("secret",""); print(legacy or current)')"
-  [[ "$role_binding_secret" == "OPERATIONS_PRODUCT_ROLE_BINDINGS" ]] || {
-    echo 'Preview backend is missing the governed admin role binding secret.' >&2
-    exit 5
-  }
   [[ "$backend_url" == https://*run.app ]] || { echo 'Preview backend URL is not a Cloud Run URL.' >&2; exit 5; }
   gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config" \
     --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag},_NEXT_PUBLIC_API_URL=${backend_url}"
