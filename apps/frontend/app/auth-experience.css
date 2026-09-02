@@ -1,4 +1,5 @@
-body:has(.auth-experience) .khedma-header { display:none; }
+body:has(.auth-experience) .khedma-header,
+body:has(.auth-experience) .launch-campaign { display:none; }
 
 .auth-experience {
   position:relative;
