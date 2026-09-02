@@ -11,4 +11,9 @@ for component in backend frontend; do
     gcloud run services delete "$service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --quiet
   fi
 done
-echo "Preview services for PR ${pr_number} removed."
+migration_job="khedmah-pr-${pr_number}-migration"
+existing_job="$(gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --filter="metadata.name=${migration_job}" --format='value(metadata.name)')"
+if [[ "$existing_job" == "$migration_job" ]]; then
+  gcloud run jobs delete "$migration_job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --quiet
+fi
+echo "Preview resources for PR ${pr_number} removed."

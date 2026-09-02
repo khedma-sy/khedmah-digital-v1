@@ -2,8 +2,10 @@ FROM postgres:16-alpine
 
 COPY backend/migrations/versions /migrations
 COPY scripts/run-production-migration.sh /usr/local/bin/run-production-migration
+COPY scripts/run-preview-migrations.sh /usr/local/bin/run-preview-migrations
 
 RUN chmod 0555 /usr/local/bin/run-production-migration \
+    && chmod 0555 /usr/local/bin/run-preview-migrations \
     && chmod -R a-w /migrations
 
 USER postgres

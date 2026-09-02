@@ -47,4 +47,20 @@ test('preview jobs are time-bounded and cleanup never hides cloud deletion failu
   assert.doesNotMatch(cleanup, /\|\| true/);
   assert.match(cleanup, /gcloud run services list/);
   assert.match(cleanup, /gcloud run services delete/);
+  assert.match(cleanup, /gcloud run jobs delete/);
+});
+
+test('preview initializes only its isolated database before backend deployment', () => {
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  const runner = readFileSync('scripts/run-preview-migrations.sh', 'utf8');
+  const image = readFileSync('Dockerfile.migrations', 'utf8');
+  assert.match(deployment, /run-preview-migrations/);
+  assert.match(deployment, /EXPECTED_PREVIEW_DATABASE=khedmah_preview/);
+  assert.match(deployment, /gcloud run jobs execute/);
+  assert.match(runner, /DEPLOYMENT_ENVIRONMENT.*preview/);
+  assert.match(runner, /current_database\(\)/);
+  assert.match(runner, /pg_advisory_xact_lock/);
+  assert.match(runner, /PREVIEW_SCHEMA_PARTIAL_REQUIRES_MANUAL_REPAIR/);
+  assert.match(runner, /024_product_store\.sql/);
+  assert.match(image, /run-preview-migrations/);
 });
