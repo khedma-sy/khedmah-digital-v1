@@ -11,6 +11,7 @@ function DiscoveryLinks({ pathname }: { pathname: string }) {
     { href: '/search', label: 'اكتشف', active: pathname === '/search' },
     { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
     { href: '/map', label: 'بالقرب مني', active: pathname === '/map' },
+    { href: '/restaurants', label: 'اطلب طعام', active: pathname.startsWith('/restaurants') },
     { href: '/mobility', label: 'تاكسي وتوصيل', active: pathname === '/mobility' },
     { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/store') || pathname === '/classifieds' }
   ];

@@ -4,7 +4,7 @@ import { ProductService } from './product.service';
 @Controller('products')
 export class ProductController {
   constructor(@Inject(ProductService) private readonly products: ProductService) {}
-  @Get() async list(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('cityCode') cityCode?: string) { return { products: await this.products.listPublic({ q, categoryCode, cityCode }) }; }
+  @Get() async list(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('cityCode') cityCode?: string, @Query('businessProfileId') businessProfileId?: string) { return { products: await this.products.listPublic({ q, categoryCode, cityCode, businessProfileId }) }; }
   @Get('mine') async mine(@Headers('cookie') cookie: string | undefined) { const products = await this.products.listMine(cookie); return { products, count: products.filter((product) => product.status !== 'inactive').length, limit: this.products.listingLimitPerUser() }; }
   @Post() async create(@Headers('cookie') cookie: string | undefined, @Body() body: Record<string, unknown>) { return { product: await this.products.create(cookie, body) }; }
   @Patch(':id') async update(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: Record<string, unknown>) { return { product: await this.products.update(cookie, id, body) }; }

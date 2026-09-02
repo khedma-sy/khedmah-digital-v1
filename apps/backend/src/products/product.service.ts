@@ -53,7 +53,7 @@ export class ProductService {
 
   listingLimitPerUser() { return productLimitPerUser(); }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<PublicProductListing[]> {
+  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<PublicProductListing[]> {
     return (await this.repository.listPublic(filters)).map(toPublicProduct);
   }
 

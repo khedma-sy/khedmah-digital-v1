@@ -47,6 +47,13 @@ if [[ "$environment" == "preview" ]]; then
     --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
   if ! gcloud run jobs execute "$migration_job" \
     --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait; then
+    latest_execution="$(gcloud run jobs executions list --job "$migration_job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --limit=1 --format='value(metadata.name)' 2>/dev/null || true)"
+    if [[ -n "$latest_execution" ]]; then
+      echo "Preview migration execution status: ${latest_execution}" >&2
+      gcloud run jobs executions describe "$latest_execution" \
+        --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+        --format='yaml(status.conditions,status.failedCount,status.logUri)' >&2 || true
+    fi
     echo 'Preview migration failed; printing the bounded migration-job logs.' >&2
     gcloud logging read \
       "resource.type=cloud_run_job AND resource.labels.job_name=${migration_job}" \

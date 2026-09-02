@@ -29,7 +29,8 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly updated_at: Date;
   readonly service_radius?: string;
   readonly availability?: string;
-  readonly rating?: string;
+  readonly rating?: string | null;
+  readonly rating_count?: string;
   readonly response_speed_minutes?: number;
 }
 
@@ -103,7 +104,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE id = $1
@@ -122,7 +124,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE owner_user_id = $1
@@ -141,7 +144,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE moderation_status = 'pending'
@@ -160,7 +164,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        ${where}
@@ -180,7 +185,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active'
@@ -201,7 +207,8 @@ export class BusinessProfileRepository {
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
-              to_jsonb(b)->>'rating' AS rating,
+              (SELECT ROUND(AVG(r.score)::numeric, 2)::text FROM fulfillment_order_ratings r WHERE r.target_business_id = b.id AND r.target_type = 'merchant') AS rating,
+              (SELECT COUNT(*)::text FROM fulfillment_order_ratings rc WHERE rc.target_business_id = b.id AND rc.target_type = 'merchant') AS rating_count,
               to_jsonb(b)->>'response_speed_minutes' AS response_speed_minutes
        FROM business_profiles b
        WHERE visibility = 'public' AND moderation_status = 'approved' AND trust_status = 'approved' AND status = 'active'
@@ -481,7 +488,8 @@ export class BusinessProfileRepository {
       updatedAt: row.updated_at.toISOString(),
       serviceRadius: Number(row.service_radius ?? 25),
       availability: (row.availability ?? 'available') as BusinessProfile['availability'],
-      rating: Number(row.rating ?? 0),
+      rating: row.rating == null ? undefined : Number(row.rating),
+      ratingCount: Number(row.rating_count ?? 0),
       responseSpeedMinutes: Number(row.response_speed_minutes ?? 1440)
     };
   }

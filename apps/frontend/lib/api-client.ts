@@ -103,6 +103,7 @@ export interface PublicBusinessProfile {
   readonly serviceRadius?: number;
   readonly availability?: 'available' | 'busy' | 'unavailable';
   readonly rating?: number;
+  readonly ratingCount?: number;
   readonly responseSpeedMinutes?: number;
   readonly distanceKm?: number;
   readonly matchScore?: number;
@@ -667,13 +668,15 @@ export const api = {
   },
   products: {
     list(
-      filters: { q?: string; categoryCode?: string; cityCode?: string } = {},
+      filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string } = {},
     ) {
       const params = new URLSearchParams();
       if (filters.q) params.set('q', filters.q);
       if (filters.categoryCode)
         params.set('categoryCode', filters.categoryCode);
       if (filters.cityCode) params.set('cityCode', filters.cityCode);
+      if (filters.businessProfileId)
+        params.set('businessProfileId', filters.businessProfileId);
       return request<{ products: ProductListing[] }>(
         `/products${params.size ? `?${params}` : ''}`,
       );

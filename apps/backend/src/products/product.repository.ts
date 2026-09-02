@@ -83,7 +83,7 @@ export class ProductRepository {
     return rows.map(map);
   }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<ProductListing[]> {
+  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<ProductListing[]> {
     const clauses = ["p.status='active'", "p.moderation_status='approved'", "b.visibility='public'", "b.moderation_status='approved'", "b.trust_status='approved'", "b.status='active'"];
     const params: unknown[] = [];
     if (filters.q) {
@@ -95,6 +95,7 @@ export class ProductRepository {
       clauses.push(`p.category_code IN (WITH RECURSIVE category_tree AS (SELECT code FROM categories WHERE code=$${params.length} AND status='active' UNION ALL SELECT child.code FROM categories child JOIN category_tree parent ON child.parent_code=parent.code WHERE child.status='active') SELECT code FROM category_tree)`);
     }
     if (filters.cityCode) { params.push(filters.cityCode); clauses.push(`b.city_code=$${params.length}`); }
+    if (filters.businessProfileId) { params.push(filters.businessProfileId); clauses.push(`p.business_profile_id=$${params.length}`); }
     return (await this.db.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE ${clauses.join(' AND ')} ORDER BY p.created_at DESC LIMIT 100`, params)).map(map);
   }
 

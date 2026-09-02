@@ -43,6 +43,7 @@ export async function createBackendApp() {
   app.use('/api/v1/analytics/events', createRateLimitMiddleware(rateLimitRepository, 'analytics.events', publicWindowMs, publicMax));
   app.use('/api/v1/mobility/requests', createRateLimitMiddleware(rateLimitRepository, 'mobility.requests', publicWindowMs, publicMax));
   app.use('/api/v1/orders', createRateLimitMiddleware(rateLimitRepository, 'orders', publicWindowMs, publicMax));
+  app.use('/api/v1/products', createRateLimitMiddleware(rateLimitRepository, 'products', publicWindowMs, publicMax));
   app.use('/api/v1/contact', createRateLimitMiddleware(rateLimitRepository, 'contact', publicWindowMs, publicMax));
   app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));
   app.use('/api/v1/professional-profiles', createRateLimitMiddleware(rateLimitRepository, 'professional-profiles', publicWindowMs, publicMax));

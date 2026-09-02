@@ -16,6 +16,7 @@ import styles from './public-profile.module.css';
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const priceType = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
+const FOOD_ORDER_CATEGORIES = new Set(['restaurant', 'cafe', 'bakery', 'sweets', 'catering', 'juice_icecream']);
 
 export default function BusinessProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -119,6 +120,7 @@ export default function BusinessProfilePage() {
           <div className={styles.badges}><span className={styles.badge}><PlatformIcon name="check" size={15}/>{business.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span>{business.visibility === 'public' && <span className={`${styles.badge} ${styles.badgeMuted}`}>منشور</span>}</div>
         </div>
         <div className={styles.actions}>
+          {FOOD_ORDER_CATEGORIES.has(business.categoryCode) && <ActionLink href={`/restaurants/${business.id}`}>عرض قائمة الطعام والطلب</ActionLink>}
           {business.visibility === 'public' && business.trustStatus === 'approved' && <ContactInquiryForm target={{ type: 'business', id: business.id }} providerName={business.name} />}
           {business.phone && <a className="ui-action ui-action-secondary" href={`tel:${business.phone}`}><PlatformIcon name="phone" size={17}/> اتصال</a>}
           <ActionButton type="button" variant="secondary" onClick={() => router.back()}><PlatformIcon name="arrow" size={17}/> رجوع</ActionButton>
