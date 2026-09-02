@@ -57,9 +57,9 @@ test('active selectors use shared Locations client without local city arrays', a
 
 test('governorate discovery links emit cityCode and never resurrect location alias', async () => {
   const [legacyPage, map] = await Promise.all([
-    read('../app/locations/[slug]/page.tsx'), read('../app/components/syria-map.tsx')
+    read('../app/locations/[slug]/page.tsx'), read('../app/map/page.tsx')
   ]);
   assert.match(legacyPage, /redirect\(`\/search\?cityCode=/);
-  assert.match(map, /router\.push\(`\/search\?cityCode=/);
-  assert.doesNotMatch(`${legacyPage}\n${map}`, /name="location"|search\?location=|serviceCategories/);
+  assert.match(map, /map: true/);
+  assert.doesNotMatch(`${legacyPage}\n${map}`, /name="location"|search\?location=|serviceCategories|SyriaMap/);
 });
