@@ -21,7 +21,8 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(store, /aria-label="البحث في الإعلانات"/);
   assert.match(store, /إعلان مطابق/);
   assert.match(store, /التفاصيل والتواصل/);
-  assert.match(store, /لن نعرض منتجات وهمية/);
+  assert.match(store, /لم تُنشر منتجات معتمدة بعد/);
+  assert.match(store, /عرض جميع المنتجات/);
   assert.match(store, /retryCategories/);
   assert.match(store, /retryCities/);
   assert.match(sell, /api\.businesses\.listMine/);
