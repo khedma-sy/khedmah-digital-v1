@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'technology' | 'construction' | 'events' | 'agriculture' | 'industry' | 'travel';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'technology' | 'construction' | 'events' | 'agriculture' | 'industry' | 'travel' | 'microphone' | 'sparkles' | 'tag' | 'storefront' | 'delivery' | 'compass';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -33,6 +33,12 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   ,agriculture: <><path d="M12 21V9M12 13c-5 0-8-3-8-8 5 0 8 3 8 8ZM12 17c5 0 8-3 8-8-5 0-8 3-8 8Z"/></>
   ,industry: <><path d="M3 21V9l6 3V8l6 4V5h6v16H3Z"/><path d="M7 16h2M12 16h2M17 16h2"/></>
   ,travel: <><path d="M4 19h16M6 19l2-8h8l2 8M9 11V5a3 3 0 0 1 6 0v6"/><path d="M10 15h4"/></>
+  ,microphone: <><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></>
+  ,sparkles: <><path d="M12 3c1 3 3 5 6 6-3 1-5 3-6 6-1-3-3-5-6-6 3-1 5-3 6-6Z"/><path d="M19 15c.5 1.5 1.5 2.5 3 3-1.5.5-2.5 1.5-3 3-.5-1.5-1.5-2.5-3-3 1.5-.5 2.5-1.5 3-3Z"/></>
+  ,tag: <><path d="M20 13 13 20 4 11V4h7l9 9Z"/><circle cx="8.5" cy="8.5" r="1.25"/></>
+  ,storefront: <><path d="M4 10v10h16V10M3 10l2-6h14l2 6"/><path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M9 20v-6h6v6"/></>
+  ,delivery: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>
+  ,compass: <><circle cx="12" cy="12" r="9"/><path d="m15 9-2 4-4 2 2-4 4-2Z"/></>
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {
