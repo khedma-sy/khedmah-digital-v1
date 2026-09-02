@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, AdminContentGovernance, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
@@ -14,22 +14,24 @@ export default function ModerationPage() {
   const [rejectingEntity, setRejectingEntity] = useState<{ type: 'business' | 'professional'; id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [governance,setGovernance]=useState<AdminContentGovernance|null>(null);
   const messageFor = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
 
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const [{ businesses, professionals }, { products }, { reports }, { promotions }] = await Promise.all([
+      const [{ businesses, professionals }, { products }, { reports }, { promotions },{contentGovernance}] = await Promise.all([
         api.moderation.listPending(),
         api.adminProducts.pending(),
         api.moderation.listReports(),
-        api.adminPromotions.pending()
+        api.adminPromotions.pending(),api.operationsProduct.contentGovernance()
       ]);
       setBusinesses(businesses);
       setProfessionals(professionals);
       setProducts(products);
       setReports(reports);
       setPromotions(promotions);
+      setGovernance(contentGovernance);
       setError(null);
     } catch (err: unknown) {
       setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
@@ -115,6 +117,9 @@ export default function ModerationPage() {
   return (
     <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
       <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والعروض قبل إتاحتها للمستخدمين.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length + promotions.length} بانتظار المراجعة</span></header>
+
+      {governance?<section className="operations-summary" aria-label="سياسة المنتجات والعروض"><article><strong>{governance.productPolicy.listingLimitPerUser}</strong><span>حد الإعلانات لكل مستخدم</span></article><article><strong>{governance.products.pending}</strong><span>منتجات تحتاج مراجعة</span></article><article><strong>{governance.promotions.autoApprovedLast30Days}</strong><span>عروض قُبلت آليًا خلال 30 يومًا</span></article><article><strong>{governance.products.ownersAtLimit}</strong><span>مستخدمون بلغوا الحد</span></article></section>:null}
+      {governance?<section className="operations-panel"><div className="panel-heading"><h2>سياسة القبول الآلي</h2><span>مفعّلة</span></div><p>تُقبل المنتجات والعروض منخفضة المخاطر وفق الشروط الموضوعية. العناصر الدوائية المقيدة أو البائع غير المؤهل أو نقص الصورة تبقى للمراجعة البشرية، ولا ينفذ الأدمن الذكي رفضًا استثنائيًا بمفرده.</p></section>:null}
 
       <section className="operations-panel moderation-section" aria-labelledby="promotions-title"><div className="panel-heading"><h2 id="promotions-title">خصومات وعروض خدمة</h2><span>{promotions.length}</span></div>{promotions.length===0?<p className="moderation-empty">لا توجد عروض تحتاج مراجعة؛ العروض منخفضة المخاطر تُعتمد آليًا.</p>:<div className="moderation-list">{promotions.map(p=><article key={p.id} className="moderation-card"><div><h3>{p.titleAr}</h3><p>{p.businessName} · السعر {p.originalPrice.toLocaleString('ar-SY')} · الخصم {p.discountValue.toLocaleString('ar-SY')} {p.discountType==='percentage'?'٪':p.currency}</p><small>من {new Date(p.startsAt).toLocaleString('ar-SY')} إلى {new Date(p.endsAt).toLocaleString('ar-SY')}</small></div><div className="moderation-actions"><button disabled={actionLoading} onClick={()=>void reviewPromotion(p.id,'approved')} className="moderation-approve">اعتماد ونشر حي</button><button disabled={actionLoading} onClick={()=>void reviewPromotion(p.id,'rejected')} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
 

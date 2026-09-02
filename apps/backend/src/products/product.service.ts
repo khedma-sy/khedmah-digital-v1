@@ -9,13 +9,7 @@ import { ProductRepository } from './product.repository';
 import type { ProductListing, PublicProductListing } from './product.types';
 import { validateProductWrite } from './product.validation';
 import { evaluateProductAutoModeration } from './product-auto-moderation';
-
-const DEFAULT_PRODUCT_LIMIT_PER_USER = 20;
-
-function productLimitPerUser(): number {
-  const configured = Number.parseInt(process.env.PRODUCT_LISTING_LIMIT_PER_USER ?? '', 10);
-  return Number.isSafeInteger(configured) && configured > 0 && configured <= 1000 ? configured : DEFAULT_PRODUCT_LIMIT_PER_USER;
-}
+import { productLimitPerUser } from './product-policy';
 
 @Injectable()
 export class ProductService {
