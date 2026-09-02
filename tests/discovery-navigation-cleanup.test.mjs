@@ -44,7 +44,10 @@ test('retired visual layers cannot return as parallel homepage implementations',
     await assert.rejects(read(`apps/frontend/app/components/${retired}`));
   }
   await assert.rejects(read('apps/frontend/lib/brand-hero-image.ts'));
-  assert.doesNotMatch(`${home}\n${styles}`, /BrandHero|SyriaMap|umbrella-canopy|live-map-panel|hero-brand-lockup/);
+  assert.doesNotMatch(
+    `${home}\n${styles}`,
+    /BrandHero|SyriaMap|umbrella-canopy|live-map-panel|hero-brand-lockup|brand-dock|live-network|map-welcome|syria-map-welcome|catalog-phone|marketplace-map/
+  );
 });
 
 test('categories owns the canonical directory route and the old catalog redirects', async () => {
