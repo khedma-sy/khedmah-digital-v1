@@ -6,15 +6,24 @@ test "${DEPLOYMENT_ENVIRONMENT:-}" = 'preview' || {
   exit 2
 }
 test -n "${DATABASE_URL:-}"
+test -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" || {
+  echo 'ERROR: Preview migration runner requires CLOUD_SQL_INSTANCE_CONNECTION_NAME.' >&2
+  exit 2
+}
 readonly EXPECTED_DATABASE="${EXPECTED_PREVIEW_DATABASE:-khedmah_preview}"
+readonly PREVIEW_SOCKET_URI="%2Fcloudsql%2F${CLOUD_SQL_INSTANCE_CONNECTION_NAME}"
+case "$DATABASE_URL" in
+  *\?*) readonly PREVIEW_DATABASE_URL="${DATABASE_URL}&host=${PREVIEW_SOCKET_URI}" ;;
+  *) readonly PREVIEW_DATABASE_URL="${DATABASE_URL}?host=${PREVIEW_SOCKET_URI}" ;;
+esac
 
-actual_database="$(psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atqc 'SELECT current_database()')"
+actual_database="$(psql "$PREVIEW_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atqc 'SELECT current_database()')"
 test "$actual_database" = "$EXPECTED_DATABASE" || {
   echo "ERROR: Refusing preview migrations for unexpected database: ${actual_database}." >&2
   exit 3
 }
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+psql "$PREVIEW_DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-preview-schema-migration', 0));
 SELECT (to_regclass(current_schema() || '.product_listings') IS NOT NULL) AS schema_ready \gset
@@ -78,6 +87,12 @@ SELECT (to_regclass(current_schema() || '.fulfillment_orders') IS NOT NULL) AS f
   \ir /migrations/026_cash_fulfillment_orders.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.professional_service_requests') IS NOT NULL) AS professional_services_ready \gset
+\if :professional_services_ready
+\else
+  \ir /migrations/027_professional_service_marketplace.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
@@ -86,12 +101,15 @@ BEGIN
     OR to_regclass(current_schema() || '.fulfillment_order_ratings') IS NULL
     OR to_regclass(current_schema() || '.fulfillment_order_location_updates') IS NULL
     OR to_regclass(current_schema() || '.category_taxonomy_022_before_image') IS NULL
+    OR to_regclass(current_schema() || '.professional_service_requests') IS NULL
+    OR to_regclass(current_schema() || '.professional_service_offers') IS NULL
+    OR to_regclass(current_schema() || '.professional_service_warranties') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_026_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_027_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_026_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_027_READY'

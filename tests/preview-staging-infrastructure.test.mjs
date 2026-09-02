@@ -56,6 +56,7 @@ test('preview initializes only its isolated database before backend deployment',
   const image = readFileSync('Dockerfile.migrations', 'utf8');
   assert.match(deployment, /run-preview-migrations/);
   assert.match(deployment, /EXPECTED_PREVIEW_DATABASE=khedmah_preview/);
+  assert.match(deployment, /CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$\{CLOUD_SQL_INSTANCE_CONNECTION_NAME\}/);
   assert.match(deployment, /gcloud run jobs execute/);
   assert.match(runner, /DEPLOYMENT_ENVIRONMENT.*preview/);
   assert.match(runner, /current_database\(\)/);
@@ -64,5 +65,9 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(runner, /024_product_store\.sql/);
   assert.match(runner, /025_mobility_requests\.sql/);
   assert.match(runner, /026_cash_fulfillment_orders\.sql/);
+  assert.match(runner, /027_professional_service_marketplace\.sql/);
+  assert.match(runner, /PREVIEW_SOCKET_URI="%2Fcloudsql%2F\$\{CLOUD_SQL_INSTANCE_CONNECTION_NAME\}"/);
+  assert.match(runner, /PREVIEW_DATABASE_URL=.*host=\$\{PREVIEW_SOCKET_URI\}/);
+  assert.match(runner, /PREVIEW_SCHEMA_027_READY/);
   assert.match(image, /run-preview-migrations/);
 });

@@ -43,7 +43,7 @@ if [[ "$environment" == "preview" ]]; then
     --service-account "$RUNTIME_SERVICE_ACCOUNT" \
     --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
     --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
-    --set-env-vars="DEPLOYMENT_ENVIRONMENT=preview,EXPECTED_PREVIEW_DATABASE=khedmah_preview" \
+    --set-env-vars="DEPLOYMENT_ENVIRONMENT=preview,EXPECTED_PREVIEW_DATABASE=khedmah_preview,CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME}" \
     --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
   if ! gcloud run jobs execute "$migration_job" \
     --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait; then
