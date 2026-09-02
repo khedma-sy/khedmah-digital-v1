@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import type { AdvertisingPolicy } from '../products/product-policy';
 import { OperationsAuditRecord, OperationsChange } from './operations-product.types';
 
 export type IncidentStatus = 'open' | 'in_progress' | 'verification' | 'resolved';
@@ -75,7 +76,7 @@ export class OperationsProductRepository {
     const row=rows[0]??{};const number=(key:string)=>Number(row[key]??0);
     return{generatedAt:new Date().toISOString(),privacy:{aggregatedOnly:true,personalDataExposed:false},users:{total:number('users_total'),active:number('users_active'),suspended:number('users_suspended')},businesses:{total:number('businesses_total'),live:number('businesses_live'),pending:number('businesses_pending')},professionals:{total:number('professionals_total'),live:number('professionals_live')},products:{total:number('products_total'),live:number('products_live')},orders:{total:number('orders_total'),active:number('orders_active'),delivered:number('orders_delivered')},mobility:{total:number('mobility_total'),active:number('mobility_active')},professionalJobs:{total:number('jobs_total'),active:number('jobs_active')},incidents:{open:number('incidents_open')}};
   }
-  async contentGovernance(productLimit:number){
+  async contentGovernance(policy:AdvertisingPolicy){
     const rows=await this.db.query<any>(`SELECT
       (SELECT COUNT(*) FROM product_listings WHERE moderation_status='pending') products_pending,
       (SELECT COUNT(*) FROM product_listings WHERE moderation_status='approved') products_approved,
@@ -85,8 +86,8 @@ export class OperationsProductRepository {
       (SELECT COUNT(*) FROM promotions WHERE moderation_status='approved' AND status='active' AND starts_at<=NOW() AND ends_at>NOW()) promotions_live,
       (SELECT COUNT(*) FROM promotions WHERE moderation_status='rejected') promotions_rejected,
       (SELECT COUNT(*) FROM promotion_events WHERE event_type='auto_approved' AND created_at>=NOW()-INTERVAL '30 days') promotions_auto_approved_30d,
-      (SELECT COUNT(*) FROM promotion_claims WHERE status='redeemed') promotion_redemptions`,[productLimit]);const row=rows[0]??{},n=(key:string)=>Number(row[key]??0);
-    return{generatedAt:new Date().toISOString(),productPolicy:{listingLimitPerUser:productLimit,autoModerationEnabled:true,exceptionsRequireHumanReview:true},products:{pending:n('products_pending'),approved:n('products_approved'),rejected:n('products_rejected'),ownersAtLimit:n('owners_at_limit')},promotions:{pending:n('promotions_pending'),live:n('promotions_live'),rejected:n('promotions_rejected'),autoApprovedLast30Days:n('promotions_auto_approved_30d'),redemptions:n('promotion_redemptions')}};
+      (SELECT COUNT(*) FROM promotion_claims WHERE status='redeemed') promotion_redemptions`,[policy.listingLimitPerUser]);const row=rows[0]??{},n=(key:string)=>Number(row[key]??0);
+    return{generatedAt:new Date().toISOString(),productPolicy:{...policy,autoModerationEnabled:true,exceptionsRequireHumanReview:true},products:{pending:n('products_pending'),approved:n('products_approved'),rejected:n('products_rejected'),ownersAtLimit:n('owners_at_limit')},promotions:{pending:n('promotions_pending'),live:n('promotions_live'),rejected:n('promotions_rejected'),autoApprovedLast30Days:n('promotions_auto_approved_30d'),redemptions:n('promotion_redemptions')}};
   }
   audit(record: Omit<OperationsAuditRecord, 'id' | 'occurredAt'>) { this.audits.unshift({ ...record, id: randomUUID(), occurredAt: new Date().toISOString() }); }
   listAudit() { return [...this.audits]; }

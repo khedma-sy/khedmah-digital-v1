@@ -9,7 +9,7 @@ import { ProductRepository } from './product.repository';
 import type { ProductListing, PublicProductListing } from './product.types';
 import { validateProductWrite } from './product.validation';
 import { evaluateProductAutoModeration } from './product-auto-moderation';
-import { productLimitPerUser } from './product-policy';
+import { advertisingPolicy, productLimitPerUser } from './product-policy';
 
 @Injectable()
 export class ProductService {
@@ -46,6 +46,7 @@ export class ProductService {
   }
 
   listingLimitPerUser() { return productLimitPerUser(); }
+  advertisingPolicy() { return advertisingPolicy(); }
 
   async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<PublicProductListing[]> {
     return (await this.repository.listPublic(filters)).map(toPublicProduct);
