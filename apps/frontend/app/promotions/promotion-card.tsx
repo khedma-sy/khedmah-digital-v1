@@ -1,4 +1,4 @@
-'use client';
+'use client';
 import { useState } from 'react';
 import { api,KhedmahPromotion } from '../../lib/api-client';
 import { ActionButton,StatusMessage,Surface } from '../components/ui-primitives';
