@@ -1,10 +1,11 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
 import { LaunchCampaignBanner } from './components/launch-campaign-banner';
+import { MobileNavigation } from './components/mobile-navigation';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </header>
         <LaunchCampaignBanner />
         {children}
+        <MobileNavigation />
         <SmartAssistant />
       </body>
     </html>
