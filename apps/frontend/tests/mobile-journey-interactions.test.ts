@@ -59,7 +59,7 @@ test('catalog keeps specialties visible and empty results recoverable', async ()
   assert.match(catalog, /catalog-specialty-grid/);
   assert.match(catalog, /iconFor\(category\.visualKey\)/);
   assert.match(catalog, /توسيع البحث/);
-  assert.match(catalog, /البحث على الخريطة/);
+  assert.match(catalog, /فتح الخريطة/);
   assert.match(catalog, /تخصصات قريبة/);
   assert.match(catalog, /سجّل كمقدم خدمة/);
   assert.doesNotMatch(catalog, /catalog-category-icon"><PlatformIcon name="tools"/);
