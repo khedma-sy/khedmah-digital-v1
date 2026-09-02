@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type PublicBusinessProfile } from "../../lib/api-client";
 import {
   ActionLink,
+  ActionButton,
   EmptyState,
   PageHeader,
   PageShell,
@@ -23,9 +24,19 @@ const FOOD_CATEGORIES = [
   "juice_icecream",
 ];
 
+const FOOD_FILTERS = [
+  { code: "", label: "الكل" },
+  { code: "restaurant", label: "مطاعم" },
+  { code: "cafe", label: "مقاهٍ" },
+  { code: "bakery", label: "مخابز" },
+  { code: "sweets", label: "حلويات" },
+  { code: "juice_icecream", label: "عصائر وبوظة" },
+];
+
 export default function RestaurantsPage() {
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -66,13 +77,18 @@ export default function RestaurantsPage() {
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("ar");
-    if (!normalized) return businesses;
     return businesses.filter((business) =>
-      `${business.name} ${business.descriptionAr ?? ""} ${business.categoryNameAr ?? ""}`
+      (!category || business.categoryCode === category) &&
+      (!normalized || `${business.name} ${business.descriptionAr ?? ""} ${business.categoryNameAr ?? ""}`
         .toLocaleLowerCase("ar")
-        .includes(normalized),
+        .includes(normalized)),
     );
-  }, [businesses, query]);
+  }, [businesses, category, query]);
+
+  function resetFilters() {
+    setQuery("");
+    setCategory("");
+  }
 
   if (loading)
     return (
@@ -91,23 +107,30 @@ export default function RestaurantsPage() {
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
       <Surface className={styles.toolbar}>
         <label className={styles.field}>
-          ابحث عن مطعم أو نوع طعام
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="مثال: شاورما، حلويات، مخبز"
-          />
+          <span>ابحث عن مطعم أو نوع طعام</span>
+          <span className={styles.searchControl}>
+            <PlatformIcon name="search" size={20} />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="مثال: شاورما، حلويات، مخبز"
+            />
+          </span>
         </label>
-        <span>
+        <span className={styles.count} role="status" aria-live="polite">
           {visible.length.toLocaleString("ar-SY")} مطعمًا ونشاطًا غذائيًا
         </span>
+        <div className={styles.filters} aria-label="أنواع الطعام">
+          {FOOD_FILTERS.map((filter) => <button key={filter.code || "all"} type="button" onClick={() => setCategory(filter.code)} aria-pressed={category === filter.code}>{filter.label}</button>)}
+        </div>
       </Surface>
       {!visible.length ? (
         <EmptyState
           icon={<PlatformIcon name="search" size={32} />}
           title="لا توجد مطاعم مطابقة"
-          description="غيّر البحث أو عد لاحقًا بعد نشر قوائم الطعام."
+          description={businesses.length ? "امسح المرشحات أو اختر نوعًا آخر من الطعام." : "لم تُنشر قوائم طعام معتمدة في منطقتك بعد. يمكنك استكشاف الأنشطة أو تسجيل مطعمك."}
+          actions={<>{(query || category) ? <ActionButton type="button" variant="secondary" onClick={resetFilters}><PlatformIcon name="refresh" size={18}/>مسح المرشحات</ActionButton> : null}<ActionLink href="/search?categoryCode=restaurant" variant="secondary">استكشف الأنشطة</ActionLink><ActionLink href="/business-profiles/new">سجّل مطعمك</ActionLink></>}
         />
       ) : (
         <div className={styles.grid}>
