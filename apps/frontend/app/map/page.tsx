@@ -206,7 +206,7 @@ function MapDiscovery() {
       {mapStatus === 'error' && MAPS_KEY && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
-          <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} · ⭐ {provider.rating ?? 0} {provider.distanceKm !== undefined && `· ${provider.distanceKm} كم`}</p></div>
+          <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} {provider.rating !== undefined ? `· ★ ${provider.rating.toFixed(1)}` : ''} {provider.distanceKm !== undefined ? `· ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
           <ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=map`}>عرض النشاط</ActionLink>
         </Surface>)}
       </section>
