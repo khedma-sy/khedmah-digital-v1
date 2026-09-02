@@ -8,18 +8,17 @@ import { PlatformIcon } from './components/platform-icon';
 
 function DiscoveryLinks({ pathname }: { pathname: string }) {
   const links = [
-    { href: '/search', label: 'اكتشف', active: pathname === '/search' },
-    { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
-    { href: '/map', label: 'بالقرب مني', active: pathname === '/map' },
-    { href: '/restaurants', label: 'اطلب طعام', active: pathname.startsWith('/restaurants') },
-    { href: '/promotions', label: 'خصومات خدمة', active: pathname.startsWith('/promotions') },
-    { href: '/live', label: 'الحية', active: pathname === '/live' },
-    { href: '/mobility', label: 'تاكسي وتوصيل', active: pathname === '/mobility' },
-    { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/store') || pathname === '/classifieds' }
+    { href: '/search', label: 'اكتشف', icon: 'compass' as const, active: pathname === '/search' },
+    { href: '/categories', label: 'التصنيفات', icon: 'grid' as const, active: pathname === '/categories' },
+    { href: '/map', label: 'بالقرب مني', icon: 'pin' as const, active: pathname === '/map' },
+    { href: '/restaurants', label: 'اطلب طعام', icon: 'food' as const, active: pathname.startsWith('/restaurants') },
+    { href: '/classifieds', label: 'المتاجر', icon: 'storefront' as const, active: pathname.startsWith('/store') || pathname === '/classifieds' },
+    { href: '/mobility', label: 'النقل والتوصيل', icon: 'delivery' as const, active: pathname.startsWith('/mobility') },
+    { href: '/promotions', label: 'العروض', icon: 'tag' as const, active: pathname.startsWith('/promotions') || pathname === '/live' }
   ];
   return (
     <>
-      {links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}
+      {links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}><PlatformIcon name={link.icon} size={16}/><span>{link.label}</span></Link>)}
     </>
   );
 }
