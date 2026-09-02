@@ -13,6 +13,7 @@ jobs:
   quality-gates:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -59,6 +60,7 @@ jobs:
     if: github.event.action != 'closed'
     needs: quality-gates
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: preview
     outputs:
       frontend_url: ${{ steps.deploy.outputs.frontend_url }}
@@ -111,6 +113,7 @@ jobs:
     if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''
     needs: deploy-preview
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -150,6 +153,7 @@ jobs:
   cleanup-preview:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: preview
     steps:
       - uses: actions/checkout@v4
