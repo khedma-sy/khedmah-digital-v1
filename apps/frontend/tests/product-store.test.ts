@@ -1,12 +1,13 @@
-import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('store journey includes discovery, selling, owner management and public detail', async () => {
-  const [store, sell, manage, edit, detail, client] = await Promise.all([
+  const [store, categoryFilter, sell, manage, edit, detail, client] = await Promise.all([
     read('app/store/page.tsx'),
+    read('app/components/hierarchical-category-filter.tsx'),
     read('app/store/sell/page.tsx'),
     read('app/store/manage/page.tsx'),
     read('app/store/manage/[id]/edit/page.tsx'),
@@ -15,7 +16,10 @@ test('store journey includes discovery, selling, owner management and public det
   ]);
   assert.match(store, /api\.products\.list/);
   assert.match(store, /query\.get\('q'\)/);
-  assert.match(store, /كل التصنيفات/);
+  assert.match(store, /HierarchicalCategoryFilter/);
+  assert.match(categoryFilter, /كل المجالات/);
+  assert.match(categoryFilter, /اختر المجال أولًا/);
+  assert.match(categoryFilter, /category\.parentCode === rootCode/);
   assert.match(store, /كل المدن/);
   assert.match(store, /syncUrl\(filters\)/);
   assert.match(store, /aria-label="البحث في الإعلانات"/);
