@@ -9,6 +9,7 @@ export class OperationsProductController {
   @Get('users') async users(@Headers('cookie') cookie:string|undefined,@Query('q')query?:string){return{users:await this.service.listUsers(cookie,query??'')}}
   @Get('order-monitor') async orderMonitor(@Headers('cookie')cookie:string|undefined){return{orderMonitor:await this.service.orderMonitor(cookie)}}
   @Get('catalog-monitor') async catalogMonitor(@Headers('cookie')cookie:string|undefined){return{catalogMonitor:await this.service.catalogMonitor(cookie)}}
+  @Get('platform-metrics') async platformMetrics(@Headers('cookie')cookie:string|undefined){return{platformMetrics:await this.service.platformMetrics(cookie)}}
   @Patch('catalog/:code/status') async changeCategoryStatus(@Headers('cookie')cookie:string|undefined,@Param('code')code:string,@Body()body:ChangeCategoryStatusRequest){return{category:await this.service.changeCategoryStatus(cookie,code,body.status,body.reason)}}
   @Patch('users/:id/status') async changeUserStatus(@Headers('cookie')cookie:string|undefined,@Param('id')id:string,@Body()body:ChangeUserStatusRequest){return this.service.changeUserStatus(cookie,id,body.status,body.reason)}
   @Get('inventory') async inventory(@Headers('cookie') cookie: string | undefined) { return { resources: await this.service.inventory(cookie) }; }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, type OperationsProductOverview, type PublicUserProfile } from '../../lib/api-client';
+import { api, type AdminPlatformMetrics, type OperationsProductOverview, type PublicUserProfile } from '../../lib/api-client';
 
 const roleLabel = (role: string) => role === 'operations_product_director'
   ? 'مالك المنصة'
@@ -15,16 +15,18 @@ export default function AdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>(null);
   const [overview, setOverview] = useState<OperationsProductOverview | null>(null);
+  const [metrics,setMetrics]=useState<AdminPlatformMetrics|null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    void Promise.all([api.auth.session(), api.operationsProduct.overview()])
-      .then(([session, result]) => {
+    void Promise.all([api.auth.session(), api.operationsProduct.overview(),api.operationsProduct.platformMetrics()])
+      .then(([session, result,metricResult]) => {
         if (!active) return;
         setUser(session.user);
         setOverview(result.operationsProduct);
+        setMetrics(metricResult.platformMetrics);
       })
       .catch((cause) => {
         if (!active) return;
@@ -45,7 +47,7 @@ export default function AdminPage() {
     return <main id="foundation-content" className="operations-shell" aria-label="لوحة الإدارة" aria-busy="true"><section className="operations-panel"><p>جاري التحقق من صلاحية الإدارة…</p></section></main>;
   }
 
-  if (error || !user || !overview) {
+  if (error || !user || !overview || !metrics) {
     return <main id="foundation-content" className="operations-shell" aria-label="الوصول إلى الإدارة"><section className="operations-panel"><h1>لوحة الإدارة غير متاحة</h1><p className="form-error" role="alert">{error || 'تعذر فتح لوحة الإدارة.'}</p><Link href="/" className="foundation-action">العودة إلى الرئيسية</Link></section></main>;
   }
 
@@ -71,10 +73,19 @@ export default function AdminPage() {
     </nav>
 
     <section className="operations-summary" aria-label="ملخص الإدارة">
-      <article><strong>{user.profile.displayName}</strong><span>الحساب الإداري</span></article>
-      <article><strong>{overview.roles.length}</strong><span>الأدوار المعتمدة</span></article>
-      <article><strong>{overview.openIncidents}</strong><span>حوادث مفتوحة</span></article>
-      <article><strong>{overview.pendingChanges}</strong><span>تغييرات معلقة</span></article>
+      <article><strong>{metrics.users.active}</strong><span>مستخدمون نشطون من {metrics.users.total}</span></article>
+      <article><strong>{metrics.businesses.live}</strong><span>أنشطة حية من {metrics.businesses.total}</span></article>
+      <article><strong>{metrics.orders.active}</strong><span>طلبات توصيل نشطة</span></article>
+      <article><strong>{metrics.incidents.open}</strong><span>مشاكل تشغيلية مفتوحة</span></article>
+    </section>
+
+    <section className="operations-grid" aria-label="مؤشرات قطاعات المنصة">
+      <article className="operations-panel"><div className="panel-heading"><h2>المستخدمون</h2><span>{metrics.users.suspended} معلّق</span></div><p>{metrics.users.active} حسابًا نشطًا من أصل {metrics.users.total}.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الأنشطة والمهنيون</h2><span>{metrics.businesses.pending} قيد المراجعة</span></div><p>{metrics.businesses.live} نشاطًا و{metrics.professionals.live} مهنيًا ظاهرون حاليًا.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>متجر خدمة</h2><span>{metrics.products.live} حي</span></div><p>{metrics.products.total} منتجًا مسجلًا في المتجر.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الطعام والتوصيل</h2><span>{metrics.orders.active} نشط</span></div><p>{metrics.orders.delivered} طلبًا مكتمل التسليم من أصل {metrics.orders.total}.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التكسي والتنقل</h2><span>{metrics.mobility.active} نشط</span></div><p>{metrics.mobility.total} رحلة مسجلة ضمن دورة الطلب.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الخدمات المهنية</h2><span>{metrics.professionalJobs.active} نشط</span></div><p>{metrics.professionalJobs.total} طلب مشكلة وصيانة مسجل.</p></article>
     </section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">

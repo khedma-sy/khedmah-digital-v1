@@ -52,6 +52,29 @@ export class OperationsProductRepository {
     return this.db.transaction(async client=>{const locked=await client.query<any>(`SELECT code,status FROM categories WHERE code=$1 FOR UPDATE`,[input.code]);const current=locked.rows[0];if(!current)return undefined;if(current.status===input.status)throw new Error('CATEGORY_STATUS_UNCHANGED');if(input.status==='inactive'){const blockers=await client.query<any>(`SELECT (SELECT COUNT(*) FROM business_profiles WHERE category_code=$1 AND status='active' AND moderation_status='approved')+(SELECT COUNT(*) FROM service_listings WHERE category_code=$1 AND status='active')+(SELECT COUNT(*) FROM product_listings WHERE category_code=$1 AND status='active' AND moderation_status='approved')+(SELECT COUNT(*) FROM categories WHERE parent_code=$1 AND status='active') total`,[input.code]);if(Number(blockers.rows[0]?.total??0)>0)throw new Error('CATEGORY_HAS_LIVE_USAGE');}
       await client.query(`UPDATE categories SET status=$2,updated_at=NOW() WHERE code=$1`,[input.code,input.status]);await client.query(`INSERT INTO admin_catalog_actions(id,category_code,actor_user_id,action,reason,previous_status,new_status,request_id,correlation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),input.code,input.actorUserId,input.status==='active'?'activated':'deactivated',input.reason,current.status,input.status,input.requestId??null,input.correlationId??null]);return{code:input.code,previousStatus:current.status,status:input.status};});
   }
+  async platformMetrics(){
+    const rows=await this.db.query<any>(`SELECT
+      (SELECT COUNT(*) FROM core_user_accounts) users_total,
+      (SELECT COUNT(*) FROM core_user_accounts WHERE account_status='active') users_active,
+      (SELECT COUNT(*) FROM core_user_accounts WHERE account_status='suspended') users_suspended,
+      (SELECT COUNT(*) FROM business_profiles) businesses_total,
+      (SELECT COUNT(*) FROM business_profiles WHERE status='active' AND moderation_status='approved') businesses_live,
+      (SELECT COUNT(*) FROM business_profiles WHERE moderation_status='pending') businesses_pending,
+      (SELECT COUNT(*) FROM professional_profiles) professionals_total,
+      (SELECT COUNT(*) FROM professional_profiles WHERE lifecycle_status='active' AND moderation_status='approved') professionals_live,
+      (SELECT COUNT(*) FROM product_listings) products_total,
+      (SELECT COUNT(*) FROM product_listings WHERE status='active' AND moderation_status='approved') products_live,
+      (SELECT COUNT(*) FROM fulfillment_orders) orders_total,
+      (SELECT COUNT(*) FROM fulfillment_orders WHERE status NOT IN ('delivered','rejected','cancelled')) orders_active,
+      (SELECT COUNT(*) FROM fulfillment_orders WHERE status='delivered') orders_delivered,
+      (SELECT COUNT(*) FROM mobility_requests) mobility_total,
+      (SELECT COUNT(*) FROM mobility_requests WHERE status IN ('requested','accepted','en_route')) mobility_active,
+      (SELECT COUNT(*) FROM professional_service_requests) jobs_total,
+      (SELECT COUNT(*) FROM professional_service_requests WHERE status IN ('open','offer_selected','in_progress','completion_pending','disputed')) jobs_active,
+      (SELECT COUNT(*) FROM operations_incidents WHERE status<>'resolved') incidents_open`);
+    const row=rows[0]??{};const number=(key:string)=>Number(row[key]??0);
+    return{generatedAt:new Date().toISOString(),privacy:{aggregatedOnly:true,personalDataExposed:false},users:{total:number('users_total'),active:number('users_active'),suspended:number('users_suspended')},businesses:{total:number('businesses_total'),live:number('businesses_live'),pending:number('businesses_pending')},professionals:{total:number('professionals_total'),live:number('professionals_live')},products:{total:number('products_total'),live:number('products_live')},orders:{total:number('orders_total'),active:number('orders_active'),delivered:number('orders_delivered')},mobility:{total:number('mobility_total'),active:number('mobility_active')},professionalJobs:{total:number('jobs_total'),active:number('jobs_active')},incidents:{open:number('incidents_open')}};
+  }
   audit(record: Omit<OperationsAuditRecord, 'id' | 'occurredAt'>) { this.audits.unshift({ ...record, id: randomUUID(), occurredAt: new Date().toISOString() }); }
   listAudit() { return [...this.audits]; }
 }

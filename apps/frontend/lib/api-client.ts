@@ -56,6 +56,7 @@ export interface AdminUserSummary {
 export interface OperationsIncident { readonly id:string; readonly title:string; readonly summary:string; readonly category:string; readonly severity:'low'|'medium'|'high'|'critical'; readonly status:'open'|'in_progress'|'verification'|'resolved'; readonly reporterUserId:string; readonly assigneeUserId?:string; readonly resolutionNote?:string; readonly createdAt:string; readonly updatedAt:string; readonly resolvedAt?:string; }
 export interface AdminOrderMonitor { readonly generatedAt:string; readonly privacy:{contactDataExposed:false;addressExposed:false;coordinatesExposed:false}; readonly summary:{total:number;active:number;stale:number;unassigned:number;byStatus:Record<string,number>}; readonly orders:Array<{id:string;vertical:'food'|'grocery'|'pharmacy';status:string;paymentStatus:string;currency:string;total?:number;merchantName:string;courierName?:string;createdAt:string;updatedAt:string;latestLocationAt?:string;eventCount:number;stale:boolean}>; }
 export interface AdminCatalogMonitor { readonly summary:{total:number;active:number;inactive:number;used:number};readonly categories:Array<{code:string;nameAr:string;nameEn?:string;parentCode?:string;status:'active'|'inactive';isFeatured:boolean;sortOrder:number;businessCount:number;liveBusinessCount:number;serviceCount:number;liveServiceCount:number;productCount:number;liveProductCount:number;activeChildCount:number;canDeactivate:boolean}>; }
+export interface AdminPlatformMetrics {readonly generatedAt:string;readonly privacy:{aggregatedOnly:true;personalDataExposed:false};readonly users:{total:number;active:number;suspended:number};readonly businesses:{total:number;live:number;pending:number};readonly professionals:{total:number;live:number};readonly products:{total:number;live:number};readonly orders:{total:number;active:number;delivered:number};readonly mobility:{total:number;active:number};readonly professionalJobs:{total:number;active:number};readonly incidents:{open:number};}
 
 export interface SmartAdminReport {
   readonly generatedAt: string;
@@ -618,6 +619,7 @@ export const api = {
     orderMonitor(){return request<{orderMonitor:AdminOrderMonitor}>(`/admin/operations-product/order-monitor`);},
     catalogMonitor(){return request<{catalogMonitor:AdminCatalogMonitor}>(`/admin/operations-product/catalog-monitor`);},
     changeCategoryStatus(code:string,status:'active'|'inactive',reason:string){return request<{category:{code:string;previousStatus:string;status:string}}>(`/admin/operations-product/catalog/${encodeURIComponent(code)}/status`,{method:'PATCH',body:JSON.stringify({status,reason})});},
+    platformMetrics(){return request<{platformMetrics:AdminPlatformMetrics}>(`/admin/operations-product/platform-metrics`);},
   },
   analytics: {
     recordSearch(data: {
