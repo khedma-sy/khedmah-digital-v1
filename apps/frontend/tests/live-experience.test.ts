@@ -78,3 +78,14 @@ test('service discovery always leads to the real provider profile', async () => 
   assert.match(search, /عرض مقدم الخدمة/);
   assert.doesNotMatch(search, /[🔍🗺🟢🟡🔴]/u);
 });
+
+test('search cards compare only real provider trust and service facts', async () => {
+  const [search, map] = await Promise.all([read('app/search/page.tsx'), read('app/map/page.tsx')]);
+  assert.match(search, /item\.trustStatus === 'approved'/);
+  assert.match(search, /item\.rating !== undefined/);
+  assert.match(search, /item\.distanceKm !== undefined/);
+  assert.match(search, /responseLabel\(item\.responseSpeedMinutes\)/);
+  assert.match(search, /عرض الملف والتواصل/);
+  assert.match(search, /لن نعرض نتائج وهمية/);
+  assert.doesNotMatch(map, /provider\.rating \?\? 0/);
+});
