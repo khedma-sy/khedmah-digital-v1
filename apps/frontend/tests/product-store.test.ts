@@ -17,6 +17,13 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(store, /query\.get\('q'\)/);
   assert.match(store, /كل التصنيفات/);
   assert.match(store, /كل المدن/);
+  assert.match(store, /syncUrl\(filters\)/);
+  assert.match(store, /aria-label="البحث في الإعلانات"/);
+  assert.match(store, /إعلان مطابق/);
+  assert.match(store, /التفاصيل والتواصل/);
+  assert.match(store, /لن نعرض منتجات وهمية/);
+  assert.match(store, /retryCategories/);
+  assert.match(store, /retryCities/);
   assert.match(sell, /api\.businesses\.listMine/);
   assert.match(sell, /api\.products\.create/);
   assert.match(sell, /api\.media\.uploadProduct/);
