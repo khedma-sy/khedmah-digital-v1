@@ -35,7 +35,7 @@ export class ProductService {
       status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
     const limit = productLimitPerUser();
     if (!await this.repository.insertWithinOwnerLimit(product, limit)) {
-      throw new BadRequestException(`You have reached the limit of ${limit} product listings per user.`);
+      throw new BadRequestException(`لقد بلغت الحد المتاح وهو ${limit} إعلانات لكل مستخدم.`);
     }
     return product;
   }
@@ -66,7 +66,7 @@ export class ProductService {
     const updated: ProductListing = { ...product, titleAr: input.titleAr ?? product.titleAr,
       descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
-      availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
+      availability: input.availability ?? product.availability, status: product.status === 'inactive' ? 'inactive' : 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
     const governedUpdated: ProductListing = { ...updated, requiresPrescription: input.requiresPrescription ?? product.requiresPrescription, controlledItem: input.controlledItem ?? product.controlledItem };
     await this.repository.update(governedUpdated); return governedUpdated;
   }
@@ -82,7 +82,10 @@ export class ProductService {
     try { await this.categories.assertActiveCategory(product.categoryCode); } catch { categoryIsActive = false; }
     const decision = evaluateProductAutoModeration(product, business, categoryIsActive, hasPublicImage);
     const updated: ProductListing = { ...product, status: 'active', moderationStatus: decision.approved ? 'approved' : 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.updateWithAutoModerationAudit(updated, decision.approved);
+    const limit = productLimitPerUser();
+    if (!await this.repository.updateWithAutoModerationAudit(updated, decision.approved, limit)) {
+      throw new BadRequestException(`لا يمكن إعادة نشر الإعلان لأن الرصيد المتاح مكتمل (${limit} من ${limit}). ألغِ نشر إعلان آخر أولًا.`);
+    }
     return updated;
   }
 

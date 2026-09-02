@@ -42,6 +42,9 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(manage, /تعديل المنتج/);
   assert.match(manage, /api\.products\.deactivate/);
   assert.match(manage, /إلغاء نشر الإعلان/);
+  assert.match(manage, /تعديل وإعادة نشر/);
+  assert.match(manage, /لا يوجد رصيد لإعادة نشر هذا الإعلان/);
+  assert.match(manage, /product\.status === 'active' && product\.moderationStatus === 'approved'/);
   assert.match(edit, /api\.products\.update/);
   assert.match(edit, /api\.products\.submit/);
   assert.match(sell, /ينشر الإعلان المطابق تلقائيًا/);

@@ -56,8 +56,10 @@ export default function ManageProductsPage() {
         <strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
         {product.rejectionReason && <StatusMessage tone="danger">{product.rejectionReason}</StatusMessage>}
         <div className={styles.actions}>
-          <ActionLink href={`/store/manage/${product.id}/edit`} variant="secondary">تعديل المنتج</ActionLink>
-          {product.moderationStatus === 'approved' && <ActionLink href={`/store/products/${product.id}`}>عرض الصفحة العامة</ActionLink>}
+          {product.status !== 'inactive' || remaining > 0
+            ? <ActionLink href={`/store/manage/${product.id}/edit`} variant="secondary">{product.status === 'inactive' ? 'تعديل وإعادة نشر' : 'تعديل المنتج'}</ActionLink>
+            : <span className={styles.notice}>لا يوجد رصيد لإعادة نشر هذا الإعلان.</span>}
+          {product.status === 'active' && product.moderationStatus === 'approved' && <ActionLink href={`/store/products/${product.id}`}>عرض الصفحة العامة</ActionLink>}
           {product.status !== 'inactive' && <ActionButton type="button" variant="secondary" disabled={workingId === product.id} onClick={() => void deactivate(product)}>{workingId === product.id ? 'جارٍ الإلغاء…' : 'إلغاء نشر الإعلان'}</ActionButton>}
         </div>
       </Surface>)}
