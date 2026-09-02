@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
