@@ -20,9 +20,11 @@ test('migration 024 creates a moderated listing store without checkout or order 
 });
 
 test('public product reads fail closed when the seller business is not publicly eligible', async () => {
-  const [repository, service] = await Promise.all([
+  const [repository, service, validation, controller] = await Promise.all([
     read('apps/backend/src/products/product.repository.ts'),
-    read('apps/backend/src/products/product.service.ts')
+    read('apps/backend/src/products/product.service.ts'),
+    read('apps/backend/src/products/product.validation.ts'),
+    read('apps/backend/src/products/product.controller.ts')
   ]);
   for (const condition of [
     "b.visibility='public'",
@@ -39,6 +41,19 @@ test('public product reads fail closed when the seller business is not publicly 
   assert.match(service, /Seller business must be public, approved, trusted, and active/);
   assert.match(service, /security\.manage/);
   assert.match(service, /status !== 'approved' && status !== 'rejected'/);
+  assert.match(service, /validateProductPublicFilters/);
+  assert.match(validation, /currency is required for price filtering or sorting/);
+  assert.match(validation, /minPrice cannot exceed maxPrice/);
+  assert.match(validation, /sort is invalid/);
+  assert.match(controller, /@Query\('availability'\)/);
+  assert.match(controller, /@Query\('minPrice'\)/);
+  assert.match(controller, /@Query\('maxPrice'\)/);
+  assert.match(controller, /@Query\('sort'\)/);
+  assert.match(repository, /p\.availability=\$/);
+  assert.match(repository, /p\.currency=\$/);
+  assert.match(repository, /p\.price >= \$/);
+  assert.match(repository, /p\.price <= \$/);
+  assert.match(repository, /p\.price ASC, p\.created_at DESC/);
 });
 
 test('product image ownership and media type are enforced by the canonical media service', async () => {

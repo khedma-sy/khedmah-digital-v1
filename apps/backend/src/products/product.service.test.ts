@@ -3,6 +3,7 @@ import test from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { plannedAdvertisingPackages } from './product-policy';
+import { validateProductPublicFilters } from './product.validation';
 
 const validRequest = {
   businessProfileId: 'business-1', titleAr: 'منتج صالح', descriptionAr: 'وصف واضح وكاف للمنتج المعروض للبيع.',
@@ -100,4 +101,18 @@ test('editing an inactive listing keeps it outside the active quota until guarde
   const updated = await service.update(undefined, 'product-inactive', { titleAr: 'منتج معدل' });
   assert.equal(updated.status, 'inactive');
   assert.equal(savedStatus, 'inactive');
+});
+
+test('public listing filters validate one currency before price comparison and preserve an allowlisted sort', () => {
+  assert.deepEqual(validateProductPublicFilters({
+    q: '  أثاث  ', categoryCode: 'furniture', cityCode: 'damascus', availability: 'in_stock',
+    currency: 'SYP', minPrice: '100', maxPrice: '500', sort: 'price_asc'
+  }), {
+    q: 'أثاث', categoryCode: 'furniture', cityCode: 'damascus', businessProfileId: undefined,
+    availability: 'in_stock', currency: 'SYP', minPrice: 100, maxPrice: 500, sort: 'price_asc'
+  });
+  assert.throws(() => validateProductPublicFilters({ minPrice: '100' }), /currency is required/);
+  assert.throws(() => validateProductPublicFilters({ currency: 'SYP', minPrice: '900', maxPrice: '100' }), /minPrice cannot exceed maxPrice/);
+  assert.throws(() => validateProductPublicFilters({ sort: 'sponsored_first' }), /sort is invalid/);
+  assert.throws(() => validateProductPublicFilters({ cityCode: 'unsupported-city' }), /supported Syrian city/);
 });

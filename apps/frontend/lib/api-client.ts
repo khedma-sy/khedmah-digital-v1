@@ -743,7 +743,17 @@ export const api = {
   },
   products: {
     list(
-      filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string } = {},
+      filters: {
+        q?: string;
+        categoryCode?: string;
+        cityCode?: string;
+        businessProfileId?: string;
+        availability?: ProductListing['availability'];
+        currency?: ProductListing['currency'];
+        minPrice?: number;
+        maxPrice?: number;
+        sort?: 'newest' | 'price_asc' | 'price_desc';
+      } = {},
     ) {
       const params = new URLSearchParams();
       if (filters.q) params.set('q', filters.q);
@@ -752,6 +762,15 @@ export const api = {
       if (filters.cityCode) params.set('cityCode', filters.cityCode);
       if (filters.businessProfileId)
         params.set('businessProfileId', filters.businessProfileId);
+      if (filters.availability)
+        params.set('availability', filters.availability);
+      if (filters.currency) params.set('currency', filters.currency);
+      if (filters.minPrice !== undefined)
+        params.set('minPrice', String(filters.minPrice));
+      if (filters.maxPrice !== undefined)
+        params.set('maxPrice', String(filters.maxPrice));
+      if (filters.sort && filters.sort !== 'newest')
+        params.set('sort', filters.sort);
       return request<{ products: ProductListing[] }>(
         `/products${params.size ? `?${params}` : ''}`,
       );

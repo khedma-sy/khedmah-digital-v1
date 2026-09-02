@@ -10,61 +10,167 @@ import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGr
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './store.module.css';
 
-const availability = (value: ProductListing['availability']) => value === 'in_stock' ? 'متوفر' : value === 'made_to_order' ? 'حسب الطلب' : 'غير متوفر';
+type StoreCurrency = '' | ProductListing['currency'];
+type StoreAvailability = '' | ProductListing['availability'];
+type StoreSort = 'newest' | 'price_asc' | 'price_desc';
+type StoreFilters = {
+  q: string;
+  categoryCode: string;
+  cityCode: string;
+  availability: StoreAvailability;
+  currency: StoreCurrency;
+  minPrice: string;
+  maxPrice: string;
+  sort: StoreSort;
+};
+
+const EMPTY_FILTERS: StoreFilters = {
+  q: '', categoryCode: '', cityCode: '', availability: '', currency: '', minPrice: '', maxPrice: '', sort: 'newest'
+};
+
+const availabilityLabel = (value: ProductListing['availability']) => value === 'in_stock' ? 'متوفر' : value === 'made_to_order' ? 'حسب الطلب' : 'غير متوفر';
+const sortLabel = (value: StoreSort) => value === 'price_asc' ? 'السعر من الأقل' : value === 'price_desc' ? 'السعر من الأعلى' : 'الأحدث';
+const publishedAt = (value: string) => new Date(value).toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function StorePage() {
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
   const [products, setProducts] = useState<ProductListing[]>([]);
-  const [filters, setFilters] = useState({ q: '', categoryCode: '', cityCode: '' });
+  const [filters, setFilters] = useState<StoreFilters>(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  async function load(next = filters) {
+  async function load(next: StoreFilters) {
+    const filterError = validatePriceRange(next);
+    if (filterError) { setProducts([]); setError(filterError); setLoading(false); return; }
     setLoading(true); setError('');
-    try { setProducts((await api.products.list({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined })).products); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل المنتجات.'); }
-    finally { setLoading(false); }
+    try {
+      const response = await api.products.list({
+        q: next.q.trim() || undefined,
+        categoryCode: next.categoryCode || undefined,
+        cityCode: next.cityCode || undefined,
+        availability: next.availability || undefined,
+        currency: next.currency || undefined,
+        minPrice: next.minPrice === '' ? undefined : Number(next.minPrice),
+        maxPrice: next.maxPrice === '' ? undefined : Number(next.maxPrice),
+        sort: next.sort
+      });
+      setProducts(response.products);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'تعذر تحميل الإعلانات.');
+    } finally { setLoading(false); }
   }
-  function syncUrl(next: typeof filters) {
+
+  function syncUrl(next: StoreFilters) {
     const query = new URLSearchParams();
     if (next.q.trim()) query.set('q', next.q.trim());
     if (next.categoryCode) query.set('categoryCode', next.categoryCode);
     if (next.cityCode) query.set('cityCode', next.cityCode);
+    if (next.availability) query.set('availability', next.availability);
+    if (next.currency) query.set('currency', next.currency);
+    if (next.minPrice !== '') query.set('minPrice', next.minPrice);
+    if (next.maxPrice !== '') query.set('maxPrice', next.maxPrice);
+    if (next.sort !== 'newest') query.set('sort', next.sort);
     window.history.replaceState(null, '', query.size ? `/classifieds?${query}` : '/classifieds');
   }
+
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    const initial = {
-      q: query.get('q')?.trim() ?? '',
-      categoryCode: query.get('categoryCode')?.trim() ?? '',
-      cityCode: query.get('cityCode')?.trim() ?? ''
-    };
+    const initial = readFilters(new URLSearchParams(window.location.search));
     setFilters(initial);
     void load(initial);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
-  function search(event: FormEvent) { event.preventDefault(); syncUrl(filters); void load(filters); }
-  function clear() { const next = { q: '', categoryCode: '', cityCode: '' }; setFilters(next); syncUrl(next); void load(next); }
-  const hasFilters = Boolean(filters.q || filters.categoryCode || filters.cityCode);
+
+  function search(event: FormEvent) {
+    event.preventDefault();
+    const filterError = validatePriceRange(filters);
+    if (filterError) { setError(filterError); return; }
+    syncUrl(filters);
+    void load(filters);
+  }
+
+  function clear() {
+    setFilters(EMPTY_FILTERS);
+    syncUrl(EMPTY_FILTERS);
+    void load(EMPTY_FILTERS);
+  }
+
+  function changeCurrency(currency: StoreCurrency) {
+    setFilters((current) => currency ? { ...current, currency } : { ...current, currency: '', minPrice: '', maxPrice: '', sort: 'newest' });
+  }
+
+  const hasFilters = Boolean(filters.q || filters.categoryCode || filters.cityCode || filters.availability || filters.currency || filters.minPrice || filters.maxPrice || filters.sort !== 'newest');
 
   return <PageShell className={styles.page} label="الإعلانات المبوبة">
-    <PageHeader eyebrow="سوق الأنشطة المحلية" title="المتاجر والإعلانات" description="ابحث عن منتج حقيقي منشور من نشاط معتمد، ثم راجع التفاصيل وتواصل مباشرة مع البائع." actions={<><ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف منتجًا</ActionLink><ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink></>} />
+    <PageHeader eyebrow="الإعلانات المحلية الموثوقة" title="ماذا تبحث عنه اليوم؟" description="ابحث بين إعلانات منشورة من أنشطة معتمدة، وحدد المدينة والسعر والتوفر قبل التواصل المباشر مع البائع." actions={<><ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف إعلانك</ActionLink><ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink></>} />
     <Surface><form className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في الإعلانات" aria-busy={loading}>
-      <label className={styles.field}>ابحث عن منتج<input type="search" autoComplete="off" value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
-      <HierarchicalCategoryFilter categories={categories} value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(categoryCode) => setFilters((value) => ({ ...value, categoryCode }))}/>
-      <label className={styles.field}>المدينة<select value={filters.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
-      <div className={styles.toolbarActions}><ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}>مسح</ActionButton>}</div>
+      <div className={styles.primaryFilters}>
+        <label className={styles.field}>ابحث عن منتج<input type="search" autoComplete="off" value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: أثاث، هاتف، مواد بناء"/></label>
+        <HierarchicalCategoryFilter categories={categories} value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(categoryCode) => setFilters((value) => ({ ...value, categoryCode }))}/>
+        <label className={styles.field}>المدينة<select value={filters.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
+      </div>
+      <div className={styles.secondaryFilters} aria-label="مرشحات الإعلان والسعر">
+        <label className={styles.field}>التوفر<select value={filters.availability} onChange={(event) => setFilters((value) => ({ ...value, availability: event.target.value as StoreAvailability }))}><option value="">كل الحالات</option><option value="in_stock">متوفر</option><option value="made_to_order">حسب الطلب</option><option value="out_of_stock">غير متوفر</option></select></label>
+        <label className={styles.field}>العملة<select value={filters.currency} onChange={(event) => changeCurrency(event.target.value as StoreCurrency)}><option value="">كل العملات</option><option value="SYP">ليرة سورية</option><option value="USD">دولار أمريكي</option></select></label>
+        <label className={styles.field}>السعر من<input type="number" min="0" step="0.01" inputMode="decimal" value={filters.minPrice} disabled={!filters.currency} onChange={(event) => setFilters((value) => ({ ...value, minPrice: event.target.value }))} placeholder={filters.currency ? 'الحد الأدنى' : 'اختر العملة'}/></label>
+        <label className={styles.field}>السعر إلى<input type="number" min="0" step="0.01" inputMode="decimal" value={filters.maxPrice} disabled={!filters.currency} onChange={(event) => setFilters((value) => ({ ...value, maxPrice: event.target.value }))} placeholder={filters.currency ? 'الحد الأعلى' : 'اختر العملة'}/></label>
+        <label className={styles.field}>الترتيب<select value={filters.sort} onChange={(event) => setFilters((value) => ({ ...value, sort: event.target.value as StoreSort }))}><option value="newest">الأحدث</option><option value="price_asc" disabled={!filters.currency}>السعر: الأقل أولًا</option><option value="price_desc" disabled={!filters.currency}>السعر: الأعلى أولًا</option></select></label>
+      </div>
+      <div className={styles.toolbarActions}><ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'عرض النتائج'}</ActionButton>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={16}/>مسح المرشحات</ActionButton>}</div>
     </form></Surface>
     {categoriesError && <StatusMessage tone="warning">تعذر تحميل التصنيفات. <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></StatusMessage>}
     {citiesError && <StatusMessage tone="warning">تعذر تحميل المدن. <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
-    {loading ? <SkeletonGrid count={6} label="جاري تحميل المنتجات"/> : products.length ? <><p className={styles.summary} aria-live="polite">{products.length.toLocaleString('ar-SY')} إعلان مطابق</p><section className={styles.grid} aria-label="المنتجات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
+    {loading ? <SkeletonGrid count={6} label="جاري تحميل الإعلانات"/> : products.length ? <><p className={styles.summary} aria-live="polite">{products.length.toLocaleString('ar-SY')} إعلان مطابق · مرتبة حسب {sortLabel(filters.sort)}</p><section className={styles.grid} aria-label="الإعلانات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
       <Link className={styles.image} href={`/store/products/${product.id}`} aria-label={`عرض ${product.titleAr}`}>{product.imageUrl ? <img src={product.imageUrl} alt={`صورة ${product.titleAr}`}/> : <span aria-hidden="true">خ</span>}</Link>
-      <div className={styles.cardTop}><span className={styles.availability} data-available={product.availability === 'in_stock'}>{availability(product.availability)}</span><span>{product.businessName ?? 'نشاط على خدمة'}</span></div>
-      <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span></div>
+      <div className={styles.cardTop}><span className={styles.availability} data-available={product.availability === 'in_stock'}>{availabilityLabel(product.availability)}</span><span className={styles.verified}><PlatformIcon name="check" size={14}/>نشاط موثّق</span></div>
+      <p className={styles.seller}>{product.businessName ?? 'نشاط على خدمة'}</p>
+      <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span><time dateTime={product.createdAt}>نُشر {publishedAt(product.createdAt)}</time></div>
       <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
-      <ActionLink href={`/store/products/${product.id}`}>التفاصيل والتواصل</ActionLink>
-    </Surface>)}</section></> : <EmptyState icon={<PlatformIcon name="storefront" size={34}/>} title={hasFilters?'لا توجد منتجات بهذه المواصفات':'لم تُنشر منتجات معتمدة بعد'} description={hasFilters?'امسح بعض المرشحات أو وسّع المدينة للوصول إلى نتائج أكثر.':'ابدأ باستكشاف الأنشطة المحلية، أو كن أول صاحب نشاط ينشر منتجًا.'} actions={<>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع المنتجات</ActionButton>}<ActionLink href="/categories" variant="secondary">استكشف الأنشطة</ActionLink><ActionLink href="/store/sell">أضف منتجًا</ActionLink></>} />}
+      <ActionLink href={`/store/products/${product.id}`}>التفاصيل والتواصل <PlatformIcon name="arrow" size={16}/></ActionLink>
+    </Surface>)}</section></> : <EmptyState icon={<PlatformIcon name="storefront" size={34}/>} title={hasFilters ? 'لا توجد إعلانات بهذه المواصفات' : 'لم تُنشر إعلانات معتمدة بعد'} description={hasFilters ? 'امسح بعض المرشحات أو وسّع المدينة ونطاق السعر للوصول إلى نتائج أكثر.' : 'استكشف الأنشطة المحلية المنشورة ريثما تصل إعلانات جديدة.'} actions={<>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع الإعلانات</ActionButton>}<ActionLink href="/categories" variant="secondary">استكشف الأنشطة</ActionLink></>} />}
   </PageShell>;
+}
+
+function validatePriceRange(filters: StoreFilters): string {
+  if ((filters.minPrice !== '' || filters.maxPrice !== '' || filters.sort !== 'newest') && !filters.currency) return 'اختر العملة قبل تحديد السعر أو ترتيب النتائج حسبه.';
+  const min = filters.minPrice === '' ? undefined : Number(filters.minPrice);
+  const max = filters.maxPrice === '' ? undefined : Number(filters.maxPrice);
+  if (min !== undefined && (!Number.isFinite(min) || min < 0)) return 'الحد الأدنى للسعر غير صالح.';
+  if (max !== undefined && (!Number.isFinite(max) || max < 0)) return 'الحد الأعلى للسعر غير صالح.';
+  if (min !== undefined && max !== undefined && min > max) return 'يجب ألا يتجاوز الحد الأدنى الحد الأعلى للسعر.';
+  return '';
+}
+
+function readFilters(query: URLSearchParams): StoreFilters {
+  const currency = readCurrency(query.get('currency'));
+  const requestedSort = readSort(query.get('sort'));
+  return {
+    q: query.get('q')?.trim() ?? '',
+    categoryCode: query.get('categoryCode')?.trim() ?? '',
+    cityCode: query.get('cityCode')?.trim() ?? '',
+    availability: readAvailability(query.get('availability')),
+    currency,
+    minPrice: currency ? readPrice(query.get('minPrice')) : '',
+    maxPrice: currency ? readPrice(query.get('maxPrice')) : '',
+    sort: currency ? requestedSort : 'newest'
+  };
+}
+
+function readAvailability(value: string | null): StoreAvailability {
+  return value === 'in_stock' || value === 'out_of_stock' || value === 'made_to_order' ? value : '';
+}
+
+function readCurrency(value: string | null): StoreCurrency {
+  return value === 'SYP' || value === 'USD' ? value : '';
+}
+
+function readSort(value: string | null): StoreSort {
+  return value === 'price_asc' || value === 'price_desc' ? value : 'newest';
+}
+
+function readPrice(value: string | null): string {
+  if (!value) return '';
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 999999999999 ? String(parsed) : '';
 }

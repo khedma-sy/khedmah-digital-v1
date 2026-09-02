@@ -43,3 +43,19 @@ test('atomic submission guard updates and audits when a quota slot is available'
   assert.match(queries.join('\n'), /UPDATE product_listings/);
   assert.match(queries.join('\n'), /INSERT INTO audit_logs/);
 });
+
+test('public discovery applies price and availability filters with a fixed allowlisted order', async () => {
+  let query = '';
+  let params: unknown[] = [];
+  const database = {
+    query: async (sql: string, values: unknown[]) => { query = sql; params = values; return []; }
+  };
+  const repository = new ProductRepository(database as never);
+  assert.deepEqual(await repository.listPublic({ availability: 'in_stock', currency: 'SYP', minPrice: 100, maxPrice: 500, sort: 'price_asc' }), []);
+  assert.match(query, /p\.availability=\$1/);
+  assert.match(query, /p\.currency=\$2/);
+  assert.match(query, /p\.price >= \$3/);
+  assert.match(query, /p\.price <= \$4/);
+  assert.match(query, /ORDER BY p\.price ASC, p\.created_at DESC LIMIT 100/);
+  assert.deepEqual(params, ['in_stock', 'SYP', 100, 500]);
+});

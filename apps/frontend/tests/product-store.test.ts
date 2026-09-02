@@ -21,12 +21,21 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(categoryFilter, /اختر المجال أولًا/);
   assert.match(categoryFilter, /category\.parentCode === rootCode/);
   assert.match(store, /كل المدن/);
+  assert.match(store, /ماذا تبحث عنه اليوم؟/);
+  assert.match(store, /كل الحالات/);
+  assert.match(store, /كل العملات/);
+  assert.match(store, /السعر من/);
+  assert.match(store, /السعر إلى/);
+  assert.match(store, /price_asc/);
+  assert.match(store, /validatePriceRange/);
+  assert.match(store, /نشاط موثّق/);
+  assert.match(store, /dateTime=\{product\.createdAt\}/);
   assert.match(store, /syncUrl\(filters\)/);
   assert.match(store, /aria-label="البحث في الإعلانات"/);
   assert.match(store, /إعلان مطابق/);
   assert.match(store, /التفاصيل والتواصل/);
-  assert.match(store, /لم تُنشر منتجات معتمدة بعد/);
-  assert.match(store, /عرض جميع المنتجات/);
+  assert.match(store, /لم تُنشر إعلانات معتمدة بعد/);
+  assert.match(store, /عرض جميع الإعلانات/);
   assert.match(store, /retryCategories/);
   assert.match(store, /retryCities/);
   assert.match(sell, /api\.businesses\.listMine/);
@@ -57,6 +66,13 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(edit, /حذف واستبدال/);
   assert.match(detail, /https:\/\/wa\.me/);
   assert.match(detail, /navigator\.clipboard\.writeText/);
+  assert.match(detail, /نشاط موثّق/);
+  assert.match(detail, /dateTime=\{product\.createdAt\}/);
+  assert.match(client, /params\.set\('availability'/);
+  assert.match(client, /params\.set\('currency'/);
+  assert.match(client, /params\.set\('minPrice'/);
+  assert.match(client, /params\.set\('maxPrice'/);
+  assert.match(client, /params\.set\('sort'/);
   assert.match(client, /\/admin\/products\/pending/);
 });
 
@@ -67,7 +83,7 @@ test('store preserves complete product images and exposes navigation after login
     read('app/users/me/page.tsx'),
     read('app/admin/moderation/page.tsx')
   ]);
-  assert.match(styles, /object-fit:contain/);
+  assert.match(styles, /object-fit:\s*contain/);
   assert.match(navigation, /href: '\/classifieds'/);
   assert.match(account, /href="\/store\/sell"/);
   assert.match(account, /href="\/store\/manage"/);

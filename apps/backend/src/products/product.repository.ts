@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabasePool } from '../database/database.pool';
-import type { ProductListing } from './product.types';
+import type { ProductListing, PublicProductFilters } from './product.types';
 
 interface ProductRow extends Record<string, unknown> {
   id: string; business_profile_id: string; owner_user_id: string; title_ar: string; description_ar: string | null;
@@ -83,7 +83,7 @@ export class ProductRepository {
     return rows.map(map);
   }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<ProductListing[]> {
+  async listPublic(filters: PublicProductFilters): Promise<ProductListing[]> {
     const clauses = ["p.status='active'", "p.moderation_status='approved'", "b.visibility='public'", "b.moderation_status='approved'", "b.trust_status='approved'", "b.status='active'"];
     const params: unknown[] = [];
     if (filters.q) {
@@ -96,7 +96,16 @@ export class ProductRepository {
     }
     if (filters.cityCode) { params.push(filters.cityCode); clauses.push(`b.city_code=$${params.length}`); }
     if (filters.businessProfileId) { params.push(filters.businessProfileId); clauses.push(`p.business_profile_id=$${params.length}`); }
-    return (await this.db.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE ${clauses.join(' AND ')} ORDER BY p.created_at DESC LIMIT 100`, params)).map(map);
+    if (filters.availability) { params.push(filters.availability); clauses.push(`p.availability=$${params.length}`); }
+    if (filters.currency) { params.push(filters.currency); clauses.push(`p.currency=$${params.length}`); }
+    if (filters.minPrice !== undefined) { params.push(filters.minPrice); clauses.push(`p.price >= $${params.length}`); }
+    if (filters.maxPrice !== undefined) { params.push(filters.maxPrice); clauses.push(`p.price <= $${params.length}`); }
+    const orderBy = filters.sort === 'price_asc'
+      ? 'p.price ASC, p.created_at DESC'
+      : filters.sort === 'price_desc'
+        ? 'p.price DESC, p.created_at DESC'
+        : 'p.created_at DESC';
+    return (await this.db.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy} LIMIT 100`, params)).map(map);
   }
 
   async listPending(): Promise<ProductListing[]> {
