@@ -5,6 +5,7 @@ import { OperationsProductService } from './operations-product.service';
 export class OperationsProductController {
   constructor(@Inject(OperationsProductService) private readonly service: OperationsProductService) {}
   @Get('overview') async overview(@Headers('cookie') cookie: string | undefined) { return { operationsProduct: await this.service.overview(cookie) }; }
+  @Get('smart-admin-report') async smartAdminReport(@Headers('cookie') cookie: string | undefined) { return { smartAdminReport: await this.service.smartAdminReport(cookie) }; }
   @Get('inventory') async inventory(@Headers('cookie') cookie: string | undefined) { return { resources: await this.service.inventory(cookie) }; }
   @Get('history') async history(@Headers('cookie') cookie: string | undefined) { return this.service.histories(cookie); }
   @Post('changes') async requestChange(@Headers('cookie') cookie: string | undefined, @Body() body: CreateOperationsChangeRequest) { return { change: await this.service.requestChange(cookie, body) }; }
