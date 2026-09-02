@@ -1,5 +1,7 @@
 # Khedmah Canonical Backend Foundation
 
+Historical foundation name: **Khedmah Digital V1 Backend Foundation**.
+
 ## Current authority
 
 This tree is the canonical, framework-neutral domain and migration foundation.
