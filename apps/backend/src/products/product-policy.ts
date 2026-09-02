@@ -9,6 +9,28 @@ export interface AdvertisingPolicy {
   readonly paidPlansStatus: 'planned' | 'available';
 }
 
+export interface AdvertisingPackageBlueprint {
+  readonly code: 'business_10' | 'business_30' | 'business_100' | 'sponsored_7';
+  readonly kind: 'listing_bundle' | 'sponsored_add_on';
+  readonly nameAr: string;
+  readonly listingLimit: number | null;
+  readonly durationDays: number;
+  readonly price: null;
+  readonly currency: null;
+  readonly purchasable: false;
+  readonly placement: 'organic' | 'clearly_labelled_sponsored';
+  readonly featuresAr: readonly string[];
+}
+
+const PACKAGE_BLUEPRINTS: readonly AdvertisingPackageBlueprint[] = [
+  { code: 'business_10', kind: 'listing_bundle', nameAr: 'أعمال 10', listingLimit: 10, durationDays: 30, price: null, currency: null, purchasable: false, placement: 'organic', featuresAr: ['10 إعلانات نشطة', 'إدارة الصور والحالة', 'إحصاءات مجمعة عند جاهزيتها'] },
+  { code: 'business_30', kind: 'listing_bundle', nameAr: 'أعمال 30', listingLimit: 30, durationDays: 30, price: null, currency: null, purchasable: false, placement: 'organic', featuresAr: ['30 إعلانًا نشطًا', 'إدارة الصور والحالة', 'إحصاءات مجمعة عند جاهزيتها'] },
+  { code: 'business_100', kind: 'listing_bundle', nameAr: 'أعمال 100', listingLimit: 100, durationDays: 30, price: null, currency: null, purchasable: false, placement: 'organic', featuresAr: ['100 إعلان نشط', 'إدارة الصور والحالة', 'إحصاءات مجمعة عند جاهزيتها'] },
+  { code: 'sponsored_7', kind: 'sponsored_add_on', nameAr: 'ظهور ممول 7 أيام', listingLimit: null, durationDays: 7, price: null, currency: null, purchasable: false, placement: 'clearly_labelled_sponsored', featuresAr: ['موضع منفصل بعلامة إعلان ممول', 'لا يغيّر ترتيب النتائج العضوية', 'لا يغيّر الثقة أو التقييم'] }
+];
+
+export function plannedAdvertisingPackages(): readonly AdvertisingPackageBlueprint[] { return PACKAGE_BLUEPRINTS; }
+
 function paidAdvertisingReady(): boolean {
   return process.env.PAID_ADVERTISING_ENABLED === 'true'
     && process.env.ADVERTISING_PRICING_PUBLISHED === 'true'
