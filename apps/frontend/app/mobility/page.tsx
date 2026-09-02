@@ -51,6 +51,7 @@ export default function MobilityPage() {
   const [message, setMessage] = useState(MAPS_KEY ? 'حدد نقطة الانطلاق والوجهة، أو اكتب العنوان وسنحاول تحديده.' : 'الخريطة غير مهيأة حاليًا؛ استخدم موقعك الحالي للبحث القريب.');
   const [activeRequest, setActiveRequest] = useState<MobilityRequest>();
   const [requestingProviderId, setRequestingProviderId] = useState('');
+  const canPlanRoute = Boolean(pickup.trim() && destination.trim());
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('type') === 'delivery') setType('delivery');
@@ -235,7 +236,7 @@ export default function MobilityPage() {
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
           <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => { setType('taxi'); setProviders([]); setSearched(false); }}><PlatformIcon name="car"/> مشوار تاكسي</ActionButton>
-          <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => { setType('delivery'); setProviders([]); setSearched(false); }}><PlatformIcon name="cart"/> مندوب توصيل</ActionButton>
+          <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => { setType('delivery'); setProviders([]); setSearched(false); }}><PlatformIcon name="delivery"/> مندوب توصيل</ActionButton>
         </div>
         <ol className={styles.steps} aria-label="خطوات الطلب"><li className={pickupCoordinates ? styles.done : styles.current}>الانطلاق</li><li className={destination ? styles.done : ''}>الوجهة</li><li className={searched ? styles.done : ''}>اختيار المزود</li></ol>
         <div className={styles.fields}>
@@ -245,8 +246,8 @@ export default function MobilityPage() {
         </div>
         <div className={styles.actions}>
           <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin"/> موقعي الحالي</ActionButton>
-          <ActionButton type="submit" disabled={loading}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : `اعرض ${type === 'taxi' ? 'سيارات التاكسي' : 'المندوبين'}`}</ActionButton>
-          <ActionButton type="button" variant="secondary" onClick={openRoute}><PlatformIcon name="pin"/> المسار في Google</ActionButton>
+          <ActionButton type="submit" disabled={loading||!canPlanRoute}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : `اعرض ${type === 'taxi' ? 'سيارات التاكسي' : 'المندوبين'}`}</ActionButton>
+          <ActionButton type="button" variant="secondary" disabled={!canPlanRoute} onClick={openRoute}><PlatformIcon name="pin"/> معاينة المسار</ActionButton>
         </div>
         <StatusMessage tone={mapsStatus === 'error' ? 'warning' : 'info'}>{message}</StatusMessage>
       </Surface>
