@@ -9,7 +9,9 @@ test('launch campaign is global, time bounded and links to registration', async 
     read('app/layout.tsx'), read('app/components/launch-campaign-banner.tsx'), read('lib/launch-campaign.ts')
   ]);
   assert.match(layout, /<LaunchCampaignBanner \/>/);
+  assert.ok(layout.indexOf('<LaunchCampaignBanner />') < layout.indexOf('<header className="khedma-header">'));
   assert.match(banner, /isLaunchCampaignActive/);
+  assert.match(banner, /useState\(\(\) => isLaunchCampaignActive\(\)\)/);
   assert.match(banner, /\/auth\/register/);
   assert.match(campaign, /2026-10-02T00:00:00\.000Z/);
   assert.match(campaign, /التسجيل مجاني بمناسبة إطلاق خدمة لمدة شهر/);

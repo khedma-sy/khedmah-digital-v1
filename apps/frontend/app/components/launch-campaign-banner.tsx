@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { isLaunchCampaignActive, LAUNCH_CAMPAIGN_MESSAGE } from '../../lib/launch-campaign';
 
 export function LaunchCampaignBanner() {
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(() => isLaunchCampaignActive());
 
   useEffect(() => {
     setActive(isLaunchCampaignActive());

@@ -101,6 +101,7 @@ export function CategoryDirectory() {
     ? categories.filter((category) => category.parentCode === activeRootCode)
     : [];
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const specialtyTotal = categories.filter((category) => category.parentCode).length;
   const searchHref = `/search?${new URLSearchParams({ ...(activeCategory ? { categoryCode: activeCategory } : {}), type: 'all' }).toString()}`;
   const headerDescription = activeCategory
     ? 'اختر التخصص المناسب، ثم قارن مقدمي الخدمة المعتمدين وتواصل مع الأنسب لك.'
@@ -108,7 +109,7 @@ export function CategoryDirectory() {
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
-        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'الدليل الرئيسي'} title={title} description={headerDescription} backHref={activeCategory ? '/categories' : '/'} actions={
+        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة الموحّد'} title={title} description={headerDescription} backHref={activeCategory ? '/categories' : '/'} actions={
           <><ActionLink href={searchHref}><PlatformIcon name="search" /> بحث متقدم</ActionLink>{activeCategory ? <ActionButton variant="secondary" type="button" aria-label="تغيير مجال الخدمة" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تغيير المجال</ActionButton> : null}</>
         } />
 
@@ -130,8 +131,15 @@ export function CategoryDirectory() {
         {!activeCategory && categories.length > 0 ? (
           <section className="catalog-directory" aria-labelledby="catalog-directory-title">
             <div className="catalog-section-heading catalog-directory-heading">
-              <div><span>مجالات خدمة</span><h2 id="catalog-directory-title">اختر مجال الخدمة</h2><p>كل مجال يقودك إلى تخصصاته ومقدميه المنشورين مباشرة.</p></div>
-              <strong>{roots.length.toLocaleString('ar-SY')} مجالًا</strong>
+              <div className="catalog-directory-intro">
+                <span className="catalog-kicker"><PlatformIcon name="grid" size={16} /> مجالات خدمة</span>
+                <h2 id="catalog-directory-title">اختر المجال الأقرب إلى حاجتك</h2>
+                <p>ابدأ بالمجال، ثم انتقل إلى التخصص ومقدمي الخدمة المتاحين.</p>
+              </div>
+              <div className="catalog-directory-metrics" aria-label="ملخص دليل الخدمات">
+                <span><strong>{roots.length.toLocaleString('ar-SY')}</strong><small>مجالًا</small></span>
+                <span><strong>{specialtyTotal.toLocaleString('ar-SY')}</strong><small>تخصصًا</small></span>
+              </div>
             </div>
             <div className="catalog-category-grid" aria-label="تصنيفات الخدمات">
               {roots.map((category) => {

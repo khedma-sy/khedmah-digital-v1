@@ -67,11 +67,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
+        <LaunchCampaignBanner />
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
-        <LaunchCampaignBanner />
         {children}
         <MobileNavigation />
         <SmartAssistant />
