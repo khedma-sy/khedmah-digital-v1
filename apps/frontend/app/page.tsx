@@ -6,7 +6,7 @@ import { RecentlyAdded } from './components/recently-added';
 import { PlatformIcon } from './components/platform-icon';
 import styles from './home.module.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
 export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
 
 const trustItems = [

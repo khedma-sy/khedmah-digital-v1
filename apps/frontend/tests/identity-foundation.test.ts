@@ -90,3 +90,18 @@ test('global navigation separates guest discovery from authenticated account act
   assert.match(navigation, /تسجيل الخروج/);
   assert.match(navigation, />دخول<\/Link>/);
 });
+
+test('public website metadata uses the reserved khedmah.uk domain', async () => {
+  const files = await Promise.all([
+    readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/robots.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../../../.env.example', import.meta.url), 'utf8')
+  ]);
+
+  for (const source of files) {
+    assert.match(source, /https:\/\/khedmah\.uk/);
+    assert.doesNotMatch(source, /https:\/\/khedmah\.digital/);
+  }
+});

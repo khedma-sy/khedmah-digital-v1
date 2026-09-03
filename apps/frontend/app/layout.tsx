@@ -12,7 +12,7 @@ import './design-tokens.css';
 import './ui-primitives.css';
 import './auth-experience.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
 const SITE_NAME = 'خدمة';
 
 export const metadata: Metadata = {

@@ -82,6 +82,8 @@ test('catalog uses the approved blue identity with a responsive RTL hierarchy', 
   assert.match(styles, /@media\(max-width:48rem\).*catalog-category-grid.*repeat\(2/s);
   assert.match(styles, /@media\(max-width:36rem\).*catalog-category-grid.*1fr/s);
   assert.match(styles, /catalog-experience \.ui-container \{ padding-block-end/);
+  assert.match(styles, /\.ui-page\.catalog-experience \{[\s\S]*padding:0/);
+  assert.match(styles, /body:has\(\.catalog-experience\) \.smart-assistant>button/);
   assert.match(catalog, /transport: 'delivery'/);
   assert.match(catalog, /بحث متقدم/);
   assert.match(catalog, /تغيير المجال/);
