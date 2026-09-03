@@ -17,16 +17,6 @@ export async function clearFirebaseSocialSession(): Promise<void> {
   }
 }
 
-export async function clearFirebaseSocialSession(): Promise<void> {
-  try {
-    const { auth } = getFirebaseClientServices();
-    if (auth.currentUser) await signOut(auth);
-  } catch {
-    // The backend cookie is the canonical platform session. Firebase cleanup is
-    // best-effort so it can never trap a user after the backend logged them out.
-  }
-}
-
 export function translateFirebaseSocialAuthError(provider: SocialProviderName, cause: unknown): Error {
   const code = typeof cause === 'object' && cause !== null && 'code' in cause
     ? String((cause as { code?: unknown }).code ?? '')

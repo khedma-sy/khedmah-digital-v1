@@ -124,6 +124,7 @@ backend_cors_origin="$(gcloud run services describe "$backend_service" \
   echo 'Backend CORS_ORIGIN does not match the deployed frontend origin.' >&2
   exit 5
 }
+
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${backend_url}/api/v1/health" >/dev/null
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${frontend_url}/" >/dev/null
 csrf_probe_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \

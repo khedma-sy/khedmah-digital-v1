@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../lib/api-client';
+import { clearFirebaseSocialSession } from '../lib/firebase/auth';
 import { PlatformIcon } from './components/platform-icon';
 
 function DiscoveryLinks({ pathname }: { pathname: string }) {
@@ -19,7 +20,7 @@ function DiscoveryLinks({ pathname }: { pathname: string }) {
   return (
     <>
       {links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}><PlatformIcon name={link.icon} size={16}/><span>{link.label}</span></Link>)}
-    </
+    </>
   );
 }
 
@@ -51,8 +52,10 @@ export function AuthNavigation() {
     setLogoutError('');
     try {
       await api.auth.logout();
+      await clearFirebaseSocialSession();
       setUser(null);
       router.replace('/');
+      router.refresh();
     } catch {
       setLogoutError('تعذر تسجيل الخروج. حاول مرة أخرى.');
     } finally {
@@ -75,12 +78,14 @@ export function AuthNavigation() {
   }
 
   return (
-    <div className="nav-session" data-auth-state="authenticated">
-      <DiscoveryLinks pathname={pathname} />
-      <Link href="/business-profiles">أعمالي</Link>
-      <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>
-      <button className="nav-logout" type="button" onClick={logout} disabled={isLoggingOut} aria-busy={isLoggingOut}><PlatformIcon name="logout" size={17}/>{isLoggingOut ? 'جاري الخروج...' : 'تسجيل الخروج'}</button>
-      {logoutError ? <span className="nav-action-error" role="alert">{logoutError}</span> : null}
-    </div>
+    <>
+      <div className="nav-session" data-auth-state="authenticated">
+        <DiscoveryLinks pathname={pathname} />
+        <Link href="/business-profiles">أعمالي</Link>
+        <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>
+        <button className="nav-logout" type="button" onClick={logout} disabled={isLoggingOut} aria-busy={isLoggingOut}><PlatformIcon name="logout" size={17}/>{isLoggingOut ? 'جاري الخروج...' : 'تسجيل الخروج'}</button>
+      </div>
+      {logoutError ? <p className="nav-action-error" role="alert">{logoutError}</p> : null}
+    </>
   );
 }
