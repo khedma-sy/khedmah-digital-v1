@@ -716,7 +716,23 @@ p {
   .launch-campaign { flex-wrap: wrap; gap: .3rem .55rem; font-size: .86rem; }
 }
 .welcome-loading { min-height: 70vh; display: grid; place-items: center; color: var(--muted); }
-.nav-action-error { max-width:13rem; color:#fecaca; font-size:.72rem; line-height:1.4; }
+.nav-action-error {
+  position: fixed;
+  inset-block-start: 6rem;
+  inset-inline-start: max(1rem, calc((100vw - 77rem) / 2));
+  z-index: 140;
+  width: min(22rem, calc(100vw - 2rem));
+  margin: 0;
+  border: 1px solid #fecdd3;
+  border-radius: .75rem;
+  padding: .75rem 1rem;
+  color: #9f1239;
+  background: #fff1f2;
+  box-shadow: 0 .75rem 2rem rgb(15 23 42 / 16%);
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior:auto !important; animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }

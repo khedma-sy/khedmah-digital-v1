@@ -1,11 +1,31 @@
 'use client';
 
-import { FacebookAuthProvider, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { FacebookAuthProvider, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirebaseClientServices } from './client';
 
 type SocialProviderName = 'Google' | 'Facebook';
 
 export const FACEBOOK_AUTH_ENABLED = process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === 'true';
+
+export async function clearFirebaseSocialSession(): Promise<void> {
+  try {
+    const { auth } = getFirebaseClientServices();
+    if (auth.currentUser) await signOut(auth);
+  } catch {
+    // The backend cookie is the canonical platform session. Firebase cleanup is
+    // best-effort so it can never trap a user after the backend logged them out.
+  }
+}
+
+export async function clearFirebaseSocialSession(): Promise<void> {
+  try {
+    const { auth } = getFirebaseClientServices();
+    if (auth.currentUser) await signOut(auth);
+  } catch {
+    // The backend cookie is the canonical platform session. Firebase cleanup is
+    // best-effort so it can never trap a user after the backend logged them out.
+  }
+}
 
 export function translateFirebaseSocialAuthError(provider: SocialProviderName, cause: unknown): Error {
   const code = typeof cause === 'object' && cause !== null && 'code' in cause

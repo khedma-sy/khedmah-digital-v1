@@ -19,7 +19,7 @@ function DiscoveryLinks({ pathname }: { pathname: string }) {
   return (
     <>
       {links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}><PlatformIcon name={link.icon} size={16}/><span>{link.label}</span></Link>)}
-    </>
+    </
   );
 }
 

@@ -17,12 +17,17 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sessionNotice, setSessionNotice] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
-    const requestedDestination = new URLSearchParams(window.location.search).get('next');
+    const search = new URLSearchParams(window.location.search);
+    if (search.get('reason') === 'session-expired') {
+      setSessionNotice('انتهت جلستك. سجّل الدخول للعودة إلى حسابك.');
+    }
+    const requestedDestination = search.get('next');
     if (!requestedDestination?.startsWith('/')) return;
     const parsedDestination = new URL(requestedDestination, window.location.origin);
     if (parsedDestination.origin !== window.location.origin) return;
@@ -114,6 +119,7 @@ export default function LoginPage() {
           <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
           <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={showPassword}><PlatformIcon name="eye" /></button></label>
           <div className="auth-options"><label><input name="remember" type="checkbox" /> تذكرني</label><Link href="/auth/forgot-password">نسيت كلمة المرور؟</Link></div>
+          {sessionNotice ? <p className="auth-notice" role="status">{sessionNotice}</p> : null}
           {error ? <p className={verificationEmail ? 'auth-notice' : 'auth-error'} role="alert">{error}</p> : null}
           {verificationEmail ? <button className="auth-resend" type="button" onClick={resendVerification} disabled={isResending}>{isResending ? 'جاري الإرسال...' : 'إعادة إرسال رابط التحقق'}</button> : null}
           <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}>{isLoading ? 'جاري الدخول...' : 'تسجيل الدخول'}<PlatformIcon name="arrow" /></button>

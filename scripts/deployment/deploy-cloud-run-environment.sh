@@ -107,8 +107,37 @@ fi
 
 gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$RUNTIME_SERVICE_ACCOUNT" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag}" --allow-unauthenticated --quiet
 frontend_url="$(gcloud run services describe "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
+[[ "$frontend_url" == https://*.run.app ]] || { echo 'Frontend URL is not a Cloud Run URL.' >&2; exit 5; }
+
+# Authenticated unsafe requests are accepted only from the exact deployed
+# frontend origin. Updating after frontend deployment avoids a wildcard and
+# keeps every preview/staging environment isolated from production.
+gcloud run services update "$backend_service" \
+  --project "$GOOGLE_CLOUD_PROJECT" \
+  --region "$GOOGLE_CLOUD_REGION" \
+  --update-env-vars="CORS_ORIGIN=${frontend_url}" \
+  --quiet
+backend_cors_origin="$(gcloud run services describe "$backend_service" \
+  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
+  | python3 -c 'import json,sys; data=json.load(sys.stdin); containers=data.get("spec",{}).get("template",{}).get("spec",{}).get("containers",[]) or [{}]; env=containers[0].get("env",[]); item=next((value for value in env if value.get("name")=="CORS_ORIGIN"),{}); print(item.get("value",""))')"
+[[ "$backend_cors_origin" == "$frontend_url" ]] || {
+  echo 'Backend CORS_ORIGIN does not match the deployed frontend origin.' >&2
+  exit 5
+}
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${backend_url}/api/v1/health" >/dev/null
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${frontend_url}/" >/dev/null
+csrf_probe_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --retry 6 --retry-all-errors --request POST \
+  --header "Origin: ${frontend_url}" \
+  --header 'Cookie: khedmah_session=preview-csrf-probe' \
+  "${backend_url}/api/v1/auth/logout")" || {
+  echo 'Authenticated CSRF origin probe could not reach the backend.' >&2
+  exit 5
+}
+[[ "$csrf_probe_status" == "200" || "$csrf_probe_status" == "201" ]] || {
+  echo "Authenticated CSRF origin probe failed with HTTP ${csrf_probe_status}." >&2
+  exit 5
+}
 OPERATIONS_FRONTEND_SERVICE="$frontend_service" \
 FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
 FACEBOOK_AUTH_ENABLED="${FACEBOOK_AUTH_ENABLED:-false}" \

@@ -67,6 +67,8 @@ test('registration is a scoped responsive identity gateway with honest provider 
 
 test('global navigation separates guest discovery from authenticated account actions', async () => {
   const navigation = await readFile(new URL('../app/auth-navigation.tsx', import.meta.url), 'utf8');
+  const firebaseAuth = await readFile(new URL('../lib/firebase/auth.ts', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');
 
   assert.match(layout, /<AuthNavigation \/>/);
@@ -87,8 +89,24 @@ test('global navigation separates guest discovery from authenticated account act
   assert.match(navigation, /user\.profile\.displayName/);
   assert.match(navigation, /href="\/users\/me"/);
   assert.match(navigation, /api\.auth\.logout\(\)/);
+  assert.match(navigation, /clearFirebaseSocialSession\(\)/);
+  assert.match(navigation, /router\.refresh\(\)/);
+  assert.match(firebaseAuth, /signOut\(auth\)/);
+  assert.match(styles, /\.nav-action-error \{[\s\S]*position: fixed;/);
+  assert.match(navigation, /<\/div>\n      \{logoutError \? <p className="nav-action-error"/);
   assert.match(navigation, /تسجيل الخروج/);
   assert.match(navigation, />دخول<\/Link>/);
+});
+
+test('expired account sessions return to login with a preserved destination', async () => {
+  const login = await readFile(new URL('../app/auth/login/page.tsx', import.meta.url), 'utf8');
+  const profile = await readFile(new URL('../app/users/me/page.tsx', import.meta.url), 'utf8');
+
+  assert.match(profile, /statusCode\?: number/);
+  assert.match(profile, /\/auth\/login\?next=%2Fusers%2Fme&reason=session-expired/);
+  assert.match(login, /search\.get\('reason'\) === 'session-expired'/);
+  assert.match(login, /انتهت جلستك\. سجّل الدخول للعودة إلى حسابك\./);
+  assert.match(login, /className="auth-notice" role="status"/);
 });
 
 test('public website metadata uses the reserved khedmah.uk domain', async () => {

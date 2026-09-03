@@ -34,6 +34,7 @@ function AccountShortcut({
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
   const [error, setError] = useState('');
 
@@ -41,9 +42,17 @@ export default function ProfilePage() {
     let active = true;
     void api.auth.session()
       .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
-      .catch((reason) => { if (active) { setUser(null); setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.'); } });
+      .catch((reason) => {
+        if (!active) return;
+        if ((reason as { statusCode?: number }).statusCode === 401) {
+          router.replace('/auth/login?next=%2Fusers%2Fme&reason=session-expired');
+          return;
+        }
+        setUser(null);
+        setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.');
+      });
     return () => { active = false; };
-  }, []);
+  }, [router]);
 
   if (user === undefined) return <PageShell label="حسابي"><PageHeader title="حسابي" description="جاري تحميل بيانات حسابك الآمنة." /><SkeletonGrid count={3} label="جاري تحميل الحساب" /></PageShell>;
 

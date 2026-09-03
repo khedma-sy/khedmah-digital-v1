@@ -97,3 +97,13 @@ test('preview and staging validate the deployed Firebase social-login origin', (
   assert.match(deployment, /OPERATIONS_FRONTEND_SERVICE="\$frontend_service"/);
   assert.match(deployment, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
 });
+
+test('preview and staging authorize and probe only their exact frontend origin', () => {
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(deployment, /--update-env-vars="CORS_ORIGIN=\$\{frontend_url\}"/);
+  assert.match(deployment, /backend_cors_origin/);
+  assert.match(deployment, /Origin: \$\{frontend_url\}/);
+  assert.match(deployment, /Cookie: khedmah_session=preview-csrf-probe/);
+  assert.match(deployment, /api\/v1\/auth\/logout/);
+  assert.doesNotMatch(deployment, /CORS_ORIGIN=\*/);
+});
