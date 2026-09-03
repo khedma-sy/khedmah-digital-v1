@@ -5,54 +5,25 @@ import { api, PublicUserProfile } from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
 
-type AccountAction = {
+function AccountShortcut({
+  href,
+  label,
+  description,
+  icon,
+  featured = false,
+}: {
   href: string;
   label: string;
   description: string;
   icon: PlatformIconName;
-};
-
-const quickActions: AccountAction[] = [
-  { href: '/business-profiles', label: 'أعمالي', description: 'إدارة أنشطتك وخدماتك المنشورة.', icon: 'briefcase' },
-  { href: '/business-profiles/new', label: 'إضافة نشاط', description: 'أنشئ حضورًا جديدًا داخل دليل خدمة.', icon: 'storefront' },
-  { href: '/store/sell', label: 'عرض منتج للبيع', description: 'أضف منتجًا وابدأ عرضه للعملاء.', icon: 'tag' },
-];
-
-const workspaceSections: Array<{
-  title: string;
-  description: string;
-  icon: PlatformIconName;
-  actions: AccountAction[];
-}> = [
-  {
-    title: 'البيع والطلبات',
-    description: 'تابع المنتجات والطلبات من مساحة واحدة.',
-    icon: 'cart',
-    actions: [
-      { href: '/store/manage', label: 'منتجاتي', description: 'راجع المنتجات المعروضة وحدّثها.', icon: 'storefront' },
-      { href: '/orders', label: 'طلباتي', description: 'تابع الطلبات التي أنشأتها.', icon: 'ticket' },
-      { href: '/orders/merchant', label: 'طلبات المنشأة', description: 'أدر الطلبات الواردة إلى نشاطك.', icon: 'briefcase' },
-    ],
-  },
-  {
-    title: 'النقل والتوصيل',
-    description: 'مسارات واضحة للعميل والمندوب والسائق.',
-    icon: 'delivery',
-    actions: [
-      { href: '/mobility', label: 'تاكسي وتوصيل', description: 'ابدأ طلب تنقّل أو توصيل جديد.', icon: 'car' },
-      { href: '/orders/courier', label: 'مهام المندوب', description: 'تابع مهام استلام وتسليم الطلبات.', icon: 'delivery' },
-      { href: '/mobility/manage', label: 'طلبات السائق', description: 'راجع طلبات النقل المخصصة لك.', icon: 'car' },
-    ],
-  },
-];
-
-function AccountShortcut({ action, featured = false }: { action: AccountAction; featured?: boolean }) {
+  featured?: boolean;
+}) {
   return (
-    <ActionLink href={action.href} variant="quiet" className={`ui-account-shortcut${featured ? ' ui-account-shortcut-featured' : ''}`}>
-      <span className="ui-account-shortcut-icon"><PlatformIcon name={action.icon} size={21} /></span>
+    <ActionLink href={href} variant="quiet" className={`ui-account-shortcut${featured ? ' ui-account-shortcut-featured' : ''}`}>
+      <span className="ui-account-shortcut-icon"><PlatformIcon name={icon} size={21} /></span>
       <span className="ui-account-shortcut-copy">
-        <strong>{action.label}</strong>
-        <small>{action.description}</small>
+        <strong>{label}</strong>
+        <small>{description}</small>
       </span>
       <PlatformIcon name="arrow" size={18} />
     </ActionLink>
@@ -112,24 +83,40 @@ export default function ProfilePage() {
             <p>اختر المهمة التي تريد إنجازها الآن.</p>
           </div>
           <div className="ui-account-featured-grid">
-            {quickActions.map((action) => <AccountShortcut key={action.href} action={action} featured />)}
+            <AccountShortcut href="/business-profiles" label="أعمالي" description="إدارة أنشطتك وخدماتك المنشورة." icon="briefcase" featured />
+            <AccountShortcut href="/business-profiles/new" label="إضافة نشاط" description="أنشئ حضورًا جديدًا داخل دليل خدمة." icon="storefront" featured />
+            <AccountShortcut href="/store/sell" label="عرض منتج للبيع" description="أضف منتجًا وابدأ عرضه للعملاء." icon="tag" featured />
           </div>
         </Surface>
 
         <div className="ui-account-sections">
-          {workspaceSections.map((section) => (
-            <Surface className="ui-account-workspace" key={section.title}>
-              <div className="ui-account-section-heading">
-                <div className="ui-account-section-title">
-                  <span className="ui-account-section-icon"><PlatformIcon name={section.icon} size={21} /></span>
-                  <div><h2>{section.title}</h2><p>{section.description}</p></div>
-                </div>
+          <Surface className="ui-account-workspace">
+            <div className="ui-account-section-heading">
+              <div className="ui-account-section-title">
+                <span className="ui-account-section-icon"><PlatformIcon name="cart" size={21} /></span>
+                <div><h2>البيع والطلبات</h2><p>تابع المنتجات والطلبات من مساحة واحدة.</p></div>
               </div>
-              <div className="ui-account-action-list">
-                {section.actions.map((action) => <AccountShortcut key={action.href} action={action} />)}
+            </div>
+            <div className="ui-account-action-list">
+              <AccountShortcut href="/store/manage" label="منتجاتي" description="راجع المنتجات المعروضة وحدّثها." icon="storefront" />
+              <AccountShortcut href="/orders" label="طلباتي" description="تابع الطلبات التي أنشأتها." icon="ticket" />
+              <AccountShortcut href="/orders/merchant" label="طلبات المنشأة" description="أدر الطلبات الواردة إلى نشاطك." icon="briefcase" />
+            </div>
+          </Surface>
+
+          <Surface className="ui-account-workspace">
+            <div className="ui-account-section-heading">
+              <div className="ui-account-section-title">
+                <span className="ui-account-section-icon"><PlatformIcon name="delivery" size={21} /></span>
+                <div><h2>النقل والتوصيل</h2><p>مسارات واضحة للعميل والمندوب والسائق.</p></div>
               </div>
-            </Surface>
-          ))}
+            </div>
+            <div className="ui-account-action-list">
+              <AccountShortcut href="/mobility" label="تاكسي وتوصيل" description="ابدأ طلب تنقّل أو توصيل جديد." icon="car" />
+              <AccountShortcut href="/orders/courier" label="مهام المندوب" description="تابع مهام استلام وتسليم الطلبات." icon="delivery" />
+              <AccountShortcut href="/mobility/manage" label="طلبات السائق" description="راجع طلبات النقل المخصصة لك." icon="car" />
+            </div>
+          </Surface>
         </div>
       </div>
     </PageShell>
