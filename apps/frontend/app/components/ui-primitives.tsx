@@ -32,8 +32,8 @@ export function Surface({ children, as = 'section', className = '', onSubmit, 'a
   return <Element className={surfaceClassName}>{children}</Element>;
 }
 
-export function ActionLink({ href, children, variant = 'primary' }: { href: string; children: ReactNode; variant?: 'primary' | 'secondary' | 'quiet' }) {
-  return <Link href={href} className={`ui-action ui-action-${variant}`}>{children}</Link>;
+export function ActionLink({ href, children, variant = 'primary', className = '' }: { href: string; children: ReactNode; variant?: 'primary' | 'secondary' | 'quiet'; className?: string }) {
+  return <Link href={href} className={`ui-action ui-action-${variant} ${className}`.trim()}>{children}</Link>;
 }
 
 export function ActionButton({ children, variant = 'primary', className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) {

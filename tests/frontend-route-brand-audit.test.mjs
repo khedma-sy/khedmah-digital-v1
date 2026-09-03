@@ -37,7 +37,8 @@ test('social login verifies the selected provider on both sides of the API', asy
   assert.match(client, /GoogleAuthProvider/);
   assert.match(client, /NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED/);
   assert.match(login, /FACEBOOK_AUTH_ENABLED/);
-  assert.match(login, /Facebook — قريبًا/);
+  assert.match(login, /غير متاح حاليًا/);
+  assert.match(login, /register-provider-unavailable/);
   assert.match(register, /FACEBOOK_AUTH_ENABLED/);
   assert.match(register, /غير متاح حاليًا/);
   assert.match(register, /register-provider-unavailable/);

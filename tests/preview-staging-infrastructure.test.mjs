@@ -86,3 +86,13 @@ test('preview mounts admin role bindings from Secret Manager and verifies only t
   assert.doesNotMatch(deployment, /--set-env-vars="[^"]*OPERATIONS_PRODUCT_ROLE_BINDINGS/);
   assert.doesNotMatch(workflow, /secrets\.OPERATIONS_PRODUCT_ROLE_BINDINGS/);
 });
+
+test('preview and staging validate the deployed Firebase social-login origin', () => {
+  const preview = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
+  const staging = readFileSync('.github/workflows/staging-deployment.yml', 'utf8');
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(preview, /FIREBASE_PROJECT_ID: \$\{\{ vars\.PREVIEW_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(staging, /FIREBASE_PROJECT_ID: \$\{\{ vars\.STAGING_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(deployment, /OPERATIONS_FRONTEND_SERVICE="\$frontend_service"/);
+  assert.match(deployment, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
+});

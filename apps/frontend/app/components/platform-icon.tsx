@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'technology' | 'construction' | 'events' | 'agriculture' | 'industry' | 'travel' | 'microphone' | 'sparkles' | 'tag' | 'ticket' | 'qr' | 'storefront' | 'delivery' | 'compass';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'technology' | 'construction' | 'events' | 'agriculture' | 'industry' | 'travel' | 'microphone' | 'sparkles' | 'tag' | 'ticket' | 'qr' | 'storefront' | 'delivery' | 'compass' | 'info';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -41,6 +41,7 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   ,storefront: <><path d="M4 10v10h16V10M3 10l2-6h14l2 6"/><path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M9 20v-6h6v6"/></>
   ,delivery: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>
   ,compass: <><circle cx="12" cy="12" r="9"/><path d="m15 9-2 4-4 2 2-4 4-2Z"/></>
+  ,info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {

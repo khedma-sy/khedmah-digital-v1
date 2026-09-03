@@ -117,9 +117,10 @@ export default function StorePage() {
           <span><PlatformIcon name="phone" size={15}/>تواصل مباشر</span>
         </div>
       </div>
-      <nav className={styles.heroActions} aria-label="إدارة الإعلانات">
+      <nav className={styles.heroActions} aria-label="إجراءات المتجر والتوصيل">
         <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف إعلانك</ActionLink>
         <ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink>
+        <ActionLink href="/orders/courier" className={styles.courierEntry}><PlatformIcon name="delivery" size={18}/>بوابة مندوب التوصيل</ActionLink>
       </nav>
     </header>
 

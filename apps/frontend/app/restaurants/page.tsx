@@ -103,7 +103,7 @@ export default function RestaurantsPage() {
         title="ماذا تريد أن تطلب؟"
         description="اختر مطعمًا، أضف عدة أصناف إلى السلة، ثم ادفع نقدًا عند التسليم."
         backHref="/"
-        actions={<ActionLink href="/orders" variant="secondary"><PlatformIcon name="delivery" size={17}/>متابعة طلباتي</ActionLink>}
+        actions={<><ActionLink href="/orders" variant="secondary"><PlatformIcon name="cart" size={17}/>متابعة طلباتي</ActionLink><ActionLink href="/orders/courier" className={styles.courierEntry}><PlatformIcon name="delivery" size={18}/>بوابة مندوب التوصيل</ActionLink></>}
       />
       <Surface className={styles.journey}>
         <div className={styles.journeyHeading}><span>رحلة طلب الطعام</span><p>من اختيار نوع الطعام حتى متابعة المندوب، في سجل طلب واحد.</p></div>

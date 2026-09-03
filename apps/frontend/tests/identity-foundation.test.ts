@@ -31,12 +31,26 @@ test('identity screens include validation, loading, and error states', async () 
 
 test('registration is a scoped responsive identity gateway with honest provider states', async () => {
   const register = await readFile(new URL('../app/auth/register/page.tsx', import.meta.url), 'utf8');
+  const login = await readFile(new URL('../app/auth/login/page.tsx', import.meta.url), 'utf8');
+  const visual = await readFile(new URL('../app/auth/identity-visual.tsx', import.meta.url), 'utf8');
+  const brand = await readFile(new URL('../app/components/brand-mark.tsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../app/auth-experience.css', import.meta.url), 'utf8');
 
   assert.match(register, /auth-register-experience/);
-  assert.match(register, /register-brand-panel/);
-  assert.match(register, /أنشئ حسابك في خدمة/);
-  assert.match(register, /سنرسل رابطًا إلى بريدك لتأكيده قبل تفعيل الحساب/);
+  assert.match(register, /IdentityGatewayAside mode="register"/);
+  assert.match(login, /IdentityGatewayAside mode="login"/);
+  assert.match(login, /auth-phone-gateway/);
+  assert.match(login, /login-panel/);
+  assert.match(visual, /register-brand-panel/);
+  assert.match(visual, /أنشئ حسابك في خدمة/);
+  assert.match(visual, /ادخل إلى حسابك في خدمة/);
+  assert.match(visual, /IdentityGatewayOrnaments/);
+  assert.match(brand, /BrandUmbrella/);
+  assert.match(brand, /fill="#12679d"/);
+  assert.match(brand, /fill="#81be49"/);
+  assert.match(brand, /fill="#fd9603"/);
+  assert.doesNotMatch(register, /تأكيده قبل تفعيل الحساب|لن يكتمل تفعيل الحساب/);
+  assert.match(register, /auth\/verify-email\?email=/);
   assert.match(register, /form\.checkValidity\(\)/);
   assert.match(register, /form\.reportValidity\(\)/);
   assert.match(register, /register-password-status/);
@@ -44,9 +58,10 @@ test('registration is a scoped responsive identity gateway with honest provider 
   assert.match(register, /register-provider-unavailable/);
   assert.doesNotMatch(register, /register-heading/);
   assert.match(styles, /--register-blue:#07427c/);
-  assert.match(styles, /\.auth-phone-register \.identity-language \{ display:none; \}/);
+  assert.match(styles, /\.auth-phone-gateway \.identity-language \{ display:none; \}/);
   assert.match(styles, /width:min\(100%,68rem\)/);
   assert.match(styles, /@media\(max-width:58rem\)/);
+  assert.match(styles, /\.auth-side-umbrellas \{ display:none; \}/);
   assert.match(styles, /@media\(max-width:42rem\)/);
 });
 

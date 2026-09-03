@@ -5,10 +5,13 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('production readiness requires Google and gates Facebook behind the production feature flag', async () => {
-  const [validator, prerequisites, workflow] = await Promise.all([
+  const [validator, prerequisites, workflow, previewWorkflow, stagingWorkflow, deployment] = await Promise.all([
     read('scripts/validate-firebase-social-auth-readiness.sh'),
     read('scripts/validate-production-deployment-readiness.sh'),
-    read('.github/workflows/production-operator.yml')
+    read('.github/workflows/production-operator.yml'),
+    read('.github/workflows/preview-deployment.yml'),
+    read('.github/workflows/staging-deployment.yml'),
+    read('scripts/deployment/deploy-cloud-run-environment.sh')
   ]);
 
   assert.match(prerequisites, /identitytoolkit\.googleapis\.com/);
@@ -25,4 +28,8 @@ test('production readiness requires Google and gates Facebook behind the product
   assert.doesNotMatch(validator, /clientSecret|set \+x/);
   assert.match(workflow, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
   assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
+  assert.match(validator, /IDENTITY_PROJECT="\$\{FIREBASE_PROJECT_ID:-\$GOOGLE_CLOUD_PROJECT\}"/);
+  assert.match(previewWorkflow, /FIREBASE_PROJECT_ID: \$\{\{ vars\.PREVIEW_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(stagingWorkflow, /FIREBASE_PROJECT_ID: \$\{\{ vars\.STAGING_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(deployment, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
 });

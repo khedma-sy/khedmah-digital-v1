@@ -98,7 +98,8 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
   assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:var\(--k-color-text-muted\)!important/);
-  assert.match(login, /auth-login-heading/);
+  assert.match(login, /auth-gateway-experience/);
+  assert.match(login, /IdentityGatewayAside mode="login"/);
   assert.match(register, /SocialProviderIcon provider="google"/);
   assert.match(register, /SocialProviderIcon provider="facebook"/);
   assert.match(register, /statusCode\?: number/);

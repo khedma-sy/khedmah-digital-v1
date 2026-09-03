@@ -6,7 +6,7 @@ import { FormEvent, useState } from 'react';
 import { identityApi } from '../../../lib/identity-api';
 import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
 import { PlatformIcon } from '../../components/platform-icon';
-import { IdentityVisual } from '../identity-visual';
+import { IdentityGatewayAside, IdentityGatewayOrnaments } from '../identity-visual';
 import { SocialProviderIcon } from '../social-provider-icon';
 
 export default function RegisterPage() {
@@ -83,28 +83,15 @@ export default function RegisterPage() {
   const passwordsMatch = confirmPasswordValue.length > 0 && passwordValue === confirmPasswordValue;
 
   return (
-    <main id="foundation-content" className="auth-experience auth-register-experience" aria-label="إنشاء حساب جديد">
-      <div className="auth-phone auth-phone-register">
+    <main id="foundation-content" className="auth-experience auth-gateway-experience auth-register-experience" aria-label="إنشاء حساب جديد">
+      <IdentityGatewayOrnaments />
+      <div className="auth-phone auth-phone-gateway auth-phone-register">
         <Link className="auth-back" href="/" aria-label="العودة"><PlatformIcon name="arrow" /></Link>
-        <aside className="register-brand-panel" aria-labelledby="register-page-title">
-          <IdentityVisual />
-          <div className="register-intro">
-            <span>ابدأ مع خدمة</span>
-            <h1 id="register-page-title">أنشئ حسابك في خدمة</h1>
-            <p>حساب واحد لاكتشاف الخدمات والأعمال والمهنيين الموثوقين أو نشر نشاطك تحت مظلة خدمة.</p>
-          </div>
-          <ul className="register-benefits" aria-label="ما الذي يوفره حساب خدمة؟">
-            <li><span><PlatformIcon name="search" /></span><div><strong>اكتشاف أوضح</strong><small>ابحث حسب المجال والتخصص والموقع.</small></div></li>
-            <li><span><PlatformIcon name="check" /></span><div><strong>مقدمو خدمة معتمدون</strong><small>قارن المعلومات المنشورة قبل التواصل.</small></div></li>
-            <li><span><PlatformIcon name="storefront" /></span><div><strong>مساحة لنشاطك</strong><small>أنشئ ملف نشاطك وأدر محتواه من حسابك.</small></div></li>
-          </ul>
-          <p className="register-campaign"><PlatformIcon name="check" size={18} /> التسجيل والاستخدام مجانيان خلال المرحلة التجريبية.</p>
-        </aside>
+        <IdentityGatewayAside mode="register" />
         <form className="auth-panel register-panel" onSubmit={submitRegistration} noValidate>
           <header className="register-form-heading">
             <span>إنشاء حساب جديد</span>
             <h2>أدخل بيانات حسابك</h2>
-            <p>سنرسل رابطًا إلى بريدك لتأكيده قبل تفعيل الحساب.</p>
           </header>
           <nav className="auth-tabs" aria-label="الدخول وإنشاء الحساب">
             <span aria-current="page">سجل الآن</span>
@@ -122,7 +109,6 @@ export default function RegisterPage() {
           </div>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
           <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}>{isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}<PlatformIcon name="arrow" /></button>
-          <p className="register-verification-note"><PlatformIcon name="mail" size={18} /> لن يكتمل تفعيل الحساب قبل الضغط على رابط تأكيد البريد.</p>
           <div className="auth-divider"><span>أو</span></div>
           <section className="register-social" aria-label="خيارات إنشاء الحساب الخارجية">
             <button className="auth-secondary auth-google" type="button" onClick={continueWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'المتابعة باستخدام Google'}</button>

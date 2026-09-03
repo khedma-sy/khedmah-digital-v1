@@ -6,6 +6,7 @@ set -euo pipefail
 
 FRONTEND_SERVICE="${OPERATIONS_FRONTEND_SERVICE:-frontend}"
 FACEBOOK_AUTH_ENABLED="${FACEBOOK_AUTH_ENABLED:-false}"
+IDENTITY_PROJECT="${FIREBASE_PROJECT_ID:-$GOOGLE_CLOUD_PROJECT}"
 CONFIG_FILE="$(mktemp)"
 PROVIDERS_FILE="$(mktemp)"
 cleanup() { rm -f "$CONFIG_FILE" "$PROVIDERS_FILE"; }
@@ -36,11 +37,11 @@ FRONTEND_HOST="${FRONTEND_HOST%%/*}"
 
 ACCESS_TOKEN="$(gcloud auth print-access-token)"
 test -n "$ACCESS_TOKEN"
-ADMIN_BASE="https://identitytoolkit.googleapis.com/admin/v2/projects/${GOOGLE_CLOUD_PROJECT}"
+ADMIN_BASE="https://identitytoolkit.googleapis.com/admin/v2/projects/${IDENTITY_PROJECT}"
 
 curl --fail --silent --show-error \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "X-Goog-User-Project: ${GOOGLE_CLOUD_PROJECT}" \
+  -H "X-Goog-User-Project: ${IDENTITY_PROJECT}" \
   "${ADMIN_BASE}/config" > "$CONFIG_FILE"
 
 if ! jq -e --arg host "$FRONTEND_HOST" '(.authorizedDomains // []) | index($host) != null' "$CONFIG_FILE" >/dev/null; then
@@ -50,7 +51,7 @@ fi
 
 curl --fail --silent --show-error \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "X-Goog-User-Project: ${GOOGLE_CLOUD_PROJECT}" \
+  -H "X-Goog-User-Project: ${IDENTITY_PROJECT}" \
   "${ADMIN_BASE}/defaultSupportedIdpConfigs" > "$PROVIDERS_FILE"
 
 required_providers=(google.com)

@@ -1,4 +1,4 @@
-.page { min-height: 100svh; }
+.page { --courier-green: #81be49; --courier-green-deep: color-mix(in srgb, var(--courier-green) 52%, #071833); min-height: 100svh; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: clamp(1.25rem, 4vw, 4rem); margin-block-end: 1.25rem; padding: clamp(.5rem, 1vw, 1rem) 0; }
 .heroCopy { max-width: 48rem; }
 .eyebrow { display: inline-flex; align-items: center; min-height: 1.9rem; margin-block-end: .55rem; border-radius: 999px; padding: .25rem .7rem; color: var(--k-color-primary); background: var(--k-color-primary-soft); font-size: .78rem; font-weight: 900; }
@@ -9,6 +9,8 @@
 .trustLine svg { color: var(--k-color-success); }
 .heroActions { display: flex; align-items: center; gap: .55rem; }
 .heroActions :global(.ui-action-primary) { min-height: 3rem; padding-inline: 1.15rem; }
+.heroActions .courierEntry { border-color: var(--courier-green-deep); color: #fff; background: var(--courier-green-deep); box-shadow: 0 .45rem 1rem color-mix(in srgb, var(--courier-green) 18%, transparent); }
+.heroActions .courierEntry:hover { background: color-mix(in srgb, var(--courier-green-deep) 88%, #071833); }
 
 .discoveryPanel { padding: clamp(1rem, 2.2vw, 1.5rem); background: var(--k-color-surface-raised); }
 .toolbar { display: grid; gap: 1rem; }
@@ -116,6 +118,7 @@
 
 @media (max-width: 32rem) {
   .heroActions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .heroActions .courierEntry { grid-column: 1 / -1; }
   .heroActions :global(.ui-action) { min-width: 0; padding-inline: .65rem; }
   .searchControl { grid-template-columns: auto minmax(0, 1fr); padding: .35rem .75rem; }
   .searchControl :global(.ui-action) { grid-column: 1/-1; width: 100%; margin-block-start: .3rem; }

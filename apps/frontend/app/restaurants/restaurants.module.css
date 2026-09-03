@@ -4,6 +4,8 @@
   --food-orange-hover: color-mix(in srgb, var(--food-orange-deep) 88%, #071833);
   --food-orange-soft: color-mix(in srgb, var(--food-orange) 13%, var(--k-color-surface));
   --food-orange-border: color-mix(in srgb, var(--food-orange) 40%, var(--k-color-border));
+  --courier-green: #81be49;
+  --courier-green-deep: color-mix(in srgb, var(--courier-green) 52%, #071833);
   --food-font-arabic: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
   min-height: 100svh;
   font-family: var(--food-font-arabic);
@@ -27,6 +29,8 @@
 .page :global(.ui-action:focus-visible),
 .page :global(.ui-back:focus-visible) { outline-color: var(--food-orange); }
 .page :global(.ui-empty-icon) { color: var(--food-orange-deep); background: var(--food-orange-soft); }
+.page .courierEntry { border-color: var(--courier-green-deep); color: #fff; background: var(--courier-green-deep); box-shadow: 0 .45rem 1rem color-mix(in srgb, var(--courier-green) 18%, transparent); }
+.page .courierEntry:hover { background: color-mix(in srgb, var(--courier-green-deep) 88%, #071833); }
 
 .journey {
   display: grid;

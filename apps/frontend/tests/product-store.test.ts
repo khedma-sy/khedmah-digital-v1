@@ -24,6 +24,9 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(store, /ماذا تبحث عنه اليوم؟/);
   assert.match(store, /سوق خدمة المحلي/);
   assert.match(store, /أنشطة موثّقة/);
+  assert.match(store, /href="\/orders\/courier"/);
+  assert.match(store, /بوابة مندوب التوصيل/);
+  assert.match(store, /name="delivery"/);
   assert.match(store, /aria-controls="store-advanced-filters"/);
   assert.match(store, /data-open=\{filtersOpen\}/);
   assert.match(store, /الإعلانات المتاحة/);
