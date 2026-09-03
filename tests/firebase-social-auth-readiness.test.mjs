@@ -26,6 +26,8 @@ test('production readiness requires Google and gates Facebook behind the product
   assert.match(validator, /\.enabled == true/);
   assert.match(validator, /\.clientId/);
   assert.doesNotMatch(validator, /clientSecret|set \+x/);
+  assert.doesNotMatch(validator, /X-Goog-User-Project/);
+  assert.match(validator, /roles\/firebaseauth\.viewer/);
   assert.match(workflow, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
   assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
   assert.match(validator, /IDENTITY_PROJECT="\$\{FIREBASE_PROJECT_ID:-\$GOOGLE_CLOUD_PROJECT\}"/);
