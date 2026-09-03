@@ -118,6 +118,18 @@ export default function ProfilePage() {
             </div>
           </Surface>
         </div>
+
+        <Surface as="aside" className="ui-account-social">
+          <span className="ui-account-social-mark" aria-hidden="true">f</span>
+          <div className="ui-account-social-copy">
+            <span className="ui-account-kicker">تابع جديد خدمة</span>
+            <h2>تابع صفحة خدمة على Facebook</h2>
+            <p>الأخبار والعروض والأنشطة الجديدة تجدها على صفحة <bdi>khedma.uk</bdi>.</p>
+          </div>
+          <a className="ui-action ui-action-secondary ui-account-social-action" href="https://www.facebook.com/khedma.uk/" target="_blank" rel="noreferrer">
+            متابعة <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18} />
+          </a>
+        </Surface>
       </div>
     </PageShell>
   );

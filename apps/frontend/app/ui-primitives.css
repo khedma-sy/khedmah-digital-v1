@@ -102,12 +102,38 @@
 .ui-account-section-title p { margin-block-start:.2rem; }
 .ui-account-action-list { display:grid; gap:.55rem; }
 .ui-account-action-list .ui-account-shortcut { min-height:4.6rem; background:transparent; }
+.ui-account-social {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:1rem;
+  padding:1rem 1.2rem;
+  border-color:color-mix(in srgb,#1877f2 28%,var(--k-color-border));
+  background:linear-gradient(110deg,color-mix(in srgb,#1877f2 8%,var(--k-glass)),var(--k-glass));
+}
+.ui-account-social-mark {
+  width:3rem;
+  aspect-ratio:1;
+  display:grid;
+  place-items:center;
+  border-radius:.9rem;
+  color:#fff;
+  background:#1877f2;
+  font-family:Arial,sans-serif;
+  font-size:1.65rem;
+  font-weight:900;
+}
+.ui-account-social-copy h2 { margin:0; color:var(--k-color-text); font-size:1rem; }
+.ui-account-social-copy p { margin:.2rem 0 0; color:var(--k-color-text-muted); font-size:.8rem; line-height:1.65; }
+.ui-account-social-action { white-space:nowrap; }
 
 @media(max-width:58rem) {
   .ui-account-hero { grid-template-columns:1fr; }
   .ui-account-session { min-height:auto; padding:1rem 0 0; border-inline-start:0; border-block-start:1px solid var(--k-color-border); }
   .ui-account-featured-grid { grid-template-columns:1fr; }
   .ui-account-sections { grid-template-columns:1fr; }
+  .ui-account-social { grid-template-columns:auto minmax(0,1fr); }
+  .ui-account-social-action { grid-column:1/-1; }
 }
 @media(max-width:40rem) {
   .ui-account-page .ui-container { width:min(calc(100% - 1.25rem),78rem); }
@@ -116,6 +142,7 @@
   .ui-account-email { white-space:normal; overflow-wrap:anywhere; }
   .ui-account-section-heading { align-items:flex-start; flex-direction:column; }
   .ui-account-shortcut { min-height:4.8rem; }
+  .ui-account-social { align-items:start; }
 }
 @keyframes ui-loading { to { background-position:-200% 0; } }
 @media(prefers-reduced-motion:reduce) { .ui-skeleton { animation:none; } }
