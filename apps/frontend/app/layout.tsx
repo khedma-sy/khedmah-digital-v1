@@ -6,6 +6,7 @@ import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
 import { LaunchCampaignBanner } from './components/launch-campaign-banner';
 import { MobileNavigation } from './components/mobile-navigation';
+import { OfficialContactLinks } from './components/official-contact-links';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
         {children}
+        <OfficialContactLinks />
         <MobileNavigation />
         <SmartAssistant />
       </body>

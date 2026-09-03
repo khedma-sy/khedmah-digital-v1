@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
+import { KHEDMAH_FACEBOOK_URL, KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
 
 function AccountShortcut({
   href,
@@ -48,6 +49,7 @@ export default function ProfilePage() {
 
   const displayName = user.profile.displayName.trim() || 'مستخدم خدمة';
   const firstName = displayName.split(/\s+/)[0];
+  const whatsappContactUrl = officialWhatsappContactUrl();
 
   return (
     <PageShell label="حسابي" className="ui-account-page">
@@ -120,15 +122,13 @@ export default function ProfilePage() {
         </div>
 
         <Surface as="aside" className="ui-account-social">
-          <span className="ui-account-social-mark" aria-hidden="true">f</span>
+          <span className="ui-account-social-mark" aria-hidden="true">خ</span>
           <div className="ui-account-social-copy">
-            <span className="ui-account-kicker">تابع جديد خدمة</span>
-            <h2>تابع صفحة خدمة على Facebook</h2>
-            <p>الأخبار والعروض والأنشطة الجديدة تجدها على صفحة <bdi>khedma.uk</bdi>.</p>
+            <span className="ui-account-kicker">قنوات خدمة الرسمية</span>
+            <h2>تابع وتواصل مع خدمة</h2>
+            <p>اختر قناة المتابعة للأخبار والعروض، أو التواصل المباشر للاستفسار وإضافة نشاطك.</p>
           </div>
-          <a className="ui-action ui-action-secondary ui-account-social-action" href="https://www.facebook.com/khedma.uk/" target="_blank" rel="noreferrer">
-            متابعة <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18} />
-          </a>
+          <div className="ui-account-social-actions"><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_FACEBOOK_URL} target="_blank" rel="noopener noreferrer">Facebook <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18}/></a><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_WHATSAPP_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><PlatformIcon name="bell" size={18}/>متابعة قناة واتساب</a>{whatsappContactUrl?<a className="ui-action ui-action-secondary ui-account-social-action" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><PlatformIcon name="phone" size={18}/>الاتصال عبر واتساب</a>:<span className="ui-account-social-unavailable" aria-disabled="true"><PlatformIcon name="phone" size={18}/>رابط الاتصال قيد التحقق</span>}</div>
         </Surface>
       </div>
     </PageShell>

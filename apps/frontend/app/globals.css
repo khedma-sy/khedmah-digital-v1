@@ -446,6 +446,8 @@ p {
 .card-meta { font-size: 0.8125rem; color: var(--muted); }
 .card-footer { padding: 0 1.25rem 1.25rem; }
 
+.official-contact{display:grid;grid-template-columns:minmax(14rem,.7fr) minmax(0,1.3fr);gap:1.25rem;align-items:center;margin-top:3rem;padding:1.35rem max(1rem,calc((100% - 76rem)/2));border-top:1px solid var(--border);background:var(--surface);color:var(--foreground)}.official-contact-brand{display:flex;align-items:center;gap:.8rem}.official-contact-brand>div{display:grid;gap:.2rem}.official-contact-brand span{color:var(--muted);font-size:.82rem}.official-contact nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}.official-contact nav>a,.official-contact-unavailable{display:flex;align-items:center;gap:.65rem;min-height:4.1rem;padding:.7rem .8rem;border:1px solid var(--border);border-radius:.9rem;color:var(--foreground);background:color-mix(in srgb,var(--surface) 92%,var(--accent) 8%);text-decoration:none}.official-contact nav>a:hover{border-color:var(--accent)}.official-contact nav>a>span,.official-contact-unavailable>span{display:grid;gap:.12rem}.official-contact small{color:var(--muted);line-height:1.4}.official-contact-unavailable{opacity:.7;border-style:dashed}@media(max-width:58rem){.official-contact{grid-template-columns:1fr}.official-contact nav{grid-template-columns:1fr}}@media(max-width:42rem){.official-contact{padding-bottom:6.5rem}}
+
 /* ── Trust Badges ── */
 .badge { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.78rem; font-weight: 700; }
 .badge-approved { background: #dcfce7; color: #15803d; }
