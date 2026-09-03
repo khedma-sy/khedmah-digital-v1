@@ -6,12 +6,16 @@ import { officialWhatsappContactUrl } from '../lib/official-links';
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('official follow and contact channels are distinct and globally visible', async () => {
-  const [links, component, layout] = await Promise.all([read('lib/official-links.ts'), read('app/components/official-contact-links.tsx'), read('app/layout.tsx')]);
+  const [links, component, account, icon, layout] = await Promise.all([read('lib/official-links.ts'), read('app/components/official-contact-links.tsx'), read('app/users/me/page.tsx'), read('app/components/whatsapp-icon.tsx'), read('app/layout.tsx')]);
   assert.match(links, /whatsapp\.com\/channel\/0029Vb8OwhVGOj9gPtjqdO0c/);
   assert.match(links, /facebook\.com\/khedma\.uk/);
   assert.match(component, /قناة واتساب/);
   assert.match(component, /اتصل عبر واتساب/);
   assert.match(component, /الرابط الرسمي قيد التحقق/);
+  assert.match(component, /<WhatsappIcon/);
+  assert.match(account, /<WhatsappIcon/);
+  assert.match(icon, /className="whatsapp-icon"/);
+  assert.doesNotMatch(component, /PlatformIcon name="(?:phone|bell)"/);
   assert.match(layout, /<OfficialContactLinks/);
 });
 

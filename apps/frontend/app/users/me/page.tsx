@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
+import { WhatsappIcon } from '../../components/whatsapp-icon';
 import { KHEDMAH_FACEBOOK_URL, KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
 
 function AccountShortcut({
@@ -128,7 +129,7 @@ export default function ProfilePage() {
             <h2>تابع وتواصل مع خدمة</h2>
             <p>اختر قناة المتابعة للأخبار والعروض، أو التواصل المباشر للاستفسار وإضافة نشاطك.</p>
           </div>
-          <div className="ui-account-social-actions"><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_FACEBOOK_URL} target="_blank" rel="noopener noreferrer">Facebook <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18}/></a><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_WHATSAPP_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><PlatformIcon name="bell" size={18}/>متابعة قناة واتساب</a>{whatsappContactUrl?<a className="ui-action ui-action-secondary ui-account-social-action" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><PlatformIcon name="phone" size={18}/>الاتصال عبر واتساب</a>:<span className="ui-account-social-unavailable" aria-disabled="true"><PlatformIcon name="phone" size={18}/>رابط الاتصال قيد التحقق</span>}</div>
+          <div className="ui-account-social-actions"><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_FACEBOOK_URL} target="_blank" rel="noopener noreferrer">Facebook <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18}/></a><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_WHATSAPP_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><WhatsappIcon/>متابعة قناة واتساب</a>{whatsappContactUrl?<a className="ui-action ui-action-secondary ui-account-social-action" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><WhatsappIcon/>الاتصال عبر واتساب</a>:<span className="ui-account-social-unavailable" aria-disabled="true"><WhatsappIcon/>رابط الاتصال قيد التحقق</span>}</div>
         </Surface>
       </div>
     </PageShell>
