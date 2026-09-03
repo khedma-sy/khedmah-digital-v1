@@ -14,6 +14,8 @@ test('official follow and contact channels are distinct and globally visible', a
   assert.match(component, /الرابط الرسمي قيد التحقق/);
   assert.match(component, /<WhatsappIcon/);
   assert.match(account, /<WhatsappIcon/);
+  assert.match(component, /<SocialProviderIcon provider="facebook"/);
+  assert.match(account, /<SocialProviderIcon provider="facebook"/);
   assert.match(icon, /className="whatsapp-icon"/);
   assert.doesNotMatch(component, /PlatformIcon name="(?:phone|bell)"/);
   assert.match(layout, /<OfficialContactLinks/);
