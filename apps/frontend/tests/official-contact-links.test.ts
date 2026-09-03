@@ -5,19 +5,24 @@ import { officialWhatsappContactUrl } from '../lib/official-links';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('official follow and contact channels are distinct and globally visible', async () => {
-  const [links, component, account, icon, layout] = await Promise.all([read('lib/official-links.ts'), read('app/components/official-contact-links.tsx'), read('app/users/me/page.tsx'), read('app/components/whatsapp-icon.tsx'), read('app/layout.tsx')]);
+test('official social pages are globally visible while direct contact remains available from the account', async () => {
+  const [links, component, socialLinks, account, whatsappIcon, brandIcons, layout] = await Promise.all([read('lib/official-links.ts'), read('app/components/official-contact-links.tsx'), read('app/components/official-social-links.tsx'), read('app/users/me/page.tsx'), read('app/components/whatsapp-icon.tsx'), read('app/components/social-brand-icon.tsx'), read('app/layout.tsx')]);
   assert.match(links, /whatsapp\.com\/channel\/0029Vb8OwhVGOj9gPtjqdO0c/);
   assert.match(links, /facebook\.com\/khedma\.uk/);
-  assert.match(component, /قناة واتساب/);
-  assert.match(component, /اتصل عبر واتساب/);
-  assert.match(component, /الرابط الرسمي قيد التحقق/);
-  assert.match(component, /<WhatsappIcon/);
-  assert.match(account, /<WhatsappIcon/);
-  assert.match(component, /<SocialProviderIcon provider="facebook"/);
-  assert.match(account, /<SocialProviderIcon provider="facebook"/);
-  assert.match(icon, /className="whatsapp-icon"/);
-  assert.doesNotMatch(component, /PlatformIcon name="(?:phone|bell)"/);
+  assert.match(links, /instagram\.com\/khedmasy/);
+  assert.match(links, /threads\.com\/@khedmasy/);
+  assert.match(links, /t\.me\/KHEDMASYRIA/);
+  assert.match(links, /youtube\.com\/@khedma-q5d/);
+  assert.match(component, /صفحاتنا على مواقع التواصل/);
+  assert.match(component, /<OfficialSocialLinks/);
+  assert.doesNotMatch(component, /<small>|اتصل عبر واتساب|تابع الصفحة/);
+  assert.match(socialLinks, /<WhatsappIcon/);
+  assert.match(socialLinks, /<SocialProviderIcon provider="facebook"/);
+  for (const brand of ['instagram', 'threads', 'telegram', 'youtube']) assert.match(socialLinks, new RegExp(`<SocialBrandIcon brand="${brand}"`));
+  assert.match(account, /<OfficialSocialLinks/);
+  assert.match(account, /whatsappUrl=\{whatsappContactUrl \?\? KHEDMAH_WHATSAPP_CHANNEL_URL\}/);
+  assert.match(whatsappIcon, /className="whatsapp-icon"/);
+  for (const brand of ['instagram', 'threads', 'telegram', 'youtube']) assert.match(brandIcons, new RegExp(`social-brand-icon-${brand}`));
   assert.match(layout, /<OfficialContactLinks/);
 });
 

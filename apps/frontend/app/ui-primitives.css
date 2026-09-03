@@ -104,30 +104,16 @@
 .ui-account-action-list .ui-account-shortcut { min-height:4.6rem; background:transparent; }
 .ui-account-social {
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-columns:minmax(0,1fr) auto;
   align-items:center;
   gap:1rem;
   padding:1rem 1.2rem;
   border-color:color-mix(in srgb,#1877f2 28%,var(--k-color-border));
   background:linear-gradient(110deg,color-mix(in srgb,#1877f2 8%,var(--k-glass)),var(--k-glass));
 }
-.ui-account-social-mark {
-  width:3rem;
-  aspect-ratio:1;
-  display:grid;
-  place-items:center;
-  border-radius:.9rem;
-  color:#fff;
-  background:#1877f2;
-  font-family:Arial,sans-serif;
-  font-size:1.65rem;
-  font-weight:900;
-}
 .ui-account-social-copy h2 { margin:0; color:var(--k-color-text); font-size:1rem; }
-.ui-account-social-copy p { margin:.2rem 0 0; color:var(--k-color-text-muted); font-size:.8rem; line-height:1.65; }
 .ui-account-social-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.5rem; }
-.ui-account-social-action { white-space:nowrap; }
-.ui-account-social-unavailable { display:inline-flex; align-items:center; gap:.35rem; min-height:2.75rem; padding:.55rem .8rem; border:1px dashed var(--k-color-border); border-radius:.75rem; color:var(--k-color-text-muted); font-size:.78rem; font-weight:800; }
+.ui-account-social-actions.official-social-links > a { border-color:var(--k-color-border); background:var(--k-color-surface); }
 
 @media(max-width:58rem) {
   .ui-account-hero { grid-template-columns:1fr; }
@@ -136,7 +122,7 @@
   .ui-account-sections { grid-template-columns:1fr; }
   .ui-account-social { grid-template-columns:auto minmax(0,1fr); }
   .ui-account-social-actions { grid-column:1/-1; justify-content:stretch; }
-  .ui-account-social-actions > * { flex:1 1 12rem; }
+  .ui-account-social-actions.official-social-links > a { flex:0 0 3.35rem; }
 }
 @media(max-width:40rem) {
   .ui-account-page .ui-container { width:min(calc(100% - 1.25rem),78rem); }

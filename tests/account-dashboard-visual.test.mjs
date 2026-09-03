@@ -16,11 +16,11 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
   assert.match(page, /البيع والطلبات/);
   assert.match(page, /النقل والتوصيل/);
   assert.match(page, /PlatformIcon/);
-  assert.match(page, /KHEDMAH_FACEBOOK_URL/);
+  assert.match(page, /OfficialSocialLinks/);
   assert.match(page, /KHEDMAH_WHATSAPP_CHANNEL_URL/);
-  assert.match(page, /متابعة قناة واتساب/);
-  assert.match(page, /الاتصال عبر واتساب/);
-  assert.match(page, /رابط الاتصال قيد التحقق/);
+  assert.match(page, /officialWhatsappContactUrl/);
+  assert.match(page, /صفحاتنا على مواقع التواصل/);
+  assert.doesNotMatch(page, /متابعة قناة واتساب|الاتصال عبر واتساب|رابط الاتصال قيد التحقق/);
 
   for (const route of [
     '/business-profiles',

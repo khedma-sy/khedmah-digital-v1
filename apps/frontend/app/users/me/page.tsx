@@ -5,9 +5,8 @@ import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
-import { WhatsappIcon } from '../../components/whatsapp-icon';
-import { SocialProviderIcon } from '../../auth/social-provider-icon';
-import { KHEDMAH_FACEBOOK_URL, KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
+import { OfficialSocialLinks } from '../../components/official-social-links';
+import { KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
 
 function AccountShortcut({
   href,
@@ -134,13 +133,14 @@ export default function ProfilePage() {
         </div>
 
         <Surface as="aside" className="ui-account-social">
-          <span className="ui-account-social-mark" aria-hidden="true">خ</span>
           <div className="ui-account-social-copy">
-            <span className="ui-account-kicker">قنوات خدمة الرسمية</span>
-            <h2>تابع وتواصل مع خدمة</h2>
-            <p>اختر قناة المتابعة للأخبار والعروض، أو التواصل المباشر للاستفسار وإضافة نشاطك.</p>
+            <h2>صفحاتنا على مواقع التواصل</h2>
           </div>
-          <div className="ui-account-social-actions"><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_FACEBOOK_URL} target="_blank" rel="noopener noreferrer"><SocialProviderIcon provider="facebook"/>Facebook <bdi>khedma.uk</bdi><PlatformIcon name="arrow" size={18}/></a><a className="ui-action ui-action-secondary ui-account-social-action" href={KHEDMAH_WHATSAPP_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><WhatsappIcon/>متابعة قناة واتساب</a>{whatsappContactUrl?<a className="ui-action ui-action-secondary ui-account-social-action" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><WhatsappIcon/>الاتصال عبر واتساب</a>:<span className="ui-account-social-unavailable" aria-disabled="true"><WhatsappIcon/>رابط الاتصال قيد التحقق</span>}</div>
+          <OfficialSocialLinks
+            className="ui-account-social-actions"
+            whatsappUrl={whatsappContactUrl ?? KHEDMAH_WHATSAPP_CHANNEL_URL}
+            whatsappLabel={whatsappContactUrl ? 'التواصل مع خدمة عبر واتساب' : 'قناة خدمة على واتساب'}
+          />
         </Surface>
       </div>
     </PageShell>
