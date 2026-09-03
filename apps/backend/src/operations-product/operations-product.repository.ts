@@ -38,11 +38,19 @@ export class OperationsProductRepository {
     });
   }
   async orderMonitor(){
-    const rows=await this.db.query<any>(`SELECT o.id,o.vertical,o.status,o.payment_status,o.currency,o.total,o.created_at,o.updated_at,merchant.name_ar merchant_name,courier.name_ar courier_name,l.recorded_at latest_location_at,(SELECT COUNT(*)::int FROM fulfillment_order_events e WHERE e.order_id=o.id) event_count FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id LEFT JOIN fulfillment_order_location_updates l ON l.order_id=o.id ORDER BY CASE WHEN o.status IN ('delivered','rejected','cancelled') THEN 1 ELSE 0 END,o.updated_at ASC LIMIT 200`);
+    const [rows,mobilityRows,professionalRows]=await Promise.all([
+      this.db.query<any>(`SELECT o.id,o.vertical,o.status,o.payment_status,o.currency,o.total,o.created_at,o.updated_at,merchant.name merchant_name,courier.name courier_name,(SELECT MAX(l.recorded_at) FROM fulfillment_order_location_updates l WHERE l.order_id=o.id) latest_location_at,(SELECT COUNT(*)::int FROM fulfillment_order_events e WHERE e.order_id=o.id) event_count FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id ORDER BY CASE WHEN o.status IN ('delivered','rejected','cancelled') THEN 1 ELSE 0 END,o.updated_at ASC LIMIT 200`),
+      this.db.query<any>(`SELECT r.id,r.service_type,r.status,r.updated_at,b.name provider_name,(SELECT COUNT(*)::int FROM mobility_request_events e WHERE e.request_id=r.id) event_count FROM mobility_requests r JOIN business_profiles b ON b.id=r.provider_business_id ORDER BY CASE WHEN r.status IN ('completed','rejected','cancelled') THEN 1 ELSE 0 END,r.updated_at ASC LIMIT 200`),
+      this.db.query<any>(`SELECT r.id,r.status,r.updated_at,c.name_ar category_name,b.name provider_name,(r.status='disputed' OR (r.status='completion_pending' AND r.updated_at<NOW()-INTERVAL '24 hours') OR (r.status='open' AND r.expires_at<=NOW())) needs_attention,(SELECT COUNT(*)::int FROM professional_service_offers o WHERE o.request_id=r.id) offer_count,(SELECT COUNT(*)::int FROM professional_service_events e WHERE e.request_id=r.id) event_count FROM professional_service_requests r JOIN categories c ON c.code=r.category_code LEFT JOIN professional_service_offers accepted ON accepted.id=r.accepted_offer_id LEFT JOIN business_profiles b ON b.id=accepted.provider_business_id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.updated_at ASC LIMIT 200`)
+    ]);
     const now=Date.now();const terminal=new Set(['delivered','rejected','cancelled']);
     const orders=rows.map(row=>({id:row.id,vertical:row.vertical,status:row.status,paymentStatus:row.payment_status,currency:row.currency,total:row.total===null?undefined:Number(row.total),merchantName:row.merchant_name,courierName:row.courier_name??undefined,createdAt:new Date(row.created_at).toISOString(),updatedAt:new Date(row.updated_at).toISOString(),latestLocationAt:row.latest_location_at?new Date(row.latest_location_at).toISOString():undefined,eventCount:Number(row.event_count??0),stale:!terminal.has(row.status)&&now-new Date(row.updated_at).getTime()>30*60*1000}));
     const counts:Record<string,number>={};for(const order of orders)counts[order.status]=(counts[order.status]??0)+1;
-    return{generatedAt:new Date().toISOString(),privacy:{contactDataExposed:false,addressExposed:false,coordinatesExposed:false},summary:{total:orders.length,active:orders.filter(order=>!terminal.has(order.status)).length,stale:orders.filter(order=>order.stale).length,unassigned:orders.filter(order=>!terminal.has(order.status)&&!order.courierName).length,byStatus:counts},orders};
+    const mobilityTerminal=new Set(['completed','rejected','cancelled']);
+    const mobility=mobilityRows.map(row=>({id:row.id,serviceType:row.service_type,status:row.status,providerName:row.provider_name,updatedAt:new Date(row.updated_at).toISOString(),eventCount:Number(row.event_count??0),stale:!mobilityTerminal.has(row.status)&&now-new Date(row.updated_at).getTime()>30*60*1000}));
+    const professionalTerminal=new Set(['completed','cancelled']);
+    const professionalJobs=professionalRows.map(row=>({id:row.id,status:row.status,categoryName:row.category_name,providerName:row.provider_name??undefined,updatedAt:new Date(row.updated_at).toISOString(),offerCount:Number(row.offer_count??0),eventCount:Number(row.event_count??0),needsAttention:Boolean(row.needs_attention)}));
+    return{generatedAt:new Date().toISOString(),privacy:{contactDataExposed:false,addressExposed:false,coordinatesExposed:false,userTextExposed:false},summary:{total:orders.length,active:orders.filter(order=>!terminal.has(order.status)).length,stale:orders.filter(order=>order.stale).length,unassigned:orders.filter(order=>!terminal.has(order.status)&&!order.courierName).length,byStatus:counts},orders,mobility:{summary:{total:mobility.length,active:mobility.filter(item=>!mobilityTerminal.has(item.status)).length,stale:mobility.filter(item=>item.stale).length},requests:mobility},professionalJobs:{summary:{total:professionalJobs.length,active:professionalJobs.filter(item=>!professionalTerminal.has(item.status)).length,attention:professionalJobs.filter(item=>item.needsAttention).length},requests:professionalJobs}};
   }
   async catalogMonitor(){
     const rows=await this.db.query<any>(`SELECT c.code,c.name_ar,c.name_en,c.parent_code,c.status,c.is_featured,c.sort_order,(SELECT COUNT(*)::int FROM business_profiles b WHERE b.category_code=c.code) business_count,(SELECT COUNT(*)::int FROM business_profiles b WHERE b.category_code=c.code AND b.status='active' AND b.moderation_status='approved') live_business_count,(SELECT COUNT(*)::int FROM service_listings s WHERE s.category_code=c.code) service_count,(SELECT COUNT(*)::int FROM service_listings s WHERE s.category_code=c.code AND s.status='active') live_service_count,(SELECT COUNT(*)::int FROM product_listings p WHERE p.category_code=c.code) product_count,(SELECT COUNT(*)::int FROM product_listings p WHERE p.category_code=c.code AND p.status='active' AND p.moderation_status='approved') live_product_count,(SELECT COUNT(*)::int FROM categories child WHERE child.parent_code=c.code AND child.status='active') active_child_count FROM categories c ORDER BY c.sort_order,c.name_ar,c.code`);
@@ -63,18 +71,52 @@ export class OperationsProductRepository {
       (SELECT COUNT(*) FROM business_profiles WHERE moderation_status='pending') businesses_pending,
       (SELECT COUNT(*) FROM professional_profiles) professionals_total,
       (SELECT COUNT(*) FROM professional_profiles WHERE lifecycle_status='active' AND moderation_status='approved') professionals_live,
+      (SELECT COUNT(*) FROM professional_profiles WHERE moderation_status='pending') professionals_pending,
+      (SELECT COUNT(*) FROM organizations) organizations_total,
+      (SELECT COUNT(*) FROM organization_members WHERE status='active') organization_members_active,
+      (SELECT COUNT(*) FROM locations) locations_total,
+      (SELECT COUNT(*) FROM locations WHERE lifecycle_status='active') locations_active,
+      (SELECT COUNT(*) FROM categories) categories_total,
+      (SELECT COUNT(*) FROM categories WHERE status='active') categories_active,
+      (SELECT COUNT(*) FROM service_listings) services_total,
+      (SELECT COUNT(*) FROM service_listings WHERE status='active') services_live,
       (SELECT COUNT(*) FROM product_listings) products_total,
       (SELECT COUNT(*) FROM product_listings WHERE status='active' AND moderation_status='approved') products_live,
+      (SELECT COUNT(*) FROM product_listings WHERE status='active' AND moderation_status='pending') products_pending,
+      (SELECT COUNT(*) FROM promotions) promotions_total,
+      (SELECT COUNT(*) FROM promotions WHERE status='active' AND moderation_status='approved' AND starts_at<=NOW() AND ends_at>NOW() AND redeemed_count<total_limit) promotions_live,
+      (SELECT COUNT(*) FROM promotions WHERE moderation_status='pending') promotions_pending,
+      (SELECT COUNT(*) FROM promotion_claims) promotion_claims_total,
+      (SELECT COUNT(*) FROM promotion_claims WHERE status='redeemed') promotion_claims_redeemed,
       (SELECT COUNT(*) FROM fulfillment_orders) orders_total,
       (SELECT COUNT(*) FROM fulfillment_orders WHERE status NOT IN ('delivered','rejected','cancelled')) orders_active,
       (SELECT COUNT(*) FROM fulfillment_orders WHERE status='delivered') orders_delivered,
+      (SELECT COUNT(*) FROM fulfillment_orders WHERE status NOT IN ('delivered','rejected','cancelled') AND updated_at<NOW()-INTERVAL '30 minutes') orders_stale,
+      (SELECT COUNT(*) FROM fulfillment_orders WHERE status NOT IN ('delivered','rejected','cancelled') AND courier_business_id IS NULL) orders_unassigned,
       (SELECT COUNT(*) FROM mobility_requests) mobility_total,
       (SELECT COUNT(*) FROM mobility_requests WHERE status IN ('requested','accepted','en_route')) mobility_active,
+      (SELECT COUNT(*) FROM mobility_requests WHERE status IN ('requested','accepted','en_route') AND updated_at<NOW()-INTERVAL '30 minutes') mobility_stale,
       (SELECT COUNT(*) FROM professional_service_requests) jobs_total,
       (SELECT COUNT(*) FROM professional_service_requests WHERE status IN ('open','offer_selected','in_progress','completion_pending','disputed')) jobs_active,
+      (SELECT COUNT(*) FROM professional_service_requests WHERE status='disputed' OR (status='completion_pending' AND updated_at<NOW()-INTERVAL '24 hours') OR (status='open' AND expires_at<=NOW())) jobs_attention,
+      (SELECT COUNT(*) FROM professional_service_requests WHERE status='disputed') jobs_disputed,
+      (SELECT COUNT(*) FROM professional_service_warranties WHERE status='revisit_requested') warranties_revisit,
+      (SELECT COUNT(*) FROM contact_inquiries) inquiries_total,
+      (SELECT COUNT(*) FROM contact_inquiries WHERE status<>'closed') inquiries_open,
+      (SELECT COUNT(*) FROM contact_inquiries WHERE status<>'closed' AND created_at<NOW()-INTERVAL '24 hours') inquiries_overdue,
+      (SELECT COUNT(*) FROM provider_reports) reports_total,
+      (SELECT COUNT(*) FROM provider_reports WHERE status IN ('submitted','in_review')) reports_open,
+      (SELECT COUNT(*) FROM verification_requests WHERE status='pending') verifications_pending,
+      (SELECT COUNT(*) FROM media_assets) media_total,
+      (SELECT COUNT(*) FROM media_assets WHERE visibility='public') media_public,
+      (SELECT COUNT(*) FROM analytics_events WHERE occurred_at>=NOW()-INTERVAL '30 days') analytics_30d,
       (SELECT COUNT(*) FROM operations_incidents WHERE status<>'resolved') incidents_open`);
     const row=rows[0]??{};const number=(key:string)=>Number(row[key]??0);
-    return{generatedAt:new Date().toISOString(),privacy:{aggregatedOnly:true,personalDataExposed:false},users:{total:number('users_total'),active:number('users_active'),suspended:number('users_suspended')},businesses:{total:number('businesses_total'),live:number('businesses_live'),pending:number('businesses_pending')},professionals:{total:number('professionals_total'),live:number('professionals_live')},products:{total:number('products_total'),live:number('products_live')},orders:{total:number('orders_total'),active:number('orders_active'),delivered:number('orders_delivered')},mobility:{total:number('mobility_total'),active:number('mobility_active')},professionalJobs:{total:number('jobs_total'),active:number('jobs_active')},incidents:{open:number('incidents_open')}};
+    const metrics={users:{total:number('users_total'),active:number('users_active'),suspended:number('users_suspended')},businesses:{total:number('businesses_total'),live:number('businesses_live'),pending:number('businesses_pending')},professionals:{total:number('professionals_total'),live:number('professionals_live'),pending:number('professionals_pending')},teams:{total:number('organizations_total'),activeMembers:number('organization_members_active')},locations:{total:number('locations_total'),active:number('locations_active')},categories:{total:number('categories_total'),active:number('categories_active')},services:{total:number('services_total'),live:number('services_live')},products:{total:number('products_total'),live:number('products_live'),pending:number('products_pending')},promotions:{total:number('promotions_total'),live:number('promotions_live'),pending:number('promotions_pending'),claims:number('promotion_claims_total'),redeemed:number('promotion_claims_redeemed')},orders:{total:number('orders_total'),active:number('orders_active'),delivered:number('orders_delivered'),stale:number('orders_stale'),unassigned:number('orders_unassigned')},mobility:{total:number('mobility_total'),active:number('mobility_active'),stale:number('mobility_stale')},professionalJobs:{total:number('jobs_total'),active:number('jobs_active'),attention:number('jobs_attention'),disputed:number('jobs_disputed'),revisitRequested:number('warranties_revisit')},contactInquiries:{total:number('inquiries_total'),open:number('inquiries_open'),overdue:number('inquiries_overdue')},reports:{total:number('reports_total'),open:number('reports_open')},verifications:{pending:number('verifications_pending')},media:{total:number('media_total'),public:number('media_public')},analytics:{last30Days:number('analytics_30d')},incidents:{open:number('incidents_open')}};
+    const domains=[
+      domain('identity','managed',metrics.users.total,0),domain('teams','managed',metrics.teams.total,0),domain('providers','governed',metrics.businesses.total+metrics.professionals.total,metrics.businesses.pending+metrics.professionals.pending+metrics.verifications.pending),domain('catalog','managed',metrics.categories.total+metrics.services.total,0),domain('store','governed',metrics.products.total,metrics.products.pending),domain('promotions','governed',metrics.promotions.total,metrics.promotions.pending),domain('fulfillment','monitored',metrics.orders.total,metrics.orders.stale+metrics.orders.unassigned),domain('mobility','monitored',metrics.mobility.total,metrics.mobility.stale),domain('professional_services','monitored',metrics.professionalJobs.total,metrics.professionalJobs.attention+metrics.professionalJobs.revisitRequested),domain('contact_and_trust','governed',metrics.contactInquiries.total+metrics.reports.total,metrics.contactInquiries.overdue+metrics.reports.open),domain('media','governed',metrics.media.total,0),domain('analytics','monitored',metrics.analytics.last30Days,0),domain('operations','managed',metrics.incidents.open,metrics.incidents.open)
+    ];
+    return{generatedAt:new Date().toISOString(),privacy:{aggregatedOnly:true,personalDataExposed:false},...metrics,domains};
   }
   async contentGovernance(policy:AdvertisingPolicy,plannedPackages:readonly AdvertisingPackageBlueprint[]){
     const rows=await this.db.query<any>(`SELECT
@@ -93,3 +135,4 @@ export class OperationsProductRepository {
   listAudit() { return [...this.audits]; }
 }
 function mapIncident(row:any):IncidentRecord{return{id:row.id,title:row.title,summary:row.summary,category:row.category,severity:row.severity,status:row.status,reporterUserId:row.reporter_user_id,assigneeUserId:row.assignee_user_id??undefined,resolutionNote:row.resolution_note??undefined,createdAt:new Date(row.created_at).toISOString(),updatedAt:new Date(row.updated_at).toISOString(),resolvedAt:row.resolved_at?new Date(row.resolved_at).toISOString():undefined};}
+function domain(id:string,management:'managed'|'monitored'|'governed',total:number,attention:number){return{id,management,total,attention,state:attention>0?'attention' as const:'clear' as const};}

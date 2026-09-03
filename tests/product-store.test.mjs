@@ -69,4 +69,7 @@ test('product image ownership and media type are enforced by the canonical media
   assert.match(service, /ownerType === 'product_listing' \? 'product_listings'/);
   assert.match(service, /input\.assetType === 'gallery' \? 12/);
   assert.match(service, /input\.assetType === 'product_image' \? 5/);
+  assert.match(service, /pg_advisory_xact_lock/);
+  assert.match(service, /COUNT\(\*\)::text AS count FROM media_assets/);
+  assert.match(service, /storage\.delete\(storageKey\)\.catch/);
 });

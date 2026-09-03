@@ -32,19 +32,7 @@ export class MediaService {
     const storageKey = `media/${input.ownerType}/${input.ownerId}/${id}.${ext}`;
     const now = new Date().toISOString();
 
-    const existing = (input.ownerType === 'business_profile' || input.ownerType === 'product_listing' || input.ownerType === 'professional_request') && input.assetType
-      ? await this.db.query<{ id: string; storage_key: string }>(
-          `SELECT id, storage_key FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3 ORDER BY created_at ASC`,
-          [input.ownerType, input.ownerId, input.assetType]
-        )
-      : [];
     const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : ['problem_image','completion_image'].includes(input.assetType ?? '') ? 5 : undefined;
-    if (imageLimit !== undefined && existing.length >= imageLimit) {
-      throw new BadRequestException(`يمكن رفع ${imageLimit} صورة كحد أقصى.`);
-    }
-
-    await this.storage.save(storageKey, content, input.mimeType);
-
     const asset: MediaAsset = {
       id,
       ownerUserId: actor.id,
@@ -62,17 +50,68 @@ export class MediaService {
       updatedAt: now
     };
 
-    await this.db.query(
-      `INSERT INTO media_assets
-         (id, owner_user_id, owner_type, owner_id, filename, mime_type,
-          size_bytes, visibility, storage_key, public_url, asset_type, sort_order, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [
-        asset.id, asset.ownerUserId, asset.ownerType, asset.ownerId,
-        asset.filename, asset.mimeType, asset.sizeBytes, asset.visibility,
-        asset.storageKey, asset.publicUrl ?? null, asset.assetType ?? null, asset.sortOrder, asset.createdAt, asset.updatedAt
-      ]
-    );
+    if (imageLimit !== undefined) {
+      let stored = false;
+      try {
+        await this.db.transaction(async (client) => {
+          await client.query(
+            `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+            [`${input.ownerType}:${input.ownerId}:${input.assetType}`]
+          );
+          const countResult = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3`,
+            [input.ownerType, input.ownerId, input.assetType]
+          );
+          if (Number(countResult.rows[0]?.count ?? 0) >= imageLimit) {
+            throw new BadRequestException(`يمكن رفع ${imageLimit} صورة كحد أقصى.`);
+          }
+
+          await this.storage.save(storageKey, content, input.mimeType);
+          stored = true;
+          await client.query(
+            `INSERT INTO media_assets
+               (id, owner_user_id, owner_type, owner_id, filename, mime_type,
+                size_bytes, visibility, storage_key, public_url, asset_type, sort_order, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+            [
+              asset.id, asset.ownerUserId, asset.ownerType, asset.ownerId,
+              asset.filename, asset.mimeType, asset.sizeBytes, asset.visibility,
+              asset.storageKey, asset.publicUrl ?? null, asset.assetType ?? null, asset.sortOrder, asset.createdAt, asset.updatedAt
+            ]
+          );
+        });
+      } catch (error) {
+        if (stored) await this.storage.delete(storageKey).catch(() => undefined);
+        throw error;
+      }
+      return this.toPublic(asset);
+    }
+
+    const existing = (input.ownerType === 'business_profile' || input.ownerType === 'product_listing' || input.ownerType === 'professional_request') && input.assetType
+      ? await this.db.query<{ id: string; storage_key: string }>(
+          `SELECT id, storage_key FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3 ORDER BY created_at ASC`,
+          [input.ownerType, input.ownerId, input.assetType]
+        )
+      : [];
+
+    await this.storage.save(storageKey, content, input.mimeType);
+
+    try {
+      await this.db.query(
+        `INSERT INTO media_assets
+           (id, owner_user_id, owner_type, owner_id, filename, mime_type,
+            size_bytes, visibility, storage_key, public_url, asset_type, sort_order, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [
+          asset.id, asset.ownerUserId, asset.ownerType, asset.ownerId,
+          asset.filename, asset.mimeType, asset.sizeBytes, asset.visibility,
+          asset.storageKey, asset.publicUrl ?? null, asset.assetType ?? null, asset.sortOrder, asset.createdAt, asset.updatedAt
+        ]
+      );
+    } catch (error) {
+      await this.storage.delete(storageKey).catch(() => undefined);
+      throw error;
+    }
 
     if ((input.assetType === 'logo' || input.assetType === 'cover') && existing.length > 0) {
       await Promise.all(existing.map((item) => this.storage.delete(item.storage_key)));

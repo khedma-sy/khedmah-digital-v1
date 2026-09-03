@@ -39,7 +39,8 @@ test('social login verifies the selected provider on both sides of the API', asy
   assert.match(login, /FACEBOOK_AUTH_ENABLED/);
   assert.match(login, /Facebook — قريبًا/);
   assert.match(register, /FACEBOOK_AUTH_ENABLED/);
-  assert.match(register, /Facebook — قريبًا/);
+  assert.match(register, /غير متاح حاليًا/);
+  assert.match(register, /register-provider-unavailable/);
   assert.match(api, /auth\/facebook/);
   assert.match(controller, /@Post\("facebook"\)/);
   assert.match(service, /facebook\.com/);

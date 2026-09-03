@@ -117,6 +117,11 @@ export default function OrdersPage() {
                 <OrderTracking orderId={o.id} status={o.status} />
               )}
               <div className="ui-page-actions">
+                {o.courierBusinessId && (
+                  <ActionLink href={`/business-profiles/${encodeURIComponent(o.courierBusinessId)}?source=order`} variant="secondary">
+                    التواصل مع المندوب
+                  </ActionLink>
+                )}
                 {o.status === "quoted" && (
                   <ActionButton
                     onClick={() => void move(o, "merchant_confirmed")}

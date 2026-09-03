@@ -24,7 +24,7 @@ test('mobility journey creates a bounded real request without pretending to pric
 });
 
 test('mobility journey renders a resilient two-point Google map and accepts typed addresses', async () => {
-  const page = await read('app/mobility/page.tsx');
+  const [page, styles, promotionStyles] = await Promise.all([read('app/mobility/page.tsx'), read('app/mobility/mobility.module.css'), read('app/mobility/mobility-promotion.module.css')]);
   assert.match(page, /maps\.googleapis\.com\/maps\/api\/js/);
   assert.match(page, /libraries=places/);
   assert.match(page, /new maps\.Map/);
@@ -36,6 +36,13 @@ test('mobility journey renders a resilient two-point Google map and accepts type
   assert.match(page, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(page, /gm_authFailure/);
   assert.match(page, /https:\/\/www\.google\.com\/maps\/dir\//);
+  assert.match(page, /strokeColor: '#81BE49'/);
+  assert.match(styles, /--mobility-green:\s*#81be49/i);
+  assert.match(styles, /--mobility-font-arabic/);
+  assert.match(styles, /font-weight:\s*500/);
+  assert.match(styles, /font-weight:\s*700/);
+  assert.match(styles, /font-weight:\s*800/);
+  assert.match(promotionStyles, /--mobility-green-deep/);
 });
 
 test('mobility journey has explicit loading, empty-data and recovery states', async () => {

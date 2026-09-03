@@ -97,7 +97,7 @@ export default function MobilityPage() {
       removeOverlays.current.push(() => marker.setMap(null));
     });
     if (pickupCoordinates && destinationCoordinates) {
-      const line = new maps.Polyline({ map: map.current, path: [toMapPoint(pickupCoordinates), toMapPoint(destinationCoordinates)], geodesic: true, strokeColor: '#075591', strokeOpacity: .8, strokeWeight: 4 });
+      const line = new maps.Polyline({ map: map.current, path: [toMapPoint(pickupCoordinates), toMapPoint(destinationCoordinates)], geodesic: true, strokeColor: '#81BE49', strokeOpacity: .9, strokeWeight: 5 });
       removeOverlays.current.push(() => line.setMap(null));
     }
     if (points.length > 1) map.current.fitBounds(bounds, 72);

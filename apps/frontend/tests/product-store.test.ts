@@ -22,6 +22,11 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(categoryFilter, /category\.parentCode === rootCode/);
   assert.match(store, /كل المدن/);
   assert.match(store, /ماذا تبحث عنه اليوم؟/);
+  assert.match(store, /سوق خدمة المحلي/);
+  assert.match(store, /أنشطة موثّقة/);
+  assert.match(store, /aria-controls="store-advanced-filters"/);
+  assert.match(store, /data-open=\{filtersOpen\}/);
+  assert.match(store, /الإعلانات المتاحة/);
   assert.match(store, /كل الحالات/);
   assert.match(store, /كل العملات/);
   assert.match(store, /السعر من/);

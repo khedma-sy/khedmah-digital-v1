@@ -1,14 +1,76 @@
 'use client';
-import { FormEvent,useEffect,useRef,useState } from 'react';
+
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ActionButton,StatusMessage,Surface } from '../components/ui-primitives';
+import { ActionButton, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './promotions.module.css';
-type Detector={detect:(source:HTMLVideoElement)=>Promise<Array<{rawValue:string}>>};
-export function PromotionScanner(){const router=useRouter(),video=useRef<HTMLVideoElement>(null),stream=useRef<MediaStream|undefined>(undefined),timer=useRef<number|undefined>(undefined),[code,setCode]=useState(''),[active,setActive]=useState(false),[error,setError]=useState('');
- function open(value:string){const match=value.toUpperCase().match(/KHD-[A-F0-9]{12}/);if(!match){setError('الرمز ليس رمز خصومات خدمة صالحًا.');return}stop();router.push(`/promotions?code=${encodeURIComponent(match[0])}`)}
- function stop(){if(timer.current)window.clearInterval(timer.current);stream.current?.getTracks().forEach(t=>t.stop());setActive(false)}
- async function start(){setError('');const Ctor=(window as unknown as{BarcodeDetector?:new(o:{formats:string[]})=>Detector}).BarcodeDetector;if(!Ctor){setError('المتصفح لا يدعم المسح المباشر. أدخل الرمز المكتوب أسفل QR.');return}try{stream.current=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});if(video.current){video.current.srcObject=stream.current;await video.current.play()}const detector=new Ctor({formats:['qr_code']});setActive(true);timer.current=window.setInterval(()=>{if(video.current)void detector.detect(video.current).then(r=>{if(r[0])open(r[0].rawValue)}).catch(()=>undefined)},600)}catch{setError('تعذر تشغيل الكاميرا. اسمح بالوصول أو أدخل الرمز يدويًا.')}}
- useEffect(()=>()=>stop(),[]);
- function submit(e:FormEvent){e.preventDefault();open(code)}
- return <Surface className={styles.scanner}><div className={styles.scannerHeading}><span className={styles.scannerIcon}><PlatformIcon name="grid" size={24}/></span><div><h2>لديك رمز نشاط؟</h2><p>امسح QR الموجود لدى النشاط أو أدخل الرمز المكتوب أسفله لفتح عروضه فقط.</p></div></div>{active&&<video ref={video} muted playsInline aria-label="معاينة كاميرا مسح رمز خدمة" className={styles.scannerVideo}/>}<div className={styles.scannerBody}><div className={styles.scannerCamera}>{!active?<ActionButton type="button" variant="secondary" onClick={()=>void start()}><PlatformIcon name="grid" size={18}/>فتح قارئ QR</ActionButton>:<ActionButton type="button" variant="secondary" onClick={stop}><PlatformIcon name="close" size={18}/>إيقاف الكاميرا</ActionButton>}</div><form className={styles.codeForm} onSubmit={submit}><label><span>رمز النشاط</span><input dir="ltr" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="KHD-000000000000" pattern="KHD-[A-F0-9]{12}" required/></label><ActionButton type="submit" variant="secondary">فتح عروض النشاط</ActionButton></form></div>{error&&<StatusMessage tone="warning">{error}</StatusMessage>}</Surface>}
+
+type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
+
+export function PromotionScanner() {
+  const router = useRouter();
+  const video = useRef<HTMLVideoElement>(null);
+  const stream = useRef<MediaStream | undefined>(undefined);
+  const timer = useRef<number | undefined>(undefined);
+  const [code, setCode] = useState('');
+  const [active, setActive] = useState(false);
+  const [error, setError] = useState('');
+
+  function open(value: string) {
+    const match = value.toUpperCase().match(/KHD-[A-F0-9]{12}/);
+    if (!match) { setError('الرمز ليس رمز خصومات خدمة صالحًا.'); return; }
+    stop();
+    router.push(`/promotions?code=${encodeURIComponent(match[0])}`);
+  }
+
+  function stop() {
+    if (timer.current) window.clearInterval(timer.current);
+    stream.current?.getTracks().forEach((track) => track.stop());
+    setActive(false);
+  }
+
+  async function start() {
+    setError('');
+    const DetectorConstructor = (window as unknown as { BarcodeDetector?: new(options: { formats: string[] }) => Detector }).BarcodeDetector;
+    if (!DetectorConstructor) { setError('المتصفح لا يدعم المسح المباشر. أدخل الرمز المكتوب أسفل QR.'); return; }
+    try {
+      stream.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      if (video.current) { video.current.srcObject = stream.current; await video.current.play(); }
+      const detector = new DetectorConstructor({ formats: ['qr_code'] });
+      setActive(true);
+      timer.current = window.setInterval(() => {
+        if (video.current) void detector.detect(video.current).then((result) => { if (result[0]) open(result[0].rawValue); }).catch(() => undefined);
+      }, 600);
+    } catch {
+      setError('تعذر تشغيل الكاميرا. اسمح بالوصول أو أدخل الرمز يدويًا.');
+    }
+  }
+
+  useEffect(() => () => stop(), []);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    open(code);
+  }
+
+  return <Surface className={styles.scanner}>
+    <div className={styles.panelHeading}>
+      <span className={styles.panelIcon}><PlatformIcon name="qr" size={22}/></span>
+      <div><span className={styles.methodLabel}>الطريقة الثانية</span><h2>امسح رمز النشاط</h2><p>استخدم QR الموجود لدى النشاط أو أدخل الرمز المطبوع تحته.</p></div>
+    </div>
+    {active && <video ref={video} muted playsInline aria-label="معاينة كاميرا مسح رمز خدمة" className={styles.scannerVideo}/>}
+    <div className={styles.scannerOptions}>
+      <div className={styles.scannerCamera}>{!active ? <ActionButton type="button" onClick={() => void start()}><PlatformIcon name="qr" size={18}/>فتح قارئ QR</ActionButton> : <ActionButton type="button" variant="secondary" onClick={stop}><PlatformIcon name="close" size={18}/>إيقاف الكاميرا</ActionButton>}</div>
+      <div className={styles.optionDivider}><span>أو</span></div>
+      <form className={styles.codeForm} onSubmit={submit}>
+        <label htmlFor="promotion-business-code">أدخل رمز النشاط</label>
+        <div className={styles.codeControl}>
+          <input id="promotion-business-code" dir="ltr" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="KHD-000000000000" pattern="KHD-[A-F0-9]{12}" required/>
+          <ActionButton type="submit" variant="secondary">فتح العروض</ActionButton>
+        </div>
+      </form>
+    </div>
+    {error && <StatusMessage tone="warning">{error}</StatusMessage>}
+  </Surface>;
+}

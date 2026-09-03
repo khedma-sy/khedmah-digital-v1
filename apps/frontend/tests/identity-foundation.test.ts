@@ -29,6 +29,27 @@ test('identity screens include validation, loading, and error states', async () 
   assert.doesNotMatch(profile, /setTimeout/);
 });
 
+test('registration is a scoped responsive identity gateway with honest provider states', async () => {
+  const register = await readFile(new URL('../app/auth/register/page.tsx', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../app/auth-experience.css', import.meta.url), 'utf8');
+
+  assert.match(register, /auth-register-experience/);
+  assert.match(register, /register-brand-panel/);
+  assert.match(register, /أنشئ حسابك في خدمة/);
+  assert.match(register, /سنرسل رابطًا إلى بريدك لتأكيده قبل تفعيل الحساب/);
+  assert.match(register, /form\.checkValidity\(\)/);
+  assert.match(register, /form\.reportValidity\(\)/);
+  assert.match(register, /register-password-status/);
+  assert.match(register, /aria-pressed=\{visiblePassword === 'password'\}/);
+  assert.match(register, /register-provider-unavailable/);
+  assert.doesNotMatch(register, /register-heading/);
+  assert.match(styles, /--register-blue:#07427c/);
+  assert.match(styles, /\.auth-phone-register \.identity-language \{ display:none; \}/);
+  assert.match(styles, /width:min\(100%,68rem\)/);
+  assert.match(styles, /@media\(max-width:58rem\)/);
+  assert.match(styles, /@media\(max-width:42rem\)/);
+});
+
 test('global navigation separates guest discovery from authenticated account actions', async () => {
   const navigation = await readFile(new URL('../app/auth-navigation.tsx', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');

@@ -54,9 +54,11 @@ export interface AdminUserSummary {
   readonly isAdmin:boolean;
 }
 export interface OperationsIncident { readonly id:string; readonly title:string; readonly summary:string; readonly category:string; readonly severity:'low'|'medium'|'high'|'critical'; readonly status:'open'|'in_progress'|'verification'|'resolved'; readonly reporterUserId:string; readonly assigneeUserId?:string; readonly resolutionNote?:string; readonly createdAt:string; readonly updatedAt:string; readonly resolvedAt?:string; }
-export interface AdminOrderMonitor { readonly generatedAt:string; readonly privacy:{contactDataExposed:false;addressExposed:false;coordinatesExposed:false}; readonly summary:{total:number;active:number;stale:number;unassigned:number;byStatus:Record<string,number>}; readonly orders:Array<{id:string;vertical:'food'|'grocery'|'pharmacy';status:string;paymentStatus:string;currency:string;total?:number;merchantName:string;courierName?:string;createdAt:string;updatedAt:string;latestLocationAt?:string;eventCount:number;stale:boolean}>; }
+export interface AdminOrderMonitor { readonly generatedAt:string; readonly privacy:{contactDataExposed:false;addressExposed:false;coordinatesExposed:false;userTextExposed:false}; readonly summary:{total:number;active:number;stale:number;unassigned:number;byStatus:Record<string,number>}; readonly orders:Array<{id:string;vertical:'food'|'grocery'|'pharmacy';status:string;paymentStatus:string;currency:string;total?:number;merchantName:string;courierName?:string;createdAt:string;updatedAt:string;latestLocationAt?:string;eventCount:number;stale:boolean}>;readonly mobility:{summary:{total:number;active:number;stale:number};requests:Array<{id:string;serviceType:'taxi'|'delivery';status:string;providerName:string;updatedAt:string;eventCount:number;stale:boolean}>};readonly professionalJobs:{summary:{total:number;active:number;attention:number};requests:Array<{id:string;status:string;categoryName:string;providerName?:string;updatedAt:string;offerCount:number;eventCount:number;needsAttention:boolean}>}; }
 export interface AdminCatalogMonitor { readonly summary:{total:number;active:number;inactive:number;used:number};readonly categories:Array<{code:string;nameAr:string;nameEn?:string;parentCode?:string;status:'active'|'inactive';isFeatured:boolean;sortOrder:number;businessCount:number;liveBusinessCount:number;serviceCount:number;liveServiceCount:number;productCount:number;liveProductCount:number;activeChildCount:number;canDeactivate:boolean}>; }
-export interface AdminPlatformMetrics {readonly generatedAt:string;readonly privacy:{aggregatedOnly:true;personalDataExposed:false};readonly users:{total:number;active:number;suspended:number};readonly businesses:{total:number;live:number;pending:number};readonly professionals:{total:number;live:number};readonly products:{total:number;live:number};readonly orders:{total:number;active:number;delivered:number};readonly mobility:{total:number;active:number};readonly professionalJobs:{total:number;active:number};readonly incidents:{open:number};}
+export type AdminDomainId='identity'|'teams'|'providers'|'catalog'|'store'|'promotions'|'fulfillment'|'mobility'|'professional_services'|'contact_and_trust'|'media'|'analytics'|'operations';
+export interface AdminDomainCoverage {readonly id:AdminDomainId;readonly management:'managed'|'monitored'|'governed';readonly total:number;readonly attention:number;readonly state:'clear'|'attention';}
+export interface AdminPlatformMetrics {readonly generatedAt:string;readonly privacy:{aggregatedOnly:true;personalDataExposed:false};readonly users:{total:number;active:number;suspended:number};readonly businesses:{total:number;live:number;pending:number};readonly professionals:{total:number;live:number;pending:number};readonly teams:{total:number;activeMembers:number};readonly locations:{total:number;active:number};readonly categories:{total:number;active:number};readonly services:{total:number;live:number};readonly products:{total:number;live:number;pending:number};readonly promotions:{total:number;live:number;pending:number;claims:number;redeemed:number};readonly orders:{total:number;active:number;delivered:number;stale:number;unassigned:number};readonly mobility:{total:number;active:number;stale:number};readonly professionalJobs:{total:number;active:number;attention:number;disputed:number;revisitRequested:number};readonly contactInquiries:{total:number;open:number;overdue:number};readonly reports:{total:number;open:number};readonly verifications:{pending:number};readonly media:{total:number;public:number};readonly analytics:{last30Days:number};readonly incidents:{open:number};readonly domains:AdminDomainCoverage[];}
 export interface AdvertisingPolicy {readonly phase:'free_launch'|'paid';readonly listingLimitPerUser:number;readonly paymentsEnabled:boolean;readonly pricingPublished:boolean;readonly checkoutEnabled:boolean;readonly paidPlansStatus:'planned'|'available';}
 export interface AdvertisingPackageBlueprint {readonly code:'business_10'|'business_30'|'business_100'|'sponsored_7';readonly kind:'listing_bundle'|'sponsored_add_on';readonly nameAr:string;readonly listingLimit:number|null;readonly durationDays:number;readonly price:null;readonly currency:null;readonly purchasable:false;readonly placement:'organic'|'clearly_labelled_sponsored';readonly featuresAr:readonly string[];}
 export interface AdminContentGovernance {readonly generatedAt:string;readonly productPolicy:AdvertisingPolicy&{autoModerationEnabled:true;exceptionsRequireHumanReview:true;plannedPackages:readonly AdvertisingPackageBlueprint[]};readonly products:{pending:number;approved:number;rejected:number;ownersAtLimit:number};readonly promotions:{pending:number;live:number;rejected:number;autoApprovedLast30Days:number;redemptions:number};}
@@ -84,6 +86,12 @@ export interface SmartAdminReport {
     reviewRequired: number;
     policyVersion: 'product-auto-v1';
   };
+  readonly promotionModeration: {
+    pending: number;
+    live: number;
+    policyVersion: 'promotion-auto-v1';
+  };
+  readonly platformCoverage: AdminDomainCoverage[];
   readonly recommendations: Array<{
     priority: 'high' | 'medium' | 'low';
     title: string;
@@ -92,7 +100,9 @@ export interface SmartAdminReport {
   }>;
   readonly automation: {
     canAutoApproveEligibleProducts: true;
+    canAutoApproveEligiblePromotions: true;
     humanApprovalRequiredForExceptions: true;
+    canDeleteOrSuspendAutonomously: false;
   };
 }
 

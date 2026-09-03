@@ -11,6 +11,11 @@ const roleLabel = (role: string) => role === 'operations_product_director'
     ? 'إدارة الأمن والمراجعة'
     : role.replaceAll('_', ' ');
 
+const domainLabel: Record<string,string> = {
+  identity:'الحسابات والهوية',teams:'الفرق المرتبطة بالحسابات',providers:'الأنشطة والمهنيون',catalog:'التصنيفات والخدمات',store:'متجر خدمة',promotions:'الخصومات والعروض',fulfillment:'الطعام والتوصيل',mobility:'التكسي والنقل',professional_services:'الخدمات المهنية',contact_and_trust:'التواصل والثقة',media:'الصور والوسائط',analytics:'البحث والتحليلات',operations:'التشغيل والحوادث'
+};
+const managementLabel = (value:string) => value==='managed'?'إدارة محمية':value==='governed'?'سياسة ومراجعة':'مراقبة تشغيلية';
+
 export default function AdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>(null);
@@ -55,6 +60,7 @@ export default function AdminPage() {
   const canManageUsers = overview.permissions.includes('users.manage');
   const canMonitorOrders = overview.permissions.includes('orders.monitor');
   const canManageCatalog = overview.permissions.includes('catalog.manage');
+  const attentionTotal = metrics.domains.reduce((total,domain)=>total+domain.attention,0);
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
@@ -76,16 +82,26 @@ export default function AdminPage() {
       <article><strong>{metrics.users.active}</strong><span>مستخدمون نشطون من {metrics.users.total}</span></article>
       <article><strong>{metrics.businesses.live}</strong><span>أنشطة حية من {metrics.businesses.total}</span></article>
       <article><strong>{metrics.orders.active}</strong><span>طلبات توصيل نشطة</span></article>
-      <article><strong>{metrics.incidents.open}</strong><span>مشاكل تشغيلية مفتوحة</span></article>
+      <article><strong>{attentionTotal}</strong><span>حالات تحتاج انتباهًا عبر المنصة</span></article>
     </section>
 
-    <section className="operations-grid" aria-label="مؤشرات قطاعات المنصة">
+    <section className="operations-panel" aria-labelledby="admin-coverage-title">
+      <div className="panel-heading"><h2 id="admin-coverage-title">تغطية الأدمن على كامل الموقع</h2><span>{metrics.domains.length} قطاعًا من المصدر الحي</span></div>
+      <div className="moderation-list">{metrics.domains.map(domain=><article className="moderation-card" key={domain.id}><div><h3>{domainLabel[domain.id]??domain.id}</h3><p>{managementLabel(domain.management)} · {domain.total.toLocaleString('ar-SY')} سجلًا مجمعًا</p></div><span className="status-badge">{domain.state==='attention'?`${domain.attention.toLocaleString('ar-SY')} تحتاج متابعة`:'لا توجد حالات معلقة'}</span></article>)}</div>
+    </section>
+
+    <section className="operations-grid" aria-label="مؤشرات قطاعات المنصة الحية">
       <article className="operations-panel"><div className="panel-heading"><h2>المستخدمون</h2><span>{metrics.users.suspended} معلّق</span></div><p>{metrics.users.active} حسابًا نشطًا من أصل {metrics.users.total}.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>الأنشطة والمهنيون</h2><span>{metrics.businesses.pending} قيد المراجعة</span></div><p>{metrics.businesses.live} نشاطًا و{metrics.professionals.live} مهنيًا ظاهرون حاليًا.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>متجر خدمة</h2><span>{metrics.products.live} حي</span></div><p>{metrics.products.total} منتجًا مسجلًا في المتجر.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>الطعام والتوصيل</h2><span>{metrics.orders.active} نشط</span></div><p>{metrics.orders.delivered} طلبًا مكتمل التسليم من أصل {metrics.orders.total}.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>التكسي والتنقل</h2><span>{metrics.mobility.active} نشط</span></div><p>{metrics.mobility.total} رحلة مسجلة ضمن دورة الطلب.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>الخدمات المهنية</h2><span>{metrics.professionalJobs.active} نشط</span></div><p>{metrics.professionalJobs.total} طلب مشكلة وصيانة مسجل.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الفرق المرتبطة بالحسابات</h2><span>{metrics.teams.total} فريق</span></div><p>{metrics.teams.activeMembers} عضوًا نشطًا ضمن البيانات القائمة، دون إعادة إحياء المسار المتقاعد.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الأنشطة والمهنيون</h2><span>{metrics.businesses.pending+metrics.professionals.pending+metrics.verifications.pending} قيد المراجعة</span></div><p>{metrics.businesses.live} نشاطًا و{metrics.professionals.live} مهنيًا ظاهرون حاليًا.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات والخدمات</h2><span>{metrics.categories.active} تصنيفًا حيًا</span></div><p>{metrics.services.live} خدمة حية ضمن {metrics.locations.active} موقعًا معتمدًا.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>متجر خدمة</h2><span>{metrics.products.pending} للمراجعة</span></div><p>{metrics.products.live} منتجًا حيًا من أصل {metrics.products.total}.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>خصومات وعروض خدمة</h2><span>{metrics.promotions.pending} للمراجعة</span></div><p>{metrics.promotions.live} عرضًا حيًا و{metrics.promotions.redeemed} عملية استفادة مكتملة.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الطعام والتوصيل</h2><span>{metrics.orders.stale+metrics.orders.unassigned} للمتابعة</span></div><p>{metrics.orders.delivered} طلبًا مكتمل التسليم من أصل {metrics.orders.total}.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التكسي والتنقل</h2><span>{metrics.mobility.stale} للمتابعة</span></div><p>{metrics.mobility.active} رحلة نشطة من أصل {metrics.mobility.total}.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الخدمات المهنية</h2><span>{metrics.professionalJobs.attention+metrics.professionalJobs.revisitRequested} للمتابعة</span></div><p>{metrics.professionalJobs.active} طلبًا نشطًا، منها {metrics.professionalJobs.disputed} متنازع عليها.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التواصل والثقة</h2><span>{metrics.contactInquiries.overdue+metrics.reports.open} للمتابعة</span></div><p>{metrics.contactInquiries.open} استفسارًا مفتوحًا و{metrics.reports.open} بلاغًا قيد المعالجة.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الوسائط والتحليلات</h2><span>{metrics.analytics.last30Days} حدثًا</span></div><p>{metrics.media.public} ملفًا عامًا من أصل {metrics.media.total} خلال دورة إدارة الوسائط.</p></article>
     </section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">

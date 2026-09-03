@@ -30,14 +30,21 @@ export class OperationsProductService {
   async smartAdminReport(cookie: string | undefined) {
     await this.actor(cookie, 'operations.read');
     const periodDays = 30;
-    const [analytics, productAuditCounts] = await Promise.all([
+    const [analytics, productAuditCounts, platform] = await Promise.all([
       this.analytics.adminSummary(periodDays),
-      this.identityRepository.countAuditEvents(['product.auto_approved', 'product.auto_review_required'], periodDays)
+      this.identityRepository.countAuditEvents(['product.auto_approved', 'product.auto_review_required'], periodDays),
+      this.repository.platformMetrics()
     ]);
     const recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; reason: string; action: string }> = [];
     if (analytics.unmetSearches.length) recommendations.push({ priority: 'high', title: 'طلب غير ملبّى', reason: `${analytics.unmetSearches.length} عبارات بحث متكررة لم تنتج نتائج كافية.`, action: 'راجع التصنيفات واستقطب مزودين لهذه الخدمات.' });
     if (analytics.eventCounts.search_action > 0 && analytics.eventCounts.contact_click === 0) recommendations.push({ priority: 'high', title: 'انقطاع قبل التواصل', reason: 'توجد عمليات بحث دون نقرات تواصل مسجلة.', action: 'راجع جودة النتائج وبطاقات مقدمي الخدمة.' });
     if (analytics.totalEvents === 0) recommendations.push({ priority: 'medium', title: 'بيانات غير كافية', reason: 'لا توجد أحداث استخدام ضمن فترة التقرير.', action: 'تحقق من تفعيل تسجيل الأحداث في Preview قبل اتخاذ قرار.' });
+    if (platform.businesses.pending + platform.professionals.pending + platform.verifications.pending > 0) recommendations.push({ priority: 'high', title: 'ملفات مقدمي خدمة معلّقة', reason: `${platform.businesses.pending + platform.professionals.pending + platform.verifications.pending} ملفات أو طلبات توثيق تنتظر قرارًا.`, action: 'افتح المراجعة وتحقق منها بشريًا قبل النشر.' });
+    if (platform.products.pending + platform.promotions.pending > 0) recommendations.push({ priority: 'high', title: 'محتوى ينتظر المراجعة', reason: `${platform.products.pending} منتجات و${platform.promotions.pending} عروض لم تُحسم بعد.`, action: 'راجع الاستثناءات التي لم تستوفِ شروط القبول الآلي.' });
+    if (platform.orders.stale + platform.orders.unassigned + platform.mobility.stale > 0) recommendations.push({ priority: 'high', title: 'رحلات وطلبات تحتاج متابعة', reason: `${platform.orders.stale} طلبات متأخرة، ${platform.orders.unassigned} بلا مندوب، و${platform.mobility.stale} رحلات متوقفة.`, action: 'افتح مراقبة الطلبات وحدد الحالة المتوقفة ثم سجّل حادثة عند الحاجة.' });
+    if (platform.professionalJobs.attention + platform.professionalJobs.revisitRequested > 0) recommendations.push({ priority: 'high', title: 'خدمات مهنية تحتاج تدخّلًا', reason: `${platform.professionalJobs.attention} طلبات متعثرة و${platform.professionalJobs.revisitRequested} طلبات عودة ضمن الضمان.`, action: 'راجع دورة الطلب والضمان وسجّل المعالجة دون كشف بيانات العميل.' });
+    if (platform.contactInquiries.overdue + platform.reports.open > 0) recommendations.push({ priority: 'medium', title: 'تواصل وثقة بحاجة للمتابعة', reason: `${platform.contactInquiries.overdue} استفسارات متأخرة و${platform.reports.open} بلاغات مفتوحة.`, action: 'تابع زمن الاستجابة وافتح البلاغات في شاشة المراجعة.' });
+    if (platform.incidents.open > 0) recommendations.push({ priority: 'high', title: 'حوادث تشغيلية مفتوحة', reason: `${platform.incidents.open} حوادث لم تصل إلى حالة الحل.`, action: 'تابع دورة الحادثة في مركز التشغيل حتى التحقق والإغلاق.' });
     return {
       generatedAt: new Date().toISOString(),
       privacy: { aggregationOnly: true, minimumSearchCohort: 3, rawUserTextExposed: false },
@@ -48,8 +55,10 @@ export class OperationsProductService {
         reviewRequired: productAuditCounts['product.auto_review_required'] ?? 0,
         policyVersion: 'product-auto-v1' as const
       },
+      promotionModeration: { pending: platform.promotions.pending, live: platform.promotions.live, policyVersion: 'promotion-auto-v1' as const },
+      platformCoverage: platform.domains,
       recommendations,
-      automation: { canAutoApproveEligibleProducts: true, humanApprovalRequiredForExceptions: true }
+      automation: { canAutoApproveEligibleProducts: true, canAutoApproveEligiblePromotions: true, humanApprovalRequiredForExceptions: true, canDeleteOrSuspendAutonomously: false }
     };
   }
   async listUsers(cookie:string|undefined,query=''){await this.actor(cookie,'users.manage');return this.identityRepository.listAccountsForAdmin(query.slice(0,100));}
