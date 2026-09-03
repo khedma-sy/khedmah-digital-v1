@@ -76,10 +76,11 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(image, /run-preview-migrations/);
 });
 
-test('preview mounts admin role bindings from Secret Manager and verifies only the reference', () => {
+test('preview mounts admin role bindings and the Firebase verification key from Secret Manager', () => {
   const workflow = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
   const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
-  assert.match(deployment, /--set-secrets="DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest"/);
+  assert.match(deployment, /--set-secrets="DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,FIREBASE_API_KEY=NEXT_PUBLIC_FIREBASE_API_KEY:latest"/);
+  assert.match(deployment, /Preview backend is missing the Firebase API key secret binding/);
   assert.match(deployment, /valueFrom.*secretKeyRef.*name/s);
   assert.match(deployment, /valueSource.*secretKeyRef.*secret/s);
   assert.match(deployment, /Preview backend is missing the governed admin role binding secret/);
