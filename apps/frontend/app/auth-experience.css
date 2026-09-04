@@ -133,7 +133,7 @@ body:has(.auth-experience) { padding-block-end:0; }
 .auth-field>span { position:absolute; inset-inline-start:2.7rem; inset-block-start:.32rem; color:var(--k-color-text-muted); font-size:.8rem; font-weight:700; }
 .auth-field>input { grid-column:2; align-self:end; width:100%; min-width:0; border:0; outline:0; padding:.68rem 0 .02rem; color:var(--k-color-text); background:transparent; font:inherit; font-size:.88rem; }
 .password-toggle { grid-column:3; border:0; padding:.3rem; color:var(--k-color-text-muted); background:transparent; cursor:pointer; }
-.password-strength { color:var(--k-color-text-muted); font-size:.8rem; font-weight:700; }
+.password-strength { color:var(--k-color-text-muted); font-size:.75rem; font-weight:700; }
 
 .auth-options { display:flex; align-items:center; justify-content:space-between; gap:.75rem; color:var(--k-color-text); font-size:.8rem; }
 .auth-options label { display:flex; align-items:center; gap:.4rem; }
