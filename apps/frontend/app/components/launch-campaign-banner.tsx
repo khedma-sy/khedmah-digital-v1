@@ -8,7 +8,6 @@ export function LaunchCampaignBanner() {
 
   return (
     <aside className="launch-campaign" aria-label="الفترة التجريبية لخدمة">
-      <span aria-hidden="true" className="launch-campaign-mark">☂</span>
       <strong>{LAUNCH_CAMPAIGN_MESSAGE}</strong>
       <Link href="/auth/register">ابدأ الآن</Link>
     </aside>

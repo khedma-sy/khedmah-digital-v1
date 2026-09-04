@@ -15,12 +15,14 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
   assert.match(page, /تم تسجيل الدخول بأمان/);
   assert.match(page, /PriorityServices/);
   assert.match(page, /إدارة نشاطك/);
-  assert.match(page, /متابعة الطلبات والعمل/);
+  assert.match(page, /طلباتي ومهامي/);
   assert.match(page, /نشاط جارٍ الآن/);
   assert.match(page, /merchantCategories/);
   assert.match(page, /courierBusiness/);
   assert.match(page, /taxiBusiness/);
-  assert.match(page, /لست مسجلًا كسائق أو مندوب/);
+  assert.match(page, /roleLabels/);
+  assert.match(page, /دور الحساب/);
+  assert.doesNotMatch(page, /لست مسجلًا كسائق أو مندوب|أضف نشاط نقل/);
   assert.match(page, /PlatformIcon/);
   assert.doesNotMatch(page, /OfficialSocialLinks/);
   assert.doesNotMatch(page, /صفحاتنا على مواقع التواصل/);
@@ -42,7 +44,9 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
   for (const route of ['/restaurants', '/mobility?type=delivery', '/mobility?type=taxi']) {
     assert.match(priorityServices, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
-  for (const label of ['طلب طعام', 'مندوب توصيل', 'خدمة تكسي']) assert.match(priorityServices, new RegExp(label));
+  for (const label of ['اطلب طعامًا', 'اطلب مندوب توصيل', 'ابدأ الرحلة', 'خدمة تكسي']) assert.match(priorityServices, new RegExp(label));
+
+  assert.ok(page.indexOf('<PriorityServices />') < page.indexOf('<Surface className="ui-account-hero">'));
 
   assert.match(styles, /\.ui-account-hero/);
   assert.match(styles, /\.ui-priority-services-grid/);

@@ -716,7 +716,6 @@ p {
   background: linear-gradient(90deg, #0d4f87, #14865f);
   text-align: center;
 }
-.launch-campaign-mark { color: #f7a62b; font-size: 1.35rem; line-height: 1; }
 .launch-campaign a { color: #fff; font-weight: 900; text-decoration: underline; text-underline-offset: .2rem; }
 @media (max-width: 560px) {
   .launch-campaign { flex-wrap: wrap; gap: .3rem .55rem; font-size: .86rem; }

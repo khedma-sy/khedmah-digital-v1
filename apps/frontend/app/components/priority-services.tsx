@@ -4,13 +4,14 @@ import { PlatformIcon, type PlatformIconName } from './platform-icon';
 const services: ReadonlyArray<{
   href: string;
   label: string;
+  eyebrow: string;
   description: string;
   icon: PlatformIconName;
   tone: 'food' | 'delivery' | 'taxi';
 }> = [
-  { href: '/restaurants', label: 'طلب طعام', description: 'اختر مطعمك وابدأ الطلب.', icon: 'food', tone: 'food' },
-  { href: '/mobility?type=delivery', label: 'مندوب توصيل', description: 'أرسل طلبك إلى مندوب قريب.', icon: 'delivery', tone: 'delivery' },
-  { href: '/mobility?type=taxi', label: 'خدمة تكسي', description: 'حدد وجهتك وابدأ مشوارك.', icon: 'car', tone: 'taxi' },
+  { href: '/restaurants', label: 'اطلب طعامًا', eyebrow: 'المطاعم', description: 'اختر مطعمك وابدأ الطلب.', icon: 'food', tone: 'food' },
+  { href: '/mobility?type=delivery', label: 'اطلب مندوب توصيل', eyebrow: 'التوصيل', description: 'أرسل طلبك إلى مندوب قريب.', icon: 'delivery', tone: 'delivery' },
+  { href: '/mobility?type=taxi', label: 'ابدأ الرحلة', eyebrow: 'خدمة تكسي', description: 'حدد وجهتك واطلب سيارة.', icon: 'car', tone: 'taxi' },
 ];
 
 export function PriorityServices() {
@@ -27,7 +28,7 @@ export function PriorityServices() {
         {services.map((service) => (
           <Link key={service.href} href={service.href} className={`ui-priority-service ui-priority-service-${service.tone}`}>
             <span className="ui-priority-service-icon"><PlatformIcon name={service.icon} size={24} /></span>
-            <span className="ui-priority-service-copy"><strong>{service.label}</strong><small>{service.description}</small></span>
+            <span className="ui-priority-service-copy"><em>{service.eyebrow}</em><strong>{service.label}</strong><small>{service.description}</small></span>
             <PlatformIcon name="arrow" size={19} />
           </Link>
         ))}

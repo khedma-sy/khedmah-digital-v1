@@ -111,6 +111,9 @@ export default function ProfilePage() {
   const currentMobility = [...activeMobility].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
   const latestIsMobility = currentMobility && (!currentOrder || Date.parse(currentMobility.updatedAt) >= Date.parse(currentOrder.updatedAt));
   const activeCount = activeOrders.length + activeMobility.length;
+  const roleLabels = businesses.length
+    ? [merchantBusiness ? 'صاحب منشأة' : 'صاحب نشاط', courierBusiness ? 'مندوب توصيل' : '', taxiBusiness ? 'سائق تكسي' : ''].filter(Boolean)
+    : ['مستخدم'];
   return (
     <PageShell label="حسابي" className="ui-account-page">
       <PageHeader
@@ -120,6 +123,8 @@ export default function ProfilePage() {
       />
 
       <div className="ui-account-dashboard">
+        <PriorityServices />
+
         <Surface className="ui-account-hero">
           <div className="ui-account-identity">
             <span className="ui-account-avatar" aria-hidden="true">{displayName.slice(0, 1)}</span>
@@ -131,11 +136,12 @@ export default function ProfilePage() {
           </div>
           <div className="ui-account-session">
             <span className="ui-account-state"><PlatformIcon name="check" size={17} />تم تسجيل الدخول بأمان</span>
-            <p>جلسة حسابك آمنة، وتظهر لك المساحات المرتبطة بأدوارك فقط.</p>
+            <div className="ui-account-roles" aria-label="أدوار الحساب">
+              <small>دور الحساب</small>
+              <div>{roleLabels.map((role) => <span key={role}>{role}</span>)}</div>
+            </div>
           </div>
         </Surface>
-
-        <PriorityServices />
 
         {activeCount > 0 ? (
           <Surface className="ui-account-active" aria-labelledby="active-service-title">
@@ -154,8 +160,22 @@ export default function ProfilePage() {
           <Surface className="ui-account-workspace">
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
+                <span className="ui-account-section-icon ui-account-section-icon-service"><PlatformIcon name="delivery" size={21} /></span>
+                <div><h2>طلباتي ومهامي</h2><p>طلباتك أولًا، ثم مهام المندوب أو السائق عند اعتماد دورك.</p></div>
+              </div>
+            </div>
+            <div className="ui-account-action-list">
+              <AccountShortcut href="/orders" label="طلباتي" description="تابع طلبات الطعام والتوصيل التي أنشأتها." icon="ticket" badge={activeOrders.length} />
+              {courierBusiness ? <AccountShortcut href="/orders/courier" label="مهام المندوب" description={courierBusiness.moderationStatus === 'approved' ? 'استقبل مهام التوصيل وتابع التسليم.' : 'دور المندوب بانتظار اعتماد المنصة.'} icon="delivery" tone="success" /> : null}
+              {taxiBusiness ? <AccountShortcut href="/mobility/manage" label="طلبات السائق" description={taxiBusiness.moderationStatus === 'approved' ? 'استقبل رحلات التكسي وأدر العداد.' : 'دور السائق بانتظار اعتماد المنصة.'} icon="car" tone="primary" /> : null}
+            </div>
+          </Surface>
+
+          <Surface className="ui-account-workspace">
+            <div className="ui-account-section-heading">
+              <div className="ui-account-section-title">
                 <span className="ui-account-section-icon ui-account-section-icon-business"><PlatformIcon name="briefcase" size={21} /></span>
-                <div><h2>إدارة نشاطك</h2><p>{businesses.length ? `${businesses.length.toLocaleString('ar-SY')} من أنشطتك مرتبطة بهذا الحساب.` : 'ابدأ بملف نشاط واحد، ثم أضف منتجاتك وخدماتك.'}</p></div>
+                <div><h2>{businesses.length ? 'إدارة نشاطك' : 'ابدأ نشاطك على خدمة'}</h2><p>{businesses.length ? `${businesses.length.toLocaleString('ar-SY')} من أنشطتك مرتبطة بهذا الحساب.` : 'ملف واحد يفتح لك أدوات الإدارة والبيع المناسبة.'}</p></div>
               </div>
               {businesses.length ? <ActionLink href="/business-profiles/new" variant="secondary"><PlatformIcon name="userPlus" size={17} />إضافة نشاط</ActionLink> : null}
             </div>
@@ -167,33 +187,12 @@ export default function ProfilePage() {
                 <AccountShortcut href="/store/sell" label="إضافة إعلان" description="انشر منتجًا مرتبطًا بنشاطك." icon="tag" tone="violet" />
               </div>
             ) : (
-              <div className="ui-account-role-empty">
+              <div className="ui-account-role-empty ui-account-role-empty-provider">
                 <PlatformIcon name="storefront" size={24} />
-                <div><strong>لا يوجد نشاط مرتبط بالحساب</strong><p>أنشئ ملف نشاطك أولًا لتظهر أدوات الإدارة والبيع المناسبة لك.</p></div>
-                <ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>
+                <div><strong>هل تقدم خدمة أو تدير نشاطًا؟</strong><p>أنشئ ملف نشاط واحدًا، وحدد إن كنت منشأة أو مندوبًا أو سائقًا.</p></div>
+                <ActionLink href="/business-profiles/new">إنشاء نشاط</ActionLink>
               </div>
             )}
-          </Surface>
-
-          <Surface className="ui-account-workspace">
-            <div className="ui-account-section-heading">
-              <div className="ui-account-section-title">
-                <span className="ui-account-section-icon ui-account-section-icon-service"><PlatformIcon name="delivery" size={21} /></span>
-                <div><h2>متابعة الطلبات والعمل</h2><p>نُظهر لك طلبات العميل، ثم مهام المندوب أو السائق عند اعتماد دورك.</p></div>
-              </div>
-            </div>
-            <div className="ui-account-action-list">
-              <AccountShortcut href="/orders" label="طلباتي" description="تابع طلبات الطعام والتسليم التي أنشأتها." icon="ticket" badge={activeOrders.length} />
-              {courierBusiness ? <AccountShortcut href="/orders/courier" label="مهام المندوب" description={courierBusiness.moderationStatus === 'approved' ? 'استقبل مهام التوصيل وتابع التسليم.' : 'دور المندوب بانتظار اعتماد المنصة.'} icon="delivery" tone="success" /> : null}
-              {taxiBusiness ? <AccountShortcut href="/mobility/manage" label="طلبات السائق" description={taxiBusiness.moderationStatus === 'approved' ? 'استقبل رحلات التكسي وأدر العداد.' : 'دور السائق بانتظار اعتماد المنصة.'} icon="car" tone="primary" /> : null}
-            </div>
-            {!courierBusiness && !taxiBusiness ? (
-              <div className="ui-account-role-empty ui-account-role-empty-compact">
-                <PlatformIcon name="delivery" size={23} />
-                <div><strong>لست مسجلًا كسائق أو مندوب</strong><p>أضف نشاط نقل واحدًا، وستظهر مساحة العمل بعد مراجعة الأدمن.</p></div>
-                <ActionLink href="/business-profiles/new" variant="secondary">أضف نشاط نقل</ActionLink>
-              </div>
-            ) : null}
           </Surface>
         </div>
       </div>

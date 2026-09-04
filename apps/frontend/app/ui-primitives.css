@@ -42,10 +42,10 @@
 .ui-account-dashboard { display:grid; gap:1rem; }
 .ui-account-hero {
   display:grid;
-  grid-template-columns:minmax(0,1.2fr) minmax(18rem,.8fr);
+  grid-template-columns:minmax(0,1fr) auto;
   align-items:center;
-  gap:clamp(1rem,3vw,2rem);
-  padding:clamp(1.25rem,3vw,2rem);
+  gap:clamp(1rem,2.5vw,1.75rem);
+  padding:clamp(1rem,2vw,1.35rem);
   overflow:hidden;
   background:
     linear-gradient(115deg,color-mix(in srgb,var(--k-color-primary) 7%,var(--k-glass)),var(--k-glass) 58%),
@@ -53,7 +53,7 @@
 }
 .ui-account-identity { display:flex; align-items:center; gap:1rem; min-width:0; }
 .ui-account-avatar {
-  width:clamp(4.5rem,8vw,5.5rem);
+  width:clamp(3.75rem,6vw,4.5rem);
   aspect-ratio:1;
   flex:none;
   display:grid;
@@ -70,8 +70,12 @@
 .ui-account-kicker { display:block; margin-block-end:.25rem; color:var(--k-color-primary); font-size:.73rem; font-weight:900; }
 .ui-account-identity h2,.ui-account-section-heading h2,.ui-account-workspace h2 { margin:0; color:var(--k-color-text); font-size:var(--k-type-card); }
 .ui-account-email { max-width:100%; display:flex; align-items:center; gap:.45rem; margin:.4rem 0 0; overflow:hidden; color:var(--k-color-text-muted); font-size:.88rem; text-overflow:ellipsis; white-space:nowrap; }
-.ui-account-session { display:grid; align-content:center; gap:.55rem; min-height:6rem; padding-inline-start:clamp(1rem,3vw,2rem); border-inline-start:1px solid var(--k-color-border); }
+.ui-account-session { display:grid; align-content:center; gap:.55rem; min-width:17rem; padding-inline-start:clamp(1rem,3vw,1.5rem); border-inline-start:1px solid var(--k-color-border); }
 .ui-account-state { width:max-content; display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.42rem .7rem; color:var(--k-color-success); background:var(--k-color-success-soft); font-size:.76rem; font-weight:900; }
+.ui-account-roles { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem .65rem; }
+.ui-account-roles small { color:var(--k-color-text-muted); font-size:.72rem; font-weight:700; }
+.ui-account-roles>div { display:flex; flex-wrap:wrap; gap:.35rem; }
+.ui-account-roles span { border:1px solid color-mix(in srgb,var(--k-color-primary) 22%,var(--k-color-border)); border-radius:999px; padding:.25rem .55rem; color:var(--k-color-primary); background:var(--k-color-primary-soft); font-size:.7rem; font-weight:850; }
 .ui-account-session p,.ui-account-section-heading>p,.ui-account-section-title p { margin:0; color:var(--k-color-text-muted); font-size:.84rem; line-height:1.7; }
 .ui-account-quick,.ui-account-workspace { display:grid; gap:1rem; padding:clamp(1.15rem,2.5vw,1.6rem); }
 .ui-account-section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; }
@@ -115,6 +119,7 @@
 .ui-priority-service:focus-visible { outline:3px solid var(--service-accent); outline-offset:3px; }
 .ui-priority-service-icon { width:2.8rem; aspect-ratio:1; display:grid; place-items:center; border-radius:.85rem; color:#fff; background:var(--service-accent); box-shadow:0 .45rem 1rem color-mix(in srgb,var(--service-accent) 20%,transparent); }
 .ui-priority-service-copy { min-width:0; display:grid; gap:.18rem; }
+.ui-priority-service-copy em { color:var(--service-accent); font-size:.68rem; font-style:normal; font-weight:900; }
 .ui-priority-service-copy strong { color:var(--k-color-text); font-size:.95rem; }
 .ui-priority-service-copy small { color:var(--k-color-text-muted); font-size:.74rem; font-weight:600; line-height:1.55; }
 .ui-priority-service>svg { color:var(--service-accent); }
@@ -170,9 +175,7 @@
 .ui-account-role-empty { min-height:9rem; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.85rem; border:1px dashed color-mix(in srgb,var(--k-color-primary) 28%,var(--k-color-border)); border-radius:var(--k-radius-md); padding:1rem; color:var(--k-color-primary); background:color-mix(in srgb,var(--k-color-primary) 4%,var(--k-glass)); }
 .ui-account-role-empty strong { display:block; color:var(--k-color-text); font-size:.9rem; }
 .ui-account-role-empty p { margin:.25rem 0 0; color:var(--k-color-text-muted); font-size:.76rem; line-height:1.65; }
-.ui-account-role-empty-compact { min-height:auto; margin-block-start:.65rem; color:var(--k-color-success); background:color-mix(in srgb,var(--k-color-success) 4%,var(--k-glass)); }
-body:has(.ui-account-page) .smart-assistant-trigger { width:3.35rem; min-width:3.35rem; aspect-ratio:1; justify-content:center; padding:.55rem; }
-body:has(.ui-account-page) .smart-assistant-trigger>span { display:none; }
+.ui-account-role-empty-provider { min-height:7.1rem; }
 @media(max-width:58rem) {
   .ui-account-hero { grid-template-columns:1fr; }
   .ui-account-session { min-height:auto; padding:1rem 0 0; border-inline-start:0; border-block-start:1px solid var(--k-color-border); }
@@ -192,6 +195,8 @@ body:has(.ui-account-page) .smart-assistant-trigger>span { display:none; }
   .ui-account-active .ui-action { grid-column:1/-1; width:100%; }
   .ui-account-role-empty { grid-template-columns:auto minmax(0,1fr); }
   .ui-account-role-empty .ui-action { grid-column:1/-1; width:100%; }
+  body:has(.ui-account-page) .smart-assistant-trigger { width:3.35rem; min-width:3.35rem; aspect-ratio:1; justify-content:center; padding:.55rem; }
+  body:has(.ui-account-page) .smart-assistant-trigger>span { display:none; }
 }
 @keyframes ui-loading { to { background-position:-200% 0; } }
 @media(prefers-reduced-motion:reduce) { .ui-skeleton { animation:none; } }

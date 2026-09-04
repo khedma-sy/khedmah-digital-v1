@@ -13,6 +13,9 @@ test('search uses the shared design system and real discovery APIs', () => {
   assert.match(search, /api\.search\.query/);
   assert.match(search, /api\.businesses\.search/);
   assert.match(search, /api\.professionals\.search/);
+  assert.match(search, /className=\{styles\.searchWorkspace\}/);
+  assert.match(search, /بحث موحد/);
+  assert.match(search, /بالقرب مني/);
   assert.doesNotMatch(search, /className="(?:page-shell|filter-bar|card|empty-state)"/);
   assert.doesNotMatch(search, /style=\{\{/);
 });
@@ -22,6 +25,9 @@ test('map keeps functional Google discovery without legacy blue classes', () => 
   assert.match(map, /api\.search\.query/);
   assert.match(map, /navigator\.geolocation/);
   assert.match(map, /StatusMessage/);
+  assert.match(map, /locationSource/);
+  assert.match(map, /يبدأ العرض من دمشق/);
+  assert.match(map, /خدمات حول موقعك/);
   assert.doesNotMatch(map, /className="(?:marketplace-map|map-results|google-map|locate-button)/);
 });
 

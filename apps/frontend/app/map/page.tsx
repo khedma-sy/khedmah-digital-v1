@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
@@ -54,6 +53,7 @@ function MapDiscovery() {
   const [query, setQuery] = useState(initialQuery);
   const [providers, setProviders] = useState<PublicBusinessProfile[]>([]);
   const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [locationSource, setLocationSource] = useState<'default' | 'device'>('default');
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
   const [status, setStatus] = useState('جاري تحميل مقدمي الخدمات…');
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
@@ -185,6 +185,7 @@ function MapDiscovery() {
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       const next = { latitude: coords.latitude, longitude: coords.longitude };
       setLocation(next);
+      setLocationSource('device');
       map.current?.panTo({ lat: next.latitude, lng: next.longitude });
       void search(map.current?.getBounds()?.toJSON(), next);
     }, () => setStatus('تعذر الوصول إلى موقعك. حرّك الخريطة يدوياً.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
@@ -192,16 +193,17 @@ function MapDiscovery() {
 
   return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
     <aside className={styles.mapPanel}>
-      <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
+      <header><span className={styles.mapKicker}><PlatformIcon name="pin" size={15}/> بالقرب مني</span><h1>خدمات حول موقعك</h1><p className={styles.meta}>استخدم موقعك أو ابحث عن خدمة، ثم افتح ملف مقدم الخدمة مباشرة.</p></header>
+      <ActionButton className={styles.locateAction} type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
+      <p className={styles.locationContext} aria-live="polite"><PlatformIcon name={locationSource === 'device' ? 'check' : 'info'} size={15}/>{locationSource === 'device' ? 'يتم الآن البحث ضمن المنطقة المحيطة بموقعك.' : 'يبدأ العرض من دمشق؛ استخدم موقعك لنتائج أقرب إليك.'}</p>
+      <form onSubmit={(event) => { event.preventDefault(); void search(map.current?.getBounds()?.toJSON()); }}>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="الخدمة المطلوبة" placeholder="مثال: تصليح مكيف" />
+        <ActionButton type="submit" variant="secondary"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
+      </form>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
         <ActionButton type="button" variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
         <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
       </nav>
-      <form onSubmit={(event) => { event.preventDefault(); void search(map.current?.getBounds()?.toJSON()); }}>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="الخدمة المطلوبة" placeholder="مثال: تصليح مكيف" />
-        <ActionButton type="submit"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
-      </form>
-      <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
       {mapStatus === 'error' && MAPS_KEY && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
