@@ -13,10 +13,17 @@ test('root layout declares Arabic RTL defaults and metadata', async () => {
 
 test('global styles preserve RTL and accessibility focus foundations', async () => {
   const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
+  const tokens = await readFile(new URL('../app/design-tokens.css', import.meta.url), 'utf8');
+  const brand = await readFile(new URL('../app/brand-system.css', import.meta.url), 'utf8');
 
   assert.match(styles, /direction:\s*rtl/);
   assert.match(styles, /\.skip-link:focus/);
   assert.match(styles, /outline:\s*3px solid var\(--focus\)/);
+  assert.match(tokens, /--k-font-arabic:/);
+  assert.match(tokens, /--k-leading-body:\s*1\.75/);
+  assert.match(tokens, /button,input,select,textarea\s*\{\s*font-family:inherit/);
+  assert.match(tokens, /unicode-bidi:isolate/);
+  assert.match(brand, /font-family:var\(--k-font-arabic\)/);
 });
 
 test('frontend prepares global error and loading boundaries only', async () => {

@@ -28,7 +28,7 @@
   color:#fff;
   font-size: clamp(1.9rem, 3.5vw, 2.8rem);
   line-height: 1.25;
-  letter-spacing: -.025em;
+  letter-spacing:0;
 }
 .heroCopy > p {
   max-width: 47rem;
@@ -44,7 +44,7 @@
   margin-block-start: .9rem;
   color:rgba(255,255,255,.88);
   font-size: .875rem;
-  font-weight: 750;
+  font-weight:700;
 }
 .trustLine span { display: inline-flex; align-items: center; gap: .35rem; }
 .trustLine svg { color:#d9ffe9; }
@@ -118,7 +118,7 @@
   background: transparent;
   font: inherit;
   font-size: .875rem;
-  font-weight: 850;
+  font-weight:800;
   cursor: pointer;
 }
 .modeSwitch button[aria-pressed='true'] {
@@ -130,7 +130,7 @@
 
 .searchForm { min-width: 0; display: grid; gap: .5rem; }
 .searchLabel,
-.codeForm label { color: var(--k-color-text); font-size: .875rem; font-weight: 850; }
+.codeForm label { color: var(--k-color-text); font-size: .875rem; font-weight:800; }
 .searchControl {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -182,7 +182,7 @@
 .clearSearch:hover { color: var(--k-color-primary); background: var(--k-color-primary-soft); }
 .clearSearch:focus-visible { outline: 3px solid var(--k-color-accent); outline-offset: 2px; }
 .quickDeals { display:flex; gap:.5rem; overflow-x:auto; padding-block:.1rem; }
-.quickDeals button { flex:0 0 auto; min-height:2.65rem; border:1px solid color-mix(in srgb,var(--deals-orange) 34%,var(--k-color-border)); border-radius:999px; padding:.45rem .85rem; color:var(--deals-orange-deep); background:color-mix(in srgb,var(--deals-orange) 7%,#fff); font:inherit; font-size:.84rem; font-weight:850; cursor:pointer; }
+.quickDeals button { flex:0 0 auto; min-height:2.65rem; border:1px solid color-mix(in srgb,var(--deals-orange) 34%,var(--k-color-border)); border-radius:999px; padding:.45rem .85rem; color:var(--deals-orange-deep); background:color-mix(in srgb,var(--deals-orange) 7%,#fff); font:inherit; font-size:.84rem; font-weight:800; cursor:pointer; }
 .quickDeals button:hover,.quickDeals button[aria-pressed='true'] { border-color:var(--deals-orange); color:#fff; background:var(--deals-orange); }
 
 .scanner { min-width: 0; display: grid; gap: .85rem; }
@@ -211,7 +211,7 @@
   color: var(--k-color-text);
   background: transparent;
   font: inherit;
-  font-weight: 750;
+  font-weight:700;
   outline: 0;
 }
 .scannerVideo { width: 100%; max-height: 19rem; border-radius: var(--k-radius-md); background: #071833; object-fit: cover; }
@@ -259,13 +259,13 @@
 .promotionCard::before { content:''; position:absolute; inset-block:0; inset-inline-start:0; width:.3rem; background:linear-gradient(var(--deals-orange),var(--deals-green)); }
 .cardHeading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; }
 .cardHeading h2 { margin: .15rem 0 0; font-size: 1.12rem; line-height: 1.5; }
-.businessName { color: var(--k-color-text-muted); font-size: .8rem; font-weight: 850; }
+.businessName { color: var(--k-color-text-muted); font-size: .8rem; font-weight:800; }
 .cardIcon { width:2.85rem; aspect-ratio:1; display:grid; place-items:center; flex:none; border-radius:.85rem; color:#fff; background:var(--deals-orange); }
 .discountBadge { border-radius: 999px; padding: .32rem .65rem; color: #8b4f00; background: color-mix(in srgb, var(--k-color-accent) 17%, white); font-size: .8rem; font-weight: 900; white-space: nowrap; }
 .cardDescription { margin: 0; color: var(--k-color-text-muted); font-size: .95rem; line-height: 1.75; }
 .priceComparison { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .8rem; border-radius: var(--k-radius-md); padding: .8rem; background: color-mix(in srgb, var(--k-color-primary-soft) 52%, var(--k-color-surface)); }
 .priceComparison > div { display: grid; gap: .15rem; }
-.priceComparison span { color: var(--k-color-text-muted); font-size: .75rem; font-weight: 800; }
+.priceComparison span { color: var(--k-color-text-muted); font-size: .8rem; font-weight: 800; }
 .priceComparison del { color: var(--k-color-text-muted); font-size: .9rem; }
 .priceComparison svg { color: var(--k-color-text-muted); }
 .finalPrice strong { color:var(--deals-orange-deep); font-size:1.25rem; }

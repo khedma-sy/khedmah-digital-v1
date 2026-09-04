@@ -1,5 +1,7 @@
 :root {
   color-scheme: light;
+  --k-font-arabic: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --k-font-latin: "Segoe UI", Arial, sans-serif;
   --k-color-canvas: #f8faf9;
   --k-color-canvas-soft: #f3f7f5;
   --k-color-surface: #ffffff;
@@ -33,6 +35,16 @@
   --k-type-card: 1.05rem;
   --k-type-body: 1rem;
   --k-type-meta: .875rem;
+  --k-type-label: .875rem;
+  --k-type-caption: .75rem;
+  --k-leading-heading: 1.4;
+  --k-leading-body: 1.75;
+  --k-leading-compact: 1.55;
+  --k-weight-regular: 400;
+  --k-weight-medium: 500;
+  --k-weight-semibold: 600;
+  --k-weight-bold: 700;
+  --k-weight-extrabold: 800;
   --k-glass: rgb(255 255 255 / 72%);
   --k-glass-strong: rgb(255 255 255 / 82%);
   --k-glass-border: rgb(23 50 71 / 15%);
@@ -90,10 +102,25 @@
 
 html,
 body { background:var(--k-color-canvas); color:var(--k-color-text); }
-body h1 { font-size:var(--k-type-page); line-height:1.3; letter-spacing:-.015em; }
-body h2 { font-size:var(--k-type-section); line-height:1.4; }
-body h3 { font-size:var(--k-type-card); line-height:1.45; }
-body p { font-size:var(--k-type-body); }
+body {
+  font-family:var(--k-font-arabic);
+  font-size:var(--k-type-body);
+  font-weight:var(--k-weight-regular);
+  line-height:var(--k-leading-body);
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+body h1 { font-size:var(--k-type-page); font-weight:var(--k-weight-extrabold); line-height:1.3; letter-spacing:0; }
+body h2 { font-size:var(--k-type-section); font-weight:var(--k-weight-bold); line-height:var(--k-leading-heading); letter-spacing:0; }
+body h3 { font-size:var(--k-type-card); font-weight:var(--k-weight-bold); line-height:1.45; letter-spacing:0; }
+body p { font-size:var(--k-type-body); line-height:var(--k-leading-body); }
+button,input,select,textarea { font-family:inherit; }
+:where([dir='ltr'],input[type='email'],input[type='tel'],input[type='url']) {
+  font-family:var(--k-font-latin);
+  font-variant-numeric:tabular-nums;
+  unicode-bidi:isolate;
+}
 
 .khedma-header {
   min-height:3.8rem;

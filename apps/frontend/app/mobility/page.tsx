@@ -66,12 +66,12 @@ export default function MobilityPage() {
   const [farePolicy, setFarePolicy] = useState<MobilityFarePolicy>();
   const previousStatus = useRef<MobilityRequest['status']|undefined>(undefined);
   const deliveryDetailsReady = type === 'taxi' || Boolean(packageDescription.trim() && recipientName.trim() && recipientPhone.trim().length >= 6);
-  const canPlanRoute = Boolean(pickup.trim() && destination.trim() && deliveryDetailsReady);
+  const canPlanRoute = Boolean(pickup.trim() && destination.trim() && contactPhone.trim().length >= 6 && deliveryDetailsReady);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('type') === 'delivery') setType('delivery');
     const refresh = () => void api.mobility.listMine().then(({ requests }) => {
-      const latest = requests.find((item) => openStatuses.includes(item.status)) ?? requests[0];
+      const latest = requests.find((item) => openStatuses.includes(item.status));
       const changed = previousStatus.current && previousStatus.current !== latest?.status;
       const notification = latest ? riderNotification(latest) : undefined;
       if (changed && notification && 'Notification' in window && Notification.permission === 'granted') {
@@ -220,9 +220,9 @@ export default function MobilityPage() {
       const resolvedPickup = pickupCoordinates ?? await geocodeAddress(pickup);
       const resolvedDestination = destinationCoordinates ?? await geocodeAddress(destination);
       if (!resolvedPickup) { setMessage('لم نتمكن من تحديد نقطة الانطلاق. استخدم موقعك أو اخترها من الخريطة.'); return; }
-      if (!destination.trim()) { setMessage('أدخل الوجهة لإكمال الرحلة.'); return; }
+      if (!resolvedDestination) { setMessage('لم نتمكن من تثبيت الوجهة. اخترها من الاقتراحات أو الخريطة ثم حاول مجددًا.'); return; }
       setPickupCoordinates(resolvedPickup);
-      if (resolvedDestination) setDestinationCoordinates(resolvedDestination);
+      setDestinationCoordinates(resolvedDestination);
       const result = await api.search.query({ categoryCode: categoryFor(type), type: 'business', map: true, latitude: resolvedPickup.latitude, longitude: resolvedPickup.longitude });
       const nearby = result.businesses.slice(0, 12);
       setProviders(nearby); setSearched(true);
@@ -233,7 +233,7 @@ export default function MobilityPage() {
   }
 
   async function requestProvider(provider: PublicBusinessProfile) {
-    if (!farePolicy?.enabled) return setMessage('التعرفة الآلية بانتظار اعتماد الأدمن؛ لن نرسل رحلة بلا سعر تحسبه المنصة.');
+    if (!farePolicy?.enabled) return setMessage('التعرفة بانتظار اعتماد خدمة؛ لن نرسل طلبًا بلا سعر تحسبه المنصة.');
     if (!pickupCoordinates || !pickup.trim() || !destination.trim() || contactPhone.trim().length < 6) return setMessage('حدد الانطلاق والوجهة وأدخل رقم تواصل صالحًا قبل إرسال الطلب.');
     if (type === 'delivery' && !deliveryDetailsReady) return setMessage('أكمل وصف الطرد واسم المستلم ورقم هاتفه قبل إرسال الطلب.');
     setRequestingProviderId(provider.id); setMessage('جاري إرسال الطلب إلى المزود…');
@@ -258,11 +258,15 @@ export default function MobilityPage() {
     catch (cause) { setMessage(cause instanceof Error ? cause.message : 'تعذر إلغاء الطلب.'); }
   }
 
-  return <PageShell className={styles.page} label="التاكسي والتوصيل">
-    <PageHeader eyebrow={type === 'taxi' ? 'خدمة تنقّل · تكسي' : 'خدمة تنقّل · توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'أرسل طلب توصيل'} description={type === 'taxi' ? 'حدد من أين ننطلق وإلى أين تذهب، ثم اختر سائقًا معتمدًا.' : 'حدد مكان الاستلام والتسليم، ثم اختر مندوبًا معتمدًا.'} backHref="/"/>
+  return <PageShell className={`${styles.page} ${type === 'delivery' ? styles.deliveryMode : styles.taxiMode}`} label="النقل والتوصيل">
+    <PageHeader eyebrow={type === 'taxi' ? 'خدمة تنقّل · تكسي' : 'خدمة تنقّل · توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'أرسل طلب توصيل'} description={type === 'taxi' ? 'حدد نقطة الانطلاق والوجهة، ثم اختر سائقًا معتمدًا قريبًا.' : 'من الاستلام إلى التسليم، تابع طردك مع مندوب معتمد وإثبات واضح.'} backHref="/"/>
     {activeRequest && <Surface className={styles.activeRequest} aria-live="polite"><div><span>{activeRequest.serviceType === 'delivery' ? 'طلب التوصيل الحالي' : 'رحلتك الحالية'}</span><strong>{requestStatus(activeRequest)}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.serviceType === 'delivery' && activeRequest.packageDescription && <p>الطرد: {activeRequest.packageDescription} · المستلم: {activeRequest.recipientName}</p>}{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">اتصل بالمزود · {activeRequest.providerPhone}</a>}{activeRequest.serviceType === 'delivery' && (activeRequest.pickupProofPin || activeRequest.deliveryProofPin) && <div className={styles.proofPins}><span>رموز الإثبات — لا تشارك الرمز إلا عند تنفيذ الخطوة</span>{activeRequest.pickupProofPin && <b>رمز الاستلام: <em dir="ltr">{activeRequest.pickupProofPin}</em></b>}{activeRequest.deliveryProofPin && <b>رمز التسليم: <em dir="ltr">{activeRequest.deliveryProofPin}</em></b>}</div>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY-u-nu-latn')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
+        <div className={styles.serviceIdentity}>
+          <span className={styles.serviceIcon}><PlatformIcon name={type === 'taxi' ? 'car' : 'delivery'} size={24}/></span>
+          <div><small>{type === 'taxi' ? 'النقل والتوصيل · خدمة تكسي' : 'النقل والتوصيل · مندوب توصيل'}</small><strong>{type === 'taxi' ? 'خدمة تكسي' : 'مندوب توصيل'}</strong></div>
+        </div>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
           <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => { setType('taxi'); setProviders([]); setSearched(false); }}><PlatformIcon name="car"/> خدمة تكسي</ActionButton>
           <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => { setType('delivery'); setProviders([]); setSearched(false); }}><PlatformIcon name="delivery"/> مندوب توصيل</ActionButton>
@@ -275,16 +279,24 @@ export default function MobilityPage() {
         </div>
         {type === 'delivery' && <fieldset className={styles.deliveryDetails}><legend>تفاصيل الشحنة والمستلم</legend><label><span>محتوى الطرد</span><input value={packageDescription} onChange={(event) => setPackageDescription(event.target.value)} maxLength={120} placeholder="مثال: أوراق، مفاتيح، صندوق ملابس" required/></label><label><span>حجم الطرد</span><select value={packageSize} onChange={(event) => setPackageSize(event.target.value as typeof packageSize)}><option value="small">صغير — يحمله شخص واحد</option><option value="medium">متوسط</option><option value="large">كبير</option></select></label><label><span>اسم المستلم</span><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} maxLength={80} placeholder="الاسم الكامل" autoComplete="name" required/></label><label><span>هاتف المستلم</span><input type="tel" dir="ltr" value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="09xxxxxxxx" autoComplete="tel" required/></label><label className={styles.fullField}><span>تعليمات التسليم (اختياري)</span><input value={deliveryInstructions} onChange={(event) => setDeliveryInstructions(event.target.value)} maxLength={120} placeholder="الطابق، علامة مميزة، وقت مناسب"/></label><p className={styles.proofHint}><PlatformIcon name="check" size={16}/> يُثبت المندوب الاستلام ثم التسليم برمز PIN منفصل من العميل.</p></fieldset>}
         <div className={styles.actions}>
-          <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin"/> موقعي الحالي</ActionButton>
+          <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin"/> استخدم موقعي</ActionButton>
           <ActionButton type="submit" disabled={loading||!canPlanRoute}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : type === 'taxi' ? 'ابحث عن سائق' : 'ابحث عن مندوب'}</ActionButton>
         </div>
         <StatusMessage tone={mapsStatus === 'error' ? 'warning' : 'info'}>{message}</StatusMessage>
-        <div className={styles.fareTrust}><PlatformIcon name="check" size={17}/><div><strong>{farePolicy?.enabled ? type === 'delivery' ? 'رسوم التوصيل تحسبها خدمة' : 'السعر تحسبه خدمة بعد الرحلة' : 'التعرفة بانتظار اعتماد الأدمن'}</strong><small>{farePolicy?.enabled ? type === 'delivery' ? 'وفق المسافة، مع إثبات الاستلام والتسليم.' : 'وفق المسافة والانتظار، وليس بتقدير السائق.' : 'لن يبدأ العداد ولن يظهر سعر غير معتمد.'}</small></div></div>
+        <div className={styles.fareTrust}><PlatformIcon name="check" size={17}/><div><strong>{farePolicy?.enabled ? type === 'delivery' ? 'رسوم التوصيل تحسبها خدمة' : 'السعر تحسبه خدمة بعد الرحلة' : 'التعرفة قيد الاعتماد'}</strong><small>{farePolicy?.enabled ? type === 'delivery' ? 'وفق المسافة، مع إثبات الاستلام والتسليم.' : 'وفق المسافة والانتظار، وليس بتقدير السائق.' : 'لن يبدأ العداد ولن يظهر سعر غير معتمد.'}</small></div></div>
         <ActionLink href="/business-profiles/new" variant="quiet" className={styles.providerEntry}>هل تريد العمل كسائق أو مندوب؟</ActionLink>
       </Surface>
       <section className={styles.mapStage} aria-label="خريطة الرحلة" data-map-status={mapsStatus}>
         <div ref={mapNode} className={styles.mapCanvas}/>
-        {mapsStatus !== 'ready' && <div className={styles.mapFallback} role={mapsStatus === 'error' ? 'status' : undefined}><PlatformIcon name="pin" size={32}/><div><strong>{mapsStatus === 'loading' ? 'جاري تجهيز الخريطة…' : 'تابع طلبك دون الخريطة'}</strong><span>{mapsStatus === 'loading' ? 'يمكنك إدخال العنوان أثناء التحميل.' : 'اكتب نقطتي الانطلاق والوجهة أو استخدم موقعك الحالي، ثم اعرض المزودين القريبين.'}</span></div>{mapsStatus === 'error' && <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin" size={17}/> استخدم موقعي</ActionButton>}</div>}
+        {mapsStatus !== 'ready' && <div className={styles.mapFallback} role={mapsStatus === 'error' ? 'status' : undefined}>
+          <div className={styles.fallbackHeading}><span><PlatformIcon name={type === 'taxi' ? 'car' : 'delivery'} size={26}/></span><div><small>{mapsStatus === 'loading' ? 'جارٍ الاتصال بالخريطة' : 'المسار النصي متاح'}</small><strong>{type === 'taxi' ? 'خطّط رحلتك الآن' : 'حدّد مسار الطرد'}</strong></div></div>
+          <div className={styles.routePreview}>
+            <div className={styles.routePoint}><b>أ</b><span><small>{type === 'taxi' ? 'نقطة الانطلاق' : 'مكان الاستلام'}</small><strong>{pickup.trim() || 'لم تُحدّد بعد'}</strong></span></div>
+            <div className={styles.routeLine}/>
+            <div className={styles.routePoint}><b>ب</b><span><small>{type === 'taxi' ? 'الوجهة' : 'مكان التسليم'}</small><strong>{destination.trim() || 'لم تُحدّد بعد'}</strong></span></div>
+          </div>
+          <p>{mapsStatus === 'loading' ? 'يمكنك إدخال العناوين بينما نجهّز الخريطة.' : 'تابع طلبك دون الخريطة؛ البحث بالموقع والعناوين يعمل بصورة طبيعية.'}</p>
+        </div>}
         {mapsStatus === 'ready' && <div className={styles.mapHint}>انقر على الخريطة لتحديد {activePoint === 'pickup' ? 'نقطة الانطلاق' : 'الوجهة'}</div>}
       </section>
     </div>

@@ -41,16 +41,16 @@
 .guide summary > svg { color: var(--courier-green); transition: transform .18s ease; }
 .guide[open] summary > svg { transform: rotate(-90deg); }
 .guide summary > span:nth-child(2) { display: grid; gap: .1rem; }
-.guide summary strong { font-size: .98rem; font-weight: 850; }
-.guide summary small { color: var(--k-color-text-muted); font-size: .78rem; line-height: 1.6; }
+.guide summary strong { font-size: .98rem; font-weight:800; }
+.guide summary small { color: var(--k-color-text-muted); font-size: .8rem; line-height: 1.6; }
 .guideIcon { width: 2.6rem; aspect-ratio: 1; display: grid; place-items: center; border-radius: .8rem; color: #fff; background: var(--courier-green); }
 .guideBody { border-top: 1px solid var(--courier-border); padding: 1rem; background: var(--courier-green-soft); }
 .guideBody ol { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; margin: 0; padding: 0; list-style: none; }
 .guideBody li { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: .55rem; border: 1px solid var(--courier-border); border-radius: var(--k-radius-md); padding: .75rem; background: var(--k-color-surface); }
-.guideBody li > span { width: 1.8rem; height: 1.8rem; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--courier-green); font-size: .75rem; font-weight: 900; }
+.guideBody li > span { width: 1.8rem; height: 1.8rem; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--courier-green); font-size: .8rem; font-weight: 900; }
 .guideBody strong { color: var(--k-color-text); font-size: .84rem; }
-.guideBody p { margin: .2rem 0 0; color: var(--k-color-text-muted); font-size: .76rem; line-height: 1.7; }
-.safetyNote { display: flex; align-items: flex-start; gap: .4rem; margin-block-start: .8rem!important; color: var(--courier-green-deep)!important; font-weight: 750; }
+.guideBody p { margin: .2rem 0 0; color: var(--k-color-text-muted); font-size: .8rem; line-height: 1.7; }
+.safetyNote { display: flex; align-items: flex-start; gap: .4rem; margin-block-start: .8rem!important; color: var(--courier-green-deep)!important; font-weight:700; }
 
 .courierSelector { margin-block-end: 1rem; border-color: var(--courier-border); padding: 1rem; }
 .courierSelector label { display: grid; gap: .45rem; color: var(--k-color-text); font-size: .86rem; font-weight: 800; }
@@ -59,18 +59,18 @@
 .orderCard { display: grid; align-content: start; gap: .85rem; border-color: var(--courier-border); }
 .orderCard h2 { margin: 0; color: var(--k-color-text); font-size: 1.1rem; line-height: 1.5; }
 .nextStep { margin: 0; border-inline-start: 3px solid var(--courier-green); padding-inline-start: .65rem; color: var(--k-color-text-muted); font-size: .82rem; line-height: 1.7; }
-.status { width: max-content; display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .35rem .65rem; color: var(--courier-green-deep); background: var(--courier-green-soft); font-size: .78rem; font-weight: 850; }
+.status { width: max-content; display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .35rem .65rem; color: var(--courier-green-deep); background: var(--courier-green-soft); font-size: .8rem; font-weight:800; }
 .orderDetails { display: grid; gap: .7rem; margin: 0; }
 .orderDetails > div { display: grid; gap: .2rem; border-bottom: 1px solid var(--k-color-border); padding-block-end: .65rem; }
 .orderDetails > div:last-child { border: 0; padding: 0; }
-.orderDetails dt { display: flex; align-items: center; gap: .35rem; color: var(--k-color-text-muted); font-size: .76rem; font-weight: 750; }
+.orderDetails dt { display: flex; align-items: center; gap: .35rem; color: var(--k-color-text-muted); font-size: .8rem; font-weight:700; }
 .orderDetails dt svg { color: var(--courier-green); }
-.orderDetails dd { margin: 0; color: var(--k-color-text); font-size: .9rem; font-weight: 750; overflow-wrap: anywhere; }
+.orderDetails dd { margin: 0; color: var(--k-color-text); font-size: .9rem; font-weight:700; overflow-wrap: anywhere; }
 .orderDetails a { color: var(--courier-green-deep); }
 .itemList { display: grid; gap: .2rem; margin: 0; padding-inline-start: 1.1rem; }
 .orderActions { display: flex; flex-wrap: wrap; gap: .55rem; margin-block-start: auto; padding-block-start: .25rem; }
 .history { margin-block-start: 1rem; border: 1px solid var(--courier-border); border-radius: var(--k-radius-lg); padding: .8rem; background: var(--k-color-surface-raised); }
-.history > summary { min-height: 44px; display: flex; align-items: center; color: var(--k-color-text); font-weight: 850; cursor: pointer; }
+.history > summary { min-height: 44px; display: flex; align-items: center; color: var(--k-color-text); font-weight:800; cursor: pointer; }
 .history > .orderGrid { margin-block-start: .8rem; }
 
 @media (max-width: 64rem) {
