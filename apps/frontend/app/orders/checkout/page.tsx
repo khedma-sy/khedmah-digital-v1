@@ -175,11 +175,11 @@ export default function CheckoutPage() {
             {items.map(({ product, quantity }) => (
               <p key={product.id}>
                 {product.titleAr} · {quantity} ×{" "}
-                {product.price.toLocaleString("ar-SY")} {product.currency}
+                {product.price.toLocaleString("ar-SY-u-nu-latn")} {product.currency}
               </p>
             ))}
             <strong>
-              المجموع الأولي: {subtotal.toLocaleString("ar-SY")} {currency}
+              المجموع الأولي: {subtotal.toLocaleString("ar-SY-u-nu-latn")} {currency}
             </strong>
           </section>
           <label>

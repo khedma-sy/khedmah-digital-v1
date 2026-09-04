@@ -102,7 +102,7 @@ export default function PromotionsPage() {
     <section className={styles.results} aria-labelledby="promotions-results-title">
       <div className={styles.resultsHeading}>
         <div><span>صالحة للاستخدام الآن</span><h2 id="promotions-results-title">العروض المتاحة</h2></div>
-        {!loading && rows.length > 0 && <p aria-live="polite">{rows.length.toLocaleString('ar-SY')} {rows.length === 1 ? 'عرض' : 'عروض'} متاحة</p>}
+        {!loading && rows.length > 0 && <p aria-live="polite">{rows.length.toLocaleString('ar-SY-u-nu-latn')} {rows.length === 1 ? 'عرض' : 'عروض'} متاحة</p>}
       </div>
       {loading ? <SkeletonGrid label="جاري تحميل العروض"/> : rows.length ? <section className="ui-card-grid" aria-label="العروض المنشورة">{rows.map((promotion) => <PromotionCard key={promotion.id} promotion={promotion}/>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="tag" size={32}/>} title={code ? 'لا يوجد عرض نشط لهذا النشاط' : 'لا توجد عروض مطابقة الآن'} description={code ? 'النشاط معتمد، لكن عروضه منتهية أو لم يبدأ نشرها بعد.' : q ? 'جرّب اسمًا أقصر أو اعرض جميع العروض المتاحة.' : 'ستظهر العروض المعتمدة هنا فور نشرها.'} actions={q ? <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع العروض</ActionButton> : code ? <ActionLink href="/promotions">عرض جميع العروض</ActionLink> : <ActionLink href="/map">استكشف الأنشطة القريبة</ActionLink>}/></div>}
     </section>

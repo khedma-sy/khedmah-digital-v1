@@ -34,7 +34,7 @@ export function SmartAssistant() {
     const Recognition = runtime.SpeechRecognition ?? runtime.webkitSpeechRecognition;
     if (!Recognition) return setMessage('الإملاء الصوتي غير مدعوم في هذا المتصفح. يمكنك الكتابة بدلًا منه.');
     const recognition = new Recognition();
-    recognition.lang = 'ar-SY'; recognition.interimResults = false; recognition.continuous = false;
+    recognition.lang = 'ar-SY-u-nu-latn'; recognition.interimResults = false; recognition.continuous = false;
     recognition.onresult = (event) => { const text = event.results[0]?.[0]?.transcript ?? ''; setQuery(text); setMessage(`سمعت: ${text}`); };
     recognition.onerror = () => setMessage('تعذر سماع الكلام. تحقق من إذن الميكروفون وحاول مجددًا.');
     recognition.onend = () => setListening(false);

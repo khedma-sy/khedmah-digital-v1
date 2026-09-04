@@ -47,13 +47,13 @@ export default function ManageProductsPage() {
   return <PageShell className={styles.page} label="منتجاتي">
     <PageHeader eyebrow="مساحة البائع" title="منتجاتي" description="تابع المسودات والمراجعة والمنتجات المنشورة من مكان واحد." actions={remaining>0?<ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>:undefined}/>
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
-    {!loading&&<Surface className={styles.quota} aria-labelledby="advertising-quota-title"><div><span>مرحلة الإطلاق المجاني</span><h2 id="advertising-quota-title">رصيد الإعلانات</h2><p>استخدمت {activeCount.toLocaleString('ar-SY')} من {advertisingPolicy.listingLimitPerUser.toLocaleString('ar-SY')} إعلانات مجانية.</p></div><div className={styles.quotaStatus}><strong>{remaining.toLocaleString('ar-SY')}</strong><span>إعلانات متبقية</span><progress max={advertisingPolicy.listingLimitPerUser} value={activeCount} aria-label="الإعلانات المجانية المستخدمة"/></div>{remaining===0&&<p className={styles.quotaNotice}>اكتمل الرصيد المجاني. يمكنك إلغاء نشر إعلان غير مطلوب لتحرير مكان جديد. الباقات المدفوعة غير مفعّلة بعد.</p>}</Surface>}
+    {!loading&&<Surface className={styles.quota} aria-labelledby="advertising-quota-title"><div><span>مرحلة الإطلاق المجاني</span><h2 id="advertising-quota-title">رصيد الإعلانات</h2><p>استخدمت {activeCount.toLocaleString('ar-SY-u-nu-latn')} من {advertisingPolicy.listingLimitPerUser.toLocaleString('ar-SY-u-nu-latn')} إعلانات مجانية.</p></div><div className={styles.quotaStatus}><strong>{remaining.toLocaleString('ar-SY-u-nu-latn')}</strong><span>إعلانات متبقية</span><progress max={advertisingPolicy.listingLimitPerUser} value={activeCount} aria-label="الإعلانات المجانية المستخدمة"/></div>{remaining===0&&<p className={styles.quotaNotice}>اكتمل الرصيد المجاني. يمكنك إلغاء نشر إعلان غير مطلوب لتحرير مكان جديد. الباقات المدفوعة غير مفعّلة بعد.</p>}</Surface>}
     {loading ? <SkeletonGrid count={4}/> : products.length ? <section className={styles.grid}>
       {products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
         <div className={styles.image}>{product.imageUrl ? <img src={product.imageUrl} alt={product.titleAr}/> : <span>خ</span>}</div>
         <span className={styles.status}>{status(product)}</span>
         <h2>{product.titleAr}</h2>
-        <strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
+        <strong className={styles.price}>{product.price.toLocaleString('ar-SY-u-nu-latn')} {product.currency}</strong>
         {product.rejectionReason && <StatusMessage tone="danger">{product.rejectionReason}</StatusMessage>}
         <div className={styles.actions}>
           {product.status !== 'inactive' || remaining > 0

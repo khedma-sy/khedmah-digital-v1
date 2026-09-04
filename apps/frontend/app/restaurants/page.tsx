@@ -124,13 +124,13 @@ export default function RestaurantsPage() {
           {FOOD_FILTERS.map((filter) => <button key={filter.code || "all"} type="button" onClick={() => setCategory(filter.code)} aria-pressed={category === filter.code}>{filter.label}</button>)}
         </div>
         <ol className={styles.journeySteps} aria-label="مراحل طلب الطعام">
-          <li><span>١</span><div><strong>اختر المطعم</strong><small>تصفح القائمة والأسعار</small></div></li>
-          <li><span>٢</span><div><strong>راجع السلة</strong><small>حدد العنوان والملاحظات</small></div></li>
-          <li><span>٣</span><div><strong>تابع الطلب</strong><small>حتى وصول المندوب</small></div></li>
+          <li><span>1</span><div><strong>اختر المطعم</strong><small>تصفح القائمة والأسعار</small></div></li>
+          <li><span>2</span><div><strong>راجع السلة</strong><small>حدد العنوان والملاحظات</small></div></li>
+          <li><span>3</span><div><strong>تابع الطلب</strong><small>حتى وصول المندوب</small></div></li>
         </ol>
       </Surface>
       <section className={styles.results} aria-labelledby="restaurant-results-title">
-        <div className={styles.resultsHeading}><div><span>أنشطة معتمدة</span><h2 id="restaurant-results-title">المطاعم المتاحة</h2></div><p role="status" aria-live="polite">{visible.length.toLocaleString("ar-SY")} مطعمًا ونشاطًا غذائيًا</p></div>
+        <div className={styles.resultsHeading}><div><span>أنشطة معتمدة</span><h2 id="restaurant-results-title">المطاعم المتاحة</h2></div><p role="status" aria-live="polite">{visible.length.toLocaleString("ar-SY-u-nu-latn")} مطعمًا ونشاطًا غذائيًا</p></div>
       {!visible.length ? (
         <div className={styles.emptyWrap}>
         <EmptyState
@@ -154,8 +154,8 @@ export default function RestaurantsPage() {
               )}
               {business.rating !== undefined && business.ratingCount !== 0 && (
                 <span className={styles.rating}>
-                  ★ {business.rating.toLocaleString("ar-SY")} (
-                  {(business.ratingCount ?? 0).toLocaleString("ar-SY")} تقييم)
+                  ★ {business.rating.toLocaleString("ar-SY-u-nu-latn")} (
+                  {(business.ratingCount ?? 0).toLocaleString("ar-SY-u-nu-latn")} تقييم)
                 </span>
               )}
               <ActionLink href={`/restaurants/${business.id}`}>

@@ -30,7 +30,7 @@ const EMPTY_FILTERS: StoreFilters = {
 
 const availabilityLabel = (value: ProductListing['availability']) => value === 'in_stock' ? 'متوفر' : value === 'made_to_order' ? 'حسب الطلب' : 'غير متوفر';
 const sortLabel = (value: StoreSort) => value === 'price_asc' ? 'السعر من الأقل' : value === 'price_desc' ? 'السعر من الأعلى' : 'الأحدث';
-const publishedAt = (value: string) => new Date(value).toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' });
+const publishedAt = (value: string) => new Date(value).toLocaleDateString('ar-SY-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function StorePage() {
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
@@ -142,7 +142,7 @@ export default function StorePage() {
         <button className={styles.filterToggle} type="button" aria-expanded={filtersOpen} aria-controls="store-advanced-filters" onClick={() => setFiltersOpen((open) => !open)}>
           <PlatformIcon name="filter" size={17}/>
           خيارات إضافية
-          {advancedFilterCount > 0 && <span>{advancedFilterCount.toLocaleString('ar-SY')}</span>}
+          {advancedFilterCount > 0 && <span>{advancedFilterCount.toLocaleString('ar-SY-u-nu-latn')}</span>}
         </button>
         {hasFilters && <button className={styles.clearButton} type="button" onClick={clear}><PlatformIcon name="refresh" size={16}/>مسح الاختيارات</button>}
       </div>
@@ -159,13 +159,13 @@ export default function StorePage() {
     {citiesError && <StatusMessage tone="warning">تعذر تحميل المدن. <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
     <section className={styles.results} aria-labelledby="store-results-title">
-      <div className={styles.resultsHeading}><div><span>نتائج موثوقة</span><h2 id="store-results-title">الإعلانات المتاحة</h2></div>{!loading && products.length > 0 && <p className={styles.summary} aria-live="polite">{products.length.toLocaleString('ar-SY')} إعلان مطابق · مرتبة حسب {sortLabel(filters.sort)}</p>}</div>
+      <div className={styles.resultsHeading}><div><span>نتائج موثوقة</span><h2 id="store-results-title">الإعلانات المتاحة</h2></div>{!loading && products.length > 0 && <p className={styles.summary} aria-live="polite">{products.length.toLocaleString('ar-SY-u-nu-latn')} إعلان مطابق · مرتبة حسب {sortLabel(filters.sort)}</p>}</div>
     {loading ? <SkeletonGrid count={6} label="جاري تحميل الإعلانات"/> : products.length ? <section className={styles.grid} aria-label="الإعلانات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
       <Link className={styles.image} href={`/store/products/${product.id}`} aria-label={`عرض ${product.titleAr}`}>{product.imageUrl ? <img src={product.imageUrl} alt={`صورة ${product.titleAr}`}/> : <span aria-hidden="true">خ</span>}</Link>
       <div className={styles.cardTop}><span className={styles.availability} data-available={product.availability === 'in_stock'}>{availabilityLabel(product.availability)}</span><span className={styles.verified}><PlatformIcon name="check" size={14}/>نشاط موثّق</span></div>
       <p className={styles.seller}>{product.businessName ?? 'نشاط على خدمة'}</p>
       <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span><time dateTime={product.createdAt}>نُشر {publishedAt(product.createdAt)}</time></div>
-      <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
+      <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY-u-nu-latn')} {product.currency}</strong>
       <ActionLink href={`/store/products/${product.id}`}>التفاصيل والتواصل <PlatformIcon name="arrow" size={16}/></ActionLink>
     </Surface>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="storefront" size={34}/>} title={hasFilters ? 'لا توجد إعلانات بهذه المواصفات' : 'لم تُنشر إعلانات معتمدة بعد'} description={hasFilters ? 'غيّر بعض خيارات البحث أو وسّع المدينة ونطاق السعر للوصول إلى نتائج أكثر.' : 'ستظهر هنا الإعلانات المنشورة من الأنشطة الموثّقة فور اعتمادها.'} actions={<>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع الإعلانات</ActionButton>}<ActionLink href="/categories" variant="secondary">استكشف الأنشطة</ActionLink></>} /></div>}
     </section>

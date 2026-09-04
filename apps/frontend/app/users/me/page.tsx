@@ -53,7 +53,7 @@ function AccountShortcut({
         <strong>{label}</strong>
         <small>{description}</small>
       </span>
-      {badge ? <span className="ui-account-shortcut-badge" aria-label={`${badge.toLocaleString('ar-SY')} عناصر نشطة`}>{badge.toLocaleString('ar-SY')}</span> : null}
+      {badge ? <span className="ui-account-shortcut-badge" aria-label={`${badge.toLocaleString('ar-SY-u-nu-latn')} عناصر نشطة`}>{badge.toLocaleString('ar-SY-u-nu-latn')}</span> : null}
       <PlatformIcon name="arrow" size={18} />
     </ActionLink>
   );
@@ -151,7 +151,7 @@ export default function ProfilePage() {
               <h2 id="active-service-title">{latestIsMobility ? (currentMobility.serviceType === 'taxi' ? 'رحلة تكسي قيد المتابعة' : 'طلب توصيل قيد المتابعة') : 'طلب طعام قيد المتابعة'}</h2>
               <p>{latestIsMobility ? mobilityStatusLabel[currentMobility.status] : orderStatusLabel[currentOrder.status]}</p>
             </div>
-            {activeCount > 1 ? <span className="ui-account-active-count">{activeCount.toLocaleString('ar-SY')} عمليات نشطة</span> : null}
+            {activeCount > 1 ? <span className="ui-account-active-count">{activeCount.toLocaleString('ar-SY-u-nu-latn')} عمليات نشطة</span> : null}
             <ActionLink href={latestIsMobility ? '/mobility?type=taxi' : '/orders'}>متابعة الآن</ActionLink>
           </Surface>
         ) : null}
@@ -175,7 +175,7 @@ export default function ProfilePage() {
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
                 <span className="ui-account-section-icon ui-account-section-icon-business"><PlatformIcon name="briefcase" size={21} /></span>
-                <div><h2>{businesses.length ? 'إدارة نشاطك' : 'ابدأ نشاطك على خدمة'}</h2><p>{businesses.length ? `${businesses.length.toLocaleString('ar-SY')} من أنشطتك مرتبطة بهذا الحساب.` : 'ملف واحد يفتح لك أدوات الإدارة والبيع المناسبة.'}</p></div>
+                <div><h2>{businesses.length ? 'إدارة نشاطك' : 'ابدأ نشاطك على خدمة'}</h2><p>{businesses.length ? `${businesses.length.toLocaleString('ar-SY-u-nu-latn')} من أنشطتك مرتبطة بهذا الحساب.` : 'ملف واحد يفتح لك أدوات الإدارة والبيع المناسبة.'}</p></div>
               </div>
               {businesses.length ? <ActionLink href="/business-profiles/new" variant="secondary"><PlatformIcon name="userPlus" size={17} />إضافة نشاط</ActionLink> : null}
             </div>

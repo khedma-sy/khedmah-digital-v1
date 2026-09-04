@@ -135,13 +135,13 @@ export default function OrdersPage() {
                 </p>
               ))}
               <p>
-                الأصناف: {o.subtotal.toLocaleString("ar-SY")} {o.currency}
+                الأصناف: {o.subtotal.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
               </p>
               {o.total !== undefined && (
                 <p>
                   الإجمالي النقدي:{" "}
                   <strong>
-                    {o.total.toLocaleString("ar-SY")} {o.currency}
+                    {o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
                   </strong>
                 </p>
               )}

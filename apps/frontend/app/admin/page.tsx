@@ -87,7 +87,7 @@ export default function AdminPage() {
 
     <section className="operations-panel" aria-labelledby="admin-coverage-title">
       <div className="panel-heading"><h2 id="admin-coverage-title">تغطية الأدمن على كامل الموقع</h2><span>{metrics.domains.length} قطاعًا من المصدر الحي</span></div>
-      <div className="moderation-list">{metrics.domains.map(domain=><article className="moderation-card" key={domain.id}><div><h3>{domainLabel[domain.id]??domain.id}</h3><p>{managementLabel(domain.management)} · {domain.total.toLocaleString('ar-SY')} سجلًا مجمعًا</p></div><span className="status-badge">{domain.state==='attention'?`${domain.attention.toLocaleString('ar-SY')} تحتاج متابعة`:'لا توجد حالات معلقة'}</span></article>)}</div>
+      <div className="moderation-list">{metrics.domains.map(domain=><article className="moderation-card" key={domain.id}><div><h3>{domainLabel[domain.id]??domain.id}</h3><p>{managementLabel(domain.management)} · {domain.total.toLocaleString('ar-SY-u-nu-latn')} سجلًا مجمعًا</p></div><span className="status-badge">{domain.state==='attention'?`${domain.attention.toLocaleString('ar-SY-u-nu-latn')} تحتاج متابعة`:'لا توجد حالات معلقة'}</span></article>)}</div>
     </section>
 
     <section className="operations-grid" aria-label="مؤشرات قطاعات المنصة الحية">

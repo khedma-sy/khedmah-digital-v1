@@ -111,7 +111,7 @@ export function ContactInquiryForm({ target, providerName }: ContactInquiryFormP
           <p className={styles.receipt}>رقم المتابعة: <bdi>{receipt.id}</bdi></p>
           <p className={styles.receipt}>نوع مقدم الخدمة: <bdi>{receipt.targetType}</bdi></p>
           <p className={styles.receipt}>معرّف مقدم الخدمة: <bdi>{receipt.professionalProfileId ?? receipt.businessProfileId}</bdi></p>
-          <p className={styles.receipt}>وقت التسجيل: <time dateTime={receipt.createdAt}>{new Date(receipt.createdAt).toLocaleString('ar-SY')}</time></p>
+          <p className={styles.receipt}>وقت التسجيل: <time dateTime={receipt.createdAt}>{new Date(receipt.createdAt).toLocaleString('ar-SY-u-nu-latn')}</time></p>
           <p className={styles.receipt}>الحالة: {receipt.trackingStatus}</p>
           <div className={styles.successActions}>
             <button type="button" className={styles.secondaryButton} onClick={newJourney}>إرسال استفسار آخر</button>

@@ -164,17 +164,17 @@ export function CategoryDirectory() {
                 <p>ابدأ بالمجال، ثم انتقل إلى التخصص ومقدمي الخدمة المتاحين.</p>
               </div>
               <div className="catalog-directory-metrics" aria-label="ملخص دليل الخدمات">
-                <span><strong>{roots.length.toLocaleString('ar-SY')}</strong><small>مجالًا</small></span>
-                <span><strong>{specialtyTotal.toLocaleString('ar-SY')}</strong><small>تخصصًا</small></span>
+                <span><strong>{roots.length.toLocaleString('ar-SY-u-nu-latn')}</strong><small>مجالًا</small></span>
+                <span><strong>{specialtyTotal.toLocaleString('ar-SY-u-nu-latn')}</strong><small>تخصصًا</small></span>
               </div>
             </div>
             <div className="catalog-category-grid" aria-label="تصنيفات الخدمات">
               {roots.map((category) => {
                 const specialtyCount = categories.filter((item) => item.parentCode === category.code).length;
                 return (
-                  <button key={category.code} type="button" data-visual={category.visualKey} aria-label={`${category.nameAr}، ${specialtyCount.toLocaleString('ar-SY')} تخصصات`} onClick={() => selectCategory(category.code)}>
+                  <button key={category.code} type="button" data-visual={category.visualKey} aria-label={`${category.nameAr}، ${specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات`} onClick={() => selectCategory(category.code)}>
                     <span className="catalog-category-icon"><PlatformIcon name={iconFor(category.visualKey)} size={22} /></span>
-                    <span className="catalog-category-copy"><strong>{category.nameAr}</strong><small>{specialtyCount.toLocaleString('ar-SY')} تخصصات</small></span>
+                    <span className="catalog-category-copy"><strong>{category.nameAr}</strong><small>{specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات</small></span>
                     <span className="catalog-category-arrow"><PlatformIcon name="arrow" size={18} /></span>
                   </button>
                 );
@@ -189,7 +189,7 @@ export function CategoryDirectory() {
 
         {activeCategory && !isLoading && !error && services.length > 0 ? (
           <section className="catalog-results-section" aria-labelledby="catalog-results-title">
-            <div className="catalog-section-heading catalog-results-heading"><div><span>نتائج معتمدة</span><h2 id="catalog-results-title">مقدمو {title}</h2></div><strong>{total.toLocaleString('ar-SY')} نتيجة</strong></div>
+            <div className="catalog-section-heading catalog-results-heading"><div><span>نتائج معتمدة</span><h2 id="catalog-results-title">مقدمو {title}</h2></div><strong>{total.toLocaleString('ar-SY-u-nu-latn')} نتيجة</strong></div>
             <div className="catalog-results" aria-label={`${total} خدمة متاحة`}>
               {services.map((service) => (
                 <article className="catalog-service" key={service.id}>
@@ -204,7 +204,7 @@ export function CategoryDirectory() {
 
         {!isLoading && !error && totalPages > 1 ? <nav className="catalog-pagination" aria-label="صفحات دليل الخدمات">
           <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>السابق</button>
-          <span>الصفحة {page.toLocaleString('ar-SY')} من {totalPages.toLocaleString('ar-SY')}</span>
+          <span>الصفحة {page.toLocaleString('ar-SY-u-nu-latn')} من {totalPages.toLocaleString('ar-SY-u-nu-latn')}</span>
           <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
         </nav> : null}
 

@@ -152,7 +152,7 @@ export default function RestaurantMenuPage() {
                     )}
                     <div className={styles.itemFooter}>
                       <strong className={styles.price}>
-                        {product.price.toLocaleString("ar-SY")}{" "}
+                        {product.price.toLocaleString("ar-SY-u-nu-latn")}{" "}
                         {product.currency}
                       </strong>
                       {unavailable ? (
@@ -200,11 +200,11 @@ export default function RestaurantMenuPage() {
                   <div>
                     <strong>{product.titleAr}</strong>
                     <small>
-                      {quantity} × {product.price.toLocaleString("ar-SY")}
+                      {quantity} × {product.price.toLocaleString("ar-SY-u-nu-latn")}
                     </small>
                   </div>
                   <span>
-                    {(quantity * product.price).toLocaleString("ar-SY")}{" "}
+                    {(quantity * product.price).toLocaleString("ar-SY-u-nu-latn")}{" "}
                     {product.currency}
                   </span>
                 </div>
@@ -214,7 +214,7 @@ export default function RestaurantMenuPage() {
           <div className={styles.total}>
             <strong>المجموع الأولي</strong>
             <strong>
-              {total.toLocaleString("ar-SY")} {currency ?? ""}
+              {total.toLocaleString("ar-SY-u-nu-latn")} {currency ?? ""}
             </strong>
           </div>
           <p className={styles.cash}>
@@ -240,7 +240,7 @@ export default function RestaurantMenuPage() {
           )}
         </Surface>
       </div>
-      {!!selected.length && !mixedCurrency && <ActionLink className={styles.mobileCart} href={`/orders/checkout?businessId=${encodeURIComponent(businessId)}`}><PlatformIcon name="cart" size={19}/><span>السلة · {selected.reduce((sum, item) => sum + item.quantity, 0).toLocaleString("ar-SY")}</span><strong>{total.toLocaleString("ar-SY")} {currency ?? ""}</strong></ActionLink>}
+      {!!selected.length && !mixedCurrency && <ActionLink className={styles.mobileCart} href={`/orders/checkout?businessId=${encodeURIComponent(businessId)}`}><PlatformIcon name="cart" size={19}/><span>السلة · {selected.reduce((sum, item) => sum + item.quantity, 0).toLocaleString("ar-SY-u-nu-latn")}</span><strong>{total.toLocaleString("ar-SY-u-nu-latn")} {currency ?? ""}</strong></ActionLink>}
     </PageShell>
   );
 }

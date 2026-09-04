@@ -166,9 +166,9 @@ export default function CourierOrders() {
           {o.merchantPhone && <div><dt><PlatformIcon name="phone" size={17}/>رقم المنشأة</dt><dd><a href={`tel:${o.merchantPhone}`} dir="ltr">{o.merchantPhone}</a></dd></div>}
           <div><dt><PlatformIcon name="pin" size={17}/>عنوان التسليم</dt><dd>{o.deliveryAddress}</dd></div>
           <div><dt><PlatformIcon name="phone" size={17}/>رقم العميل</dt><dd>{o.customerPhone ? <a href={`tel:${o.customerPhone}`} dir="ltr">{o.customerPhone}</a> : "يظهر بعد قبول المهمة"}</dd></div>
-          <div><dt><PlatformIcon name="cart" size={17}/>محتوى الطلب</dt><dd><ul className={styles.itemList}>{o.items.map((item) => <li key={item.productListingId}>{item.quantity.toLocaleString("ar-SY")} × {item.titleAr}</li>)}</ul></dd></div>
+          <div><dt><PlatformIcon name="cart" size={17}/>محتوى الطلب</dt><dd><ul className={styles.itemList}>{o.items.map((item) => <li key={item.productListingId}>{item.quantity.toLocaleString("ar-SY-u-nu-latn")} × {item.titleAr}</li>)}</ul></dd></div>
           {o.customerNote && <div><dt><PlatformIcon name="info" size={17}/>ملاحظة العميل</dt><dd>{o.customerNote}</dd></div>}
-          {o.total !== undefined && <div><dt><PlatformIcon name="check" size={17}/>التحصيل النقدي</dt><dd>{o.total.toLocaleString("ar-SY")} {o.currency}</dd></div>}
+          {o.total !== undefined && <div><dt><PlatformIcon name="check" size={17}/>التحصيل النقدي</dt><dd>{o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}</dd></div>}
         </dl>
         <div className={styles.orderActions}>
           {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && <CourierLocationButton orderId={o.id} status={o.status} />}
@@ -201,11 +201,11 @@ export default function CourierOrders() {
         </summary>
         <div className={styles.guideBody}>
           <ol>
-            <li><span>١</span><div><strong>راجع المهمة</strong><p>تحقق من اسم المنشأة وعنوان العميل وقيمة المبلغ النقدي المطلوب تحصيله.</p></div></li>
-            <li><span>٢</span><div><strong>اقبل أو اعتذر</strong><p>اقبل المهمة فقط عندما تستطيع تنفيذها، أو اختر «غير متاح» لتعود إلى المنشأة.</p></div></li>
-            <li><span>٣</span><div><strong>شارك موقعك</strong><p>ابدأ مشاركة الموقع بعد القبول وأبقها فعّالة أثناء الاستلام والتوصيل ليتمكن العميل من المتابعة.</p></div></li>
-            <li><span>٤</span><div><strong>ثبّت الاستلام</strong><p>اضغط «استلمت الطلب» بعد استلامه فعليًا من المنشأة.</p></div></li>
-            <li><span>٥</span><div><strong>سلّم وحصّل النقد</strong><p>لا تؤكد التسليم إلا بعد تسليم الطلب للعميل وتحصيل المبلغ الظاهر في المهمة.</p></div></li>
+            <li><span>1</span><div><strong>راجع المهمة</strong><p>تحقق من اسم المنشأة وعنوان العميل وقيمة المبلغ النقدي المطلوب تحصيله.</p></div></li>
+            <li><span>2</span><div><strong>اقبل أو اعتذر</strong><p>اقبل المهمة فقط عندما تستطيع تنفيذها، أو اختر «غير متاح» لتعود إلى المنشأة.</p></div></li>
+            <li><span>3</span><div><strong>شارك موقعك</strong><p>ابدأ مشاركة الموقع بعد القبول وأبقها فعّالة أثناء الاستلام والتوصيل ليتمكن العميل من المتابعة.</p></div></li>
+            <li><span>4</span><div><strong>ثبّت الاستلام</strong><p>اضغط «استلمت الطلب» بعد استلامه فعليًا من المنشأة.</p></div></li>
+            <li><span>5</span><div><strong>سلّم وحصّل النقد</strong><p>لا تؤكد التسليم إلا بعد تسليم الطلب للعميل وتحصيل المبلغ الظاهر في المهمة.</p></div></li>
           </ol>
           <p className={styles.safetyNote}><PlatformIcon name="check" size={17}/>كل تغيير حالة يُحفظ في سجل الطلب، ومشاركة الموقع تعمل فقط خلال المهمة النشطة.</p>
         </div>
@@ -259,7 +259,7 @@ export default function CourierOrders() {
               description="تظهر هنا الطلبات التي تختارك المنشآت لتوصيلها."
             />
           )}
-          {closedOrders.length ? <details className={styles.history}><summary>سجل المهام المنتهية ({closedOrders.length.toLocaleString("ar-SY")})</summary><section className={styles.orderGrid}>{closedOrders.map(renderOrder)}</section></details> : null}
+          {closedOrders.length ? <details className={styles.history}><summary>سجل المهام المنتهية ({closedOrders.length.toLocaleString("ar-SY-u-nu-latn")})</summary><section className={styles.orderGrid}>{closedOrders.map(renderOrder)}</section></details> : null}
         </>
       )}
     </PageShell>
