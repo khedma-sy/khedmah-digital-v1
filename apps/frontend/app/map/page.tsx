@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
 import { PlatformIcon } from '../components/platform-icon';
-import { ActionButton, ActionLink, StatusMessage, Surface } from '../components/ui-primitives';
+import { ActionButton, ActionLink, EmptyState, StatusMessage, Surface } from '../components/ui-primitives';
+import { ServiceProductHeader } from '../components/service-product-header';
 import styles from '../discovery.module.css';
 
 type Bounds = { south: number; west: number; north: number; east: number };
@@ -53,14 +53,18 @@ function MapDiscovery() {
   })();
   const [query, setQuery] = useState(initialQuery);
   const [providers, setProviders] = useState<PublicBusinessProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(true);
   const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [locationSource, setLocationSource] = useState<'default' | 'device'>('default');
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
   const [status, setStatus] = useState('جاري تحميل مقدمي الخدمات…');
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
   const [mapError, setMapError] = useState(MAPS_KEY ? '' : 'إعداد خريطة Google غير متوفر حالياً. يمكنك متابعة البحث من عرض النتائج.');
+  const [mapCanRetry, setMapCanRetry] = useState(Boolean(MAPS_KEY));
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
 
   const search = useCallback(async (boundaries?: Bounds, nextLocation = location, nextQuery = query) => {
+    setIsSearching(true);
     setStatus('جاري تحديث النتائج…');
     try {
       const result = await api.search.query({ q: nextQuery || undefined, map: true, boundaries, latitude: nextLocation.latitude, longitude: nextLocation.longitude, type: 'business' });
@@ -72,7 +76,10 @@ function MapDiscovery() {
       if (boundaries) Object.entries(boundaries).forEach(([key, value]) => url.searchParams.set(key, String(value)));
       window.history.replaceState(null, '', url);
     } catch (error) {
+      setProviders([]);
       setStatus(error instanceof Error ? error.message : 'تعذر تحميل مقدمي الخدمات');
+    } finally {
+      setIsSearching(false);
     }
   }, [location, query]);
 
@@ -126,13 +133,23 @@ function MapDiscovery() {
       setActiveView('list');
       return;
     }
+    const isolatedPreview = /^khedmah-pr-\d+-frontend-/.test(window.location.hostname);
+    if (isolatedPreview) {
+      setMapCanRetry(false);
+      setMapStatus('error');
+      setMapError('الخريطة ستتوفر عند إطلاق النطاق الرسمي. استخدم البحث والنتائج الآن.');
+      setStatus('اعرض مقدمي الخدمات من قائمة النتائج إلى حين فتح النطاق الرسمي.');
+      setActiveView('list');
+      return;
+    }
 
     let cancelled = false;
     let insertedScript: HTMLScriptElement | null = null;
     const previousAuthFailure = window.gm_authFailure;
     const previousInitializer = window.initKhedmahMap;
-    const failMap = (message: string) => {
+    const failMap = (message: string, canRetry = true) => {
       if (cancelled) return;
+      setMapCanRetry(canRetry);
       setMapStatus('error');
       setMapError(message);
       setStatus(message);
@@ -143,7 +160,7 @@ function MapDiscovery() {
       if (cancelled) return;
       initializeMapRef.current();
     };
-    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.', false);
 
     if (window.google?.maps) {
       initializeMapRef.current();
@@ -172,6 +189,7 @@ function MapDiscovery() {
   }, [mapLoadAttempt]);
 
   function retryMap() {
+    if (!mapCanRetry) return;
     map.current = null;
     setMapStatus('loading');
     setMapError('');
@@ -182,33 +200,49 @@ function MapDiscovery() {
 
   function locateUser() {
     setStatus('جاري تحديد موقعك…');
+    if (!navigator.geolocation) {
+      setStatus('تحديد الموقع غير مدعوم على هذا الجهاز. اكتب اسم الخدمة واستخدم النتائج.');
+      setActiveView('list');
+      return;
+    }
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       const next = { latitude: coords.latitude, longitude: coords.longitude };
       setLocation(next);
+      setLocationSource('device');
       map.current?.panTo({ lat: next.latitude, lng: next.longitude });
       void search(map.current?.getBounds()?.toJSON(), next);
     }, () => setStatus('تعذر الوصول إلى موقعك. حرّك الخريطة يدوياً.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
-  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
+  return <main className={`service-nearby-page ${styles.nearbyProduct}`} dir="rtl">
+    <ServiceProductHeader title="بالقرب مني" label="خدمات حول موقعك" tone="green"/>
+    <div className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus}>
     <aside className={styles.mapPanel}>
-      <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
-      <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
-        <ActionButton type="button" variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
-        <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
-      </nav>
+      <header><span className={styles.mapKicker}><PlatformIcon name="pin" size={15}/> بالقرب مني</span><h1>خدمات حول موقعك</h1><p className={styles.meta}>استخدم موقعك أو ابحث عن خدمة، ثم افتح ملف مقدم الخدمة مباشرة.</p></header>
+      <ActionButton className={styles.locateAction} type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
+      <p className={styles.locationContext} aria-live="polite"><PlatformIcon name={locationSource === 'device' ? 'check' : 'info'} size={15}/>{locationSource === 'device' ? 'يتم الآن البحث ضمن المنطقة المحيطة بموقعك.' : 'يبدأ العرض من دمشق؛ استخدم موقعك لنتائج أقرب إليك.'}</p>
       <form onSubmit={(event) => { event.preventDefault(); void search(map.current?.getBounds()?.toJSON()); }}>
         <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="الخدمة المطلوبة" placeholder="مثال: تصليح مكيف" />
-        <ActionButton type="submit"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
+        <ActionButton type="submit" variant="secondary"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
       </form>
-      <ActionButton variant="secondary" type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
+      <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
+        <ActionButton type="button" disabled={mapStatus === 'error' && !mapCanRetry} variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
+        <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
+      </nav>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
-      {mapStatus === 'error' && MAPS_KEY && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
+      {mapStatus === 'error' && mapCanRetry && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
+      {mapStatus === 'error' && <section className={styles.mapUnavailableSummary} aria-label="البحث دون الخريطة">
+        <div><PlatformIcon name="grid" size={20}/><span><strong>تابع من قائمة النتائج</strong><small>استخدم موقعك أو اختر بحثًا سريعًا؛ ستبقى الملفات مرتبة حسب القرب عند توفر الموقع.</small></span></div>
+        <div className={styles.mapQuickSearches} aria-label="عمليات بحث سريعة">
+          {['مطعم', 'مندوب توصيل', 'تكسي', 'صيانة'].map((term) => <ActionButton key={term} type="button" variant="secondary" onClick={() => { setQuery(term); void search(undefined, location, term); }}>{term}</ActionButton>)}
+        </div>
+      </section>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} {provider.rating !== undefined ? `· ★ ${provider.rating.toFixed(1)}` : ''} {provider.distanceKm !== undefined ? `· ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
           <ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=map`}>عرض النشاط</ActionLink>
         </Surface>)}
+        {!isSearching && providers.length === 0 && <EmptyState icon={<PlatformIcon name="search" size={30}/>} title={query ? `لا توجد نتائج مطابقة لـ «${query}»` : 'لا توجد خدمات منشورة قرب هذا الموقع بعد'} description="جرّب اسم خدمة آخر أو تصفح التصنيفات للوصول إلى مقدم الخدمة المناسب." actions={<><ActionLink href="/categories">استكشف التصنيفات</ActionLink>{query && <ActionButton type="button" variant="secondary" onClick={() => { setQuery(''); void search(undefined, location, ''); }}>مسح البحث</ActionButton>}</>} />}
       </section>
     </aside>
     <section className={styles.mapStage} aria-label="منطقة الخريطة">
@@ -217,12 +251,13 @@ function MapDiscovery() {
         <PlatformIcon name="pin" size={34}/>
         <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
         <p>{mapStatus === 'error' ? mapError : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
-        {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{MAPS_KEY && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
+        {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{mapCanRetry && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
+    </div>
   </main>;
 }
 
 export default function MarketplaceMapPage() {
-  return <Suspense fallback={<main className={styles.mapPage} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
+  return <Suspense fallback={<main className={`service-nearby-page ${styles.nearbyProduct}`} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
 }

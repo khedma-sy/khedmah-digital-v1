@@ -56,6 +56,11 @@ jobs:
             026_cash_fulfillment_orders
             027_professional_service_marketplace
             028_khedmah_promotions
+            029_admin_user_management
+            030_operations_issue_center
+            031_admin_catalog_management
+            032_mobility_fare_lifecycle
+            033_mobility_document_reviews
           )
 
           for migration in "${migrations[@]}"; do
@@ -134,6 +139,16 @@ jobs:
             027_professional_service_marketplace_rollback.sql \
             028_khedmah_promotions.sql \
             028_khedmah_promotions_rollback.sql \
+            029_admin_user_management.sql \
+            029_admin_user_management_rollback.sql \
+            030_operations_issue_center.sql \
+            030_operations_issue_center_rollback.sql \
+            031_admin_catalog_management.sql \
+            031_admin_catalog_management_rollback.sql \
+            032_mobility_fare_lifecycle.sql \
+            032_mobility_fare_lifecycle_rollback.sql \
+            033_mobility_document_reviews.sql \
+            033_mobility_document_reviews_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"

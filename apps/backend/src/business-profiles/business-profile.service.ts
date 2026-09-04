@@ -75,6 +75,21 @@ export class BusinessProfileService {
     if (input.categoryCode && input.categoryCode !== profile.categoryCode) {
       await this.categories.assertActiveCategory(input.categoryCode);
     }
+    const materialChange =
+      (input.name !== undefined && input.name !== profile.name) ||
+      (input.descriptionAr !== undefined && input.descriptionAr !== profile.descriptionAr) ||
+      (input.descriptionEn !== undefined && input.descriptionEn !== profile.descriptionEn) ||
+      (input.phone !== undefined && input.phone !== profile.phone) ||
+      (input.email !== undefined && input.email !== profile.email) ||
+      (input.website !== undefined && input.website !== profile.website) ||
+      (input.categoryCode !== undefined && input.categoryCode !== profile.categoryCode) ||
+      (input.cityCode !== undefined && input.cityCode !== profile.cityCode) ||
+      (input.countryCode !== undefined && input.countryCode !== profile.countryCode) ||
+      (input.lat !== undefined && input.lat !== profile.lat) ||
+      (input.lng !== undefined && input.lng !== profile.lng) ||
+      (input.addressAr !== undefined && input.addressAr !== profile.addressAr);
+    const requiresReview = materialChange &&
+      (profile.visibility === 'public' || profile.moderationStatus === 'approved');
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,
@@ -83,7 +98,10 @@ export class BusinessProfileService {
       phone: input.phone === undefined ? profile.phone : input.phone,
       email: input.email === undefined ? profile.email : input.email,
       website: input.website === undefined ? profile.website : input.website,
-      visibility: input.visibility ?? profile.visibility,
+      // Publication is an admin decision. Owners may hide a profile, but they
+      // cannot bypass review by making a private profile public themselves.
+      visibility: requiresReview || input.visibility === 'private' ? 'private' : profile.visibility,
+      moderationStatus: requiresReview ? 'pending' : profile.moderationStatus,
       categoryCode: input.categoryCode ?? profile.categoryCode,
       cityCode: input.cityCode ?? profile.cityCode,
       countryCode: input.countryCode ?? profile.countryCode,
@@ -160,6 +178,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(id);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.assertMobilityDocuments(profile);
 
     const updatedAt = new Date().toISOString();
     await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
@@ -212,7 +231,8 @@ export class BusinessProfileService {
     return full;
   }
 
-  async getMediaAssets(entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
+  async getMediaAssets(cookieHeader: string | undefined, entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
+    await this.requirePublicOrPrivileged(cookieHeader, entityId);
     return this.repository.listMediaAssets(entityType, entityId, assetType);
   }
 
@@ -245,7 +265,8 @@ export class BusinessProfileService {
     return saved;
   }
 
-  async getOpeningHours(businessId: string): Promise<OpeningHours[]> {
+  async getOpeningHours(cookieHeader: string | undefined, businessId: string): Promise<OpeningHours[]> {
+    await this.requirePublicOrPrivileged(cookieHeader, businessId);
     return this.repository.listOpeningHours(businessId);
   }
 
@@ -260,7 +281,8 @@ export class BusinessProfileService {
     return full;
   }
 
-  async getBranches(businessId: string): Promise<BusinessBranch[]> {
+  async getBranches(cookieHeader: string | undefined, businessId: string): Promise<BusinessBranch[]> {
+    await this.requirePublicOrPrivileged(cookieHeader, businessId);
     return this.repository.listBranches(businessId);
   }
 
@@ -286,7 +308,8 @@ export class BusinessProfileService {
     return link;
   }
 
-  async getSocialLinks(businessId: string): Promise<BusinessSocialLink[]> {
+  async getSocialLinks(cookieHeader: string | undefined, businessId: string): Promise<BusinessSocialLink[]> {
+    await this.requirePublicOrPrivileged(cookieHeader, businessId);
     return this.repository.listSocialLinks(businessId);
   }
 
@@ -303,6 +326,7 @@ export class BusinessProfileService {
     if (entityType !== 'business') throw new BadRequestException('Unsupported verification entity type.');
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.assertMobilityDocuments(profile);
     const existing = await this.repository.findVerificationRequest(entityType, entityId);
     if (existing?.status === 'pending' || existing?.status === 'approved') return existing;
     const req: VerificationRequest = {
@@ -318,11 +342,18 @@ export class BusinessProfileService {
     return req;
   }
 
-  async getVerificationStatus(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
-    return this.repository.findVerificationRequest(entityType, entityId);
+  async getVerificationStatus(
+    cookieHeader: string | undefined,
+    entityType: string,
+    entityId: string
+  ): Promise<Pick<VerificationRequest, 'status' | 'createdAt' | 'updatedAt'> | undefined> {
+    await this.requirePublicOrPrivileged(cookieHeader, entityId);
+    const request = await this.repository.findVerificationRequest(entityType, entityId);
+    return request ? { status: request.status, createdAt: request.createdAt, updatedAt: request.updatedAt } : undefined;
   }
 
-  async getTrustHistory(entityType: string, entityId: string): Promise<TrustHistoryEntry[]> {
+  async getTrustHistory(cookieHeader: string | undefined, entityType: string, entityId: string): Promise<TrustHistoryEntry[]> {
+    await this.requireOwnerOrAdmin(cookieHeader, entityId);
     return this.repository.listTrustHistory(entityType, entityId);
   }
 
@@ -330,6 +361,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
     const profile = await this.requireProfile(entityId);
+    await this.assertApprovedMobilityDocuments(profile);
     const updatedAt = new Date().toISOString();
     await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
     const historyEntry: TrustHistoryEntry = {
@@ -350,6 +382,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
     const profile = await this.requireProfile(entityId);
+    await this.assertApprovedMobilityDocuments(profile);
     const updatedAt = new Date().toISOString();
 
     await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
@@ -367,6 +400,51 @@ export class BusinessProfileService {
     await this.repository.saveTrustHistory(historyEntry);
 
     return this.toPublic({ ...profile, moderationStatus: 'approved', updatedAt });
+  }
+
+  async approveAndPublish(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(entityId);
+    await this.assertApprovedMobilityDocuments(profile);
+    const updatedAt = new Date().toISOString();
+    const historyEntries: TrustHistoryEntry[] = [
+      {
+        id: randomUUID(),
+        entityType: 'business',
+        entityId: profile.id,
+        oldStatus: profile.moderationStatus,
+        newStatus: 'approved',
+        changedBy: actor.id,
+        reason: 'Moderation approved during final publication',
+        createdAt: updatedAt
+      },
+      {
+        id: randomUUID(),
+        entityType: 'business',
+        entityId: profile.id,
+        oldStatus: profile.trustStatus,
+        newStatus: 'approved',
+        changedBy: actor.id,
+        reason: 'Trust approved and profile published',
+        createdAt: updatedAt
+      }
+    ];
+    try {
+      await this.repository.approveAndPublish(profile.id, actor.id, updatedAt, historyEntries);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'MOBILITY_DOCUMENTS_REQUIRED') {
+        throw new BadRequestException('Driver photo, identity card, driving licence and vehicle licence are required before publication.');
+      }
+      throw error;
+    }
+    return this.toPublic({
+      ...profile,
+      visibility: 'public',
+      moderationStatus: 'approved',
+      trustStatus: 'approved',
+      updatedAt
+    });
   }
 
   async suspendBusiness(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
@@ -415,6 +493,42 @@ export class BusinessProfileService {
       throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
     }
     return profile;
+  }
+
+  private async requirePublicOrPrivileged(cookieHeader: string | undefined, id: string): Promise<BusinessProfile> {
+    const profile = await this.requireProfile(id);
+    const actor = await this.identity.getSession(readSessionToken(cookieHeader));
+    if (actor && (profile.ownerUserId === actor.id || this.rbac.permissionsFor(actor.email).includes('security.manage'))) {
+      return profile;
+    }
+    if (
+      profile.visibility !== 'public' ||
+      profile.moderationStatus !== 'approved' ||
+      profile.trustStatus !== 'approved' ||
+      profile.status !== 'active'
+    ) {
+      throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    return profile;
+  }
+
+  private async requireOwnerOrAdmin(cookieHeader: string | undefined, id: string): Promise<BusinessProfile> {
+    const profile = await this.requireProfile(id);
+    const actor = await this.identity.getSession(readSessionToken(cookieHeader));
+    if (!actor || (profile.ownerUserId !== actor.id && !this.rbac.permissionsFor(actor.email).includes('security.manage'))) {
+      throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    return profile;
+  }
+
+  private async assertMobilityDocuments(profile:BusinessProfile):Promise<void>{
+    if(profile.categoryCode!=='taxi'&&profile.categoryCode!=='delivery_courier')return;
+    if(await this.repository.countMobilityDocuments(profile.id)!==4)throw new BadRequestException('Driver photo, identity card, driving licence and vehicle licence are required before review.');
+  }
+
+  private async assertApprovedMobilityDocuments(profile:BusinessProfile):Promise<void>{
+    if(profile.categoryCode!=='taxi'&&profile.categoryCode!=='delivery_courier')return;
+    if(await this.repository.countApprovedMobilityDocuments(profile.id)!==4)throw new BadRequestException('Every required driver document must be approved before publication.');
   }
 
   private toPublic(profile: BusinessProfile): PublicBusinessProfile {

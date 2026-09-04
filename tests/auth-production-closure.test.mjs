@@ -17,6 +17,26 @@ test('browser identity calls use the same-origin API proxy', async () => {
   assert.match(nextConfig, /destination: `\$\{backendOrigin\}\/api\/v1\/:path\*`/);
 });
 
+test('frontend sends a restrictive production security policy without blocking maps or Firebase', async () => {
+  const nextConfig = await read('apps/frontend/next.config.ts');
+
+  assert.match(nextConfig, /Content-Security-Policy/);
+  assert.match(nextConfig, /frame-ancestors 'none'/);
+  assert.match(nextConfig, /maps\.googleapis\.com/);
+  assert.match(nextConfig, /\*\.firebaseio\.com/);
+  assert.match(nextConfig, /Strict-Transport-Security/);
+  assert.match(nextConfig, /isProduction/);
+  assert.match(nextConfig, /X-Frame-Options', value: 'DENY'/);
+  assert.match(nextConfig, /Referrer-Policy', value: 'strict-origin-when-cross-origin'/);
+  assert.match(nextConfig, /camera=\(self\), geolocation=\(self\), microphone=\(\)/);
+});
+
+test('logout always clears the browser session cookie even if revocation fails', async () => {
+  const controller = await read('apps/backend/src/identity/auth.controller.ts');
+
+  assert.match(controller, /try \{[\s\S]*identityService\.logout[\s\S]*\} finally \{[\s\S]*clearSessionCookie\(response\)/);
+});
+
 test('pending accounts receive an actionable verification response', async () => {
   const [errors, service, login] = await Promise.all([
     read('apps/backend/src/identity/identity.errors.ts'),
@@ -98,7 +118,8 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(styles, /\.identity-language/);
   assert.match(styles, /\.auth-social-grid/);
   assert.match(styles, /\.auth-help,\.login-prompt[^}]*color:var\(--k-color-text-muted\)!important/);
-  assert.match(login, /auth-login-heading/);
+  assert.match(login, /auth-gateway-experience/);
+  assert.match(login, /IdentityGatewayAside mode="login"/);
   assert.match(register, /SocialProviderIcon provider="google"/);
   assert.match(register, /SocialProviderIcon provider="facebook"/);
   assert.match(register, /statusCode\?: number/);

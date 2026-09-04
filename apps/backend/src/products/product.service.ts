@@ -7,15 +7,9 @@ import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ProductRepository } from './product.repository';
 import type { ProductListing, PublicProductListing } from './product.types';
-import { validateProductWrite } from './product.validation';
+import { validateProductPublicFilters, validateProductWrite } from './product.validation';
 import { evaluateProductAutoModeration } from './product-auto-moderation';
-
-const DEFAULT_PRODUCT_LIMIT_PER_USER = 20;
-
-function productLimitPerUser(): number {
-  const configured = Number.parseInt(process.env.PRODUCT_LISTING_LIMIT_PER_USER ?? '', 10);
-  return Number.isSafeInteger(configured) && configured > 0 && configured <= 1000 ? configured : DEFAULT_PRODUCT_LIMIT_PER_USER;
-}
+import { advertisingPolicy, productLimitPerUser } from './product-policy';
 
 @Injectable()
 export class ProductService {
@@ -41,7 +35,7 @@ export class ProductService {
       status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
     const limit = productLimitPerUser();
     if (!await this.repository.insertWithinOwnerLimit(product, limit)) {
-      throw new BadRequestException(`You have reached the limit of ${limit} product listings per user.`);
+      throw new BadRequestException(`لقد بلغت الحد المتاح وهو ${limit} إعلانات لكل مستخدم.`);
     }
     return product;
   }
@@ -52,9 +46,10 @@ export class ProductService {
   }
 
   listingLimitPerUser() { return productLimitPerUser(); }
+  advertisingPolicy() { return advertisingPolicy(); }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<PublicProductListing[]> {
-    return (await this.repository.listPublic(filters)).map(toPublicProduct);
+  async listPublic(filters: Record<string, unknown>): Promise<PublicProductListing[]> {
+    return (await this.repository.listPublic(validateProductPublicFilters(filters))).map(toPublicProduct);
   }
 
   async getPublic(id: string) {
@@ -71,7 +66,7 @@ export class ProductService {
     const updated: ProductListing = { ...product, titleAr: input.titleAr ?? product.titleAr,
       descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
-      availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
+      availability: input.availability ?? product.availability, status: product.status === 'inactive' ? 'inactive' : 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
     const governedUpdated: ProductListing = { ...updated, requiresPrescription: input.requiresPrescription ?? product.requiresPrescription, controlledItem: input.controlledItem ?? product.controlledItem };
     await this.repository.update(governedUpdated); return governedUpdated;
   }
@@ -87,7 +82,10 @@ export class ProductService {
     try { await this.categories.assertActiveCategory(product.categoryCode); } catch { categoryIsActive = false; }
     const decision = evaluateProductAutoModeration(product, business, categoryIsActive, hasPublicImage);
     const updated: ProductListing = { ...product, status: 'active', moderationStatus: decision.approved ? 'approved' : 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.updateWithAutoModerationAudit(updated, decision.approved);
+    const limit = productLimitPerUser();
+    if (!await this.repository.updateWithAutoModerationAudit(updated, decision.approved, limit)) {
+      throw new BadRequestException(`لا يمكن إعادة نشر الإعلان لأن الرصيد المتاح مكتمل (${limit} من ${limit}). ألغِ نشر إعلان آخر أولًا.`);
+    }
     return updated;
   }
 

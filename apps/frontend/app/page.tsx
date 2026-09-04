@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { FeaturedCategories } from './components/featured-categories';
 import { RecentlyAdded } from './components/recently-added';
 import { PlatformIcon } from './components/platform-icon';
+import { PriorityServices } from './components/priority-services';
 import styles from './home.module.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
 export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
 
 const trustItems = [
@@ -23,11 +24,12 @@ export default function Home() {
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
         <p className={styles.lead}>ابحث حسب الفئة والموقع، اطّلع على ملفات الأعمال ومقدمي الخدمات، ثم تواصل مباشرة دون وسطاء.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
-        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/professional-services/new"><PlatformIcon name="tools" />اطلب مهنيًا</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link><Link href="/mobility"><PlatformIcon name="car" />تاكسي وتوصيل</Link></div>
+        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link></div>
         <p className={styles.heroNote}>للأفراد وأصحاب الأعمال والمهنيين</p>
       </div>
       <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
     </section>
+    <div className={styles.priority}><PriorityServices /></div>
     <section className={styles.discovery} aria-labelledby="categories-title">
       <div className={styles.sectionHeading}><span>اكتشف ما حولك</span><h2 id="categories-title">التصنيفات الرئيسية</h2><p>اختر المجال المناسب وانتقل مباشرة إلى نتائج البحث الحقيقية.</p></div>
       <FeaturedCategories />

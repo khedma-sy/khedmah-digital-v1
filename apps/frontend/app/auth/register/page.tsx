@@ -6,7 +6,7 @@ import { FormEvent, useState } from 'react';
 import { identityApi } from '../../../lib/identity-api';
 import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
 import { PlatformIcon } from '../../components/platform-icon';
-import { IdentityVisual } from '../identity-visual';
+import { IdentityGatewayAside, IdentityGatewayOrnaments } from '../identity-visual';
 import { SocialProviderIcon } from '../social-provider-icon';
 
 export default function RegisterPage() {
@@ -16,11 +16,17 @@ export default function RegisterPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [visiblePassword, setVisiblePassword] = useState<'password' | 'confirmPassword' | null>(null);
+  const [passwordValue, setPasswordValue] = useState('');
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
 
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     const form = event.currentTarget;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
     const email = (form.elements.namedItem('email') as HTMLInputElement).value.trim().toLowerCase();
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
     if (password !== (form.elements.namedItem('confirmPassword') as HTMLInputElement).value) {
@@ -73,29 +79,41 @@ export default function RegisterPage() {
     }
   }
 
+  const hasMinimumPasswordLength = passwordValue.length >= 8;
+  const passwordsMatch = confirmPasswordValue.length > 0 && passwordValue === confirmPasswordValue;
+
   return (
-    <main id="foundation-content" className="auth-experience" aria-label="إنشاء حساب جديد">
-      <div className="auth-phone auth-phone-register">
+    <main id="foundation-content" className="auth-experience auth-gateway-experience auth-register-experience" aria-label="إنشاء حساب جديد">
+      <IdentityGatewayOrnaments />
+      <div className="auth-phone auth-phone-gateway auth-phone-register">
         <Link className="auth-back" href="/" aria-label="العودة"><PlatformIcon name="arrow" /></Link>
-        <IdentityVisual />
-        <section className="register-heading"><p>انضم إلى <strong>خدمة</strong> واكتشف الخدمات والأعمال والمهنيين الموثوقين.</p></section>
+        <IdentityGatewayAside mode="register" />
         <form className="auth-panel register-panel" onSubmit={submitRegistration} noValidate>
+          <header className="register-form-heading">
+            <span>إنشاء حساب جديد</span>
+            <h2>أدخل بيانات حسابك</h2>
+          </header>
           <nav className="auth-tabs" aria-label="الدخول وإنشاء الحساب">
             <span aria-current="page">سجل الآن</span>
             <Link href="/auth/login">تسجيل الدخول</Link>
           </nav>
-          <label className="auth-field"><PlatformIcon name="user" /><span>الاسم الكامل</span><input aria-label="الاسم الكامل" name="displayName" autoComplete="name" required minLength={2} maxLength={80} /></label>
-          <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
-          <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" type={visiblePassword === 'password' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'password' ? null : 'password')} aria-label={visiblePassword === 'password' ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}><PlatformIcon name="eye" /></button></label>
-          <label className="auth-field"><PlatformIcon name="lock" /><span>تأكيد كلمة المرور</span><input aria-label="تأكيد كلمة المرور" name="confirmPassword" type={visiblePassword === 'confirmPassword' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'confirmPassword' ? null : 'confirmPassword')} aria-label={visiblePassword === 'confirmPassword' ? 'إخفاء تأكيد كلمة المرور' : 'إظهار تأكيد كلمة المرور'}><PlatformIcon name="eye" /></button></label>
-          <div className="password-strength"><strong>يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل.</strong></div>
+          <div className="register-fields">
+            <label className="auth-field"><PlatformIcon name="user" /><span>الاسم الكامل</span><input aria-label="الاسم الكامل" name="displayName" autoComplete="name" required minLength={2} maxLength={80} placeholder="اكتب اسمك الكامل" /></label>
+            <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required placeholder="name@example.com" dir="ltr" /></label>
+            <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" value={passwordValue} onChange={(event) => setPasswordValue(event.target.value)} type={visiblePassword === 'password' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} placeholder="8 أحرف على الأقل" /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'password' ? null : 'password')} aria-label={visiblePassword === 'password' ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={visiblePassword === 'password'}><PlatformIcon name="eye" /></button></label>
+            <label className="auth-field"><PlatformIcon name="lock" /><span>تأكيد كلمة المرور</span><input aria-label="تأكيد كلمة المرور" name="confirmPassword" value={confirmPasswordValue} onChange={(event) => setConfirmPasswordValue(event.target.value)} type={visiblePassword === 'confirmPassword' ? 'text' : 'password'} autoComplete="new-password" required minLength={8} placeholder="أعد كتابة كلمة المرور" /><button type="button" className="password-toggle" onClick={() => setVisiblePassword((field) => field === 'confirmPassword' ? null : 'confirmPassword')} aria-label={visiblePassword === 'confirmPassword' ? 'إخفاء تأكيد كلمة المرور' : 'إظهار تأكيد كلمة المرور'} aria-pressed={visiblePassword === 'confirmPassword'}><PlatformIcon name="eye" /></button></label>
+          </div>
+          <div className="password-strength register-password-status" aria-live="polite">
+            <span className={hasMinimumPasswordLength ? 'complete' : ''}><PlatformIcon name={hasMinimumPasswordLength ? 'check' : 'close'} size={16} /> 8 أحرف على الأقل</span>
+            <span className={passwordsMatch ? 'complete' : ''}><PlatformIcon name={passwordsMatch ? 'check' : 'close'} size={16} /> كلمتا المرور متطابقتان</span>
+          </div>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
           <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}>{isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}<PlatformIcon name="arrow" /></button>
           <div className="auth-divider"><span>أو</span></div>
-          <div className="auth-social-grid">
-            <button className="auth-secondary auth-google" type="button" onClick={continueWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'المتابعة عبر Google'}</button>
-            <button className={`auth-secondary auth-facebook${FACEBOOK_AUTH_ENABLED ? '' : ' auth-facebook-deferred'}`} type="button" onClick={FACEBOOK_AUTH_ENABLED ? continueWithFacebook : undefined} aria-busy={FACEBOOK_AUTH_ENABLED && isFacebookLoading} aria-label={FACEBOOK_AUTH_ENABLED ? 'المتابعة عبر Facebook' : 'المتابعة عبر Facebook — قريبًا'} title={FACEBOOK_AUTH_ENABLED ? undefined : 'سيتم تفعيل التسجيل عبر Facebook لاحقًا'} disabled={!FACEBOOK_AUTH_ENABLED || isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{FACEBOOK_AUTH_ENABLED ? (isFacebookLoading ? 'جاري الاتصال...' : 'المتابعة عبر Facebook') : 'Facebook — قريبًا'}</button>
-          </div>
+          <section className="register-social" aria-label="خيارات إنشاء الحساب الخارجية">
+            <button className="auth-secondary auth-google" type="button" onClick={continueWithGoogle} aria-busy={isGoogleLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="google" />{isGoogleLoading ? 'جاري الاتصال...' : 'المتابعة باستخدام Google'}</button>
+            {FACEBOOK_AUTH_ENABLED ? <button className="auth-secondary auth-facebook" type="button" onClick={continueWithFacebook} aria-busy={isFacebookLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{isFacebookLoading ? 'جاري الاتصال...' : 'المتابعة باستخدام Facebook'}</button> : <div className="register-provider-unavailable" role="status"><SocialProviderIcon provider="facebook" /><span><strong>Facebook</strong><small>غير متاح حاليًا</small></span></div>}
+          </section>
         </form>
       </div>
     </main>

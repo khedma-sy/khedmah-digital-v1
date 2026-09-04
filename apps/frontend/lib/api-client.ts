@@ -44,6 +44,25 @@ export interface OperationsProductOverview {
   readonly pendingChanges: number;
 }
 
+export interface AdminUserSummary {
+  readonly id:string;
+  readonly email:string;
+  readonly displayName:string;
+  readonly status:'created'|'pending'|'active'|'suspended'|'archived';
+  readonly createdAt:string;
+  readonly updatedAt:string;
+  readonly isAdmin:boolean;
+}
+export interface OperationsIncident { readonly id:string; readonly title:string; readonly summary:string; readonly category:string; readonly severity:'low'|'medium'|'high'|'critical'; readonly status:'open'|'in_progress'|'verification'|'resolved'; readonly reporterUserId:string; readonly assigneeUserId?:string; readonly resolutionNote?:string; readonly createdAt:string; readonly updatedAt:string; readonly resolvedAt?:string; }
+export interface AdminOrderMonitor { readonly generatedAt:string; readonly privacy:{contactDataExposed:false;addressExposed:false;coordinatesExposed:false;userTextExposed:false}; readonly summary:{total:number;active:number;stale:number;unassigned:number;byStatus:Record<string,number>}; readonly orders:Array<{id:string;vertical:'food'|'grocery'|'pharmacy';status:string;paymentStatus:string;currency:string;total?:number;merchantName:string;courierName?:string;createdAt:string;updatedAt:string;latestLocationAt?:string;eventCount:number;stale:boolean}>;readonly mobility:{summary:{total:number;active:number;stale:number};requests:Array<{id:string;serviceType:'taxi'|'delivery';status:string;providerName:string;updatedAt:string;eventCount:number;stale:boolean}>};readonly professionalJobs:{summary:{total:number;active:number;attention:number};requests:Array<{id:string;status:string;categoryName:string;providerName?:string;updatedAt:string;offerCount:number;eventCount:number;needsAttention:boolean}>}; }
+export interface AdminCatalogMonitor { readonly summary:{total:number;active:number;inactive:number;used:number};readonly categories:Array<{code:string;nameAr:string;nameEn?:string;parentCode?:string;status:'active'|'inactive';isFeatured:boolean;sortOrder:number;businessCount:number;liveBusinessCount:number;serviceCount:number;liveServiceCount:number;productCount:number;liveProductCount:number;activeChildCount:number;canDeactivate:boolean}>; }
+export type AdminDomainId='identity'|'teams'|'providers'|'catalog'|'store'|'promotions'|'fulfillment'|'mobility'|'professional_services'|'contact_and_trust'|'media'|'analytics'|'operations';
+export interface AdminDomainCoverage {readonly id:AdminDomainId;readonly management:'managed'|'monitored'|'governed';readonly total:number;readonly attention:number;readonly state:'clear'|'attention';}
+export interface AdminPlatformMetrics {readonly generatedAt:string;readonly privacy:{aggregatedOnly:true;personalDataExposed:false};readonly users:{total:number;active:number;suspended:number};readonly businesses:{total:number;live:number;pending:number};readonly professionals:{total:number;live:number;pending:number};readonly teams:{total:number;activeMembers:number};readonly locations:{total:number;active:number};readonly categories:{total:number;active:number};readonly services:{total:number;live:number};readonly products:{total:number;live:number;pending:number};readonly promotions:{total:number;live:number;pending:number;claims:number;redeemed:number};readonly orders:{total:number;active:number;delivered:number;stale:number;unassigned:number};readonly mobility:{total:number;active:number;stale:number};readonly professionalJobs:{total:number;active:number;attention:number;disputed:number;revisitRequested:number};readonly contactInquiries:{total:number;open:number;overdue:number};readonly reports:{total:number;open:number};readonly verifications:{pending:number};readonly media:{total:number;public:number};readonly analytics:{last30Days:number};readonly incidents:{open:number};readonly domains:AdminDomainCoverage[];}
+export interface AdvertisingPolicy {readonly phase:'free_launch'|'paid';readonly listingLimitPerUser:number;readonly paymentsEnabled:boolean;readonly pricingPublished:boolean;readonly checkoutEnabled:boolean;readonly paidPlansStatus:'planned'|'available';}
+export interface AdvertisingPackageBlueprint {readonly code:'business_10'|'business_30'|'business_100'|'sponsored_7';readonly kind:'listing_bundle'|'sponsored_add_on';readonly nameAr:string;readonly listingLimit:number|null;readonly durationDays:number;readonly price:null;readonly currency:null;readonly purchasable:false;readonly placement:'organic'|'clearly_labelled_sponsored';readonly featuresAr:readonly string[];}
+export interface AdminContentGovernance {readonly generatedAt:string;readonly productPolicy:AdvertisingPolicy&{autoModerationEnabled:true;exceptionsRequireHumanReview:true;plannedPackages:readonly AdvertisingPackageBlueprint[]};readonly products:{pending:number;approved:number;rejected:number;ownersAtLimit:number};readonly promotions:{pending:number;live:number;rejected:number;autoApprovedLast30Days:number;redemptions:number};}
+
 export interface SmartAdminReport {
   readonly generatedAt: string;
   readonly privacy: {
@@ -67,6 +86,18 @@ export interface SmartAdminReport {
     reviewRequired: number;
     policyVersion: 'product-auto-v1';
   };
+  readonly promotionModeration: {
+    pending: number;
+    live: number;
+    policyVersion: 'promotion-auto-v1';
+  };
+  readonly platformCoverage: AdminDomainCoverage[];
+  readonly access: {
+    mode: 'full_internal_product_operations';
+    permissions: string[];
+    auditTrailRequired: true;
+    infrastructureSecretsExposed: false;
+  };
   readonly recommendations: Array<{
     priority: 'high' | 'medium' | 'low';
     title: string;
@@ -74,8 +105,12 @@ export interface SmartAdminReport {
     action: string;
   }>;
   readonly automation: {
+    canTriageAllDomains: true;
+    canRouteExceptionsToReview: true;
     canAutoApproveEligibleProducts: true;
+    canAutoApproveEligiblePromotions: true;
     humanApprovalRequiredForExceptions: true;
+    canDeleteOrSuspendAutonomously: false;
   };
 }
 
@@ -117,25 +152,56 @@ export interface MobilityRequest {
   readonly serviceType: 'taxi' | 'delivery';
   readonly pickupAddress: string;
   readonly destinationAddress: string;
-  readonly riderContactPhone: string;
+  readonly riderContactPhone?: string;
   readonly pickupLatitude: number;
   readonly pickupLongitude: number;
   readonly destinationLatitude?: number;
   readonly destinationLongitude?: number;
   readonly riderNote?: string;
+  readonly packageDescription?: string;
+  readonly packageSize?: 'small' | 'medium' | 'large';
+  readonly recipientName?: string;
+  readonly recipientPhone?: string;
+  readonly deliveryInstructions?: string;
+  readonly pickupProofPin?: string;
+  readonly deliveryProofPin?: string;
+  readonly pickupVerifiedAt?: string;
+  readonly deliveryVerifiedAt?: string;
   readonly status:
     | 'requested'
     | 'accepted'
     | 'en_route'
+    | 'arrived'
+    | 'in_progress'
     | 'completed'
     | 'rejected'
     | 'cancelled';
   readonly acceptedAt?: string;
   readonly enRouteAt?: string;
+  readonly arrivedAt?: string;
+  readonly startedAt?: string;
   readonly completedAt?: string;
   readonly closedAt?: string;
+  readonly routeDistanceMeters?: number;
+  readonly waitingSeconds?: number;
+  readonly fareStatus: 'pending' | 'finalized' | 'unavailable';
+  readonly fareCurrency: 'SYP';
+  readonly baseFare?: number;
+  readonly farePerKm?: number;
+  readonly farePerWaitingMinute?: number;
+  readonly fareMinimum?: number;
+  readonly farePolicyUpdatedAt?: string;
+  readonly distanceFare?: number;
+  readonly waitingFare?: number;
+  readonly finalFare?: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface MobilityFarePolicy {
+  readonly serviceType:'taxi'|'delivery'; readonly enabled:boolean; readonly currency:'SYP';
+  readonly baseFare:number; readonly perKmFare:number; readonly perWaitingMinuteFare:number; readonly minimumFare:number;
+  readonly approvedAt?:string; readonly updatedAt:string;
 }
 
 export interface Category {
@@ -225,8 +291,11 @@ export interface FulfillmentOrder {
   readonly id: string;
   readonly merchantBusinessId: string;
   readonly merchantName?: string;
+  readonly pickupAddress?: string;
+  readonly merchantPhone?: string;
   readonly courierBusinessId?: string;
   readonly courierName?: string;
+  readonly courierPhone?: string;
   readonly vertical: 'food' | 'grocery' | 'pharmacy';
   readonly status: FulfillmentOrderStatus;
   readonly paymentMethod: 'cash';
@@ -236,7 +305,7 @@ export interface FulfillmentOrder {
   readonly deliveryFee?: number;
   readonly total?: number;
   readonly deliveryAddress: string;
-  readonly customerPhone: string;
+  readonly customerPhone?: string;
   readonly customerNote?: string;
   readonly prescriptionAttested: boolean;
   readonly pharmacyReviewStatus:
@@ -265,7 +334,11 @@ export interface MediaAsset {
     | 'service_image'
     | 'product_image'
     | 'problem_image'
-    | 'completion_image';
+    | 'completion_image'
+    | 'driver_photo'
+    | 'identity_card'
+    | 'driving_license'
+    | 'vehicle_license';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -287,6 +360,9 @@ export interface UploadedMediaAsset {
   readonly assetType?: MediaAsset['assetType'];
   readonly sortOrder: number;
   readonly createdAt: string;
+  readonly documentReviewStatus?: 'pending' | 'approved' | 'rejected';
+  readonly documentReviewReason?: string;
+  readonly documentReviewedAt?: string;
 }
 
 export interface ProfessionalServiceOffer {
@@ -346,6 +422,8 @@ export interface VerificationRequest {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export type VerificationStatus = Pick<VerificationRequest, 'status' | 'createdAt' | 'updatedAt'>;
 
 export interface TrustHistoryEntry {
   readonly id: string;
@@ -472,11 +550,15 @@ export const api = {
         `/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`,
       );
     },
-    transition(id: string, status: MobilityRequest['status'], reason?: string) {
+    transition(id: string, status: MobilityRequest['status'], reason?: string, verificationCode?: string) {
       return request<{ request: MobilityRequest }>(
         `/mobility/requests/${encodeURIComponent(id)}/status`,
-        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
+        { method: 'PATCH', body: JSON.stringify({ status, reason, verificationCode }) },
       );
+    },
+    farePolicy(serviceType:'taxi'|'delivery') { return request<{policy:MobilityFarePolicy}>(`/mobility/fare-policy?serviceType=${serviceType}`); },
+    updateFarePolicy(data:{serviceType:'taxi'|'delivery';enabled:boolean;baseFare:number;perKmFare:number;perWaitingMinuteFare:number;minimumFare:number}) {
+      return request<{policy:MobilityFarePolicy}>('/mobility/admin/fare-policy',{method:'PUT',body:JSON.stringify(data)});
     },
   },
   contact: {
@@ -597,6 +679,16 @@ export const api = {
         '/admin/operations-product/smart-admin-report',
       );
     },
+    users(query='') { return request<{users:AdminUserSummary[]}>(`/admin/operations-product/users?q=${encodeURIComponent(query)}`); },
+    changeUserStatus(id:string,status:'active'|'suspended',reason:string){return request<{user:Pick<AdminUserSummary,'id'|'email'|'status'|'createdAt'|'updatedAt'>;previousStatus:string}>(`/admin/operations-product/users/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({status,reason})});},
+    history(){return request<{incidents:OperationsIncident[]}>(`/admin/operations-product/history`);},
+    createIncident(input:{title:string;summary:string;category:string;severity:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents`,{method:'POST',body:JSON.stringify(input)});},
+    transitionIncident(id:string,input:{status:OperationsIncident['status'];note:string;assigneeUserId?:string}){return request<{incident:OperationsIncident}>(`/admin/operations-product/incidents/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(input)});},
+    orderMonitor(){return request<{orderMonitor:AdminOrderMonitor}>(`/admin/operations-product/order-monitor`);},
+    catalogMonitor(){return request<{catalogMonitor:AdminCatalogMonitor}>(`/admin/operations-product/catalog-monitor`);},
+    changeCategoryStatus(code:string,status:'active'|'inactive',reason:string){return request<{category:{code:string;previousStatus:string;status:string}}>(`/admin/operations-product/catalog/${encodeURIComponent(code)}/status`,{method:'PATCH',body:JSON.stringify({status,reason})});},
+    platformMetrics(){return request<{platformMetrics:AdminPlatformMetrics}>(`/admin/operations-product/platform-metrics`);},
+    contentGovernance(){return request<{contentGovernance:AdminContentGovernance}>(`/admin/operations-product/content-governance`);},
   },
   analytics: {
     recordSearch(data: {
@@ -660,6 +752,10 @@ export const api = {
         }),
       });
     },
+    uploadDriverDocument(
+      id:string,
+      data:{filename:string;mimeType:'image/jpeg'|'image/png'|'image/webp';sizeBytes:number;content:string;assetType:'driver_photo'|'identity_card'|'driving_license'|'vehicle_license'},
+    ) { return request<UploadedMediaAsset>('/media',{method:'POST',body:JSON.stringify({ownerType:'business_profile',ownerId:id,visibility:'private',sortOrder:0,...data})}); },
     uploadProduct(
       id: string,
       data: {
@@ -685,6 +781,11 @@ export const api = {
       return request<UploadedMediaAsset[]>(
         `/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`,
       );
+    },
+    reviewDriverDocument(id:string,status:'approved'|'rejected',reason?:string){
+      return request<{id:string;status:'approved'|'rejected';reason?:string;reviewedAt:string}>(`/media/${encodeURIComponent(id)}/driver-document-review`,{
+        method:'PATCH',body:JSON.stringify({status,reason})
+      });
     },
     delete(id: string) {
       return request<{ deleted: boolean }>(`/media/${id}`, {
@@ -716,7 +817,17 @@ export const api = {
   },
   products: {
     list(
-      filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string } = {},
+      filters: {
+        q?: string;
+        categoryCode?: string;
+        cityCode?: string;
+        businessProfileId?: string;
+        availability?: ProductListing['availability'];
+        currency?: ProductListing['currency'];
+        minPrice?: number;
+        maxPrice?: number;
+        sort?: 'newest' | 'price_asc' | 'price_desc';
+      } = {},
     ) {
       const params = new URLSearchParams();
       if (filters.q) params.set('q', filters.q);
@@ -725,6 +836,15 @@ export const api = {
       if (filters.cityCode) params.set('cityCode', filters.cityCode);
       if (filters.businessProfileId)
         params.set('businessProfileId', filters.businessProfileId);
+      if (filters.availability)
+        params.set('availability', filters.availability);
+      if (filters.currency) params.set('currency', filters.currency);
+      if (filters.minPrice !== undefined)
+        params.set('minPrice', String(filters.minPrice));
+      if (filters.maxPrice !== undefined)
+        params.set('maxPrice', String(filters.maxPrice));
+      if (filters.sort && filters.sort !== 'newest')
+        params.set('sort', filters.sort);
       return request<{ products: ProductListing[] }>(
         `/products${params.size ? `?${params}` : ''}`,
       );
@@ -739,6 +859,7 @@ export const api = {
         products: ProductListing[];
         count: number;
         limit: number;
+        advertisingPolicy: AdvertisingPolicy;
       }>('/products/mine');
     },
     create(data: Record<string, unknown>) {
@@ -1035,7 +1156,7 @@ export const api = {
       );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(
+      return request<{ status: VerificationStatus | null }>(
         `/businesses/${id}/verification-status`,
       );
     },
@@ -1058,6 +1179,12 @@ export const api = {
     approveModeration(id: string) {
       return request<{ business: PublicBusinessProfile }>(
         `/businesses/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
+    },
+    approveAndPublish(id: string) {
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/moderation/approve-and-publish`,
         { method: 'POST' },
       );
     },
@@ -1160,7 +1287,7 @@ export const api = {
       );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(
+      return request<{ status: VerificationStatus | null }>(
         `/professionals/${id}/verification-status`,
       );
     },
@@ -1178,6 +1305,12 @@ export const api = {
     approveModeration(id: string) {
       return request<{ professional: PublicProfessionalProfile }>(
         `/professionals/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
+    },
+    approveAndPublish(id: string) {
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/moderation/approve-and-publish`,
         { method: 'POST' },
       );
     },

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { MobilityService } from './mobility.service';
 
 @Controller('mobility')
@@ -16,6 +16,14 @@ export class MobilityController {
   @Get('provider/requests')
   async provider(@Headers('cookie') cookie: string | undefined, @Query('businessId') businessId: string) {
     return { requests: await this.mobility.listForProvider(cookie, businessId) };
+  }
+
+  @Get('fare-policy')
+  async farePolicy(@Query('serviceType') serviceType: string) { return { policy: await this.mobility.farePolicy(serviceType) }; }
+
+  @Put('admin/fare-policy')
+  async updateFarePolicy(@Headers('cookie') cookie: string | undefined, @Body() body: Record<string, unknown>) {
+    return { policy: await this.mobility.updateFarePolicy(cookie, body) };
   }
 
   @Patch('requests/:id/status')

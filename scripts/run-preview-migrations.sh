@@ -99,6 +99,48 @@ SELECT (to_regclass(current_schema() || '.promotions') IS NOT NULL) AS promotion
   \ir /migrations/028_khedmah_promotions.sql
 \endif
 
+SELECT (to_regclass(current_schema() || '.admin_user_actions') IS NOT NULL) AS admin_users_ready \gset
+\if :admin_users_ready
+\else
+  \ir /migrations/029_admin_user_management.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.operations_incidents') IS NOT NULL) AS operations_issues_ready \gset
+\if :operations_issues_ready
+\else
+  \ir /migrations/030_operations_issue_center.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.admin_catalog_actions') IS NOT NULL) AS admin_catalog_ready \gset
+\if :admin_catalog_ready
+\else
+  \ir /migrations/031_admin_catalog_management.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.mobility_fare_policies') IS NOT NULL) AS mobility_fares_ready \gset
+\if :mobility_fares_ready
+\else
+  \ir /migrations/032_mobility_fare_lifecycle.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.mobility_document_reviews') IS NOT NULL) AS mobility_document_reviews_ready \gset
+\if :mobility_document_reviews_ready
+\else
+  \ir /migrations/033_mobility_document_reviews.sql
+\endif
+
+SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mobility_requests' AND column_name='package_description') AS mobility_delivery_ready \gset
+\if :mobility_delivery_ready
+\else
+  \ir /migrations/034_mobility_delivery_proof.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.platform_notifications') IS NOT NULL) AS platform_notifications_ready \gset
+\if :platform_notifications_ready
+\else
+  \ir /migrations/035_platform_notifications.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL
@@ -113,12 +155,19 @@ BEGIN
     OR to_regclass(current_schema() || '.promotion_business_codes') IS NULL
     OR to_regclass(current_schema() || '.promotions') IS NULL
     OR to_regclass(current_schema() || '.promotion_claims') IS NULL
+    OR to_regclass(current_schema() || '.admin_user_actions') IS NULL
+    OR to_regclass(current_schema() || '.operations_incidents') IS NULL
+    OR to_regclass(current_schema() || '.operations_incident_events') IS NULL
+    OR to_regclass(current_schema() || '.admin_catalog_actions') IS NULL
+    OR to_regclass(current_schema() || '.mobility_fare_policies') IS NULL
+    OR to_regclass(current_schema() || '.mobility_document_reviews') IS NULL
+    OR to_regclass(current_schema() || '.mobility_document_review_events') IS NULL
   THEN
-    RAISE EXCEPTION 'PREVIEW_SCHEMA_028_POSTCONDITION_FAILED';
+    RAISE EXCEPTION 'PREVIEW_SCHEMA_033_POSTCONDITION_FAILED';
   END IF;
 END
 $postcondition$;
 COMMIT;
 SQL
 
-printf '%s\n' 'PREVIEW_SCHEMA_028_READY'
+printf '%s\n' 'PREVIEW_SCHEMA_033_READY'

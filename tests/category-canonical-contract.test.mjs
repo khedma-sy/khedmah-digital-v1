@@ -30,12 +30,16 @@ test('Business and Service writes use the shared active Category authority', asy
 });
 
 test('frontend Category choices come from the canonical API', async () => {
-  const [hook, businessPage, catalogPage] = await Promise.all([
+  const [hook, businessPage, catalogPage, brandStyles] = await Promise.all([
     read('apps/frontend/lib/use-categories.ts'),
     read('apps/frontend/app/business-profiles/new/page.tsx'),
-    read('apps/frontend/app/components/category-directory.tsx')
+    read('apps/frontend/app/components/category-directory.tsx'),
+    read('apps/frontend/app/brand-system.css')
   ]);
   assert.match(hook, /api\.categories\.list/);
   assert.match(businessPage, /useCategories/);
   assert.match(catalogPage, /useCategories/);
+  assert.match(catalogPage, /data-visual=\{category\.visualKey\}/);
+  for (const visual of ['home','food','health','education','professional','beauty','shopping','automotive','transport','technology','construction','events','agriculture','industry','travel'])
+    assert.match(brandStyles, new RegExp(`data-visual="${visual}"`));
 });

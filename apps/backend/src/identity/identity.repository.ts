@@ -33,6 +33,34 @@ export class IdentityRepository {
     return rows[0] ? this.mapAccount(rows[0]) : undefined;
   }
 
+  async listAccountsForAdmin(query = '', limit = 50): Promise<Array<{ id:string; email:string; displayName:string; status:string; createdAt:string; updatedAt:string; isAdmin:boolean }>> {
+    const term = query.trim();
+    const rows = await this.db.query<{ user_identifier:string; email:string; display_name:string; account_status:string; created_at:Date; updated_at:Date; is_admin:boolean }>(
+      `SELECT a.user_identifier,c.email,p.display_name,a.account_status,a.created_at,a.updated_at,
+              EXISTS(SELECT 1 FROM admin_roles ar WHERE ar.user_id=a.user_identifier) AS is_admin
+       FROM core_user_accounts a
+       JOIN identity_credentials c USING(user_identifier)
+       LEFT JOIN profiles p USING(user_identifier)
+       WHERE ($1='' OR c.email ILIKE '%'||$1||'%' OR COALESCE(p.display_name,'') ILIKE '%'||$1||'%')
+       ORDER BY a.created_at DESC LIMIT $2`, [term, Math.min(Math.max(limit,1),100)]
+    );
+    return rows.map((row)=>({id:row.user_identifier,email:row.email,displayName:row.display_name||'مستخدم خدمة',status:row.account_status,createdAt:row.created_at.toISOString(),updatedAt:row.updated_at.toISOString(),isAdmin:row.is_admin}));
+  }
+
+  async changeAccountStatus(input:{targetUserId:string;actorUserId:string;status:'active'|'suspended';reason:string;requestId?:string;correlationId?:string}):Promise<{previousStatus:string;newStatus:string}> {
+    return this.db.transaction(async(client)=>{
+      const result=await client.query<{account_status:string}>(`SELECT account_status FROM core_user_accounts WHERE user_identifier=$1 FOR UPDATE`,[input.targetUserId]);
+      const previousStatus=result.rows[0]?.account_status;
+      if(!previousStatus) throw new Error('USER_NOT_FOUND');
+      if(!['active','suspended'].includes(previousStatus)) throw new Error('USER_STATUS_NOT_MANAGEABLE');
+      if(previousStatus===input.status) return {previousStatus,newStatus:input.status};
+      await client.query(`UPDATE core_user_accounts SET account_status=$2,lifecycle_status=$2,updated_at=NOW() WHERE user_identifier=$1`,[input.targetUserId,input.status]);
+      if(input.status==='suspended') await client.query(`UPDATE identity_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_identifier=$1`,[input.targetUserId]);
+      await client.query(`INSERT INTO admin_user_actions(id,target_user_id,actor_user_id,action,reason,previous_status,new_status,request_id,correlation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),input.targetUserId,input.actorUserId,input.status==='suspended'?'suspended':'reactivated',input.reason,previousStatus,input.status,input.requestId??null,input.correlationId??null]);
+      return {previousStatus,newStatus:input.status};
+    });
+  }
+
   async saveAccount(account: UserAccount): Promise<void> {
     await this.db.transaction(async (client) => {
       await client.query(

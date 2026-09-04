@@ -51,12 +51,18 @@ test('registration requires email verification before the protected welcome expe
 test('navigation avoids duplicate links and interactions respect reduced motion', async () => {
   const layout = await read('app/layout.tsx');
   const navigation = await read('app/auth-navigation.tsx');
+  const mobileNavigation = await read('app/components/mobile-navigation.tsx');
   const styles = await read('app/globals.css');
+  const brandStyles = await read('app/brand-system.css');
 
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.match(navigation, /label: 'التصنيفات'/);
   assert.match(layout, /className="khedma-header"/);
+  assert.match(layout, /MobileNavigation/);
+  assert.match(mobileNavigation, /التنقل الرئيسي للهاتف/);
+  assert.equal((mobileNavigation.match(/\{ href: '[^']+', label:/g) ?? []).length, 5);
+  assert.match(brandStyles, /grid-template-columns:repeat\(5,1fr\)/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
@@ -67,6 +73,20 @@ test('approved actions use the unified SVG icon system', async () => {
   assert.match(icon, /viewBox="0 0 24 24"/);
   assert.match(home, /PlatformIcon/);
   assert.doesNotMatch(home, /[🏢👤📍🔍✨✦⌖]/u);
+});
+
+test('Ask Khedmah keeps the brand umbrella and a consistent label on every page', async () => {
+  const [assistant, assistantStyles, brandStyles] = await Promise.all([
+    read('app/components/smart-assistant.tsx'),
+    read('app/components/smart-assistant.module.css'),
+    read('app/brand-system.css'),
+  ]);
+
+  assert.match(assistant, /BrandUmbrella/);
+  assert.match(assistant, /<span>اسأل خدمة<\/span>/);
+  assert.match(assistantStyles, /\.brandIcon/);
+  assert.doesNotMatch(assistantStyles, /\.trigger span\{display:none\}/);
+  assert.doesNotMatch(brandStyles, /body:has\(\.catalog-experience\) \.smart-assistant/);
 });
 
 test('service discovery always leads to the real provider profile', async () => {

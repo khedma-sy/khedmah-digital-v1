@@ -5,7 +5,8 @@ const ALLOWED_MIME_TYPES: MediaMimeType[] = ['image/jpeg', 'image/png', 'image/w
 const ALLOWED_OWNER_TYPES: MediaOwnerType[] = ['business_profile', 'professional_profile', 'product_listing', 'professional_request', 'user'];
 const ALLOWED_VISIBILITIES: MediaVisibility[] = ['public', 'private'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_ASSET_TYPES: MediaAssetType[] = ['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image', 'problem_image', 'completion_image'];
+const DRIVER_DOCUMENT_TYPES:MediaAssetType[]=['driver_photo','identity_card','driving_license','vehicle_license'];
+const ALLOWED_ASSET_TYPES: MediaAssetType[] = ['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image', 'problem_image', 'completion_image',...DRIVER_DOCUMENT_TYPES];
 
 export function validateUploadMediaRequest(req: UploadMediaRequest): {
   ownerType: MediaOwnerType;
@@ -42,8 +43,11 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
   if (req.assetType !== undefined && !ALLOWED_ASSET_TYPES.includes(req.assetType as MediaAssetType)) {
     throw new BadRequestException(`assetType must be one of: ${ALLOWED_ASSET_TYPES.join(', ')}`);
   }
-  if (req.ownerType === 'business_profile' && !['logo', 'cover', 'gallery'].includes(req.assetType as string)) {
-    throw new BadRequestException('Business media requires logo, cover, or gallery assetType.');
+  if (req.ownerType === 'business_profile' && !['logo', 'cover', 'gallery',...DRIVER_DOCUMENT_TYPES].includes(req.assetType as MediaAssetType)) {
+    throw new BadRequestException('Business media requires logo, cover, or gallery assetType, or a private driver verification document.');
+  }
+  if (req.ownerType === 'business_profile' && DRIVER_DOCUMENT_TYPES.includes(req.assetType as MediaAssetType) && req.visibility !== 'private') {
+    throw new BadRequestException('Driver verification documents must remain private.');
   }
   if (req.ownerType === 'product_listing' && req.assetType !== 'product_image') {
     throw new BadRequestException('Product media requires product_image assetType.');

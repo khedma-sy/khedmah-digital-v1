@@ -53,6 +53,7 @@ export class BusinessProfileRepository {
          description_en = EXCLUDED.description_en,
          organization_id = EXCLUDED.organization_id,
          visibility = EXCLUDED.visibility,
+         moderation_status = EXCLUDED.moderation_status,
          trust_status = EXCLUDED.trust_status,
          status = EXCLUDED.status,
          phone = EXCLUDED.phone,
@@ -247,15 +248,60 @@ export class BusinessProfileRepository {
     );
   }
 
+  async approveAndPublish(
+    id: string,
+    reviewerId: string,
+    updatedAt: string,
+    historyEntries: readonly TrustHistoryEntry[]
+  ): Promise<void> {
+    await this.db.transaction(async (client) => {
+      const approval = await client.query(
+        `UPDATE business_profiles
+         SET visibility = 'public', moderation_status = 'approved', trust_status = 'approved', updated_at = $2
+         WHERE id = $1
+           AND (
+             category_code NOT IN ('taxi', 'delivery_courier')
+             OR 4 = (
+               SELECT COUNT(DISTINCT m.asset_type)
+               FROM media_assets m
+               JOIN mobility_document_reviews r ON r.media_asset_id = m.id AND r.status = 'approved'
+               WHERE m.owner_type = 'business_profile'
+                 AND m.owner_id = $1
+                 AND m.visibility = 'private'
+                 AND m.asset_type IN ('driver_photo', 'identity_card', 'driving_license', 'vehicle_license')
+             )
+           )
+         RETURNING id`,
+        [id, updatedAt]
+      );
+      if (approval.rowCount !== 1) {
+        throw new Error('MOBILITY_DOCUMENTS_REQUIRED');
+      }
+      await client.query(
+        `UPDATE verification_requests
+         SET status = 'approved', reviewed_by = $2, reviewed_at = $3, updated_at = $3
+         WHERE entity_type = 'business' AND entity_id = $1 AND status = 'pending'`,
+        [id, reviewerId, updatedAt]
+      );
+      for (const entry of historyEntries) {
+        await client.query(
+          `INSERT INTO trust_history (id, entity_type, entity_id, old_status, new_status, changed_by, reason, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [entry.id, entry.entityType, entry.entityId, entry.oldStatus ?? null, entry.newStatus, entry.changedBy ?? null, entry.reason ?? null, entry.createdAt]
+        );
+      }
+    });
+  }
+
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
       `INSERT INTO media_assets
          (id, owner_user_id, owner_type, owner_id, filename, mime_type, size_bytes, visibility,
           storage_key, public_url, asset_type, sort_order, created_at, updated_at)
-       SELECT $1, b.owner_user_id, 'business_profile', $3, $1, $7, $8, 'public', $6, $5, $4, $9, $10, $10
-       FROM business_profiles b WHERE b.id = $3
+       SELECT $1, b.owner_user_id, 'business_profile', $2, $1, $6, $7, 'public', $5, $4, $3, $8, $9, $9
+       FROM business_profiles b WHERE b.id = $2
        ON CONFLICT (id) DO UPDATE SET public_url = EXCLUDED.public_url, sort_order = EXCLUDED.sort_order`,
-      [asset.id, asset.entityType, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
+      [asset.id, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
     );
   }
 
@@ -270,7 +316,7 @@ export class BusinessProfileRepository {
       `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
               public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 AND visibility = 'public' ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -384,6 +430,16 @@ export class BusinessProfileRepository {
     if (!rows[0]) return undefined;
     const r = rows[0];
     return { id: r.id, entityType: r.entity_type as VerificationRequest['entityType'], entityId: r.entity_id, requesterId: r.requester_id, status: r.status as VerificationRequest['status'], notes: r.notes ?? undefined, reviewedBy: r.reviewed_by ?? undefined, reviewedAt: r.reviewed_at?.toISOString(), createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() };
+  }
+
+  async countMobilityDocuments(businessProfileId:string):Promise<number>{
+    const [row]=await this.db.query<{count:string}>(`SELECT COUNT(DISTINCT asset_type)::text count FROM media_assets WHERE owner_type='business_profile' AND owner_id=$1 AND visibility='private' AND asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')`,[businessProfileId]);
+    return Number(row?.count??0);
+  }
+
+  async countApprovedMobilityDocuments(businessProfileId:string):Promise<number>{
+    const [row]=await this.db.query<{count:string}>(`SELECT COUNT(DISTINCT m.asset_type)::text count FROM media_assets m JOIN mobility_document_reviews r ON r.media_asset_id=m.id AND r.status='approved' WHERE m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private' AND m.asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')`,[businessProfileId]);
+    return Number(row?.count??0);
   }
 
   async saveTrustHistory(entry: TrustHistoryEntry): Promise<void> {

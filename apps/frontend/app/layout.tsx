@@ -5,13 +5,15 @@ import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
 import { LaunchCampaignBanner } from './components/launch-campaign-banner';
+import { MobileNavigation } from './components/mobile-navigation';
+import { OfficialContactLinks } from './components/official-contact-links';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
 import './ui-primitives.css';
 import './auth-experience.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
 const SITE_NAME = 'خدمة';
 
 export const metadata: Metadata = {
@@ -66,12 +68,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
+        <LaunchCampaignBanner />
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
-        <LaunchCampaignBanner />
         {children}
+        <OfficialContactLinks />
+        <MobileNavigation />
         <SmartAssistant />
       </body>
     </html>

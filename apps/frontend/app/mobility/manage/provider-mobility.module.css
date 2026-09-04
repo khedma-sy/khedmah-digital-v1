@@ -3,12 +3,14 @@
 .selector label{display:grid;gap:.4rem;font-weight:800}
 .selector select{min-height:2.8rem;border:1px solid var(--border);border-radius:.75rem;background:var(--surface);color:var(--foreground);font:inherit;padding:.6rem}
 .selector span{color:var(--success,#198754);font-weight:800}
+.alertControl{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.75rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}
 .card{display:grid;gap:.7rem}
 .heading,.actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem}
-.heading span{border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,var(--surface));color:var(--accent);font-size:.78rem;font-weight:850;padding:.3rem .65rem}
+.heading span{border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,var(--surface));color:var(--accent);font-size:.78rem;font-weight:800;padding:.3rem .65rem}
 .heading time,.card p{color:var(--muted)}
 .card h2,.card p{margin:0}
 .card>a{color:var(--accent);font-weight:800}
+.meter{border-radius:.75rem;padding:.65rem;background:color-mix(in srgb,var(--success,#198754) 10%,var(--surface));font-weight:800}.fare{color:var(--success,#198754)!important;font-size:1.05rem;font-weight:900}
 .actions>*{flex:1}
-@media(max-width:36rem){.selector{align-items:stretch;flex-direction:column}.selector label,.selector select{width:100%}}
+@media(max-width:36rem){.selector{align-items:stretch;flex-direction:column}.selector label,.selector select{width:100%}.alertControl{align-items:stretch;flex-direction:column}}

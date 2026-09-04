@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '028';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '035';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -120,7 +120,35 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('promotions','028','promotion_claims'),
   constraint('promotions','028','promotion_claims','promotion_claims_redemption_code_check'),
   table('promotions','028','promotion_events'),
-  index('promotions','028','promotions','promotions_public_active_idx')
+  index('promotions','028','promotions','promotions_public_active_idx'),
+  table('admin-users','029','admin_user_actions'),
+  ...['target_user_id','actor_user_id','action','reason','previous_status','new_status','created_at'].map((name)=>column('admin-users','029','admin_user_actions',name)),
+  constraint('admin-users','029','admin_user_actions','admin_user_actions_status_change_check'),
+  index('admin-users','029','admin_user_actions','admin_user_actions_target_created_idx'),
+  table('operations-issues','030','operations_incidents'),
+  constraint('operations-issues','030','operations_incidents','operations_incidents_resolution_check'),
+  index('operations-issues','030','operations_incidents','operations_incidents_queue_idx'),
+  table('operations-issues','030','operations_incident_events'),
+  index('operations-issues','030','operations_incident_events','operations_incident_events_incident_time_idx'),
+  table('admin-catalog','031','admin_catalog_actions'),
+  constraint('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_status_change_check'),
+  index('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_category_created_idx'),
+  table('mobility-fares','032','mobility_fare_policies'),
+  ...['arrived_at','started_at','route_distance_meters','waiting_seconds','fare_status','final_fare'].map((name)=>column('mobility-fares','032','mobility_requests',name)),
+  constraint('mobility-fares','032','mobility_requests','mobility_requests_fare_complete_check'),
+  table('mobility-documents','033','mobility_document_reviews'),
+  ...['media_asset_id','business_profile_id','document_type','status','reviewed_by','reviewed_at'].map((name)=>column('mobility-documents','033','mobility_document_reviews',name)),
+  constraint('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_decision_check'),
+  index('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_business_status_idx'),
+  table('mobility-documents','033','mobility_document_review_events'),
+  ...['delivery_contract_version','package_description','package_size','recipient_name','recipient_phone','pickup_verification_hash','delivery_verification_hash','pickup_verified_at','delivery_verified_at']
+    .map((name)=>column('mobility-delivery-proof','034','mobility_requests',name)),
+  constraint('mobility-delivery-proof','034','mobility_requests','mobility_requests_delivery_shape_check'),
+  index('mobility-delivery-proof','034','mobility_requests','mobility_requests_delivery_recipient_idx'),
+  table('platform-notifications','035','platform_notifications'),
+  ...['user_id','event_key','event_type','reference_type','reference_id','read_at','created_at'].map((name)=>column('platform-notifications','035','platform_notifications',name)),
+  constraint('platform-notifications','035','platform_notifications','platform_notifications_user_event_unique'),
+  index('platform-notifications','035','platform_notifications','platform_notifications_user_unread_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

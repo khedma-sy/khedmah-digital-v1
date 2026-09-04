@@ -94,7 +94,7 @@ export default function OrganizationDetailsPage() {
           {isOwner ? <footer className={styles.footer}><span className={styles.help}>يظهر الاسم لأعضاء الجهة وفي مساحات الإدارة فقط.</span><ActionButton type="submit" disabled={isSaving || name.trim().length < 2}>{isSaving ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</ActionButton></footer> : null}
         </Surface>
         <Surface className={styles.form}>
-          <section className={styles.section}><div className={styles.cardTop}><div><h2>أعضاء الجهة</h2><p>{members.length.toLocaleString('ar-SY')} عضو نشط</p></div><span className={`${styles.badge} ${styles.muted}`}>صلاحيات داخلية</span></div>
+          <section className={styles.section}><div className={styles.cardTop}><div><h2>أعضاء الجهة</h2><p>{members.length.toLocaleString('ar-SY-u-nu-latn')} عضو نشط</p></div><span className={`${styles.badge} ${styles.muted}`}>صلاحيات داخلية</span></div>
             {members.length === 0 ? <EmptyState title="لا يوجد أعضاء" description="لم تُسجّل عضويات نشطة لهذه الجهة."/> : <div className={styles.memberList}>{members.map((member) => <div className={styles.memberRow} key={member.id}><div><strong>{member.userId === currentUserId ? 'أنت' : 'عضو الفريق'}</strong><span dir="ltr">{member.userId}</span></div><div className={styles.actions}><span className={`${styles.badge} ${member.role === 'owner' ? styles.success : styles.muted}`}>{roleLabels[member.role]}</span>{isOwner && member.role !== 'owner' ? <ActionButton type="button" variant="danger" disabled={isSaving} onClick={() => void removeMember(member)}>إزالة</ActionButton> : null}</div></div>)}</div>}
           </section>
         </Surface>

@@ -23,7 +23,7 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
 export class ProfessionalProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
-  async save(profile: ProfessionalProfile): Promise<void> {
+  async save(profile: ProfessionalProfile, returnToReview = false): Promise<void> {
     await this.db.query(
       `INSERT INTO professional_profiles (
          professional_profile_identifier, profile_identifier, user_identifier, profession_type,
@@ -42,6 +42,9 @@ export class ProfessionalProfileRepository {
          city_code = EXCLUDED.city_code,
          country_code = EXCLUDED.country_code,
          skills = EXCLUDED.skills,
+         lifecycle_status = CASE WHEN $13 THEN 'pending' ELSE professional_profiles.lifecycle_status END,
+         visibility = CASE WHEN $13 THEN 'private' ELSE professional_profiles.visibility END,
+         moderation_status = CASE WHEN $13 THEN 'pending' ELSE professional_profiles.moderation_status END,
          updated_at = EXCLUDED.updated_at`,
       [
         profile.id,
@@ -55,7 +58,8 @@ export class ProfessionalProfileRepository {
         profile.countryCode,
         [...profile.skills],
         profile.createdAt,
-        profile.updatedAt
+        profile.updatedAt,
+        returnToReview
       ]
     );
   }
@@ -158,6 +162,42 @@ export class ProfessionalProfileRepository {
     );
   }
 
+  async approveAndPublish(
+    id: string,
+    reviewerId: string,
+    updatedAt: string,
+    historyEntry: TrustHistoryEntry
+  ): Promise<void> {
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `UPDATE professional_profiles
+         SET visibility = 'public', moderation_status = 'approved', lifecycle_status = 'active', updated_at = $2
+         WHERE professional_profile_identifier = $1`,
+        [id, updatedAt]
+      );
+      await client.query(
+        `UPDATE verification_requests
+         SET status = 'approved', reviewed_by = $2, reviewed_at = $3, updated_at = $3
+         WHERE entity_type = 'professional' AND entity_id = $1 AND status = 'pending'`,
+        [id, reviewerId, updatedAt]
+      );
+      await client.query(
+        `INSERT INTO trust_history (id, entity_type, entity_id, old_status, new_status, changed_by, reason, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          historyEntry.id,
+          historyEntry.entityType,
+          historyEntry.entityId,
+          historyEntry.oldStatus ?? null,
+          historyEntry.newStatus,
+          historyEntry.changedBy ?? null,
+          historyEntry.reason ?? null,
+          historyEntry.createdAt
+        ]
+      );
+    });
+  }
+
   private map(row: ProfessionalProfileRow): ProfessionalProfile {
     return {
       id: row.id,
@@ -182,10 +222,10 @@ export class ProfessionalProfileRepository {
       `INSERT INTO media_assets
          (id, owner_user_id, owner_type, owner_id, filename, mime_type, size_bytes, visibility,
           storage_key, public_url, asset_type, sort_order, created_at, updated_at)
-       SELECT $1, p.user_identifier, 'professional_profile', $3, $1, $7, $8, 'public', $6, $5, $4, $9, $10, $10
-       FROM professional_profiles p WHERE p.professional_profile_identifier = $3
+       SELECT $1, p.user_identifier, 'professional_profile', $2, $1, $6, $7, 'public', $5, $4, $3, $8, $9, $9
+       FROM professional_profiles p WHERE p.professional_profile_identifier = $2
        ON CONFLICT (id) DO UPDATE SET public_url = EXCLUDED.public_url, sort_order = EXCLUDED.sort_order`,
-      [asset.id, asset.entityType, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
+      [asset.id, asset.entityId, asset.assetType, asset.url, asset.storagePath, asset.mimeType, asset.sizeBytes, asset.sortOrder, asset.createdAt]
     );
   }
 

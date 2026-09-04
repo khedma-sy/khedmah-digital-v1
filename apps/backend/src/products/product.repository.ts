@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabasePool } from '../database/database.pool';
-import type { ProductListing } from './product.types';
+import type { ProductListing, PublicProductFilters } from './product.types';
 
 interface ProductRow extends Record<string, unknown> {
   id: string; business_profile_id: string; owner_user_id: string; title_ar: string; description_ar: string | null;
@@ -83,7 +83,7 @@ export class ProductRepository {
     return rows.map(map);
   }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<ProductListing[]> {
+  async listPublic(filters: PublicProductFilters): Promise<ProductListing[]> {
     const clauses = ["p.status='active'", "p.moderation_status='approved'", "b.visibility='public'", "b.moderation_status='approved'", "b.trust_status='approved'", "b.status='active'"];
     const params: unknown[] = [];
     if (filters.q) {
@@ -96,7 +96,16 @@ export class ProductRepository {
     }
     if (filters.cityCode) { params.push(filters.cityCode); clauses.push(`b.city_code=$${params.length}`); }
     if (filters.businessProfileId) { params.push(filters.businessProfileId); clauses.push(`p.business_profile_id=$${params.length}`); }
-    return (await this.db.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE ${clauses.join(' AND ')} ORDER BY p.created_at DESC LIMIT 100`, params)).map(map);
+    if (filters.availability) { params.push(filters.availability); clauses.push(`p.availability=$${params.length}`); }
+    if (filters.currency) { params.push(filters.currency); clauses.push(`p.currency=$${params.length}`); }
+    if (filters.minPrice !== undefined) { params.push(filters.minPrice); clauses.push(`p.price >= $${params.length}`); }
+    if (filters.maxPrice !== undefined) { params.push(filters.maxPrice); clauses.push(`p.price <= $${params.length}`); }
+    const orderBy = filters.sort === 'price_asc'
+      ? 'p.price ASC, p.created_at DESC'
+      : filters.sort === 'price_desc'
+        ? 'p.price DESC, p.created_at DESC'
+        : 'p.created_at DESC';
+    return (await this.db.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy} LIMIT 100`, params)).map(map);
   }
 
   async listPending(): Promise<ProductListing[]> {
@@ -108,8 +117,14 @@ export class ProductRepository {
     return row?.exists ?? false;
   }
 
-  async updateWithAutoModerationAudit(product: ProductListing, approved: boolean): Promise<void> {
-    await this.db.transaction(async (client) => {
+  async updateWithAutoModerationAudit(product: ProductListing, approved: boolean, limit: number): Promise<boolean> {
+    return this.db.transaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [product.ownerUserId]);
+      const countResult = await client.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM product_listings WHERE owner_user_id=$1 AND status <> 'inactive' AND id <> $2`,
+        [product.ownerUserId, product.id]
+      );
+      if (Number(countResult.rows[0]?.count ?? 0) >= limit) return false;
       await client.query(
         `UPDATE product_listings SET title_ar=$2,description_ar=$3,price=$4,currency=$5,category_code=$6,
          availability=$7,status=$8,moderation_status=$9,rejection_reason=$10,requires_prescription=$11,controlled_item=$12,updated_at=$13 WHERE id=$1`,
@@ -119,6 +134,7 @@ export class ProductRepository {
         `INSERT INTO audit_logs (id, event_type, actor_user_id, correlation_id, occurred_at) VALUES ($1,$2,$3,$4,NOW())`,
         [randomUUID(), approved ? 'product.auto_approved' : 'product.auto_review_required', product.ownerUserId, product.id]
       );
+      return true;
     });
   }
 }

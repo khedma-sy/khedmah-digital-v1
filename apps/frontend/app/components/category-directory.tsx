@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { PlatformIcon, type PlatformIconName } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
@@ -10,10 +10,11 @@ import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGr
 const PAGE_SIZE = 20;
 const visualIcons: Record<string, PlatformIconName> = {
   home: 'home', food: 'food', health: 'health', education: 'education', professional: 'briefcase', beauty: 'beauty', shopping: 'cart',
-  automotive: 'car', transport: 'car', technology: 'technology', construction: 'construction', events: 'events', agriculture: 'agriculture',
+  automotive: 'car', transport: 'delivery', technology: 'technology', construction: 'construction', events: 'events', agriculture: 'agriculture',
   industry: 'industry', travel: 'travel'
 };
 const iconFor = (visualKey?: string) => visualIcons[visualKey ?? ''] ?? 'tools';
+const categoryName = (code: string, nameAr: string) => code === 'retail_shopping' ? 'متجر وتسوق' : nameAr;
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -23,13 +24,15 @@ function providerHref(service: PublicServiceListing) {
 
 export function CategoryDirectory() {
   const [services, setServices] = useState<PublicServiceListing[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
-  const { categories, error: categoriesError } = useCategories();
+  const resultsAnchorRef = useRef<HTMLDivElement>(null);
+  const shouldFocusResultsRef = useRef(false);
+  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const roots = categories.filter((category) => !category.parentCode);
 
   async function loadServices(categoryCode: string, pageNumber = 1) {
@@ -51,24 +54,67 @@ export function CategoryDirectory() {
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('category') ?? '';
     const requestedPage = Math.max(1, Number(new URLSearchParams(window.location.search).get('page')) || 1);
+    if (requested && categories.length === 0) return;
     const initialCategory = categories.some(({ code }) => code === requested) ? requested : '';
     setActiveCategory(initialCategory);
-    void loadServices(initialCategory, requestedPage);
+    if (initialCategory) {
+      void loadServices(initialCategory, requestedPage);
+      return;
+    }
+    setServices([]);
+    setTotal(0);
+    setPage(1);
+    setError('');
+    setIsLoading(false);
   }, [categories]);
 
   function syncUrl(categoryCode: string, pageNumber: number) {
     const params = new URLSearchParams();
     if (categoryCode) params.set('category', categoryCode);
     if (pageNumber > 1) params.set('page', String(pageNumber));
-    window.history.replaceState(null, '', params.size ? `/categories?${params}` : '/categories');
+    window.history.pushState(null, '', params.size ? `/categories?${params}` : '/categories');
   }
 
   function selectCategory(categoryCode: string) {
+    shouldFocusResultsRef.current = Boolean(categories.find((category) => category.code === categoryCode)?.parentCode);
     setActiveCategory(categoryCode);
     setShowFilters(false);
     syncUrl(categoryCode, 1);
+    if (!categoryCode) {
+      setServices([]);
+      setTotal(0);
+      setPage(1);
+      setError('');
+      setIsLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     void loadServices(categoryCode, 1);
   }
+
+  useEffect(() => {
+    if (!shouldFocusResultsRef.current || isLoading) return;
+    shouldFocusResultsRef.current = false;
+    window.requestAnimationFrame(() => {
+      resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      resultsAnchorRef.current?.focus({ preventScroll: true });
+    });
+  }, [activeCategory, isLoading]);
+
+  useEffect(() => {
+    const restoreFromHistory = () => {
+      const params = new URLSearchParams(window.location.search);
+      const categoryCode = params.get('category') ?? '';
+      const pageNumber = Math.max(1, Number(params.get('page')) || 1);
+      const validCategory = categories.some(({ code }) => code === categoryCode) ? categoryCode : '';
+      setActiveCategory(validCategory);
+      setShowFilters(false);
+      if (validCategory) void loadServices(validCategory, pageNumber);
+      else { setServices([]); setTotal(0); setPage(1); setError(''); setIsLoading(false); }
+    };
+    window.addEventListener('popstate', restoreFromHistory);
+    return () => window.removeEventListener('popstate', restoreFromHistory);
+  }, [categories]);
 
   function goToPage(pageNumber: number) {
     syncUrl(activeCategory, pageNumber);
@@ -76,66 +122,88 @@ export function CategoryDirectory() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
+  const activeCategoryRecord = categories.find(({ code }) => code === activeCategory);
+  const title = activeCategoryRecord ? categoryName(activeCategoryRecord.code, activeCategoryRecord.nameAr) : 'ما الخدمة التي تحتاجها؟';
   const active = categories.find(({ code }) => code === activeCategory);
   const activeRootCode = active?.parentCode ?? active?.code;
   const subcategories = activeRootCode
     ? categories.filter((category) => category.parentCode === activeRootCode)
     : [];
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const specialtyTotal = categories.filter((category) => category.parentCode).length;
   const searchHref = `/search?${new URLSearchParams({ ...(activeCategory ? { categoryCode: activeCategory } : {}), type: 'all' }).toString()}`;
+  const headerDescription = activeCategory
+    ? 'اختر التخصص المناسب، ثم قارن مقدمي الخدمة المعتمدين وتواصل مع الأنسب لك.'
+    : 'ابدأ بالمجال، انتقل إلى التخصص، ثم قارن مقدمي الخدمة المعتمدين في مكان واحد.';
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
-        <PageHeader title={title} description="اختر التخصص، ثم قارن مقدمي الخدمة المنشورين وتواصل مع الأنسب لك." backHref="/" actions={
-          <><ActionLink href={searchHref}><PlatformIcon name="search" /> بحث متقدم</ActionLink><ActionButton variant="secondary" type="button" aria-label="تصفية الخدمات" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> التصنيفات</ActionButton></>
+        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة'} title={title} description={headerDescription} backHref={active?.parentCode ? `/categories?category=${encodeURIComponent(active.parentCode)}` : activeCategory ? '/categories' : '/'} actions={
+          <><ActionLink href={searchHref}><PlatformIcon name="search" /> ابحث عن خدمة</ActionLink>{activeCategory ? <ActionButton variant="secondary" type="button" aria-label="تغيير مجال الخدمة" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تغيير المجال</ActionButton> : null}</>
         } />
 
         {showFilters ? (
           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
             <button type="button" className={activeCategory === '' ? 'active' : ''} onClick={() => selectCategory('')}>كل الخدمات</button>
-            {roots.map((category) => <button key={category.code} type="button" className={activeRootCode === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
+            {roots.map((category) => <button key={category.code} type="button" className={activeRootCode === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{categoryName(category.code, category.nameAr)}</button>)}
           </nav>
         ) : null}
 
         {categoriesError ? <StatusMessage tone="warning">{categoriesError}</StatusMessage> : null}
+        {!activeCategory && categoriesLoading ? <SkeletonGrid count={8} label="جاري تحميل مجالات الخدمات" /> : null}
 
         {activeRootCode && subcategories.length > 0 ? <section className="catalog-specialties" aria-labelledby="catalog-specialties-title">
           <div className="catalog-section-heading"><div><span>اختر التخصص</span><h2 id="catalog-specialties-title">ما الخدمة التي تحتاجها؟</h2></div><button type="button" onClick={() => selectCategory(activeRootCode)}>عرض الكل</button></div>
-          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{category.nameAr}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
+          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" data-visual={category.visualKey} className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{categoryName(category.code, category.nameAr)}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
         </section> : null}
 
         {!activeCategory && categories.length > 0 ? (
-          <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
-            {roots.map((category) => (
-              <button key={category.code} type="button" onClick={() => selectCategory(category.code)}>
-                <span className="catalog-category-icon"><PlatformIcon name={iconFor(category.visualKey)} /></span>
-                <strong>{category.nameAr}</strong>
-                <small>{categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')} تخصصات</small>
-                <PlatformIcon name="arrow" />
-              </button>
-            ))}
+          <section className="catalog-directory" aria-labelledby="catalog-directory-title">
+            <div className="catalog-section-heading catalog-directory-heading">
+              <div className="catalog-directory-intro">
+                <span className="catalog-kicker"><PlatformIcon name="grid" size={16} /> كل الخدمات تحت خدمة</span>
+                <h2 id="catalog-directory-title">ما الخدمة التي تحتاجها؟</h2>
+                <p>اختر مجالًا ثم تخصصًا للوصول إلى مقدم الخدمة المناسب.</p>
+              </div>
+            </div>
+            <div className="catalog-category-grid" aria-label="تصنيفات الخدمات">
+              {roots.map((category) => {
+                const specialtyCount = categories.filter((item) => item.parentCode === category.code).length;
+                return (
+                  <button key={category.code} type="button" data-visual={category.visualKey} aria-label={`${categoryName(category.code, category.nameAr)}، ${specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات`} onClick={() => selectCategory(category.code)}>
+                    <span className="catalog-category-icon"><PlatformIcon name={iconFor(category.visualKey)} size={22} /></span>
+                    <span className="catalog-category-copy"><strong>{categoryName(category.code, category.nameAr)}</strong><small>{specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات</small></span>
+                    <span className="catalog-category-arrow"><PlatformIcon name="arrow" size={18} /></span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="catalog-directory-summary">{roots.length.toLocaleString('ar-SY-u-nu-latn')} مجالًا · {specialtyTotal.toLocaleString('ar-SY-u-nu-latn')} تخصصًا متاحًا</p>
           </section>
         ) : null}
 
+        <div ref={resultsAnchorRef} tabIndex={-1} className="catalog-results-anchor" aria-label="نتائج التخصص المختار" />
         {error ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory, page)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
-        {isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
+        {activeCategory && isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 
-        {!isLoading && !error && services.length > 0 ? (
-          <section className="catalog-results" aria-label={`${total} خدمة متاحة`}>
-            {services.map((service) => (
-              <article className="catalog-service" key={service.id}>
-                <span className="catalog-service-icon"><PlatformIcon name="tools" /></span>
-                <div><h2>{service.titleAr}</h2>{service.descriptionAr ? <p>{service.descriptionAr}</p> : null}<small>{service.ownerType === 'business' ? 'مقدم أعمال' : 'مهني'}</small></div>
-                <Link href={providerHref(service)} aria-label={`عرض مقدم خدمة ${service.titleAr}`}><PlatformIcon name="arrow" /></Link>
-              </article>
-            ))}
+        {activeCategory && !isLoading && !error && services.length > 0 ? (
+          <section className="catalog-results-section" aria-labelledby="catalog-results-title">
+            <div className="catalog-section-heading catalog-results-heading"><div><span>نتائج معتمدة</span><h2 id="catalog-results-title">مقدمو {title}</h2></div><strong>{total.toLocaleString('ar-SY-u-nu-latn')} نتيجة</strong></div>
+            <div className="catalog-results" aria-label={`${total} خدمة متاحة`}>
+              {services.map((service) => (
+                <article className="catalog-service" key={service.id}>
+                  <span className="catalog-service-icon"><PlatformIcon name="tools" /></span>
+                  <div><h2>{service.titleAr}</h2>{service.descriptionAr ? <p>{service.descriptionAr}</p> : null}<small>{service.ownerType === 'business' ? 'مقدم أعمال' : 'مهني'}</small></div>
+                  <Link href={providerHref(service)} aria-label={`عرض مقدم خدمة ${service.titleAr}`}><PlatformIcon name="arrow" /></Link>
+                </article>
+              ))}
+            </div>
           </section>
         ) : null}
 
         {!isLoading && !error && totalPages > 1 ? <nav className="catalog-pagination" aria-label="صفحات دليل الخدمات">
           <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>السابق</button>
-          <span>الصفحة {page.toLocaleString('ar-SY')} من {totalPages.toLocaleString('ar-SY')}</span>
+          <span>الصفحة {page.toLocaleString('ar-SY-u-nu-latn')} من {totalPages.toLocaleString('ar-SY-u-nu-latn')}</span>
           <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
         </nav> : null}
 
@@ -143,8 +211,6 @@ export function CategoryDirectory() {
           <EmptyState icon={<PlatformIcon name="search" size={30} />} title={`لا يوجد مقدم ${title} منشور في هذا النطاق بعد`} description="الخدمة تعمل، لكن بيانات المزودين المعتمدين غير متوفرة هنا حاليًا. وسّع البحث أو اختر تخصصًا قريبًا بدل التوقف." actions={<>
             <ActionLink href={searchHref}>توسيع البحث</ActionLink>
             <ActionLink href={`/map?q=${encodeURIComponent(title)}`} variant="secondary">فتح الخريطة</ActionLink>
-            <ActionButton variant="secondary" type="button" onClick={() => selectCategory(activeRootCode ?? '')}>تخصصات قريبة</ActionButton>
-            <ActionLink href="/business-profiles/new" variant="secondary">سجّل كمقدم خدمة</ActionLink>
           </>} />
         ) : null}
     </PageShell>

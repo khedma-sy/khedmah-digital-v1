@@ -21,15 +21,24 @@ test("restaurant cart keeps one merchant, removes zero quantities, and caps item
 });
 
 test("food discovery, menu, cart, cash checkout, and post-delivery ratings form one journey", async () => {
-  const [navigation, discovery, menu, checkout, orders] = await Promise.all([
+  const [navigation, discovery, menu, checkout, orders, merchant, alerts, tracking] = await Promise.all([
     read("app/auth-navigation.tsx"),
     read("app/restaurants/page.tsx"),
     read("app/restaurants/[businessId]/page.tsx"),
     read("app/orders/checkout/page.tsx"),
     read("app/orders/page.tsx"),
+    read("app/orders/merchant/page.tsx"),
+    read("app/orders/order-alerts.ts"),
+    read("app/orders/order-tracking.tsx"),
   ]);
   assert.match(navigation, /اطلب طعام/);
-  assert.match(discovery, /عرض قائمة الطعام/);
+  assert.match(discovery, /ابدأ الطلب/);
+  assert.match(discovery, /مراحل طلب الطعام/);
+  assert.match(discovery, /طلباتي/);
+  assert.match(discovery, /href="\/orders\/courier"/);
+  assert.match(discovery, /افتح بوابة التوصيل/);
+  assert.match(discovery, /name="delivery"/);
+  assert.match(discovery, /راجع السلة/);
   assert.match(menu, /سلة الطلب/);
   assert.match(menu, /لا يمكن خلط أصناف من مطاعم مختلفة/);
   assert.match(checkout, /items\.map/);
@@ -37,6 +46,22 @@ test("food discovery, menu, cart, cash checkout, and post-delivery ratings form 
   assert.match(checkout, /clearRestaurantCart/);
   assert.match(orders, /تقييم المنشأة/);
   assert.match(orders, /تقييم المندوب/);
+  assert.match(orders, /التواصل مع المندوب/);
+  assert.match(orders, /customerNotice/);
+  assert.match(merchant, /طلب جديد من زبون/);
+  assert.match(merchant, /فعّل رنة الطلبات الجديدة/);
+  assert.match(alerts, /playOrderRing/);
+  assert.match(tracking, /متابعة موقع المندوب على الخريطة/);
+  assert.match(tracking, /setInterval\(load,15000\)/);
+});
+
+test("restaurant discovery uses the approved orange identity and one Arabic type scale", async () => {
+  const styles = await read("app/restaurants/restaurants.module.css");
+  assert.match(styles, /--food-orange:\s*#fd9603/i);
+  assert.match(styles, /--food-font-arabic/);
+  assert.match(styles, /font-weight:\s*500/);
+  assert.match(styles, /font-weight:\s*700/);
+  assert.match(styles, /font-weight:\s*800/);
 });
 
 test("restaurant menu query is server-filtered, parameterized, and rate limited", async () => {

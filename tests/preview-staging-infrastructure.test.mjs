@@ -67,8 +67,47 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(runner, /026_cash_fulfillment_orders\.sql/);
   assert.match(runner, /027_professional_service_marketplace\.sql/);
   assert.match(runner, /028_khedmah_promotions\.sql/);
+  assert.match(runner, /029_admin_user_management\.sql/);
+  assert.match(runner, /030_operations_issue_center\.sql/);
+  assert.match(runner, /031_admin_catalog_management\.sql/);
+  assert.match(runner, /032_mobility_fare_lifecycle\.sql/);
+  assert.match(runner, /033_mobility_document_reviews\.sql/);
+  assert.match(runner, /034_mobility_delivery_proof\.sql/);
+  assert.match(runner, /035_platform_notifications\.sql/);
   assert.match(runner, /PREVIEW_SOCKET_URI="%2Fcloudsql%2F\$\{CLOUD_SQL_INSTANCE_CONNECTION_NAME\}"/);
   assert.match(runner, /PREVIEW_DATABASE_URL=.*host=\$\{PREVIEW_SOCKET_URI\}/);
-  assert.match(runner, /PREVIEW_SCHEMA_028_READY/);
+  assert.match(runner, /PREVIEW_SCHEMA_033_READY/);
   assert.match(image, /run-preview-migrations/);
+});
+
+test('preview mounts admin role bindings and the Firebase verification key from Secret Manager', () => {
+  const workflow = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(deployment, /--set-secrets="DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,FIREBASE_API_KEY=NEXT_PUBLIC_FIREBASE_API_KEY:latest"/);
+  assert.match(deployment, /Preview backend is missing the Firebase API key secret binding/);
+  assert.match(deployment, /valueFrom.*secretKeyRef.*name/s);
+  assert.match(deployment, /valueSource.*secretKeyRef.*secret/s);
+  assert.match(deployment, /Preview backend is missing the governed admin role binding secret/);
+  assert.doesNotMatch(deployment, /--set-env-vars="[^"]*OPERATIONS_PRODUCT_ROLE_BINDINGS/);
+  assert.doesNotMatch(workflow, /secrets\.OPERATIONS_PRODUCT_ROLE_BINDINGS/);
+});
+
+test('preview and staging validate the deployed Firebase social-login origin', () => {
+  const preview = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
+  const staging = readFileSync('.github/workflows/staging-deployment.yml', 'utf8');
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(preview, /FIREBASE_PROJECT_ID: \$\{\{ vars\.PREVIEW_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(staging, /FIREBASE_PROJECT_ID: \$\{\{ vars\.STAGING_FIREBASE_PROJECT_ID \}\}/);
+  assert.match(deployment, /OPERATIONS_FRONTEND_SERVICE="\$frontend_service"/);
+  assert.match(deployment, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
+});
+
+test('preview and staging authorize and probe only their exact frontend origin', () => {
+  const deployment = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(deployment, /--update-env-vars="CORS_ORIGIN=\$\{frontend_url\}"/);
+  assert.match(deployment, /backend_cors_origin/);
+  assert.match(deployment, /Origin: \$\{frontend_url\}/);
+  assert.match(deployment, /Cookie: khedmah_session=preview-csrf-probe/);
+  assert.match(deployment, /api\/v1\/auth\/logout/);
+  assert.doesNotMatch(deployment, /CORS_ORIGIN=\*/);
 });

@@ -10,6 +10,7 @@ import { BusinessProfileRepository } from "../business-profiles/business-profile
 import { IdentityRepository } from "../identity/identity.repository";
 import { IdentityService } from "../identity/identity.service";
 import { readSessionToken } from "../identity/session-cookie";
+import { NotificationService } from "../notifications/notification.service";
 import { OrderRepository } from "./order.repository";
 import type {
   FulfillmentOrder,
@@ -50,6 +51,7 @@ export class OrderService {
     private readonly businesses: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
     @Inject(IdentityRepository) private readonly audits: IdentityRepository,
+    @Inject(NotificationService) private readonly notifications: NotificationService,
   ) {}
   async create(
     cookie: string | undefined,
@@ -65,7 +67,8 @@ export class OrderService {
       if (!sameItems || prior.deliveryAddress !== input.deliveryAddress || prior.customerPhone !== input.customerPhone || prior.customerNote !== input.customerNote || prior.prescriptionAttested !== input.prescriptionAttested) {
         throw new BadRequestException("Idempotency-Key was already used for a different order.");
       }
-      return expose(prior);
+      await this.notifyCreated(prior);
+      return expose(prior, "customer");
     }
     const products = await this.repo.findProducts(
       input.items.map((i) => i.productListingId),
@@ -148,18 +151,19 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: created.id,
     });
-    return expose(created);
+    await this.notifyCreated(created);
+    return expose(created, "customer");
   }
   async mine(cookie: string | undefined) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    return (await this.repo.listForCustomer(actor.id)).map(expose);
+    return (await this.repo.listForCustomer(actor.id)).map((order) => expose(order, "customer"));
   }
   async merchant(cookie: string | undefined, businessId: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const b = await this.businesses.findById(businessId);
     if (!b || b.ownerUserId !== actor.id)
       throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForMerchant(businessId)).map(expose);
+    return (await this.repo.listForMerchant(businessId)).map((order) => expose(order, "merchant"));
   }
   async courier(cookie: string | undefined, businessId: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
@@ -170,7 +174,7 @@ export class OrderService {
       b.categoryCode !== "delivery_courier"
     )
       throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForCourier(businessId)).map(expose);
+    return (await this.repo.listForCourier(businessId)).map((order) => expose(order, "courier"));
   }
   async transition(
     cookie: string | undefined,
@@ -211,7 +215,9 @@ export class OrderService {
           b.categoryCode !== "delivery_courier" ||
           b.visibility !== "public" ||
           b.trustStatus !== "approved" ||
-          b.moderationStatus !== "approved"
+          b.moderationStatus !== "approved" ||
+          b.status !== "active" ||
+          await this.businesses.countApprovedMobilityDocuments(b.id) !== 4
         )
           throw new BadRequestException("Courier is not eligible.");
         options = { courierBusinessId: b.id };
@@ -237,15 +243,20 @@ export class OrderService {
         o.status === "courier_assigned" &&
         action.status === "courier_accepted"
       ) {
+        await this.assertCourierEligible(o.courierBusinessId);
       } else if (
         o.status === "courier_assigned" &&
         action.status === "merchant_confirmed"
       )
-        options = { reason: action.reason ?? "Courier declined" };
+        options = {
+          reason: action.reason ?? "Courier declined",
+          clearCourierBusinessId: true,
+        };
       else if (
         o.status === "ready_for_pickup" &&
         action.status === "picked_up"
       ) {
+        await this.assertCourierEligible(o.courierBusinessId);
       } else if (o.status === "picked_up" && action.status === "delivered") {
       } else
         throw new BadRequestException("Courier transition is not allowed.");
@@ -262,7 +273,36 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: `${updated.id}:${o.status}:${updated.status}`,
     });
-    return expose(updated);
+    await this.notifyStatus(updated, actor.id);
+    return expose(updated, customer ? "customer" : merchant ? "merchant" : "courier");
+  }
+
+  private async notifyCreated(order: FulfillmentOrder): Promise<void> {
+    if (!order.merchantOwnerUserId) return;
+    await this.notifications.publish({ userId: order.merchantOwnerUserId, eventKey: `${order.id}:placed:${order.merchantOwnerUserId}`,
+      eventType: 'order.created', referenceType: 'order', referenceId: order.id, title: 'طلب جديد',
+      body: order.vertical === 'food' ? 'وصل طلب طعام جديد. افتحه للمراجعة والقبول.' : 'وصل طلب جديد. افتحه للمراجعة.',
+      metadata: { status: order.status, vertical: order.vertical } });
+  }
+
+  private async notifyStatus(order: FulfillmentOrder, actorId: string): Promise<void> {
+    const recipients = new Set([order.customerUserId, order.merchantOwnerUserId, order.courierOwnerUserId].filter((id): id is string => Boolean(id) && id !== actorId));
+    const messages: Record<OrderStatus, [string, string]> = {
+      placed: ['طلب جديد', 'تم إنشاء الطلب.'], quoted: ['تم تسعير الطلب', 'أرسل المتجر السعر ورسوم التوصيل.'],
+      merchant_confirmed: ['تم تأكيد الطلب', 'أكد الزبون الطلب وأصبح جاهزاً للمتابعة.'], courier_assigned: ['مهمة توصيل جديدة', 'تم إسناد طلب توصيل إليك. اقبله أو ارفضه.'],
+      courier_accepted: ['قُبلت مهمة التوصيل', 'وافق المندوب على توصيل الطلب.'], ready_for_pickup: ['الطلب جاهز للاستلام', 'يمكن للمندوب استلام الطلب الآن.'],
+      picked_up: ['الطلب في الطريق', 'استلم المندوب الطلب وبدأ التوصيل.'], delivered: ['تم تسليم الطلب', 'اكتملت رحلة الطلب بنجاح.'],
+      rejected: ['تعذر قبول الطلب', 'رفض المتجر الطلب. راجع التفاصيل.'], cancelled: ['أُلغي الطلب', 'تم إلغاء الطلب.']
+    };
+    const [title, body] = messages[order.status];
+    await Promise.all([...recipients].map(userId => this.notifications.publish({ userId,
+      eventKey: `${order.id}:${order.status}:${userId}`, eventType: 'order.status_changed', referenceType: 'order', referenceId: order.id,
+      title, body, metadata: { status: order.status, vertical: order.vertical } })));
+  }
+  private async assertCourierEligible(businessId?: string) {
+    const b = businessId ? await this.businesses.findById(businessId) : undefined;
+    if (!b || b.categoryCode !== "delivery_courier" || b.visibility !== "public" || b.trustStatus !== "approved" || b.moderationStatus !== "approved" || b.status !== "active" || await this.businesses.countApprovedMobilityDocuments(b.id) !== 4)
+      throw new BadRequestException("Courier is not eligible.");
   }
   async rate(
     cookie: string | undefined,
@@ -356,16 +396,24 @@ export class OrderService {
       throw new ForbiddenException("Access denied.");
     return {
       status: order.status,
-      location: await this.repo.latestLocation(id),
+      location: ["courier_accepted", "ready_for_pickup", "picked_up"].includes(order.status)
+        ? await this.repo.latestLocation(id)
+        : undefined,
     };
   }
 }
-function expose(o: FulfillmentOrder): PublicFulfillmentOrder {
+function expose(o: FulfillmentOrder, viewer: "customer" | "merchant" | "courier"): PublicFulfillmentOrder {
   const {
     customerUserId: _c,
     merchantOwnerUserId: _m,
     courierOwnerUserId: _d,
     ...result
   } = o;
-  return result;
+  const safe: Record<string, unknown> = { ...result };
+  const accepted = ["courier_accepted", "ready_for_pickup", "picked_up", "delivered"].includes(o.status);
+  if (viewer !== "merchant") delete safe.customerPhone;
+  if (viewer === "courier" && accepted) safe.customerPhone = o.customerPhone;
+  if (!accepted || viewer === "merchant") delete safe.courierPhone;
+  if (viewer !== "courier") delete safe.merchantPhone;
+  return safe as PublicFulfillmentOrder;
 }

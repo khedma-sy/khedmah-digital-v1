@@ -25,9 +25,12 @@ export interface FulfillmentOrder {
   readonly merchantBusinessId: string;
   readonly merchantOwnerUserId?: string;
   readonly merchantName?: string;
+  readonly pickupAddress?: string;
+  readonly merchantPhone?: string;
   readonly courierBusinessId?: string;
   readonly courierOwnerUserId?: string;
   readonly courierName?: string;
+  readonly courierPhone?: string;
   readonly vertical: OrderVertical;
   readonly status: OrderStatus;
   readonly paymentMethod: "cash";
@@ -52,5 +55,5 @@ export interface FulfillmentOrder {
 
 export type PublicFulfillmentOrder = Omit<
   FulfillmentOrder,
-  "customerUserId" | "merchantOwnerUserId" | "courierOwnerUserId"
->;
+  "customerUserId" | "merchantOwnerUserId" | "courierOwnerUserId" | "customerPhone"
+> & { readonly customerPhone?: string };

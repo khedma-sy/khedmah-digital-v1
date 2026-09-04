@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { MobilityRequestStatus, MobilityServiceType } from './mobility.types';
+import type { DeliveryPackageSize, MobilityRequestStatus, MobilityServiceType } from './mobility.types';
 
 const text = (value: unknown, name: string, min: number, max: number, optional = false) => {
   if ((value === undefined || value === null || value === '') && optional) return undefined;
@@ -20,9 +20,20 @@ export function validateCreateMobilityRequest(value: Record<string, unknown>) {
   const destinationLatitude = coordinate(value.destinationLatitude, 'destinationLatitude', -90, 90, true);
   const destinationLongitude = coordinate(value.destinationLongitude, 'destinationLongitude', -180, 180, true);
   if ((destinationLatitude === undefined) !== (destinationLongitude === undefined)) throw new BadRequestException('Destination coordinates must be provided together.');
+  const serviceType = value.serviceType as MobilityServiceType;
+  const delivery = serviceType === 'delivery' ? {
+    packageDescription: text(value.packageDescription, 'packageDescription', 2, 300)!,
+    packageSize: packageSize(value.packageSize),
+    recipientName: text(value.recipientName, 'recipientName', 2, 120)!,
+    recipientPhone: text(value.recipientPhone, 'recipientPhone', 6, 30)!,
+    deliveryInstructions: text(value.deliveryInstructions, 'deliveryInstructions', 1, 500, true)
+  } : undefined;
+  if (serviceType === 'taxi' && ['packageDescription','packageSize','recipientName','recipientPhone','deliveryInstructions'].some((field) => value[field] !== undefined)) {
+    throw new BadRequestException('Delivery details are not allowed for taxi requests.');
+  }
   return {
     providerBusinessId: text(value.providerBusinessId, 'providerBusinessId', 1, 128)!,
-    serviceType: value.serviceType as MobilityServiceType,
+    serviceType,
     pickupAddress: text(value.pickupAddress, 'pickupAddress', 2, 300)!,
     destinationAddress: text(value.destinationAddress, 'destinationAddress', 2, 300)!,
     riderContactPhone: text(value.riderContactPhone, 'riderContactPhone', 6, 30)!,
@@ -30,16 +41,44 @@ export function validateCreateMobilityRequest(value: Record<string, unknown>) {
     pickupLongitude: coordinate(value.pickupLongitude, 'pickupLongitude', -180, 180)!,
     destinationLatitude,
     destinationLongitude,
-    riderNote: text(value.riderNote, 'riderNote', 1, 500, true)
+    riderNote: text(value.riderNote, 'riderNote', 1, 500, true),
+    ...delivery
   };
 }
 
-export function validateMobilityTransition(value: Record<string, unknown>): { status: MobilityRequestStatus; reason?: string } {
-  const allowed: MobilityRequestStatus[] = ['accepted', 'en_route', 'completed', 'rejected', 'cancelled'];
+export function validateMobilityTransition(value: Record<string, unknown>): { status: MobilityRequestStatus; reason?: string; verificationCode?: string } {
+  const allowed: MobilityRequestStatus[] = ['accepted', 'en_route', 'arrived', 'in_progress', 'completed', 'rejected', 'cancelled'];
   if (!allowed.includes(value.status as MobilityRequestStatus)) throw new BadRequestException('Mobility status is invalid.');
   const reason = text(value.reason, 'reason', 3, 300, true);
   if (value.status === 'rejected' && !reason) throw new BadRequestException('A rejection reason is required.');
-  return { status: value.status as MobilityRequestStatus, reason };
+  const verificationCode = text(value.verificationCode, 'verificationCode', 6, 6, true);
+  if (verificationCode && !/^\d{6}$/.test(verificationCode)) throw new BadRequestException('verificationCode is invalid.');
+  return { status: value.status as MobilityRequestStatus, reason, verificationCode };
+}
+
+function packageSize(value: unknown): DeliveryPackageSize {
+  if (value !== 'small' && value !== 'medium' && value !== 'large') throw new BadRequestException('packageSize is invalid.');
+  return value;
+}
+
+export function validateFarePolicy(value: Record<string, unknown>) {
+  if (value.serviceType !== 'taxi' && value.serviceType !== 'delivery') throw new BadRequestException('serviceType is invalid.');
+  const integer = (field: string, minimum = 0) => {
+    const input = value[field];
+    if (typeof input !== 'number' || !Number.isInteger(input) || input < minimum || input > 100_000_000) throw new BadRequestException(`${field} is invalid.`);
+    return input;
+  };
+  if (typeof value.enabled !== 'boolean') throw new BadRequestException('enabled is invalid.');
+  const policy = {
+    serviceType: value.serviceType as MobilityServiceType,
+    enabled: value.enabled,
+    baseFare: integer('baseFare'),
+    perKmFare: integer('perKmFare'),
+    perWaitingMinuteFare: integer('perWaitingMinuteFare'),
+    minimumFare: integer('minimumFare')
+  };
+  if (policy.enabled && (policy.baseFare <= 0 || policy.perKmFare <= 0 || policy.minimumFare < policy.baseFare)) throw new BadRequestException('Enabled fare policy requires valid approved rates.');
+  return policy;
 }
 
 export function validateMobilityIdempotencyKey(value: unknown): string {

@@ -23,11 +23,12 @@ test('V1 remains contact-first and excludes scope-changing features', async () =
   assert.match(scope, /كل إعلان مرتبط بنشاط منشور/);
 });
 
-test('smart administration remains advisory and human-controlled', async () => {
+test('smart administration has full internal product operations with audited guardrails', async () => {
   const scope = await readFile(scopeUrl, 'utf8');
-  assert.match(scope, /إدارة ذكية مساعدة/);
-  assert.match(scope, /القرار الإداري النهائي بشري ومسجل/);
-  assert.match(scope, /لا ينشر أو يرفض المساعد الذكي ملفاً بصورة مستقلة/);
+  assert.match(scope, /أدمن ذكي بصفة مدير تشغيل داخلي/);
+  assert.match(scope, /سجل تدقيق/);
+  assert.match(scope, /لا ينفذ الأدمن الذكي حذفاً نهائياً/);
+  assert.match(scope, /اعتماد المنتجات والعروض المطابقة للسياسة الموضوعية آلياً/);
 });
 
 test('production deployment requires explicit approval', async () => {

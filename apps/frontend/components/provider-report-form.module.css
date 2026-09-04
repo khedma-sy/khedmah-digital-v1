@@ -9,7 +9,7 @@
 .form select,.form textarea { width:100%; border:1px solid var(--k-color-border); border-radius:var(--k-radius-md); padding:.75rem 1rem; color:var(--k-color-text); background:var(--k-color-surface-muted); font:inherit; }
 .form textarea { resize:vertical; min-height:8rem; }
 .form select:focus,.form textarea:focus { outline:3px solid color-mix(in srgb,var(--k-color-primary) 22%,transparent); border-color:var(--k-color-primary); }
-.help { margin:0; color:var(--k-color-text-muted); font-size:.78rem; line-height:1.6; }
+.help { margin:0; color:var(--k-color-text-muted); font-size:.8rem; line-height:1.6; }
 .error { margin:0; color:var(--k-color-danger); font-weight:700; }
 .success { display:grid; justify-items:center; gap:.65rem; padding:1rem; text-align:center; }
 .success span { width:3rem; aspect-ratio:1; display:grid; place-items:center; border-radius:50%; color:#fff; background:var(--k-color-success); font-weight:900; }

@@ -50,10 +50,12 @@ jobs:
       - id: deploy
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           ARTIFACT_REPOSITORY: ${{ vars.STAGING_ARTIFACT_REPOSITORY }}
           RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          FACEBOOK_AUTH_ENABLED: ${{ vars.FACEBOOK_AUTH_ENABLED || 'false' }}
         run: scripts/deployment/deploy-cloud-run-environment.sh staging "${GITHUB_SHA}"
       - name: Record deployment summary
         run: |

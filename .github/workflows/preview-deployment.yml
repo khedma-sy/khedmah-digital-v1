@@ -103,11 +103,13 @@ jobs:
         if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          FIREBASE_PROJECT_ID: ${{ vars.PREVIEW_FIREBASE_PROJECT_ID }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
           CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
           RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          FACEBOOK_AUTH_ENABLED: ${{ vars.FACEBOOK_AUTH_ENABLED || 'false' }}
         run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
   review-evidence:
     if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''

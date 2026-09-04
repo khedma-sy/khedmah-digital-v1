@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type FulfillmentOrder } from "../../lib/api-client";
 import {
@@ -13,6 +13,7 @@ import {
   Surface,
 } from "../components/ui-primitives";
 import { OrderTracking } from "./order-tracking";
+import { showOrderNotification } from "./order-alerts";
 const label: Record<FulfillmentOrder["status"], string> = {
   placed: "بانتظار مراجعة المنشأة",
   quoted: "بانتظار موافقتك على الإجمالي",
@@ -25,27 +26,59 @@ const label: Record<FulfillmentOrder["status"], string> = {
   rejected: "مرفوض",
   cancelled: "ملغي",
 };
+const customerNotice: Partial<Record<FulfillmentOrder["status"], string>> = {
+  quoted: "أرسل المطعم الإجمالي ورسوم التوصيل لموافقتك.",
+  merchant_confirmed: "ثُبّت طلبك ويجري اختيار مندوب معتمد.",
+  courier_accepted: "قبل المندوب طلبك وسيستلمه من المطعم.",
+  ready_for_pickup: "أصبح طلبك جاهزاً لاستلام المندوب.",
+  picked_up: "استلم المندوب طلبك وهو في الطريق إليك.",
+  delivered: "وصل طلبك وتم تسجيل التسليم.",
+  rejected: "تعذر على المطعم قبول الطلب.",
+};
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const load = () =>
-    api.orders
-      .mine()
-      .then((r) => setOrders(r.orders))
-      .catch((c) => {
+  const loadedOnceRef = useRef(false);
+  const priorStatusesRef = useRef<Map<string, FulfillmentOrder["status"]>>(new Map());
+  const load = useCallback(async () => {
+    try {
+      const response = await api.orders.mine();
+      if (loadedOnceRef.current) {
+        response.orders.forEach((order) => {
+          const prior = priorStatusesRef.current.get(order.id);
+          const notice = customerNotice[order.status];
+          if (prior && prior !== order.status && notice)
+            showOrderNotification(
+              label[order.status],
+              `${order.merchantName}: ${notice}`,
+              `customer-order-${order.id}-${order.status}`,
+            );
+        });
+      }
+      priorStatusesRef.current = new Map(
+        response.orders.map((order) => [order.id, order.status]),
+      );
+      loadedOnceRef.current = true;
+      setOrders(response.orders);
+      setError("");
+    } catch (c) {
         if (
           c instanceof Error &&
           (c as Error & { statusCode?: number }).statusCode === 401
         )
           router.replace("/auth/login?next=%2Forders");
         else setError(c instanceof Error ? c.message : "تعذر تحميل الطلبات.");
-      })
-      .finally(() => setLoading(false));
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
   useEffect(() => {
     void load();
-  }, []);
+    const interval = window.setInterval(() => void load(), 8000);
+    return () => window.clearInterval(interval);
+  }, [load]);
   async function move(o: FulfillmentOrder, status: FulfillmentOrder["status"]) {
     try {
       await api.orders.transition(o.id, status);
@@ -102,21 +135,27 @@ export default function OrdersPage() {
                 </p>
               ))}
               <p>
-                الأصناف: {o.subtotal.toLocaleString("ar-SY")} {o.currency}
+                الأصناف: {o.subtotal.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
               </p>
               {o.total !== undefined && (
                 <p>
                   الإجمالي النقدي:{" "}
                   <strong>
-                    {o.total.toLocaleString("ar-SY")} {o.currency}
+                    {o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
                   </strong>
                 </p>
               )}
               {o.courierName && <p>المندوب: {o.courierName}</p>}
+              {o.courierPhone && <p>رقم المندوب: <a href={`tel:${o.courierPhone}`} dir="ltr">{o.courierPhone}</a></p>}
               {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && (
                 <OrderTracking orderId={o.id} status={o.status} />
               )}
               <div className="ui-page-actions">
+                {o.courierBusinessId && (
+                  <ActionLink href={`/business-profiles/${encodeURIComponent(o.courierBusinessId)}?source=order`} variant="secondary">
+                    التواصل مع المندوب
+                  </ActionLink>
+                )}
                 {o.status === "quoted" && (
                   <ActionButton
                     onClick={() => void move(o, "merchant_confirmed")}

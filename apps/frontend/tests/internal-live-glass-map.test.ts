@@ -34,10 +34,15 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
   const page = await read('app/map/page.tsx');
 
   assert.match(page, /gm_authFailure/);
+  assert.match(page, /\^khedmah-pr-\\d\+-frontend-/);
+  assert.match(page, /الخريطة ستتوفر عند إطلاق النطاق الرسمي/);
+  assert.match(page, /لا توجد خدمات منشورة قرب هذا الموقع بعد/);
   assert.match(page, /setActiveView\('list'\)/);
   assert.match(page, /إعادة تشغيل الخريطة/);
   assert.match(page, /تعذر تشغيل الخريطة/);
   assert.match(page, /عرض النتائج/);
+  assert.match(page, /تابع من قائمة النتائج/);
+  assert.match(page, /عمليات بحث سريعة/);
 });
 
 

@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { api, type OperationsProductOverview } from '../../../lib/api-client';
+import { FormEvent, useEffect, useState } from 'react';
+import { api, type OperationsIncident, type OperationsProductOverview } from '../../../lib/api-client';
 
 const statusLabel = (status: string) => ({
   configured: 'مُعدّ',
@@ -17,11 +17,13 @@ export default function OperationsProductPage() {
   const [overview, setOverview] = useState<OperationsProductOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [incidents,setIncidents]=useState<OperationsIncident[]>([]);
+  const [title,setTitle]=useState('');const [summary,setSummary]=useState('');const [category,setCategory]=useState('technical');const [severity,setSeverity]=useState('medium');const [saving,setSaving]=useState(false);
 
   useEffect(() => {
     let active = true;
-    void api.operationsProduct.overview()
-      .then(({ operationsProduct }) => { if (active) setOverview(operationsProduct); })
+    void Promise.all([api.operationsProduct.overview(),api.operationsProduct.history()])
+      .then(([{ operationsProduct },history]) => { if (active){setOverview(operationsProduct);setIncidents(history.incidents);} })
       .catch((cause) => {
         if (!active) return;
         const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
@@ -46,6 +48,10 @@ export default function OperationsProductPage() {
   }
 
   const canManageModeration = overview.permissions.includes('security.manage');
+  const canManageIncidents=overview.permissions.includes('incidents.manage');
+  const reload=async()=>{const history=await api.operationsProduct.history();setIncidents(history.incidents);};
+  const create=async(event:FormEvent)=>{event.preventDefault();setSaving(true);try{await api.operationsProduct.createIncident({title,summary,category,severity});setTitle('');setSummary('');await reload();}catch(cause){alert(cause instanceof Error?cause.message:'تعذر إنشاء المشكلة.');}finally{setSaving(false);}};
+  const transition=async(incident:OperationsIncident)=>{const next=incident.status==='open'?'in_progress':incident.status==='in_progress'?'verification':incident.status==='verification'?'resolved':'open';const note=prompt(next==='resolved'?'اكتب نتيجة التحقق والإصلاح:':'اكتب ملاحظة الإجراء:');if(!note||note.trim().length<5)return;let assigneeUserId=incident.assigneeUserId;if(next==='in_progress'&&!assigneeUserId){assigneeUserId=prompt('معرّف الموظف المسؤول:')?.trim();if(!assigneeUserId)return;}try{await api.operationsProduct.transitionIncident(incident.id,{status:next,note:note.trim(),assigneeUserId});await reload();}catch(cause){alert(cause instanceof Error?cause.message:'تعذر تحديث المشكلة.');}};
 
   return <main id="foundation-content" className="operations-shell" dir="rtl">
     <header className="operations-header">
@@ -57,6 +63,7 @@ export default function OperationsProductPage() {
       <Link href="/admin">لوحة الإدارة</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       <Link href="/categories">التصنيفات الحية</Link>
+      {overview.permissions.includes('orders.monitor')?<Link href="/admin/orders">مراقبة الطلبات</Link>:null}
     </nav>
 
     <section className="operations-summary" aria-label="ملخص التشغيل">
@@ -71,6 +78,11 @@ export default function OperationsProductPage() {
         <div className="panel-heading"><h2>{service.label}</h2><span>{statusLabel(service.status)}</span></div>
         <p>المعرّف التشغيلي: <bdi>{service.id}</bdi></p>
       </article>)}
+    </section>
+    <section className="operations-panel" aria-labelledby="issues-title">
+      <div className="panel-heading"><h2 id="issues-title">مركز المشاكل والإصلاحات</h2><span>{incidents.filter(item=>item.status!=='resolved').length} مفتوحة</span></div>
+      {canManageIncidents?<form className="filter-bar" onSubmit={create}><label>عنوان المشكلة<input required minLength={3} maxLength={120} value={title} onChange={event=>setTitle(event.target.value)}/></label><label>التصنيف<select value={category} onChange={event=>setCategory(event.target.value)}><option value="technical">تقنية</option><option value="user_support">مساعدة مستخدم</option><option value="content">محتوى</option><option value="delivery">توصيل</option><option value="payments">دفع</option><option value="security">أمان</option><option value="other">أخرى</option></select></label><label>الأولوية<select value={severity} onChange={event=>setSeverity(event.target.value)}><option value="low">منخفضة</option><option value="medium">متوسطة</option><option value="high">عالية</option><option value="critical">حرجة</option></select></label><label>الوصف<textarea required minLength={10} maxLength={2000} value={summary} onChange={event=>setSummary(event.target.value)}/></label><button disabled={saving} type="submit">{saving?'جارٍ التسجيل…':'سجّل المشكلة'}</button></form>:null}
+      {incidents.length===0?<p>لا توجد مشاكل تشغيلية مسجلة.</p>:<div className="moderation-list">{incidents.map(incident=><article className="moderation-card" key={incident.id}><div><h3>{incident.title}</h3><p>{incident.summary}</p><small>{incident.category} · {incident.severity} · {incident.status}{incident.assigneeUserId?` · المسؤول ${incident.assigneeUserId}`:''}</small></div>{canManageIncidents?<button onClick={()=>void transition(incident)}>{incident.status==='open'?'بدء العمل':incident.status==='in_progress'?'إرسال للتحقق':incident.status==='verification'?'اعتماد الإغلاق':'إعادة الفتح'}</button>:null}</article>)}</div>}
     </section>
   </main>;
 }

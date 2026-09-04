@@ -73,29 +73,28 @@ export class ServiceCatalogService {
 
   async listForOwner(cookieHeader: string | undefined, ownerId: string, request: ListOwnerServicesRequest): Promise<PublicServiceListing[]> {
     const input = validateOwnerServicesRequest(request);
-    const services = await this.repository.listForOwner(ownerId, input.ownerType);
     const session = await this.identity.getSession(readSessionToken(cookieHeader));
-    if (!session) {
-      return services.filter((service) => service.status === 'active').map((service) => this.toPublic(service));
+    if (session && await this.verifyOwnership(input.ownerType, ownerId, session.id)) {
+      const services = await this.repository.listForOwner(ownerId, input.ownerType);
+      return services.map((service) => this.toPublic(service));
     }
 
-    const isOwner = await this.verifyOwnership(input.ownerType, ownerId, session.id);
-    const visibleServices = isOwner ? services : services.filter((service) => service.status === 'active');
-    return visibleServices.map((service) => this.toPublic(service));
+    const services = await this.repository.listPublicEligibleForOwner(ownerId, input.ownerType);
+    return services.map((service) => this.toPublic(service));
   }
 
   async getOne(cookieHeader: string | undefined, id: string): Promise<PublicServiceListing> {
     const service = await this.requireService(id);
-    if (service.status === 'active') {
+    const session = await this.identity.getSession(readSessionToken(cookieHeader));
+    if (session && await this.verifyOwnership(service.ownerType, service.ownerId, session.id)) {
       return this.toPublic(service);
     }
 
-    const session = await this.identity.getSession(readSessionToken(cookieHeader));
-    if (!session || !await this.verifyOwnership(service.ownerType, service.ownerId, session.id)) {
+    const publicService = await this.repository.findPublicEligibleById(id);
+    if (!publicService) {
       throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
     }
-
-    return this.toPublic(service);
+    return this.toPublic(publicService);
   }
 
   async update(cookieHeader: string | undefined, id: string, request: UpdateServiceRequest): Promise<PublicServiceListing> {
@@ -176,7 +175,8 @@ export class ServiceCatalogService {
     return full;
   }
 
-  async getMediaAssets(serviceId: string, assetType?: string): Promise<MediaAsset[]> {
+  async getMediaAssets(serviceId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    await this.getOne(cookieHeader, serviceId);
     return this.businessProfiles.listMediaAssets('service', serviceId, assetType);
   }
 

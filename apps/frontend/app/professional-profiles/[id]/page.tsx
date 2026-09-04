@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, type MediaAsset, type PublicProfessionalProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
+import { api, type MediaAsset, type PublicProfessionalProfile, type PublicServiceListing, type VerificationStatus } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
@@ -24,7 +24,7 @@ export default function ProfessionalProfilePage() {
   const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
-  const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [verification, setVerification] = useState<VerificationStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareMessage, setShareMessage] = useState('');
@@ -88,18 +88,18 @@ export default function ProfessionalProfilePage() {
         </div>
       </Surface>
 
-      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong></div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>
           {(profile.bioAr || profile.bioEn) && <Surface className={styles.section}><h2>نبذة مهنية</h2>{profile.bioAr && <p>{profile.bioAr}</p>}{profile.bioEn && <p className={styles.english}>{profile.bioEn}</p>}</Surface>}
           {profile.skills.length > 0 && <Surface className={styles.section}><h2>المهارات والتخصصات</h2><div className={styles.skills}>{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></Surface>}
-          <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات المقدمة</h2><span>{activeServices.length}</span></div>{activeServices.length > 0 ? <div className={styles.serviceGrid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceTypeLabel(service.priceType)}</span></div><p className={styles.category}>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة مهنية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div> : <EmptyState icon={<PlatformIcon name="briefcase" size={28}/>} title="لم تُضف خدمات بعد" description="يمكنك استكشاف مهنيين آخرين أو العودة إلى نتائج البحث." actions={<ActionLink href="/professional-profiles/search">استكشف المهنيين</ActionLink>} />}</Surface>
+          <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات المقدمة</h2><span>{activeServices.length}</span></div>{activeServices.length > 0 ? <div className={styles.serviceGrid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceTypeLabel(service.priceType)}</span></div><p className={styles.category}>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة مهنية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong>{service.price.toLocaleString('ar-SY-u-nu-latn')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div> : <EmptyState icon={<PlatformIcon name="briefcase" size={28}/>} title="لم تُضف خدمات بعد" description="يمكنك استكشاف مهنيين آخرين أو العودة إلى نتائج البحث." actions={<ActionLink href="/professional-profiles/search">استكشف المهنيين</ActionLink>} />}</Surface>
           {gallery.length > 0 && <Surface className={styles.section}><div className={styles.sectionHeading}><h2>معرض الأعمال</h2><span>{gallery.length}</span></div><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`عمل من معرض ${profile.headlineAr}`} loading="lazy" />)}</div></Surface>}
         </div>
 
         <aside className={styles.aside} aria-label="ملخص الملف المهني">
-          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
+          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{activeServices.length.toLocaleString('ar-SY-u-nu-latn')}</dd></div><div><dt>حالة الملف</dt><dd>{verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
           <Surface className={styles.safety}><span><PlatformIcon name="lock" size={22}/></span><div><h2>تواصل آمن وواضح</h2><p>راجع تفاصيل الخدمة واتفق مباشرة مع مقدمها. لا توفر «خدمة» دفعاً أو دردشة فورية في الإصدار الحالي.</p></div></Surface>
           <Surface className={styles.discover}><h2>تبحث عن تخصص آخر؟</h2><p>قارن بين الملفات المنشورة حسب المهارة والمدينة.</p><Link href="/professional-profiles/search">تصفح جميع المهنيين</Link></Surface>
         </aside>

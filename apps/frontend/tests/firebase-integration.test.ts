@@ -42,4 +42,12 @@ test('social authentication failures explain the real Firebase configuration blo
     translateFirebaseSocialAuthError('Facebook', { code: 'auth/unauthorized-domain' }).message,
     'نطاق الموقع الحالي غير مضاف إلى النطاقات المصرّح بها في Firebase.'
   );
+  assert.equal(
+    translateFirebaseSocialAuthError('Google', { code: 'auth/network-request-failed' }).message,
+    'تعذر الاتصال بخدمة Google. تحقق من الشبكة ثم أعد المحاولة.'
+  );
+  assert.equal(
+    translateFirebaseSocialAuthError('Google', { code: 'auth/unclassified-preview-error' }).message,
+    'تعذر إكمال تسجيل الدخول عبر Google الآن. استخدم البريد وكلمة المرور أو أعد المحاولة لاحقًا.'
+  );
 });

@@ -46,7 +46,7 @@ export default function OrganizationsPage() {
     {!isLoading && !error && organizations.length === 0 ? <EmptyState icon={<PlatformIcon name="grid" size={30}/>} title="لا توجد جهة بعد" description="أنشئ جهة عندما تحتاج إلى إدارة فريق أو ربط عدة ملفات أعمال تحت ملكية منظمة." actions={<ActionLink href="/organizations/new">إنشاء الجهة الأولى</ActionLink>}/> : null}
     {!isLoading && organizations.length > 0 ? <div className={styles.grid} aria-label="قائمة المؤسسات والجهات">
       {organizations.map((organization) => <Surface as="article" className={styles.card} key={organization.id}>
-        <div className={styles.cardTop}><div><h2>{organization.name}</h2><p className={styles.meta}>{organization.memberCount.toLocaleString('ar-SY')} {organization.memberCount === 1 ? 'عضو' : 'أعضاء'}</p></div><span className={`${styles.badge} ${styles.success}`}>نشطة</span></div>
+        <div className={styles.cardTop}><div><h2>{organization.name}</h2><p className={styles.meta}>{organization.memberCount.toLocaleString('ar-SY-u-nu-latn')} {organization.memberCount === 1 ? 'عضو' : 'أعضاء'}</p></div><span className={`${styles.badge} ${styles.success}`}>نشطة</span></div>
         <p className={styles.description}>إدارة معلومات الجهة وأعضاء الفريق والصلاحيات المرتبطة بها.</p>
         <div className={styles.actions}><ActionLink href={`/organizations/${organization.id}`}>إدارة الجهة</ActionLink><ActionLink href="/business-profiles" variant="secondary">ملفات الأعمال</ActionLink></div>
       </Surface>)}

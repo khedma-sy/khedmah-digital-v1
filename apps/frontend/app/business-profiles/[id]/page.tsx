@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, type BusinessBranch, type BusinessSocialLink, type MediaAsset, type OpeningHours, type PublicBusinessProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
+import { api, type BusinessBranch, type BusinessSocialLink, type MediaAsset, type OpeningHours, type PublicBusinessProfile, type PublicServiceListing, type VerificationStatus } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
@@ -29,7 +29,7 @@ export default function BusinessProfilePage() {
   const [hours, setHours] = useState<OpeningHours[]>([]);
   const [branches, setBranches] = useState<BusinessBranch[]>([]);
   const [socialLinks, setSocialLinks] = useState<BusinessSocialLink[]>([]);
-  const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [verification, setVerification] = useState<VerificationStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareMsg, setShareMsg] = useState('');
@@ -133,13 +133,13 @@ export default function BusinessProfilePage() {
         </div>
       </Surface>
 
-      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق النشاط' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق النشاط' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}</strong></div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>
           {(business.descriptionAr || business.descriptionEn) && <Surface className={styles.section}><h2>عن النشاط</h2>{business.descriptionAr && <p>{business.descriptionAr}</p>}{business.descriptionEn && <p className={styles.secondaryText}>{business.descriptionEn}</p>}</Surface>}
 
-          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
+          {activeServices.length > 0 && <Surface className={styles.section}><h2>الخدمات المقدمة ({activeServices.length})</h2><div className={styles.grid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceType(service.priceType)}</span></div><p>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة محلية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong className={styles.price}>{service.price.toLocaleString('ar-SY-u-nu-latn')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div></Surface>}
 
           {gallery.length > 0 && <Surface className={styles.section}><h2>معرض الصور ({gallery.length})</h2><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`صورة من ${business.name}`} loading="lazy" />)}</div></Surface>}
 
