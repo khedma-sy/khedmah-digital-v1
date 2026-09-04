@@ -52,19 +52,26 @@ export default function PromotionsPage() {
     void load('');
   }
 
+  function browseShortcut(query: string) {
+    setQ(query);
+    setDiscoveryMode('search');
+    void load(query);
+  }
+
   return <PageShell className={styles.page} label="خصومات وعروض خدمة">
+    <section className={styles.dealsHub} aria-label="عروض خدمة">
     <header className={styles.hero}>
       <div className={styles.heroCopy}>
-        <span className={styles.eyebrow}>عروض من أنشطة معتمدة</span>
-        <h1>{business ? `عروض ${business}` : 'عرض مناسب، بسعر واضح'}</h1>
-        <p>ابحث عن النشاط أو الخدمة، وقارن السعر قبل الخصم وبعده، ثم احجز رمز العرض مباشرة.</p>
+        <span className={styles.dealsBrand}><PlatformIcon name="tag" size={17}/>عروض خدمة</span>
+        <h1>{business ? `عروض ${business}` : 'وفّر على خدمتك التالية'}</h1>
+        <p>ابحث عن عرض قريب، قارن السعر، واحجز رمزك مباشرة.</p>
         <div className={styles.trustLine} aria-label="مزايا عروض خدمة">
           <span><PlatformIcon name="check" size={16}/>سعر قبل الخصم وبعده</span>
           <span><PlatformIcon name="ticket" size={16}/>مدة وعدد محددان</span>
           <span><PlatformIcon name="qr" size={16}/>رمز استخدام آمن</span>
         </div>
       </div>
-      <ActionLink href="/promotions/my" variant="secondary" className={styles.walletLink}><PlatformIcon name="ticket" size={18}/>رموز عروضي</ActionLink>
+      <ActionLink href="/promotions/my" variant="secondary" className={styles.walletLink}><PlatformIcon name="ticket" size={18}/>عروضي المحفوظة</ActionLink>
     </header>
 
     {!code ? <Surface className={styles.offerExplorer}>
@@ -87,15 +94,19 @@ export default function PromotionsPage() {
         </div>
         {q && <button className={styles.clearSearch} type="button" onClick={clear}><PlatformIcon name="refresh" size={16}/>عرض جميع العروض</button>}
       </form> : <PromotionScanner/>}
+      <nav className={styles.quickDeals} aria-label="فئات العروض الشائعة">
+        {['مطاعم', 'جمال', 'صيانة', 'سيارات', 'تسوق'].map((label) => <button type="button" key={label} aria-pressed={q === label} onClick={() => browseShortcut(label)}>{label}</button>)}
+      </nav>
       <div className={styles.smartReviewNote}>
         <PlatformIcon name="sparkles" size={18}/>
-        <p><strong>مراجعة ذكية قبل النشر.</strong> تظهر العروض المطابقة مباشرة، وتنتقل الحالات الاستثنائية إلى فريق الإدارة.</p>
+        <p><strong>عروض معتمدة.</strong> يراجع نظام خدمة الأسعار والمدة قبل النشر.</p>
       </div>
     </Surface> : <Surface className={styles.businessContext}>
       <span className={styles.panelIcon}><PlatformIcon name="qr" size={22}/></span>
       <div><span className={styles.methodLabel}>رمز نشاط موثّق</span><h2>{business ? `عروض ${business}` : 'جاري فتح عروض النشاط'}</h2><p>تعرض هذه الصفحة العروض النشطة والمعتمدة لهذا النشاط فقط.</p></div>
       <ActionLink href="/promotions" variant="secondary">عرض كل العروض</ActionLink>
     </Surface>}
+    </section>
 
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
 

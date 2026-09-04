@@ -121,7 +121,7 @@ export function CategoryDirectory() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'دليل الخدمات';
+  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'ما الخدمة التي تحتاجها؟';
   const active = categories.find(({ code }) => code === activeCategory);
   const activeRootCode = active?.parentCode ?? active?.code;
   const subcategories = activeRootCode
@@ -136,8 +136,8 @@ export function CategoryDirectory() {
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
-        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة الموحّد'} title={title} description={headerDescription} backHref={active?.parentCode ? `/categories?category=${encodeURIComponent(active.parentCode)}` : activeCategory ? '/categories' : '/'} actions={
-          <><ActionLink href={searchHref}><PlatformIcon name="search" /> بحث متقدم</ActionLink>{activeCategory ? <ActionButton variant="secondary" type="button" aria-label="تغيير مجال الخدمة" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تغيير المجال</ActionButton> : null}</>
+        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة'} title={title} description={headerDescription} backHref={active?.parentCode ? `/categories?category=${encodeURIComponent(active.parentCode)}` : activeCategory ? '/categories' : '/'} actions={
+          <><ActionLink href={searchHref}><PlatformIcon name="search" /> ابحث عن خدمة</ActionLink>{activeCategory ? <ActionButton variant="secondary" type="button" aria-label="تغيير مجال الخدمة" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تغيير المجال</ActionButton> : null}</>
         } />
 
         {showFilters ? (
@@ -159,13 +159,9 @@ export function CategoryDirectory() {
           <section className="catalog-directory" aria-labelledby="catalog-directory-title">
             <div className="catalog-section-heading catalog-directory-heading">
               <div className="catalog-directory-intro">
-                <span className="catalog-kicker"><PlatformIcon name="grid" size={16} /> مجالات خدمة</span>
-                <h2 id="catalog-directory-title">اختر المجال الأقرب إلى حاجتك</h2>
-                <p>ابدأ بالمجال، ثم انتقل إلى التخصص ومقدمي الخدمة المتاحين.</p>
-              </div>
-              <div className="catalog-directory-metrics" aria-label="ملخص دليل الخدمات">
-                <span><strong>{roots.length.toLocaleString('ar-SY-u-nu-latn')}</strong><small>مجالًا</small></span>
-                <span><strong>{specialtyTotal.toLocaleString('ar-SY-u-nu-latn')}</strong><small>تخصصًا</small></span>
+                <span className="catalog-kicker"><PlatformIcon name="grid" size={16} /> كل الخدمات تحت خدمة</span>
+                <h2 id="catalog-directory-title">ما الخدمة التي تحتاجها؟</h2>
+                <p>اختر مجالًا ثم تخصصًا للوصول إلى مقدم الخدمة المناسب.</p>
               </div>
             </div>
             <div className="catalog-category-grid" aria-label="تصنيفات الخدمات">
@@ -180,6 +176,7 @@ export function CategoryDirectory() {
                 );
               })}
             </div>
+            <p className="catalog-directory-summary">{roots.length.toLocaleString('ar-SY-u-nu-latn')} مجالًا · {specialtyTotal.toLocaleString('ar-SY-u-nu-latn')} تخصصًا متاحًا</p>
           </section>
         ) : null}
 
