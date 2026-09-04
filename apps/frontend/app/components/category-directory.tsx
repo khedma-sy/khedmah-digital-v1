@@ -14,6 +14,7 @@ const visualIcons: Record<string, PlatformIconName> = {
   industry: 'industry', travel: 'travel'
 };
 const iconFor = (visualKey?: string) => visualIcons[visualKey ?? ''] ?? 'tools';
+const categoryName = (code: string, nameAr: string) => code === 'retail_shopping' ? 'متجر وتسوق' : nameAr;
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -121,7 +122,8 @@ export function CategoryDirectory() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const title = categories.find(({ code }) => code === activeCategory)?.nameAr ?? 'ما الخدمة التي تحتاجها؟';
+  const activeCategoryRecord = categories.find(({ code }) => code === activeCategory);
+  const title = activeCategoryRecord ? categoryName(activeCategoryRecord.code, activeCategoryRecord.nameAr) : 'ما الخدمة التي تحتاجها؟';
   const active = categories.find(({ code }) => code === activeCategory);
   const activeRootCode = active?.parentCode ?? active?.code;
   const subcategories = activeRootCode
@@ -143,7 +145,7 @@ export function CategoryDirectory() {
         {showFilters ? (
           <nav id="catalog-filters" className="catalog-filters" aria-label="تصفية الخدمات">
             <button type="button" className={activeCategory === '' ? 'active' : ''} onClick={() => selectCategory('')}>كل الخدمات</button>
-            {roots.map((category) => <button key={category.code} type="button" className={activeRootCode === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{category.nameAr}</button>)}
+            {roots.map((category) => <button key={category.code} type="button" className={activeRootCode === category.code ? 'active' : ''} onClick={() => selectCategory(category.code)}>{categoryName(category.code, category.nameAr)}</button>)}
           </nav>
         ) : null}
 
@@ -152,7 +154,7 @@ export function CategoryDirectory() {
 
         {activeRootCode && subcategories.length > 0 ? <section className="catalog-specialties" aria-labelledby="catalog-specialties-title">
           <div className="catalog-section-heading"><div><span>اختر التخصص</span><h2 id="catalog-specialties-title">ما الخدمة التي تحتاجها؟</h2></div><button type="button" onClick={() => selectCategory(activeRootCode)}>عرض الكل</button></div>
-          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" data-visual={category.visualKey} className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{category.nameAr}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
+          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" data-visual={category.visualKey} className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{categoryName(category.code, category.nameAr)}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
         </section> : null}
 
         {!activeCategory && categories.length > 0 ? (
@@ -168,9 +170,9 @@ export function CategoryDirectory() {
               {roots.map((category) => {
                 const specialtyCount = categories.filter((item) => item.parentCode === category.code).length;
                 return (
-                  <button key={category.code} type="button" data-visual={category.visualKey} aria-label={`${category.nameAr}، ${specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات`} onClick={() => selectCategory(category.code)}>
+                  <button key={category.code} type="button" data-visual={category.visualKey} aria-label={`${categoryName(category.code, category.nameAr)}، ${specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات`} onClick={() => selectCategory(category.code)}>
                     <span className="catalog-category-icon"><PlatformIcon name={iconFor(category.visualKey)} size={22} /></span>
-                    <span className="catalog-category-copy"><strong>{category.nameAr}</strong><small>{specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات</small></span>
+                    <span className="catalog-category-copy"><strong>{categoryName(category.code, category.nameAr)}</strong><small>{specialtyCount.toLocaleString('ar-SY-u-nu-latn')} تخصصات</small></span>
                     <span className="catalog-category-arrow"><PlatformIcon name="arrow" size={18} /></span>
                   </button>
                 );
