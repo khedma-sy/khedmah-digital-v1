@@ -129,6 +129,18 @@ SELECT (to_regclass(current_schema() || '.mobility_document_reviews') IS NOT NUL
   \ir /migrations/033_mobility_document_reviews.sql
 \endif
 
+SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mobility_requests' AND column_name='package_description') AS mobility_delivery_ready \gset
+\if :mobility_delivery_ready
+\else
+  \ir /migrations/034_mobility_delivery_proof.sql
+\endif
+
+SELECT (to_regclass(current_schema() || '.platform_notifications') IS NOT NULL) AS platform_notifications_ready \gset
+\if :platform_notifications_ready
+\else
+  \ir /migrations/035_platform_notifications.sql
+\endif
+
 DO $postcondition$
 BEGIN
   IF to_regclass(current_schema() || '.product_listings') IS NULL

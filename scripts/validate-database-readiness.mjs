@@ -80,6 +80,10 @@ const EXPECTED_MIGRATIONS = [
   '032_mobility_fare_lifecycle_rollback.sql',
   '033_mobility_document_reviews.sql',
   '033_mobility_document_reviews_rollback.sql',
+  '034_mobility_delivery_proof.sql',
+  '034_mobility_delivery_proof_rollback.sql',
+  '035_platform_notifications.sql',
+  '035_platform_notifications_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'];

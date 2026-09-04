@@ -158,6 +158,15 @@ export interface MobilityRequest {
   readonly destinationLatitude?: number;
   readonly destinationLongitude?: number;
   readonly riderNote?: string;
+  readonly packageDescription?: string;
+  readonly packageSize?: 'small' | 'medium' | 'large';
+  readonly recipientName?: string;
+  readonly recipientPhone?: string;
+  readonly deliveryInstructions?: string;
+  readonly pickupProofPin?: string;
+  readonly deliveryProofPin?: string;
+  readonly pickupVerifiedAt?: string;
+  readonly deliveryVerifiedAt?: string;
   readonly status:
     | 'requested'
     | 'accepted'
@@ -541,10 +550,10 @@ export const api = {
         `/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`,
       );
     },
-    transition(id: string, status: MobilityRequest['status'], reason?: string) {
+    transition(id: string, status: MobilityRequest['status'], reason?: string, verificationCode?: string) {
       return request<{ request: MobilityRequest }>(
         `/mobility/requests/${encodeURIComponent(id)}/status`,
-        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
+        { method: 'PATCH', body: JSON.stringify({ status, reason, verificationCode }) },
       );
     },
     farePolicy(serviceType:'taxi'|'delivery') { return request<{policy:MobilityFarePolicy}>(`/mobility/fare-policy?serviceType=${serviceType}`); },

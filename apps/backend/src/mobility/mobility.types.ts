@@ -1,5 +1,6 @@
 export type MobilityServiceType = 'taxi' | 'delivery';
 export type MobilityRequestStatus = 'requested' | 'accepted' | 'en_route' | 'arrived' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
+export type DeliveryPackageSize = 'small' | 'medium' | 'large';
 
 export interface MobilityFarePolicy {
   readonly serviceType: MobilityServiceType;
@@ -29,6 +30,16 @@ export interface MobilityRequest {
   readonly destinationLatitude?: number;
   readonly destinationLongitude?: number;
   readonly riderNote?: string;
+  readonly packageDescription?: string;
+  readonly packageSize?: DeliveryPackageSize;
+  readonly recipientName?: string;
+  readonly recipientPhone?: string;
+  readonly deliveryInstructions?: string;
+  readonly deliveryContractVersion: 1 | 2;
+  readonly pickupVerificationHash?: string;
+  readonly deliveryVerificationHash?: string;
+  readonly pickupVerifiedAt?: string;
+  readonly deliveryVerifiedAt?: string;
   readonly status: MobilityRequestStatus;
   readonly acceptedAt?: string;
   readonly enRouteAt?: string;
@@ -52,7 +63,13 @@ export interface MobilityRequest {
   readonly updatedAt: string;
 }
 
-export type PublicMobilityRequest = Omit<MobilityRequest, 'providerOwnerUserId' | 'riderUserId' | 'providerPhone' | 'riderContactPhone'> & {
+export type PublicMobilityRequest = Omit<MobilityRequest, 'providerOwnerUserId' | 'riderUserId' | 'providerPhone' | 'riderContactPhone' | 'recipientPhone' | 'pickupVerificationHash' | 'deliveryVerificationHash'> & {
   readonly providerPhone?: string;
   readonly riderContactPhone?: string;
+  readonly recipientPhone?: string;
+};
+
+export type CreatedMobilityRequest = PublicMobilityRequest & {
+  readonly pickupProofPin?: string;
+  readonly deliveryProofPin?: string;
 };

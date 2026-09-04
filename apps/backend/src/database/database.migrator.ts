@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '033';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '035';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -140,7 +140,15 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   ...['media_asset_id','business_profile_id','document_type','status','reviewed_by','reviewed_at'].map((name)=>column('mobility-documents','033','mobility_document_reviews',name)),
   constraint('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_decision_check'),
   index('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_business_status_idx'),
-  table('mobility-documents','033','mobility_document_review_events')
+  table('mobility-documents','033','mobility_document_review_events'),
+  ...['delivery_contract_version','package_description','package_size','recipient_name','recipient_phone','pickup_verification_hash','delivery_verification_hash','pickup_verified_at','delivery_verified_at']
+    .map((name)=>column('mobility-delivery-proof','034','mobility_requests',name)),
+  constraint('mobility-delivery-proof','034','mobility_requests','mobility_requests_delivery_shape_check'),
+  index('mobility-delivery-proof','034','mobility_requests','mobility_requests_delivery_recipient_idx'),
+  table('platform-notifications','035','platform_notifications'),
+  ...['user_id','event_key','event_type','reference_type','reference_id','read_at','created_at'].map((name)=>column('platform-notifications','035','platform_notifications',name)),
+  constraint('platform-notifications','035','platform_notifications','platform_notifications_user_event_unique'),
+  index('platform-notifications','035','platform_notifications','platform_notifications_user_unread_idx')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

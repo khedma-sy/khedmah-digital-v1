@@ -10,6 +10,7 @@ import { BusinessProfileRepository } from "../business-profiles/business-profile
 import { IdentityRepository } from "../identity/identity.repository";
 import { IdentityService } from "../identity/identity.service";
 import { readSessionToken } from "../identity/session-cookie";
+import { NotificationService } from "../notifications/notification.service";
 import { OrderRepository } from "./order.repository";
 import type {
   FulfillmentOrder,
@@ -50,6 +51,7 @@ export class OrderService {
     private readonly businesses: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
     @Inject(IdentityRepository) private readonly audits: IdentityRepository,
+    @Inject(NotificationService) private readonly notifications: NotificationService,
   ) {}
   async create(
     cookie: string | undefined,
@@ -65,6 +67,7 @@ export class OrderService {
       if (!sameItems || prior.deliveryAddress !== input.deliveryAddress || prior.customerPhone !== input.customerPhone || prior.customerNote !== input.customerNote || prior.prescriptionAttested !== input.prescriptionAttested) {
         throw new BadRequestException("Idempotency-Key was already used for a different order.");
       }
+      await this.notifyCreated(prior);
       return expose(prior, "customer");
     }
     const products = await this.repo.findProducts(
@@ -148,6 +151,7 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: created.id,
     });
+    await this.notifyCreated(created);
     return expose(created, "customer");
   }
   async mine(cookie: string | undefined) {
@@ -269,7 +273,31 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: `${updated.id}:${o.status}:${updated.status}`,
     });
+    await this.notifyStatus(updated, actor.id);
     return expose(updated, customer ? "customer" : merchant ? "merchant" : "courier");
+  }
+
+  private async notifyCreated(order: FulfillmentOrder): Promise<void> {
+    if (!order.merchantOwnerUserId) return;
+    await this.notifications.publish({ userId: order.merchantOwnerUserId, eventKey: `${order.id}:placed:${order.merchantOwnerUserId}`,
+      eventType: 'order.created', referenceType: 'order', referenceId: order.id, title: 'طلب جديد',
+      body: order.vertical === 'food' ? 'وصل طلب طعام جديد. افتحه للمراجعة والقبول.' : 'وصل طلب جديد. افتحه للمراجعة.',
+      metadata: { status: order.status, vertical: order.vertical } });
+  }
+
+  private async notifyStatus(order: FulfillmentOrder, actorId: string): Promise<void> {
+    const recipients = new Set([order.customerUserId, order.merchantOwnerUserId, order.courierOwnerUserId].filter((id): id is string => Boolean(id) && id !== actorId));
+    const messages: Record<OrderStatus, [string, string]> = {
+      placed: ['طلب جديد', 'تم إنشاء الطلب.'], quoted: ['تم تسعير الطلب', 'أرسل المتجر السعر ورسوم التوصيل.'],
+      merchant_confirmed: ['تم تأكيد الطلب', 'أكد الزبون الطلب وأصبح جاهزاً للمتابعة.'], courier_assigned: ['مهمة توصيل جديدة', 'تم إسناد طلب توصيل إليك. اقبله أو ارفضه.'],
+      courier_accepted: ['قُبلت مهمة التوصيل', 'وافق المندوب على توصيل الطلب.'], ready_for_pickup: ['الطلب جاهز للاستلام', 'يمكن للمندوب استلام الطلب الآن.'],
+      picked_up: ['الطلب في الطريق', 'استلم المندوب الطلب وبدأ التوصيل.'], delivered: ['تم تسليم الطلب', 'اكتملت رحلة الطلب بنجاح.'],
+      rejected: ['تعذر قبول الطلب', 'رفض المتجر الطلب. راجع التفاصيل.'], cancelled: ['أُلغي الطلب', 'تم إلغاء الطلب.']
+    };
+    const [title, body] = messages[order.status];
+    await Promise.all([...recipients].map(userId => this.notifications.publish({ userId,
+      eventKey: `${order.id}:${order.status}:${userId}`, eventType: 'order.status_changed', referenceType: 'order', referenceId: order.id,
+      title, body, metadata: { status: order.status, vertical: order.vertical } })));
   }
   private async assertCourierEligible(businessId?: string) {
     const b = businessId ? await this.businesses.findById(businessId) : undefined;

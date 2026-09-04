@@ -66,7 +66,9 @@ const CANONICAL_MIGRATIONS = [
   '030_operations_issue_center',
   '031_admin_catalog_management',
   '032_mobility_fare_lifecycle',
-  '033_mobility_document_reviews'
+  '033_mobility_document_reviews',
+  '034_mobility_delivery_proof',
+  '035_platform_notifications'
 ] as const;
 
 let canonicalSchemaSetup: Promise<void> | undefined;

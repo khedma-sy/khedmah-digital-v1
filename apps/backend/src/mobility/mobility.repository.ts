@@ -8,6 +8,10 @@ interface MobilityRow extends Record<string, unknown> {
   provider_name: string; provider_phone: string | null; service_type: MobilityRequest['serviceType'];
   pickup_address: string; destination_address: string; rider_contact_phone: string; pickup_latitude: string; pickup_longitude: string;
   destination_latitude: string | null; destination_longitude: string | null; rider_note: string | null;
+  package_description: string | null; package_size: MobilityRequest['packageSize'] | null; recipient_name: string | null; recipient_phone: string | null;
+  delivery_instructions: string | null; pickup_verification_hash: string | null; delivery_verification_hash: string | null;
+  delivery_contract_version: 1 | 2;
+  pickup_verified_at: Date | null; delivery_verified_at: Date | null;
   status: MobilityRequestStatus; accepted_at: Date | null; en_route_at: Date | null; completed_at: Date | null;
   arrived_at: Date | null; started_at: Date | null; closed_at: Date | null;
   route_distance_meters: number | null; waiting_seconds: number | null; fare_status: MobilityRequest['fareStatus']; fare_currency: 'SYP';
@@ -26,6 +30,8 @@ export interface MobilityFareTransition {
   readonly distanceMeters?:number; readonly waitingSeconds?:number; readonly distanceFare?:number; readonly waitingFare?:number; readonly finalFare?:number;
 }
 
+export interface MobilityDeliveryProofTransition { readonly pickupVerified?: boolean; readonly deliveryVerified?: boolean }
+
 const select = `SELECT r.*, b.owner_user_id AS provider_owner_user_id, b.name AS provider_name, b.phone AS provider_phone
   FROM mobility_requests r JOIN business_profiles b ON b.id=r.provider_business_id`;
 
@@ -37,11 +43,14 @@ export class MobilityRepository {
     await this.db.transaction(async (client) => {
       await client.query(
         `INSERT INTO mobility_requests
-          (id,rider_user_id,provider_business_id,service_type,pickup_address,destination_address,rider_contact_phone,pickup_latitude,pickup_longitude,destination_latitude,destination_longitude,rider_note,status,idempotency_key,created_at,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          (id,rider_user_id,provider_business_id,service_type,pickup_address,destination_address,rider_contact_phone,pickup_latitude,pickup_longitude,destination_latitude,destination_longitude,rider_note,
+           package_description,package_size,recipient_name,recipient_phone,delivery_instructions,pickup_verification_hash,delivery_verification_hash,delivery_contract_version,status,idempotency_key,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
         [request.id, request.riderUserId, request.providerBusinessId, request.serviceType, request.pickupAddress, request.destinationAddress,
           request.riderContactPhone, request.pickupLatitude, request.pickupLongitude, request.destinationLatitude ?? null, request.destinationLongitude ?? null,
-          request.riderNote ?? null, request.status, idempotencyKey, request.createdAt, request.updatedAt]
+          request.riderNote ?? null, request.packageDescription ?? null, request.packageSize ?? null, request.recipientName ?? null, request.recipientPhone ?? null,
+          request.deliveryInstructions ?? null, request.pickupVerificationHash ?? null, request.deliveryVerificationHash ?? null, request.deliveryContractVersion,
+          request.status, idempotencyKey, request.createdAt, request.updatedAt]
       );
       await client.query(
         `INSERT INTO mobility_request_events (id,request_id,actor_user_id,from_status,to_status,occurred_at) VALUES ($1,$2,$3,NULL,'requested',$4)`,
@@ -69,7 +78,7 @@ export class MobilityRepository {
     return (await this.db.query<MobilityRow>(`${select} WHERE r.provider_business_id=$1 ORDER BY CASE WHEN r.status='requested' THEN 0 ELSE 1 END, r.created_at DESC LIMIT 100`, [providerBusinessId])).map(map);
   }
 
-  async transition(request: MobilityRequest, expected: MobilityRequestStatus, next: MobilityRequestStatus, actorUserId: string, reason?: string, fare?: MobilityFareTransition): Promise<MobilityRequest | undefined> {
+  async transition(request: MobilityRequest, expected: MobilityRequestStatus, next: MobilityRequestStatus, actorUserId: string, reason?: string, fare?: MobilityFareTransition, proof?: MobilityDeliveryProofTransition): Promise<MobilityRequest | undefined> {
     const now = new Date().toISOString();
     const changed = await this.db.transaction(async (client) => {
       const result = await client.query(
@@ -90,10 +99,13 @@ export class MobilityRepository {
           fare_policy_updated_at=CASE WHEN $3 IN ('in_progress','completed') THEN $11 ELSE fare_policy_updated_at END,
           distance_fare=CASE WHEN $3='completed' THEN $12 ELSE distance_fare END,
           waiting_fare=CASE WHEN $3='completed' THEN $13 ELSE waiting_fare END,
-          final_fare=CASE WHEN $3='completed' THEN $14 ELSE final_fare END
+          final_fare=CASE WHEN $3='completed' THEN $14 ELSE final_fare END,
+          pickup_verified_at=CASE WHEN $15 THEN $4 ELSE pickup_verified_at END,
+          delivery_verified_at=CASE WHEN $16 THEN $4 ELSE delivery_verified_at END
          WHERE id=$1 AND status=$2 RETURNING id`,
         [request.id, expected, next, now, fare?.distanceMeters ?? null, fare?.waitingSeconds ?? null, fare?.baseFare ?? null, fare?.perKmFare ?? null,
-          fare?.perWaitingMinuteFare ?? null, fare?.minimumFare ?? null, fare?.policyUpdatedAt ?? null, fare?.distanceFare ?? null, fare?.waitingFare ?? null, fare?.finalFare ?? null]
+          fare?.perWaitingMinuteFare ?? null, fare?.minimumFare ?? null, fare?.policyUpdatedAt ?? null, fare?.distanceFare ?? null, fare?.waitingFare ?? null, fare?.finalFare ?? null,
+          proof?.pickupVerified ?? false, proof?.deliveryVerified ?? false]
       );
       if (!result.rowCount) return false;
       await client.query(
@@ -127,7 +139,11 @@ function map(row: MobilityRow): MobilityRequest {
     pickupLatitude: Number(row.pickup_latitude), pickupLongitude: Number(row.pickup_longitude),
     destinationLatitude: row.destination_latitude === null ? undefined : Number(row.destination_latitude),
     destinationLongitude: row.destination_longitude === null ? undefined : Number(row.destination_longitude),
-    riderNote: row.rider_note ?? undefined, status: row.status,
+    riderNote: row.rider_note ?? undefined, packageDescription: row.package_description ?? undefined, packageSize: row.package_size ?? undefined,
+    recipientName: row.recipient_name ?? undefined, recipientPhone: row.recipient_phone ?? undefined, deliveryInstructions: row.delivery_instructions ?? undefined,
+    deliveryContractVersion: row.delivery_contract_version,
+    pickupVerificationHash: row.pickup_verification_hash ?? undefined, deliveryVerificationHash: row.delivery_verification_hash ?? undefined,
+    pickupVerifiedAt: row.pickup_verified_at?.toISOString(), deliveryVerifiedAt: row.delivery_verified_at?.toISOString(), status: row.status,
     acceptedAt: row.accepted_at?.toISOString(), enRouteAt: row.en_route_at?.toISOString(), arrivedAt: row.arrived_at?.toISOString(), startedAt: row.started_at?.toISOString(), completedAt: row.completed_at?.toISOString(),
     routeDistanceMeters: row.route_distance_meters ?? undefined, waitingSeconds: row.waiting_seconds ?? undefined,
     fareStatus: row.fare_status, fareCurrency: row.fare_currency, baseFare: row.base_fare ?? undefined,
