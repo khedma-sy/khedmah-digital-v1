@@ -243,7 +243,10 @@ export class OrderService {
         o.status === "courier_assigned" &&
         action.status === "merchant_confirmed"
       )
-        options = { reason: action.reason ?? "Courier declined" };
+        options = {
+          reason: action.reason ?? "Courier declined",
+          clearCourierBusinessId: true,
+        };
       else if (
         o.status === "ready_for_pickup" &&
         action.status === "picked_up"

@@ -146,6 +146,7 @@ export default function OrdersPage() {
                 </p>
               )}
               {o.courierName && <p>المندوب: {o.courierName}</p>}
+              {o.courierPhone && <p>رقم المندوب: <a href={`tel:${o.courierPhone}`} dir="ltr">{o.courierPhone}</a></p>}
               {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && (
                 <OrderTracking orderId={o.id} status={o.status} />
               )}

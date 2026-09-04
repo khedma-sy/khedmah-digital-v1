@@ -58,6 +58,7 @@
 .orderGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
 .orderCard { display: grid; align-content: start; gap: .85rem; border-color: var(--courier-border); }
 .orderCard h2 { margin: 0; color: var(--k-color-text); font-size: 1.1rem; line-height: 1.5; }
+.nextStep { margin: 0; border-inline-start: 3px solid var(--courier-green); padding-inline-start: .65rem; color: var(--k-color-text-muted); font-size: .82rem; line-height: 1.7; }
 .status { width: max-content; display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .35rem .65rem; color: var(--courier-green-deep); background: var(--courier-green-soft); font-size: .78rem; font-weight: 850; }
 .orderDetails { display: grid; gap: .7rem; margin: 0; }
 .orderDetails > div { display: grid; gap: .2rem; border-bottom: 1px solid var(--k-color-border); padding-block-end: .65rem; }
@@ -66,7 +67,11 @@
 .orderDetails dt svg { color: var(--courier-green); }
 .orderDetails dd { margin: 0; color: var(--k-color-text); font-size: .9rem; font-weight: 750; overflow-wrap: anywhere; }
 .orderDetails a { color: var(--courier-green-deep); }
+.itemList { display: grid; gap: .2rem; margin: 0; padding-inline-start: 1.1rem; }
 .orderActions { display: flex; flex-wrap: wrap; gap: .55rem; margin-block-start: auto; padding-block-start: .25rem; }
+.history { margin-block-start: 1rem; border: 1px solid var(--courier-border); border-radius: var(--k-radius-lg); padding: .8rem; background: var(--k-color-surface-raised); }
+.history > summary { min-height: 44px; display: flex; align-items: center; color: var(--k-color-text); font-weight: 850; cursor: pointer; }
+.history > .orderGrid { margin-block-start: .8rem; }
 
 @media (max-width: 64rem) {
   .guideBody ol { grid-template-columns: repeat(5, minmax(12rem, 1fr)); overflow-x: auto; padding-block-end: .35rem; scroll-snap-type: inline mandatory; }

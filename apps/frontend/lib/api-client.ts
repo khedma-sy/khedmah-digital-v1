@@ -282,8 +282,11 @@ export interface FulfillmentOrder {
   readonly id: string;
   readonly merchantBusinessId: string;
   readonly merchantName?: string;
+  readonly pickupAddress?: string;
+  readonly merchantPhone?: string;
   readonly courierBusinessId?: string;
   readonly courierName?: string;
+  readonly courierPhone?: string;
   readonly vertical: 'food' | 'grocery' | 'pharmacy';
   readonly status: FulfillmentOrderStatus;
   readonly paymentMethod: 'cash';

@@ -14,7 +14,8 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   assert.match(welcome, /onClick=\{completeOnboarding\}/);
   assert.match(home, /href="\/search"/);
   assert.match(home, /href="\/auth\/register"/);
-  assert.match(catalog, /PageHeader eyebrow=.*title=\{title\}.*backHref=\{activeCategory \? '\/categories' : '\/'\}/s);
+  assert.match(catalog, /PageHeader eyebrow=.*title=\{title\}.*backHref=\{active\?\.parentCode \?/s);
+  assert.match(catalog, /resultsAnchorRef\.current\?\.scrollIntoView/);
   assert.match(catalog, /onClick=\{\(\) => setShowFilters/);
   assert.match(catalog, /selectCategory\(category\.code\)/);
   assert.match(catalog, /transport: 'delivery'/);

@@ -29,9 +29,12 @@ interface OrderRow extends Record<string, unknown> {
   merchant_business_id: string;
   merchant_owner_user_id: string;
   merchant_name: string;
+  pickup_address: string | null;
+  merchant_phone: string | null;
   courier_business_id: string | null;
   courier_owner_user_id: string | null;
   courier_name: string | null;
+  courier_phone: string | null;
   vertical: OrderVertical;
   status: OrderStatus;
   payment_method: "cash";
@@ -61,7 +64,8 @@ interface ItemRow extends Record<string, unknown> {
 }
 
 const projection = `o.*, merchant.owner_user_id AS merchant_owner_user_id, merchant.name AS merchant_name,
- courier.owner_user_id AS courier_owner_user_id, courier.name AS courier_name`;
+ merchant.address_ar AS pickup_address, merchant.phone AS merchant_phone,
+ courier.owner_user_id AS courier_owner_user_id, courier.name AS courier_name, courier.phone AS courier_phone`;
 
 @Injectable()
 export class OrderRepository {
@@ -184,6 +188,7 @@ export class OrderRepository {
     options: {
       deliveryFee?: number;
       courierBusinessId?: string;
+      clearCourierBusinessId?: boolean;
       reason?: string;
       pharmacyReviewStatus?: FulfillmentOrder["pharmacyReviewStatus"];
     } = {},
@@ -191,7 +196,7 @@ export class OrderRepository {
     const now = new Date().toISOString();
     const changed = await this.db.transaction(async (client) => {
       const result = await client.query(
-        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal+$4 ELSE total END,courier_business_id=CASE WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8 WHERE id=$1 AND status=$2 RETURNING id`,
+        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8 WHERE id=$1 AND status=$2 RETURNING id`,
         [
           order.id,
           order.status,
@@ -201,6 +206,7 @@ export class OrderRepository {
           options.pharmacyReviewStatus ?? null,
           options.reason ?? null,
           now,
+          options.clearCourierBusinessId ?? false,
         ],
       );
       if (!result.rowCount) return false;
@@ -296,9 +302,12 @@ function map(r: OrderRow, items: OrderItem[]): FulfillmentOrder {
     merchantBusinessId: r.merchant_business_id,
     merchantOwnerUserId: r.merchant_owner_user_id,
     merchantName: r.merchant_name,
+    pickupAddress: r.pickup_address ?? undefined,
+    merchantPhone: r.merchant_phone ?? undefined,
     courierBusinessId: r.courier_business_id ?? undefined,
     courierOwnerUserId: r.courier_owner_user_id ?? undefined,
     courierName: r.courier_name ?? undefined,
+    courierPhone: r.courier_phone ?? undefined,
     vertical: r.vertical,
     status: r.status,
     paymentMethod: r.payment_method,

@@ -770,6 +770,7 @@ body { background: radial-gradient(circle at 80% 0, #0c3771 0, #06152f 34rem); }
 .catalog-filters button { flex:0 0 auto; min-height:44px; border:1px solid var(--border); border-radius:999px; padding:.55rem .9rem; background:var(--surface); color:var(--foreground); font:inherit; cursor:pointer; }
 .catalog-filters button.active { border-color:var(--accent); background:var(--accent); color:#fff; }
 .catalog-results { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr)); gap:1rem; }
+.catalog-results-anchor { scroll-margin-top:6.5rem; outline:none; }
 .catalog-service { min-height:7rem; display:grid; grid-template-columns:2.8rem minmax(0,1fr) 2.75rem; align-items:center; gap:.65rem; border:1px solid var(--border); border-radius:.8rem; padding:1rem; background:var(--surface); }
 .catalog-service-icon { width:2.5rem; aspect-ratio:1; display:grid; place-items:center; border:1px solid var(--accent); border-radius:50%; color:var(--accent); }
 .catalog-service h2 { margin:0; font-size:1rem; }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { PlatformIcon, type PlatformIconName } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
@@ -29,6 +29,8 @@ export function CategoryDirectory() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const resultsAnchorRef = useRef<HTMLDivElement>(null);
+  const shouldFocusResultsRef = useRef(false);
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const roots = categories.filter((category) => !category.parentCode);
 
@@ -73,6 +75,7 @@ export function CategoryDirectory() {
   }
 
   function selectCategory(categoryCode: string) {
+    shouldFocusResultsRef.current = Boolean(categories.find((category) => category.code === categoryCode)?.parentCode);
     setActiveCategory(categoryCode);
     setShowFilters(false);
     syncUrl(categoryCode, 1);
@@ -87,6 +90,15 @@ export function CategoryDirectory() {
     }
     void loadServices(categoryCode, 1);
   }
+
+  useEffect(() => {
+    if (!shouldFocusResultsRef.current || isLoading) return;
+    shouldFocusResultsRef.current = false;
+    window.requestAnimationFrame(() => {
+      resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      resultsAnchorRef.current?.focus({ preventScroll: true });
+    });
+  }, [activeCategory, isLoading]);
 
   function goToPage(pageNumber: number) {
     syncUrl(activeCategory, pageNumber);
@@ -109,7 +121,7 @@ export function CategoryDirectory() {
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
-        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة الموحّد'} title={title} description={headerDescription} backHref={activeCategory ? '/categories' : '/'} actions={
+        <PageHeader eyebrow={activeCategory ? 'المجال المختار' : 'دليل خدمة الموحّد'} title={title} description={headerDescription} backHref={active?.parentCode ? `/categories?category=${encodeURIComponent(active.parentCode)}` : activeCategory ? '/categories' : '/'} actions={
           <><ActionLink href={searchHref}><PlatformIcon name="search" /> بحث متقدم</ActionLink>{activeCategory ? <ActionButton variant="secondary" type="button" aria-label="تغيير مجال الخدمة" aria-expanded={showFilters} aria-controls="catalog-filters" onClick={() => setShowFilters((visible) => !visible)}><PlatformIcon name="filter" /> تغيير المجال</ActionButton> : null}</>
         } />
 
@@ -156,6 +168,7 @@ export function CategoryDirectory() {
           </section>
         ) : null}
 
+        <div ref={resultsAnchorRef} tabIndex={-1} className="catalog-results-anchor" aria-label="نتائج التخصص المختار" />
         {error ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory, page)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
         {activeCategory && isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 

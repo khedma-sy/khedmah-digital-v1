@@ -35,7 +35,8 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
 
   assert.match(page, /gm_authFailure/);
   assert.match(page, /\^khedmah-pr-\\d\+-frontend-/);
-  assert.match(page, /الخريطة التفاعلية غير متاحة في نطاق المعاينة/);
+  assert.match(page, /الخريطة ستتوفر عند إطلاق النطاق الرسمي/);
+  assert.match(page, /لا توجد خدمات منشورة قرب هذا الموقع بعد/);
   assert.match(page, /setActiveView\('list'\)/);
   assert.match(page, /إعادة تشغيل الخريطة/);
   assert.match(page, /تعذر تشغيل الخريطة/);

@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
 import { PlatformIcon } from '../components/platform-icon';
-import { ActionButton, ActionLink, StatusMessage, Surface } from '../components/ui-primitives';
+import { ActionButton, ActionLink, EmptyState, StatusMessage, Surface } from '../components/ui-primitives';
 import styles from '../discovery.module.css';
 
 type Bounds = { south: number; west: number; north: number; east: number };
@@ -52,6 +52,7 @@ function MapDiscovery() {
   })();
   const [query, setQuery] = useState(initialQuery);
   const [providers, setProviders] = useState<PublicBusinessProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(true);
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [locationSource, setLocationSource] = useState<'default' | 'device'>('default');
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
@@ -62,6 +63,7 @@ function MapDiscovery() {
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
 
   const search = useCallback(async (boundaries?: Bounds, nextLocation = location, nextQuery = query) => {
+    setIsSearching(true);
     setStatus('جاري تحديث النتائج…');
     try {
       const result = await api.search.query({ q: nextQuery || undefined, map: true, boundaries, latitude: nextLocation.latitude, longitude: nextLocation.longitude, type: 'business' });
@@ -74,6 +76,8 @@ function MapDiscovery() {
       window.history.replaceState(null, '', url);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'تعذر تحميل مقدمي الخدمات');
+    } finally {
+      setIsSearching(false);
     }
   }, [location, query]);
 
@@ -131,7 +135,7 @@ function MapDiscovery() {
     if (isolatedPreview) {
       setMapCanRetry(false);
       setMapStatus('error');
-      setMapError('الخريطة التفاعلية غير متاحة في نطاق المعاينة. البحث وقائمة النتائج يعملان بصورة طبيعية.');
+      setMapError('الخريطة ستتوفر عند إطلاق النطاق الرسمي. استخدم البحث والنتائج الآن.');
       setStatus('اعرض مقدمي الخدمات من قائمة النتائج إلى حين فتح النطاق الرسمي.');
       setActiveView('list');
       return;
@@ -213,7 +217,7 @@ function MapDiscovery() {
         <ActionButton type="submit" variant="secondary"><PlatformIcon name="search" size={17}/> بحث</ActionButton>
       </form>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
-        <ActionButton type="button" variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
+        <ActionButton type="button" disabled={mapStatus === 'error' && !mapCanRetry} variant={activeView === 'map' ? 'primary' : 'secondary'} aria-pressed={activeView === 'map'} onClick={() => setActiveView('map')}><PlatformIcon name="pin" size={17}/> الخريطة</ActionButton>
         <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
       </nav>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
@@ -223,6 +227,7 @@ function MapDiscovery() {
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} {provider.rating !== undefined ? `· ★ ${provider.rating.toFixed(1)}` : ''} {provider.distanceKm !== undefined ? `· ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
           <ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=map`}>عرض النشاط</ActionLink>
         </Surface>)}
+        {!isSearching && providers.length === 0 && <EmptyState icon={<PlatformIcon name="search" size={30}/>} title={query ? `لا توجد نتائج مطابقة لـ «${query}»` : 'لا توجد خدمات منشورة قرب هذا الموقع بعد'} description="جرّب اسم خدمة آخر أو تصفح التصنيفات للوصول إلى مقدم الخدمة المناسب." actions={<><ActionLink href="/categories">استكشف التصنيفات</ActionLink>{query && <ActionButton type="button" variant="secondary" onClick={() => { setQuery(''); void search(undefined, location, ''); }}>مسح البحث</ActionButton>}</>} />}
       </section>
     </aside>
     <section className={styles.mapStage} aria-label="منطقة الخريطة">
