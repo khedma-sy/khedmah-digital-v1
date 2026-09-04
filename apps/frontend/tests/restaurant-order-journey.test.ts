@@ -32,13 +32,13 @@ test("food discovery, menu, cart, cash checkout, and post-delivery ratings form 
     read("app/orders/order-tracking.tsx"),
   ]);
   assert.match(navigation, /اطلب طعام/);
-  assert.match(discovery, /عرض القائمة والأسعار/);
-  assert.match(discovery, /رحلة طلب الطعام/);
-  assert.match(discovery, /متابعة طلباتي/);
+  assert.match(discovery, /ابدأ الطلب/);
+  assert.match(discovery, /مراحل طلب الطعام/);
+  assert.match(discovery, /طلباتي/);
   assert.match(discovery, /href="\/orders\/courier"/);
-  assert.match(discovery, /بوابة مندوب التوصيل/);
+  assert.match(discovery, /افتح بوابة التوصيل/);
   assert.match(discovery, /name="delivery"/);
-  assert.match(discovery, /الأصناف والسعر/);
+  assert.match(discovery, /راجع السلة/);
   assert.match(menu, /سلة الطلب/);
   assert.match(menu, /لا يمكن خلط أصناف من مطاعم مختلفة/);
   assert.match(checkout, /items\.map/);

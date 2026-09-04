@@ -94,30 +94,30 @@ export default function RestaurantMenuPage() {
 
   if (loading)
     return (
-      <PageShell label="قائمة الطعام">
+      <PageShell className={styles.page} label="قائمة الطعام">
         <SkeletonGrid count={6} />
       </PageShell>
     );
   if (error && !products.length)
     return (
-      <PageShell label="قائمة الطعام">
+      <PageShell className={styles.page} label="قائمة الطعام">
         <StatusMessage tone="danger">{error}</StatusMessage>
         <EmptyState
           icon={<PlatformIcon name="close" size={32} />}
           title="القائمة غير متاحة"
           description="يمكنك العودة واختيار مطعم آخر."
-          actions={<ActionLink href="/store">العودة إلى المتجر</ActionLink>}
+          actions={<ActionLink href="/restaurants">العودة إلى خدمة فود</ActionLink>}
         />
       </PageShell>
     );
 
   return (
-    <PageShell label={restaurantName}>
+    <PageShell className={styles.page} label={restaurantName}>
       <PageHeader
-        eyebrow="مطاعم وأطعمة"
+        eyebrow="خدمة فود · قائمة المطعم"
         title={restaurantName}
         description="اختر وجباتك من مطعم واحد، راجع السلة، ثم أكد الطلب والدفع نقدًا عند التسليم."
-        backHref={`/business-profiles/${businessId}`}
+        backHref="/restaurants"
       />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
       <div className={styles.layout}>
@@ -240,6 +240,7 @@ export default function RestaurantMenuPage() {
           )}
         </Surface>
       </div>
+      {!!selected.length && !mixedCurrency && <ActionLink className={styles.mobileCart} href={`/orders/checkout?businessId=${encodeURIComponent(businessId)}`}><PlatformIcon name="cart" size={19}/><span>السلة · {selected.reduce((sum, item) => sum + item.quantity, 0).toLocaleString("ar-SY")}</span><strong>{total.toLocaleString("ar-SY")} {currency ?? ""}</strong></ActionLink>}
     </PageShell>
   );
 }

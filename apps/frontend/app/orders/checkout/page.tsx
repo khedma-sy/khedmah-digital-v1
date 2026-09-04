@@ -17,6 +17,7 @@ import {
   Surface,
 } from "../../components/ui-primitives";
 import { requestOrderNotifications } from "../order-alerts";
+import styles from "./checkout.module.css";
 
 interface CheckoutItem {
   readonly product: ProductListing;
@@ -154,22 +155,22 @@ export default function CheckoutPage() {
 
   if (loading)
     return (
-      <PageShell label="تأكيد الطلب">
+      <PageShell className={styles.page} label="تأكيد الطلب">
         <SkeletonGrid count={2} />
       </PageShell>
     );
   return (
-    <PageShell label="طلب نقدي">
+    <PageShell className={businessId ? styles.page : undefined} label="طلب نقدي">
       <PageHeader
-        eyebrow="طلب وتوصيل"
-        title="العنوان وتأكيد الطلب"
-        description="راجع الأصناف وأدخل بيانات التسليم. الدفع نقدًا، ورسوم التوصيل تُعرض عليك قبل تثبيت الطلب."
+        eyebrow={businessId ? "خدمة فود · إتمام الطلب" : "طلب وتوصيل"}
+        title={businessId ? "أين نوصّل طلبك؟" : "العنوان وتأكيد الطلب"}
+        description="أدخل بيانات التسليم وراجع الأصناف. سيراجع المطعم الطلب ورسوم التوصيل قبل تثبيته."
         backHref={backHref}
       />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
       {!!items.length && (
-        <Surface as="form" className="ui-form-stack" onSubmit={submit}>
-          <section aria-label="ملخص الأصناف">
+        <Surface as="form" className={`${styles.checkout} ui-form-stack`} onSubmit={submit}>
+          <section className={styles.summary} aria-label="ملخص الأصناف">
             <h2>{items[0]?.product.businessName}</h2>
             {items.map(({ product, quantity }) => (
               <p key={product.id}>
@@ -226,13 +227,13 @@ export default function CheckoutPage() {
               لا يمكن طلب المواد المقيدة.
             </label>
           )}
-          <p>
-            الدفع نقدًا عند التسليم. يحدد المطعم رسوم التوصيل، ويمكنك قبولها أو
-            إلغاء الطلب قبل تعيين المندوب.
+          <p className={styles.payment}>
+            الدفع نقدًا عند التسليم. يراجع المطعم رسوم التوصيل، ولن يثبت الطلب
+            أو يُعيّن المندوب قبل موافقتك على الإجمالي.
           </p>
           <div className="ui-page-actions">
             <ActionButton type="submit" disabled={saving}>
-              {saving ? "جارٍ إرسال الطلب…" : "إرسال الطلب للمطعم"}
+              {saving ? "جارٍ إرسال الطلب…" : businessId ? "إرسال الطلب للمراجعة" : "إرسال الطلب"}
             </ActionButton>
             <ActionLink href={backHref} variant="secondary">
               العودة إلى السلة

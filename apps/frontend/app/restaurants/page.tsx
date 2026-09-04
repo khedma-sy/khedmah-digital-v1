@@ -99,28 +99,17 @@ export default function RestaurantsPage() {
   return (
     <PageShell className={styles.page} label="طلب الطعام">
       <PageHeader
-        eyebrow="مطاعم وأغذية"
-        title="ماذا تريد أن تطلب؟"
-        description="اختر مطعمًا، أضف عدة أصناف إلى السلة، ثم ادفع نقدًا عند التسليم."
+        eyebrow="خدمة فود · طلب الطعام"
+        title="اطلب وجبتك بسهولة"
+        description="ابحث عن مطعم أو طبق، اختر أصنافك، ثم تابع الطلب حتى بابك."
         backHref="/"
-        actions={<><ActionLink href="/orders" variant="secondary"><PlatformIcon name="cart" size={17}/>متابعة طلباتي</ActionLink><ActionLink href="/orders/courier" className={styles.courierEntry}><PlatformIcon name="delivery" size={18}/>بوابة مندوب التوصيل</ActionLink></>}
+        actions={<ActionLink href="/orders" variant="secondary"><PlatformIcon name="cart" size={17}/>طلباتي</ActionLink>}
       />
-      <Surface className={styles.journey}>
-        <div className={styles.journeyHeading}><span>رحلة طلب الطعام</span><p>من اختيار نوع الطعام حتى متابعة المندوب، في سجل طلب واحد.</p></div>
-        <ol className={styles.journeySteps} aria-label="مراحل طلب الطعام">
-          <li><span><PlatformIcon name="food" size={18}/></span><div><strong>نوع الطعام</strong><small>ابحث أو اختر الفئة</small></div></li>
-          <li><span><PlatformIcon name="storefront" size={18}/></span><div><strong>المطعم</strong><small>اختر نشاطًا معتمدًا</small></div></li>
-          <li><span><PlatformIcon name="cart" size={18}/></span><div><strong>الأصناف والسعر</strong><small>راجع القائمة والسلة</small></div></li>
-          <li><span><PlatformIcon name="check" size={18}/></span><div><strong>تأكيد نقدي</strong><small>وافق على الإجمالي</small></div></li>
-          <li><span><PlatformIcon name="delivery" size={18}/></span><div><strong>المندوب</strong><small>تواصل وتابع الحركة</small></div></li>
-        </ol>
-        <p className={styles.journeyNote}><PlatformIcon name="pin" size={16}/>بعد تعيين المندوب تظهر حالته وآخر موقع شاركه داخل «متابعة طلباتي».</p>
-      </Surface>
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
-      <Surface className={styles.toolbar}>
-        <div className={styles.toolbarHeading}><span className={styles.toolbarIcon}><PlatformIcon name="search" size={22}/></span><div><h2>ابحث واختر نوع الطعام</h2><p>اكتب اسم مطعم أو طبق، ثم استخدم الفئات لتضييق النتائج.</p></div></div>
+      <Surface className={styles.foodCommand}>
+        <div className={styles.toolbarHeading}><span className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>كل المطاعم والأصناف المتاحة في مكان واحد.</p></div></div>
         <label className={styles.field}>
-          <span>اسم المطعم أو الطبق</span>
+          <span className={styles.visuallyHidden}>اسم المطعم أو الطبق</span>
           <span className={styles.searchControl}>
             <PlatformIcon name="search" size={20} />
             <input
@@ -134,6 +123,11 @@ export default function RestaurantsPage() {
         <div className={styles.filters} aria-label="أنواع الطعام">
           {FOOD_FILTERS.map((filter) => <button key={filter.code || "all"} type="button" onClick={() => setCategory(filter.code)} aria-pressed={category === filter.code}>{filter.label}</button>)}
         </div>
+        <ol className={styles.journeySteps} aria-label="مراحل طلب الطعام">
+          <li><span>١</span><div><strong>اختر المطعم</strong><small>تصفح القائمة والأسعار</small></div></li>
+          <li><span>٢</span><div><strong>راجع السلة</strong><small>حدد العنوان والملاحظات</small></div></li>
+          <li><span>٣</span><div><strong>تابع الطلب</strong><small>حتى وصول المندوب</small></div></li>
+        </ol>
       </Surface>
       <section className={styles.results} aria-labelledby="restaurant-results-title">
         <div className={styles.resultsHeading}><div><span>أنشطة معتمدة</span><h2 id="restaurant-results-title">المطاعم المتاحة</h2></div><p role="status" aria-live="polite">{visible.length.toLocaleString("ar-SY")} مطعمًا ونشاطًا غذائيًا</p></div>
@@ -143,7 +137,7 @@ export default function RestaurantsPage() {
           icon={<PlatformIcon name="search" size={32} />}
           title="لا توجد مطاعم مطابقة"
           description={businesses.length ? "امسح المرشحات أو اختر نوعًا آخر من الطعام." : "لم تُنشر قوائم طعام معتمدة في منطقتك بعد. يمكنك استكشاف الأنشطة أو تسجيل مطعمك."}
-          actions={<>{(query || category) ? <ActionButton type="button" variant="secondary" onClick={resetFilters}><PlatformIcon name="refresh" size={18}/>مسح المرشحات</ActionButton> : null}<ActionLink href="/search?categoryCode=restaurant" variant="secondary">استكشف الأنشطة</ActionLink><ActionLink href="/business-profiles/new">سجّل مطعمك</ActionLink></>}
+          actions={<>{(query || category) ? <ActionButton type="button" onClick={resetFilters}><PlatformIcon name="refresh" size={18}/>مسح المرشحات</ActionButton> : null}<ActionLink href="/search?categoryCode=restaurant" variant="secondary">استكشف أنشطة قريبة</ActionLink></>}
         /></div>
       ) : (
         <div className={styles.grid}>
@@ -165,13 +159,14 @@ export default function RestaurantsPage() {
                 </span>
               )}
               <ActionLink href={`/restaurants/${business.id}`}>
-                <PlatformIcon name="cart" size={18}/>عرض القائمة والأسعار
+                <PlatformIcon name="cart" size={18}/>ابدأ الطلب
               </ActionLink>
             </Surface>
           ))}
         </div>
       )}
       </section>
+      <div className={styles.professionalLink}><ActionLink href="/orders/courier" variant="quiet"><PlatformIcon name="delivery" size={17}/>هل تعمل مندوبًا؟ افتح بوابة التوصيل</ActionLink><ActionLink href="/business-profiles/new" variant="quiet"><PlatformIcon name="storefront" size={17}/>سجّل مطعمك</ActionLink></div>
     </PageShell>
   );
 }

@@ -10,7 +10,8 @@
   font-size: 1rem;
   font-weight: 500;
   background:
-    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--mobility-green) 13%, transparent), transparent 28rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--mobility-green) 22%, var(--k-color-canvas)) 0 27rem, transparent 42rem),
+    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--mobility-green) 25%, transparent), transparent 28rem),
     linear-gradient(145deg, var(--k-color-canvas-soft), var(--k-color-canvas));
 }
 
@@ -44,7 +45,7 @@
   gap: 1rem;
   border-color: var(--mobility-green-border);
   padding: clamp(1rem, 2vw, 1.35rem);
-  background: var(--k-color-surface-raised);
+  background: color-mix(in srgb, var(--mobility-green) 7%, var(--k-color-surface-raised));
   box-shadow: var(--k-shadow-md);
 }
 .typeSwitch,
@@ -96,13 +97,16 @@
 
 @media (max-width: 58rem) {
   .journey { grid-template-columns: 1fr; }
-  .mapStage { min-height: 24rem; order: -1; }
+  .planner { order: 1; }
+  .mapStage { min-height: 18rem; order: 2; }
+  .mapStage[data-map-status='error'] { min-height: 9rem; }
 }
 
 @media (max-width: 42rem) {
   .page :global(.ui-page-header) { align-items: flex-start; }
   .journey { display: flex; flex-direction: column; }
-  .mapStage { min-height: 18rem; border-radius: var(--k-radius-lg); }
+  .mapStage { min-height: 15rem; border-radius: var(--k-radius-lg); }
+  .mapStage[data-map-status='error'] { min-height: 8rem; }
   .typeSwitch,
   .actions { display: grid; grid-template-columns: 1fr 1fr; }
   .actions > *:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }

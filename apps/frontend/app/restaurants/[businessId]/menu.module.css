@@ -1,3 +1,13 @@
+.page {
+  --food-orange: #fd9603;
+  --food-deep: color-mix(in srgb, var(--food-orange) 62%, #071833);
+  --food-soft: color-mix(in srgb, var(--food-orange) 13%, var(--k-color-surface));
+  min-height: 100svh;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--food-orange) 18%, var(--k-color-canvas)) 0 22rem, var(--k-color-canvas) 38rem);
+}
+.page :global(.ui-eyebrow), .page .price { color: var(--food-deep); }
+.page :global(.ui-action-primary) { color: #fff; background: var(--food-deep); }
+.page :global(.ui-action-secondary), .page :global(.ui-back) { border-color: color-mix(in srgb, var(--food-orange) 38%, var(--k-color-border)); color: var(--food-deep); }
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
@@ -16,12 +26,13 @@
 .item {
   display: grid;
   gap: 0.75rem;
+  border-color: color-mix(in srgb, var(--food-orange) 32%, var(--k-color-border));
 }
 .image {
   aspect-ratio: 4/3;
   border-radius: 0.9rem;
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 84%, var(--accent) 16%);
+  background: var(--food-soft);
   display: grid;
   place-items: center;
 }
@@ -33,7 +44,7 @@
 .image span {
   font-size: 2.5rem;
   font-weight: 900;
-  color: var(--accent);
+  color: var(--food-deep);
 }
 .item h2,
 .cart h2 {
@@ -53,7 +64,6 @@
   gap: 0.65rem;
 }
 .price {
-  color: var(--accent);
   font-weight: 900;
 }
 .quantity button {
@@ -66,6 +76,8 @@
   font: inherit;
   font-weight: 900;
   cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
 }
 .quantity output {
   min-width: 2ch;
@@ -77,6 +89,8 @@
   top: 6rem;
   display: grid;
   gap: 1rem;
+  border-color: color-mix(in srgb, var(--food-orange) 38%, var(--k-color-border));
+  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--food-orange) 12%, transparent);
 }
 .cartLines {
   display: grid;
@@ -108,14 +122,18 @@
   font-weight: 800;
   line-height: 1.65;
 }
+.mobileCart { display: none !important; }
 @media (max-width: 58rem) {
   .layout {
     grid-template-columns: 1fr;
   }
   .cart {
     position: static;
+    margin-block-end: 5rem;
   }
   .grid {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   }
+  .mobileCart { position: fixed; z-index: 20; inset-inline: .75rem; bottom: .75rem; min-height: 3.65rem; display: flex !important; align-items: center; justify-content: space-between; gap: .6rem; border: 1px solid rgb(255 255 255 / 45%); border-radius: 1rem; padding: .7rem 1rem; color: #fff; background: var(--food-deep); box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 24%); text-decoration: none; }
+  .mobileCart span { flex: 1; }
 }
