@@ -102,34 +102,40 @@ export default function StorePage() {
     setFilters((current) => currency ? { ...current, currency } : { ...current, currency: '', minPrice: '', maxPrice: '', sort: 'newest' });
   }
 
+  function browseCategory(categoryCode: string) {
+    const next = { ...filters, categoryCode };
+    setFilters(next);
+    syncUrl(next);
+    void load(next);
+  }
+
   const hasFilters = Boolean(filters.q || filters.categoryCode || filters.cityCode || filters.availability || filters.currency || filters.minPrice || filters.maxPrice || filters.sort !== 'newest');
   const advancedFilterCount = countAdvancedFilters(filters);
 
-  return <PageShell className={styles.page} label="الإعلانات المبوبة">
-    <header className={styles.hero}>
-      <div className={styles.heroCopy}>
-        <span className={styles.eyebrow}>سوق خدمة المحلي</span>
-        <h1>ماذا تبحث عنه اليوم؟</h1>
-        <p>إعلانات من أنشطة معتمدة، بتفاصيل واضحة وتواصل مباشر مع البائع.</p>
-        <div className={styles.trustLine} aria-label="مزايا إعلانات خدمة">
-          <span><PlatformIcon name="check" size={15}/>أنشطة موثّقة</span>
-          <span><PlatformIcon name="pin" size={15}/>بحث حسب المدينة</span>
-          <span><PlatformIcon name="phone" size={15}/>تواصل مباشر</span>
-        </div>
-      </div>
-      <nav className={styles.heroActions} aria-label="إجراءات المتجر">
-        <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف إعلانك</ActionLink>
-        <ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink>
-      </nav>
-    </header>
+  const rootCategories = categories.filter((category) => !category.parentCode).slice(0, 8);
 
-    <Surface className={styles.discoveryPanel}><form className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في الإعلانات" aria-busy={loading}>
+  return <PageShell className={styles.page} label="الإعلانات المبوبة">
+    <section className={styles.marketplace}>
+      <header className={styles.hero}>
+        <div className={styles.marketBrand}><span>سوق</span><strong>خدمة</strong></div>
+        <div className={styles.heroCopy}>
+          <span className={styles.eyebrow}>إعلانات محلية موثوقة</span>
+          <h1>ابحث. قارن. تواصل.</h1>
+          <p>اعثر على ما تحتاجه من بائعين وأنشطة معتمدة بالقرب منك.</p>
+        </div>
+        <nav className={styles.heroActions} aria-label="إجراءات المتجر">
+          <ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>إعلاناتي</ActionLink>
+          <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف إعلانًا</ActionLink>
+        </nav>
+      </header>
+
+      <Surface className={styles.discoveryPanel}><form className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في الإعلانات" aria-busy={loading}>
       <div className={styles.searchBlock}>
-        <label htmlFor="store-search">ابحث في الإعلانات</label>
+        <label htmlFor="store-search">ماذا تبحث عنه؟</label>
         <div className={styles.searchControl}>
           <PlatformIcon name="search" size={20}/>
           <input id="store-search" type="search" autoComplete="off" value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: أثاث، هاتف أو مواد بناء"/>
-          <ActionButton type="submit" disabled={loading}>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>
+          <ActionButton type="submit" disabled={loading}>بحث</ActionButton>
         </div>
       </div>
 
@@ -154,7 +160,20 @@ export default function StorePage() {
         <label className={styles.field}>السعر إلى<input type="number" min="0" step="0.01" inputMode="decimal" value={filters.maxPrice} disabled={!filters.currency} onChange={(event) => setFilters((value) => ({ ...value, maxPrice: event.target.value }))} placeholder={filters.currency ? 'الحد الأعلى' : 'اختر العملة'}/></label>
         <label className={styles.field}>الترتيب<select value={filters.sort} onChange={(event) => setFilters((value) => ({ ...value, sort: event.target.value as StoreSort }))}><option value="newest">الأحدث</option><option value="price_asc" disabled={!filters.currency}>السعر: الأقل أولًا</option><option value="price_desc" disabled={!filters.currency}>السعر: الأعلى أولًا</option></select></label>
       </div>
-    </form></Surface>
+      </form></Surface>
+
+      <nav className={styles.categoryRail} aria-label="تصفح الإعلانات حسب التصنيف">
+        <button type="button" data-active={!filters.categoryCode} onClick={() => browseCategory('')}><PlatformIcon name="grid" size={19}/><span>الكل</span></button>
+        {rootCategories.map((category, index) => <button key={category.code} type="button" data-active={filters.categoryCode === category.code} data-tone={index % 3} onClick={() => browseCategory(category.code)}><PlatformIcon name={index === 0 ? 'car' : index === 1 ? 'home' : index === 2 ? 'technology' : index === 3 ? 'storefront' : index === 4 ? 'briefcase' : 'tag'} size={19}/><span>{category.nameAr}</span></button>)}
+        <Link href="/categories"><PlatformIcon name="arrow" size={18}/><span>كل التصنيفات</span></Link>
+      </nav>
+
+      <div className={styles.trustLine} aria-label="مزايا إعلانات خدمة">
+        <span><PlatformIcon name="check" size={15}/>بائعون وأنشطة موثّقة</span>
+        <span><PlatformIcon name="pin" size={15}/>نتائج حسب مدينتك</span>
+        <span><PlatformIcon name="phone" size={15}/>تواصل مباشر</span>
+      </div>
+    </section>
     {categoriesError && <StatusMessage tone="warning">تعذر تحميل التصنيفات. <button type="button" onClick={() => void retryCategories()}>إعادة المحاولة</button></StatusMessage>}
     {citiesError && <StatusMessage tone="warning">تعذر تحميل المدن. <button type="button" onClick={() => void retryCities()}>إعادة المحاولة</button></StatusMessage>}
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
@@ -163,11 +182,12 @@ export default function StorePage() {
     {loading ? <SkeletonGrid count={6} label="جاري تحميل الإعلانات"/> : products.length ? <section className={styles.grid} aria-label="الإعلانات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
       <Link className={styles.image} href={`/store/products/${product.id}`} aria-label={`عرض ${product.titleAr}`}>{product.imageUrl ? <img src={product.imageUrl} alt={`صورة ${product.titleAr}`}/> : <span aria-hidden="true">خ</span>}</Link>
       <div className={styles.cardTop}><span className={styles.availability} data-available={product.availability === 'in_stock'}>{availabilityLabel(product.availability)}</span><span className={styles.verified}><PlatformIcon name="check" size={14}/>نشاط موثّق</span></div>
+      <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY-u-nu-latn')} {product.currency}</strong>
       <p className={styles.seller}>{product.businessName ?? 'نشاط على خدمة'}</p>
       <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span><time dateTime={product.createdAt}>نُشر {publishedAt(product.createdAt)}</time></div>
-      <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY-u-nu-latn')} {product.currency}</strong>
       <ActionLink href={`/store/products/${product.id}`}>التفاصيل والتواصل <PlatformIcon name="arrow" size={16}/></ActionLink>
-    </Surface>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="storefront" size={34}/>} title={hasFilters ? 'لا توجد إعلانات بهذه المواصفات' : 'لم تُنشر إعلانات معتمدة بعد'} description={hasFilters ? 'غيّر بعض خيارات البحث أو وسّع المدينة ونطاق السعر للوصول إلى نتائج أكثر.' : 'ستظهر هنا الإعلانات المنشورة من الأنشطة الموثّقة فور اعتمادها.'} actions={<>{hasFilters && <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع الإعلانات</ActionButton>}<ActionLink href="/categories" variant="secondary">استكشف الأنشطة</ActionLink></>} /></div>}
+    </Surface>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="storefront" size={30}/>} title={hasFilters ? 'لا توجد إعلانات مطابقة' : 'كن أول من ينشر في سوق خدمة'} description={hasFilters ? 'وسّع نطاق البحث أو امسح الاختيارات لعرض نتائج أكثر.' : 'أضف إعلانك وسيظهر بعد اعتماد النشاط والمحتوى.'} actions={hasFilters ? <ActionButton type="button" variant="secondary" onClick={clear}><PlatformIcon name="refresh" size={17}/>عرض جميع الإعلانات</ActionButton> : <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف إعلانًا</ActionLink>} /></div>}
+      <p className={styles.safety}><PlatformIcon name="info" size={15}/>تحقق من المنتج وتفاصيله قبل الدفع أو الاستلام.</p>
     </section>
   </PageShell>;
 }

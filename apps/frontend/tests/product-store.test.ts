@@ -21,8 +21,12 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(categoryFilter, /اختر المجال أولًا/);
   assert.match(categoryFilter, /category\.parentCode === rootCode/);
   assert.match(store, /كل المدن/);
-  assert.match(store, /ماذا تبحث عنه اليوم؟/);
-  assert.match(store, /سوق خدمة المحلي/);
+  assert.match(store, /ابحث\. قارن\. تواصل\./);
+  assert.match(store, /إعلانات محلية موثوقة/);
+  assert.match(store, /تصفح الإعلانات حسب التصنيف/);
+  assert.match(store, /البحث في الإعلانات/);
+  assert.match(store, /أضف إعلانًا/);
+  assert.match(store, /تحقق من المنتج وتفاصيله قبل الدفع أو الاستلام/);
   assert.match(store, /أنشطة موثّقة/);
   assert.match(store, /aria-label="إجراءات المتجر"/);
   assert.doesNotMatch(store, /href="\/orders\/courier"/);
@@ -41,7 +45,7 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(store, /aria-label="البحث في الإعلانات"/);
   assert.match(store, /إعلان مطابق/);
   assert.match(store, /التفاصيل والتواصل/);
-  assert.match(store, /لم تُنشر إعلانات معتمدة بعد/);
+  assert.match(store, /كن أول من ينشر في سوق خدمة/);
   assert.match(store, /عرض جميع الإعلانات/);
   assert.match(store, /retryCategories/);
   assert.match(store, /retryCities/);
