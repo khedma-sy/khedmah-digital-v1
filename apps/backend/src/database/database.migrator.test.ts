@@ -39,7 +39,7 @@ for (const scenario of [
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=031 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=032 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });

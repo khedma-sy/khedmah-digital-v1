@@ -152,7 +152,7 @@ export interface MobilityRequest {
   readonly serviceType: 'taxi' | 'delivery';
   readonly pickupAddress: string;
   readonly destinationAddress: string;
-  readonly riderContactPhone: string;
+  readonly riderContactPhone?: string;
   readonly pickupLatitude: number;
   readonly pickupLongitude: number;
   readonly destinationLatitude?: number;
@@ -162,15 +162,37 @@ export interface MobilityRequest {
     | 'requested'
     | 'accepted'
     | 'en_route'
+    | 'arrived'
+    | 'in_progress'
     | 'completed'
     | 'rejected'
     | 'cancelled';
   readonly acceptedAt?: string;
   readonly enRouteAt?: string;
+  readonly arrivedAt?: string;
+  readonly startedAt?: string;
   readonly completedAt?: string;
   readonly closedAt?: string;
+  readonly routeDistanceMeters?: number;
+  readonly waitingSeconds?: number;
+  readonly fareStatus: 'pending' | 'finalized' | 'unavailable';
+  readonly fareCurrency: 'SYP';
+  readonly baseFare?: number;
+  readonly farePerKm?: number;
+  readonly farePerWaitingMinute?: number;
+  readonly fareMinimum?: number;
+  readonly farePolicyUpdatedAt?: string;
+  readonly distanceFare?: number;
+  readonly waitingFare?: number;
+  readonly finalFare?: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface MobilityFarePolicy {
+  readonly serviceType:'taxi'|'delivery'; readonly enabled:boolean; readonly currency:'SYP';
+  readonly baseFare:number; readonly perKmFare:number; readonly perWaitingMinuteFare:number; readonly minimumFare:number;
+  readonly approvedAt?:string; readonly updatedAt:string;
 }
 
 export interface Category {
@@ -300,7 +322,11 @@ export interface MediaAsset {
     | 'service_image'
     | 'product_image'
     | 'problem_image'
-    | 'completion_image';
+    | 'completion_image'
+    | 'driver_photo'
+    | 'identity_card'
+    | 'driving_license'
+    | 'vehicle_license';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -507,11 +533,15 @@ export const api = {
         `/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`,
       );
     },
-    transition(id: string, status: MobilityRequest['status'], reason?: string) {
+    transition(id: string, status: MobilityRequest['status'], reason?: string, distanceMeters?: number) {
       return request<{ request: MobilityRequest }>(
         `/mobility/requests/${encodeURIComponent(id)}/status`,
-        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
+        { method: 'PATCH', body: JSON.stringify({ status, reason, distanceMeters }) },
       );
+    },
+    farePolicy(serviceType:'taxi'|'delivery') { return request<{policy:MobilityFarePolicy}>(`/mobility/fare-policy?serviceType=${serviceType}`); },
+    updateFarePolicy(data:{serviceType:'taxi'|'delivery';enabled:boolean;baseFare:number;perKmFare:number;perWaitingMinuteFare:number;minimumFare:number}) {
+      return request<{policy:MobilityFarePolicy}>('/mobility/admin/fare-policy',{method:'PUT',body:JSON.stringify(data)});
     },
   },
   contact: {
@@ -705,6 +735,10 @@ export const api = {
         }),
       });
     },
+    uploadDriverDocument(
+      id:string,
+      data:{filename:string;mimeType:'image/jpeg'|'image/png'|'image/webp';sizeBytes:number;content:string;assetType:'driver_photo'|'identity_card'|'driving_license'|'vehicle_license'},
+    ) { return request<UploadedMediaAsset>('/media',{method:'POST',body:JSON.stringify({ownerType:'business_profile',ownerId:id,visibility:'private',sortOrder:0,...data})}); },
     uploadProduct(
       id: string,
       data: {

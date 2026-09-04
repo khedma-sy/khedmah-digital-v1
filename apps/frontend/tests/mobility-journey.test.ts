@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('mobility journey creates a bounded real request without pretending to price or track', async () => {
+test('mobility journey creates a governed request with platform fare and honest tracking boundaries', async () => {
   const [page, client, provider] = await Promise.all([read('app/mobility/page.tsx'), read('lib/api-client.ts'), read('app/mobility/manage/page.tsx')]);
   assert.match(page, /type === 'taxi' \? 'taxi' : 'delivery_courier'/);
   assert.match(page, /get\('type'\) === 'delivery'/);
@@ -13,14 +13,16 @@ test('mobility journey creates a bounded real request without pretending to pric
   assert.match(page, /longitude: resolvedPickup\.longitude/);
   assert.match(page, /result\.businesses\.slice\(0, 12\)/);
   assert.match(page, /api\.mobility\.create/);
-  assert.match(page, /التسجيل والاستخدام مجانيان خلال المرحلة التجريبية/);
-  assert.match(page, /لا يوجد بعد تسعير آلي أو دفع أو تتبع حي/);
+  assert.match(page, /السعر تحسبه خدمة، لا السائق/);
+  assert.match(page, /الدفع الإلكتروني والتتبع في الخلفية غير مفعّلين بعد/);
   assert.match(client, /Idempotency-Key/);
   assert.match(provider, /api\.mobility\.listForProvider/);
-  assert.match(provider, /قبول الطلب/);
-  assert.match(provider, /أنا في الطريق/);
-  assert.match(provider, /إكمال الرحلة/);
-  assert.doesNotMatch(page, /تم تعيين السائق|تم تأكيد الرحلة|سعر الرحلة/);
+  assert.match(provider, /قبول/);
+  assert.match(provider, /انطلقت للعميل/);
+  assert.match(provider, /وصلت إلى العميل/);
+  assert.match(provider, /ابدأ الرحلة والعداد/);
+  assert.match(provider, /إنهاء وإصدار السعر/);
+  assert.doesNotMatch(provider, /name=["']finalFare/);
 });
 
 test('mobility journey renders a resilient two-point Google map and accepts typed addresses', async () => {
@@ -35,7 +37,6 @@ test('mobility journey renders a resilient two-point Google map and accepts type
   assert.match(page, /geocodeAddress\(destination\)/);
   assert.match(page, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(page, /gm_authFailure/);
-  assert.match(page, /https:\/\/www\.google\.com\/maps\/dir\//);
   assert.match(page, /strokeColor: '#81BE49'/);
   assert.match(styles, /--mobility-green:\s*#81be49/i);
   assert.match(styles, /--mobility-font-arabic/);

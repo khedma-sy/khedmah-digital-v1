@@ -35,11 +35,38 @@ export function validateCreateMobilityRequest(value: Record<string, unknown>) {
 }
 
 export function validateMobilityTransition(value: Record<string, unknown>): { status: MobilityRequestStatus; reason?: string } {
-  const allowed: MobilityRequestStatus[] = ['accepted', 'en_route', 'completed', 'rejected', 'cancelled'];
+  const allowed: MobilityRequestStatus[] = ['accepted', 'en_route', 'arrived', 'in_progress', 'completed', 'rejected', 'cancelled'];
   if (!allowed.includes(value.status as MobilityRequestStatus)) throw new BadRequestException('Mobility status is invalid.');
   const reason = text(value.reason, 'reason', 3, 300, true);
   if (value.status === 'rejected' && !reason) throw new BadRequestException('A rejection reason is required.');
   return { status: value.status as MobilityRequestStatus, reason };
+}
+
+export function validateMobilityCompletion(value: Record<string, unknown>): { distanceMeters: number } {
+  if (typeof value.distanceMeters !== 'number' || !Number.isFinite(value.distanceMeters)) throw new BadRequestException('distanceMeters is invalid.');
+  const distanceMeters = Math.round(value.distanceMeters);
+  if (distanceMeters < 0 || distanceMeters > 1_000_000) throw new BadRequestException('distanceMeters is invalid.');
+  return { distanceMeters };
+}
+
+export function validateFarePolicy(value: Record<string, unknown>) {
+  if (value.serviceType !== 'taxi' && value.serviceType !== 'delivery') throw new BadRequestException('serviceType is invalid.');
+  const integer = (field: string, minimum = 0) => {
+    const input = value[field];
+    if (typeof input !== 'number' || !Number.isInteger(input) || input < minimum || input > 100_000_000) throw new BadRequestException(`${field} is invalid.`);
+    return input;
+  };
+  if (typeof value.enabled !== 'boolean') throw new BadRequestException('enabled is invalid.');
+  const policy = {
+    serviceType: value.serviceType as MobilityServiceType,
+    enabled: value.enabled,
+    baseFare: integer('baseFare'),
+    perKmFare: integer('perKmFare'),
+    perWaitingMinuteFare: integer('perWaitingMinuteFare'),
+    minimumFare: integer('minimumFare')
+  };
+  if (policy.enabled && (policy.baseFare <= 0 || policy.perKmFare <= 0 || policy.minimumFare < policy.baseFare)) throw new BadRequestException('Enabled fare policy requires valid approved rates.');
+  return policy;
 }
 
 export function validateMobilityIdempotencyKey(value: unknown): string {

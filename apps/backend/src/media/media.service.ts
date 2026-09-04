@@ -3,9 +3,12 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { DatabasePool } from '../database/database.pool';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
+import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { createStorageAdapter, StorageAdapter } from './storage.adapter';
 import { MediaAsset, PublicMediaAsset, UploadMediaRequest } from './media.types';
 import { validateUploadMediaRequest } from './media.validation';
+
+const DRIVER_DOCUMENT_TYPES = new Set(['driver_photo','identity_card','driving_license','vehicle_license']);
 
 @Injectable()
 export class MediaService {
@@ -13,7 +16,8 @@ export class MediaService {
 
   constructor(
     @Inject(DatabasePool) private readonly db: DatabasePool,
-    @Inject(IdentityService) private readonly identity: IdentityService
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
   ) {
     this.storage = createStorageAdapter();
   }
@@ -32,7 +36,7 @@ export class MediaService {
     const storageKey = `media/${input.ownerType}/${input.ownerId}/${id}.${ext}`;
     const now = new Date().toISOString();
 
-    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : ['problem_image','completion_image'].includes(input.assetType ?? '') ? 5 : undefined;
+    const imageLimit = input.assetType === 'gallery' ? 12 : input.assetType === 'product_image' ? 5 : ['problem_image','completion_image'].includes(input.assetType ?? '') ? 5 : ['driver_photo','identity_card','driving_license','vehicle_license'].includes(input.assetType ?? '') ? 1 : undefined;
     const asset: MediaAsset = {
       id,
       ownerUserId: actor.id,
@@ -127,6 +131,7 @@ export class MediaService {
   async listForOwner(cookieHeader: string | undefined, ownerType: string, ownerId: string): Promise<PublicMediaAsset[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const canReadPrivateRequest = ownerType === 'professional_request' ? await this.canReadProfessionalRequest(actor.id, ownerId) : false;
+    const canReviewDriverDocuments = ownerType === 'business_profile' && this.rbac.permissionsFor(actor.email).includes('security.manage');
     const rows = await this.db.query<{
       id: string; owner_user_id: string; owner_type: string; owner_id: string;
       filename: string; mime_type: string; size_bytes: number; visibility: string;
@@ -140,7 +145,7 @@ export class MediaService {
     );
 
     return rows
-      .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id || canReadPrivateRequest)
+      .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id || canReadPrivateRequest || (canReviewDriverDocuments && DRIVER_DOCUMENT_TYPES.has(r.asset_type ?? '')))
       .map((r) => { const asset=this.toPublic(this.mapRow(r)); return r.visibility === 'private' ? {...asset,publicUrl:`/api/v1/media/secure/${r.id}`} : asset; });
   }
 
@@ -169,9 +174,9 @@ export class MediaService {
 
   async readSecure(cookieHeader:string|undefined,id:string):Promise<{data:Buffer;mimeType:string}>{
     const actor=await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const [row]=await this.db.query<{storage_key:string;mime_type:string;owner_type:string;owner_id:string;owner_user_id:string}>(`SELECT storage_key,mime_type,owner_type,owner_id,owner_user_id FROM media_assets WHERE id=$1 AND visibility='private' LIMIT 1`,[id]);
+    const [row]=await this.db.query<{storage_key:string;mime_type:string;owner_type:string;owner_id:string;owner_user_id:string;asset_type:string|null}>(`SELECT storage_key,mime_type,owner_type,owner_id,owner_user_id,asset_type FROM media_assets WHERE id=$1 AND visibility='private' LIMIT 1`,[id]);
     if(!row)throw new NotFoundException('Media asset not found.');
-    const allowed=row.owner_user_id===actor.id||(row.owner_type==='professional_request'&&await this.canReadProfessionalRequest(actor.id,row.owner_id));
+    const allowed=row.owner_user_id===actor.id||(row.owner_type==='professional_request'&&await this.canReadProfessionalRequest(actor.id,row.owner_id))||(row.owner_type==='business_profile'&&DRIVER_DOCUMENT_TYPES.has(row.asset_type??'')&&this.rbac.permissionsFor(actor.email).includes('security.manage'));
     if(!allowed)throw new ForbiddenException('Access denied.');const object=await this.storage.read(row.storage_key);return{data:object.data,mimeType:row.mime_type||object.mimeType};
   }
 

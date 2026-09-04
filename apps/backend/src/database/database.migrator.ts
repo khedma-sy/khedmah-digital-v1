@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '031';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '032';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -132,7 +132,10 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   index('operations-issues','030','operations_incident_events','operations_incident_events_incident_time_idx'),
   table('admin-catalog','031','admin_catalog_actions'),
   constraint('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_status_change_check'),
-  index('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_category_created_idx')
+  index('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_category_created_idx'),
+  table('mobility-fares','032','mobility_fare_policies'),
+  ...['arrived_at','started_at','route_distance_meters','waiting_seconds','fare_status','final_fare'].map((name)=>column('mobility-fares','032','mobility_requests',name)),
+  constraint('mobility-fares','032','mobility_requests','mobility_requests_fare_complete_check')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

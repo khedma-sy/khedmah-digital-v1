@@ -59,6 +59,7 @@ jobs:
             029_admin_user_management
             030_operations_issue_center
             031_admin_catalog_management
+            032_mobility_fare_lifecycle
           )
 
           for migration in "${migrations[@]}"; do
@@ -143,6 +144,8 @@ jobs:
             030_operations_issue_center_rollback.sql \
             031_admin_catalog_management.sql \
             031_admin_catalog_management_rollback.sql \
+            032_mobility_fare_lifecycle.sql \
+            032_mobility_fare_lifecycle_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"

@@ -70,9 +70,10 @@ test('preview initializes only its isolated database before backend deployment',
   assert.match(runner, /029_admin_user_management\.sql/);
   assert.match(runner, /030_operations_issue_center\.sql/);
   assert.match(runner, /031_admin_catalog_management\.sql/);
+  assert.match(runner, /032_mobility_fare_lifecycle\.sql/);
   assert.match(runner, /PREVIEW_SOCKET_URI="%2Fcloudsql%2F\$\{CLOUD_SQL_INSTANCE_CONNECTION_NAME\}"/);
   assert.match(runner, /PREVIEW_DATABASE_URL=.*host=\$\{PREVIEW_SOCKET_URI\}/);
-  assert.match(runner, /PREVIEW_SCHEMA_031_READY/);
+  assert.match(runner, /PREVIEW_SCHEMA_032_READY/);
   assert.match(image, /run-preview-migrations/);
 });
 

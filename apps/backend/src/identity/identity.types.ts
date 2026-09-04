@@ -68,6 +68,7 @@ export type AuditEventType =
   | 'admin.user.reactivated'
   | 'mobility.request.created'
   | 'mobility.request.status_changed'
+  | 'mobility.fare_policy.updated'
   | 'fulfillment.order.created'
   | 'fulfillment.order.status_changed'
   | 'professional_request.created'

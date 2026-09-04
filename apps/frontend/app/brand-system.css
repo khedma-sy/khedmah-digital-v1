@@ -154,6 +154,13 @@ body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
 .moderation-approve { border:0; color:#fff; background:var(--k-color-primary); }
 .moderation-reject { border:0; color:#fff; background:var(--k-color-danger); }
 .moderation-actions button:disabled { cursor:not-allowed; opacity:.55; }
+.fare-policy-card { align-items:flex-end; }
+.fare-policy-card>div:first-child { flex:1; }
+.fare-policy-grid { display:grid; grid-template-columns:repeat(4,minmax(8rem,1fr)); gap:.6rem; margin-top:.75rem; }
+.fare-policy-grid label { display:grid; gap:.3rem; color:var(--k-color-text-muted); font-size:.76rem; font-weight:800; }
+.fare-policy-grid input { width:100%; min-height:2.6rem; border:1px solid var(--k-color-border); border-radius:.7rem; padding:.5rem .65rem; color:var(--k-color-text); background:var(--k-color-surface-muted); font:inherit; }
+.fare-policy-actions { align-items:center; flex-wrap:wrap; }
+.fare-policy-actions label { display:flex; align-items:center; gap:.35rem; font-size:.8rem; font-weight:800; }
 .moderation-dialog-backdrop { position:fixed; inset:0; z-index:300; display:grid; place-items:center; padding:1rem; background:var(--k-color-overlay); }
 .moderation-dialog { width:min(100%,30rem); padding:1.25rem; border-radius:var(--k-radius-lg); box-shadow:var(--k-glass-shadow); }
 .moderation-dialog h3 { margin-top:0; font-size:var(--k-type-card); }
@@ -185,6 +192,7 @@ body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
   .moderation-card { align-items:stretch; flex-direction:column; }
   .moderation-actions { width:100%; }
   .moderation-actions button { flex:1; }
+  .fare-policy-grid { grid-template-columns:1fr 1fr; }
 }
 
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }

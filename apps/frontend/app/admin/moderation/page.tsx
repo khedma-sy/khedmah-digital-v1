@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, AdminContentGovernance, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, AdminContentGovernance, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile, UploadedMediaAsset } from '../../../lib/api-client';
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +15,7 @@ export default function ModerationPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [governance,setGovernance]=useState<AdminContentGovernance|null>(null);
+  const [driverDocuments,setDriverDocuments]=useState<Record<string,UploadedMediaAsset[]>>({});
   const messageFor = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
 
   const loadQueue = async () => {
@@ -32,6 +33,9 @@ export default function ModerationPage() {
       setReports(reports);
       setPromotions(promotions);
       setGovernance(contentGovernance);
+      const mobilityBusinesses=businesses.filter(business=>business.categoryCode==='taxi'||business.categoryCode==='delivery_courier');
+      const documents=await Promise.all(mobilityBusinesses.map(async business=>[business.id,(await api.media.listForOwner('business_profile',business.id)).filter(asset=>['driver_photo','identity_card','driving_license','vehicle_license'].includes(asset.assetType??''))] as const));
+      setDriverDocuments(Object.fromEntries(documents));
       setError(null);
     } catch (err: unknown) {
       setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
@@ -153,11 +157,12 @@ export default function ModerationPage() {
                 <div>
                   <h3>{b.name}</h3>
                   <p>{b.categoryCode} · {b.cityCode}</p>
+                  {(b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&<><small>تدقيق الوثائق: {(driverDocuments[b.id]?.length??0).toLocaleString('ar-SY')}/٤</small><div className="moderation-actions">{(driverDocuments[b.id]??[]).map((asset,index)=><a href={asset.publicUrl} target="_blank" rel="noreferrer" key={asset.id}>وثيقة {index+1}</a>)}</div></>}
                 </div>
                 <div className="moderation-actions">
                   <button
                     onClick={() => handleApprove('business', b.id)}
-                    disabled={actionLoading}
+                    disabled={actionLoading||((b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&(driverDocuments[b.id]?.length??0)!==4)}
                     className="moderation-approve"
                   >
                     موافقة

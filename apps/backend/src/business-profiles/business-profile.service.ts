@@ -160,6 +160,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(id);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.assertMobilityDocuments(profile);
 
     const updatedAt = new Date().toISOString();
     await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
@@ -303,6 +304,7 @@ export class BusinessProfileService {
     if (entityType !== 'business') throw new BadRequestException('Unsupported verification entity type.');
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    await this.assertMobilityDocuments(profile);
     const existing = await this.repository.findVerificationRequest(entityType, entityId);
     if (existing?.status === 'pending' || existing?.status === 'approved') return existing;
     const req: VerificationRequest = {
@@ -350,6 +352,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
     const profile = await this.requireProfile(entityId);
+    await this.assertMobilityDocuments(profile);
     const updatedAt = new Date().toISOString();
 
     await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
@@ -415,6 +418,11 @@ export class BusinessProfileService {
       throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
     }
     return profile;
+  }
+
+  private async assertMobilityDocuments(profile:BusinessProfile):Promise<void>{
+    if(profile.categoryCode!=='taxi'&&profile.categoryCode!=='delivery_courier')return;
+    if(await this.repository.countMobilityDocuments(profile.id)!==4)throw new BadRequestException('Driver photo, identity card, driving licence and vehicle licence are required before review.');
   }
 
   private toPublic(profile: BusinessProfile): PublicBusinessProfile {

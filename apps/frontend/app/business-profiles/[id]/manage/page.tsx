@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile, VerificationRequest } from '../../../../lib/api-client';
+import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile, UploadedMediaAsset, VerificationRequest } from '../../../../lib/api-client';
 import { useCategories } from '../../../../lib/use-categories';
 import { useSyrianCities } from '../../../../lib/use-syrian-cities';
 import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../../components/ui-primitives';
@@ -15,6 +15,8 @@ const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربع�
 const PLATFORMS = [{ value: 'facebook', label: 'فيسبوك' }, { value: 'instagram', label: 'إنستغرام' }, { value: 'linkedin', label: 'لينكدإن' }, { value: 'youtube', label: 'يوتيوب' }, { value: 'whatsapp', label: 'واتساب' }];
 const defaultHours = (): OpeningHours[] => DAYS.map((_, dayOfWeek) => ({ id: `day-${dayOfWeek}`, businessProfileId: '', dayOfWeek, openTime: '09:00', closeTime: '17:00', isClosed: dayOfWeek === 5 }));
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const DRIVER_DOCUMENTS = [{value:'driver_photo',label:'الصورة الشخصية للسائق'},{value:'identity_card',label:'بطاقة الهوية'},{value:'driving_license',label:'رخصة القيادة'},{value:'vehicle_license',label:'رخصة السيارة'}] as const;
+type DriverDocumentType=(typeof DRIVER_DOCUMENTS)[number]['value'];
 
 function fileContent(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -40,6 +42,8 @@ export default function ManageBusinessProfilePage() {
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [mediaType, setMediaType] = useState<'logo' | 'cover' | 'gallery'>('gallery');
+  const [driverDocuments,setDriverDocuments]=useState<UploadedMediaAsset[]>([]);
+  const [driverDocumentType,setDriverDocumentType]=useState<DriverDocumentType>('driver_photo');
   const [isLoading, setIsLoading] = useState(true);
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
@@ -54,15 +58,16 @@ export default function ManageBusinessProfilePage() {
   async function loadWorkspace() {
     setIsLoading(true); setError('');
     try {
-      const [session, profiles, ownerServices, received, storedHours, storedBranches, storedLinks, verificationState, storedMedia] = await Promise.all([
+      const [session, profiles, ownerServices, received, storedHours, storedBranches, storedLinks, verificationState, storedMedia, storedPrivateMedia] = await Promise.all([
         api.auth.session(), api.businesses.listMine(), api.services.listForOwner(id, 'business'), api.businesses.listReceivedInquiries(id),
-        api.businesses.getOpeningHours(id), api.businesses.getBranches(id), api.businesses.getSocialLinks(id), api.businesses.getVerificationStatus(id), api.businesses.getMedia(id)
+        api.businesses.getOpeningHours(id), api.businesses.getBranches(id), api.businesses.getSocialLinks(id), api.businesses.getVerificationStatus(id), api.businesses.getMedia(id),api.media.listForOwner('business_profile',id)
       ]);
       const owned = profiles.businesses.find((profile) => profile.id === id);
       if (!owned) { router.replace('/business-profiles'); return; }
       setUser(session.user); setBusiness(owned); setServices(ownerServices.services); setInquiries(received.inquiries);
       setBranches(storedBranches.branches); setSocialLinks(storedLinks.links); setVerification(verificationState.status);
       setMedia(storedMedia.assets);
+      setDriverDocuments(storedPrivateMedia.filter(asset=>DRIVER_DOCUMENTS.some(document=>document.value===asset.assetType)));
       setHours(storedHours.hours.length === 7 ? storedHours.hours : defaultHours().map((hour) => ({ ...hour, businessProfileId: id })));
       setProfileForm({ name: owned.name, descriptionAr: owned.descriptionAr ?? '', phone: owned.phone ?? '', email: owned.email ?? '', website: owned.website ?? '', categoryCode: owned.categoryCode });
       setBranchForm((current) => ({ ...current, cityCode: current.cityCode || owned.cityCode }));
@@ -81,9 +86,9 @@ export default function ManageBusinessProfilePage() {
 
   const completion = useMemo(() => {
     if (!business) return 0;
-    const checks = [business.name, business.descriptionAr, business.categoryCode, business.cityCode, business.phone || business.email, services.length, hours.length === 7, branches.length, media.length];
+    const checks = [business.name, business.descriptionAr, business.categoryCode, business.cityCode, business.phone || business.email, services.length, hours.length === 7, branches.length, media.length,...((business.categoryCode==='taxi'||business.categoryCode==='delivery_courier')?[driverDocuments.length===4]:[])];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  }, [business, services.length, hours.length, branches.length, media.length]);
+  }, [business, services.length, hours.length, branches.length, media.length,driverDocuments.length]);
 
   function begin(action: string) { setBusyAction(action); setError(''); setNotice(''); }
   function succeeded(message: string) { setNotice(message); setBusyAction(''); }
@@ -158,6 +163,10 @@ export default function ManageBusinessProfilePage() {
     catch { failed('تعذر حذف الصورة.'); }
   }
 
+  async function uploadDriverDocument(event:FormEvent<HTMLFormElement>){event.preventDefault();const input=event.currentTarget.elements.namedItem('driverDocument') as HTMLInputElement;const file=input.files?.[0];if(!file||!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])||file.size<=0||file.size>5*1024*1024){setError('اختر صورة JPG أو PNG أو WebP بحجم لا يتجاوز 5 ميغابايت.');return;}begin('driver-document');try{await api.media.uploadDriverDocument(id,{filename:file.name,mimeType:file.type as typeof ALLOWED_IMAGE_TYPES[number],sizeBytes:file.size,content:await fileContent(file),assetType:driverDocumentType});input.value='';await loadWorkspace();succeeded('تم حفظ الوثيقة بصورة خاصة للمراجعة.');}catch{failed('تعذر رفع الوثيقة. احذف النسخة السابقة من النوع نفسه إن وجدت.');}}
+
+  async function deleteDriverDocument(assetId:string){begin(`driver-document-${assetId}`);try{await api.media.delete(assetId);setDriverDocuments(items=>items.filter(item=>item.id!==assetId));succeeded('تم حذف الوثيقة الخاصة.');}catch{failed('تعذر حذف الوثيقة.');}}
+
   async function requestVerification() {
     begin('verification');
     try { const result = await api.businesses.requestVerification(id); setVerification(result.request); succeeded('تم إرسال طلب التوثيق للمراجعة البشرية.'); }
@@ -188,6 +197,7 @@ export default function ManageBusinessProfilePage() {
     {showServiceForm && <Surface as="form" className={styles.form} onSubmit={createService} aria-busy={busyAction === 'service'}><h2>خدمة جديدة</h2><label>اسم الخدمة<input value={serviceForm.titleAr} onChange={(event) => setServiceForm((current) => ({ ...current, titleAr: event.target.value }))} minLength={2} maxLength={200} required/></label><label>وصف مختصر<textarea value={serviceForm.descriptionAr} onChange={(event) => setServiceForm((current) => ({ ...current, descriptionAr: event.target.value }))} maxLength={2000} rows={4}/></label><div className={styles.formGrid}><label>التخصص<select value={serviceForm.categoryCode} disabled={categoriesLoading || !!categoriesError} required onChange={(event) => setServiceForm((current) => ({ ...current, categoryCode: event.target.value }))}><option value="">اختر تخصص الخدمة</option><CategorySelectOptions categories={categories} allowRoots={false} /></select></label><label>طريقة السعر<select value={serviceForm.priceType} onChange={(event) => setServiceForm((current) => ({ ...current, priceType: event.target.value }))}><option value="negotiable">قابل للتفاوض</option><option value="fixed">سعر ثابت</option><option value="hourly">بالساعة</option></select></label></div>{serviceForm.priceType !== 'negotiable' && <label>السعر بالليرة السورية<input type="number" value={serviceForm.price} onChange={(event) => setServiceForm((current) => ({ ...current, price: event.target.value }))} min="1" step="1" required/></label>}<ActionButton type="submit" disabled={busyAction === 'service'}>{busyAction === 'service' ? 'جارٍ الحفظ…' : 'حفظ الخدمة'}</ActionButton></Surface>}
 
     <div className={styles.workspace}>
+      {(business?.categoryCode==='taxi'||business?.categoryCode==='delivery_courier')&&<Surface className={styles.section}><div className={styles.sectionHeading}><h2>توثيق السائق والمركبة</h2><span>{driverDocuments.length}/٤</span></div><p>هذه الصور خاصة، ولا يراها العملاء. يفحص الأدمن اكتمالها ثم تبقى الموافقة النهائية لمراجع مخوّل.</p><div className={styles.list}>{DRIVER_DOCUMENTS.map(document=>{const asset=driverDocuments.find(item=>item.assetType===document.value);return <article className={styles.compactItem} key={document.value}><strong>{document.label}</strong><span>{asset?'مرفوعة للمراجعة':'مطلوبة قبل الإرسال'}</span>{asset&&<div className={styles.actions}><a href={asset.publicUrl} target="_blank" rel="noreferrer">معاينة آمنة</a><button type="button" onClick={()=>void deleteDriverDocument(asset.id)} disabled={busyAction===`driver-document-${asset.id}`}>حذف</button></div>}</article>})}</div><form className={styles.nestedForm} onSubmit={uploadDriverDocument}><label>نوع الوثيقة<select value={driverDocumentType} onChange={event=>setDriverDocumentType(event.target.value as DriverDocumentType)}>{DRIVER_DOCUMENTS.map(document=><option value={document.value} key={document.value}>{document.label}</option>)}</select></label><label>صورة الوثيقة<input name="driverDocument" type="file" accept="image/jpeg,image/png,image/webp" required/></label><ActionButton type="submit" disabled={busyAction==='driver-document'}>{busyAction==='driver-document'?'جارٍ الرفع…':'رفع الوثيقة الخاصة'}</ActionButton></form></Surface>}
       <Surface className={styles.section}><div className={styles.sectionHeading}><h2>صور النشاط</h2><span>{media.length}</span></div><p>أضف شعاراً وصورة غلاف وحتى ١٢ صورة للمعرض. الصيغ المقبولة JPG وPNG وWebP، بحد أقصى 5 ميغابايت.</p>{media.length > 0 && <div className={styles.mediaGrid}>{media.map((asset) => <figure key={asset.id}><img src={asset.url} alt={asset.assetType === 'logo' ? `شعار ${business?.name}` : asset.assetType === 'cover' ? `غلاف ${business?.name}` : `صورة من ${business?.name}`} loading="lazy"/><figcaption><span>{asset.assetType === 'logo' ? 'الشعار' : asset.assetType === 'cover' ? 'الغلاف' : 'المعرض'}</span><button type="button" onClick={() => void deleteMedia(asset.id)} disabled={busyAction === `media-${asset.id}`}>حذف</button></figcaption></figure>)}</div>}<form className={styles.nestedForm} onSubmit={uploadMedia}><label>نوع الصورة<select value={mediaType} onChange={(event) => setMediaType(event.target.value as typeof mediaType)}><option value="logo">شعار النشاط</option><option value="cover">صورة الغلاف</option><option value="gallery">معرض الصور</option></select></label><label>ملف الصورة<input name="image" type="file" accept="image/jpeg,image/png,image/webp" required/></label><ActionButton type="submit" disabled={busyAction === 'media'}>{busyAction === 'media' ? 'جارٍ الرفع…' : 'رفع الصورة'}</ActionButton></form></Surface>
       <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات</h2><span>{services.length}</span></div>{services.length === 0 ? <p className={styles.empty}>لم تضف خدمات بعد.</p> : <div className={styles.list}>{services.map((service) => <article key={service.id} className={styles.listItem}><div><h3>{service.titleAr}</h3><p>{service.descriptionAr || 'لا يوجد وصف.'}</p><small>{service.status === 'active' ? 'ظاهرة للعملاء' : 'مخفية عن العملاء'}</small></div><ActionButton type="button" variant="secondary" onClick={() => void toggleService(service)} disabled={busyAction === `service-${service.id}`}>{service.status === 'active' ? 'إخفاء' : 'نشر'}</ActionButton></article>)}</div>}</Surface>
       <Surface as="form" className={`${styles.section} ${styles.form}`} onSubmit={saveHours} aria-busy={busyAction === 'hours'}><div className={styles.sectionHeading}><h2>ساعات العمل</h2><span>٧</span></div><div className={styles.hours}>{hours.map((hour, index) => <div className={styles.hour} key={hour.dayOfWeek}><strong>{DAYS[hour.dayOfWeek]}</strong><label className={styles.check}><input type="checkbox" checked={hour.isClosed} onChange={(event) => setHours((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, isClosed: event.target.checked } : item))}/> مغلق</label><input aria-label={`وقت فتح ${DAYS[hour.dayOfWeek]}`} type="time" value={hour.openTime} disabled={hour.isClosed} onChange={(event) => setHours((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: event.target.value } : item))}/><input aria-label={`وقت إغلاق ${DAYS[hour.dayOfWeek]}`} type="time" value={hour.closeTime} disabled={hour.isClosed} onChange={(event) => setHours((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: event.target.value } : item))}/></div>)}</div><ActionButton type="submit" disabled={busyAction === 'hours'}>{busyAction === 'hours' ? 'جارٍ الحفظ…' : 'حفظ ساعات العمل'}</ActionButton></Surface>

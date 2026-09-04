@@ -270,7 +270,7 @@ export class BusinessProfileRepository {
       `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
               public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 AND visibility = 'public' ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -384,6 +384,11 @@ export class BusinessProfileRepository {
     if (!rows[0]) return undefined;
     const r = rows[0];
     return { id: r.id, entityType: r.entity_type as VerificationRequest['entityType'], entityId: r.entity_id, requesterId: r.requester_id, status: r.status as VerificationRequest['status'], notes: r.notes ?? undefined, reviewedBy: r.reviewed_by ?? undefined, reviewedAt: r.reviewed_at?.toISOString(), createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() };
+  }
+
+  async countMobilityDocuments(businessProfileId:string):Promise<number>{
+    const [row]=await this.db.query<{count:string}>(`SELECT COUNT(DISTINCT asset_type)::text count FROM media_assets WHERE owner_type='business_profile' AND owner_id=$1 AND visibility='private' AND asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')`,[businessProfileId]);
+    return Number(row?.count??0);
   }
 
   async saveTrustHistory(entry: TrustHistoryEntry): Promise<void> {

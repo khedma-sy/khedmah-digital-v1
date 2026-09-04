@@ -30,7 +30,7 @@ function createService(existingCount: number, failInsert = false) {
     })
   };
   const identity = { getCurrentUser: async () => ({ id: 'owner-1' }) };
-  const service = new MediaService(database as never, identity as never);
+  const service = new MediaService(database as never, identity as never, {permissionsFor:()=>[]} as never);
   (service as unknown as { storage: { save: () => Promise<void>; delete: () => Promise<void>; read: () => Promise<never> } }).storage = {
     save: async () => { storageOperations.push('save'); },
     delete: async () => { storageOperations.push('delete'); },
