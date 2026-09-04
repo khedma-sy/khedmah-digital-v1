@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { api, AdminContentGovernance, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile, UploadedMediaAsset } from '../../../lib/api-client';
 
 const DRIVER_DOCUMENT_LABELS:Record<string,string>={driver_photo:'الصورة الشخصية للسائق',identity_card:'بطاقة الهوية',driving_license:'رخصة القيادة',vehicle_license:'رخصة السيارة'};
+const DRIVER_REVIEW_LABELS={pending:'بانتظار التدقيق',approved:'معتمدة',rejected:'مرفوضة'} as const;
 
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
@@ -64,9 +65,9 @@ export default function ModerationPage() {
     setActionLoading(true);
     try {
       if (type === 'business') {
-        await api.businesses.approveModeration(id);
+        await api.businesses.approveAndPublish(id);
       } else {
-        await api.professionals.approveModeration(id);
+        await api.professionals.approveAndPublish(id);
       }
       await loadQueue();
     } catch (err: unknown) {
@@ -116,6 +117,7 @@ export default function ModerationPage() {
   };
 
   const reviewPromotion = async (id:string,status:'approved'|'rejected')=>{let reason: string|undefined;if(status==='rejected'){const entered=prompt('اكتب سبب رفض العرض:');if(!entered||entered.trim().length<5)return;reason=entered.trim()}else if(!confirm('اعتماد العرض وإظهاره فورًا في الصفحة الحية؟'))return;setActionLoading(true);try{await api.adminPromotions.review(id,status,reason);await loadQueue()}catch(err){alert(messageFor(err,'تعذر تحديث العرض'))}finally{setActionLoading(false)}};
+  const reviewDriverDocument=async(id:string,status:'approved'|'rejected')=>{let reason:string|undefined;if(status==='rejected'){const entered=prompt('اكتب سبب رفض الوثيقة بوضوح:');if(!entered||entered.trim().length<5)return;reason=entered.trim()}else if(!confirm('اعتماد هذه الوثيقة؟'))return;setActionLoading(true);try{await api.media.reviewDriverDocument(id,status,reason);await loadQueue()}catch(err){alert(messageFor(err,'تعذر تحديث قرار الوثيقة'))}finally{setActionLoading(false)}};
 
   if (loading) return <main id="foundation-content" className="operations-shell moderation-state" aria-busy="true">جاري تحميل قائمة المراجعة...</main>;
   if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}</main>;
@@ -159,12 +161,12 @@ export default function ModerationPage() {
                 <div>
                   <h3>{b.name}</h3>
                   <p>{b.categoryCode} · {b.cityCode}</p>
-                  {(b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&<><small>تدقيق الوثائق: {(driverDocuments[b.id]?.length??0).toLocaleString('ar-SY')}/٤</small><div className="moderation-actions">{(driverDocuments[b.id]??[]).map(asset=><a href={asset.publicUrl} target="_blank" rel="noreferrer" key={asset.id}>{DRIVER_DOCUMENT_LABELS[asset.assetType??'']??'وثيقة السائق'}</a>)}</div></>}
+                  {(b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&<><small>الوثائق المعتمدة: {(driverDocuments[b.id]??[]).filter(asset=>asset.documentReviewStatus==='approved').length.toLocaleString('ar-SY')}/٤</small><div className="moderation-list">{(driverDocuments[b.id]??[]).map(asset=><div className="moderation-card" key={asset.id}><div><a href={asset.publicUrl} target="_blank" rel="noreferrer">{DRIVER_DOCUMENT_LABELS[asset.assetType??'']??'وثيقة السائق'}</a><small>{DRIVER_REVIEW_LABELS[asset.documentReviewStatus??'pending']}{asset.documentReviewReason?` · ${asset.documentReviewReason}`:''}</small></div><div className="moderation-actions"><button type="button" disabled={actionLoading||asset.documentReviewStatus==='approved'} onClick={()=>void reviewDriverDocument(asset.id,'approved')} className="moderation-approve">اعتماد</button><button type="button" disabled={actionLoading||asset.documentReviewStatus==='rejected'} onClick={()=>void reviewDriverDocument(asset.id,'rejected')} className="moderation-reject">رفض</button></div></div>)}</div></>}
                 </div>
                 <div className="moderation-actions">
                   <button
                     onClick={() => handleApprove('business', b.id)}
-                    disabled={actionLoading||((b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&(driverDocuments[b.id]?.length??0)!==4)}
+                    disabled={actionLoading||((b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&(driverDocuments[b.id]??[]).filter(asset=>asset.documentReviewStatus==='approved').length!==4)}
                     className="moderation-approve"
                   >
                     موافقة

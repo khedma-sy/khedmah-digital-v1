@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
@@ -145,7 +145,7 @@ test('service owned by non-public business is not returned in public search', as
 });
 
 test('service owned by approved public business is returned in public search', async () => {
-  const { service, businessRepo, cookie, ownerId } = await createFixture();
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
 
   const now = new Date().toISOString();
   const publicBusinessId = 'bp-public-' + Date.now();
@@ -164,6 +164,7 @@ test('service owned by approved public business is returned in public search', a
     createdAt: now,
     updatedAt: now
   });
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [publicBusinessId]);
 
   await service.create(cookie, {
     titleAr: 'خدمة لعمل معتمد',
@@ -179,8 +180,56 @@ test('service owned by approved public business is returned in public search', a
   assert.ok(titles.includes('خدمة لعمل معتمد'), 'Service from approved public business must appear in public search');
 });
 
+test('all public service surfaces fail closed until the owner business passes every approval gate', async () => {
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
+  const now = new Date().toISOString();
+  const businessId = `bp-gated-${Date.now()}`;
+
+  await businessRepo.save({
+    id: businessId,
+    name: 'نشاط بانتظار الإشراف',
+    ownerUserId: ownerId,
+    visibility: 'public',
+    trustStatus: 'approved',
+    status: 'active',
+    categoryCode: 'test',
+    cityCode: 'damascus',
+    countryCode: 'SY',
+    isFeatured: false,
+    createdAt: now,
+    updatedAt: now
+  });
+  const listing = await service.create(cookie, {
+    titleAr: 'خدمة محجوبة حتى الاعتماد الكامل',
+    categoryCode: 'test',
+    priceType: 'negotiable',
+    ownerId: businessId,
+    ownerType: 'business',
+    ownerUserId: ownerId
+  });
+  await pool.query(
+    `UPDATE service_listings SET is_featured = TRUE, featured_at = NOW() WHERE id = $1`,
+    [listing.id]
+  );
+
+  assert.deepEqual((await service.search({ q: 'محجوبة' })).services, []);
+  assert.equal((await service.getFeatured()).some((item) => item.id === listing.id), false);
+  assert.deepEqual(await service.listForOwner(undefined, businessId, { ownerType: 'business' }), []);
+  await assert.rejects(() => service.getOne(undefined, listing.id), NotFoundException);
+  await assert.rejects(() => service.getMediaAssets(listing.id), NotFoundException);
+
+  assert.equal((await service.getOne(cookie, listing.id)).id, listing.id);
+  assert.equal((await service.listForOwner(cookie, businessId, { ownerType: 'business' }))[0]?.id, listing.id);
+  assert.deepEqual(await service.getMediaAssets(listing.id, undefined, cookie), []);
+
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [businessId]);
+  assert.equal((await service.getOne(undefined, listing.id)).id, listing.id);
+  assert.equal((await service.getFeatured()).some((item) => item.id === listing.id), true);
+  assert.equal((await service.listForOwner(undefined, businessId, { ownerType: 'business' }))[0]?.id, listing.id);
+});
+
 test('public service projection does not include owner user identifier', async () => {
-  const { service, businessRepo, cookie, ownerId } = await createFixture();
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
 
   const now = new Date().toISOString();
   const publicBusinessId = 'bp-pub2-' + Date.now();
@@ -199,6 +248,7 @@ test('public service projection does not include owner user identifier', async (
     createdAt: now,
     updatedAt: now
   });
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [publicBusinessId]);
 
   await service.create(cookie, {
     titleAr: 'خدمة فحص المعرّف',
@@ -236,6 +286,7 @@ test('service and combined discovery filter listings by the governed city of eit
     createdAt: now,
     updatedAt: now
   });
+  await pool.query(`UPDATE business_profiles SET moderation_status = 'approved' WHERE id = $1`, [businessId]);
   await professionalRepo.save({
     id: professionalId,
     userId: ownerId,

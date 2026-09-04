@@ -211,7 +211,9 @@ export class OrderService {
           b.categoryCode !== "delivery_courier" ||
           b.visibility !== "public" ||
           b.trustStatus !== "approved" ||
-          b.moderationStatus !== "approved"
+          b.moderationStatus !== "approved" ||
+          b.status !== "active" ||
+          await this.businesses.countApprovedMobilityDocuments(b.id) !== 4
         )
           throw new BadRequestException("Courier is not eligible.");
         options = { courierBusinessId: b.id };

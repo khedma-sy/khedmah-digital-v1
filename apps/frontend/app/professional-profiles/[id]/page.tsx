@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, type MediaAsset, type PublicProfessionalProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
+import { api, type MediaAsset, type PublicProfessionalProfile, type PublicServiceListing, type VerificationStatus } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
 import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
@@ -24,7 +24,7 @@ export default function ProfessionalProfilePage() {
   const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
-  const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [verification, setVerification] = useState<VerificationStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareMessage, setShareMessage] = useState('');
@@ -88,7 +88,7 @@ export default function ProfessionalProfilePage() {
         </div>
       </Surface>
 
-      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong></div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>

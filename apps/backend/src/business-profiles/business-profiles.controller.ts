@@ -69,8 +69,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
-    return { assets: await this.businessProfiles.getMediaAssets('business', id, assetType) };
+  async getMedia(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Query('assetType') assetType?: string) {
+    return { assets: await this.businessProfiles.getMediaAssets(cookieHeader, 'business', id, assetType) };
   }
 
   @Delete(':id/media/:assetId')
@@ -93,8 +93,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/opening-hours')
-  async getOpeningHours(@Param('id') id: string) {
-    return { hours: await this.businessProfiles.getOpeningHours(id) };
+  async getOpeningHours(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { hours: await this.businessProfiles.getOpeningHours(cookieHeader, id) };
   }
 
   // --- Branches ---
@@ -104,8 +104,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/branches')
-  async getBranches(@Param('id') id: string) {
-    return { branches: await this.businessProfiles.getBranches(id) };
+  async getBranches(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { branches: await this.businessProfiles.getBranches(cookieHeader, id) };
   }
 
   @Delete(':id/branches/:branchId')
@@ -121,8 +121,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/social-links')
-  async getSocialLinks(@Param('id') id: string) {
-    return { links: await this.businessProfiles.getSocialLinks(id) };
+  async getSocialLinks(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { links: await this.businessProfiles.getSocialLinks(cookieHeader, id) };
   }
 
   @Delete(':id/social-links/:linkId')
@@ -138,13 +138,13 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/verification-status')
-  async getVerificationStatus(@Param('id') id: string) {
-    return { status: await this.businessProfiles.getVerificationStatus('business', id) };
+  async getVerificationStatus(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { status: await this.businessProfiles.getVerificationStatus(cookieHeader, 'business', id) };
   }
 
   @Get(':id/trust-history')
-  async getTrustHistory(@Param('id') id: string) {
-    return { history: await this.businessProfiles.getTrustHistory('business', id) };
+  async getTrustHistory(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { history: await this.businessProfiles.getTrustHistory(cookieHeader, 'business', id) };
   }
 
   @Post(':id/submit')
@@ -160,6 +160,11 @@ export class BusinessProfilesController {
   @Post(':id/moderation/approve')
   async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { business: await this.businessProfiles.approveModeration(cookieHeader, id) };
+  }
+
+  @Post(':id/moderation/approve-and-publish')
+  async approveAndPublish(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { business: await this.businessProfiles.approveAndPublish(cookieHeader, id) };
   }
 
   @Post(':id/moderation/reject')

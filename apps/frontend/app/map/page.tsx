@@ -58,6 +58,7 @@ function MapDiscovery() {
   const [status, setStatus] = useState('جاري تحميل مقدمي الخدمات…');
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
   const [mapError, setMapError] = useState(MAPS_KEY ? '' : 'إعداد خريطة Google غير متوفر حالياً. يمكنك متابعة البحث من عرض النتائج.');
+  const [mapCanRetry, setMapCanRetry] = useState(Boolean(MAPS_KEY));
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
 
   const search = useCallback(async (boundaries?: Bounds, nextLocation = location, nextQuery = query) => {
@@ -126,6 +127,15 @@ function MapDiscovery() {
       setActiveView('list');
       return;
     }
+    const isolatedPreview = /^khedmah-pr-\d+-frontend-/.test(window.location.hostname);
+    if (isolatedPreview) {
+      setMapCanRetry(false);
+      setMapStatus('error');
+      setMapError('الخريطة التفاعلية غير متاحة في نطاق المعاينة. البحث وقائمة النتائج يعملان بصورة طبيعية.');
+      setStatus('اعرض مقدمي الخدمات من قائمة النتائج إلى حين فتح النطاق الرسمي.');
+      setActiveView('list');
+      return;
+    }
 
     let cancelled = false;
     let insertedScript: HTMLScriptElement | null = null;
@@ -172,6 +182,7 @@ function MapDiscovery() {
   }, [mapLoadAttempt]);
 
   function retryMap() {
+    if (!mapCanRetry) return;
     map.current = null;
     setMapStatus('loading');
     setMapError('');
@@ -205,7 +216,7 @@ function MapDiscovery() {
         <ActionButton type="button" variant={activeView === 'list' ? 'primary' : 'secondary'} aria-pressed={activeView === 'list'} onClick={() => setActiveView('list')}><PlatformIcon name="grid" size={17}/> النتائج</ActionButton>
       </nav>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
-      {mapStatus === 'error' && MAPS_KEY && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
+      {mapStatus === 'error' && mapCanRetry && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} {provider.rating !== undefined ? `· ★ ${provider.rating.toFixed(1)}` : ''} {provider.distanceKm !== undefined ? `· ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
@@ -219,7 +230,7 @@ function MapDiscovery() {
         <PlatformIcon name="pin" size={34}/>
         <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
         <p>{mapStatus === 'error' ? mapError : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
-        {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{MAPS_KEY && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
+        {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{mapCanRetry && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
   </main>;

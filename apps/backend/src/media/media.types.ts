@@ -2,6 +2,7 @@ export type MediaVisibility = 'public' | 'private';
 export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'product_listing' | 'professional_request' | 'user';
 export type MediaMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
 export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image' | 'problem_image' | 'completion_image' | 'driver_photo' | 'identity_card' | 'driving_license' | 'vehicle_license';
+export type DocumentReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export interface MediaAsset {
   readonly id: string;
@@ -44,4 +45,7 @@ export interface PublicMediaAsset {
   readonly assetType?: MediaAssetType;
   readonly sortOrder: number;
   readonly createdAt: string;
+  readonly documentReviewStatus?: DocumentReviewStatus;
+  readonly documentReviewReason?: string;
+  readonly documentReviewedAt?: string;
 }

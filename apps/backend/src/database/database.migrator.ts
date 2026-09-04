@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '032';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '033';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -135,7 +135,12 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   index('admin-catalog','031','admin_catalog_actions','admin_catalog_actions_category_created_idx'),
   table('mobility-fares','032','mobility_fare_policies'),
   ...['arrived_at','started_at','route_distance_meters','waiting_seconds','fare_status','final_fare'].map((name)=>column('mobility-fares','032','mobility_requests',name)),
-  constraint('mobility-fares','032','mobility_requests','mobility_requests_fare_complete_check')
+  constraint('mobility-fares','032','mobility_requests','mobility_requests_fare_complete_check'),
+  table('mobility-documents','033','mobility_document_reviews'),
+  ...['media_asset_id','business_profile_id','document_type','status','reviewed_by','reviewed_at'].map((name)=>column('mobility-documents','033','mobility_document_reviews',name)),
+  constraint('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_decision_check'),
+  index('mobility-documents','033','mobility_document_reviews','mobility_document_reviews_business_status_idx'),
+  table('mobility-documents','033','mobility_document_review_events')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }

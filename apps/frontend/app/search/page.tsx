@@ -73,7 +73,19 @@ function SearchContent() {
 
   function submit(event: FormEvent) { event.preventDefault(); const next = { q, cityCode, categoryCode: tab === 'professional' ? '' : categoryCode, tab, page: 1 }; setPage(1); syncUrl(next); void search(next); }
   function changeTab(nextTab: TabType) { const nextCategoryCode = nextTab === 'professional' ? '' : categoryCode; setTab(nextTab); setCategoryCode(nextCategoryCode); setPage(1); const next = { q, cityCode, categoryCode: nextCategoryCode, tab: nextTab, page: 1 }; syncUrl(next); if (searched) void search(next); }
-  function clear() { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }
+  function clear() {
+    setQ('');
+    setCityCode('');
+    setCategoryCode('');
+    setPage(1);
+    setBusinesses([]);
+    setProfessionals([]);
+    setServices([]);
+    setTotal(0);
+    setError('');
+    setSearched(false);
+    router.replace('/search');
+  }
   function goToPage(nextPage: number) { const next = { q, cityCode, categoryCode, tab, page: nextPage }; setPage(nextPage); syncUrl(next); void search(next); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
   useEffect(() => {

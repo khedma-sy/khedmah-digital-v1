@@ -60,7 +60,13 @@ const CANONICAL_MIGRATIONS = [
   '024_product_store',
   '025_mobility_requests',
   '026_cash_fulfillment_orders',
-  '027_professional_service_marketplace'
+  '027_professional_service_marketplace',
+  '028_khedmah_promotions',
+  '029_admin_user_management',
+  '030_operations_issue_center',
+  '031_admin_catalog_management',
+  '032_mobility_fare_lifecycle',
+  '033_mobility_document_reviews'
 ] as const;
 
 let canonicalSchemaSetup: Promise<void> | undefined;

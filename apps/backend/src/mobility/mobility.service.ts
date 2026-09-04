@@ -6,8 +6,9 @@ import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { MobilityRepository } from './mobility.repository';
+import { MobilityDistanceService } from './mobility-distance.service';
 import type { MobilityFarePolicy, MobilityRequest, MobilityRequestStatus, MobilityServiceType, PublicMobilityRequest } from './mobility.types';
-import { validateCreateMobilityRequest, validateFarePolicy, validateMobilityCompletion, validateMobilityIdempotencyKey, validateMobilityTransition } from './mobility.validation';
+import { validateCreateMobilityRequest, validateFarePolicy, validateMobilityIdempotencyKey, validateMobilityTransition } from './mobility.validation';
 
 const providerTransitions: Partial<Record<MobilityRequestStatus, readonly MobilityRequestStatus[]>> = {
   requested: ['accepted', 'rejected'], accepted: ['en_route'], en_route: ['arrived'], arrived: ['in_progress'], in_progress: ['completed']
@@ -23,7 +24,8 @@ export class MobilityService {
     @Inject(BusinessProfileRepository) private readonly businesses: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
     @Inject(IdentityRepository) private readonly audits: IdentityRepository,
-    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService,
+    @Inject(MobilityDistanceService) private readonly distance: MobilityDistanceService
   ) {}
 
   async create(cookie: string | undefined, value: Record<string, unknown>, idempotencyValue: unknown): Promise<PublicMobilityRequest> {
@@ -40,8 +42,8 @@ export class MobilityService {
     if (!business || business.categoryCode !== expectedCategory || business.visibility !== 'public' || business.moderationStatus !== 'approved' || business.trustStatus !== 'approved' || business.status !== 'active') {
       throw new BadRequestException('The selected mobility provider is not eligible for requests.');
     }
-    if (await this.businesses.countMobilityDocuments(business.id) !== 4) {
-      throw new BadRequestException('The selected mobility provider is missing required driver documents.');
+    if (await this.businesses.countApprovedMobilityDocuments(business.id) !== 4) {
+      throw new BadRequestException('The selected mobility provider does not have four approved driver documents.');
     }
     if (business.ownerUserId === actor.id) throw new BadRequestException('You cannot request your own mobility business.');
     const now = new Date().toISOString();
@@ -87,7 +89,7 @@ export class MobilityService {
       fare = { baseFare:policy.baseFare, perKmFare:policy.perKmFare, perWaitingMinuteFare:policy.perWaitingMinuteFare, minimumFare:policy.minimumFare, policyUpdatedAt:policy.updatedAt };
     }
     if (input.status === 'completed') {
-      const { distanceMeters } = validateMobilityCompletion(value);
+      const distanceMeters = await this.distance.calculate(request);
       if (!request.arrivedAt || !request.startedAt) throw new BadRequestException('The trip meter has not started correctly.');
       if (request.baseFare === undefined || request.farePerKm === undefined || request.farePerWaitingMinute === undefined || request.fareMinimum === undefined || !request.farePolicyUpdatedAt) {
         throw new BadRequestException('The trip fare snapshot is missing; an administrator must review this request.');

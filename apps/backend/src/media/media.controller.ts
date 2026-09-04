@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Header, Headers, Inject, Param, Post, StreamableFile } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, Inject, Param, Patch, Post, StreamableFile } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { PublicMediaAsset, UploadMediaRequest } from './media.types';
 
@@ -32,6 +32,15 @@ export class MediaController {
     @Param('ownerId') ownerId: string
   ): Promise<PublicMediaAsset[]> {
     return this.media.listForOwner(cookieHeader, ownerType, ownerId);
+  }
+
+  @Patch(':id/driver-document-review')
+  reviewDriverDocument(
+    @Headers('cookie')cookieHeader:string|undefined,
+    @Param('id')id:string,
+    @Body()body:Record<string,unknown>
+  ){
+    return this.media.reviewDriverDocument(cookieHeader,id,body.status,body.reason);
   }
 
   @Delete(':id')

@@ -164,6 +164,40 @@ export class ServiceCatalogRepository {
     return rows.map((row) => this.map(row));
   }
 
+  async findPublicEligibleById(id: string): Promise<ServiceListing | undefined> {
+    const { whereClauses, params } = this.publicEligibleWhere({});
+    params.push(id);
+    const rows = await this.db.query<ServiceListingRow>(
+      `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
+       FROM service_listings sl
+       WHERE ${whereClauses.join(' AND ')} AND sl.id = $${params.length}
+       LIMIT 1`,
+      params
+    );
+    return rows[0] ? this.map(rows[0]) : undefined;
+  }
+
+  async listPublicEligibleForOwner(ownerId: string, ownerType: ServiceOwnerType): Promise<ServiceListing[]> {
+    const { whereClauses, params } = this.publicEligibleWhere({});
+    params.push(ownerId, ownerType);
+    const rows = await this.db.query<ServiceListingRow>(
+      `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
+              sl.category_code,
+              (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
+              sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
+       FROM service_listings sl
+       WHERE ${whereClauses.join(' AND ')}
+         AND sl.owner_id = $${params.length - 1}
+         AND sl.owner_type = $${params.length}
+       ORDER BY sl.created_at DESC`,
+      params
+    );
+    return rows.map((row) => this.map(row));
+  }
+
   async countPublicEligible(filters: { categoryCode?: string; cityCode?: string; q?: string }): Promise<number> {
     const { whereClauses, params } = this.publicEligibleWhere(filters);
     const rows = await this.db.query<{ count: string }>(
@@ -174,16 +208,18 @@ export class ServiceCatalogRepository {
   }
 
   async listFeatured(limit = 6): Promise<ServiceListing[]> {
+    const { whereClauses, params } = this.publicEligibleWhere({});
+    params.push(limit);
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
               sl.category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
               sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
        FROM service_listings sl
-       WHERE sl.status = 'active' AND sl.is_featured = TRUE
+       WHERE ${whereClauses.join(' AND ')} AND sl.is_featured = TRUE
        ORDER BY sl.featured_at DESC
-       LIMIT $1`,
-      [limit]
+       LIMIT $${params.length}`,
+      params
     );
     return rows.map((row) => this.map(row));
   }
@@ -204,6 +240,7 @@ export class ServiceCatalogRepository {
           SELECT 1 FROM business_profiles bp
           WHERE bp.id = sl.owner_id
             AND bp.visibility = 'public'
+            AND bp.moderation_status = 'approved'
             AND bp.trust_status = 'approved'
             AND bp.status = 'active'
             ${businessCityClause}

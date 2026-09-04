@@ -184,8 +184,6 @@ export function CategoryDirectory() {
           <EmptyState icon={<PlatformIcon name="search" size={30} />} title={`لا يوجد مقدم ${title} منشور في هذا النطاق بعد`} description="الخدمة تعمل، لكن بيانات المزودين المعتمدين غير متوفرة هنا حاليًا. وسّع البحث أو اختر تخصصًا قريبًا بدل التوقف." actions={<>
             <ActionLink href={searchHref}>توسيع البحث</ActionLink>
             <ActionLink href={`/map?q=${encodeURIComponent(title)}`} variant="secondary">فتح الخريطة</ActionLink>
-            <ActionButton variant="secondary" type="button" onClick={() => selectCategory(activeRootCode ?? '')}>تخصصات قريبة</ActionButton>
-            <ActionLink href="/business-profiles/new" variant="secondary">سجّل كمقدم خدمة</ActionLink>
           </>} />
         ) : null}
     </PageShell>

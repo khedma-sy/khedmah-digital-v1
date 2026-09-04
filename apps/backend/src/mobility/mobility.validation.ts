@@ -42,13 +42,6 @@ export function validateMobilityTransition(value: Record<string, unknown>): { st
   return { status: value.status as MobilityRequestStatus, reason };
 }
 
-export function validateMobilityCompletion(value: Record<string, unknown>): { distanceMeters: number } {
-  if (typeof value.distanceMeters !== 'number' || !Number.isFinite(value.distanceMeters)) throw new BadRequestException('distanceMeters is invalid.');
-  const distanceMeters = Math.round(value.distanceMeters);
-  if (distanceMeters < 0 || distanceMeters > 1_000_000) throw new BadRequestException('distanceMeters is invalid.');
-  return { distanceMeters };
-}
-
 export function validateFarePolicy(value: Record<string, unknown>) {
   if (value.serviceType !== 'taxi' && value.serviceType !== 'delivery') throw new BadRequestException('serviceType is invalid.');
   const integer = (field: string, minimum = 0) => {

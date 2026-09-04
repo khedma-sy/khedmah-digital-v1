@@ -69,7 +69,11 @@ export class OrderRepository {
 
   async findProducts(ids: readonly string[]): Promise<ProductOrderRow[]> {
     return this.db.query<ProductOrderRow>(
-      `SELECT p.id,p.business_profile_id,p.owner_user_id,b.name AS business_name,b.category_code AS business_category_code,p.title_ar,p.price,p.currency,p.availability,p.status,p.moderation_status,p.requires_prescription,p.controlled_item FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id = ANY($1::text[])`,
+      `SELECT p.id,p.business_profile_id,p.owner_user_id,b.name AS business_name,b.category_code AS business_category_code,p.title_ar,p.price,p.currency,p.availability,p.status,p.moderation_status,p.requires_prescription,p.controlled_item
+       FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id
+       WHERE p.id = ANY($1::text[])
+         AND b.visibility='public' AND b.moderation_status='approved'
+         AND b.trust_status='approved' AND b.status='active'`,
       [ids],
     );
   }

@@ -58,8 +58,8 @@ export class ProfessionalProfilesController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
-    return { assets: await this.professionals.getMediaAssets(id, assetType) };
+  async getMedia(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Query('assetType') assetType?: string) {
+    return { assets: await this.professionals.getMediaAssets(cookieHeader, id, assetType) };
   }
 
   // --- Verification ---
@@ -69,13 +69,13 @@ export class ProfessionalProfilesController {
   }
 
   @Get(':id/verification-status')
-  async getVerificationStatus(@Param('id') id: string) {
-    return { status: await this.professionals.getVerificationStatus(id) ?? null };
+  async getVerificationStatus(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { status: await this.professionals.getVerificationStatus(cookieHeader, id) ?? null };
   }
 
   @Get(':id/trust-history')
-  async getTrustHistory(@Param('id') id: string) {
-    return { history: await this.professionals.getTrustHistory(id) };
+  async getTrustHistory(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { history: await this.professionals.getTrustHistory(cookieHeader, id) };
   }
 
   @Post(':id/submit')
@@ -86,6 +86,11 @@ export class ProfessionalProfilesController {
   @Post(':id/moderation/approve')
   async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { professional: await this.professionals.approveModeration(cookieHeader, id) };
+  }
+
+  @Post(':id/moderation/approve-and-publish')
+  async approveAndPublish(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { professional: await this.professionals.approveAndPublish(cookieHeader, id) };
   }
 
   @Post(':id/moderation/reject')

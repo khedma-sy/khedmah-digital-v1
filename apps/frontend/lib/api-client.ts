@@ -348,6 +348,9 @@ export interface UploadedMediaAsset {
   readonly assetType?: MediaAsset['assetType'];
   readonly sortOrder: number;
   readonly createdAt: string;
+  readonly documentReviewStatus?: 'pending' | 'approved' | 'rejected';
+  readonly documentReviewReason?: string;
+  readonly documentReviewedAt?: string;
 }
 
 export interface ProfessionalServiceOffer {
@@ -407,6 +410,8 @@ export interface VerificationRequest {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export type VerificationStatus = Pick<VerificationRequest, 'status' | 'createdAt' | 'updatedAt'>;
 
 export interface TrustHistoryEntry {
   readonly id: string;
@@ -533,10 +538,10 @@ export const api = {
         `/mobility/provider/requests?businessId=${encodeURIComponent(businessId)}`,
       );
     },
-    transition(id: string, status: MobilityRequest['status'], reason?: string, distanceMeters?: number) {
+    transition(id: string, status: MobilityRequest['status'], reason?: string) {
       return request<{ request: MobilityRequest }>(
         `/mobility/requests/${encodeURIComponent(id)}/status`,
-        { method: 'PATCH', body: JSON.stringify({ status, reason, distanceMeters }) },
+        { method: 'PATCH', body: JSON.stringify({ status, reason }) },
       );
     },
     farePolicy(serviceType:'taxi'|'delivery') { return request<{policy:MobilityFarePolicy}>(`/mobility/fare-policy?serviceType=${serviceType}`); },
@@ -764,6 +769,11 @@ export const api = {
       return request<UploadedMediaAsset[]>(
         `/media/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`,
       );
+    },
+    reviewDriverDocument(id:string,status:'approved'|'rejected',reason?:string){
+      return request<{id:string;status:'approved'|'rejected';reason?:string;reviewedAt:string}>(`/media/${encodeURIComponent(id)}/driver-document-review`,{
+        method:'PATCH',body:JSON.stringify({status,reason})
+      });
     },
     delete(id: string) {
       return request<{ deleted: boolean }>(`/media/${id}`, {
@@ -1134,7 +1144,7 @@ export const api = {
       );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(
+      return request<{ status: VerificationStatus | null }>(
         `/businesses/${id}/verification-status`,
       );
     },
@@ -1157,6 +1167,12 @@ export const api = {
     approveModeration(id: string) {
       return request<{ business: PublicBusinessProfile }>(
         `/businesses/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
+    },
+    approveAndPublish(id: string) {
+      return request<{ business: PublicBusinessProfile }>(
+        `/businesses/${id}/moderation/approve-and-publish`,
         { method: 'POST' },
       );
     },
@@ -1259,7 +1275,7 @@ export const api = {
       );
     },
     getVerificationStatus(id: string) {
-      return request<{ status: VerificationRequest | null }>(
+      return request<{ status: VerificationStatus | null }>(
         `/professionals/${id}/verification-status`,
       );
     },
@@ -1277,6 +1293,12 @@ export const api = {
     approveModeration(id: string) {
       return request<{ professional: PublicProfessionalProfile }>(
         `/professionals/${id}/moderation/approve`,
+        { method: 'POST' },
+      );
+    },
+    approveAndPublish(id: string) {
+      return request<{ professional: PublicProfessionalProfile }>(
+        `/professionals/${id}/moderation/approve-and-publish`,
         { method: 'POST' },
       );
     },

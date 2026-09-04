@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { BusinessProfileRepository } from './business-profile.repository';
@@ -174,10 +174,10 @@ test('only the business owner can delete one of its branches', async () => {
     () => service.deleteBranch(moderatorCookie, businessId, branch.id),
     ForbiddenException
   );
-  assert.equal((await service.getBranches(businessId)).some((item) => item.id === branch.id), true);
+  assert.equal((await service.getBranches(ownerCookie, businessId)).some((item) => item.id === branch.id), true);
 
   await service.deleteBranch(ownerCookie, businessId, branch.id);
-  assert.equal((await service.getBranches(businessId)).some((item) => item.id === branch.id), false);
+  assert.equal((await service.getBranches(ownerCookie, businessId)).some((item) => item.id === branch.id), false);
 });
 
 test('unchanged inactive legacy category does not block unrelated profile edits', async () => {
@@ -212,4 +212,81 @@ test('unchanged inactive legacy category does not block unrelated profile edits'
   const reclassified = await service.update(ownerCookie, businessId, { categoryCode: 'restaurant' });
   assert.equal(reclassified.categoryCode, 'restaurant');
   assert.equal(reclassified.categoryNameAr, 'مطاعم');
+});
+
+test('admin approval atomically publishes a business and records the decision', async () => {
+  const originalEnv = process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;
+  process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'moderator@example.com': ['security_operations_engineer'] });
+
+  try {
+    const { pool, service, businessRepo, ownerCookie, moderatorCookie, businessId } = await createFixture();
+    await service.requestVerification(ownerCookie, 'business', businessId);
+
+    const approved = await service.approveAndPublish(moderatorCookie, businessId);
+    assert.equal(approved.visibility, 'public');
+    assert.equal(approved.moderationStatus, 'approved');
+    assert.equal(approved.trustStatus, 'approved');
+    assert.equal((await service.getPublic(businessId)).id, businessId);
+
+    const [stored] = await pool.query<{ visibility: string; moderation_status: string; trust_status: string }>(
+      'SELECT visibility, moderation_status, trust_status FROM business_profiles WHERE id = $1',
+      [businessId]
+    );
+    assert.deepEqual(stored, { visibility: 'public', moderation_status: 'approved', trust_status: 'approved' });
+
+    const verification = await businessRepo.findVerificationRequest('business', businessId);
+    assert.equal(verification?.status, 'approved');
+    assert.ok(verification?.reviewedBy);
+    assert.ok(verification?.reviewedAt);
+
+    const history = await businessRepo.listTrustHistory('business', businessId);
+    assert.equal(history.length, 2);
+    assert.deepEqual(history.map((entry) => entry.newStatus), ['approved', 'approved']);
+  } finally {
+    process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = originalEnv;
+  }
+});
+
+test('material edits return an approved business to private pending review', async () => {
+  const originalEnv = process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;
+  process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'moderator@example.com': ['security_operations_engineer'] });
+
+  try {
+    const { service, ownerCookie, moderatorCookie, businessId } = await createFixture();
+    await service.approveAndPublish(moderatorCookie, businessId);
+
+    const updated = await service.update(ownerCookie, businessId, { name: 'اسم يحتاج مراجعة جديدة' });
+    assert.equal(updated.visibility, 'private');
+    assert.equal(updated.moderationStatus, 'pending');
+    await assert.rejects(() => service.getPublic(businessId), NotFoundException);
+  } finally {
+    process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = originalEnv;
+  }
+});
+
+test('business auxiliary resources are owner-only before publication and trust history stays private', async () => {
+  const originalEnv = process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;
+  process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'moderator@example.com': ['security_operations_engineer'] });
+
+  try {
+    const { service, ownerCookie, moderatorCookie, businessId } = await createFixture();
+    await service.addBranch(ownerCookie, businessId, {
+      nameAr: 'الفرع الرئيسي',
+      cityCode: 'damascus',
+      isMain: true
+    });
+
+    await assert.rejects(() => service.getBranches(undefined, businessId), NotFoundException);
+    assert.equal((await service.getBranches(ownerCookie, businessId)).length, 1);
+
+    await service.approveAndPublish(moderatorCookie, businessId);
+    assert.equal((await service.getBranches(undefined, businessId)).length, 1);
+    await assert.rejects(() => service.getTrustHistory(undefined, 'business', businessId), NotFoundException);
+    assert.equal((await service.getTrustHistory(ownerCookie, 'business', businessId)).length, 2);
+
+    const verification = await service.getVerificationStatus(undefined, 'business', businessId);
+    assert.equal(verification, undefined);
+  } finally {
+    process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = originalEnv;
+  }
 });

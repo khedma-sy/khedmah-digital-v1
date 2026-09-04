@@ -63,8 +63,8 @@ test('catalog keeps specialties visible and empty results recoverable', async ()
   assert.match(catalog, /iconFor\(category\.visualKey\)/);
   assert.match(catalog, /توسيع البحث/);
   assert.match(catalog, /فتح الخريطة/);
-  assert.match(catalog, /تخصصات قريبة/);
-  assert.match(catalog, /سجّل كمقدم خدمة/);
+  assert.doesNotMatch(catalog, /تخصصات قريبة/);
+  assert.doesNotMatch(catalog, /سجّل كمقدم خدمة/);
   assert.doesNotMatch(catalog, /catalog-category-icon"><PlatformIcon name="tools"/);
   for (const icon of ['food', 'health', 'education', 'technology', 'travel']) assert.match(icons, new RegExp(`${icon}:`));
   assert.match(styles, /@media\(max-width:36rem\).*catalog-specialty-grid/s);

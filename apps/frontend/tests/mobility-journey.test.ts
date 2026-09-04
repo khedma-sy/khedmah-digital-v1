@@ -20,6 +20,7 @@ test('mobility journey creates a governed request with platform fare and honest 
   assert.match(page, /السعر تحسبه خدمة، لا السائق/);
   assert.match(page, /الدفع الإلكتروني والتتبع في الخلفية غير مفعّلين بعد/);
   assert.match(client, /Idempotency-Key/);
+  assert.doesNotMatch(client, /distanceMeters/);
   assert.match(provider, /api\.mobility\.listForProvider/);
   assert.match(provider, /قبول/);
   assert.match(provider, /انطلقت للعميل/);
@@ -27,6 +28,12 @@ test('mobility journey creates a governed request with platform fare and honest 
   assert.match(provider, /ابدأ الرحلة والعداد/);
   assert.match(provider, /إنهاء وإصدار السعر/);
   assert.doesNotMatch(provider, /name=["']finalFare/);
+  assert.doesNotMatch(provider, /watchPosition|khedmah-distance-/);
+  assert.match(provider, /تحسب خدمة المسافة والسعر من الخادم/);
+  assert.match(provider, /playOrderRing/);
+  assert.match(provider, /requestOrderNotifications/);
+  assert.match(provider, /showOrderNotification/);
+  assert.match(provider, /setInterval/);
 });
 
 test('mobility journey renders a resilient two-point Google map and accepts typed addresses', async () => {

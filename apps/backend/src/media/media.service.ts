@@ -5,7 +5,7 @@ import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { createStorageAdapter, StorageAdapter } from './storage.adapter';
-import { MediaAsset, PublicMediaAsset, UploadMediaRequest } from './media.types';
+import { DocumentReviewStatus, MediaAsset, PublicMediaAsset, UploadMediaRequest } from './media.types';
 import { validateUploadMediaRequest } from './media.validation';
 
 const DRIVER_DOCUMENT_TYPES = new Set(['driver_photo','identity_card','driving_license','vehicle_license']);
@@ -83,6 +83,14 @@ export class MediaService {
               asset.storageKey, asset.publicUrl ?? null, asset.assetType ?? null, asset.sortOrder, asset.createdAt, asset.updatedAt
             ]
           );
+          if (input.ownerType === 'business_profile' && DRIVER_DOCUMENT_TYPES.has(input.assetType ?? '')) {
+            await client.query(
+              `INSERT INTO mobility_document_reviews
+                 (media_asset_id, business_profile_id, document_type, status, created_at, updated_at)
+               VALUES ($1,$2,$3,'pending',$4,$4)`,
+              [asset.id, asset.ownerId, asset.assetType, asset.createdAt]
+            );
+          }
         });
       } catch (error) {
         if (stored) await this.storage.delete(storageKey).catch(() => undefined);
@@ -136,30 +144,91 @@ export class MediaService {
       id: string; owner_user_id: string; owner_type: string; owner_id: string;
       filename: string; mime_type: string; size_bytes: number; visibility: string;
       storage_key: string; public_url: string | null; asset_type: string | null; sort_order: number; created_at: Date; updated_at: Date;
+      document_review_status: DocumentReviewStatus | null; document_review_reason: string | null; document_reviewed_at: Date | null;
     }>(
-      `SELECT id, owner_user_id, owner_type, owner_id, filename, mime_type,
-              size_bytes, visibility, storage_key, public_url, asset_type, sort_order, created_at, updated_at
-       FROM media_assets
-       WHERE owner_type = $1 AND owner_id = $2`,
+      `SELECT m.id, m.owner_user_id, m.owner_type, m.owner_id, m.filename, m.mime_type,
+              m.size_bytes, m.visibility, m.storage_key, m.public_url, m.asset_type, m.sort_order, m.created_at, m.updated_at,
+              r.status AS document_review_status, r.review_reason AS document_review_reason, r.reviewed_at AS document_reviewed_at
+       FROM media_assets m
+       LEFT JOIN mobility_document_reviews r ON r.media_asset_id = m.id
+       WHERE m.owner_type = $1 AND m.owner_id = $2`,
       [ownerType, ownerId]
     );
 
     return rows
       .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id || canReadPrivateRequest || (canReviewDriverDocuments && DRIVER_DOCUMENT_TYPES.has(r.asset_type ?? '')))
-      .map((r) => { const asset=this.toPublic(this.mapRow(r)); return r.visibility === 'private' ? {...asset,publicUrl:`/api/v1/media/secure/${r.id}`} : asset; });
+      .map((r) => {
+        const asset=this.toPublic(this.mapRow(r));
+        return {
+          ...asset,
+          ...(r.visibility === 'private' ? {publicUrl:`/api/v1/media/secure/${r.id}`} : {}),
+          ...(r.document_review_status ? {
+            documentReviewStatus:r.document_review_status,
+            documentReviewReason:r.document_review_reason ?? undefined,
+            documentReviewedAt:r.document_reviewed_at?.toISOString()
+          } : {})
+        };
+      });
+  }
+
+  async reviewDriverDocument(cookieHeader:string|undefined,id:string,status:unknown,reason:unknown):Promise<{id:string;status:DocumentReviewStatus;reason?:string;reviewedAt:string}>{
+    const actor=await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email,'security.manage');
+    if(status!=='approved'&&status!=='rejected')throw new BadRequestException('Document review status is invalid.');
+    const normalizedReason=typeof reason==='string'&&reason.trim()?reason.trim():undefined;
+    if(status==='rejected'&&(!normalizedReason||normalizedReason.length<5))throw new BadRequestException('A rejection reason of at least five characters is required.');
+    const reviewedAt=new Date().toISOString();
+    return this.db.transaction(async client=>{
+      const locked=await client.query<{owner_id:string;asset_type:string}>(
+        `SELECT owner_id,asset_type FROM media_assets
+         WHERE id=$1 AND owner_type='business_profile' AND visibility='private'
+           AND asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+         FOR UPDATE`,[id]);
+      const document=locked.rows[0];
+      if(!document)throw new NotFoundException('Driver document was not found.');
+      await client.query(
+        `INSERT INTO mobility_document_reviews
+           (media_asset_id,business_profile_id,document_type,status,review_reason,reviewed_by,reviewed_at,created_at,updated_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$7,$7)
+         ON CONFLICT(media_asset_id) DO UPDATE SET status=EXCLUDED.status,review_reason=EXCLUDED.review_reason,
+           reviewed_by=EXCLUDED.reviewed_by,reviewed_at=EXCLUDED.reviewed_at,updated_at=EXCLUDED.updated_at`,
+        [id,document.owner_id,document.asset_type,status,status==='rejected'?normalizedReason:null,actor.id,reviewedAt]);
+      await client.query(
+        `INSERT INTO mobility_document_review_events
+           (id,media_asset_id,business_profile_id,document_type,status,review_reason,actor_user_id,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [randomUUID(),id,document.owner_id,document.asset_type,status,status==='rejected'?normalizedReason:null,actor.id,reviewedAt]);
+      if(status==='rejected'){
+        await client.query(
+          `UPDATE business_profiles
+           SET visibility='private',moderation_status='pending',trust_status='pending',updated_at=$2
+           WHERE id=$1 AND category_code IN ('taxi','delivery_courier')`,
+          [document.owner_id,reviewedAt]);
+      }
+      return{id,status,reason:status==='rejected'?normalizedReason:undefined,reviewedAt};
+    });
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<void> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const rows = await this.db.query<{ owner_user_id: string; storage_key: string }>(
-      `SELECT owner_user_id, storage_key FROM media_assets WHERE id = $1 LIMIT 1`,
+    const rows = await this.db.query<{ owner_user_id: string; owner_type:string; owner_id:string; asset_type:string|null; storage_key: string }>(
+      `SELECT owner_user_id,owner_type,owner_id,asset_type,storage_key FROM media_assets WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (!rows[0]) throw new NotFoundException('Media asset not found.');
     if (rows[0].owner_user_id !== actor.id) throw new ForbiddenException('Access denied.');
 
     await this.storage.delete(rows[0].storage_key);
-    await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
+    await this.db.transaction(async(client)=>{
+      await client.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
+      if(rows[0].owner_type==='business_profile'&&DRIVER_DOCUMENT_TYPES.has(rows[0].asset_type??'')){
+        await client.query(
+          `UPDATE business_profiles
+           SET visibility='private',moderation_status='pending',trust_status='pending',updated_at=NOW()
+           WHERE id=$1 AND category_code IN ('taxi','delivery_courier')`,
+          [rows[0].owner_id]);
+      }
+    });
   }
 
   async readPublic(id: string): Promise<{ data: Buffer; mimeType: string }> {

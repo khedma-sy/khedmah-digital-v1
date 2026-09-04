@@ -64,7 +64,7 @@ export class ServiceCatalogController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string) {
-    return { assets: await this.services.getMediaAssets(id) };
+  async getMedia(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
+    return { assets: await this.services.getMediaAssets(id, undefined, cookieHeader) };
   }
 }

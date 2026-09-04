@@ -17,7 +17,7 @@ test('trial-period banner uses one short phrase for exactly 30 days without an u
   assert.doesNotMatch(banner, /launch-campaign-mark|☂/);
   assert.match(campaign, /NEXT_PUBLIC_TRIAL_PERIOD_START_AT/);
   assert.match(campaign, /TRIAL_PERIOD_DAYS = 30/);
-  assert.match(campaign, /LAUNCH_CAMPAIGN_MESSAGE = 'فترة تجريبية'/);
+  assert.match(campaign, /LAUNCH_CAMPAIGN_MESSAGE = 'فترة تجريبية لمدة 30 يومًا'/);
   assert.match(campaign, /now >= startAt && now < endAt/);
   assert.doesNotMatch(campaign, /التسجيل والاستخدام مجانيان|لمدة شهر/);
   const startAt = Date.parse(TRIAL_PERIOD_START_AT);

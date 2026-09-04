@@ -21,6 +21,7 @@ export class ProfessionalProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateProfessionalProfileUpsert(request);
     const existing = await this.repository.findByUserId(actor.id);
+    const existingEligibility = existing ? await this.repository.findContactEligibility(existing.id) : undefined;
     const now = new Date().toISOString();
     const profile: ProfessionalProfile = existing
       ? {
@@ -51,7 +52,21 @@ export class ProfessionalProfileService {
           updatedAt: now
         };
 
-    await this.repository.save(profile);
+    const materialChange = Boolean(existing) && (
+      existing!.headlineAr !== profile.headlineAr ||
+      existing!.headlineEn !== profile.headlineEn ||
+      existing!.bioAr !== profile.bioAr ||
+      existing!.bioEn !== profile.bioEn ||
+      existing!.availability !== profile.availability ||
+      existing!.cityCode !== profile.cityCode ||
+      existing!.countryCode !== profile.countryCode ||
+      JSON.stringify(existing!.skills) !== JSON.stringify(profile.skills)
+    );
+    const requiresReview = materialChange && Boolean(existingEligibility) && (
+      existingEligibility!.visibility === 'public' ||
+      existingEligibility!.moderationStatus === 'approved'
+    );
+    await this.repository.save(profile, requiresReview);
     return this.toPublic(profile);
   }
 
@@ -94,8 +109,8 @@ export class ProfessionalProfileService {
     return full;
   }
 
-  async getMediaAssets(profileId: string, assetType?: string): Promise<MediaAsset[]> {
-    await this.requirePublicProfile(profileId);
+  async getMediaAssets(cookieHeader: string | undefined, profileId: string, assetType?: string): Promise<MediaAsset[]> {
+    await this.requirePublicOrPrivileged(cookieHeader, profileId);
     return this.repository.listMediaAssets(profileId, assetType);
   }
 
@@ -120,8 +135,8 @@ export class ProfessionalProfileService {
     return req;
   }
 
-  async getVerificationStatus(profileId: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
-    await this.requirePublicProfile(profileId);
+  async getVerificationStatus(cookieHeader: string | undefined, profileId: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
+    await this.requirePublicOrPrivileged(cookieHeader, profileId);
 
     const request = await this.repository.findVerificationRequest(profileId);
 
@@ -136,8 +151,8 @@ export class ProfessionalProfileService {
     };
   }
 
-  async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
-    await this.requirePublicProfile(profileId);
+  async getTrustHistory(cookieHeader: string | undefined, profileId: string): Promise<TrustHistoryEntry[]> {
+    await this.requireOwnerOrAdmin(cookieHeader, profileId);
     return this.repository.listTrustHistory(profileId);
   }
 
@@ -195,6 +210,24 @@ export class ProfessionalProfileService {
     };
     await this.repository.saveTrustHistory(historyEntry);
 
+    return this.toPublic({ ...profile, updatedAt });
+  }
+
+  async approveAndPublish(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email, 'security.manage');
+    const profile = await this.requireProfile(id);
+    const updatedAt = new Date().toISOString();
+    const historyEntry: TrustHistoryEntry = {
+      id: randomUUID(),
+      entityType: 'professional',
+      entityId: profile.id,
+      newStatus: 'approved',
+      changedBy: actor.id,
+      reason: 'Moderation approved and professional profile published',
+      createdAt: updatedAt
+    };
+    await this.repository.approveAndPublish(profile.id, actor.id, updatedAt, historyEntry);
     return this.toPublic({ ...profile, updatedAt });
   }
 
@@ -263,6 +296,24 @@ export class ProfessionalProfileService {
       throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
     }
 
+    return profile;
+  }
+
+  private async requirePublicOrPrivileged(cookieHeader: string | undefined, id: string): Promise<ProfessionalProfile> {
+    const profile = await this.requireProfile(id);
+    const actor = await this.identity.getSession(readSessionToken(cookieHeader));
+    if (actor && (profile.userId === actor.id || this.rbac.permissionsFor(actor.email).includes('security.manage'))) {
+      return profile;
+    }
+    return this.requirePublicProfile(id);
+  }
+
+  private async requireOwnerOrAdmin(cookieHeader: string | undefined, id: string): Promise<ProfessionalProfile> {
+    const profile = await this.requireProfile(id);
+    const actor = await this.identity.getSession(readSessionToken(cookieHeader));
+    if (!actor || (profile.userId !== actor.id && !this.rbac.permissionsFor(actor.email).includes('security.manage'))) {
+      throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    }
     return profile;
   }
 
