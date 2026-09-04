@@ -6,7 +6,6 @@ import { api, type MobilityFarePolicy, type MobilityRequest, type PublicBusiness
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './mobility.module.css';
-import promoStyles from './mobility-promotion.module.css';
 
 type Coordinates = { latitude: number; longitude: number };
 type GooglePoint = { lat(): number; lng(): number };
@@ -252,8 +251,7 @@ export default function MobilityPage() {
 
   return <PageShell className={styles.page} label="التاكسي والتوصيل">
     <PageHeader eyebrow={type === 'taxi' ? 'خدمة تنقّل · تكسي' : 'خدمة تنقّل · توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'أرسل طلب توصيل'} description={type === 'taxi' ? 'حدد من أين ننطلق وإلى أين تذهب، ثم اختر سائقًا معتمدًا.' : 'حدد مكان الاستلام والتسليم، ثم اختر مندوبًا معتمدًا.'} backHref="/"/>
-    <Surface className={promoStyles.promotion} aria-label="نظام أجرة خدمة"><div><strong>{farePolicy?.enabled ? 'السعر تحسبه خدمة، لا السائق' : 'تعرفة خدمة بانتظار اعتماد الأدمن'}</strong><p>{farePolicy?.enabled ? `تُحسب بعد الرحلة من فتح العداد والمسافة والانتظار، والحد الأدنى ${farePolicy.minimumFare.toLocaleString('ar-SY')} ل.س.` : 'لن نعرض أرقامًا غير رسمية أو نسمح ببدء العداد قبل اعتماد التعرفة. التسجيل مجاني خلال المرحلة التجريبية.'}</p></div><ActionLink href="/business-profiles/new">سجّل كسائق أو مندوب</ActionLink></Surface>
-    {activeRequest && <Surface className={promoStyles.activeRequest} aria-live="polite"><div><strong>{requestStatus[activeRequest.status]}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">{activeRequest.providerPhone}</a>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
+    {activeRequest && <Surface className={styles.activeRequest} aria-live="polite"><div><span>رحلتك الحالية</span><strong>{requestStatus[activeRequest.status]}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">اتصل بالمزود · {activeRequest.providerPhone}</a>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
@@ -271,6 +269,8 @@ export default function MobilityPage() {
           <ActionButton type="submit" disabled={loading||!canPlanRoute}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : type === 'taxi' ? 'ابحث عن سائق' : 'ابحث عن مندوب'}</ActionButton>
         </div>
         <StatusMessage tone={mapsStatus === 'error' ? 'warning' : 'info'}>{message}</StatusMessage>
+        <div className={styles.fareTrust}><PlatformIcon name="check" size={17}/><div><strong>{farePolicy?.enabled ? 'السعر تحسبه خدمة بعد الرحلة' : 'التعرفة بانتظار اعتماد الأدمن'}</strong><small>{farePolicy?.enabled ? 'وفق المسافة والانتظار، وليس بتقدير السائق.' : 'لن يبدأ العداد ولن يظهر سعر غير معتمد.'}</small></div></div>
+        <ActionLink href="/business-profiles/new" variant="quiet" className={styles.providerEntry}>هل تريد العمل كسائق أو مندوب؟</ActionLink>
       </Surface>
       <section className={styles.mapStage} aria-label="خريطة الرحلة" data-map-status={mapsStatus}>
         <div ref={mapNode} className={styles.mapCanvas}/>

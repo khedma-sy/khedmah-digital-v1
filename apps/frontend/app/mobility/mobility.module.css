@@ -36,8 +36,14 @@
   max-width: 76rem;
   margin-inline: auto;
   gap: 1rem;
-  align-items: stretch;
+  align-items: start;
 }
+.activeRequest { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 76rem; margin: 0 auto 1rem; border: 2px solid var(--mobility-green); padding: 1rem 1.15rem; background: var(--k-color-surface); box-shadow: var(--k-shadow-md); }
+.activeRequest div { display: grid; gap: .2rem; }
+.activeRequest span { color: var(--mobility-green-deep); font-size: .78rem; font-weight: 800; }
+.activeRequest strong { color: var(--k-color-text); font-size: 1.05rem; }
+.activeRequest p { margin: 0; color: var(--k-color-text-muted); line-height: 1.7; }
+.activeRequest a { color: var(--mobility-green-deep); font-weight: 800; }
 .planner {
   z-index: 2;
   display: grid;
@@ -72,8 +78,14 @@
 .fields input { min-width: 0; border: 0; outline: 0; padding: .18rem 1.9rem .18rem .25rem; color: var(--k-color-text); background: transparent; font: inherit; font-size: 1rem; font-weight: 700; }
 .fields input::placeholder { color: var(--k-color-text-muted); opacity: .82; font-weight: 500; }
 .actions > * { flex: 1 1 8rem; min-height: 3rem; }
+.fareTrust { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .55rem; border-block-start: 1px solid var(--mobility-green-border); padding-block-start: .85rem; color: var(--mobility-green-deep); }
+.fareTrust div { display: grid; gap: .1rem; }
+.fareTrust strong { font-size: .84rem; line-height: 1.55; }
+.fareTrust small { color: var(--k-color-text-muted); font-size: .75rem; line-height: 1.6; }
+.providerEntry { justify-self: start; min-height: auto !important; padding: .2rem !important; font-size: .78rem !important; }
 
 .mapStage { position: relative; min-height: 32rem; border: 1px solid var(--mobility-green-border); border-radius: var(--k-radius-xl); overflow: hidden; background: var(--mobility-green-soft); box-shadow: 0 18px 50px rgb(7 66 124 / 9%); }
+.mapStage[data-map-status='error'] { min-height: 10rem; }
 .mapCanvas { position: absolute; inset: 0; }
 .mapFallback { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: .65rem; padding: 2rem; color: var(--k-color-text-muted); text-align: center; }
 .mapFallback svg { color: var(--mobility-green-deep); }
@@ -112,4 +124,5 @@
   .actions > *:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
   .mapHint { inset-inline-start: .65rem; bottom: .65rem; }
   .results { grid-template-columns: 1fr; }
+  .activeRequest { align-items: stretch; flex-direction: column; }
 }

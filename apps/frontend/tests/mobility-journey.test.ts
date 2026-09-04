@@ -17,7 +17,7 @@ test('mobility journey creates a governed request with platform fare and honest 
   assert.match(page, /خدمة تكسي/);
   assert.match(page, /قُبل طلب رحلة خدمة/);
   assert.match(page, /سائق خدمة في الطريق/);
-  assert.match(page, /السعر تحسبه خدمة، لا السائق/);
+  assert.match(page, /السعر تحسبه خدمة بعد الرحلة/);
   assert.match(page, /الدفع الإلكتروني والتتبع في الخلفية غير مفعّلين بعد/);
   assert.match(client, /Idempotency-Key/);
   assert.doesNotMatch(client, /distanceMeters/);

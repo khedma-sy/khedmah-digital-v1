@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { isLaunchCampaignActive, LAUNCH_CAMPAIGN_MESSAGE } from '../../lib/launch-campaign';
 
 export function LaunchCampaignBanner() {
@@ -9,7 +8,6 @@ export function LaunchCampaignBanner() {
   return (
     <aside className="launch-campaign" aria-label="الفترة التجريبية لخدمة">
       <strong>{LAUNCH_CAMPAIGN_MESSAGE}</strong>
-      <Link href="/auth/register">ابدأ الآن</Link>
     </aside>
   );
 }

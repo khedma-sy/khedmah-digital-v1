@@ -5,19 +5,19 @@ import { isLaunchCampaignActive, TRIAL_PERIOD_DAYS, TRIAL_PERIOD_START_AT } from
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('trial-period banner uses one short phrase for exactly 30 days without an umbrella mark', async () => {
+test('trial-period banner uses only the approved phrase for an internally bounded 30-day period', async () => {
   const [layout, banner, campaign] = await Promise.all([
     read('app/layout.tsx'), read('app/components/launch-campaign-banner.tsx'), read('lib/launch-campaign.ts')
   ]);
   assert.match(layout, /<LaunchCampaignBanner \/>/);
   assert.ok(layout.indexOf('<LaunchCampaignBanner />') < layout.indexOf('<header className="khedma-header">'));
   assert.match(banner, /isLaunchCampaignActive/);
-  assert.match(banner, /\/auth\/register/);
-  assert.match(banner, /ابدأ الآن/);
+  assert.doesNotMatch(banner, /\/auth\/register/);
+  assert.doesNotMatch(banner, /ابدأ الآن|سجّل|مجاني|30 يوم/);
   assert.doesNotMatch(banner, /launch-campaign-mark|☂/);
   assert.match(campaign, /NEXT_PUBLIC_TRIAL_PERIOD_START_AT/);
   assert.match(campaign, /TRIAL_PERIOD_DAYS = 30/);
-  assert.match(campaign, /LAUNCH_CAMPAIGN_MESSAGE = 'فترة تجريبية لمدة 30 يومًا'/);
+  assert.match(campaign, /LAUNCH_CAMPAIGN_MESSAGE = 'فترة تجريبية'/);
   assert.match(campaign, /now >= startAt && now < endAt/);
   assert.doesNotMatch(campaign, /التسجيل والاستخدام مجانيان|لمدة شهر/);
   const startAt = Date.parse(TRIAL_PERIOD_START_AT);
