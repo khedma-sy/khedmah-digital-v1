@@ -258,14 +258,14 @@ export default function MobilityPage() {
     catch (cause) { setMessage(cause instanceof Error ? cause.message : 'تعذر إلغاء الطلب.'); }
   }
 
-  return <PageShell className={`${styles.page} ${type === 'delivery' ? styles.deliveryMode : styles.taxiMode}`} label="النقل والتوصيل">
+  return <PageShell className={`${styles.page} ${type === 'delivery' ? styles.deliveryMode : styles.taxiMode}`} label="الطريق مع خدمة">
     <PageHeader eyebrow={type === 'taxi' ? 'خدمة تنقّل · تكسي' : 'خدمة تنقّل · توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'أرسل طلب توصيل'} description={type === 'taxi' ? 'حدد نقطة الانطلاق والوجهة، ثم اختر سائقًا معتمدًا قريبًا.' : 'من الاستلام إلى التسليم، تابع طردك مع مندوب معتمد وإثبات واضح.'} backHref="/"/>
     {activeRequest && <Surface className={styles.activeRequest} aria-live="polite"><div><span>{activeRequest.serviceType === 'delivery' ? 'طلب التوصيل الحالي' : 'رحلتك الحالية'}</span><strong>{requestStatus(activeRequest)}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.serviceType === 'delivery' && activeRequest.packageDescription && <p>الطرد: {activeRequest.packageDescription} · المستلم: {activeRequest.recipientName}</p>}{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">اتصل بالمزود · {activeRequest.providerPhone}</a>}{activeRequest.serviceType === 'delivery' && (activeRequest.pickupProofPin || activeRequest.deliveryProofPin) && <div className={styles.proofPins}><span>رموز الإثبات — لا تشارك الرمز إلا عند تنفيذ الخطوة</span>{activeRequest.pickupProofPin && <b>رمز الاستلام: <em dir="ltr">{activeRequest.pickupProofPin}</em></b>}{activeRequest.deliveryProofPin && <b>رمز التسليم: <em dir="ltr">{activeRequest.deliveryProofPin}</em></b>}</div>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY-u-nu-latn')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
         <div className={styles.serviceIdentity}>
           <span className={styles.serviceIcon}><PlatformIcon name={type === 'taxi' ? 'car' : 'delivery'} size={24}/></span>
-          <div><small>{type === 'taxi' ? 'النقل والتوصيل · خدمة تكسي' : 'النقل والتوصيل · مندوب توصيل'}</small><strong>{type === 'taxi' ? 'خدمة تكسي' : 'مندوب توصيل'}</strong></div>
+          <div><small>{type === 'taxi' ? 'الطريق مع خدمة · خدمة تكسي' : 'الطريق مع خدمة · مندوب توصيل'}</small><strong>{type === 'taxi' ? 'خدمة تكسي' : 'مندوب توصيل'}</strong></div>
         </div>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
           <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => { setType('taxi'); setProviders([]); setSearched(false); }}><PlatformIcon name="car"/> خدمة تكسي</ActionButton>

@@ -14,7 +14,7 @@ function DiscoveryLinks({ pathname }: { pathname: string }) {
     { href: '/map', label: 'بالقرب مني', icon: 'pin' as const, active: pathname === '/map' },
     { href: '/restaurants', label: 'اطلب طعام', icon: 'food' as const, active: pathname.startsWith('/restaurants') },
     { href: '/classifieds', label: 'متجر', icon: 'storefront' as const, active: pathname.startsWith('/store') || pathname === '/classifieds' },
-    { href: '/mobility', label: 'النقل والتوصيل', icon: 'delivery' as const, active: pathname.startsWith('/mobility') },
+    { href: '/mobility', label: 'الطريق مع خدمة', icon: 'delivery' as const, active: pathname.startsWith('/mobility') },
     { href: '/promotions', label: 'العروض', icon: 'tag' as const, active: pathname.startsWith('/promotions') || pathname === '/live' }
   ];
   return (
