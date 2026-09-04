@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicBusinessProfile } from '../../lib/api-client';
 import { PlatformIcon } from '../components/platform-icon';
 import { ActionButton, ActionLink, EmptyState, StatusMessage, Surface } from '../components/ui-primitives';
+import { ServiceProductHeader } from '../components/service-product-header';
 import styles from '../discovery.module.css';
 
 type Bounds = { south: number; west: number; north: number; east: number };
@@ -213,7 +214,9 @@ function MapDiscovery() {
     }, () => setStatus('تعذر الوصول إلى موقعك. حرّك الخريطة يدوياً.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
-  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
+  return <main className={`service-nearby-page ${styles.nearbyProduct}`} dir="rtl">
+    <ServiceProductHeader title="بالقرب مني" label="خدمات حول موقعك" tone="green"/>
+    <div className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus}>
     <aside className={styles.mapPanel}>
       <header><span className={styles.mapKicker}><PlatformIcon name="pin" size={15}/> بالقرب مني</span><h1>خدمات حول موقعك</h1><p className={styles.meta}>استخدم موقعك أو ابحث عن خدمة، ثم افتح ملف مقدم الخدمة مباشرة.</p></header>
       <ActionButton className={styles.locateAction} type="button" onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
@@ -251,9 +254,10 @@ function MapDiscovery() {
         {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{mapCanRetry && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
+    </div>
   </main>;
 }
 
 export default function MarketplaceMapPage() {
-  return <Suspense fallback={<main className={styles.mapPage} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
+  return <Suspense fallback={<main className={`service-nearby-page ${styles.nearbyProduct}`} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
 }

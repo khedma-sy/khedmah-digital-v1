@@ -1,4 +1,10 @@
 .page { min-height:100svh; }
+.searchProduct { --k-color-primary:#074f8d; --k-color-primary-hover:#063b6b; --k-color-primary-soft:#e9f3fb; background:linear-gradient(180deg,#e9f3fb 0 24rem,var(--k-color-canvas) 44rem); }
+.searchProduct :global(.ui-container) { max-width:none; padding:0; }
+.searchProduct :global(.ui-page-header),.searchProduct>.searchWorkspace,.searchProduct>.section,.searchProduct>.initialState,.searchProduct>.resultSummary,.searchProduct>:global(.ui-grid),.searchProduct>:global([role='alert']),.searchProduct>:global(.ui-status),.searchProduct>.pagination { width:min(calc(100% - 2rem),76rem); margin-inline:auto; }
+.searchProduct :global(.ui-page-header) { margin-block:2rem 1.25rem; }
+.nearbyProduct { --k-color-primary:#12643a; --k-color-primary-hover:#0b4d2b; --k-color-primary-soft:#e9f6ed; min-height:100svh; background:var(--k-color-canvas); }
+.nearbyProduct .mapPage { min-height:calc(100svh - 5.25rem); background:radial-gradient(circle at 12% 18%,color-mix(in srgb,#12643a 13%,transparent),transparent 25rem),linear-gradient(145deg,#edf8ef,var(--k-color-canvas)); }
 .searchWorkspace { overflow:hidden; }
 .form { display:grid; grid-template-columns:minmax(15rem,2fr) repeat(2,minmax(10rem,1fr)) auto; gap:var(--k-space-4); align-items:end; padding:clamp(1rem,2.4vw,var(--k-space-5)); }
 .queryField { min-width:min(100%,20rem); }

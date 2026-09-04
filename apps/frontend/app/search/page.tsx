@@ -6,6 +6,7 @@ import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syr
 import { useCategories } from '../../lib/use-categories';
 import { PlatformIcon } from '../components/platform-icon';
 import { CategorySelectOptions } from '../components/category-select-options';
+import { ServiceProductHeader } from '../components/service-product-header';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import styles from '../discovery.module.css';
 
@@ -106,7 +107,8 @@ function SearchContent() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const noResults = !businesses.length && !professionals.length && !services.length;
 
-  return <PageShell className={styles.page} label="اكتشف">
+  return <PageShell className={`service-search-page ${styles.page} ${styles.searchProduct}`} label="اكتشف">
+    <ServiceProductHeader title="اكتشف" label="البحث تحت مظلة خدمة" tone="blue"/>
     <PageHeader eyebrow="بحث موحد" title="اكتشف الخدمة المناسبة" description="اكتب ما تحتاجه وحدد المدينة أو التصنيف، ثم قارن النتائج الموثقة." actions={<ActionLink href="/map" variant="secondary"><PlatformIcon name="pin" size={17}/> بالقرب مني</ActionLink>} />
     <Surface as="section" className={styles.searchWorkspace}>
       <div className={styles.tabs} role="tablist" aria-label="نوع النتائج">{tabs.map(([value,label]) => <button type="button" key={value} className={styles.tab} role="tab" aria-selected={tab === value} onClick={() => changeTab(value)}>{label}</button>)}</div>
@@ -133,4 +135,4 @@ function SearchContent() {
   </PageShell>;
 }
 function ResultSection({ title, children }: { title?: string; children: ReactNode }) { return <section className={styles.section}>{title && <h2>{title}</h2>}<div className={styles.grid}>{children}</div></section>; }
-export default function SearchPage() { return <Suspense fallback={<PageShell className={styles.page}><SkeletonGrid count={6}/></PageShell>}><SearchContent/></Suspense>; }
+export default function SearchPage() { return <Suspense fallback={<PageShell className={`service-search-page ${styles.page} ${styles.searchProduct}`}><SkeletonGrid count={6}/></PageShell>}><SearchContent/></Suspense>; }

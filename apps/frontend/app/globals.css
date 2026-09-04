@@ -30,6 +30,26 @@ body {
   font-family: var(--k-font-arabic, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif);
 }
 
+/* Independent service shell: the mobility product remains under Khedmah while
+   replacing the marketplace chrome with its own focused journey header. */
+body:has(.mobility-service-page) .launch-campaign,
+body:has(.mobility-service-page) .khedma-header,
+body:has(.mobility-service-page) .official-contact,
+body:has(.mobility-service-page) .mobile-navigation { display: none; }
+body:has(.mobility-service-page) { padding-block-end: 0; background: var(--k-color-canvas); }
+body:has(.mobility-service-page) .smart-assistant-trigger { background: #12643a; }
+body:has(.service-search-page) .launch-campaign,
+body:has(.service-search-page) .khedma-header,
+body:has(.service-search-page) .official-contact,
+body:has(.service-search-page) .mobile-navigation,
+body:has(.service-nearby-page) .launch-campaign,
+body:has(.service-nearby-page) .khedma-header,
+body:has(.service-nearby-page) .official-contact,
+body:has(.service-nearby-page) .mobile-navigation { display:none; }
+body:has(.service-search-page),body:has(.service-nearby-page) { padding-block-end:0; }
+body:has(.service-search-page) .smart-assistant-trigger { background:#074f8d; }
+body:has(.service-nearby-page) .smart-assistant-trigger { background:#12643a; }
+
 .khedma-header {
   position: sticky;
   top: 0;

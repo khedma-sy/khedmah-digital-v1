@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { api, type MobilityFarePolicy, type MobilityRequest, type PublicBusinessProfile } from '../../lib/api-client';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
+import { BrandMark } from '../components/brand-mark';
 import styles from './mobility.module.css';
 
 type Coordinates = { latitude: number; longitude: number };
@@ -258,7 +259,12 @@ export default function MobilityPage() {
     catch (cause) { setMessage(cause instanceof Error ? cause.message : 'تعذر إلغاء الطلب.'); }
   }
 
-  return <PageShell className={`${styles.page} ${type === 'delivery' ? styles.deliveryMode : styles.taxiMode}`} label="الطريق مع خدمة">
+  return <PageShell className={`mobility-service-page ${styles.page} ${type === 'delivery' ? styles.deliveryMode : styles.taxiMode}`} label="الطريق مع خدمة">
+    <header className={styles.serviceHeader}>
+      <Link href="/" className={styles.parentBrand} aria-label="العودة إلى منصة خدمة"><BrandMark compact/></Link>
+      <div className={styles.subBrand}><span><PlatformIcon name="delivery" size={22}/></span><div><small>خدمة التنقّل والتوصيل</small><strong>الطريق مع خدمة</strong></div></div>
+      <Link href="/" className={styles.homeLink}><PlatformIcon name="arrow" size={17}/> الرئيسية</Link>
+    </header>
     <PageHeader eyebrow={type === 'taxi' ? 'خدمة تنقّل · تكسي' : 'خدمة تنقّل · توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'أرسل طلب توصيل'} description={type === 'taxi' ? 'حدد نقطة الانطلاق والوجهة، ثم اختر سائقًا معتمدًا قريبًا.' : 'من الاستلام إلى التسليم، تابع طردك مع مندوب معتمد وإثبات واضح.'} backHref="/"/>
     {activeRequest && <Surface className={styles.activeRequest} aria-live="polite"><div><span>{activeRequest.serviceType === 'delivery' ? 'طلب التوصيل الحالي' : 'رحلتك الحالية'}</span><strong>{requestStatus(activeRequest)}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.serviceType === 'delivery' && activeRequest.packageDescription && <p>الطرد: {activeRequest.packageDescription} · المستلم: {activeRequest.recipientName}</p>}{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">اتصل بالمزود · {activeRequest.providerPhone}</a>}{activeRequest.serviceType === 'delivery' && (activeRequest.pickupProofPin || activeRequest.deliveryProofPin) && <div className={styles.proofPins}><span>رموز الإثبات — لا تشارك الرمز إلا عند تنفيذ الخطوة</span>{activeRequest.pickupProofPin && <b>رمز الاستلام: <em dir="ltr">{activeRequest.pickupProofPin}</em></b>}{activeRequest.deliveryProofPin && <b>رمز التسليم: <em dir="ltr">{activeRequest.deliveryProofPin}</em></b>}</div>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY-u-nu-latn')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
