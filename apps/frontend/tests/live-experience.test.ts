@@ -75,6 +75,20 @@ test('approved actions use the unified SVG icon system', async () => {
   assert.doesNotMatch(home, /[🏢👤📍🔍✨✦⌖]/u);
 });
 
+test('Ask Khedmah keeps the brand umbrella and a consistent label on every page', async () => {
+  const [assistant, assistantStyles, brandStyles] = await Promise.all([
+    read('app/components/smart-assistant.tsx'),
+    read('app/components/smart-assistant.module.css'),
+    read('app/brand-system.css'),
+  ]);
+
+  assert.match(assistant, /BrandUmbrella/);
+  assert.match(assistant, /<span>اسأل خدمة<\/span>/);
+  assert.match(assistantStyles, /\.brandIcon/);
+  assert.doesNotMatch(assistantStyles, /\.trigger span\{display:none\}/);
+  assert.doesNotMatch(brandStyles, /body:has\(\.catalog-experience\) \.smart-assistant/);
+});
+
 test('service discovery always leads to the real provider profile', async () => {
   const search = await read('app/search/page.tsx');
 

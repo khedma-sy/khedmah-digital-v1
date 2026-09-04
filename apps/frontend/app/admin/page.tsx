@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { api, type AdminPlatformMetrics, type OperationsProductOverview, type PublicUserProfile } from '../../lib/api-client';
 
 const roleLabel = (role: string) => role === 'operations_product_director'
-  ? 'مالك المنصة'
+  ? 'مدير تشغيل المنصة'
   : role === 'security_operations_engineer'
     ? 'إدارة الأمن والمراجعة'
     : role.replaceAll('_', ' ');
@@ -64,7 +64,7 @@ export default function AdminPage() {
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
-      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>إدارة المراجعة والتصنيفات والتشغيل بصلاحيات مقيدة ومسجلة.</p></div>
+      <div><p className="eyebrow">خدمة · الإدارة الداخلية</p><h1>مركز إدارة المنصة</h1><p>تشغيل ومراجعة ومتابعة كل قطاعات المنتج من لوحة واحدة، مع تسجيل كل قرار.</p></div>
       <span className="status-badge">{overview.roles.map(roleLabel).join(' · ')}</span>
     </header>
 
@@ -105,7 +105,7 @@ export default function AdminPage() {
     </section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
-      <article className="operations-panel"><div className="panel-heading"><h2>الموظف الإداري الذكي</h2><span>مساعد فقط</span></div><p>تحليل مجمع لما يبحث عنه المستخدمون وفجوات النتائج ومشكلات التحويل، مع توصيات تحتاج قرارًا بشريًا.</p><Link href="/admin/smart-report">فتح تقرير التطوير</Link></article>
+      <article className="operations-panel operations-panel-featured"><div className="panel-heading"><h2>الأدمن الذكي</h2><span>مدير تشغيل تنفيذي</span></div><p>يراقب قطاعات المنصة، يعتمد المحتوى المطابق للسياسة، يوجّه الاستثناءات، ويقودك مباشرة إلى الإجراء المطلوب مع سجل تدقيق كامل.</p><Link href="/admin/smart-report">فتح مركز قرارات الأدمن</Link></article>
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageUsers ? <article className="operations-panel"><div className="panel-heading"><h2>إدارة المستخدمين</h2><span>مسجل</span></div><p>البحث عن الحسابات وتعليقها أو إعادة تفعيلها مع إبطال الجلسات وسجل تدقيق دائم.</p><Link href="/admin/users">فتح إدارة المستخدمين</Link></article> : null}
       {canMonitorOrders ? <article className="operations-panel"><div className="panel-heading"><h2>مراقبة الطلبات والتوصيل</h2><span>قراءة آمنة</span></div><p>اكتشاف الطلبات المتأخرة أو غير المسندة ومتابعة حالتها دون كشف عنوان العميل أو هاتفه.</p><Link href="/admin/orders">فتح شاشة المراقبة</Link></article> : null}

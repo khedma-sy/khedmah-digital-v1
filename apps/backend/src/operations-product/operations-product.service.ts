@@ -28,7 +28,7 @@ export class OperationsProductService {
       ], openIncidents: await this.repository.countOpenIncidents(), pendingChanges: this.repository.listChanges().length };
   }
   async smartAdminReport(cookie: string | undefined) {
-    await this.actor(cookie, 'operations.read');
+    const { permissions } = await this.actor(cookie, 'operations.read');
     const periodDays = 30;
     const [analytics, productAuditCounts, platform] = await Promise.all([
       this.analytics.adminSummary(periodDays),
@@ -58,7 +58,20 @@ export class OperationsProductService {
       promotionModeration: { pending: platform.promotions.pending, live: platform.promotions.live, policyVersion: 'promotion-auto-v1' as const },
       platformCoverage: platform.domains,
       recommendations,
-      automation: { canAutoApproveEligibleProducts: true, canAutoApproveEligiblePromotions: true, humanApprovalRequiredForExceptions: true, canDeleteOrSuspendAutonomously: false }
+      access: {
+        mode: 'full_internal_product_operations' as const,
+        permissions,
+        auditTrailRequired: true,
+        infrastructureSecretsExposed: false
+      },
+      automation: {
+        canTriageAllDomains: true,
+        canRouteExceptionsToReview: true,
+        canAutoApproveEligibleProducts: true,
+        canAutoApproveEligiblePromotions: true,
+        humanApprovalRequiredForExceptions: true,
+        canDeleteOrSuspendAutonomously: false
+      }
     };
   }
   async listUsers(cookie:string|undefined,query=''){await this.actor(cookie,'users.manage');return this.identityRepository.listAccountsForAdmin(query.slice(0,100));}

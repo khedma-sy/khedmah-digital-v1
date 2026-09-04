@@ -21,6 +21,12 @@ test('smart admin report exposes bounded product auto-approval results', async (
   assert.equal(report.privacy.rawUserTextExposed, false);
   assert.equal(report.productModeration.autoApproved, 7);
   assert.equal(report.productModeration.reviewRequired, 2);
+  assert.equal(report.access.mode, 'full_internal_product_operations');
+  assert.equal(report.access.auditTrailRequired, true);
+  assert.equal(report.access.infrastructureSecretsExposed, false);
+  assert.deepEqual(report.access.permissions, ['operations.read']);
+  assert.equal(report.automation.canTriageAllDomains, true);
+  assert.equal(report.automation.canRouteExceptionsToReview, true);
   assert.equal(report.automation.canAutoApproveEligibleProducts, true);
   assert.equal(report.automation.canAutoApproveEligiblePromotions, true);
   assert.equal(report.automation.canDeleteOrSuspendAutonomously, false);

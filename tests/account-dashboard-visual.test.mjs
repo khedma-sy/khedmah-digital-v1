@@ -5,21 +5,23 @@ import { test } from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('account dashboard has a clear Arabic-first visual hierarchy', async () => {
-  const [page, styles] = await Promise.all([
+  const [page, priorityServices, styles] = await Promise.all([
     read('apps/frontend/app/users/me/page.tsx'),
+    read('apps/frontend/app/components/priority-services.tsx'),
     read('apps/frontend/app/ui-primitives.css'),
   ]);
 
   assert.match(page, /مرحبًا،/);
   assert.match(page, /تم تسجيل الدخول بأمان/);
-  assert.match(page, /المسارات الأكثر استخدامًا/);
-  assert.match(page, /البيع والطلبات/);
-  assert.match(page, /النقل والتوصيل/);
+  assert.match(page, /PriorityServices/);
+  assert.match(page, /إدارة نشاطك/);
+  assert.match(page, /متابعة الطلبات والعمل/);
   assert.match(page, /PlatformIcon/);
-  assert.match(page, /OfficialSocialLinks/);
-  assert.match(page, /KHEDMAH_WHATSAPP_CHANNEL_URL/);
+  assert.doesNotMatch(page, /OfficialSocialLinks/);
+  assert.doesNotMatch(page, /صفحاتنا على مواقع التواصل/);
   assert.match(page, /officialWhatsappContactUrl/);
-  assert.match(page, /صفحاتنا على مواقع التواصل/);
+  assert.match(page, /ui-account-contact/);
+  assert.match(page, /<bdi>\{firstName\}<\/bdi>/);
   assert.doesNotMatch(page, /متابعة قناة واتساب|الاتصال عبر واتساب|رابط الاتصال قيد التحقق/);
 
   for (const route of [
@@ -30,14 +32,18 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
     '/orders',
     '/orders/merchant',
     '/orders/courier',
-    '/mobility',
     '/mobility/manage',
-  ]) assert.match(page, new RegExp(route.replaceAll('/', '\\/')));
+  ]) assert.match(page, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+  for (const route of ['/restaurants', '/mobility?type=delivery', '/mobility?type=taxi']) {
+    assert.match(priorityServices, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  for (const label of ['طلب طعام', 'مندوب توصيل', 'خدمة تكسي']) assert.match(priorityServices, new RegExp(label));
 
   assert.match(styles, /\.ui-account-hero/);
-  assert.match(styles, /\.ui-account-featured-grid/);
+  assert.match(styles, /\.ui-priority-services-grid/);
   assert.match(styles, /\.ui-account-sections/);
-  assert.match(styles, /\.ui-account-social/);
+  assert.doesNotMatch(styles, /\.ui-account-social/);
   assert.match(styles, /@media\(max-width:40rem\)/);
   assert.doesNotMatch(page, /ui-account-grid/);
 });

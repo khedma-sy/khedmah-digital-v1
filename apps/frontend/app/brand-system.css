@@ -112,9 +112,6 @@ body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
 .catalog-pagination span { color:var(--k-color-text-muted); font-size:var(--k-type-meta); }
 .catalog-experience .ui-empty { border-color:var(--catalog-blue-border); background:var(--k-color-surface-raised); }
 .catalog-experience .ui-empty-icon { color:var(--catalog-blue); background:var(--catalog-blue-soft); }
-body:has(.catalog-experience) .smart-assistant>button { width:3rem; justify-content:center; padding:.65rem; }
-body:has(.catalog-experience) .smart-assistant>button span { display:none; }
-
 @media(max-width:68rem) { .catalog-category-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:48rem) { .catalog-experience .ui-page-header { min-height:auto; align-items:flex-start; flex-direction:column; } .catalog-experience .ui-page-actions { width:100%; justify-content:flex-start; } .catalog-category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:36rem) {

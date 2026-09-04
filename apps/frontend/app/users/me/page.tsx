@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
-import { OfficialSocialLinks } from '../../components/official-social-links';
+import { PriorityServices } from '../../components/priority-services';
+import { WhatsappIcon } from '../../components/whatsapp-icon';
 import { KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
 
 function AccountShortcut({
@@ -13,16 +14,14 @@ function AccountShortcut({
   label,
   description,
   icon,
-  featured = false,
 }: {
   href: string;
   label: string;
   description: string;
   icon: PlatformIconName;
-  featured?: boolean;
 }) {
   return (
-    <ActionLink href={href} variant="quiet" className={`ui-account-shortcut${featured ? ' ui-account-shortcut-featured' : ''}`}>
+    <ActionLink href={href} variant="quiet" className="ui-account-shortcut">
       <span className="ui-account-shortcut-icon"><PlatformIcon name={icon} size={21} /></span>
       <span className="ui-account-shortcut-copy">
         <strong>{label}</strong>
@@ -60,15 +59,13 @@ export default function ProfilePage() {
 
   const displayName = user.profile.displayName.trim() || 'مستخدم خدمة';
   const firstName = displayName.split(/\s+/)[0];
-  const whatsappContactUrl = officialWhatsappContactUrl();
-
+  const whatsappContactUrl = officialWhatsappContactUrl() ?? KHEDMAH_WHATSAPP_CHANNEL_URL;
   return (
     <PageShell label="حسابي" className="ui-account-page">
       <PageHeader
         eyebrow="مساحة حسابك"
-        title={`مرحبًا، ${firstName}`}
+        title={<>مرحبًا، <bdi>{firstName}</bdi></>}
         description="كل ما تحتاجه لإدارة نشاطك وطلباتك من مكان واحد."
-        actions={<ActionLink href="/business-profiles/new"><PlatformIcon name="userPlus" size={18} />إضافة نشاط</ActionLink>}
       />
 
       <div className="ui-account-dashboard">
@@ -84,35 +81,24 @@ export default function ProfilePage() {
           <div className="ui-account-session">
             <span className="ui-account-state"><PlatformIcon name="check" size={17} />تم تسجيل الدخول بأمان</span>
             <p>بيانات الحساب مرتبطة بجلسة الدخول الحالية، ويمكنك الوصول إلى جميع مساحات عملك من هنا.</p>
+            <a className="ui-account-contact" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><WhatsappIcon size={19} />التواصل مع خدمة</a>
           </div>
         </Surface>
 
-        <Surface className="ui-account-quick">
-          <div className="ui-account-section-heading">
-            <div>
-              <span className="ui-account-kicker">ابدأ من هنا</span>
-              <h2>المسارات الأكثر استخدامًا</h2>
-            </div>
-            <p>اختر المهمة التي تريد إنجازها الآن.</p>
-          </div>
-          <div className="ui-account-featured-grid">
-            <AccountShortcut href="/business-profiles" label="أعمالي" description="إدارة أنشطتك وخدماتك المنشورة." icon="briefcase" featured />
-            <AccountShortcut href="/business-profiles/new" label="إضافة نشاط" description="أنشئ حضورًا جديدًا داخل دليل خدمة." icon="storefront" featured />
-            <AccountShortcut href="/store/sell" label="عرض منتج للبيع" description="أضف منتجًا وابدأ عرضه للعملاء." icon="tag" featured />
-          </div>
-        </Surface>
+        <PriorityServices />
 
         <div className="ui-account-sections">
           <Surface className="ui-account-workspace">
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
                 <span className="ui-account-section-icon"><PlatformIcon name="cart" size={21} /></span>
-                <div><h2>البيع والطلبات</h2><p>تابع المنتجات والطلبات من مساحة واحدة.</p></div>
+                <div><h2>إدارة نشاطك</h2><p>الأدوات الخاصة بالنشر والبيع وإدارة الطلبات.</p></div>
               </div>
             </div>
             <div className="ui-account-action-list">
+              <AccountShortcut href="/business-profiles" label="أعمالي" description="إدارة أنشطتك وخدماتك المنشورة." icon="briefcase" />
+              <AccountShortcut href="/business-profiles/new" label="إضافة نشاط" description="أنشئ ملف نشاط جديدًا." icon="userPlus" />
               <AccountShortcut href="/store/manage" label="منتجاتي" description="راجع المنتجات المعروضة وحدّثها." icon="storefront" />
-              <AccountShortcut href="/orders" label="طلباتي" description="تابع الطلبات التي أنشأتها." icon="ticket" />
               <AccountShortcut href="/orders/merchant" label="طلبات المنشأة" description="أدر الطلبات الواردة إلى نشاطك." icon="briefcase" />
             </div>
           </Surface>
@@ -121,27 +107,17 @@ export default function ProfilePage() {
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
                 <span className="ui-account-section-icon"><PlatformIcon name="delivery" size={21} /></span>
-                <div><h2>النقل والتوصيل</h2><p>مسارات واضحة للعميل والمندوب والسائق.</p></div>
+                <div><h2>متابعة الطلبات والعمل</h2><p>سجل واحد للعميل والمندوب والسائق.</p></div>
               </div>
             </div>
             <div className="ui-account-action-list">
-              <AccountShortcut href="/mobility" label="تاكسي وتوصيل" description="ابدأ طلب تنقّل أو توصيل جديد." icon="car" />
+              <AccountShortcut href="/orders" label="طلباتي" description="تابع الطلبات التي أنشأتها." icon="ticket" />
               <AccountShortcut href="/orders/courier" label="مهام المندوب" description="تابع مهام استلام وتسليم الطلبات." icon="delivery" />
               <AccountShortcut href="/mobility/manage" label="طلبات السائق" description="راجع طلبات النقل المخصصة لك." icon="car" />
+              <AccountShortcut href="/store/sell" label="إضافة إعلان" description="انشر منتجًا مرتبطًا بنشاطك." icon="tag" />
             </div>
           </Surface>
         </div>
-
-        <Surface as="aside" className="ui-account-social">
-          <div className="ui-account-social-copy">
-            <h2>صفحاتنا على مواقع التواصل</h2>
-          </div>
-          <OfficialSocialLinks
-            className="ui-account-social-actions"
-            whatsappUrl={whatsappContactUrl ?? KHEDMAH_WHATSAPP_CHANNEL_URL}
-            whatsappLabel={whatsappContactUrl ? 'التواصل مع خدمة عبر واتساب' : 'قناة خدمة على واتساب'}
-          />
-        </Surface>
       </div>
     </PageShell>
   );

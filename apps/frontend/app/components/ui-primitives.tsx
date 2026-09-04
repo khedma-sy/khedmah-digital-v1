@@ -7,7 +7,7 @@ export function PageShell({ children, label, className = '' }: { children: React
   </main>;
 }
 
-export function PageHeader({ title, description, eyebrow, backHref, actions }: { title: string; description?: string; eyebrow?: string; backHref?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, eyebrow, backHref, actions }: { title: ReactNode; description?: string; eyebrow?: string; backHref?: string; actions?: ReactNode }) {
   return <header className="ui-page-header">
     <div className="ui-page-heading">
       {backHref ? <Link className="ui-back" href={backHref} aria-label="العودة">←</Link> : null}

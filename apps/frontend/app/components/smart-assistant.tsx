@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlatformIcon } from './platform-icon';
+import { BrandUmbrella } from './brand-mark';
 import styles from './smart-assistant.module.css';
 
 type SpeechResult = { 0: { transcript: string } };
@@ -42,6 +43,6 @@ export function SmartAssistant() {
 
   return <aside className={`${styles.root} smart-assistant`} aria-label="مساعد خدمة الذكي">
     {open && <div className={styles.panel}><div className={styles.heading}><strong><PlatformIcon name="sparkles" size={19}/>مساعد خدمة</strong><button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المساعد"><PlatformIcon name="close"/></button></div><p>{message}</p><form onSubmit={submit}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد مطعمًا قريبًا أو تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}><PlatformIcon name="microphone" size={18}/>{listening ? 'جاري الاستماع…' : 'تحدث'}</button><button type="submit"><PlatformIcon name="search" size={18}/>اعثر عليها</button></div></form><div className={styles.quick} aria-label="مسارات سريعة"><button onClick={() => go('طعام')} type="button"><PlatformIcon name="food" size={17}/>طعام</button><button onClick={() => go('تكسي')} type="button"><PlatformIcon name="car" size={17}/>تكسي</button><button onClick={() => go('مندوب توصيل')} type="button"><PlatformIcon name="delivery" size={17}/>مندوب</button><button onClick={() => go('عروض')} type="button"><PlatformIcon name="tag" size={17}/>عروض</button><button onClick={() => go('إعلانات')} type="button"><PlatformIcon name="storefront" size={17}/>متاجر</button></div><small>الإملاء اختياري، ولا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
-    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'إغلاق مساعد خدمة' : 'فتح مساعد خدمة'}><PlatformIcon name="sparkles" size={19}/><span>اسأل خدمة</span></button>
+    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'إغلاق مساعد خدمة' : 'فتح مساعد خدمة'}><BrandUmbrella className={styles.brandIcon}/><span>اسأل خدمة</span></button>
   </aside>;
 }

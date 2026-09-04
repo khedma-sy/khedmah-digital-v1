@@ -92,6 +92,12 @@ export interface SmartAdminReport {
     policyVersion: 'promotion-auto-v1';
   };
   readonly platformCoverage: AdminDomainCoverage[];
+  readonly access: {
+    mode: 'full_internal_product_operations';
+    permissions: string[];
+    auditTrailRequired: true;
+    infrastructureSecretsExposed: false;
+  };
   readonly recommendations: Array<{
     priority: 'high' | 'medium' | 'low';
     title: string;
@@ -99,6 +105,8 @@ export interface SmartAdminReport {
     action: string;
   }>;
   readonly automation: {
+    canTriageAllDomains: true;
+    canRouteExceptionsToReview: true;
     canAutoApproveEligibleProducts: true;
     canAutoApproveEligiblePromotions: true;
     humanApprovalRequiredForExceptions: true;
