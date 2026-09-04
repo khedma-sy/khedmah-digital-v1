@@ -138,13 +138,8 @@ test('public business profile does not expose ownerUserId', async () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ 'moderator@example.com': ['security_operations_engineer'] });
 
   try {
-    const { pool, service, ownerCookie, moderatorCookie, businessId, businessRepo } = await createFixture();
-
-    await service.updateTrustStatus(moderatorCookie, businessId, { trustStatus: 'approved' });
-    await businessRepo.updateTrustStatus(businessId, 'approved', new Date().toISOString());
-    await pool.query('UPDATE business_profiles SET moderation_status = $2 WHERE id = $1', [businessId, 'approved']);
-
-    await service.update(ownerCookie, businessId, { visibility: 'public' });
+    const { service, moderatorCookie, businessId } = await createFixture();
+    await service.approveAndPublish(moderatorCookie, businessId);
 
     const publicProfile = await service.getPublic(businessId);
     assert.equal('ownerUserId' in publicProfile, false, 'ownerUserId must not appear in public projection');

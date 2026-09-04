@@ -87,12 +87,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [adminEmail]: ['operations_product_director'] });
   const adminCookie = admin.cookie;
 
-  await businessService.approveModeration(adminCookie, business.id);
-
-  // To be public, it also needs trust_status=approved and visibility=public
-  await businessService.update(ownerCookie, business.id, { visibility: 'public' });
-  // Set trust approved (as admin)
-  await businessService.approveVerification(adminCookie, business.id);
+  await businessService.approveAndPublish(adminCookie, business.id);
 
   const publicBusiness = await businessService.getPublic(business.id);
   assert.equal(publicBusiness.moderationStatus, 'approved');
