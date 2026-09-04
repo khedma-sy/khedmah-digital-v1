@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ActionButton, StatusMessage, Surface } from '../components/ui-primitives';
+import { ActionButton, StatusMessage } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import styles from './promotions.module.css';
 
@@ -54,11 +54,7 @@ export function PromotionScanner() {
     open(code);
   }
 
-  return <Surface className={styles.scanner}>
-    <div className={styles.panelHeading}>
-      <span className={styles.panelIcon}><PlatformIcon name="qr" size={22}/></span>
-      <div><span className={styles.methodLabel}>الطريقة الثانية</span><h2>امسح رمز النشاط</h2><p>استخدم QR الموجود لدى النشاط أو أدخل الرمز المطبوع تحته.</p></div>
-    </div>
+  return <div className={styles.scanner}>
     {active && <video ref={video} muted playsInline aria-label="معاينة كاميرا مسح رمز خدمة" className={styles.scannerVideo}/>}
     <div className={styles.scannerOptions}>
       <div className={styles.scannerCamera}>{!active ? <ActionButton type="button" onClick={() => void start()}><PlatformIcon name="qr" size={18}/>فتح قارئ QR</ActionButton> : <ActionButton type="button" variant="secondary" onClick={stop}><PlatformIcon name="close" size={18}/>إيقاف الكاميرا</ActionButton>}</div>
@@ -72,5 +68,5 @@ export function PromotionScanner() {
       </form>
     </div>
     {error && <StatusMessage tone="warning">{error}</StatusMessage>}
-  </Surface>;
+  </div>;
 }
