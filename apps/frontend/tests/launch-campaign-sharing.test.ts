@@ -4,17 +4,18 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('launch campaign is global, time bounded and links to registration', async () => {
+test('trial-period banner is global, explicitly controlled and links to registration', async () => {
   const [layout, banner, campaign] = await Promise.all([
     read('app/layout.tsx'), read('app/components/launch-campaign-banner.tsx'), read('lib/launch-campaign.ts')
   ]);
   assert.match(layout, /<LaunchCampaignBanner \/>/);
   assert.ok(layout.indexOf('<LaunchCampaignBanner />') < layout.indexOf('<header className="khedma-header">'));
   assert.match(banner, /isLaunchCampaignActive/);
-  assert.match(banner, /useState\(\(\) => isLaunchCampaignActive\(\)\)/);
   assert.match(banner, /\/auth\/register/);
-  assert.match(campaign, /2026-10-02T00:00:00\.000Z/);
-  assert.match(campaign, /التسجيل مجاني بمناسبة إطلاق خدمة لمدة شهر/);
+  assert.match(banner, /ابدأ الآن/);
+  assert.match(campaign, /NEXT_PUBLIC_TRIAL_PERIOD_ENABLED/);
+  assert.match(campaign, /التسجيل والاستخدام مجانيان خلال الفترة التجريبية/);
+  assert.doesNotMatch(campaign, /لمدة شهر/);
 });
 
 test('all public sharing uses the branded umbrella message and full copied text', async () => {

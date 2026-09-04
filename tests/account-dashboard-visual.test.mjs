@@ -16,11 +16,15 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
   assert.match(page, /PriorityServices/);
   assert.match(page, /إدارة نشاطك/);
   assert.match(page, /متابعة الطلبات والعمل/);
+  assert.match(page, /نشاط جارٍ الآن/);
+  assert.match(page, /merchantCategories/);
+  assert.match(page, /courierBusiness/);
+  assert.match(page, /taxiBusiness/);
+  assert.match(page, /لست مسجلًا كسائق أو مندوب/);
   assert.match(page, /PlatformIcon/);
   assert.doesNotMatch(page, /OfficialSocialLinks/);
   assert.doesNotMatch(page, /صفحاتنا على مواقع التواصل/);
-  assert.match(page, /officialWhatsappContactUrl/);
-  assert.match(page, /ui-account-contact/);
+  assert.doesNotMatch(page, /officialWhatsappContactUrl|ui-account-contact/);
   assert.match(page, /<bdi>\{firstName\}<\/bdi>/);
   assert.doesNotMatch(page, /متابعة قناة واتساب|الاتصال عبر واتساب|رابط الاتصال قيد التحقق/);
 
@@ -43,6 +47,11 @@ test('account dashboard has a clear Arabic-first visual hierarchy', async () => 
   assert.match(styles, /\.ui-account-hero/);
   assert.match(styles, /\.ui-priority-services-grid/);
   assert.match(styles, /\.ui-account-sections/);
+  assert.match(styles, /\.ui-account-active/);
+  assert.match(styles, /\.ui-account-shortcut-success/);
+  assert.match(styles, /\.ui-account-shortcut-accent/);
+  assert.match(styles, /\.ui-account-shortcut-violet/);
+  assert.match(styles, /body:has\(\.ui-account-page\) \.smart-assistant-trigger/);
   assert.doesNotMatch(styles, /\.ui-account-social/);
   assert.match(styles, /@media\(max-width:40rem\)/);
   assert.doesNotMatch(page, /ui-account-grid/);

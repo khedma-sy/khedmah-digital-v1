@@ -5,7 +5,7 @@ import { officialWhatsappContactUrl } from '../lib/official-links';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('official social pages are globally visible while direct contact remains compact in the account', async () => {
+test('official social pages render once globally without a duplicate account copy', async () => {
   const [links, component, socialLinks, account, whatsappIcon, brandIcons, layout] = await Promise.all([read('lib/official-links.ts'), read('app/components/official-contact-links.tsx'), read('app/components/official-social-links.tsx'), read('app/users/me/page.tsx'), read('app/components/whatsapp-icon.tsx'), read('app/components/social-brand-icon.tsx'), read('app/layout.tsx')]);
   assert.match(links, /whatsapp\.com\/channel\/0029Vb8OwhVGOj9gPtjqdO0c/);
   assert.match(links, /facebook\.com\/khedma\.uk/);
@@ -15,16 +15,17 @@ test('official social pages are globally visible while direct contact remains co
   assert.match(links, /youtube\.com\/@khedma-q5d/);
   assert.match(component, /صفحاتنا على مواقع التواصل/);
   assert.match(component, /<OfficialSocialLinks/);
+  assert.match(component, /id="sitewide-social-footer"/);
   assert.doesNotMatch(component, /<small>|اتصل عبر واتساب|تابع الصفحة/);
   assert.match(socialLinks, /<WhatsappIcon/);
   assert.match(socialLinks, /<SocialProviderIcon provider="facebook"/);
   for (const brand of ['instagram', 'threads', 'telegram', 'youtube']) assert.match(socialLinks, new RegExp(`<SocialBrandIcon brand="${brand}"`));
   assert.doesNotMatch(account, /<OfficialSocialLinks/);
-  assert.match(account, /officialWhatsappContactUrl\(\) \?\? KHEDMAH_WHATSAPP_CHANNEL_URL/);
-  assert.match(account, /className="ui-account-contact"/);
+  assert.doesNotMatch(account, /officialWhatsappContactUrl|KHEDMAH_WHATSAPP_CHANNEL_URL|ui-account-contact/);
   assert.match(whatsappIcon, /className="whatsapp-icon"/);
   for (const brand of ['instagram', 'threads', 'telegram', 'youtube']) assert.match(brandIcons, new RegExp(`social-brand-icon-${brand}`));
   assert.match(layout, /<OfficialContactLinks/);
+  assert.equal((layout.match(/<OfficialContactLinks/g) ?? []).length, 1);
 });
 
 test('direct WhatsApp contact defaults to the verified contact QR and accepts only canonical WhatsApp links', () => {

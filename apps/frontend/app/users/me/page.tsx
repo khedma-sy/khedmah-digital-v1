@@ -2,31 +2,58 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api, PublicUserProfile } from '../../../lib/api-client';
+import {
+  api,
+  type FulfillmentOrder,
+  type MobilityRequest,
+  type PublicBusinessProfile,
+  type PublicUserProfile,
+} from '../../../lib/api-client';
 import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon, type PlatformIconName } from '../../components/platform-icon';
 import { PriorityServices } from '../../components/priority-services';
-import { WhatsappIcon } from '../../components/whatsapp-icon';
-import { KHEDMAH_WHATSAPP_CHANNEL_URL, officialWhatsappContactUrl } from '../../../lib/official-links';
+
+type ShortcutTone = 'primary' | 'success' | 'accent' | 'violet';
+
+const merchantCategories = new Set([
+  'restaurant', 'cafe', 'bakery', 'sweets', 'catering', 'juice_icecream',
+  'butcher', 'grocery', 'fruits_vegetables', 'fish_poultry_shop', 'pharmacy',
+]);
+const closedOrderStatuses = new Set<FulfillmentOrder['status']>(['delivered', 'rejected', 'cancelled']);
+const closedMobilityStatuses = new Set<MobilityRequest['status']>(['completed', 'rejected', 'cancelled']);
+const orderStatusLabel: Record<FulfillmentOrder['status'], string> = {
+  placed: 'وصل الطلب إلى المنشأة', quoted: 'تم تحديد السعر', merchant_confirmed: 'أكدت المنشأة الطلب',
+  courier_assigned: 'تم تعيين المندوب', courier_accepted: 'قبل المندوب المهمة', ready_for_pickup: 'الطلب جاهز للاستلام',
+  picked_up: 'الطلب في الطريق', delivered: 'تم التسليم', rejected: 'رُفض الطلب', cancelled: 'أُلغي الطلب',
+};
+const mobilityStatusLabel: Record<MobilityRequest['status'], string> = {
+  requested: 'بانتظار قبول المزود', accepted: 'تم قبول الطلب', en_route: 'المزود في الطريق', arrived: 'وصل المزود',
+  in_progress: 'الخدمة جارية الآن', completed: 'اكتملت الخدمة', rejected: 'رُفض الطلب', cancelled: 'أُلغي الطلب',
+};
 
 function AccountShortcut({
   href,
   label,
   description,
   icon,
+  tone = 'primary',
+  badge,
 }: {
   href: string;
   label: string;
   description: string;
   icon: PlatformIconName;
+  tone?: ShortcutTone;
+  badge?: number;
 }) {
   return (
-    <ActionLink href={href} variant="quiet" className="ui-account-shortcut">
+    <ActionLink href={href} variant="quiet" className={`ui-account-shortcut ui-account-shortcut-${tone}`}>
       <span className="ui-account-shortcut-icon"><PlatformIcon name={icon} size={21} /></span>
       <span className="ui-account-shortcut-copy">
         <strong>{label}</strong>
         <small>{description}</small>
       </span>
+      {badge ? <span className="ui-account-shortcut-badge" aria-label={`${badge.toLocaleString('ar-SY')} عناصر نشطة`}>{badge.toLocaleString('ar-SY')}</span> : null}
       <PlatformIcon name="arrow" size={18} />
     </ActionLink>
   );
@@ -35,12 +62,27 @@ function AccountShortcut({
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
+  const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
+  const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
+  const [mobilityRequests, setMobilityRequests] = useState<MobilityRequest[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
     void api.auth.session()
-      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
+      .then(async ({ user: currentUser }) => {
+        if (!active) return;
+        setUser(currentUser);
+        const [owned, customerOrders, customerMobility] = await Promise.allSettled([
+          api.businesses.listMine(),
+          api.orders.mine(),
+          api.mobility.listMine(),
+        ]);
+        if (!active) return;
+        if (owned.status === 'fulfilled') setBusinesses(owned.value.businesses);
+        if (customerOrders.status === 'fulfilled') setOrders(customerOrders.value.orders);
+        if (customerMobility.status === 'fulfilled') setMobilityRequests(customerMobility.value.requests);
+      })
       .catch((reason) => {
         if (!active) return;
         if ((reason as { statusCode?: number }).statusCode === 401) {
@@ -59,7 +101,16 @@ export default function ProfilePage() {
 
   const displayName = user.profile.displayName.trim() || 'مستخدم خدمة';
   const firstName = displayName.split(/\s+/)[0];
-  const whatsappContactUrl = officialWhatsappContactUrl() ?? KHEDMAH_WHATSAPP_CHANNEL_URL;
+  const merchantBusiness = businesses.find((business) => merchantCategories.has(business.categoryCode));
+  const courierBusiness = businesses.find((business) => business.categoryCode === 'delivery_courier');
+  const taxiBusiness = businesses.find((business) => business.categoryCode === 'taxi');
+  const pendingBusinesses = businesses.filter((business) => business.moderationStatus === 'pending').length;
+  const activeOrders = orders.filter((order) => !closedOrderStatuses.has(order.status));
+  const activeMobility = mobilityRequests.filter((request) => !closedMobilityStatuses.has(request.status));
+  const currentOrder = [...activeOrders].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  const currentMobility = [...activeMobility].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  const latestIsMobility = currentMobility && (!currentOrder || Date.parse(currentMobility.updatedAt) >= Date.parse(currentOrder.updatedAt));
+  const activeCount = activeOrders.length + activeMobility.length;
   return (
     <PageShell label="حسابي" className="ui-account-page">
       <PageHeader
@@ -80,42 +131,69 @@ export default function ProfilePage() {
           </div>
           <div className="ui-account-session">
             <span className="ui-account-state"><PlatformIcon name="check" size={17} />تم تسجيل الدخول بأمان</span>
-            <p>بيانات الحساب مرتبطة بجلسة الدخول الحالية، ويمكنك الوصول إلى جميع مساحات عملك من هنا.</p>
-            <a className="ui-account-contact" href={whatsappContactUrl} target="_blank" rel="noopener noreferrer"><WhatsappIcon size={19} />التواصل مع خدمة</a>
+            <p>جلسة حسابك آمنة، وتظهر لك المساحات المرتبطة بأدوارك فقط.</p>
           </div>
         </Surface>
 
         <PriorityServices />
 
+        {activeCount > 0 ? (
+          <Surface className="ui-account-active" aria-labelledby="active-service-title">
+            <span className="ui-account-active-icon"><PlatformIcon name={latestIsMobility ? 'car' : 'delivery'} size={24} /></span>
+            <div className="ui-account-active-copy">
+              <span className="ui-account-kicker">نشاط جارٍ الآن</span>
+              <h2 id="active-service-title">{latestIsMobility ? (currentMobility.serviceType === 'taxi' ? 'رحلة تكسي قيد المتابعة' : 'طلب توصيل قيد المتابعة') : 'طلب طعام قيد المتابعة'}</h2>
+              <p>{latestIsMobility ? mobilityStatusLabel[currentMobility.status] : orderStatusLabel[currentOrder.status]}</p>
+            </div>
+            {activeCount > 1 ? <span className="ui-account-active-count">{activeCount.toLocaleString('ar-SY')} عمليات نشطة</span> : null}
+            <ActionLink href={latestIsMobility ? '/mobility?type=taxi' : '/orders'}>متابعة الآن</ActionLink>
+          </Surface>
+        ) : null}
+
         <div className="ui-account-sections">
           <Surface className="ui-account-workspace">
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
-                <span className="ui-account-section-icon"><PlatformIcon name="cart" size={21} /></span>
-                <div><h2>إدارة نشاطك</h2><p>الأدوات الخاصة بالنشر والبيع وإدارة الطلبات.</p></div>
+                <span className="ui-account-section-icon ui-account-section-icon-business"><PlatformIcon name="briefcase" size={21} /></span>
+                <div><h2>إدارة نشاطك</h2><p>{businesses.length ? `${businesses.length.toLocaleString('ar-SY')} من أنشطتك مرتبطة بهذا الحساب.` : 'ابدأ بملف نشاط واحد، ثم أضف منتجاتك وخدماتك.'}</p></div>
               </div>
+              {businesses.length ? <ActionLink href="/business-profiles/new" variant="secondary"><PlatformIcon name="userPlus" size={17} />إضافة نشاط</ActionLink> : null}
             </div>
-            <div className="ui-account-action-list">
-              <AccountShortcut href="/business-profiles" label="أعمالي" description="إدارة أنشطتك وخدماتك المنشورة." icon="briefcase" />
-              <AccountShortcut href="/business-profiles/new" label="إضافة نشاط" description="أنشئ ملف نشاط جديدًا." icon="userPlus" />
-              <AccountShortcut href="/store/manage" label="منتجاتي" description="راجع المنتجات المعروضة وحدّثها." icon="storefront" />
-              <AccountShortcut href="/orders/merchant" label="طلبات المنشأة" description="أدر الطلبات الواردة إلى نشاطك." icon="briefcase" />
-            </div>
+            {businesses.length ? (
+              <div className="ui-account-action-list">
+                <AccountShortcut href="/business-profiles" label="أعمالي" description="إدارة أنشطتك وخدماتك المنشورة." icon="briefcase" badge={pendingBusinesses} />
+                {merchantBusiness ? <AccountShortcut href="/orders/merchant" label="طلبات المنشأة" description="استقبل الطلبات وأدر تجهيزها وتسليمها." icon="food" tone="accent" /> : null}
+                <AccountShortcut href="/store/manage" label="المتجر والإعلانات" description="راجع منتجاتك وإعلاناتك المنشورة." icon="storefront" tone="success" />
+                <AccountShortcut href="/store/sell" label="إضافة إعلان" description="انشر منتجًا مرتبطًا بنشاطك." icon="tag" tone="violet" />
+              </div>
+            ) : (
+              <div className="ui-account-role-empty">
+                <PlatformIcon name="storefront" size={24} />
+                <div><strong>لا يوجد نشاط مرتبط بالحساب</strong><p>أنشئ ملف نشاطك أولًا لتظهر أدوات الإدارة والبيع المناسبة لك.</p></div>
+                <ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>
+              </div>
+            )}
           </Surface>
 
           <Surface className="ui-account-workspace">
             <div className="ui-account-section-heading">
               <div className="ui-account-section-title">
-                <span className="ui-account-section-icon"><PlatformIcon name="delivery" size={21} /></span>
-                <div><h2>متابعة الطلبات والعمل</h2><p>سجل واحد للعميل والمندوب والسائق.</p></div>
+                <span className="ui-account-section-icon ui-account-section-icon-service"><PlatformIcon name="delivery" size={21} /></span>
+                <div><h2>متابعة الطلبات والعمل</h2><p>نُظهر لك طلبات العميل، ثم مهام المندوب أو السائق عند اعتماد دورك.</p></div>
               </div>
             </div>
             <div className="ui-account-action-list">
-              <AccountShortcut href="/orders" label="طلباتي" description="تابع الطلبات التي أنشأتها." icon="ticket" />
-              <AccountShortcut href="/orders/courier" label="مهام المندوب" description="تابع مهام استلام وتسليم الطلبات." icon="delivery" />
-              <AccountShortcut href="/mobility/manage" label="طلبات السائق" description="راجع طلبات النقل المخصصة لك." icon="car" />
-              <AccountShortcut href="/store/sell" label="إضافة إعلان" description="انشر منتجًا مرتبطًا بنشاطك." icon="tag" />
+              <AccountShortcut href="/orders" label="طلباتي" description="تابع طلبات الطعام والتسليم التي أنشأتها." icon="ticket" badge={activeOrders.length} />
+              {courierBusiness ? <AccountShortcut href="/orders/courier" label="مهام المندوب" description={courierBusiness.moderationStatus === 'approved' ? 'استقبل مهام التوصيل وتابع التسليم.' : 'دور المندوب بانتظار اعتماد المنصة.'} icon="delivery" tone="success" /> : null}
+              {taxiBusiness ? <AccountShortcut href="/mobility/manage" label="طلبات السائق" description={taxiBusiness.moderationStatus === 'approved' ? 'استقبل رحلات التكسي وأدر العداد.' : 'دور السائق بانتظار اعتماد المنصة.'} icon="car" tone="primary" /> : null}
             </div>
+            {!courierBusiness && !taxiBusiness ? (
+              <div className="ui-account-role-empty ui-account-role-empty-compact">
+                <PlatformIcon name="delivery" size={23} />
+                <div><strong>لست مسجلًا كسائق أو مندوب</strong><p>أضف نشاط نقل واحدًا، وستظهر مساحة العمل بعد مراجعة الأدمن.</p></div>
+                <ActionLink href="/business-profiles/new" variant="secondary">أضف نشاط نقل</ActionLink>
+              </div>
+            ) : null}
           </Surface>
         </div>
       </div>

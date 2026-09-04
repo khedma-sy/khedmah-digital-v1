@@ -72,8 +72,6 @@
 .ui-account-email { max-width:100%; display:flex; align-items:center; gap:.45rem; margin:.4rem 0 0; overflow:hidden; color:var(--k-color-text-muted); font-size:.88rem; text-overflow:ellipsis; white-space:nowrap; }
 .ui-account-session { display:grid; align-content:center; gap:.55rem; min-height:6rem; padding-inline-start:clamp(1rem,3vw,2rem); border-inline-start:1px solid var(--k-color-border); }
 .ui-account-state { width:max-content; display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.42rem .7rem; color:var(--k-color-success); background:var(--k-color-success-soft); font-size:.76rem; font-weight:900; }
-.ui-account-contact { width:max-content; display:inline-flex; align-items:center; gap:.4rem; color:var(--k-color-success); font-size:.8rem; font-weight:800; text-decoration:none; }
-.ui-account-contact:hover { text-decoration:underline; }
 .ui-account-session p,.ui-account-section-heading>p,.ui-account-section-title p { margin:0; color:var(--k-color-text-muted); font-size:.84rem; line-height:1.7; }
 .ui-account-quick,.ui-account-workspace { display:grid; gap:1rem; padding:clamp(1.15rem,2.5vw,1.6rem); }
 .ui-account-section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; }
@@ -120,36 +118,68 @@
 .ui-priority-service-copy strong { color:var(--k-color-text); font-size:.95rem; }
 .ui-priority-service-copy small { color:var(--k-color-text-muted); font-size:.74rem; font-weight:600; line-height:1.55; }
 .ui-priority-service>svg { color:var(--service-accent); }
+.ui-account-active {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:.85rem;
+  padding:1rem 1.15rem;
+  border-color:color-mix(in srgb,var(--k-color-success) 35%,var(--k-glass-border));
+  background:linear-gradient(110deg,color-mix(in srgb,var(--k-color-success) 11%,var(--k-glass)),var(--k-glass));
+}
+.ui-account-active-icon { width:3rem; aspect-ratio:1; display:grid; place-items:center; border-radius:.9rem; color:#fff; background:var(--k-color-success); box-shadow:0 .5rem 1.1rem color-mix(in srgb,var(--k-color-success) 20%,transparent); }
+.ui-account-active-copy { min-width:0; }
+.ui-account-active-copy h2 { margin:0; font-size:var(--k-type-card); }
+.ui-account-active-copy p { margin:.2rem 0 0; color:var(--k-color-text-muted); font-size:.82rem; }
+.ui-account-active-count { border-radius:999px; padding:.35rem .65rem; color:var(--k-color-success); background:var(--k-color-success-soft); font-size:.72rem; font-weight:900; white-space:nowrap; }
 .ui-account-shortcut {
+  --shortcut-accent:var(--k-color-primary);
   min-width:0;
   min-height:5rem;
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
   align-items:center;
   gap:.75rem;
   border:1px solid var(--k-color-border);
   border-radius:var(--k-radius-md);
   padding:.8rem;
   color:var(--k-color-text);
-  background:var(--k-color-surface-muted);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--shortcut-accent) 5%,var(--k-glass-strong)),var(--k-glass-strong));
+  -webkit-backdrop-filter:blur(var(--k-glass-blur));
+  backdrop-filter:blur(var(--k-glass-blur));
   text-align:start;
   transition:border-color 150ms ease,box-shadow 150ms ease,transform 150ms ease;
 }
-.ui-account-shortcut:hover { border-color:color-mix(in srgb,var(--k-color-primary) 45%,var(--k-color-border)); box-shadow:var(--k-shadow-sm); transform:translateY(-1px); }
-.ui-account-shortcut-icon,.ui-account-section-icon { width:2.55rem; aspect-ratio:1; display:grid; place-items:center; flex:none; border-radius:.8rem; color:var(--k-color-primary); background:var(--k-color-primary-soft); }
+.ui-account-shortcut-success { --shortcut-accent:var(--k-color-success); }
+.ui-account-shortcut-accent { --shortcut-accent:var(--k-color-accent); }
+.ui-account-shortcut-violet { --shortcut-accent:#7c3aed; }
+.ui-account-shortcut:hover { border-color:color-mix(in srgb,var(--shortcut-accent) 48%,var(--k-color-border)); box-shadow:var(--k-shadow-sm); transform:translateY(-1px); }
+.ui-account-shortcut-icon,.ui-account-section-icon { width:2.55rem; aspect-ratio:1; display:grid; place-items:center; flex:none; border-radius:.8rem; color:#fff; background:var(--shortcut-accent,var(--k-color-primary)); box-shadow:0 .35rem .8rem color-mix(in srgb,var(--shortcut-accent,var(--k-color-primary)) 18%,transparent); }
+.ui-account-shortcut>svg { color:var(--shortcut-accent); }
 .ui-account-shortcut-copy { min-width:0; display:grid; gap:.2rem; }
 .ui-account-shortcut-copy strong { color:var(--k-color-text); font-size:.9rem; }
 .ui-account-shortcut-copy small { color:var(--k-color-text-muted); font-size:.73rem; font-weight:600; line-height:1.55; }
+.ui-account-shortcut-badge { min-width:1.55rem; height:1.55rem; display:grid; place-items:center; border-radius:999px; padding-inline:.35rem; color:#fff; background:var(--shortcut-accent); font-size:.7rem; font-weight:900; }
 .ui-account-sections { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
 .ui-account-section-title { display:flex; align-items:center; gap:.75rem; }
+.ui-account-section-icon-business { --shortcut-accent:var(--k-color-primary); }
+.ui-account-section-icon-service { --shortcut-accent:var(--k-color-success); }
 .ui-account-section-title p { margin-block-start:.2rem; }
 .ui-account-action-list { display:grid; gap:.55rem; }
 .ui-account-action-list .ui-account-shortcut { min-height:4.6rem; background:transparent; }
+.ui-account-role-empty { min-height:9rem; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.85rem; border:1px dashed color-mix(in srgb,var(--k-color-primary) 28%,var(--k-color-border)); border-radius:var(--k-radius-md); padding:1rem; color:var(--k-color-primary); background:color-mix(in srgb,var(--k-color-primary) 4%,var(--k-glass)); }
+.ui-account-role-empty strong { display:block; color:var(--k-color-text); font-size:.9rem; }
+.ui-account-role-empty p { margin:.25rem 0 0; color:var(--k-color-text-muted); font-size:.76rem; line-height:1.65; }
+.ui-account-role-empty-compact { min-height:auto; margin-block-start:.65rem; color:var(--k-color-success); background:color-mix(in srgb,var(--k-color-success) 4%,var(--k-glass)); }
+body:has(.ui-account-page) .smart-assistant-trigger { width:3.35rem; min-width:3.35rem; aspect-ratio:1; justify-content:center; padding:.55rem; }
+body:has(.ui-account-page) .smart-assistant-trigger>span { display:none; }
 @media(max-width:58rem) {
   .ui-account-hero { grid-template-columns:1fr; }
   .ui-account-session { min-height:auto; padding:1rem 0 0; border-inline-start:0; border-block-start:1px solid var(--k-color-border); }
   .ui-priority-services-grid { grid-template-columns:1fr; }
   .ui-account-sections { grid-template-columns:1fr; }
+  .ui-account-active { grid-template-columns:auto minmax(0,1fr) auto; }
+  .ui-account-active-count { display:none; }
 }
 @media(max-width:40rem) {
   .ui-account-page .ui-container { width:min(calc(100% - 1.25rem),78rem); }
@@ -158,6 +188,10 @@
   .ui-account-email { white-space:normal; overflow-wrap:anywhere; }
   .ui-account-section-heading,.ui-priority-services-heading { align-items:flex-start; flex-direction:column; }
   .ui-account-shortcut { min-height:4.8rem; }
+  .ui-account-active { grid-template-columns:auto minmax(0,1fr); }
+  .ui-account-active .ui-action { grid-column:1/-1; width:100%; }
+  .ui-account-role-empty { grid-template-columns:auto minmax(0,1fr); }
+  .ui-account-role-empty .ui-action { grid-column:1/-1; width:100%; }
 }
 @keyframes ui-loading { to { background-position:-200% 0; } }
 @media(prefers-reduced-motion:reduce) { .ui-skeleton { animation:none; } }
