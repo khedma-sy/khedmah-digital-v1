@@ -41,6 +41,8 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
   assert.match(page, /إعادة تشغيل الخريطة/);
   assert.match(page, /تعذر تشغيل الخريطة/);
   assert.match(page, /عرض النتائج/);
+  assert.match(page, /تابع من قائمة النتائج/);
+  assert.match(page, /عمليات بحث سريعة/);
 });
 
 

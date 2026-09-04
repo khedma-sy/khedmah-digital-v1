@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, PublicUserProfile } from '../lib/api-client';
 import { clearFirebaseSocialSession } from '../lib/firebase/auth';
 import { PlatformIcon } from './components/platform-icon';
@@ -30,9 +30,17 @@ export function AuthNavigation() {
   const [user, setUser] = useState<PublicUserProfile | null>();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
+  const localLogoutInProgress = useRef(false);
 
   useEffect(() => {
     let active = true;
+
+    if (localLogoutInProgress.current) {
+      setUser(null);
+      return () => {
+        active = false;
+      };
+    }
 
     void api.auth.session()
       .then(({ user: currentUser }) => {
@@ -50,17 +58,22 @@ export function AuthNavigation() {
   async function logout() {
     setIsLoggingOut(true);
     setLogoutError('');
-    try {
-      await api.auth.logout();
-      await clearFirebaseSocialSession();
-      setUser(null);
+    localLogoutInProgress.current = true;
+    setUser(null);
+
+    const [platformLogout] = await Promise.allSettled([
+      api.auth.logout(),
+      clearFirebaseSocialSession(),
+    ]);
+
+    if (platformLogout.status === 'rejected') {
+      setLogoutError('تم تسجيل خروجك من هذا الجهاز، لكن تعذر إنهاء الجلسة على الخادم. أغلق المتصفح إذا كنت تستخدم جهازًا مشتركًا.');
+      router.replace('/auth/login');
+    } else {
       router.replace('/');
       router.refresh();
-    } catch {
-      setLogoutError('تعذر تسجيل الخروج. حاول مرة أخرى.');
-    } finally {
-      setIsLoggingOut(false);
     }
+    setIsLoggingOut(false);
   }
 
   if (user === undefined) {

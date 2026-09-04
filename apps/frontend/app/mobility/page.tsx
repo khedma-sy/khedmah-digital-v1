@@ -274,7 +274,7 @@ export default function MobilityPage() {
       </Surface>
       <section className={styles.mapStage} aria-label="خريطة الرحلة" data-map-status={mapsStatus}>
         <div ref={mapNode} className={styles.mapCanvas}/>
-        {mapsStatus !== 'ready' && <div className={styles.mapFallback}><PlatformIcon name="pin" size={32}/><strong>{mapsStatus === 'loading' ? 'جاري تجهيز الخريطة…' : 'الخريطة غير متاحة حاليًا'}</strong><span>يمكنك متابعة البحث باستخدام موقعك الحالي.</span></div>}
+        {mapsStatus !== 'ready' && <div className={styles.mapFallback} role={mapsStatus === 'error' ? 'status' : undefined}><PlatformIcon name="pin" size={32}/><div><strong>{mapsStatus === 'loading' ? 'جاري تجهيز الخريطة…' : 'تابع طلبك دون الخريطة'}</strong><span>{mapsStatus === 'loading' ? 'يمكنك إدخال العنوان أثناء التحميل.' : 'اكتب نقطتي الانطلاق والوجهة أو استخدم موقعك الحالي، ثم اعرض المزودين القريبين.'}</span></div>{mapsStatus === 'error' && <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin" size={17}/> استخدم موقعي</ActionButton>}</div>}
         {mapsStatus === 'ready' && <div className={styles.mapHint}>انقر على الخريطة لتحديد {activePoint === 'pickup' ? 'نقطة الانطلاق' : 'الوجهة'}</div>}
       </section>
     </div>

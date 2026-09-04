@@ -195,7 +195,7 @@ body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
   .khedma-header .nav-session[data-auth-state='authenticated']>a:not(.nav-user) { display:none; }
   .khedma-header .nav-session a,.khedma-header .nav-session button { min-height:2.25rem; padding:.38rem .5rem; }
   .mobile-navigation { position:fixed; z-index:230; inset:auto .55rem max(.55rem,env(safe-area-inset-bottom)); min-height:3.75rem; display:grid; grid-template-columns:repeat(5,1fr); gap:.2rem; border:1px solid var(--k-glass-border); border-radius:1rem; padding:.35rem; background:color-mix(in srgb,var(--k-glass-strong) 96%,transparent); box-shadow:var(--k-shadow-lg); -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); }
-  .mobile-navigation a { min-width:0; display:grid; place-items:center; gap:.2rem; border-radius:.7rem; padding:.35rem .15rem; color:var(--k-color-text-muted); font-size:.68rem; font-weight:800; text-decoration:none; }
+  .mobile-navigation a { min-width:0; min-height:2.75rem; display:grid; place-items:center; gap:.18rem; border-radius:.7rem; padding:.3rem .15rem; color:var(--k-color-text-muted); font-size:.72rem; line-height:1.25; font-weight:800; text-decoration:none; }
   .mobile-navigation a[aria-current='page'] { color:#fff; background:var(--k-color-primary); }
   .mobile-navigation span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }

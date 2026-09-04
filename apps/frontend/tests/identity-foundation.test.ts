@@ -90,12 +90,26 @@ test('global navigation separates guest discovery from authenticated account act
   assert.match(navigation, /href="\/users\/me"/);
   assert.match(navigation, /api\.auth\.logout\(\)/);
   assert.match(navigation, /clearFirebaseSocialSession\(\)/);
+  assert.match(navigation, /Promise\.allSettled/);
+  assert.match(navigation, /localLogoutInProgress\.current = true/);
+  assert.match(navigation, /setUser\(null\)/);
+  assert.match(navigation, /platformLogout\.status === 'rejected'/);
+  assert.match(navigation, /تم تسجيل خروجك من هذا الجهاز/);
+  assert.match(navigation, /router\.replace\('\/auth\/login'\)/);
   assert.match(navigation, /router\.refresh\(\)/);
   assert.match(firebaseAuth, /signOut\(auth\)/);
   assert.match(styles, /\.nav-action-error \{[\s\S]*position: fixed;/);
   assert.match(navigation, /<\/div>\n      \{logoutError \? <p className="nav-action-error"/);
   assert.match(navigation, /تسجيل الخروج/);
   assert.match(navigation, />دخول<\/Link>/);
+});
+
+test('account dashboard resumes each active mobility request in its correct journey', async () => {
+  const profile = await readFile(new URL('../app/users/me/page.tsx', import.meta.url), 'utf8');
+
+  assert.match(profile, /currentMobility\.serviceType === 'taxi'/);
+  assert.match(profile, /`\/mobility\?type=\$\{currentMobility\.serviceType\}`/);
+  assert.doesNotMatch(profile, /latestIsMobility \? '\/mobility\?type=taxi'/);
 });
 
 test('expired account sessions return to login with a preserved destination', async () => {

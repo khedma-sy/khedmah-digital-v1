@@ -152,7 +152,7 @@ export default function ProfilePage() {
               <p>{latestIsMobility ? mobilityStatusLabel[currentMobility.status] : orderStatusLabel[currentOrder.status]}</p>
             </div>
             {activeCount > 1 ? <span className="ui-account-active-count">{activeCount.toLocaleString('ar-SY-u-nu-latn')} عمليات نشطة</span> : null}
-            <ActionLink href={latestIsMobility ? '/mobility?type=taxi' : '/orders'}>متابعة الآن</ActionLink>
+            <ActionLink href={latestIsMobility ? `/mobility?type=${currentMobility.serviceType}` : '/orders'}>متابعة الآن</ActionLink>
           </Surface>
         ) : null}
 

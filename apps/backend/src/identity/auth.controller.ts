@@ -51,8 +51,14 @@ export class AuthController {
 
   @Post("logout")
   async logout(@Headers("cookie") cookieHeader: string | undefined, @Res({ passthrough: true }) response: Response) {
-    await this.identityService.logout(readSessionToken(cookieHeader));
-    clearSessionCookie(response);
+    try {
+      await this.identityService.logout(readSessionToken(cookieHeader));
+    } finally {
+      // The browser session must end even when remote revocation or audit storage
+      // is temporarily unavailable. Server-side revocation remains best-effort
+      // and the short-lived session still expires independently.
+      clearSessionCookie(response);
+    }
     return { status: "ok" as const };
   }
 

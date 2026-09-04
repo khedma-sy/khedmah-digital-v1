@@ -59,11 +59,18 @@
 .mapFallbackActions { display:flex; flex-wrap:wrap; justify-content:center; gap:.55rem; }
 .mapRecovery { display:flex; align-items:center; justify-content:space-between; gap:.65rem; border:1px solid var(--k-glass-border); border-radius:var(--k-radius-md); padding:.55rem; background:var(--k-glass); }
 .mapRecovery span { color:var(--k-color-text-muted); font-size:.75rem; }
+.mapUnavailableSummary { display:grid; gap:.7rem; border:1px solid color-mix(in srgb,var(--k-color-primary) 24%,var(--k-color-border)); border-radius:var(--k-radius-lg); padding:.8rem; background:color-mix(in srgb,var(--k-color-primary-soft) 48%,var(--k-color-surface)); }
+.mapUnavailableSummary > div:first-child { display:flex; align-items:flex-start; gap:.6rem; color:var(--k-color-primary); }
+.mapUnavailableSummary span { display:grid; gap:.12rem; }
+.mapUnavailableSummary strong { color:var(--k-color-text); font-size:.88rem; }
+.mapUnavailableSummary small { color:var(--k-color-text-muted); font-size:.76rem; line-height:1.6; }
+.mapQuickSearches { display:flex; flex-wrap:wrap; gap:.4rem; }
+.mapQuickSearches :global(.ui-action) { min-height:2.35rem; padding:.42rem .68rem; font-size:.76rem; }
 .listView .mapStage { display:none; }
 .listView { grid-template-columns:1fr; }
 .listView .mapPanel { width:min(calc(100% - 2rem),68rem); min-height:auto; margin:1rem auto; border:1px solid var(--k-glass-border); border-radius:var(--k-radius-xl); box-shadow:var(--k-glass-shadow); }
 .listView .providerList { grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr)); }
-.listView .providerList > :global(.ui-empty) { grid-column:1/-1; min-height:15rem; }
+.listView .providerList > :global(.ui-empty) { grid-column:1/-1; min-height:10rem; }
 @media(max-width:58rem){ .form { grid-template-columns:1fr 1fr; } .queryField { grid-column:1/-1; } .formActions { grid-column:1/-1; } }
 @media(max-width:52rem){ .mapPage { grid-template-columns:1fr; grid-template-rows:auto 52svh; } .mapPanel { max-height:48svh; border-inline:0; border-block-end:1px solid color-mix(in srgb,var(--k-color-primary) 30%,var(--k-color-border)); box-shadow:none; } .mapStage,.mapCanvas { min-height:52svh; } .mapPage:not(.listView) .providerList { display:none; } .listView .mapPanel { width:min(calc(100% - 1rem),68rem); max-height:none; min-height:calc(100svh - 4.3rem); margin:.5rem auto; } }
 @media(max-width:36rem){ .mapRecovery { align-items:stretch; flex-direction:column; } }

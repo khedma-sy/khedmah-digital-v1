@@ -66,4 +66,6 @@ test('mobility journey has explicit loading, empty-data and recovery states', as
   assert.match(page, /لن نعرض سائقًا وهميًا/);
   assert.match(page, /SkeletonGrid/);
   assert.match(page, /توسيع البحث على الخريطة/);
+  assert.match(page, /تابع طلبك دون الخريطة/);
+  assert.match(page, /استخدم موقعي/);
 });

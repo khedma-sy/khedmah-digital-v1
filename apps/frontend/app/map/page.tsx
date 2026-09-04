@@ -228,6 +228,12 @@ function MapDiscovery() {
       </nav>
       <StatusMessage tone={mapStatus === 'error' ? 'warning' : 'info'}>{mapStatus === 'error' ? mapError : status}</StatusMessage>
       {mapStatus === 'error' && mapCanRetry && <div className={styles.mapRecovery}><ActionButton type="button" variant="secondary" onClick={retryMap}><PlatformIcon name="refresh" size={17}/> إعادة تشغيل الخريطة</ActionButton><span>البحث والنتائج يعملان دون الخريطة.</span></div>}
+      {mapStatus === 'error' && <section className={styles.mapUnavailableSummary} aria-label="البحث دون الخريطة">
+        <div><PlatformIcon name="grid" size={20}/><span><strong>تابع من قائمة النتائج</strong><small>استخدم موقعك أو اختر بحثًا سريعًا؛ ستبقى الملفات مرتبة حسب القرب عند توفر الموقع.</small></span></div>
+        <div className={styles.mapQuickSearches} aria-label="عمليات بحث سريعة">
+          {['مطعم', 'مندوب توصيل', 'تكسي', 'صيانة'].map((term) => <ActionButton key={term} type="button" variant="secondary" onClick={() => { setQuery(term); void search(undefined, location, term); }}>{term}</ActionButton>)}
+        </div>
+      </section>}
       <section className={styles.providerList} aria-label="مقدمو الخدمات">
         {providers.map((provider) => <Surface as="article" className={styles.provider} key={provider.id}>
           <div><h2>{provider.name} {provider.trustStatus === 'approved' && <span aria-label="موثّق">✓</span>}</h2><p>{provider.availability === 'available' ? 'متاح الآن' : provider.availability === 'busy' ? 'مشغول' : 'حسب الموعد'} {provider.rating !== undefined ? `· ★ ${provider.rating.toFixed(1)}` : ''} {provider.distanceKm !== undefined ? `· ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
