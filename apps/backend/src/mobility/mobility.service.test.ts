@@ -13,7 +13,7 @@ test('eligible rider creates one auditable request and does not expose internal 
   const saved: MobilityRequest[] = [];
   const repository = { findByRiderIdempotency: async () => undefined, create: async (value: MobilityRequest) => { saved.push(value); return { ...value, providerOwnerUserId: 'driver-1' }; } };
   const audits: string[] = [];
-  const service = new MobilityService(repository as never, { findById: async () => business } as never, { getCurrentUser: async () => ({ id: 'rider-1' }) } as never, { appendAuditLog: async (event: string) => audits.push(event) } as never, {} as never);
+  const service = new MobilityService(repository as never, { findById: async () => business, countMobilityDocuments: async () => 4 } as never, { getCurrentUser: async () => ({ id: 'rider-1' }) } as never, { appendAuditLog: async (event: string) => audits.push(event) } as never, {} as never);
   const result = await service.create(undefined, validInput, '1234567890abcdef');
   assert.equal(saved.length, 1); assert.equal(result.status, 'requested'); assert.equal('riderUserId' in result, false); assert.equal('providerOwnerUserId' in result, false);
   assert.deepEqual(audits, ['mobility.request.created']);
@@ -24,7 +24,9 @@ test('untrusted provider and self-request fail closed', async () => {
   const identity = { getCurrentUser: async () => ({ id: 'rider-1' }) };
   const untrusted = new MobilityService(repository as never, { findById: async () => ({ ...business, trustStatus: 'pending' }) } as never, identity as never, {} as never, {} as never);
   await assert.rejects(() => untrusted.create(undefined, validInput, '1234567890abcdef'), BadRequestException);
-  const self = new MobilityService(repository as never, { findById: async () => ({ ...business, ownerUserId: 'rider-1' }) } as never, identity as never, {} as never, {} as never);
+  const undocumented = new MobilityService(repository as never, { findById: async () => business, countMobilityDocuments: async () => 3 } as never, identity as never, {} as never, {} as never);
+  await assert.rejects(() => undocumented.create(undefined, validInput, '1234567890abcdef'), BadRequestException);
+  const self = new MobilityService(repository as never, { findById: async () => ({ ...business, ownerUserId: 'rider-1' }), countMobilityDocuments: async () => 4 } as never, identity as never, {} as never, {} as never);
   await assert.rejects(() => self.create(undefined, validInput, '1234567890abcdef'), BadRequestException);
 });
 

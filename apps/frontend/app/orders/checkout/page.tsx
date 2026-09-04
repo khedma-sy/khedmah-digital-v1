@@ -16,6 +16,7 @@ import {
   StatusMessage,
   Surface,
 } from "../../components/ui-primitives";
+import { requestOrderNotifications } from "../order-alerts";
 
 interface CheckoutItem {
   readonly product: ProductListing;
@@ -120,6 +121,7 @@ export default function CheckoutPage() {
     setSaving(true);
     setError("");
     try {
+      await requestOrderNotifications();
       await api.orders.create(
         {
           items: items.map((entry) => ({

@@ -29,6 +29,7 @@ export default function ProviderMobilityPage() {
   const lastPosition=useRef<GeolocationCoordinates|undefined>(undefined);
 
   useEffect(() => {
+    setAlertsEnabled(localStorage.getItem('khedmah-mobility-alerts') === 'enabled');
     void api.businesses.listMine().then(({ businesses: all }) => {
       const mobility = all.filter((item) => item.categoryCode === 'taxi' || item.categoryCode === 'delivery_courier');
       setBusinesses(mobility); setSelected(mobility[0]?.id ?? '');
@@ -49,7 +50,7 @@ export default function ProviderMobilityPage() {
 
   useEffect(()=>{const active=requests.find(item=>item.status==='in_progress');if(active)beginTracking(active.id);else stopTracking();return stopTracking;},[beginTracking,requests,stopTracking]);
 
-  async function enableAlerts(){setAlertsEnabled(true);playAlert();if('Notification'in window&&Notification.permission==='default')await Notification.requestPermission();}
+  async function enableAlerts(){setAlertsEnabled(true);localStorage.setItem('khedmah-mobility-alerts','enabled');playAlert();if('Notification'in window&&Notification.permission==='default')await Notification.requestPermission();}
 
   async function transition(request: MobilityRequest, status: MobilityRequest['status']) {
     const reason = status === 'rejected' ? window.prompt('اكتب سبب الرفض للعميل:')?.trim() : undefined;

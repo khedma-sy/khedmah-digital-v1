@@ -332,6 +332,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
     const profile = await this.requireProfile(entityId);
+    await this.assertMobilityDocuments(profile);
     const updatedAt = new Date().toISOString();
     await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
     const historyEntry: TrustHistoryEntry = {

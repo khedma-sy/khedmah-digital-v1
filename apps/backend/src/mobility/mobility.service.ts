@@ -13,7 +13,7 @@ const providerTransitions: Partial<Record<MobilityRequestStatus, readonly Mobili
   requested: ['accepted', 'rejected'], accepted: ['en_route'], en_route: ['arrived'], arrived: ['in_progress'], in_progress: ['completed']
 };
 const riderTransitions: Partial<Record<MobilityRequestStatus, readonly MobilityRequestStatus[]>> = {
-  requested: ['cancelled'], accepted: ['cancelled'], en_route: ['cancelled']
+  requested: ['cancelled'], accepted: ['cancelled']
 };
 
 @Injectable()
@@ -39,6 +39,9 @@ export class MobilityService {
     const expectedCategory = input.serviceType === 'taxi' ? 'taxi' : 'delivery_courier';
     if (!business || business.categoryCode !== expectedCategory || business.visibility !== 'public' || business.moderationStatus !== 'approved' || business.trustStatus !== 'approved' || business.status !== 'active') {
       throw new BadRequestException('The selected mobility provider is not eligible for requests.');
+    }
+    if (await this.businesses.countMobilityDocuments(business.id) !== 4) {
+      throw new BadRequestException('The selected mobility provider is missing required driver documents.');
     }
     if (business.ownerUserId === actor.id) throw new BadRequestException('You cannot request your own mobility business.');
     const now = new Date().toISOString();

@@ -13,6 +13,10 @@ test('mobility journey creates a governed request with platform fare and honest 
   assert.match(page, /longitude: resolvedPickup\.longitude/);
   assert.match(page, /result\.businesses\.slice\(0, 12\)/);
   assert.match(page, /api\.mobility\.create/);
+  assert.match(page, /title=\{type === 'taxi' \? 'ابدأ الرحلة'/);
+  assert.match(page, /خدمة تكسي/);
+  assert.match(page, /قُبل طلب رحلة خدمة/);
+  assert.match(page, /سائق خدمة في الطريق/);
   assert.match(page, /السعر تحسبه خدمة، لا السائق/);
   assert.match(page, /الدفع الإلكتروني والتتبع في الخلفية غير مفعّلين بعد/);
   assert.match(client, /Idempotency-Key/);
@@ -37,6 +41,8 @@ test('mobility journey renders a resilient two-point Google map and accepts type
   assert.match(page, /geocodeAddress\(destination\)/);
   assert.match(page, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(page, /gm_authFailure/);
+  assert.match(page, /\^khedmah-pr-/);
+  assert.match(page, /الخريطة التفاعلية غير متاحة في نطاق المعاينة/);
   assert.match(page, /strokeColor: '#81BE49'/);
   assert.match(styles, /--mobility-green:\s*#81be49/i);
   assert.match(styles, /--mobility-font-arabic/);

@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { api, AdminContentGovernance, KhedmahPromotion, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile, UploadedMediaAsset } from '../../../lib/api-client';
 
+const DRIVER_DOCUMENT_LABELS:Record<string,string>={driver_photo:'الصورة الشخصية للسائق',identity_card:'بطاقة الهوية',driving_license:'رخصة القيادة',vehicle_license:'رخصة السيارة'};
+
 export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +159,7 @@ export default function ModerationPage() {
                 <div>
                   <h3>{b.name}</h3>
                   <p>{b.categoryCode} · {b.cityCode}</p>
-                  {(b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&<><small>تدقيق الوثائق: {(driverDocuments[b.id]?.length??0).toLocaleString('ar-SY')}/٤</small><div className="moderation-actions">{(driverDocuments[b.id]??[]).map((asset,index)=><a href={asset.publicUrl} target="_blank" rel="noreferrer" key={asset.id}>وثيقة {index+1}</a>)}</div></>}
+                  {(b.categoryCode==='taxi'||b.categoryCode==='delivery_courier')&&<><small>تدقيق الوثائق: {(driverDocuments[b.id]?.length??0).toLocaleString('ar-SY')}/٤</small><div className="moderation-actions">{(driverDocuments[b.id]??[]).map(asset=><a href={asset.publicUrl} target="_blank" rel="noreferrer" key={asset.id}>{DRIVER_DOCUMENT_LABELS[asset.assetType??'']??'وثيقة السائق'}</a>)}</div></>}
                 </div>
                 <div className="moderation-actions">
                   <button

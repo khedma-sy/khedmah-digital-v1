@@ -125,7 +125,7 @@ export function CategoryDirectory() {
 
         {activeRootCode && subcategories.length > 0 ? <section className="catalog-specialties" aria-labelledby="catalog-specialties-title">
           <div className="catalog-section-heading"><div><span>اختر التخصص</span><h2 id="catalog-specialties-title">ما الخدمة التي تحتاجها؟</h2></div><button type="button" onClick={() => selectCategory(activeRootCode)}>عرض الكل</button></div>
-          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{category.nameAr}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
+          <div className="catalog-specialty-grid">{subcategories.map((category) => <button key={category.code} type="button" data-visual={category.visualKey} className={activeCategory === category.code ? 'active' : ''} aria-pressed={activeCategory === category.code} onClick={() => selectCategory(category.code)}><span><PlatformIcon name={iconFor(category.visualKey)} /></span><strong>{category.nameAr}</strong><small>عرض مقدمي الخدمة</small><PlatformIcon name="arrow" /></button>)}</div>
         </section> : null}
 
         {!activeCategory && categories.length > 0 ? (

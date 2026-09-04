@@ -25,12 +25,28 @@ test('driver documents remain private and gate mobility approval',async()=>{
 test('mobility UI announces meter start and never lets the driver type a final fare',async()=>{
   const [rider,provider,service]=await Promise.all([read('apps/frontend/app/mobility/page.tsx'),read('apps/frontend/app/mobility/manage/page.tsx'),read('apps/backend/src/mobility/mobility.service.ts')]);
   assert.match(rider,/بدأت الرحلة والتسعير/);
+  assert.match(rider,/title=\{type === 'taxi' \? 'ابدأ الرحلة'/);
+  assert.match(rider,/قُبل طلب رحلة خدمة/);
+  assert.match(rider,/سائق خدمة في الطريق/);
   assert.match(rider,/وصل سائق خدمة/);
   assert.match(provider,/وصلت إلى العميل/);
   assert.match(provider,/ابدأ الرحلة والعداد/);
   assert.match(provider,/إنهاء وإصدار السعر/);
   assert.doesNotMatch(provider,/name=["']finalFare/);
   assert.match(service,/Math\.max\(request\.fareMinimum/);
+});
+
+test('rider cancellation closes when the driver starts moving',async()=>{
+  const [rider,service]=await Promise.all([read('apps/frontend/app/mobility/page.tsx'),read('apps/backend/src/mobility/mobility.service.ts')]);
+  assert.match(rider,/\['requested','accepted'\]\.includes\(activeRequest\.status\)/);
+  assert.match(service,/requested: \['cancelled'\], accepted: \['cancelled'\]/);
+  assert.doesNotMatch(service,/accepted: \['cancelled'\], en_route: \['cancelled'\]/);
+});
+
+test('mobility eligibility and admin trust approval require all four driver documents',async()=>{
+  const [mobility,business]=await Promise.all([read('apps/backend/src/mobility/mobility.service.ts'),read('apps/backend/src/business-profiles/business-profile.service.ts')]);
+  assert.match(mobility,/countMobilityDocuments\(business\.id\) !== 4/);
+  assert.match(business,/approveVerification[\s\S]*assertMobilityDocuments\(profile\)/);
 });
 
 test('smart admin monitors arrived and in-progress mobility requests',async()=>{

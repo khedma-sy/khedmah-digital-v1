@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
@@ -18,6 +18,11 @@ import {
 } from "../../components/ui-primitives";
 import { PlatformIcon } from "../../components/platform-icon";
 import { CourierLocationButton } from "../courier-location-button";
+import {
+  playOrderRing,
+  requestOrderNotifications,
+  showOrderNotification,
+} from "../order-alerts";
 import styles from "./courier.module.css";
 
 const statusLabel: Record<FulfillmentOrder["status"], string> = {
@@ -38,8 +43,18 @@ export default function CourierOrders() {
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [selected, setSelected] = useState("");
   const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const alertsEnabledRef = useRef(false);
+  const loadedOnceRef = useRef(false);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const enabled = window.localStorage.getItem("khedmah-courier-order-alerts") === "on";
+    alertsEnabledRef.current = enabled;
+    setAlertsEnabled(enabled);
+  }, []);
   useEffect(() => {
     void api.businesses
       .listMine()
@@ -60,14 +75,51 @@ export default function CourierOrders() {
       })
       .finally(() => setLoading(false));
   }, []);
-  const load = async (id = selected) => {
-    if (id) setOrders((await api.orders.courier(id)).orders);
-  };
+  const announceNewTasks = useCallback((incoming: FulfillmentOrder[]) => {
+    const fresh = incoming.filter(
+      (order) =>
+        order.status === "courier_assigned" &&
+        !knownOrderIdsRef.current.has(order.id),
+    );
+    incoming.forEach((order) => knownOrderIdsRef.current.add(order.id));
+    if (!loadedOnceRef.current || !fresh.length || !alertsEnabledRef.current) return;
+    playOrderRing();
+    showOrderNotification(
+      "مهمة توصيل جديدة",
+      fresh.length === 1
+        ? `${fresh[0].merchantName} بانتظار قبولك أو اعتذارك.`
+        : `${fresh.length} مهام جديدة بانتظار ردك.`,
+      `courier-order-${fresh[0].id}`,
+    );
+  }, []);
+  const load = useCallback(async (id: string) => {
+    if (!id) return;
+    const next = (await api.orders.courier(id)).orders;
+    announceNewTasks(next);
+    setOrders(next);
+    setError("");
+    loadedOnceRef.current = true;
+  }, [announceNewTasks]);
   useEffect(() => {
-    void load().catch((c) =>
+    loadedOnceRef.current = false;
+    knownOrderIdsRef.current = new Set();
+    if (!selected) return;
+    void load(selected).catch((c) =>
       setError(c instanceof Error ? c.message : "تعذر تحميل المهام."),
     );
-  }, [selected]);
+    const interval = window.setInterval(() => {
+      void load(selected).catch(() => undefined);
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, [load, selected]);
+
+  async function enableAlerts() {
+    alertsEnabledRef.current = true;
+    setAlertsEnabled(true);
+    window.localStorage.setItem("khedmah-courier-order-alerts", "on");
+    playOrderRing();
+    await requestOrderNotifications();
+  }
   async function move(o: FulfillmentOrder, status: FulfillmentOrder["status"]) {
     try {
       await api.orders.transition(
@@ -75,7 +127,7 @@ export default function CourierOrders() {
         status,
         status === "merchant_confirmed" ? { reason: "المندوب غير متاح" } : {},
       );
-      await load();
+      await load(selected);
     } catch (c) {
       setError(c instanceof Error ? c.message : "تعذر تحديث المهمة.");
     }
@@ -123,20 +175,32 @@ export default function CourierOrders() {
       ) : (
         <>
           <Surface className={styles.courierSelector}>
-            <label htmlFor="courier-business">
-              نشاط المندوب
-              <select
-                id="courier-business"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="ui-form-stack">
+              <label htmlFor="courier-business">
+                نشاط المندوب
+                <select
+                  id="courier-business"
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  {businesses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="ui-page-actions">
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  disabled={alertsEnabled}
+                  onClick={() => void enableAlerts()}
+                >
+                  {alertsEnabled ? "رنة المهام مفعّلة" : "فعّل رنة المهام الجديدة"}
+                </ActionButton>
+              </div>
+            </div>
           </Surface>
           {orders.length ? (
             <section className={styles.orderGrid} aria-label="مهام التوصيل الحالية">

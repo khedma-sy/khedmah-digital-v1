@@ -31,6 +31,12 @@ const categoryFor = (type: 'taxi' | 'delivery') => type === 'taxi' ? 'taxi' : 'd
 const toMapPoint = ({ latitude, longitude }: Coordinates) => ({ lat: latitude, lng: longitude });
 const openStatuses: MobilityRequest['status'][] = ['requested','accepted','en_route','arrived','in_progress'];
 const requestStatus: Record<MobilityRequest['status'], string> = { requested:'بانتظار قبول المزود',accepted:'تم قبول الطلب',en_route:'المزود في الطريق إليك',arrived:'وصل المزود إلى نقطة الانطلاق',in_progress:'بدأت الرحلة والتسعير',completed:'اكتملت الرحلة',rejected:'اعتذر المزود عن الطلب',cancelled:'تم إلغاء الطلب' };
+const riderNotifications: Partial<Record<MobilityRequest['status'], { title: string; body: string }>> = {
+  accepted: { title: 'قُبل طلب رحلة خدمة', body: 'تم ربطك بالسائق، وأصبح رقم التواصل ظاهرًا للطرفين.' },
+  en_route: { title: 'سائق خدمة في الطريق', body: 'انطلق السائق إلى نقطة الالتقاء المحددة.' },
+  arrived: { title: 'وصل سائق خدمة', body: 'السائق عند نقطة الانطلاق. لن يبدأ التسعير حتى تبدأ الرحلة.' },
+  in_progress: { title: 'بدأت رحلة خدمة', body: 'بدأت الرحلة والتسعير الآن بعد وصول السائق.' }
+};
 
 export default function MobilityPage() {
   const pickupInput = useRef<HTMLInputElement>(null);
@@ -62,8 +68,10 @@ export default function MobilityPage() {
     const refresh = () => void api.mobility.listMine().then(({ requests }) => {
       const latest = requests.find((item) => openStatuses.includes(item.status)) ?? requests[0];
       const changed = previousStatus.current && previousStatus.current !== latest?.status;
-      if (latest?.status === 'arrived' && changed && 'Notification' in window && Notification.permission === 'granted') new Notification('وصل سائق خدمة', { body:'السائق عند نقطة الانطلاق. لن يبدأ التسعير حتى يبدأ الرحلة.' });
-      if (latest?.status === 'in_progress' && changed && 'Notification' in window && Notification.permission === 'granted') new Notification('بدأت رحلة خدمة', { body:'بدأ التسعير الآن بعد وصول السائق.' });
+      const notification = latest ? riderNotifications[latest.status] : undefined;
+      if (changed && notification && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(notification.title, { body: notification.body, tag: `mobility-${latest?.id}-${latest?.status}` });
+      }
       previousStatus.current = latest?.status; setActiveRequest(latest);
     }).catch(() => undefined);
     refresh(); const interval = window.setInterval(refresh, 8000); return () => window.clearInterval(interval);
@@ -124,6 +132,12 @@ export default function MobilityPage() {
     const runtime = window as unknown as MobilityRuntime;
     let cancelled = false;
     const previousAuthFailure = runtime.gm_authFailure;
+    const isolatedPreview = /^khedmah-pr-\d+-frontend-/.test(window.location.hostname);
+    if (isolatedPreview) {
+      setMapsStatus('error');
+      setMessage('الخريطة التفاعلية غير متاحة في نطاق المعاينة. استخدم موقعك الحالي لإيجاد السائقين القريبين.');
+      return;
+    }
 
     const initialize = () => {
       if (cancelled || !runtime.google?.maps || !pickupInput.current || !destinationInput.current) return;
@@ -237,13 +251,13 @@ export default function MobilityPage() {
   }
 
   return <PageShell className={styles.page} label="التاكسي والتوصيل">
-    <PageHeader eyebrow="تنقّل وتوصيل" title={type === 'taxi' ? 'إلى أين تريد الذهاب؟' : 'ماذا تريد أن نوصّل؟'} description="حدد الانطلاق والوجهة، ثم اختر مزودًا معتمدًا قريبًا وتواصل معه مباشرة." backHref="/"/>
+    <PageHeader eyebrow={type === 'taxi' ? 'خدمة تكسي' : 'مندوب توصيل'} title={type === 'taxi' ? 'ابدأ الرحلة' : 'ابدأ طلب التوصيل'} description={type === 'taxi' ? 'حدد نقطة الانطلاق والوجهة، ثم اختر سائقًا معتمدًا قريبًا.' : 'حدد نقطة الاستلام والوجهة، ثم اختر مندوبًا معتمدًا قريبًا.'} backHref="/"/>
     <Surface className={promoStyles.promotion} aria-label="نظام أجرة خدمة"><div><strong>{farePolicy?.enabled ? 'السعر تحسبه خدمة، لا السائق' : 'تعرفة خدمة بانتظار اعتماد الأدمن'}</strong><p>{farePolicy?.enabled ? `تُحسب بعد الرحلة من فتح العداد والمسافة والانتظار، والحد الأدنى ${farePolicy.minimumFare.toLocaleString('ar-SY')} ل.س.` : 'لن نعرض أرقامًا غير رسمية أو نسمح ببدء العداد قبل اعتماد التعرفة. التسجيل مجاني خلال المرحلة التجريبية.'}</p></div><ActionLink href="/business-profiles/new">سجّل كسائق أو مندوب</ActionLink></Surface>
-    {activeRequest && <Surface className={promoStyles.activeRequest} aria-live="polite"><div><strong>{requestStatus[activeRequest.status]}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">{activeRequest.providerPhone}</a>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY')} ل.س.</b></p>}</div>{['requested','accepted','en_route'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
+    {activeRequest && <Surface className={promoStyles.activeRequest} aria-live="polite"><div><strong>{requestStatus[activeRequest.status]}</strong><p>{activeRequest.providerName} · من {activeRequest.pickupAddress} إلى {activeRequest.destinationAddress}</p>{activeRequest.providerPhone && <a href={`tel:${activeRequest.providerPhone}`} dir="ltr">{activeRequest.providerPhone}</a>}{activeRequest.fareStatus === 'finalized' && activeRequest.finalFare !== undefined && <p><b>السعر النهائي من خدمة: {activeRequest.finalFare.toLocaleString('ar-SY')} ل.س.</b></p>}</div>{['requested','accepted'].includes(activeRequest.status) && <ActionButton type="button" variant="secondary" onClick={() => void cancelRequest()}>إلغاء الطلب</ActionButton>}</Surface>}
     <div className={styles.journey}>
       <Surface as="form" className={styles.planner} onSubmit={findProviders}>
         <div className={styles.typeSwitch} aria-label="نوع الخدمة">
-          <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => { setType('taxi'); setProviders([]); setSearched(false); }}><PlatformIcon name="car"/> مشوار تاكسي</ActionButton>
+          <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => { setType('taxi'); setProviders([]); setSearched(false); }}><PlatformIcon name="car"/> خدمة تكسي</ActionButton>
           <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => { setType('delivery'); setProviders([]); setSearched(false); }}><PlatformIcon name="delivery"/> مندوب توصيل</ActionButton>
         </div>
         <ol className={styles.steps} aria-label="خطوات الطلب"><li className={pickupCoordinates ? styles.done : styles.current}>الانطلاق</li><li className={destination ? styles.done : ''}>الوجهة</li><li className={searched ? styles.done : ''}>اختيار المزود</li></ol>
@@ -254,7 +268,7 @@ export default function MobilityPage() {
         </div>
         <div className={styles.actions}>
           <ActionButton type="button" variant="secondary" onClick={useCurrentLocation}><PlatformIcon name="pin"/> موقعي الحالي</ActionButton>
-          <ActionButton type="submit" disabled={loading||!canPlanRoute}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : `اعرض ${type === 'taxi' ? 'سيارات التاكسي' : 'المندوبين'}`}</ActionButton>
+          <ActionButton type="submit" disabled={loading||!canPlanRoute}><PlatformIcon name="search"/> {loading ? 'جاري البحث…' : type === 'taxi' ? 'ابحث عن سائق' : 'ابحث عن مندوب'}</ActionButton>
         </div>
         <StatusMessage tone={mapsStatus === 'error' ? 'warning' : 'info'}>{message}</StatusMessage>
       </Surface>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
@@ -16,6 +16,11 @@ import {
   StatusMessage,
   Surface,
 } from "../../components/ui-primitives";
+import {
+  playOrderRing,
+  requestOrderNotifications,
+  showOrderNotification,
+} from "../order-alerts";
 const eligible = new Set([
   "restaurant",
   "cafe",
@@ -29,14 +34,39 @@ const eligible = new Set([
   "fish_poultry_shop",
   "pharmacy",
 ]);
+
+const statusLabel: Record<FulfillmentOrder["status"], string> = {
+  placed: "طلب جديد من زبون",
+  quoted: "بانتظار موافقة الزبون",
+  merchant_confirmed: "أكد الزبون الطلب",
+  courier_assigned: "أُرسل إلى المندوب",
+  courier_accepted: "قبله المندوب",
+  ready_for_pickup: "جاهز للاستلام",
+  picked_up: "في الطريق إلى الزبون",
+  delivered: "تم التسليم والتحصيل",
+  rejected: "مرفوض",
+  cancelled: "ملغي",
+};
+
 export default function MerchantOrders() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [selected, setSelected] = useState("");
   const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
   const [couriers, setCouriers] = useState<PublicBusinessProfile[]>([]);
+  const [courierChoice, setCourierChoice] = useState<Record<string, string>>({});
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const alertsEnabledRef = useRef(false);
+  const loadedOnceRef = useRef(false);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const enabled = window.localStorage.getItem("khedmah-merchant-order-alerts") === "on";
+    alertsEnabledRef.current = enabled;
+    setAlertsEnabled(enabled);
+  }, []);
   useEffect(() => {
     void Promise.all([
       api.businesses.listMine(),
@@ -60,14 +90,50 @@ export default function MerchantOrders() {
       })
       .finally(() => setLoading(false));
   }, []);
-  const load = async (id = selected) => {
-    if (id) setOrders((await api.orders.merchant(id)).orders);
-  };
+  const announceNewOrders = useCallback((incoming: FulfillmentOrder[]) => {
+    const fresh = incoming.filter(
+      (order) => order.status === "placed" && !knownOrderIdsRef.current.has(order.id),
+    );
+    incoming.forEach((order) => knownOrderIdsRef.current.add(order.id));
+    if (!loadedOnceRef.current || !fresh.length || !alertsEnabledRef.current) return;
+
+    playOrderRing();
+    showOrderNotification(
+      "طلب جديد من زبون",
+      fresh.length === 1
+          ? `${fresh[0].items.length} أصناف بانتظار مراجعة المطعم.`
+          : `${fresh.length} طلبات جديدة بانتظار مراجعة المطعم.`,
+      `merchant-order-${fresh[0].id}`,
+    );
+  }, []);
+  const load = useCallback(async (id: string) => {
+    if (!id) return;
+    const next = (await api.orders.merchant(id)).orders;
+    announceNewOrders(next);
+    setOrders(next);
+    setError("");
+    loadedOnceRef.current = true;
+  }, [announceNewOrders]);
   useEffect(() => {
-    void load().catch((c) =>
+    loadedOnceRef.current = false;
+    knownOrderIdsRef.current = new Set();
+    if (!selected) return;
+    void load(selected).catch((c) =>
       setError(c instanceof Error ? c.message : "تعذر تحميل الطلبات."),
     );
-  }, [selected]);
+    const interval = window.setInterval(() => {
+      void load(selected).catch(() => undefined);
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, [load, selected]);
+
+  async function enableAlerts() {
+    alertsEnabledRef.current = true;
+    setAlertsEnabled(true);
+    window.localStorage.setItem("khedmah-merchant-order-alerts", "on");
+    playOrderRing();
+    await requestOrderNotifications();
+  }
   async function action(
     o: FulfillmentOrder,
     status: FulfillmentOrder["status"],
@@ -84,10 +150,11 @@ export default function MerchantOrders() {
       };
     }
     if (status === "courier_assigned") {
-      const id = window.prompt(
-        `أدخل رقم المندوب:\n${couriers.map((c) => `${c.id} — ${c.name}`).join("\n")}`,
-      );
-      if (!id) return;
+      const id = courierChoice[o.id];
+      if (!id) {
+        setError("اختر مندوباً معتمداً لهذا الطلب أولاً.");
+        return;
+      }
       data = { courierBusinessId: id };
     }
     if (status === "rejected") {
@@ -97,7 +164,7 @@ export default function MerchantOrders() {
     }
     try {
       await api.orders.transition(o.id, status, data);
-      await load();
+      await load(selected);
     } catch (c) {
       setError(c instanceof Error ? c.message : "تعذر تحديث الطلب.");
     }
@@ -129,25 +196,37 @@ export default function MerchantOrders() {
       ) : (
         <>
           <Surface>
-            <label>
-              النشاط
-              <select
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="ui-form-stack">
+              <label>
+                النشاط
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  {businesses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="ui-page-actions">
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  disabled={alertsEnabled}
+                  onClick={() => void enableAlerts()}
+                >
+                  {alertsEnabled ? "رنة الطلبات مفعّلة" : "فعّل رنة الطلبات الجديدة"}
+                </ActionButton>
+              </div>
+            </div>
           </Surface>
           {orders.length ? (
             <section className="ui-card-grid">
               {orders.map((o) => (
                 <Surface as="article" key={o.id}>
-                  <strong>{o.status}</strong>
+                  <strong>{statusLabel[o.status]}</strong>
                   <h2>طلب نقدي</h2>
                   {o.items.map((i) => (
                     <p key={i.productListingId}>
@@ -175,11 +254,32 @@ export default function MerchantOrders() {
                       </>
                     )}
                     {o.status === "merchant_confirmed" && (
-                      <ActionButton
-                        onClick={() => void action(o, "courier_assigned")}
-                      >
-                        اختيار مندوب
-                      </ActionButton>
+                      <>
+                        <label>
+                          المندوب المعتمد
+                          <select
+                            value={courierChoice[o.id] ?? ""}
+                            onChange={(event) =>
+                              setCourierChoice((current) => ({
+                                ...current,
+                                [o.id]: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">اختر المندوب</option>
+                            {couriers.map((courier) => (
+                              <option key={courier.id} value={courier.id}>
+                                {courier.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <ActionButton
+                          onClick={() => void action(o, "courier_assigned")}
+                        >
+                          تعيين المندوب
+                        </ActionButton>
+                      </>
                     )}
                     {o.status === "courier_accepted" && (
                       <ActionButton
