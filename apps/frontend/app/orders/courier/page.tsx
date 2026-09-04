@@ -85,7 +85,7 @@ export default function CourierOrders() {
       order.status === "ready_for_pickup" &&
       knownOrderStatusesRef.current.get(order.id) !== "ready_for_pickup",
     );
-    incoming.forEach((order) => knownOrderStatusesRef.current.set(order.id, order.status));
+    knownOrderStatusesRef.current = new Map(incoming.map((order) => [order.id, order.status]));
     if (!loadedOnceRef.current || (!fresh.length && !ready.length) || !alertsEnabledRef.current) return;
     playOrderRing();
     if (fresh.length) showOrderNotification(
@@ -165,7 +165,7 @@ export default function CourierOrders() {
           <div><dt><PlatformIcon name="storefront" size={17}/>عنوان الاستلام</dt><dd>{o.pickupAddress || "تواصل مع المنشأة لتأكيد نقطة الاستلام"}</dd></div>
           {o.merchantPhone && <div><dt><PlatformIcon name="phone" size={17}/>رقم المنشأة</dt><dd><a href={`tel:${o.merchantPhone}`} dir="ltr">{o.merchantPhone}</a></dd></div>}
           <div><dt><PlatformIcon name="pin" size={17}/>عنوان التسليم</dt><dd>{o.deliveryAddress}</dd></div>
-          <div><dt><PlatformIcon name="phone" size={17}/>رقم العميل</dt><dd><a href={`tel:${o.customerPhone}`} dir="ltr">{o.customerPhone}</a></dd></div>
+          <div><dt><PlatformIcon name="phone" size={17}/>رقم العميل</dt><dd>{o.customerPhone ? <a href={`tel:${o.customerPhone}`} dir="ltr">{o.customerPhone}</a> : "يظهر بعد قبول المهمة"}</dd></div>
           <div><dt><PlatformIcon name="cart" size={17}/>محتوى الطلب</dt><dd><ul className={styles.itemList}>{o.items.map((item) => <li key={item.productListingId}>{item.quantity.toLocaleString("ar-SY")} × {item.titleAr}</li>)}</ul></dd></div>
           {o.customerNote && <div><dt><PlatformIcon name="info" size={17}/>ملاحظة العميل</dt><dd>{o.customerNote}</dd></div>}
           {o.total !== undefined && <div><dt><PlatformIcon name="check" size={17}/>التحصيل النقدي</dt><dd>{o.total.toLocaleString("ar-SY")} {o.currency}</dd></div>}

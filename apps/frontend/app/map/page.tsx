@@ -75,6 +75,7 @@ function MapDiscovery() {
       if (boundaries) Object.entries(boundaries).forEach(([key, value]) => url.searchParams.set(key, String(value)));
       window.history.replaceState(null, '', url);
     } catch (error) {
+      setProviders([]);
       setStatus(error instanceof Error ? error.message : 'تعذر تحميل مقدمي الخدمات');
     } finally {
       setIsSearching(false);
@@ -198,6 +199,11 @@ function MapDiscovery() {
 
   function locateUser() {
     setStatus('جاري تحديد موقعك…');
+    if (!navigator.geolocation) {
+      setStatus('تحديد الموقع غير مدعوم على هذا الجهاز. اكتب اسم الخدمة واستخدم النتائج.');
+      setActiveView('list');
+      return;
+    }
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       const next = { latitude: coords.latitude, longitude: coords.longitude };
       setLocation(next);

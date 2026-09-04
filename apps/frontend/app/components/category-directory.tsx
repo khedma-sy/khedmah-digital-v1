@@ -71,7 +71,7 @@ export function CategoryDirectory() {
     const params = new URLSearchParams();
     if (categoryCode) params.set('category', categoryCode);
     if (pageNumber > 1) params.set('page', String(pageNumber));
-    window.history.replaceState(null, '', params.size ? `/categories?${params}` : '/categories');
+    window.history.pushState(null, '', params.size ? `/categories?${params}` : '/categories');
   }
 
   function selectCategory(categoryCode: string) {
@@ -99,6 +99,21 @@ export function CategoryDirectory() {
       resultsAnchorRef.current?.focus({ preventScroll: true });
     });
   }, [activeCategory, isLoading]);
+
+  useEffect(() => {
+    const restoreFromHistory = () => {
+      const params = new URLSearchParams(window.location.search);
+      const categoryCode = params.get('category') ?? '';
+      const pageNumber = Math.max(1, Number(params.get('page')) || 1);
+      const validCategory = categories.some(({ code }) => code === categoryCode) ? categoryCode : '';
+      setActiveCategory(validCategory);
+      setShowFilters(false);
+      if (validCategory) void loadServices(validCategory, pageNumber);
+      else { setServices([]); setTotal(0); setPage(1); setError(''); setIsLoading(false); }
+    };
+    window.addEventListener('popstate', restoreFromHistory);
+    return () => window.removeEventListener('popstate', restoreFromHistory);
+  }, [categories]);
 
   function goToPage(pageNumber: number) {
     syncUrl(activeCategory, pageNumber);

@@ -296,7 +296,7 @@ export interface FulfillmentOrder {
   readonly deliveryFee?: number;
   readonly total?: number;
   readonly deliveryAddress: string;
-  readonly customerPhone: string;
+  readonly customerPhone?: string;
   readonly customerNote?: string;
   readonly prescriptionAttested: boolean;
   readonly pharmacyReviewStatus:

@@ -55,5 +55,5 @@ export interface FulfillmentOrder {
 
 export type PublicFulfillmentOrder = Omit<
   FulfillmentOrder,
-  "customerUserId" | "merchantOwnerUserId" | "courierOwnerUserId"
->;
+  "customerUserId" | "merchantOwnerUserId" | "courierOwnerUserId" | "customerPhone"
+> & { readonly customerPhone?: string };

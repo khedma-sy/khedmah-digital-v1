@@ -65,7 +65,7 @@ export class OrderService {
       if (!sameItems || prior.deliveryAddress !== input.deliveryAddress || prior.customerPhone !== input.customerPhone || prior.customerNote !== input.customerNote || prior.prescriptionAttested !== input.prescriptionAttested) {
         throw new BadRequestException("Idempotency-Key was already used for a different order.");
       }
-      return expose(prior);
+      return expose(prior, "customer");
     }
     const products = await this.repo.findProducts(
       input.items.map((i) => i.productListingId),
@@ -148,18 +148,18 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: created.id,
     });
-    return expose(created);
+    return expose(created, "customer");
   }
   async mine(cookie: string | undefined) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    return (await this.repo.listForCustomer(actor.id)).map(expose);
+    return (await this.repo.listForCustomer(actor.id)).map((order) => expose(order, "customer"));
   }
   async merchant(cookie: string | undefined, businessId: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const b = await this.businesses.findById(businessId);
     if (!b || b.ownerUserId !== actor.id)
       throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForMerchant(businessId)).map(expose);
+    return (await this.repo.listForMerchant(businessId)).map((order) => expose(order, "merchant"));
   }
   async courier(cookie: string | undefined, businessId: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
@@ -170,7 +170,7 @@ export class OrderService {
       b.categoryCode !== "delivery_courier"
     )
       throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForCourier(businessId)).map(expose);
+    return (await this.repo.listForCourier(businessId)).map((order) => expose(order, "courier"));
   }
   async transition(
     cookie: string | undefined,
@@ -239,6 +239,7 @@ export class OrderService {
         o.status === "courier_assigned" &&
         action.status === "courier_accepted"
       ) {
+        await this.assertCourierEligible(o.courierBusinessId);
       } else if (
         o.status === "courier_assigned" &&
         action.status === "merchant_confirmed"
@@ -251,6 +252,7 @@ export class OrderService {
         o.status === "ready_for_pickup" &&
         action.status === "picked_up"
       ) {
+        await this.assertCourierEligible(o.courierBusinessId);
       } else if (o.status === "picked_up" && action.status === "delivered") {
       } else
         throw new BadRequestException("Courier transition is not allowed.");
@@ -267,7 +269,12 @@ export class OrderService {
       actorUserId: actor.id,
       correlationId: `${updated.id}:${o.status}:${updated.status}`,
     });
-    return expose(updated);
+    return expose(updated, customer ? "customer" : merchant ? "merchant" : "courier");
+  }
+  private async assertCourierEligible(businessId?: string) {
+    const b = businessId ? await this.businesses.findById(businessId) : undefined;
+    if (!b || b.categoryCode !== "delivery_courier" || b.visibility !== "public" || b.trustStatus !== "approved" || b.moderationStatus !== "approved" || b.status !== "active" || await this.businesses.countApprovedMobilityDocuments(b.id) !== 4)
+      throw new BadRequestException("Courier is not eligible.");
   }
   async rate(
     cookie: string | undefined,
@@ -361,16 +368,24 @@ export class OrderService {
       throw new ForbiddenException("Access denied.");
     return {
       status: order.status,
-      location: await this.repo.latestLocation(id),
+      location: ["courier_accepted", "ready_for_pickup", "picked_up"].includes(order.status)
+        ? await this.repo.latestLocation(id)
+        : undefined,
     };
   }
 }
-function expose(o: FulfillmentOrder): PublicFulfillmentOrder {
+function expose(o: FulfillmentOrder, viewer: "customer" | "merchant" | "courier"): PublicFulfillmentOrder {
   const {
     customerUserId: _c,
     merchantOwnerUserId: _m,
     courierOwnerUserId: _d,
     ...result
   } = o;
-  return result;
+  const safe: Record<string, unknown> = { ...result };
+  const accepted = ["courier_accepted", "ready_for_pickup", "picked_up", "delivered"].includes(o.status);
+  if (viewer !== "merchant") delete safe.customerPhone;
+  if (viewer === "courier" && accepted) safe.customerPhone = o.customerPhone;
+  if (!accepted || viewer === "merchant") delete safe.courierPhone;
+  if (viewer !== "courier") delete safe.merchantPhone;
+  return safe as PublicFulfillmentOrder;
 }
