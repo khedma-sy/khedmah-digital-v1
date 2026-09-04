@@ -141,8 +141,9 @@ function MapDiscovery() {
     let insertedScript: HTMLScriptElement | null = null;
     const previousAuthFailure = window.gm_authFailure;
     const previousInitializer = window.initKhedmahMap;
-    const failMap = (message: string) => {
+    const failMap = (message: string, canRetry = true) => {
       if (cancelled) return;
+      setMapCanRetry(canRetry);
       setMapStatus('error');
       setMapError(message);
       setStatus(message);
@@ -153,7 +154,7 @@ function MapDiscovery() {
       if (cancelled) return;
       initializeMapRef.current();
     };
-    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.', false);
 
     if (window.google?.maps) {
       initializeMapRef.current();

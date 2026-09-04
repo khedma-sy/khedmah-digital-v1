@@ -45,8 +45,8 @@ test('rider cancellation closes when the driver starts moving',async()=>{
 
 test('mobility eligibility and admin trust approval require all four driver documents',async()=>{
   const [mobility,business]=await Promise.all([read('apps/backend/src/mobility/mobility.service.ts'),read('apps/backend/src/business-profiles/business-profile.service.ts')]);
-  assert.match(mobility,/countMobilityDocuments\(business\.id\) !== 4/);
-  assert.match(business,/approveVerification[\s\S]*assertMobilityDocuments\(profile\)/);
+  assert.match(mobility,/countApprovedMobilityDocuments\(business\.id\) !== 4/);
+  assert.match(business,/approveVerification[\s\S]*assertApprovedMobilityDocuments\(profile\)/);
 });
 
 test('smart admin monitors arrived and in-progress mobility requests',async()=>{
