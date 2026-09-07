@@ -26,3 +26,12 @@ test('categories use green without mutating the global functional primary color'
   assert.match(themes, /\.catalog-experience \.catalog-category-icon\s*\{[^}]*background:\s*var\(--section-accent\)/s);
   assert.match(tokens, /--k-color-primary:\s*#07427c/i);
 });
+
+test('mobility and commerce keep independent visual accents', async () => {
+  const mobility = await read('apps/frontend/app/mobility/mobility.module.css');
+  const store = await read('apps/frontend/app/store/store.module.css');
+  assert.match(mobility, /--mobility-accent:\s*var\(--brand-navy,#173247\)/i);
+  assert.match(store, /--store-accent:\s*var\(--brand-orange,#e97835\)/i);
+  assert.match(mobility, /prefers-reduced-motion|@media\(max-width:42rem\)/i);
+  assert.match(store, /prefers-reduced-motion:reduce/i);
+});
