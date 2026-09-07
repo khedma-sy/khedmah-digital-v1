@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 type DialogAction =
@@ -23,6 +23,8 @@ export default function ModerationPage() {
   const [dialogAction, setDialogAction] = useState<DialogAction | null>(null);
   const [dialogNote, setDialogNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const dialogCancelRef = useRef<HTMLButtonElement>(null);
+  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const loadQueue = async () => {
     setLoading(true);
@@ -45,8 +47,22 @@ export default function ModerationPage() {
   };
 
   useEffect(() => { void loadQueue(); }, []);
+  useEffect(() => {
+    if (!dialogAction) return;
+    if (!needsNote(dialogAction)) dialogCancelRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || actionLoading) return;
+      event.preventDefault();
+      setDialogAction(null);
+      setDialogNote('');
+      window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [dialogAction, actionLoading]);
 
   function openDialog(action: DialogAction) {
+    dialogReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDialogNote('');
     setFeedback(null);
     setDialogAction(action);
@@ -56,6 +72,7 @@ export default function ModerationPage() {
     if (actionLoading) return;
     setDialogAction(null);
     setDialogNote('');
+    window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
   }
 
   async function executeDialogAction() {
@@ -81,6 +98,7 @@ export default function ModerationPage() {
       }
       setDialogAction(null);
       setDialogNote('');
+      window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
       await loadQueue();
     } catch (err: unknown) {
       setFeedback({ tone: 'error', text: messageFor(err, 'تعذر تنفيذ إجراء المراجعة.') });
@@ -107,6 +125,6 @@ export default function ModerationPage() {
 
     <section className="operations-panel moderation-section"><div className="panel-heading"><h2>المهنيون المعلقون</h2><span>{professionals.length}</span></div>{professionals.length === 0 ? <p className="moderation-empty">لا يوجد مهنيون بانتظار المراجعة.</p> : <div className="moderation-list">{professionals.map((professional) => <article key={professional.id} className="moderation-card"><div><h3>{professional.headlineAr}</h3><p>{professional.cityCode} · {professional.skills.join('، ')}</p></div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'professional', id: professional.id, title: professional.headlineAr })} disabled={actionLoading} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'professional', id: professional.id, title: professional.headlineAr })} disabled={actionLoading} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
 
-    {dialogAction && <div className="moderation-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeDialog(); }}><section className="moderation-dialog" role="dialog" aria-modal="true" aria-labelledby="moderation-dialog-title" dir="rtl"><h3 id="moderation-dialog-title">{dialogAction.title}</h3><p>{dialogAction.kind === 'approve-profile' ? 'تأكد من اكتمال البيانات قبل اعتماد الملف ونشره.' : dialogAction.kind === 'review-product' && dialogAction.status === 'approved' ? 'سيصبح المنتج متاحًا في متجر خدمة بعد التأكيد.' : dialogAction.kind === 'review-report' ? 'اكتب ملاحظة إدارية واضحة تحفظ مع سجل البلاغ.' : 'اكتب سببًا واضحًا يمكن الرجوع إليه أثناء المراجعة.'}</p>{needsNote(dialogAction) && <textarea className="moderation-reason" rows={4} value={dialogNote} onChange={(event) => setDialogNote(event.target.value)} placeholder="اكتب الملاحظة أو سبب القرار (5 أحرف على الأقل)…" autoFocus/>}<div className="moderation-actions"><button type="button" onClick={closeDialog} disabled={actionLoading}>إلغاء</button><button type="button" onClick={() => void executeDialogAction()} disabled={actionLoading || (needsNote(dialogAction) && dialogNote.trim().length < 5)} className={dialogAction.kind === 'reject-profile' || (dialogAction.kind === 'review-product' && dialogAction.status === 'rejected') || (dialogAction.kind === 'review-report' && dialogAction.status === 'dismissed') ? 'moderation-reject' : 'moderation-approve'}>{actionLoading ? 'جارٍ التنفيذ…' : 'تأكيد القرار'}</button></div></section></div>}
+    {dialogAction && <div className="moderation-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeDialog(); }}><section className="moderation-dialog" role="dialog" aria-modal="true" aria-labelledby="moderation-dialog-title" aria-describedby="moderation-dialog-description" dir="rtl"><h3 id="moderation-dialog-title">{dialogAction.title}</h3><p id="moderation-dialog-description">{dialogAction.kind === 'approve-profile' ? 'تأكد من اكتمال البيانات قبل اعتماد الملف ونشره.' : dialogAction.kind === 'review-product' && dialogAction.status === 'approved' ? 'سيصبح المنتج متاحًا في متجر خدمة بعد التأكيد.' : dialogAction.kind === 'review-report' ? 'اكتب ملاحظة إدارية واضحة تحفظ مع سجل البلاغ.' : 'اكتب سببًا واضحًا يمكن الرجوع إليه أثناء المراجعة.'}</p>{needsNote(dialogAction) && <textarea className="moderation-reason" rows={4} value={dialogNote} onChange={(event) => setDialogNote(event.target.value)} placeholder="اكتب الملاحظة أو سبب القرار (5 أحرف على الأقل)…" autoFocus/>}<div className="moderation-actions"><button ref={dialogCancelRef} type="button" onClick={closeDialog} disabled={actionLoading}>إلغاء</button><button type="button" onClick={() => void executeDialogAction()} disabled={actionLoading || (needsNote(dialogAction) && dialogNote.trim().length < 5)} className={dialogAction.kind === 'reject-profile' || (dialogAction.kind === 'review-product' && dialogAction.status === 'rejected') || (dialogAction.kind === 'review-report' && dialogAction.status === 'dismissed') ? 'moderation-reject' : 'moderation-approve'}>{actionLoading ? 'جارٍ التنفيذ…' : 'تأكيد القرار'}</button></div></section></div>}
   </main>;
 }
