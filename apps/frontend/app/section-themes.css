@@ -1,0 +1,54 @@
+/* Canonical section accents for Khedmah. Keep functional state colors separate from brand colors. */
+:root {
+  --brand-navy: #173247;
+  --brand-green: #16875f;
+  --brand-orange: #e97835;
+  --brand-warm: #f8faf9;
+  --section-accent: var(--brand-navy);
+  --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+/* Categories / service directory: green sector identity. */
+.catalog-experience {
+  --section-accent: var(--brand-green);
+}
+
+.catalog-experience .catalog-filters button.active {
+  border-color: var(--section-accent);
+  background: var(--section-accent);
+}
+
+.catalog-experience .catalog-category-grid button:hover {
+  border-color: var(--section-accent);
+}
+
+.catalog-experience .catalog-category-icon {
+  background: var(--section-accent);
+}
+
+.catalog-experience .catalog-service-icon,
+.catalog-experience .catalog-service small {
+  color: var(--section-accent);
+}
+
+.catalog-experience .catalog-state-actions a,
+.catalog-experience .catalog-state-actions button {
+  border-color: var(--section-accent);
+  color: var(--section-accent);
+}
+
+.catalog-experience .catalog-state-actions a:first-of-type {
+  color: #fff;
+  background: var(--section-accent);
+}
+
+/* Marketplace / food commerce surfaces can opt into the orange sector accent without changing the global shell. */
+[data-khedmah-section='commerce'] {
+  --section-accent: var(--brand-orange);
+}
+
+/* Map / nearby and mobility remain anchored to navy until their dedicated page passes are completed. */
+.map-welcome,
+[data-khedmah-section='mobility'] {
+  --section-accent: var(--brand-navy);
+}
