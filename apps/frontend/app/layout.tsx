@@ -10,6 +10,7 @@ import './design-tokens.css';
 import './section-themes.css';
 import './ui-primitives.css';
 import './admin-system.css';
+import './moderation-system.css';
 import './auth-experience.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
