@@ -1,152 +1,101 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, PublicProfessionalProfile } from '../../lib/api-client';
+import { cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
+import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
+import { PlatformIcon } from '../components/platform-icon';
+import styles from '../../components/owner-workspace.module.css';
 
-function AvailBadge({ av }: { av: string }) {
-  if (av === 'available') return <span className="badge badge-available">🟢 متاح</span>;
-  if (av === 'busy') return <span className="badge badge-busy">🟡 مشغول</span>;
-  return <span className="badge badge-unavailable">🔴 غير متاح</span>;
-}
-
-function ModerationBadge({ status }: { status: string }) {
-  if (status === 'approved') return <span className="badge" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>مقبول</span>;
-  if (status === 'rejected') return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>مرفوض</span>;
-  if (status === 'suspended') return <span className="badge" style={{ backgroundColor: '#f3f4f6', color: '#1f2937' }}>موقوف</span>;
-  return <span className="badge" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>معلق</span>;
-}
+const availabilityLabel = (value: string) => value === 'available' ? 'متاح' : value === 'busy' ? 'مشغول' : 'حسب الموعد';
+const moderationLabel = (value?: string) => value === 'approved' ? 'معتمد' : value === 'rejected' ? 'مطلوب تعديل' : value === 'suspended' ? 'موقوف' : 'قيد المراجعة';
 
 export default function ProfessionalProfilesPage() {
   const router = useRouter();
-  const [professionalProfile, setProfessionalProfile] = useState<PublicProfessionalProfile | null>(null);
+  const { cities } = useSyrianCities();
+  const [profile, setProfile] = useState<PublicProfessionalProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const loadProfessionalProfile = async () => {
+  async function load() {
     setIsLoading(true);
+    setError('');
     try {
       const data = await api.professionals.getMine();
-      setProfessionalProfile(data.professional);
-    } catch (err) {
-      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
+      setProfile(data.professional);
+    } catch (cause) {
+      const statusCode = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
       if (statusCode === 401) {
-        router.push('/auth/login');
+        router.replace('/auth/login?next=%2Fprofessional-profiles');
         return;
       }
-      if (statusCode !== 404) {
-        setError(err instanceof Error ? err.message : 'تعذر تحميل الملف المهني.');
-      }
+      if (statusCode === 404) setProfile(null);
+      else setError(cause instanceof Error ? cause.message : 'تعذر تحميل الملف المهني.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  useEffect(() => {
-    void loadProfessionalProfile();
-  }, []);
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  async function handleSubmitForReview(id: string) {
+  async function submitForReview() {
+    if (!profile) return;
+    setIsSubmitting(true);
+    setError('');
+    setNotice('');
     try {
-      await api.professionals.submitForReview(id);
-      await loadProfessionalProfile();
-    } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء الإرسال للمراجعة');
+      await api.professionals.submitForReview(profile.id);
+      setNotice('تم إرسال الملف المهني للمراجعة.');
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'تعذر إرسال الملف للمراجعة.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  return (
-    <main id="foundation-content" className="page-shell" aria-label="الملفات المهنية">
-      <div className="page-content">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBlockEnd: '1.5rem' }}>
+  const moderationStatus = profile?.contactEligibility?.moderationStatus;
+  const canSubmit = !!profile?.contactEligibility && (moderationStatus === 'rejected' || profile.contactEligibility.lifecycleStatus === 'created');
+
+  return <PageShell className={styles.page} label="ملفي المهني">
+    <PageHeader
+      eyebrow="مساحة المهني"
+      title="ملفي المهني"
+      description="أدر معلوماتك المهنية وخدماتك وظهورك العام، ثم أرسل الملف للمراجعة قبل نشره للعملاء."
+      actions={<div className={styles.headerActions}><ActionLink href="/professional-profiles/new"><PlatformIcon name="user" size={18}/>{profile ? 'تعديل الملف' : 'إنشاء ملف'}</ActionLink><ActionLink href="/professional-profiles/search" variant="secondary">تصفح المهنيين</ActionLink></div>}
+    />
+
+    {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
+
+    {isLoading ? <SkeletonGrid count={2} label="جاري تحميل ملفك المهني" /> : profile ? <div className={styles.workspaceGrid}>
+      <Surface as="article" className={`${styles.card} ${styles.profileCard}`}>
+        <div className={styles.cardTop}>
           <div>
-            <p className="eyebrow">خدمة الرقمية</p>
-            <h1 style={{ margin: '0 0 0.35rem', fontSize: 'clamp(1.75rem, 5vw, 3rem)' }}>ملفي المهني</h1>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '1rem' }}>إدارة ملفك المهني وظهورك العام على المنصة.</p>
+            <p className={styles.kicker}>الهوية المهنية</p>
+            <h2>{profile.headlineAr}</h2>
+            {profile.headlineEn && <p className={styles.english} dir="ltr">{profile.headlineEn}</p>}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <Link href="/professional-profiles/new" className="filter-action" style={{ textDecoration: 'none' }}>
-              {professionalProfile ? 'تعديل الملف' : '+ إنشاء ملف'}
-            </Link>
-            <Link href="/professional-profiles/search" className="filter-action-secondary" style={{ textDecoration: 'none' }}>تصفح المهنيين</Link>
+          <div className={styles.badges}>
+            <span className={`${styles.badge} ${profile.availability === 'available' ? styles.success : profile.availability === 'busy' ? styles.warning : styles.muted}`}>{availabilityLabel(profile.availability)}</span>
+            <span className={`${styles.badge} ${moderationStatus === 'approved' ? styles.success : moderationStatus === 'rejected' || moderationStatus === 'suspended' ? styles.danger : styles.warning}`}>{moderationLabel(moderationStatus)}</span>
           </div>
-        </header>
+        </div>
+        <p className={styles.description}>{profile.bioAr || 'لم تضف نبذة مهنية بعد. أكمل الملف لتوضيح خبرتك للعملاء.'}</p>
+        <div className={styles.profileMeta}><span><PlatformIcon name="pin" size={15}/>{cityLabel(profile.cityCode, cities)}</span><span>{profile.countryCode}</span></div>
+        {profile.skills.length > 0 && <div className={styles.skillList} aria-label="المهارات">{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
+        <div className={styles.actions}><ActionLink href={`/professional-profiles/${profile.id}`}>عرض الملف العام</ActionLink><ActionLink href="/professional-profiles/new" variant="secondary">تعديل</ActionLink>{canSubmit && <ActionButton type="button" variant="secondary" disabled={isSubmitting} onClick={() => void submitForReview()}>{isSubmitting ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>}</div>
+      </Surface>
 
-        {error && <p className="form-error" role="alert" style={{ marginBlockEnd: '1rem' }}>{error}</p>}
-
-        {isLoading ? (
-          <div className="skeleton skeleton-card" style={{ maxWidth: '40rem' }} />
-        ) : professionalProfile ? (
-          <article className="card" style={{ maxWidth: '42rem' }}>
-            <div className="card-body" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0, fontSize: '1.375rem' }}>{professionalProfile.headlineAr}</h2>
-                <div style={{ display: 'flex', gap: '0.25rem' }}>
-                  <AvailBadge av={professionalProfile.availability} />
-                  {professionalProfile.contactEligibility && (
-                    <ModerationBadge status={professionalProfile.contactEligibility.moderationStatus} />
-                  )}
-                </div>
-              </div>
-              {professionalProfile.headlineEn && (
-                <p style={{ color: 'var(--muted)', direction: 'ltr', fontSize: '0.9375rem', margin: '0.35rem 0 0' }}>
-                  {professionalProfile.headlineEn}
-                </p>
-              )}
-              {professionalProfile.bioAr && (
-                <p style={{ color: 'var(--muted)', fontSize: '0.9375rem', lineHeight: 1.7, margin: '0.75rem 0 0' }}>
-                  {professionalProfile.bioAr}
-                </p>
-              )}
-              <p style={{ color: 'var(--muted)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
-                📍 {professionalProfile.cityCode} · {professionalProfile.countryCode}
-              </p>
-              {professionalProfile.skills.length > 0 && (
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                  {professionalProfile.skills.map((skill) => (
-                    <span key={skill} className="skill-tag">{skill}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="card-footer" style={{ display: 'flex', gap: '0.5rem' }}>
-              <Link
-                href={`/professional-profiles/${professionalProfile.id}`}
-                className="foundation-action"
-                style={{ marginBlockStart: 0, textDecoration: 'none', fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-              >
-                عرض الملف العام
-              </Link>
-              <Link
-                href="/professional-profiles/new"
-                className="filter-action-secondary"
-                style={{ textDecoration: 'none', fontSize: '0.875rem' }}
-              >
-                تعديل
-              </Link>
-              {professionalProfile.contactEligibility && (professionalProfile.contactEligibility.moderationStatus === 'rejected' || professionalProfile.contactEligibility.lifecycleStatus === 'created') && (
-                <button
-                  onClick={() => handleSubmitForReview(professionalProfile.id)}
-                  className="filter-action"
-                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                >
-                  إرسال للمراجعة
-                </button>
-              )}
-            </div>
-          </article>
-        ) : (
-          <div className="empty-state">
-            <span className="empty-state-icon" aria-hidden="true">👤</span>
-            <h2>لا يوجد ملف مهني</h2>
-            <p>لم تُنشئ ملفك المهني بعد. أنشئه الآن لتظهر أمام العملاء في منطقتك.</p>
-            <Link href="/professional-profiles/new" className="filter-action" style={{ textDecoration: 'none', marginTop: '0.5rem' }}>
-              إنشاء ملف مهني
-            </Link>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+      <Surface as="aside" className={styles.guide}>
+        <h2>جاهزية الملف</h2>
+        <p>كلما كان الملف أوضح، أصبح قرار العميل أسرع.</p>
+        <ol><li>عنوان مهني واضح</li><li>نبذة مختصرة عن الخبرة</li><li>مهارات وخدمات دقيقة</li><li>مدينة وحالة توفر محدثة</li></ol>
+        <ActionLink href="/professional-profiles/new" variant="secondary">مراجعة البيانات</ActionLink>
+      </Surface>
+    </div> : <EmptyState icon={<PlatformIcon name="user" size={32}/>} title="أنشئ ملفك المهني" description="أضف تخصصك وخبرتك ومهاراتك لتظهر أمام العملاء الباحثين عن مهنيين في منطقتهم." actions={<ActionLink href="/professional-profiles/new">إنشاء ملف مهني</ActionLink>} />}
+  </PageShell>;
 }
