@@ -75,7 +75,14 @@ export class ProfessionalProfilesController {
 
   @Get(':id/trust-history')
   async getTrustHistory(@Param('id') id: string) {
-    return { history: await this.professionals.getTrustHistory(id) };
+    const history = await this.professionals.getTrustHistory(id);
+    return {
+      history: history.map((entry) => ({
+        oldStatus: entry.oldStatus,
+        newStatus: entry.newStatus,
+        createdAt: entry.createdAt
+      }))
+    };
   }
 
   @Post(':id/submit')
