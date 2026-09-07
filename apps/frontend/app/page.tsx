@@ -16,7 +16,7 @@ const trustItems = [
 ];
 
 export default function Home() {
-  return <main id="foundation-content" className={styles.page}>
+  return <main id="foundation-content" className={styles.page} data-khedmah-home>
     <section className={styles.hero} aria-labelledby="home-title">
       <div className={styles.heroCopy}>
         <p className={styles.eyebrow}><PlatformIcon name="check" /> تحت مظلة واحدة</p>
