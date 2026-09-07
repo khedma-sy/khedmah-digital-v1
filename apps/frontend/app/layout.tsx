@@ -10,6 +10,7 @@ import './design-tokens.css';
 import './section-themes.css';
 import './shell-system.css';
 import './ui-primitives.css';
+import './home-system.css';
 import './admin-system.css';
 import './moderation-system.css';
 import './auth-experience.css';
