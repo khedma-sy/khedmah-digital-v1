@@ -145,7 +145,14 @@ export class BusinessProfilesController {
 
   @Get(':id/trust-history')
   async getTrustHistory(@Param('id') id: string) {
-    return { history: await this.businessProfiles.getTrustHistory('business', id) };
+    const history = await this.businessProfiles.getTrustHistory('business', id);
+    return {
+      history: history.map((entry) => ({
+        oldStatus: entry.oldStatus,
+        newStatus: entry.newStatus,
+        createdAt: entry.createdAt
+      }))
+    };
   }
 
   @Post(':id/submit')
