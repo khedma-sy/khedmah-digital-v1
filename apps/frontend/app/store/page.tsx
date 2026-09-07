@@ -65,7 +65,7 @@ export default function StorePage() {
 
   return <PageShell className={styles.page} label="الإعلانات المبوبة">
     <PageHeader eyebrow="إعلانات الأنشطة المحلية" title="الإعلانات المبوبة" description="استكشف المنتجات والعروض المنشورة، ثم تواصل مباشرة مع النشاط المعلن. لا توجد مدفوعات أو طلبات داخل المنصة." actions={<><ActionLink href="/store/sell">أضف إعلانًا</ActionLink><ActionLink href="/store/manage" variant="secondary">إعلاناتي</ActionLink></>} />
-    <Surface as="form" className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في المتجر">
+    <Surface as="form" className={styles.toolbar} onSubmit={search} aria-label="البحث في المتجر">
       <label className={styles.field}>ابحث عن منتج<input value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
       <label className={styles.field}>التصنيف<select value={filters.categoryCode} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories}/></select></label>
       <label className={styles.field}>المدينة<select value={filters.cityCode} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
