@@ -1,4 +1,4 @@
-.page{min-height:100svh;--owner-accent:var(--brand-navy,#173247);--workspace-accent:var(--owner-accent);background:linear-gradient(180deg,var(--k-color-canvas-soft),var(--k-color-canvas))}
+.page{min-height:100svh;--owner-accent:var(--brand-navy);--workspace-accent:var(--owner-accent);background:linear-gradient(180deg,var(--k-color-canvas-soft),var(--k-color-canvas))}
 .headerActions,.actions,.badges{display:flex;align-items:center;flex-wrap:wrap;gap:var(--k-space-2)}
 .headerActions{justify-content:flex-end}
 .grid,.workspaceGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:var(--k-space-4)}
