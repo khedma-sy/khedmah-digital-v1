@@ -102,7 +102,7 @@ function ProfessionalSearchContent() {
 
   return <PageShell className={styles.page} label="البحث عن مهنيين">
     <PageHeader eyebrow="دليل المهنيين" title="ابحث عن مهني مناسب" description="ابحث بالكلمة والمدينة وحالة التوفر، ثم افتح الملف العام لمراجعة الخبرة والمهارات." actions={<ActionLink href="/professional-profiles" variant="secondary">ملفي المهني</ActionLink>} />
-    <Surface as="form" className={styles.form} onSubmit={submit} role="search" aria-label="بحث عن مهنيين" aria-busy={isLoading}>
+    <Surface as="form" className={styles.form} onSubmit={submit} aria-label="بحث عن مهنيين" aria-busy={isLoading}>
       <div className={styles.field}><label htmlFor="professional-q">المهنة أو المهارة</label><input id="professional-q" value={q} onChange={(event) => setQ(event.target.value)} placeholder="مثال: كهربائي، مصمم، محاسب" /></div>
       <div className={styles.field}><label htmlFor="professional-city">المدينة</label><select id="professional-city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setCityCode(event.target.value)}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></div>
       <div className={styles.field}><label htmlFor="professional-availability">التوفر</label><select id="professional-availability" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">الكل</option><option value="available">متاح</option><option value="busy">مشغول</option><option value="unavailable">غير متاح</option></select></div>
