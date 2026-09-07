@@ -3,6 +3,10 @@
   --store-accent:var(--brand-orange,#e97835);
   --store-accent-soft:color-mix(in srgb,var(--store-accent) 10%,var(--k-color-surface));
 }
+.page :global(.ui-action-primary){background:var(--store-accent)}
+.page :global(.ui-action-primary:hover){background:color-mix(in srgb,var(--store-accent) 84%,#000)}
+.page :global(.ui-eyebrow){color:var(--store-accent)}
+.page :global(.ui-empty-icon){color:var(--store-accent);background:var(--store-accent-soft)}
 .toolbar{
   display:grid;
   grid-template-columns:minmax(12rem,2fr) repeat(2,minmax(10rem,1fr)) auto;
