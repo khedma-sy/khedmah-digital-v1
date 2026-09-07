@@ -59,7 +59,6 @@
 @media(max-width:36rem){ .mapRecovery { align-items:stretch; flex-direction:column; } }
 @media(max-width:36rem){ .form { grid-template-columns:1fr; padding:var(--k-space-4); } .formActions { grid-column:auto; } .formActions>* { flex:1; } }
 
-
 /* Neutral white glass for search, map, and provider surfaces. */
 .providerCard,.searchPanel,.resultsPanel {
   border-color: var(--k-glass-border);
@@ -70,3 +69,21 @@
 }
 .mapPanel h1,.resultsPanel h1,.searchPanel h1 { font-size: var(--k-type-page); line-height: 1.3; }
 .providerCard h2,.providerCard h3 { font-size: var(--k-type-card); }
+
+/* 2026-09 visual convergence: keep discovery task-focused and reduce decorative glass depth. */
+.page{--discovery-accent:var(--brand-navy,#173247)}
+.page :global(.ui-surface){box-shadow:var(--k-shadow-sm);background:color-mix(in srgb,var(--k-color-surface) 94%,transparent)}
+.page :global(.ui-page-header){padding-block-end:.2rem;border-block-end:1px solid var(--k-color-border)}
+.form{border-radius:var(--k-radius-lg)}
+.tabs{width:100%;justify-content:center;border-radius:var(--k-radius-lg);background:var(--k-color-surface-muted);backdrop-filter:none;-webkit-backdrop-filter:none}
+.tab{flex:1 1 9rem;text-align:center}
+.card{padding:1.05rem;border-color:color-mix(in srgb,var(--discovery-accent) 14%,var(--k-color-border));box-shadow:var(--k-shadow-sm);transition:transform 160ms ease,box-shadow 160ms ease}
+.card:hover{transform:translateY(-2px);box-shadow:var(--k-shadow-md)}
+.cardAction :global(.ui-action){width:100%}
+.mapPage{background:linear-gradient(145deg,var(--k-color-canvas-soft),var(--k-color-canvas))}
+.mapPanel{border-inline-end-color:var(--k-color-border);background:color-mix(in srgb,var(--k-color-surface) 94%,transparent);box-shadow:var(--k-shadow-sm);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.mapBrand{color:var(--brand-navy,#173247)}
+.provider{border:1px solid color-mix(in srgb,var(--brand-navy,#173247) 14%,var(--k-color-border));background:var(--k-color-surface);box-shadow:none}
+.provider:hover{border-color:color-mix(in srgb,var(--brand-navy,#173247) 35%,var(--k-color-border))}
+.mapFallback{background:color-mix(in srgb,var(--k-color-surface) 92%,transparent)}
+@media(prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}
