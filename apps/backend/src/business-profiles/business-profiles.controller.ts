@@ -133,7 +133,14 @@ export class BusinessProfilesController {
 
   @Get(':id/verification-status')
   async getVerificationStatus(@Param('id') id: string) {
-    return { status: await this.businessProfiles.getVerificationStatus('business', id) };
+    const verification = await this.businessProfiles.getVerificationStatus('business', id);
+    return {
+      status: verification ? {
+        status: verification.status,
+        createdAt: verification.createdAt,
+        updatedAt: verification.updatedAt
+      } : null
+    };
   }
 
   @Get(':id/trust-history')
@@ -171,4 +178,3 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.reactivateBusiness(cookieHeader, id) };
   }
 }
-
