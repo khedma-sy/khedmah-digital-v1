@@ -8,6 +8,7 @@ import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
 import './section-themes.css';
+import './shell-system.css';
 import './ui-primitives.css';
 import './admin-system.css';
 import './moderation-system.css';
