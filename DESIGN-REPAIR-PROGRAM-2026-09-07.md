@@ -30,22 +30,22 @@ Every route must pass the same seven review perspectives before it is considered
 ## Repair order
 
 ### Foundation
-- Shared brand/section tokens.
-- Header and navigation convergence.
-- Typography loading and scale.
-- UI primitives and shared surfaces.
+- Shared brand/section tokens. **PASS 1 complete**
+- Header and navigation convergence. **Protected; no structural replacement**
+- Typography loading and scale. **Pending**
+- UI primitives and shared surfaces. **Partial**
 
 ### Public discovery
-- Home.
-- Search / Discover.
-- Categories / Service catalog.
-- Map / Nearby.
-- Mobility / Taxi & Delivery.
-- Store / Classifieds.
+- Home. **Baseline retained; deeper pass pending**
+- Search / Discover. **PASS 1 complete**
+- Categories / Service catalog. **PASS 1 complete — green sector accent**
+- Map / Nearby. **PASS 1 complete**
+- Mobility / Taxi & Delivery. **PASS 1 complete**
+- Store / Classifieds. **PASS 1 complete — orange commerce accent**
 
 ### Provider and business journeys
-- Business profiles list/detail/create/manage.
-- Professional profiles list/detail/search/create.
+- Business profiles list/detail/create/manage. **Next batch**
+- Professional profiles list/detail/search/create. **Next batch**
 - Organizations.
 - Locations.
 
@@ -62,3 +62,10 @@ Every route must pass the same seven review perspectives before it is considered
 ## Completion rule
 
 A route is not marked complete because its color changed. It must pass all seven review gates and remain consistent with the shared shell at mobile and desktop widths.
+
+## Current safety status
+
+- All repair commits live on `design-system-repair-2026-09-07`.
+- `main` has not been directly edited by this program.
+- PR #166 remains draft until the complete repair batch and regression gates are closed.
+- No backend/API contract has been changed by the visual repair pass.
