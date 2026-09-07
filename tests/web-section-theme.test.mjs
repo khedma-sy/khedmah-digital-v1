@@ -32,6 +32,18 @@ test('mobility and commerce keep independent visual accents', async () => {
   const store = await read('apps/frontend/app/store/store.module.css');
   assert.match(mobility, /--mobility-accent:\s*var\(--brand-navy,#173247\)/i);
   assert.match(store, /--store-accent:\s*var\(--brand-orange,#e97835\)/i);
-  assert.match(mobility, /prefers-reduced-motion|@media\(max-width:42rem\)/i);
+  assert.match(store, /ui-action-primary/i);
+  assert.match(mobility, /@media\(max-width:42rem\)/i);
   assert.match(store, /prefers-reduced-motion:reduce/i);
+});
+
+test('search and nearby share the navy discovery hierarchy without changing their product logic', async () => {
+  const discovery = await read('apps/frontend/app/discovery.module.css');
+  const search = await read('apps/frontend/app/search/page.tsx');
+  const map = await read('apps/frontend/app/map/page.tsx');
+  assert.match(discovery, /--discovery-accent:\s*var\(--brand-navy,#173247\)/i);
+  assert.match(discovery, /2026-09 visual convergence/i);
+  assert.match(search, /api\.search\.query|api\.services\.search/);
+  assert.match(map, /google\.maps\.Map/);
+  assert.match(map, /setActiveView\('list'\)/);
 });
