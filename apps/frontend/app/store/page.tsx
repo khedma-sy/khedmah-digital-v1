@@ -11,21 +11,32 @@ import { PlatformIcon } from '../components/platform-icon';
 import styles from './store.module.css';
 
 const availability = (value: ProductListing['availability']) => value === 'in_stock' ? 'متوفر' : value === 'made_to_order' ? 'حسب الطلب' : 'غير متوفر';
+type StoreFilters = { q: string; categoryCode: string; cityCode: string };
+const EMPTY_FILTERS: StoreFilters = { q: '', categoryCode: '', cityCode: '' };
 
 export default function StorePage() {
   const { categories } = useCategories();
   const { cities } = useSyrianCities();
   const [products, setProducts] = useState<ProductListing[]>([]);
-  const [filters, setFilters] = useState({ q: '', categoryCode: '', cityCode: '' });
+  const [filters, setFilters] = useState<StoreFilters>(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  function syncUrl(next: StoreFilters) {
+    const params = new URLSearchParams();
+    if (next.q.trim()) params.set('q', next.q.trim());
+    if (next.categoryCode) params.set('categoryCode', next.categoryCode);
+    if (next.cityCode) params.set('cityCode', next.cityCode);
+    window.history.replaceState(null, '', params.size ? `/store?${params}` : '/store');
+  }
+
   async function load(next = filters) {
     setLoading(true); setError('');
-    try { setProducts((await api.products.list({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined })).products); }
+    try { setProducts((await api.products.list({ q: next.q.trim() || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined })).products); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل المنتجات.'); }
     finally { setLoading(false); }
   }
+
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     const initial = {
@@ -37,15 +48,29 @@ export default function StorePage() {
     void load(initial);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
-  function search(event: FormEvent) { event.preventDefault(); void load(); }
+
+  function search(event: FormEvent) {
+    event.preventDefault();
+    syncUrl(filters);
+    void load(filters);
+  }
+
+  function clearFilters() {
+    setFilters(EMPTY_FILTERS);
+    syncUrl(EMPTY_FILTERS);
+    void load(EMPTY_FILTERS);
+  }
+
+  const hasFilters = !!(filters.q || filters.categoryCode || filters.cityCode);
 
   return <PageShell className={styles.page} label="الإعلانات المبوبة">
     <PageHeader eyebrow="إعلانات الأنشطة المحلية" title="الإعلانات المبوبة" description="استكشف المنتجات والعروض المنشورة، ثم تواصل مباشرة مع النشاط المعلن. لا توجد مدفوعات أو طلبات داخل المنصة." actions={<><ActionLink href="/store/sell">أضف إعلانًا</ActionLink><ActionLink href="/store/manage" variant="secondary">إعلاناتي</ActionLink></>} />
-    <Surface as="form" className={styles.toolbar} onSubmit={search}>
+    <Surface as="form" className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في المتجر">
       <label className={styles.field}>ابحث عن منتج<input value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
       <label className={styles.field}>التصنيف<select value={filters.categoryCode} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option><CategorySelectOptions categories={categories}/></select></label>
       <label className={styles.field}>المدينة<select value={filters.cityCode} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>
       <ActionButton type="submit" disabled={loading}><PlatformIcon name="search" size={17}/>{loading ? 'جاري البحث' : 'بحث'}</ActionButton>
+      {hasFilters && <ActionButton type="button" variant="secondary" disabled={loading} onClick={clearFilters}>مسح</ActionButton>}
     </Surface>
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
     {loading ? <SkeletonGrid count={6} label="جاري تحميل المنتجات"/> : products.length ? <section className={styles.grid} aria-label="المنتجات المنشورة">{products.map((product) => <Surface as="article" className={styles.card} key={product.id}>
