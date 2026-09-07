@@ -12,8 +12,17 @@ import styles from '../discovery.module.css';
 type TabType = 'all' | 'business' | 'professional' | 'service';
 const PAGE_SIZE = 12;
 const tabs: [TabType, string][] = [['all', 'الأنشطة والخدمات'], ['business', 'الأنشطة'], ['professional', 'المهنيون'], ['service', 'الخدمات']];
+const validTabs = new Set<TabType>(tabs.map(([value]) => value));
+const tabFromParam = (value: string | null): TabType => validTabs.has(value as TabType) ? value as TabType : 'all';
 const priceLabel = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
 const availabilityLabel = (value: string) => value === 'available' ? 'متاح' : value === 'busy' ? 'مشغول' : 'حسب الموعد';
+
+function paginationPages(current: number, totalPages: number) {
+  const visibleCount = Math.min(totalPages, 7);
+  const half = Math.floor(visibleCount / 2);
+  const start = Math.max(1, Math.min(current - half, totalPages - visibleCount + 1));
+  return Array.from({ length: visibleCount }, (_, index) => start + index);
+}
 
 function SearchContent() {
   const router = useRouter();
@@ -23,7 +32,7 @@ function SearchContent() {
   const [q, setQ] = useState(params.get('q') ?? '');
   const [cityCode, setCityCode] = useState(params.get('cityCode') ?? '');
   const [categoryCode, setCategoryCode] = useState(params.get('categoryCode') ?? '');
-  const [tab, setTab] = useState<TabType>((params.get('type') as TabType) ?? 'all');
+  const [tab, setTab] = useState<TabType>(tabFromParam(params.get('type')));
   const [page, setPage] = useState(Math.max(1, Number(params.get('page')) || 1));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -66,15 +75,21 @@ function SearchContent() {
 
   function submit(event: FormEvent) { event.preventDefault(); const next = { q, cityCode, categoryCode: tab === 'professional' ? '' : categoryCode, tab, page: 1 }; setPage(1); syncUrl(next); void search(next); }
   function changeTab(nextTab: TabType) { const nextCategoryCode = nextTab === 'professional' ? '' : categoryCode; setTab(nextTab); setCategoryCode(nextCategoryCode); setPage(1); const next = { q, cityCode, categoryCode: nextCategoryCode, tab: nextTab, page: 1 }; syncUrl(next); if (searched) void search(next); }
-  function clear() { setQ(''); setCityCode(''); setCategoryCode(''); setPage(1); router.replace('/search'); }
+  function clear() {
+    setQ(''); setCityCode(''); setCategoryCode(''); setTab('all'); setPage(1); setError('');
+    setBusinesses([]); setProfessionals([]); setServices([]); setTotal(0); setSearched(false);
+    router.replace('/search');
+  }
   function goToPage(nextPage: number) { const next = { q, cityCode, categoryCode, tab, page: nextPage }; setPage(nextPage); syncUrl(next); void search(next); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
   useEffect(() => {
     const rawCity = params.get('cityCode');
-    const nextTab = (params.get('type') as TabType) ?? 'all';
+    const rawTab = params.get('type');
+    const nextTab = tabFromParam(rawTab);
     const requestedCategoryCode = params.get('categoryCode') ?? '';
     const next = { q: params.get('q') ?? '', cityCode: canonicalCityCode(rawCity, cities), categoryCode: nextTab === 'professional' ? '' : requestedCategoryCode, tab: nextTab, page: Math.max(1, Number(params.get('page')) || 1) };
-    if (next.q || next.cityCode || next.categoryCode || params.get('type')) { setQ(next.q); setCityCode(next.cityCode); setCategoryCode(next.categoryCode); setTab(next.tab); setPage(next.page); void search(next); }
+    if (next.q || next.cityCode || next.categoryCode || rawTab) { setQ(next.q); setCityCode(next.cityCode); setCategoryCode(next.categoryCode); setTab(next.tab); setPage(next.page); void search(next); }
+    if (rawTab && !validTabs.has(rawTab as TabType)) syncUrl(next);
     if (requestedCategoryCode && nextTab === 'professional') syncUrl(next);
     if (rawCity && cities.length && !next.cityCode) router.replace('/search');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +100,7 @@ function SearchContent() {
     ?? services.find((item) => item.categoryCode === code)?.categoryNameAr
     ?? 'تصنيف محفوظ سابقاً';
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const visiblePages = paginationPages(page, totalPages);
   const noResults = !businesses.length && !professionals.length && !services.length;
 
   return <PageShell className={styles.page} label="اكتشاف الخدمات">
@@ -106,7 +122,7 @@ function SearchContent() {
       {professionals.length > 0 && <ResultSection title="المهنيون">{professionals.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.headlineAr}</h3><span className={styles.badge}>{availabilityLabel(item.availability)}</span></div><p className={styles.meta}><PlatformIcon name="pin" size={14}/> {cityLabel(item.cityCode,cities)}</p><div className={styles.tags}>{item.skills.slice(0,4).map((skill) => <span className={styles.tag} key={skill}>{skill}</span>)}</div><div className={styles.cardAction}><ActionLink href={`/professional-profiles/${item.id}`}>عرض الملف <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
       {services.length > 0 && <ResultSection title={tab === 'all' ? 'الخدمات' : undefined}>{services.map((s) => <Surface as="article" className={styles.card} key={s.id}><div className={styles.cardTop}><h3>{s.titleAr}</h3><span className={styles.badge}>{priceLabel(s.priceType)}</span></div><p className={styles.meta}>{categoryName(s.categoryCode)}</p>{s.descriptionAr && <p className={styles.description}>{s.descriptionAr}</p>}{s.price != null && <p className={styles.price}>{s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}</p>}<div className={styles.cardAction}><ActionLink href={s.ownerType === 'business' ? `/business-profiles/${s.ownerId}` : `/professional-profiles/${s.ownerId}`}>عرض مقدم الخدمة <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
       {noResults && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="لا توجد نتائج مطابقة" description={tab === 'professional' ? 'جرّب كلمة أخرى أو وسّع المدينة.' : 'جرّب كلمة أخرى أو وسّع المدينة والتصنيف.'} actions={<ActionButton type="button" variant="secondary" onClick={clear}>مسح عوامل البحث</ActionButton>} />}
-      {totalPages > 1 && <nav className={styles.pagination} aria-label="صفحات النتائج"><button disabled={page <= 1} onClick={() => goToPage(page-1)}>السابق</button>{Array.from({length:Math.min(totalPages,7)},(_,index)=>index+1).map((value)=><button key={value} aria-current={value===page?'page':undefined} onClick={()=>goToPage(value)}>{value}</button>)}<button disabled={page >= totalPages} onClick={() => goToPage(page+1)}>التالي</button></nav>}
+      {totalPages > 1 && <nav className={styles.pagination} aria-label="صفحات النتائج"><button disabled={page <= 1} onClick={() => goToPage(page-1)}>السابق</button>{visiblePages.map((value)=><button key={value} aria-current={value===page?'page':undefined} onClick={()=>goToPage(value)}>{value}</button>)}<button disabled={page >= totalPages} onClick={() => goToPage(page+1)}>التالي</button></nav>}
     </>}
     {!searched && !isLoading && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="كل ما تحتاجه أقرب إليك" description={tab === 'professional' ? 'ابدأ بكلمة بحث أو اختر مدينة لاستعراض المهنيين.' : 'ابدأ بكلمة بحث، أو اختر مدينة وتصنيفاً لاستعراض الأنشطة والخدمات المنشورة.'} actions={tab === 'professional' ? undefined : <ActionLink href="/categories" variant="secondary">استكشف التصنيفات</ActionLink>} />}
   </PageShell>;
