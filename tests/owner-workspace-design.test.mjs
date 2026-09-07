@@ -8,7 +8,7 @@ test('owner creation journeys share the converged workspace system', async () =>
   const styles = await read('apps/frontend/components/owner-workspace.module.css');
   const businessNew = await read('apps/frontend/app/business-profiles/new/page.tsx');
   const professionalNew = await read('apps/frontend/app/professional-profiles/new/page.tsx');
-  assert.match(styles, /--owner-accent:\s*var\(--brand-navy,#173247\)/i);
+  assert.match(styles, /--owner-accent:\s*var\(--brand-navy\)/i);
   assert.match(styles, /\.guide\{position:sticky/i);
   assert.match(styles, /@media\(max-width:52rem\).*\.guide\{position:static/s);
   assert.match(businessNew, /owner-workspace\.module\.css/);
