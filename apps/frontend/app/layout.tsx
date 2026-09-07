@@ -7,6 +7,7 @@ import { SmartAssistant } from './components/smart-assistant';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
+import './section-themes.css';
 import './ui-primitives.css';
 import './auth-experience.css';
 
