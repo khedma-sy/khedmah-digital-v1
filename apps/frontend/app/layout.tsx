@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Noto_Sans_Arabic } from 'next/font/google';
 import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
@@ -17,6 +18,13 @@ import './auth-experience.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
 const SITE_NAME = 'خدمة';
+
+const arabicFont = Noto_Sans_Arabic({
+  subsets: ['arabic'],
+  display: 'swap',
+  fallback: ['Segoe UI', 'Tahoma', 'Arial', 'sans-serif'],
+  variable: '--font-khedmah-arabic'
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -64,9 +72,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const themeScript = `(function(){try{var p=localStorage.getItem('khedma-theme');var v=p==='light'||p==='dark'?p:'system';var d=v==='dark'||(v==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.dataset.themePreference=v;r.dataset.theme=d?'dark':'light';r.style.colorScheme=d?'dark':'light'}catch(e){}})()`;
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning className={arabicFont.variable}>
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
-      <body>
+      <body className={arabicFont.className}>
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
