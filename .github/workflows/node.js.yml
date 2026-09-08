@@ -10,6 +10,30 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
+  inventory:
+    name: Source inventory (read-only)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    - name: Test inventory boundaries
+      run: node --test tests/repository-inventory.test.mjs
+    - name: Inventory pinned source without changing the checkout
+      run: node scripts/repository-inventory.mjs --out "${RUNNER_TEMP}/repository-inventory" --bundle
+    - uses: actions/upload-artifact@v4
+      with:
+        name: repository-inventory-${{ github.event.pull_request.number || github.run_id }}
+        path: ${{ runner.temp }}/repository-inventory
+        retention-days: 7
+        if-no-files-found: error
+
   build:
     runs-on: ubuntu-latest
 
