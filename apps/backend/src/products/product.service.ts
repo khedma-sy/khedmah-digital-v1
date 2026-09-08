@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { CategoryService } from '../categories/category.service';
@@ -29,7 +29,7 @@ export class ProductService {
     const now = new Date().toISOString();
     const product: ProductListing = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
       descriptionAr: input.descriptionAr, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
-      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
+      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now, revision: now.replace('Z', '000Z') };
     await this.repository.insert(product);
     return product;
   }
@@ -58,7 +58,7 @@ export class ProductService {
       descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
       availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
   }
 
   async submit(cookie: string | undefined, id: string) {
@@ -66,16 +66,20 @@ export class ProductService {
     const product = await this.requireOwner(actor.id, id);
     if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Add a product image before submitting it for review.');
     const updated: ProductListing = { ...product, status: 'active', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
   }
 
   async listPending(cookie: string | undefined) { await this.authorizeAdmin(cookie); return this.repository.listPending(); }
 
-  async review(cookie: string | undefined, id: string, status: 'approved' | 'rejected', reason?: string) {
+  async review(cookie: string | undefined, id: string, status: 'approved' | 'rejected', reason?: string, expectedRevision?: unknown) {
     await this.authorizeAdmin(cookie);
+    if (typeof expectedRevision !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(expectedRevision)) {
+      throw new BadRequestException('حدّث قائمة المراجعة للحصول على نسخة المنتج الحالية.');
+    }
     if (status !== 'approved' && status !== 'rejected') throw new BadRequestException('Moderation status is invalid.');
     const product = await this.repository.findById(id);
     if (!product) throw new NotFoundException('Product was not found.');
+    if (product.revision !== expectedRevision) throw new ConflictException('تغير المنتج أو صوره. حدّث قائمة المراجعة وراجع النسخة الحالية.');
     if (product.status !== 'active' || product.moderationStatus !== 'pending') throw new BadRequestException('Product is not awaiting moderation.');
     if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Product image is required.');
     if (status === 'approved') {
@@ -84,9 +88,9 @@ export class ProductService {
         throw new BadRequestException('Seller business must be public, approved, trusted, and active before product publication.');
       }
     }
-    if (status === 'rejected' && (!reason || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
+    if (status === 'rejected' && (typeof reason !== 'string' || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
     const updated: ProductListing = { ...product, moderationStatus: status, rejectionReason: status === 'rejected' ? reason!.trim() : undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
   }
 
   private async authorizeAdmin(cookie: string | undefined) {

@@ -21,6 +21,8 @@ export interface ProductListing {
   readonly cityCode?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** Exact database timestamp; do not round through a JavaScript Date. */
+  readonly revision: string;
 }
 
 export type PublicProductListing = Omit<ProductListing, 'ownerUserId' | 'rejectionReason'>;

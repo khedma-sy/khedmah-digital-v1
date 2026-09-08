@@ -6,7 +6,7 @@ import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, P
 type DialogAction =
   | { kind: 'approve-profile'; type: 'business' | 'professional'; id: string; title: string }
   | { kind: 'reject-profile'; type: 'business' | 'professional'; id: string; title: string }
-  | { kind: 'review-product'; status: 'approved' | 'rejected'; id: string; title: string }
+  | { kind: 'review-product'; status: 'approved' | 'rejected'; id: string; title: string; revision: string }
   | { kind: 'review-report'; status: 'in_review' | 'resolved' | 'dismissed'; id: string; title: string };
 
 const messageFor = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
@@ -90,7 +90,7 @@ export default function ModerationPage() {
         else await api.professionals.rejectModeration(dialogAction.id, dialogNote.trim());
         setFeedback({ tone: 'success', text: 'تم رفض الملف وتسجيل السبب.' });
       } else if (dialogAction.kind === 'review-product') {
-        await api.adminProducts.review(dialogAction.id, dialogAction.status, dialogAction.status === 'rejected' ? dialogNote.trim() : undefined);
+        await api.adminProducts.review(dialogAction.id, dialogAction.status, dialogAction.revision, dialogAction.status === 'rejected' ? dialogNote.trim() : undefined);
         setFeedback({ tone: 'success', text: dialogAction.status === 'approved' ? 'تم نشر المنتج.' : 'تم رفض المنتج وتسجيل السبب.' });
       } else {
         await api.moderation.reviewReport(dialogAction.id, dialogAction.status, dialogNote.trim());
@@ -101,14 +101,19 @@ export default function ModerationPage() {
       window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
       await loadQueue();
     } catch (err: unknown) {
-      setFeedback({ tone: 'error', text: messageFor(err, 'تعذر تنفيذ إجراء المراجعة.') });
+      const status = err && typeof err === 'object' && 'statusCode' in err ? err.statusCode : undefined;
+      if (dialogAction.kind === 'review-product' && status === 409) {
+        setDialogAction(null); setDialogNote('');
+        setFeedback({ tone: 'error', text: 'تغير المنتج أو صوره. تم تحديث القائمة؛ راجع البيانات والصور الجديدة قبل اتخاذ قرار آخر.' });
+        await loadQueue();
+      } else setFeedback({ tone: 'error', text: messageFor(err, 'تعذر تنفيذ إجراء المراجعة.') });
     } finally {
       setActionLoading(false);
     }
   }
 
   if (loading) return <main id="foundation-content" className="operations-shell moderation-state" aria-busy="true">جاري تحميل قائمة المراجعة...</main>;
-  if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}</main>;
+  if (error) return <main id="foundation-content" className="operations-shell moderation-state form-error" role="alert">{error}<button type="button" onClick={() => void loadQueue()}>إعادة المحاولة</button></main>;
 
   return <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
     <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والبلاغات قبل اتخاذ الإجراء.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length} بانتظار المراجعة</span></header>
@@ -116,7 +121,7 @@ export default function ModerationPage() {
 
     <section className="operations-panel moderation-section" aria-labelledby="products-title">
       <div className="panel-heading"><h2 id="products-title">منتجات متجر خدمة</h2><span>{products.length}</span></div>
-      {products.length === 0 ? <p className="moderation-empty">لا توجد منتجات بانتظار المراجعة.</p> : <div className="moderation-list">{products.map((product) => <article key={product.id} className="moderation-card"><div><h3>{product.titleAr}</h3><p>{product.businessName ?? 'نشاط على خدمة'} · {product.price.toLocaleString('ar-SY')} {product.currency} · {product.categoryCode}</p>{product.imageUrl && <a href={product.imageUrl} target="_blank" rel="noreferrer">فتح صورة المنتج</a>}</div><div className="moderation-actions"><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'approved', id: product.id, title: product.titleAr })} className="moderation-approve">نشر</button><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'rejected', id: product.id, title: product.titleAr })} className="moderation-reject">رفض</button></div></article>)}</div>}
+      {products.length === 0 ? <p className="moderation-empty">لا توجد منتجات بانتظار المراجعة.</p> : <div className="moderation-list">{products.map((product) => <article key={product.id} className="moderation-card"><div><h3>{product.titleAr}</h3><p>{product.businessName ?? 'نشاط على خدمة'} · {product.price.toLocaleString('ar-SY')} {product.currency} · {product.categoryCode}</p>{product.descriptionAr && <p>{product.descriptionAr}</p>}<p>{product.availability === 'in_stock' ? 'متوفر' : product.availability === 'out_of_stock' ? 'غير متوفر' : 'حسب الطلب'}</p>{(product.imageUrls ?? (product.imageUrl ? [product.imageUrl] : [])).map((url, index) => <p key={url}><a href={url} target="_blank" rel="noreferrer">فتح صورة المنتج {index + 1}</a></p>)}</div><div className="moderation-actions"><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'approved', id: product.id, title: product.titleAr, revision: product.revision })} className="moderation-approve">نشر</button><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'rejected', id: product.id, title: product.titleAr, revision: product.revision })} className="moderation-reject">رفض</button></div></article>)}</div>}
     </section>
 
     <section className="operations-panel moderation-section"><div className="panel-heading"><h2>الأعمال المعلقة</h2><span>{businesses.length}</span></div>{businesses.length === 0 ? <p className="moderation-empty">لا توجد أعمال بانتظار المراجعة.</p> : <div className="moderation-list">{businesses.map((business) => <article key={business.id} className="moderation-card"><div><h3>{business.name}</h3><p>{business.categoryCode} · {business.cityCode}</p></div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'business', id: business.id, title: business.name })} disabled={actionLoading} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'business', id: business.id, title: business.name })} disabled={actionLoading} className="moderation-reject">رفض</button></div></article>)}</div>}</section>

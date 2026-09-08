@@ -139,6 +139,7 @@ export interface ProductListing {
   readonly businessName?: string;
   readonly cityCode?: string;
   readonly createdAt: string;
+  readonly revision: string;
 }
 
 export interface MediaAsset {
@@ -424,7 +425,7 @@ export const api = {
   },
   adminProducts: {
     pending() { return request<{ products: ProductListing[] }>('/admin/products/pending'); },
-    review(id: string, status: 'approved' | 'rejected', reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }); }
+    review(id: string, status: 'approved' | 'rejected', expectedRevision: string, reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason, expectedRevision }) }); }
   },
   businesses: {
     create(data: {

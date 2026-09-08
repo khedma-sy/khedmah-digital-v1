@@ -12,11 +12,13 @@ const cities = [
 
 // Guard the URLSearchParams instance and canonical key, not its local variable name.
 function assertCanonicalCityWriter(source: string) {
-  const builder = source.match(/\bconst\s+(\w+)\s*=\s*new URLSearchParams\(\);/);
+  const builder = source.match(/\bconst\s+(\w+)\s*=\s*new URLSearchParams\((?:params\.toString\(\))?\);/);
   assert.ok(builder, 'search must create a URLSearchParams instance');
   const variable = builder[1];
   assert.match(source, new RegExp(`\\b${variable}\\.set\\('cityCode',\\s*\\w+\\.cityCode\\)`));
-  assert.match(source, new RegExp(`router\\.replace\\(${variable}\\.size\\s*\\?`));
+  const directNavigation = new RegExp(`router\\.replace\\(${variable}\\.size\\s*\\?`).test(source);
+  const href = source.match(new RegExp('const (\\w+) = `[^`]*\\$\\{' + variable + '\\}[^`]*`;'));
+  assert.ok(directNavigation || (href && new RegExp(`router\\.push\\(${href[1]}[,)]`).test(source)), 'navigation must use the serialized URL');
   assert.ok(source.includes('${' + variable + '}'), 'navigation must serialize the same query builder');
   assert.doesNotMatch(source, /\.set\(['"]location['"]/);
 }
@@ -39,8 +41,8 @@ test('global and Professional search restore and emit only cityCode URL state', 
   for (const source of [professional]) {
     assert.match(source, /params\.get\('cityCode'\)/);
     assertCanonicalCityWriter(source);
-    assert.match(source, /canonicalCityCode\(rawCity, cities\)/);
-    assert.match(source, /setPage\(1\)/);
+    assert.match(source, /canonicalCityCode\(appliedCity, cities\)/);
+    assert.match(source, /syncUrl\(\{ q, cityCode, availability, page: 1 \}\)/);
     assert.match(source, /next\.delete|new URLSearchParams|router\.replace/);
     assert.doesNotMatch(source, /const CITIES|[?&]location=|params\.get\('location'\)/);
   }
@@ -73,7 +75,7 @@ test('clear removes cityCode and Locations failures never install a static fallb
     read('../app/search/page.tsx'), read('../app/professional-profiles/search/page.tsx'), read('../lib/use-syrian-cities.ts')
   ]);
   assert.match(globalSearch, /router\.push\('\/search', \{ scroll: false \}\)/);
-  assert.match(professional, /router\.replace\('\/professional-profiles\/search'\)/);
+  assert.match(professional, /router\.push\('\/professional-profiles\/search', \{ scroll: false \}\)/);
   assert.match(hook, /requestId === requestSequence\.current/);
   assert.match(hook, /setError\('تعذر تحميل المدن المعتمدة/);
   assert.doesNotMatch(hook, /catch\s*\{\s*setCities\(\[\]\)/);

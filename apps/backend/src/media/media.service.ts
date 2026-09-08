@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { PoolClient } from 'pg';
 import { DatabasePool } from '../database/database.pool';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
@@ -10,6 +11,7 @@ import { validateUploadMediaRequest } from './media.validation';
 @Injectable()
 export class MediaService {
   private readonly storage: StorageAdapter;
+  private readonly logger = new Logger(MediaService.name);
 
   constructor(
     @Inject(DatabasePool) private readonly db: DatabasePool,
@@ -62,17 +64,35 @@ export class MediaService {
       updatedAt: now
     };
 
-    await this.db.query(
-      `INSERT INTO media_assets
+    const insertSql = `INSERT INTO media_assets
          (id, owner_user_id, owner_type, owner_id, filename, mime_type,
           size_bytes, visibility, storage_key, public_url, asset_type, sort_order, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`;
+    const insertValues = [
         asset.id, asset.ownerUserId, asset.ownerType, asset.ownerId,
         asset.filename, asset.mimeType, asset.sizeBytes, asset.visibility,
         asset.storageKey, asset.publicUrl ?? null, asset.assetType ?? null, asset.sortOrder, asset.createdAt, asset.updatedAt
-      ]
-    );
+      ];
+
+    if (input.ownerType === 'product_listing') {
+      try {
+        await this.db.transaction(async (client) => {
+          await this.lockProductOwner(client, input.ownerId, actor.id);
+          const count = await client.query<{ count: number }>(
+            `SELECT count(*)::int AS count FROM media_assets WHERE owner_type='product_listing' AND owner_id=$1 AND asset_type='product_image'`, [input.ownerId]);
+          if (count.rows[0].count >= 5) throw new BadRequestException('يمكن رفع 5 صور كحد أقصى.');
+          await client.query(insertSql, insertValues);
+          await this.invalidateProductReview(client, input.ownerId);
+        });
+      } catch (cause) {
+        // These validation failures happen before insertion, so this object is unreferenced.
+        // Never delete on an uncertain commit outcome.
+        if (cause instanceof BadRequestException || cause instanceof ForbiddenException || cause instanceof NotFoundException) {
+          try { await this.storage.delete(storageKey); } catch { this.logger.warn('Product upload object cleanup failed.'); }
+        }
+        throw cause;
+      }
+    } else await this.db.query(insertSql, insertValues);
 
     if ((input.assetType === 'logo' || input.assetType === 'cover') && existing.length > 0) {
       await Promise.all(existing.map((item) => this.storage.delete(item.storage_key)));
@@ -106,12 +126,26 @@ export class MediaService {
 
   async delete(cookieHeader: string | undefined, id: string): Promise<void> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const rows = await this.db.query<{ owner_user_id: string; storage_key: string }>(
-      `SELECT owner_user_id, storage_key FROM media_assets WHERE id = $1 LIMIT 1`,
+    const rows = await this.db.query<{ owner_user_id: string; storage_key: string; owner_type: string; owner_id: string }>(
+      `SELECT owner_user_id, storage_key, owner_type, owner_id FROM media_assets WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (!rows[0]) throw new NotFoundException('Media asset not found.');
     if (rows[0].owner_user_id !== actor.id) throw new ForbiddenException('Access denied.');
+
+    if (rows[0].owner_type === 'product_listing') {
+      const ownerId = rows[0].owner_id;
+      await this.db.transaction(async (client) => {
+        // Every product/image mutation locks the parent before touching its media.
+        await this.lockProductOwner(client, ownerId, actor.id);
+        const removed = await client.query(`DELETE FROM media_assets WHERE id=$1 AND owner_user_id=$2 RETURNING id`, [id, actor.id]);
+        if (!removed.rowCount) throw new NotFoundException('Media asset not found.');
+        await this.invalidateProductReview(client, ownerId);
+      });
+      // The public read endpoint no longer resolves the removed ID, even if storage is unavailable.
+      try { await this.storage.delete(rows[0].storage_key); } catch { this.logger.warn('Removed product image object cleanup failed.'); }
+      return;
+    }
 
     await this.storage.delete(rows[0].storage_key);
     await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
@@ -164,6 +198,17 @@ export class MediaService {
       createdAt: r.created_at.toISOString(),
       updatedAt: r.updated_at.toISOString()
     };
+  }
+
+  private async lockProductOwner(client: PoolClient, id: string, actorId: string): Promise<void> {
+    const result = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM product_listings WHERE id=$1 FOR UPDATE`, [id]);
+    if (!result.rows[0]) throw new NotFoundException('Media owner not found.');
+    if (result.rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
+  }
+
+  private async invalidateProductReview(client: PoolClient, id: string): Promise<void> {
+    await client.query(`UPDATE product_listings SET status='draft', moderation_status='pending', rejection_reason=NULL,
+      updated_at=GREATEST(clock_timestamp(), updated_at + interval '1 microsecond') WHERE id=$1`, [id]);
   }
 
   private async assertOwner(actorId: string, ownerType: MediaAsset['ownerType'], ownerId: string): Promise<void> {
