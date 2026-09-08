@@ -25,6 +25,7 @@ function load(source, name, adapters, globals = {}) {
   return exports;
 }
 const discovery = load(discoverySource, 'discovery-context.ts', {});
+const mapHelpers = load(read('apps/frontend/lib/map-context.ts'), 'map-context.ts', { './discovery-context': discovery });
 const helpers = load(helperSource, 'search-context.ts', { './discovery-context': discovery });
 
 // Execute the actual page with controlled metadata, promises and hook lifecycle.
@@ -70,7 +71,7 @@ function fixture(query = '', options = {}) {
   const module = load(`${searchSource}\nexport { SearchContent };`, 'page.tsx', {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'next/navigation': { useRouter: () => router, useSearchParams },
-    '../../lib/api-client': { api }, '../../lib/search-context': helpers,
+    '../../lib/api-client': { api }, '../../lib/search-context': helpers, '../../lib/map-context': mapHelpers,
     '../../lib/use-categories': { useCategories: () => categoryMetadata },
     '../../lib/use-syrian-cities': { useSyrianCities: () => cityMetadata,
       canonicalCityCode: (code, list) => list.some((city) => city.countryCode === 'SY' && city.code === code) ? code : '',

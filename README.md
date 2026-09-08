@@ -24,7 +24,7 @@ Khedmah Digital V1 is the official repository for the Khedmah Digital source of 
 | مكونات الصفحات المشتركة | [ui-primitives.tsx](apps/frontend/app/components/ui-primitives.tsx) |
 | دليل التصنيفات | [category-directory.tsx](apps/frontend/app/components/category-directory.tsx) |
 | اكتشف / البحث | [search/page.tsx](apps/frontend/app/search/page.tsx) و[search-context.ts](apps/frontend/lib/search-context.ts) |
-| بالقرب مني / الخريطة | [map/page.tsx](apps/frontend/app/map/page.tsx)؛ ربط السياق B1.2b لم يغلق بعد |
+| بالقرب مني / الخريطة | [map/page.tsx](apps/frontend/app/map/page.tsx) و[map-context.ts](apps/frontend/lib/map-context.ts)؛ استقبال الفلاتر وحماية الطلبات في B1.2b، مع بقاء اعتماد الخرائط الحية مفتوحاً |
 | النقل | [mobility/page.tsx](apps/frontend/app/mobility/page.tsx)؛ اكتشاف وتواصل، لا محرك رحلات مكتمل |
 | المتجر ومدخل الإعلانات | [store/page.tsx](apps/frontend/app/store/page.tsx) و[classifieds/page.tsx](apps/frontend/app/classifieds/page.tsx)؛ الثاني يعيد استخدام الأول حالياً |
 | لوحة المالك والمراجعة | [admin/page.tsx](apps/frontend/app/admin/page.tsx) و[moderation/page.tsx](apps/frontend/app/admin/moderation/page.tsx) |

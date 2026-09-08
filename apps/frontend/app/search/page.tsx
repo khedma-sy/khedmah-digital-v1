@@ -5,6 +5,7 @@ import { api, type PublicBusinessProfile, type PublicProfessionalProfile, type P
 import { canonicalCityCode, cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
 import { useCategories } from '../../lib/use-categories';
 import { readSearchState, searchHref, searchPagination, searchStateKey, type SearchTab } from '../../lib/search-context';
+import { mapHref } from '../../lib/map-context';
 import { PlatformIcon } from '../components/platform-icon';
 import { CategorySelectOptions } from '../components/category-select-options';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
@@ -146,7 +147,7 @@ function SearchContent() {
   const noResults = !businesses.length && !professionals.length && !services.length;
 
   return <PageShell className={styles.page} label="اكتشاف الخدمات">
-    <PageHeader title="اكتشف الخدمة المناسبة" description="ابحث في الأنشطة والخدمات والمهنيين بالكلمة والمنطقة، وصفِّ الأنشطة والخدمات بالتصنيف." actions={<ActionLink href="/map" variant="secondary"><PlatformIcon name="pin" size={17}/> البحث على الخريطة</ActionLink>} />
+    <PageHeader title="اكتشف الخدمة المناسبة" description="ابحث في الأنشطة والخدمات والمهنيين بالكلمة والمنطقة، وصفِّ الأنشطة والخدمات بالتصنيف." actions={<ActionLink href={mapHref(applied)} variant="secondary"><PlatformIcon name="pin" size={17}/> الأنشطة على الخريطة</ActionLink>} />
     <Surface as="div"><form className={styles.form} onSubmit={submit} role="search" aria-label="البحث في خدمة" aria-busy={isLoading}>
       <div className={styles.field}><label htmlFor="q">ما الخدمة التي تحتاجها؟</label><input id="q" value={q} onChange={(event) => setQ(event.target.value)} placeholder="مثال: طبيب أسنان، نجار، مطعم" /></div>
       <div className={styles.field}><label htmlFor="city">المدينة</label><select id="city" value={cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setCityCode(event.target.value)}><option value="">كل المدن</option>{cityCode && !cities.some((city) => city.code === cityCode) && <option value={cityCode}>المدينة المحددة (غير متاحة حالياً)</option>}{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></div>

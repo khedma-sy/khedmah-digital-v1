@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
+import { mapHref } from '../../lib/map-context';
 import { PlatformIcon } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
 import { categoryDirectoryHref, discoveryContextKey, readDiscoveryContext } from '../../lib/discovery-context';
@@ -167,7 +168,7 @@ export function CategoryDirectory() {
         {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 && activeCategory ? (
           <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>
             <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
-            <ActionLink href="/map">فتح الخريطة</ActionLink>
+            <ActionLink href={mapHref(context)}>فتح الخريطة</ActionLink>
             <ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink>
           </>} />
         ) : null}

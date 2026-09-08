@@ -99,10 +99,11 @@ function fixture({ query = '', hookOnly = false } = {}) {
     return exports;
   }
   const contextHelpers = load(contextSource, 'discovery-context.ts', {});
+  const mapHelpers = load(readFileSync(new URL('../apps/frontend/lib/map-context.ts', import.meta.url), 'utf8'), 'map-context.ts', { './discovery-context': contextHelpers });
   const { useCategories } = load(categoriesSource, 'use-categories.ts', {});
   const { CategoryDirectory } = load(directorySource, 'category-directory.tsx', {
     'next/navigation': { useSearchParams: () => new URLSearchParams(location.search), useRouter: () => router },
-    '../../lib/discovery-context': contextHelpers,
+    '../../lib/discovery-context': contextHelpers, '../../lib/map-context': mapHelpers,
     'next/link': 'Link', './platform-icon': { PlatformIcon: 'PlatformIcon' }, './ui-primitives': primitives,
     '../../lib/use-categories': { useCategories() { currentCategories = useCategories(); return currentCategories; } }
   });
