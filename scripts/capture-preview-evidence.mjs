@@ -99,37 +99,76 @@ async function capture(browser, origin, target, route, viewport, directory) {
   return record;
 }
 
-export async function main(env = process.env) {
+function readOrigin(env, key) {
+  if (typeof env[key] !== 'string' || !env[key].trim()) {
+    return { failure: `${key}_MISSING` };
+  }
+  try { return { origin: validateBaseUrl(env[key].trim()) }; }
+  catch { return { failure: `${key}_INVALID` }; }
+}
+
+async function launchChromium(env) {
+  if (typeof env.PLAYWRIGHT_PACKAGE_JSON !== 'string' || !env.PLAYWRIGHT_PACKAGE_JSON.trim()) {
+    throw Object.assign(new Error('Browser tooling path is required.'), { code: 'BROWSER_TOOLING_PATH_MISSING' });
+  }
+  const requirePlaywright = createRequire(resolve(env.PLAYWRIGHT_PACKAGE_JSON));
+  const { chromium } = requirePlaywright('playwright');
+  return chromium.launch({ headless: true });
+}
+
+export async function main(env = process.env, { launchBrowser = launchChromium } = {}) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
-  const report = { schemaVersion: 1, capturedAt: new Date().toISOString(),
+  const report = { schemaVersion: 2, capturedAt: new Date().toISOString(),
     headSha: env.PREVIEW_HEAD_SHA || null, checkoutSha: env.GITHUB_SHA || null,
     scope: 'Anonymous light-theme readiness: home, categories, professional search; desktop and mobile. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
-    status: 'failed', before: null, after: [] };
+    status: 'failed', previewStatus: 'not_run', before: null, after: [] };
+  const before = readOrigin(env, 'BEFORE_URL');
+  const after = readOrigin(env, 'AFTER_URL');
+  if (before.origin && before.origin === after.origin) before.failure = 'BASELINE_EQUALS_PREVIEW';
+  if (before.failure) {
+    report.before = { target: 'before', route: '/', viewport: 'desktop', status: 'blocked', failures: [before.failure] };
+  }
   let browser;
+  let stage = 'configuration';
   try {
-    const before = validateBaseUrl(env.BEFORE_URL);
-    const after = validateBaseUrl(env.AFTER_URL);
-    if (before === after) throw new Error('Before and after evidence must use different origins.');
-    const requirePlaywright = createRequire(resolve(env.PLAYWRIGHT_PACKAGE_JSON));
-    const { chromium } = requirePlaywright('playwright');
-    browser = await chromium.launch({ headless: true });
-    report.browserVersion = browser.version();
-    report.before = await capture(browser, before, 'before', evidenceRoutes[0], evidenceViewports[0], directory);
-    for (const route of evidenceRoutes) {
-      report.after.push(...await Promise.all(evidenceViewports.map((viewport) => capture(browser, after, 'after', route, viewport, directory))));
+    if (after.failure) {
+      report.setupFailure = after.failure;
+    } else {
+      stage = 'browser-launch';
+      browser = await launchBrowser(env);
+      report.browserVersion = browser.version();
+      stage = 'capture';
+      // A missing baseline blocks comparison, not collection of Preview diagnostics.
+      if (!before.failure) {
+        try { report.before = await capture(browser, before.origin, 'before', evidenceRoutes[0], evidenceViewports[0], directory); }
+        catch { report.before = { target: 'before', route: '/', viewport: 'desktop', status: 'failed', failures: ['CAPTURE_SETUP_OR_CLEANUP_FAILED'] }; }
+      }
+      for (const route of evidenceRoutes) {
+        const results = await Promise.allSettled(evidenceViewports.map((viewport) => capture(browser, after.origin, 'after', route, viewport, directory)));
+        report.after.push(...results.map((result, index) => result.status === 'fulfilled' ? result.value : {
+          target: 'after', route: route.path, viewport: evidenceViewports[index].key,
+          status: 'failed', failures: ['CAPTURE_SETUP_OR_CLEANUP_FAILED'], pageErrorCount: 0
+        }));
+      }
+      report.previewStatus = report.after.length === 6 && report.after.every((item) => item.status === 'passed') ? 'passed' : 'failed';
+      report.status = report.before?.status === 'passed' && report.previewStatus === 'passed' ? 'passed' : 'failed';
     }
-    report.status = report.before.status === 'passed' && report.after.length === 6
-      && report.after.every((item) => item.status === 'passed') ? 'passed' : 'failed';
   } catch (error) {
-    report.setupFailure = error?.name || 'Error';
+    report.setupFailure = error?.code === 'BROWSER_TOOLING_PATH_MISSING' ? error.code
+      : stage === 'browser-launch' ? 'BROWSER_LAUNCH_FAILED' : 'CAPTURE_SETUP_FAILED';
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      try { await browser.close(); }
+      catch { report.setupFailure = 'BROWSER_CLOSE_FAILED'; report.status = 'failed'; }
+    }
     await writeFile(resolve(directory, 'manifest.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
   console.log(`Preview evidence: ${report.status}; ${report.after.filter((item) => item.status === 'passed').length}/6 after scenarios ready; baseline ${report.before?.status ?? 'unavailable'}.`);
-  if (report.status !== 'passed') process.exitCode = 1;
   return report;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const report = await main();
+  if (report.status !== 'passed') process.exitCode = 1;
+}
