@@ -76,7 +76,6 @@ body { font-family:"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif; }
 
 @media(max-width:68rem) {
   .khedma-header { padding-inline:1rem; }
-  .khedma-header .nav-discovery { display:none!important; }
 }
 
 @media(max-width:48rem) {
