@@ -28,11 +28,22 @@ export function browserSnapshot(formName = '') {
   const elements = (selector) => [...document.querySelectorAll(selector)].filter(visible);
   const main = document.querySelector('main#foundation-content');
   const form = document.querySelector('form[aria-label]');
+  const navigation = elements('.khedma-header .nav-discovery');
+  const interactiveNavigation = navigation.filter((link) => {
+    const rect = link.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return link.tabIndex >= 0 && rect.height >= 44 && rect.width >= 24
+      && rect.left >= 0 && rect.right <= document.documentElement.clientWidth
+      && rect.top >= 0 && rect.bottom <= document.documentElement.clientHeight
+      && !!hit && link.contains(hit);
+  });
   return {
     headerCount: elements('.khedma-header').length,
     mainCount: elements('main#foundation-content').length,
     headingLength: main?.querySelector('h1')?.textContent?.trim().length ?? 0,
-    navigationCount: elements('.khedma-header .nav-discovery').length,
+    navigationCount: navigation.length,
+    navigationInteractiveCount: interactiveNavigation.length,
+    navigationHrefs: navigation.map((link) => link.getAttribute('href')),
     authReady: !!document.querySelector('.nav-session[data-auth-state="guest"], .nav-session[data-auth-state="authenticated"]'),
     busyCount: elements('[aria-busy="true"]').length,
     alertCount: elements('[role="alert"], .ui-status-danger, .ui-status-warning').length,
@@ -49,6 +60,8 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   if (snapshot.headerCount !== 1) failures.push('HEADER_MISSING_OR_DUPLICATED');
   if (snapshot.mainCount !== 1 || !snapshot.headingLength) failures.push('CONTENT_NOT_READY');
   if (snapshot.navigationCount !== 5 || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
+  if (snapshot.navigationInteractiveCount !== 5) failures.push('NAVIGATION_NOT_INTERACTIVE');
+  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/map|/mobility|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
   if (snapshot.fontStatus !== 'loaded') failures.push('FONTS_NOT_READY');
@@ -56,6 +69,23 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   if (!snapshot.formNamed) failures.push('FORM_NAME_MISSING');
   if (pageErrorCount !== 0) failures.push('BROWSER_RUNTIME_ERROR');
   return failures;
+}
+
+// Font loading can restart after a first 'loaded' read when client content mounts.
+// Force layout and await the current font set, then re-check after two rendering frames.
+export async function browserReadyForCapture() {
+  const ready = () => {
+    const main = document.querySelector('main#foundation-content');
+    const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
+    return !!main?.querySelector('h1')?.textContent?.trim()
+      && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
+      && !busy && document.fonts.status === 'loaded';
+  };
+  if (!ready()) return false;
+  document.body.getBoundingClientRect();
+  await document.fonts.ready;
+  await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  return ready();
 }
 
 async function capture(browser, origin, target, route, viewport, directory) {
@@ -68,13 +98,7 @@ async function capture(browser, origin, target, route, viewport, directory) {
     const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 30000 });
     record.httpStatus = response?.status() ?? 0;
     try {
-      await page.waitForFunction(() => {
-        const main = document.querySelector('main#foundation-content');
-        const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
-        return !!main?.querySelector('h1')?.textContent?.trim()
-          && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
-          && !busy && document.fonts.status === 'loaded';
-      }, null, { timeout: 30000 });
+      await page.waitForFunction(browserReadyForCapture, null, { timeout: 30000 });
     } catch {
       record.failures.push('READINESS_TIMEOUT');
     }
