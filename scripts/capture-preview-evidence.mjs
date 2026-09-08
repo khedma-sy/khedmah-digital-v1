@@ -72,6 +72,16 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   return failures;
 }
 
+// Playwright polls this synchronously: a Promise is truthy even when it resolves
+// to false. Never pass the asynchronous font-settling function as its predicate.
+export function browserContentReadyForCapture() {
+  const main = document.querySelector('main#foundation-content');
+  const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
+  return !!main?.querySelector('h1')?.textContent?.trim()
+    && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
+    && !busy && document.fonts.status === 'loaded';
+}
+
 // Font loading can restart after a first 'loaded' read when client content mounts.
 // Force layout and await the current font set, then re-check after two rendering frames.
 export async function browserReadyForCapture() {
@@ -89,6 +99,16 @@ export async function browserReadyForCapture() {
   return ready();
 }
 
+export async function waitForCaptureReadiness(page, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await page.waitForFunction(browserContentReadyForCapture, null, { timeout: Math.max(1, deadline - Date.now()) });
+    // evaluate awaits the returned Promise; require a boolean true, never a handle.
+    if (await page.evaluate(browserReadyForCapture) === true) return;
+  }
+  throw new Error('Capture readiness deadline exceeded.');
+}
+
 async function capture(browser, origin, target, route, viewport, directory) {
   const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height },
     locale: 'ar-SY', colorScheme: 'light', reducedMotion: 'reduce', deviceScaleFactor: 1 });
@@ -99,7 +119,7 @@ async function capture(browser, origin, target, route, viewport, directory) {
     const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 30000 });
     record.httpStatus = response?.status() ?? 0;
     try {
-      await page.waitForFunction(browserReadyForCapture, null, { timeout: 30000 });
+      await waitForCaptureReadiness(page);
     } catch {
       record.failures.push('READINESS_TIMEOUT');
     }
