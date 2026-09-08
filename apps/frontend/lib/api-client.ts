@@ -314,6 +314,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw Object.assign(new Error(text), {
       statusCode: response.status,
       code: (data as { code?: string }).code,
+      businessId: typeof (data as { businessId?: unknown }).businessId === 'string' ? (data as { businessId: string }).businessId : undefined,
       productId: typeof (data as { productId?: unknown }).productId === 'string' ? (data as { productId: string }).productId : undefined
     });
   }
@@ -437,6 +438,7 @@ export const api = {
   },
   businesses: {
     create(data: {
+      clientRequestId?: string;
       name: string;
       descriptionAr?: string;
       descriptionEn?: string;

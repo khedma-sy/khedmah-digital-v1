@@ -50,6 +50,25 @@ export class BusinessProfileRepository {
     await writeProfileReview(this.db, 'business', id, actorId, { status: 'pending', ownerSubmission: true });
   }
 
+  async insert(profile: BusinessProfile): Promise<BusinessProfile> {
+    return this.db.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO business_profiles (id,name,description_ar,description_en,owner_user_id,visibility,moderation_status,trust_status,status,
+          phone,email,website,category_code,city_code,country_code,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,'private','pending','pending','active',$6,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (id) DO NOTHING`,
+        [profile.id,profile.name,profile.descriptionAr??null,profile.descriptionEn??null,profile.ownerUserId,profile.phone??null,profile.email??null,
+          profile.website??null,profile.categoryCode,profile.cityCode,profile.countryCode,profile.createdAt,profile.updatedAt]);
+      // A separate statement observes the committed winner after an INSERT conflict wait.
+      const result = await client.query<BusinessProfileRow>(
+        `SELECT *, (SELECT c.name_ar FROM categories c WHERE c.code=business_profiles.category_code) AS category_name_ar,
+          ${PROFILE_REVISION_SQL} AS revision,${BUSINESS_CONTENT_REVISION_SQL} AS content_revision
+         FROM business_profiles WHERE id=$1`,[profile.id]);
+      if (!result.rows[0]) throw new ConflictException('The created business is no longer available.');
+      return this.map(result.rows[0]);
+    });
+  }
+
   async save(profile: BusinessProfile): Promise<void> {
     // Owner edits must not replay trust, suspension, organization or featured
     // values read before a newer administrative decision. Those have dedicated writes.

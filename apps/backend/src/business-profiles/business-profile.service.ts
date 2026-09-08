@@ -1,6 +1,6 @@
 import { requireContentRevision } from '../moderation/profile-content-revision';
-import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { createHash, randomUUID } from 'node:crypto';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -23,10 +23,20 @@ export class BusinessProfileService {
   async create(cookieHeader: string | undefined, request: CreateBusinessProfileRequest): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateBusinessProfile(request);
+    const requestId = request.clientRequestId;
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{16,100}$/.test(requestId))) {
+      throw new BadRequestException('clientRequestId is invalid.');
+    }
+    const id = requestId === undefined ? randomUUID()
+      : createHash('sha256').update(JSON.stringify(['business-create-v1', actor.id, requestId])).digest('hex');
+    if (requestId !== undefined) {
+      const existing = await this.repository.findById(id);
+      if (existing) return this.toPublic(this.assertCreateReplay(existing, actor.id, input));
+    }
     await this.categories.assertActiveCategory(input.categoryCode);
     const now = new Date().toISOString();
     const profile: BusinessProfile = {
-      id: randomUUID(),
+      id,
       name: input.name,
       descriptionAr: input.descriptionAr,
       descriptionEn: input.descriptionEn,
@@ -47,8 +57,19 @@ export class BusinessProfileService {
       updatedAt: now
     };
 
-    await this.repository.save(profile);
-    return this.toPublic(await this.repository.findById(profile.id) ?? profile);
+    const saved = await this.repository.insert(profile);
+    return this.toPublic(this.assertCreateReplay(saved, actor.id, input));
+  }
+
+  private assertCreateReplay(profile: BusinessProfile, actorId: string, input: ReturnType<typeof validateCreateBusinessProfile>): BusinessProfile {
+    if (profile.ownerUserId !== actorId) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    if (profile.name !== input.name || profile.descriptionAr !== input.descriptionAr || profile.descriptionEn !== input.descriptionEn
+      || profile.phone !== input.phone || profile.email !== input.email || profile.website !== input.website
+      || profile.categoryCode !== input.categoryCode || profile.cityCode !== input.cityCode || profile.countryCode !== input.countryCode) {
+      throw new ConflictException({ message: 'توجد بيانات محفوظة لهذه المحاولة. افتح النشاط الحالي قبل إنشاء نشاط آخر.',
+        code: 'BUSINESS_DRAFT_EXISTS', businessId: profile.id });
+    }
+    return profile;
   }
 
   async listMine(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {

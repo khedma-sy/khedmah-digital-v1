@@ -10,7 +10,7 @@ function fixture(kind='professional') {
     'next/navigation':{useRouter:()=>router},'../../../lib/api-client':{api},'../../components/ui-primitives':primitives,'../../../components/owner-workspace.module.css':{default:css},
     '../../../lib/use-syrian-cities':{useSyrianCities:()=>({cities:[{code:'damascus',nameAr:'دمشق'}],isLoading:false})},
     '../../../lib/use-categories':{useCategories:()=>({categories:[],isLoading:false})},'../../components/category-select-options':{CategorySelectOptions:'CategorySelectOptions'}
-  });
+  },{crypto:{randomUUID:()=> 'fixture-business-request-123456'}});
   const submit=()=>page.find(n=>n.props?.as==='form').props.onSubmit({preventDefault(){}});
   return{page,loads,saves,navigations,submit,async resolve(c,v={professional}){c.resolve(v);await page.flush();},async reject(c,v=new Error('offline')){c.reject(v);await page.flush();}};
 }

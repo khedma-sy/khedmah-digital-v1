@@ -17,6 +17,9 @@ export default function NewBusinessProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [error, setError] = useState('');
+  const [ownerId, setOwnerId] = useState('');
+  const [existingBusinessId, setExistingBusinessId] = useState('');
+  const createRequest = useRef<{ ownerId: string; id: string } | null>(null);
   const [sessionError, setSessionError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const lifecycle = useRef(0);
@@ -32,7 +35,7 @@ export default function NewBusinessProfilePage() {
     let active = true;
     setIsCheckingSession(true); setSessionError('');
     void api.auth.session()
-      .then(() => { if (active) setIsCheckingSession(false); })
+      .then(({ user }) => { if (active) { setOwnerId(user.id); setIsCheckingSession(false); } })
       .catch((cause) => {
         if (!active) return;
         const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
@@ -43,19 +46,47 @@ export default function NewBusinessProfilePage() {
     return () => { active = false; };
   }, [router, retryCount]);
 
+  function requestIdForOwner() {
+    if (createRequest.current?.ownerId === ownerId) return createRequest.current.id;
+    const key = `khedmah.business-create.${ownerId}`;
+    let stored: string | null = null;
+    try { stored = sessionStorage.getItem(key); } catch { /* Storage is optional; in-page retries retain the ID. */ }
+    const id = stored && /^[A-Za-z0-9_-]{16,100}$/.test(stored) ? stored : crypto.randomUUID();
+    createRequest.current = { ownerId, id };
+    try { sessionStorage.setItem(key, id); } catch { /* Optional browser storage. */ }
+    return id;
+  }
+  function clearCreateRequest() {
+    const current = createRequest.current;
+    if (current) {
+      const key = `khedmah.business-create.${current.ownerId}`;
+      try { if (sessionStorage.getItem(key) === current.id) sessionStorage.removeItem(key); } catch { /* Optional browser storage. */ }
+    }
+    createRequest.current = null;
+  }
+  function startAnotherBusiness() {
+    if (submissionInProgress.current) return;
+    clearCreateRequest(); setExistingBusinessId(''); setError('');
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submissionInProgress.current || isCheckingSession || sessionError || citiesLoading || categoriesLoading || citiesError || categoriesError) return;
+    if (submissionInProgress.current || !ownerId || existingBusinessId || isCheckingSession || sessionError || citiesLoading || categoriesLoading || citiesError || categoriesError) return;
     submissionInProgress.current = true;
     const generation = lifecycle.current;
     setIsSubmitting(true); setError('');
     try {
-      await api.businesses.create({ name: form.name.trim(), descriptionAr: form.descriptionAr.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, website: form.website.trim() || undefined, categoryCode: form.categoryCode, cityCode: form.cityCode, countryCode: 'SY' });
-      if (generation === lifecycle.current) router.push('/business-profiles');
+      await api.businesses.create({ clientRequestId: requestIdForOwner(), name: form.name.trim(), descriptionAr: form.descriptionAr.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, website: form.website.trim() || undefined, categoryCode: form.categoryCode, cityCode: form.cityCode, countryCode: 'SY' });
+      if (generation === lifecycle.current) { clearCreateRequest(); router.push('/business-profiles'); }
     } catch (cause) {
       if (generation !== lifecycle.current) return;
       if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles%2Fnew'); return; }
-      setError(cause instanceof Error ? cause.message : 'تعذر إنشاء النشاط. راجع البيانات وحاول مجدداً.');
+      const issue = cause instanceof Error ? cause as Error & { code?: string; businessId?: string } : undefined;
+      if (issue?.code === 'BUSINESS_DRAFT_EXISTS' && issue.businessId) {
+        setExistingBusinessId(issue.businessId); setError('وجدنا نشاطاً محفوظاً لهذه المحاولة ببيانات مختلفة. افتحه لمراجعة النسخة الحالية.'); return;
+      }
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 400) { setError(cause.message); return; }
+      setError('تعذر تأكيد حفظ النشاط. يمكنك إعادة المحاولة؛ سنستخدم المحاولة نفسها لتجنب تكرار النشاط.');
     } finally { if (generation === lifecycle.current) { submissionInProgress.current = false; setIsSubmitting(false); } }
   }
 
@@ -65,7 +96,7 @@ export default function NewBusinessProfilePage() {
   return <PageShell className={styles.page} label="إضافة نشاط">
     <div className={styles.formShell}>
       <PageHeader eyebrow="مساحة صاحب النشاط" title="إضافة نشاط جديد" description="أدخل معلومات صحيحة وواضحة. سيُحفظ النشاط كملف خاص ولن يظهر في الدليل قبل إرساله للمراجعة واعتماده." />
-      {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {error && <StatusMessage tone="danger">{error}{existingBusinessId && <div className={styles.actions}><ActionLink href={`/business-profiles/${encodeURIComponent(existingBusinessId)}/manage`}>فتح النشاط المحفوظ</ActionLink><ActionButton type="button" variant="secondary" onClick={startAnotherBusiness}>بدء نشاط آخر</ActionButton></div>}</StatusMessage>}
       {(citiesError || categoriesError) && <StatusMessage tone="warning"><p>{citiesError || categoriesError}</p><div className={styles.actions}>{citiesError && <ActionButton type="button" variant="secondary" onClick={() => void retryCities()}>إعادة تحميل المدن</ActionButton>}{categoriesError && <ActionButton type="button" variant="secondary" onClick={() => void retryCategories()}>إعادة تحميل التصنيفات</ActionButton>}</div></StatusMessage>}
       <div className={styles.formLayout}>
         <Surface as="form" className={styles.form} onSubmit={submit}>
@@ -108,7 +139,7 @@ export default function NewBusinessProfilePage() {
               />
             </label>
           </section>
-          <footer className={styles.footer}><ActionLink href="/business-profiles" variant="secondary">إلغاء والعودة</ActionLink><ActionButton type="submit" disabled={isSubmitting || unavailable || !form.name.trim() || !form.categoryCode || !form.cityCode}>{isSubmitting ? 'جارٍ حفظ النشاط…' : 'حفظ النشاط'}</ActionButton></footer></fieldset>
+          <footer className={styles.footer}><ActionLink href="/business-profiles" variant="secondary">إلغاء والعودة</ActionLink><ActionButton type="submit" disabled={isSubmitting || !!existingBusinessId || unavailable || !form.name.trim() || !form.categoryCode || !form.cityCode}>{isSubmitting ? 'جارٍ حفظ النشاط…' : 'حفظ النشاط'}</ActionButton></footer></fieldset>
         </Surface>
         <Surface as="aside" className={styles.guide}><h2>ماذا يحدث بعد الحفظ؟</h2><ol><li>يُنشأ النشاط كملف خاص لا يظهر للعامة.</li><li>تضيف الخدمات والصور وساعات العمل من لوحة الإدارة.</li><li>ترسل الملف إلى فريق المراجعة عندما تصبح معلوماته مكتملة.</li><li>بعد الاعتماد يظهر في البحث والتصنيف والمنطقة.</li></ol><p className={styles.notice}>قرار النشر النهائي بشري. لا يعني إنشاء الملف أنه موثّق أو منشور تلقائياً.</p></Surface>
       </div>

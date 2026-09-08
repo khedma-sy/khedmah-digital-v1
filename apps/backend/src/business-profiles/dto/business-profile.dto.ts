@@ -1,4 +1,5 @@
 export interface CreateBusinessProfileRequest {
+  readonly clientRequestId?: unknown;
   readonly name?: unknown;
   readonly descriptionAr?: unknown;
   readonly descriptionEn?: unknown;
