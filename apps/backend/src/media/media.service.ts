@@ -94,15 +94,30 @@ export class MediaService {
         }
         throw cause;
       }
+    } else if (input.ownerType === 'business_profile' || input.ownerType === 'professional_profile') {
+      let retired: string[];
+      try {
+        retired = await this.db.transaction(async (client) => {
+          await this.lockProfileOwner(client, input.ownerType as 'business_profile' | 'professional_profile', input.ownerId, actor.id);
+          const current = await client.query<{ id: string; storage_key: string }>(
+            `SELECT id,storage_key FROM media_assets WHERE owner_type=$1 AND owner_id=$2 AND asset_type=$3 ORDER BY created_at,id`, [input.ownerType,input.ownerId,input.assetType ?? null]);
+          if (input.assetType === 'gallery' && current.rows.length >= 12) throw new BadRequestException('يمكن رفع 12 صورة كحد أقصى.');
+          await client.query(insertSql, insertValues);
+          const replaced = input.assetType === 'logo' || input.assetType === 'cover';
+          if (replaced) await client.query(`DELETE FROM media_assets WHERE owner_type=$1 AND owner_id=$2 AND asset_type=$3 AND id<>$4`, [input.ownerType,input.ownerId,input.assetType,asset.id]);
+          await this.invalidateProfileReview(client, input.ownerType as 'business_profile' | 'professional_profile', input.ownerId);
+          return replaced ? current.rows.map(row => row.storage_key) : [];
+        });
+      } catch (cause) {
+        if (cause instanceof BadRequestException || cause instanceof ForbiddenException || cause instanceof NotFoundException) {
+          try { await this.storage.delete(storageKey); } catch { this.logger.warn('Profile upload object cleanup failed.'); }
+        }
+        throw cause;
+      }
+      for (const key of retired) {
+        try { await this.storage.delete(key); } catch { this.logger.warn('Replaced profile image cleanup failed.'); }
+      }
     } else await this.db.query(insertSql, insertValues);
-
-    if ((input.assetType === 'logo' || input.assetType === 'cover') && existing.length > 0) {
-      await Promise.all(existing.map((item) => this.storage.delete(item.storage_key)));
-      await this.db.query(
-        `DELETE FROM media_assets WHERE owner_type = $1 AND owner_id = $2 AND asset_type = $3 AND id <> $4`,
-        [input.ownerType, input.ownerId, input.assetType, asset.id]
-      );
-    }
 
     return this.toPublic(asset);
   }
@@ -152,8 +167,20 @@ export class MediaService {
       return;
     }
 
-    await this.storage.delete(rows[0].storage_key);
-    await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
+    if (rows[0].owner_type === 'business_profile' || rows[0].owner_type === 'professional_profile') {
+      const ownerType = rows[0].owner_type;
+      const ownerId = rows[0].owner_id;
+      await this.db.transaction(async (client) => {
+        await this.lockProfileOwner(client, ownerType, ownerId, actor.id);
+        const removed = await client.query(`DELETE FROM media_assets WHERE id=$1 AND owner_user_id=$2 RETURNING id`, [id,actor.id]);
+        if (!removed.rowCount) throw new NotFoundException('Media asset not found.');
+        await this.invalidateProfileReview(client, ownerType, ownerId);
+      });
+    } else {
+      const removed = await this.db.query(`DELETE FROM media_assets WHERE id=$1 AND owner_user_id=$2 RETURNING id`, [id,actor.id]);
+      if (!removed.length) throw new NotFoundException('Media asset not found.');
+    }
+    try { await this.storage.delete(rows[0].storage_key); } catch { this.logger.warn('Removed media object cleanup failed.'); }
   }
 
   async readPublic(id: string, cookieHeader?: string): Promise<{ data: Buffer; mimeType: string }> {
@@ -242,6 +269,22 @@ export class MediaService {
       createdAt: r.created_at.toISOString(),
       updatedAt: r.updated_at.toISOString()
     };
+  }
+
+  private async lockProfileOwner(client: PoolClient, ownerType: 'business_profile' | 'professional_profile', id: string, actorId: string): Promise<void> {
+    const table = ownerType === 'business_profile' ? 'business_profiles' : 'professional_profiles';
+    const idColumn = ownerType === 'business_profile' ? 'id' : 'professional_profile_identifier';
+    const ownerColumn = ownerType === 'business_profile' ? 'owner_user_id' : 'user_identifier';
+    const result = await client.query<{ owner_user_id: string }>(`SELECT ${ownerColumn} AS owner_user_id FROM ${table} WHERE ${idColumn}=$1 FOR UPDATE`, [id]);
+    if (!result.rows[0]) throw new NotFoundException('Media owner not found.');
+    if (result.rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
+  }
+
+  private async invalidateProfileReview(client: PoolClient, ownerType: 'business_profile' | 'professional_profile', id: string): Promise<void> {
+    const table = ownerType === 'business_profile' ? 'business_profiles' : 'professional_profiles';
+    const idColumn = ownerType === 'business_profile' ? 'id' : 'professional_profile_identifier';
+    await client.query(`UPDATE ${table} SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
+      updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE ${idColumn}=$1`, [id]);
   }
 
   private async lockProductOwner(client: PoolClient, id: string, actorId: string): Promise<void> {

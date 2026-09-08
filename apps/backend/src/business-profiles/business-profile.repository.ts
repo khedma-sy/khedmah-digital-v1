@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview } from '../moderation/profile-review-write';
 import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
@@ -29,6 +29,7 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly revision: string;
+  readonly review_image_urls?: string[];
   readonly service_radius?: string;
   readonly availability?: string;
   readonly rating?: string;
@@ -150,6 +151,7 @@ export class BusinessProfileRepository {
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='business_profile' AND m.owner_id=b.id AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -292,8 +294,16 @@ export class BusinessProfileRepository {
     }));
   }
 
-  async deleteMediaAsset(businessProfileId: string, id: string): Promise<void> {
-    await this.db.query(`DELETE FROM media_assets WHERE id = $1 AND owner_type = 'business_profile' AND owner_id = $2`, [id, businessProfileId]);
+  async deleteMediaAsset(businessProfileId: string, id: string, actorId: string): Promise<void> {
+    await this.db.transaction(async (client) => {
+      const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [businessProfileId]);
+      if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
+      if (parent.rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
+      const removed = await client.query(`DELETE FROM media_assets WHERE id=$1 AND owner_type='business_profile' AND owner_id=$2 RETURNING id`, [id,businessProfileId]);
+      if (!removed.rowCount) throw new NotFoundException('Media asset not found.');
+      await client.query(`UPDATE business_profiles SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [businessProfileId]);
+    });
   }
 
   async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[]): Promise<void> {
@@ -486,6 +496,7 @@ export class BusinessProfileRepository {
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
+      reviewImageUrls: row.review_image_urls,
       revision: row.revision,
       serviceRadius: Number(row.service_radius ?? 25),
       availability: (row.availability ?? 'available') as BusinessProfile['availability'],

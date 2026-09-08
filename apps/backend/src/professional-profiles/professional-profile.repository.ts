@@ -19,6 +19,7 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly revision: string;
+  readonly review_image_urls?: string[];
 }
 
 @Injectable()
@@ -146,7 +147,8 @@ export class ProfessionalProfileRepository {
 
   async listPendingModeration(): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='professional_profile' AND m.owner_id=professional_profiles.professional_profile_identifier AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls
        FROM professional_profiles
        WHERE moderation_status = 'pending'
        ORDER BY created_at ASC`
@@ -188,6 +190,7 @@ export class ProfessionalProfileRepository {
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
+      reviewImageUrls: row.review_image_urls,
       revision: row.revision
     };
   }

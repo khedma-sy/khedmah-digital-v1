@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clientPage, deferred, loadSource, readSource } from './helpers/client-page-harness.mjs';
 const revision='2026-09-08T00:00:00.123456Z';
-const business={id:'b',revision,name:'نشاط الاختبار',descriptionAr:'وصف النشاط للمراجع',cityCode:'damascus',categoryCode:'repairs'};
-const professional={id:'p',revision,headlineAr:'مهني الاختبار',bioAr:'نبذة المهني للمراجع',cityCode:'damascus',skills:[]};
+const business={id:'b',revision,name:'نشاط الاختبار',descriptionAr:'وصف النشاط للمراجع',cityCode:'damascus',categoryCode:'repairs',reviewImageUrls:['/api/v1/media/public/business-photo']};
+const professional={id:'p',revision,headlineAr:'مهني الاختبار',bioAr:'نبذة المهني للمراجع',cityCode:'damascus',skills:[],reviewImageUrls:['/api/v1/media/public/professional-photo']};
 function fixture(kind='business'){
   const loads=[],decisions=[];const call=list=>{const d=deferred();list.push(d);return d.promise;};
   const review=(...args)=>{const p=call(decisions);decisions.at(-1).args=args;return p;};
@@ -24,7 +24,7 @@ test('moderation confirmation is single-flight before React renders disabled sta
 });
 for(const kind of ['business','professional']){
   test(`${kind}: approval sends the displayed revision and conflict requires a new decision`,async()=>{
-    const f=fixture(kind);await f.resolve(f.loads[0]);assert.match(f.page.text,/للمراجع/);f.page.click('موافقة');f.page.click('تأكيد القرار');assert.equal(f.decisions[0].args[1],revision);
+    const f=fixture(kind);await f.resolve(f.loads[0]);assert.match(f.page.text,/للمراجع/);assert.ok(f.page.find(n=>n.type==='a'&&n.props.href===`/api/v1/media/public/${kind}-photo`));f.page.click('موافقة');f.page.click('تأكيد القرار');assert.equal(f.decisions[0].args[1],revision);
     await f.reject(f.decisions[0],Object.assign(new Error('changed'),{statusCode:409}));assert.equal(f.loads.length,2);await f.resolve(f.loads[1]);assert.equal(f.page.find(n=>n.props?.role==='dialog'),undefined);assert.match(f.page.text,/تغير/);assert.equal(f.decisions.length,1);
   });
 }

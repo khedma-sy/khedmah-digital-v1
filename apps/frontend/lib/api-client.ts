@@ -46,6 +46,7 @@ export interface OperationsProductOverview {
 
 export interface PublicBusinessProfile {
   readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly id: string;
   readonly name: string;
   readonly descriptionAr?: string;
@@ -87,6 +88,7 @@ export interface Category {
 
 export interface PublicProfessionalProfile {
   readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly id: string;
   readonly headlineAr: string;
   readonly headlineEn?: string;

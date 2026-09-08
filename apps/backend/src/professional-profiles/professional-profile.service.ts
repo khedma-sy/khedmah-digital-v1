@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -96,9 +96,9 @@ export class ProfessionalProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(profileId);
     if (profile.userId !== actor.id) throw new ForbiddenException('Access denied');
-    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
-    await this.repository.saveMediaAsset(full);
-    return full;
+    const existing = (await this.repository.listMediaAssets(profileId)).find((item) => item.url === asset.url && item.storagePath === asset.storagePath && item.assetType === asset.assetType);
+    if (!existing) throw new BadRequestException('Upload image bytes through the media endpoint before registering the owned image.');
+    return existing;
   }
 
   async getMediaAssets(profileId: string, assetType?: string): Promise<MediaAsset[]> {
@@ -228,6 +228,7 @@ export class ProfessionalProfileService {
     return {
       id: profile.id,
       revision: profile.revision,
+      reviewImageUrls: profile.reviewImageUrls,
       headlineAr: profile.headlineAr,
       headlineEn: profile.headlineEn,
       bioAr: profile.bioAr,

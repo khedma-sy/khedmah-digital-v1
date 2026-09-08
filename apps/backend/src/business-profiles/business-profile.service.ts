@@ -173,9 +173,9 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
-    await this.repository.saveMediaAsset(full);
-    return full;
+    const existing = (await this.repository.listMediaAssets('business', entityId)).find((item) => item.url === asset.url && item.storagePath === asset.storagePath && item.assetType === asset.assetType);
+    if (!existing) throw new BadRequestException('Upload image bytes through the media endpoint before registering the owned image.');
+    return existing;
   }
 
   async getMediaAssets(entityType: string, entityId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
@@ -187,7 +187,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteMediaAsset(businessId, assetId);
+    await this.repository.deleteMediaAsset(businessId, assetId, actor.id);
   }
 
   // --- Opening Hours ---
@@ -388,6 +388,7 @@ export class BusinessProfileService {
     return {
       id: profile.id,
       revision: profile.revision,
+      reviewImageUrls: profile.reviewImageUrls,
       name: profile.name,
       descriptionAr: profile.descriptionAr,
       descriptionEn: profile.descriptionEn,

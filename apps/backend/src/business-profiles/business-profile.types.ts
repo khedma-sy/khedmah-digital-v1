@@ -31,6 +31,7 @@ export interface BusinessProfile {
   readonly responseSpeedMinutes?: number;
   readonly featuredAt?: string;
   readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -62,6 +63,7 @@ export interface PublicBusinessProfile {
   readonly distanceKm?: number;
   readonly matchScore?: number;
   readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly createdAt: string;
 }
 
