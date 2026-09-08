@@ -109,39 +109,52 @@ jobs:
         run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
   review-evidence:
     if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''
-    needs: deploy-preview
+    needs: [quality-gates, deploy-preview]
     runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          "$RUNNER_TEMP/khedmah-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Capture before and after screenshots
+        id: capture
         env:
           BEFORE_URL: ${{ vars.STAGING_FRONTEND_URL }}
           AFTER_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
-        run: |
-          test -n "$BEFORE_URL" && test -n "$AFTER_URL"
-          npx --yes playwright@1.55.0 install --with-deps chromium
-          npx --yes playwright@1.55.0 screenshot --full-page "$BEFORE_URL" before.png
-          npx --yes playwright@1.55.0 screenshot --full-page "$AFTER_URL" after.png
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
+        run: node scripts/capture-preview-evidence.mjs
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: preview-${{ github.event.pull_request.number }}-screenshots
-          path: |
-            before.png
-            after.png
+          path: preview-evidence/
+          if-no-files-found: error
           retention-days: 14
       - name: Publish owner review guide
+        if: always()
         uses: actions/github-script@v7
         env:
           PREVIEW_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
           BACKEND_URL: ${{ needs.deploy-preview.outputs.backend_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          QUALITY_RESULT: ${{ needs.quality-gates.result }}
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           script: |
-            const files = await github.paginate(github.rest.pulls.listFiles, { owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number, per_page: 100 });
-            const changed = files.map(file => `- \`${file.filename}\``).join('\n');
-            const body = `## 🔎 Preview Review\n\n### Summary\nAutomated preview for PR #${context.issue.number}.\n\n### What changed\n${changed}\n\n### Testing / Executed tests\n✅ Build · ✅ Tests · ✅ Lint/types · ✅ Security · ✅ Firebase · ✅ Google Cloud · ✅ Health checks\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots\n[Download Before / After screenshots from this workflow run](${process.env.RUN_URL})\n\n### Owner review guide\n1. Open the preview URL.\n2. Check Arabic RTL layout and changed paths.\n3. Compare the Before and After screenshots.\n4. Exercise the exact flows described in the PR.\n5. Record approval or defects before merge.\n`;
+            const fs = require('node:fs');
+            let evidence = { status: 'unavailable', before: null, after: [] };
+            try { evidence = JSON.parse(fs.readFileSync('preview-evidence/manifest.json', 'utf8')); } catch {}
+            const checks = evidence.after.map(item => `- ${item.route} (${item.viewport}): **${item.status}**${item.failures.length ? ` — ${item.failures.join(', ')}` : ''}`).join('\n');
+            const body = `## 🔎 Preview Review\n\n### Verified reference\nHead: \`${process.env.PREVIEW_HEAD_SHA}\`\n\n### Automated results\nQuality gates: **${process.env.QUALITY_RESULT}**\nBrowser capture step: **${process.env.CAPTURE_OUTCOME || 'not run'}**\nEvidence manifest: **${evidence.status}**\nStaging homepage baseline: **${evidence.before?.status || 'unavailable'}**\n\n${checks}\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots and diagnostics\n[Open this run and download the screenshots plus manifest](${process.env.RUN_URL})\n\nOnly passing captures are named before.png / after.png; failed captures are explicitly diagnostic. The Staging baseline is an environment comparison, not a verified parent-commit image. Coverage is anonymous light-theme home, categories and professional search at 1280px and 390px; it is not a full visual, accessibility or end-to-end certification.\n\n### Owner review guide\n1. Inspect manifest.json before using screenshots as evidence.\n2. Resolve failures rather than accepting a blank or loading capture.\n3. Check RTL, responsive layout and changed paths manually.\n4. Exercise documented flows with test-only data.\n5. Record approval or defects before merge. No production deployment is authorized by this report.\n`;
             const marker = '## 🔎 Preview Review';
             const comments = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number });
             const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
