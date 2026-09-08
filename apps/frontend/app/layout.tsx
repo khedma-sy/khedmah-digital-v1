@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_Arabic } from 'next/font/google';
 import Link from 'next/link';
-import { AuthNavigation } from './auth-navigation';
+import { AuthNavigation, DiscoveryNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
@@ -80,6 +80,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
+          <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
         {children}
