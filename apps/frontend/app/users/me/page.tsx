@@ -8,8 +8,9 @@ export default function ProfilePage() {
   const [user, setUser] = useState<PublicUserProfile | null>();
   const [sessionExpired, setSessionExpired] = useState(false);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
-  function loadSession() {
+  useEffect(() => {
     setUser(undefined);
     setSessionExpired(false);
     setError('');
@@ -28,15 +29,13 @@ export default function ProfilePage() {
         setUser(null);
       });
     return () => { active = false; };
-  }
-
-  useEffect(() => loadSession(), []);
+  }, [retryCount]);
 
   if (user === undefined) return <PageShell label="حسابي"><PageHeader title="حسابي" description="جاري تحميل بيانات حسابك الآمنة." /><SkeletonGrid count={2} label="جاري تحميل الحساب" /></PageShell>;
 
   if (!user && sessionExpired) return <PageShell label="حسابي"><PageHeader title="حسابي" /><StatusMessage tone="warning">انتهت الجلسة أو لم تسجل الدخول.</StatusMessage><ActionLink href="/auth/login?next=%2Fusers%2Fme">تسجيل الدخول</ActionLink></PageShell>;
 
-  if (!user) return <PageShell label="حسابي"><PageHeader title="تعذر تحميل الحساب" description="لم نتمكن من التحقق من حسابك بسبب مشكلة مؤقتة، ولم نعتبر الجلسة منتهية." /><StatusMessage tone="danger">{error || 'تعذر تحميل الحساب.'}</StatusMessage><ActionButton type="button" variant="secondary" onClick={() => loadSession()}>إعادة المحاولة</ActionButton></PageShell>;
+  if (!user) return <PageShell label="حسابي"><PageHeader title="تعذر تحميل الحساب" description="لم نتمكن من التحقق من حسابك بسبب مشكلة مؤقتة، ولم نعتبر الجلسة منتهية." /><StatusMessage tone="danger">{error || 'تعذر تحميل الحساب.'}</StatusMessage><ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton></PageShell>;
 
   return <PageShell label="حسابي">
     <PageHeader title="حسابي" description="بيانات الحساب المرتبطة بجلسة تسجيل الدخول الحالية." actions={<ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>} />

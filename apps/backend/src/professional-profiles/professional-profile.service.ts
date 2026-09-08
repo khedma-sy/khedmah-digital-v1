@@ -61,7 +61,14 @@ export class ProfessionalProfileService {
     if (!profile) {
       throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
     }
-    return this.toPublic(profile);
+    const eligibility = await this.repository.findContactEligibility(profile.id);
+    return {
+      ...this.toPublic(profile),
+      ...(eligibility ? { contactEligibility: {
+        ...eligibility,
+        eligible: eligibility.visibility === 'public' && eligibility.moderationStatus === 'approved' && eligibility.lifecycleStatus === 'active'
+      } } : {})
+    };
   }
 
   async getProfile(id: string): Promise<PublicProfessionalProfile> {

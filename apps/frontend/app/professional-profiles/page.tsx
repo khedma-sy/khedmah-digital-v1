@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, PublicProfessionalProfile } from '../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../lib/use-syrian-cities';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../components/ui-primitives';
@@ -20,40 +20,52 @@ export default function ProfessionalProfilesPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  async function load() {
-    setIsLoading(true);
-    setError('');
-    try {
-      const data = await api.professionals.getMine();
-      setProfile(data.professional);
-    } catch (cause) {
-      const statusCode = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
-      if (statusCode === 401) {
-        router.replace('/auth/login?next=%2Fprofessional-profiles');
-        return;
-      }
-      if (statusCode === 404) setProfile(null);
-      else setError(cause instanceof Error ? cause.message : 'تعذر تحميل الملف المهني.');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const [loadError, setLoadError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const lifecycle = useRef(0);
+  const submissionInProgress = useRef(false);
 
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    lifecycle.current += 1;
+    return () => { lifecycle.current += 1; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true); setLoadError('');
+    void api.professionals.getMine()
+      .then(({ professional }) => { if (active) setProfile(professional); })
+      .catch((cause) => {
+        if (!active) return;
+        const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+        if (status === 401) {
+          setLoadError('انتهت الجلسة. يرجى تسجيل الدخول.');
+          router.replace('/auth/login?next=%2Fprofessional-profiles');
+        } else if (status === 404) setProfile(null);
+        else setLoadError(cause instanceof Error ? cause.message : 'تعذر تحميل الملف المهني.');
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [router, retryCount]);
 
   async function submitForReview() {
-    if (!profile) return;
-    setIsSubmitting(true);
-    setError('');
-    setNotice('');
+    if (!profile || submissionInProgress.current) return;
+    submissionInProgress.current = true;
+    const generation = lifecycle.current;
+    setIsSubmitting(true); setError(''); setNotice('');
     try {
       await api.professionals.submitForReview(profile.id);
-      setNotice('تم إرسال الملف المهني للمراجعة.');
-      await load();
+      if (generation === lifecycle.current) {
+        setNotice('تم إرسال الملف المهني للمراجعة.');
+        setRetryCount((value) => value + 1);
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'تعذر إرسال الملف للمراجعة.');
+      if (generation === lifecycle.current) setError(cause instanceof Error ? cause.message : 'تعذر إرسال الملف للمراجعة.');
     } finally {
-      setIsSubmitting(false);
+      if (generation === lifecycle.current) {
+        submissionInProgress.current = false;
+        setIsSubmitting(false);
+      }
     }
   }
 
@@ -69,9 +81,10 @@ export default function ProfessionalProfilesPage() {
     />
 
     {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {loadError && <StatusMessage tone="danger">{loadError} <ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton></StatusMessage>}
     {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
 
-    {isLoading ? <SkeletonGrid count={2} label="جاري تحميل ملفك المهني" /> : profile ? <div className={styles.workspaceGrid}>
+    {isLoading ? <SkeletonGrid count={2} label="جاري تحميل ملفك المهني" /> : loadError ? null : profile ? <div className={styles.workspaceGrid}>
       <Surface as="article" className={`${styles.card} ${styles.profileCard}`}>
         <div className={styles.cardTop}>
           <div>
@@ -87,7 +100,7 @@ export default function ProfessionalProfilesPage() {
         <p className={styles.description}>{profile.bioAr || 'لم تضف نبذة مهنية بعد. أكمل الملف لتوضيح خبرتك للعملاء.'}</p>
         <div className={styles.profileMeta}><span><PlatformIcon name="pin" size={15}/>{cityLabel(profile.cityCode, cities)}</span><span>{profile.countryCode}</span></div>
         {profile.skills.length > 0 && <div className={styles.skillList} aria-label="المهارات">{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-        <div className={styles.actions}><ActionLink href={`/professional-profiles/${profile.id}`}>عرض الملف العام</ActionLink><ActionLink href="/professional-profiles/new" variant="secondary">تعديل</ActionLink>{canSubmit && <ActionButton type="button" variant="secondary" disabled={isSubmitting} onClick={() => void submitForReview()}>{isSubmitting ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>}</div>
+        <div className={styles.actions}>{profile.contactEligibility?.eligible && <ActionLink href={`/professional-profiles/${profile.id}`}>عرض الملف العام</ActionLink>}<ActionLink href="/professional-profiles/new" variant="secondary">تعديل</ActionLink>{canSubmit && <ActionButton type="button" variant="secondary" disabled={isSubmitting} onClick={() => void submitForReview()}>{isSubmitting ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>}</div>
       </Surface>
 
       <Surface as="aside" className={styles.guide}>
