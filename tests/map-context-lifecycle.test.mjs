@@ -63,7 +63,9 @@ function fixture(query = '', options = {}) {
     else entries[index] = location.href;
     navigations.push({ mode, href }); dirty = true;
   };
-  const router = { push: (href) => navigate(href), replace: (href) => navigate(href, 'replace') };
+  let pendingNavigation;
+  const route = (href, mode) => { if (options.delayedNavigation) pendingNavigation = { href, mode }; else navigate(href, mode); };
+  const router = { push: (href) => route(href, 'push'), replace: (href) => route(href, 'replace') };
   let cachedQuery, cachedParams;
   function useSearchParams() {
     if (cachedQuery !== location.search) { cachedQuery = location.search; cachedParams = new URLSearchParams(cachedQuery); }
@@ -150,6 +152,7 @@ function fixture(query = '', options = {}) {
       if (gesture) map.emit('dragstart'); map.emit('idle'); render();
     },
     tick() { for (const [id, item] of [...timers]) if (item.delay === 300) { timers.delete(id); item.fn(); } render(); },
+    commitNavigation() { assert.ok(pendingNavigation); navigate(pendingNavigation.href, pendingNavigation.mode); pendingNavigation = undefined; render(); },
     failMap() { window.gm_authFailure(); render(); },
     get link() { return all().find((n) => n.type === 'ActionLink' && text(n) === 'تعديل عوامل البحث').props.href; },
     unmount() { for (const slot of slots) slot.cleanup?.(); mounted = false; },
@@ -276,4 +279,16 @@ test('an unsupported viewport stops loading and offers explicit recovery without
   const f = fixture(); f.idle({ south: -90, north: 90, west: 170, east: -170 }); f.tick();
   assert.equal(f.busy, false); assert.equal(f.calls.length, 1); assert.match(f.alerts, /حدود البحث المدعومة/);
   f.click('مسح تحديد المنطقة'); assert.equal(f.calls.length, 2); await finish(f); assert.equal(f.busy, false);
+});
+
+
+test('delayed Next navigation never combines new GPS coordinates with the previous viewport', async () => {
+  const f = fixture('?cityCode=aleppo&south=35&west=36&north=36&east=37', { delayedNavigation: true });
+  await finish(f); f.click('استخدم موقعي الحالي');
+  f.geolocationCalls[0].resolve({ coords: { latitude: 36.2, longitude: 37.1 } }); f.render();
+  f.idle(areaB, false); f.tick();
+  assert.equal(f.calls.length, 1, 'a new origin must wait for the URL with its new bounds');
+  assert.equal(f.busy, true); f.commitNavigation();
+  assert.equal(f.calls.length, 2); assert.deepEqual(f.calls[1].input.boundaries, areaB);
+  assert.equal(f.calls[1].input.latitude, 36.2); await finish(f); assert.equal(f.busy, false);
 });

@@ -70,6 +70,7 @@ function MapDiscovery() {
   const [activeView, setActiveView] = useState<'map' | 'list'>('map');
   const [retryCount, setRetryCount] = useState(0);
   const [requestLoading, setRequestLoading] = useState(false);
+  const [pendingContextKey, setPendingContextKey] = useState<string | null>(null);
   const [viewportError, setViewportError] = useState('');
   const [result, setResult] = useState<{ key: string; providers: PublicBusinessProfile[]; total: number; error: string }>({ key: '', providers: [], total: 0, error: '' });
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
@@ -82,8 +83,9 @@ function MapDiscovery() {
     : categoryCode && categoriesError ? 'تعذر التحقق من التصنيف المحدد. أعد تحميل التصنيفات دون تغيير اختيارك.'
     : categoryCode && !categoriesLoading && !categories.some(({ code }) => code === categoryCode) ? 'التصنيف المحدد غير متاح. عدّل عوامل البحث.' : '';
   const requestKey = JSON.stringify([contextKey, location?.latitude, location?.longitude]);
+  const isNavigating = pendingContextKey !== null && pendingContextKey !== contextKey;
   const error = validationError || (result.key === requestKey ? result.error : '');
-  const isLoading = !validationError && !viewportError && (waitingForMetadata || requestLoading || locating || result.key !== requestKey);
+  const isLoading = isNavigating || (!validationError && !viewportError && (waitingForMetadata || requestLoading || locating || result.key !== requestKey));
   const providers = !isLoading && !error && !viewportError ? result.providers : NO_PROVIDERS;
   const latest = useRef({ context, contextKey });
   latest.current = { context, contextKey };
@@ -92,6 +94,7 @@ function MapDiscovery() {
 
   useEffect(() => {
     setViewportError('');
+    setPendingContextKey(null);
     geoSequence.current += 1;
     pendingLocation.current = undefined;
     setLocating(false);
@@ -109,7 +112,7 @@ function MapDiscovery() {
   // Navigation owns requests. Map events and forms change the URL, never fetch directly.
   useEffect(() => {
     const requestId = ++sequence.current;
-    if (waitingForMetadata || validationError || locating) {
+    if (waitingForMetadata || validationError || locating || isNavigating) {
       setRequestLoading(false);
       return () => { sequence.current += 1; };
     }
@@ -129,15 +132,18 @@ function MapDiscovery() {
     }
     void search();
     return () => { sequence.current += 1; };
-  }, [requestKey, waitingForMetadata, validationError, locating, retryCount]);
+  }, [requestKey, waitingForMetadata, validationError, locating, isNavigating, retryCount]);
 
   function navigate(next: typeof context, mode: 'push' | 'replace' = 'push') {
     const href = mapHref(next);
-    if (mapContextKey(readMapContext(new URLSearchParams(href.split('?')[1]))) === contextKey) {
+    const targetKey = mapContextKey(readMapContext(new URLSearchParams(href.split('?')[1])));
+    if (targetKey === contextKey) {
+      setPendingContextKey(null);
       setRetryCount((count) => count + 1);
       return;
     }
     sequence.current += 1;
+    setPendingContextKey(targetKey);
     setRequestLoading(true);
     router[mode](href, { scroll: false });
   }
@@ -235,7 +241,7 @@ function MapDiscovery() {
   // Restore an explicit viewport; otherwise fit actual matching providers. An initial
   // camera/automatic fit must never constrain a city search to the default center.
   useEffect(() => {
-    if (!map.current || mapStatus !== 'ready' || locating || viewportError || viewportIntent.current || idleTimer.current) return;
+    if (!map.current || mapStatus !== 'ready' || locating || isNavigating || viewportError || viewportIntent.current || idleTimer.current) return;
     const boundaries = context.boundaries ?? (!isLoading && !error ? providerBounds(providers) : undefined);
     if (!boundaries) return;
     const current = map.current.getBounds()?.toJSON();
@@ -243,7 +249,7 @@ function MapDiscovery() {
     programmaticView.current = true;
     viewportIntent.current = false;
     map.current.fitBounds(boundaries);
-  }, [contextKey, result, isLoading, error, mapStatus, locating, viewportError]);
+  }, [contextKey, result, isLoading, error, mapStatus, locating, isNavigating, viewportError]);
 
   useEffect(() => () => { geoSequence.current += 1; clearMap(); }, [clearMap]);
   useEffect(() => {
