@@ -21,15 +21,16 @@ type SurfaceProps = {
   children: ReactNode;
   as?: 'section' | 'article' | 'aside' | 'div' | 'form';
   className?: string;
-} & Pick<FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'aria-busy'>;
+} & Pick<FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'id' | 'role' | 'aria-label' | 'aria-labelledby' | 'aria-describedby' | 'aria-busy'>;
 
-export function Surface({ children, as = 'section', className = '', onSubmit, 'aria-busy': ariaBusy }: SurfaceProps) {
+export function Surface({ children, as = 'section', className = '', onSubmit, id, role, 'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy, 'aria-describedby': ariaDescribedBy, 'aria-busy': ariaBusy }: SurfaceProps) {
+  const accessibilityProps = { id, role, 'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy, 'aria-describedby': ariaDescribedBy, 'aria-busy': ariaBusy };
   const surfaceClassName = `ui-surface ${className}`.trim();
   if (as === 'form') {
-    return <form className={surfaceClassName} onSubmit={onSubmit} aria-busy={ariaBusy}>{children}</form>;
+    return <form className={surfaceClassName} onSubmit={onSubmit} {...accessibilityProps}>{children}</form>;
   }
   const Element = as;
-  return <Element className={surfaceClassName}>{children}</Element>;
+  return <Element className={surfaceClassName} {...accessibilityProps}>{children}</Element>;
 }
 
 export function ActionLink({ href, children, variant = 'primary' }: { href: string; children: ReactNode; variant?: 'primary' | 'secondary' | 'quiet' }) {
