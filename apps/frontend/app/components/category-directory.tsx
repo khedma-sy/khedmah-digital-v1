@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { PlatformIcon } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
+import { categoryDirectoryHref, discoveryContextKey, readDiscoveryContext } from '../../lib/discovery-context';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage } from './ui-primitives';
 
 const PAGE_SIZE = 20;
@@ -16,75 +18,85 @@ function providerHref(service: PublicServiceListing) {
 }
 
 export function CategoryDirectory() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const context = readDiscoveryContext(params);
+  const { q, cityCode, categoryCode: activeCategory, page } = context;
+  const contextKey = discoveryContextKey(context);
   const [services, setServices] = useState<PublicServiceListing[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeCategory, setActiveCategory] = useState('');
-  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const requestSequence = useRef(0);
   const [settledCategories, setSettledCategories] = useState<typeof categories | null>(null);
+  const [settledContextKey, setSettledContextKey] = useState<string | null>(null);
   const filtersUnavailable = categoriesLoading || !!categoriesError;
+  const invalidCategory = !filtersUnavailable && !!activeCategory
+    && !categories.some(({ code }) => code === activeCategory);
   // A new registry can render before its effect starts the matching service request.
   // Keep that transition busy instead of briefly exposing stale results as ready.
-  const isLoading = categoriesLoading || (!categoriesError && (servicesLoading || settledCategories !== categories));
+  const isLoading = categoriesLoading || (!categoriesError && !invalidCategory
+    && (servicesLoading || settledCategories !== categories || settledContextKey !== contextKey));
   const roots = categories.filter((category) => !category.parentCode);
 
   const loadServices = useCallback(async (categoryCode: string, pageNumber = 1) => {
     if (categoriesLoading || categoriesError) return;
     const requestId = ++requestSequence.current;
-    setPage(pageNumber);
     setServicesLoading(true);
     setError('');
     try {
-      const data = await api.services.search({ categoryCode: categoryCode || undefined, page: pageNumber });
+      const data = await api.services.search({
+        categoryCode: categoryCode || undefined, cityCode: cityCode || undefined,
+        q: q || undefined, page: pageNumber
+      });
       if (requestId !== requestSequence.current) return;
       setServices(data.services);
-      setPage(data.page);
       setTotal(data.total);
     } catch (err) {
       if (requestId === requestSequence.current) setError(err instanceof Error ? err.message : 'تعذر تحميل دليل الخدمات. حاول مرة أخرى.');
     } finally {
       if (requestId === requestSequence.current) {
         setSettledCategories(categories);
+        setSettledContextKey(contextKey);
         setServicesLoading(false);
       }
     }
-  }, [categories, categoriesLoading, categoriesError]);
+  }, [categories, categoriesLoading, categoriesError, q, cityCode, contextKey]);
 
   useEffect(() => {
-    if (categoriesLoading || categoriesError) return;
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get('category') ?? '';
-    const rawPage = Number(params.get('page'));
-    const requestedPage = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
-    const initialCategory = categories.some(({ code }) => code === requested) ? requested : '';
-    setActiveCategory(initialCategory);
-    void loadServices(initialCategory, requestedPage);
+    if (filtersUnavailable || invalidCategory) return;
+    // URL is the request owner: actions only navigate; this effect issues the query.
+    void loadServices(activeCategory, page);
     return () => { requestSequence.current += 1; };
-  }, [categories, categoriesLoading, categoriesError, loadServices]);
+  }, [filtersUnavailable, invalidCategory, activeCategory, page, loadServices]);
 
   function syncUrl(categoryCode: string, pageNumber: number) {
-    const params = new URLSearchParams();
-    if (categoryCode) params.set('category', categoryCode);
-    if (pageNumber > 1) params.set('page', String(pageNumber));
-    window.history.replaceState(null, '', params.size ? `/categories?${params}` : '/categories');
+    const href = categoryDirectoryHref(params, categoryCode, pageNumber);
+    const next = readDiscoveryContext(new URLSearchParams(href.split('?')[1] ?? ''));
+    const currentHref = params.size ? `/categories?${params}` : '/categories';
+    if (href === currentHref) return;
+    if (discoveryContextKey(next) === contextKey) {
+      // Alias-only normalization must not create a duplicate history entry or fetch.
+      router.replace(href, { scroll: false });
+      return;
+    }
+    // A previous completion must not publish while a newer navigation is pending.
+    requestSequence.current += 1;
+    setServicesLoading(true);
+    router.push(href, { scroll: false });
   }
 
   function selectCategory(categoryCode: string) {
     if (filtersUnavailable) return;
-    setActiveCategory(categoryCode);
     setShowFilters(false);
     syncUrl(categoryCode, 1);
-    void loadServices(categoryCode, 1);
   }
 
   function goToPage(pageNumber: number) {
-    if (filtersUnavailable) return;
+    if (filtersUnavailable || invalidCategory) return;
     syncUrl(activeCategory, pageNumber);
-    void loadServices(activeCategory, pageNumber);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -109,6 +121,8 @@ export function CategoryDirectory() {
           </nav>
         ) : null}
 
+        {invalidCategory ? <StatusMessage tone="warning">التصنيف المحدد غير متاح. اختر تصنيفاً آخر بدلاً من عرض نتائج غير مطابقة. <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>عرض كل التصنيفات</ActionButton></StatusMessage> : null}
+
         {categoriesError ? <StatusMessage tone="warning">{categoriesError} <ActionButton variant="secondary" type="button" onClick={() => void retryCategories()}>إعادة تحميل التصنيفات</ActionButton></StatusMessage> : null}
 
         {activeRootCode && subcategories.length > 0 ? <nav className="catalog-filters" aria-label="التخصصات الفرعية">
@@ -129,10 +143,10 @@ export function CategoryDirectory() {
           </section>
         ) : null}
 
-        {error && !filtersUnavailable ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory, page)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
+        {error && !filtersUnavailable && !invalidCategory && settledContextKey === contextKey ? <StatusMessage tone="danger">{error} <ActionButton variant="secondary" type="button" onClick={() => void loadServices(activeCategory, page)}>إعادة المحاولة</ActionButton></StatusMessage> : null}
         {isLoading ? <SkeletonGrid label="جاري تحميل الخدمات" /> : null}
 
-        {!isLoading && !categoriesError && !error && services.length > 0 ? (
+        {!isLoading && !categoriesError && !invalidCategory && !error && services.length > 0 ? (
           <section className="catalog-results" aria-label={`${total} خدمة متاحة`}>
             {services.map((service) => (
               <article className="catalog-service" key={service.id}>
@@ -144,13 +158,13 @@ export function CategoryDirectory() {
           </section>
         ) : null}
 
-        {!isLoading && !categoriesError && !error && totalPages > 1 ? <nav className="catalog-pagination" aria-label="صفحات دليل الخدمات">
+        {!isLoading && !categoriesError && !invalidCategory && !error && totalPages > 1 ? <nav className="catalog-pagination" aria-label="صفحات دليل الخدمات">
           <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>السابق</button>
           <span>الصفحة {page.toLocaleString('ar-SY')} من {totalPages.toLocaleString('ar-SY')}</span>
           <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
         </nav> : null}
 
-        {!isLoading && !categoriesError && !error && services.length === 0 && activeCategory ? (
+        {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 && activeCategory ? (
           <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>
             <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
             <ActionLink href="/map">فتح الخريطة</ActionLink>
