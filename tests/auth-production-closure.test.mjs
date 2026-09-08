@@ -134,7 +134,7 @@ test('retired locations directory redirects to the real map experience', async (
 
   assert.match(navigation, /href: '\/map', label: 'بالقرب مني'/);
   assert.doesNotMatch(navigation, />المواقع</);
-  assert.match(locations, /redirect\('\/map'\)/);
+  assert.match(locations, /redirect\(legacyDiscoveryHref\('\/map', await searchParams\)\)/);
   assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
 });
 

@@ -47,7 +47,7 @@ test('categories owns the canonical directory route and the old catalog redirect
   assert.match(categories, /export default function CategoriesPage\(/);
   assert.equal((categories.match(/<CategoryDirectory\s*\/>/g) ?? []).length, 1);
   assert.match(categories, /<Suspense\b[\s\S]*<CategoryDirectory\s*\/>[\s\S]*<\/Suspense>/);
-  assert.match(legacy, /redirect\('\/categories'\)/);
+  assert.match(legacy, /redirect\(legacyDiscoveryHref\('\/categories', await searchParams\)\)/);
   assert.match(directory, /readDiscoveryContext\(params\)/);
   assert.match(directory, /categoryDirectoryHref\(params, categoryCode, pageNumber\)/);
   assert.match(context, /params\.get\('categoryCode'\) \?\? params\.get\('category'\)/);

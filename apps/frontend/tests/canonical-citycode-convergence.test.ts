@@ -74,7 +74,9 @@ test('clear removes cityCode and Locations failures never install a static fallb
   ]);
   assert.match(globalSearch, /router\.push\('\/search', \{ scroll: false \}\)/);
   assert.match(professional, /router\.replace\('\/professional-profiles\/search'\)/);
-  assert.match(hook, /setCities\(\[\]\)/);
+  assert.match(hook, /requestId === requestSequence\.current/);
+  assert.match(hook, /setError\('تعذر تحميل المدن المعتمدة/);
+  assert.doesNotMatch(hook, /catch\s*\{\s*setCities\(\[\]\)/);
   assert.match(hook, /إعادة المحاولة|تعذر تحميل المدن/);
 });
 

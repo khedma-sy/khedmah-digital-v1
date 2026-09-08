@@ -5,12 +5,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PublicServiceListing } from '../../lib/api-client';
 import { mapHref } from '../../lib/map-context';
-import { PlatformIcon } from './platform-icon';
+import { PlatformIcon, type PlatformIconName } from './platform-icon';
 import { useCategories } from '../../lib/use-categories';
 import { categoryDirectoryHref, discoveryContextKey, readDiscoveryContext } from '../../lib/discovery-context';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage } from './ui-primitives';
 
 const PAGE_SIZE = 20;
+// Presentation only: governed category codes/names still come from the API.
+const categoryIcons: Record<string, PlatformIconName> = {
+  home: 'tools', food: 'food', health: 'health', education: 'education', professional: 'briefcase',
+  beauty: 'beauty', shopping: 'cart', automotive: 'car', transport: 'truck', technology: 'technology',
+  construction: 'building', events: 'events', agriculture: 'leaf', industry: 'factory', travel: 'travel'
+};
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -135,7 +141,7 @@ export function CategoryDirectory() {
           <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
             {roots.map((category) => (
               <button key={category.code} type="button" disabled={filtersUnavailable} onClick={() => selectCategory(category.code)}>
-                <span className="catalog-category-icon"><PlatformIcon name="tools" /></span>
+                <span className="catalog-category-icon"><PlatformIcon name={categoryIcons[category.visualKey] ?? 'grid'} /></span>
                 <strong>{category.nameAr}</strong>
                 <small>{categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')} تخصصات</small>
                 <PlatformIcon name="arrow" />
@@ -151,7 +157,7 @@ export function CategoryDirectory() {
           <section className="catalog-results" aria-label={`${total} خدمة متاحة`}>
             {services.map((service) => (
               <article className="catalog-service" key={service.id}>
-                <span className="catalog-service-icon"><PlatformIcon name="tools" /></span>
+                <span className="catalog-service-icon"><PlatformIcon name={categoryIcons[categories.find((item) => item.code === service.categoryCode)?.visualKey ?? ''] ?? 'grid'} /></span>
                 <div><h2>{service.titleAr}</h2>{service.descriptionAr ? <p>{service.descriptionAr}</p> : null}<small>{service.ownerType === 'business' ? 'مقدم أعمال' : 'مهني'}</small></div>
                 <Link href={providerHref(service)} aria-label={`عرض مقدم خدمة ${service.titleAr}`}><PlatformIcon name="arrow" /></Link>
               </article>

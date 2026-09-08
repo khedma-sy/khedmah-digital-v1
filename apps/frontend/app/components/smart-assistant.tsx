@@ -39,6 +39,6 @@ export function SmartAssistant() {
 
   return <aside className={styles.root} aria-label="مساعد خدمة الذكي">
     {open && <div className={styles.panel}><div className={styles.heading}><strong>مساعد خدمة</strong><button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المساعد">×</button></div><p>{message}</p><form onSubmit={submit}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}>{listening ? 'جاري الاستماع…' : '🎙 تحدث'}</button><button type="submit">اعثر عليها</button></div></form><div className={styles.quick}><button onClick={() => go('تكسي')} type="button">تكسي</button><button onClick={() => go('مندوب توصيل')} type="button">مندوب</button><button onClick={() => go('إعلانات')} type="button">إعلانات</button></div><small>لا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
-    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>☂ <span>اسأل خدمة</span></button>
+    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? 'إغلاق مساعد خدمة' : 'فتح مساعد خدمة'} aria-expanded={open}>☂ <span>اسأل خدمة</span></button>
   </aside>;
 }

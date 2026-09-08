@@ -349,7 +349,7 @@ function MapDiscovery() {
   const status = isLoading ? 'جاري تحديث النتائج…' : providers.length
     ? `عرض ${providers.length} من ${result.total} نشاط ${resultsScope}` : `لا توجد أنشطة مطابقة ${resultsScope}`;
 
-  return <main className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
+  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
@@ -391,5 +391,5 @@ function MapDiscovery() {
 }
 
 export default function MarketplaceMapPage() {
-  return <Suspense fallback={<main className={styles.mapPage} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
+  return <Suspense fallback={<main id="foundation-content" tabIndex={-1} aria-busy="true" className={styles.mapPage} dir="rtl">جاري فتح الخريطة…</main>}><MapDiscovery /></Suspense>;
 }

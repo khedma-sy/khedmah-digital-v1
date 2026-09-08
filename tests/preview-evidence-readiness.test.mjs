@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { main, assessEvidence, browserReadyForCapture, browserContentReadyForCapture, waitForCaptureReadiness, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
+import { main, assessEvidence, browserReadyForCapture, browserContentReadyForCapture, waitForCaptureReadiness, evidenceRoutes, evidenceViewports, evidenceThemes, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
 
-const ready = { headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/mobility', '/classifieds'], authReady: true,
+const ready = { theme: 'light', mapStatus: null, headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/mobility', '/classifieds'], authReady: true,
   busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
 
 test('evidence accepts a ready 2xx page but does not equate an image file with readiness', () => {
@@ -45,10 +45,11 @@ test('evidence origins reject insecure URLs, embedded credentials and query valu
   }
 });
 
-test('evidence coverage is bounded to anonymous read-only routes at two screen sizes', () => {
-  assert.deepEqual(evidenceRoutes.map(({ path }) => path), ['/', '/categories', '/professional-profiles/search']);
-  assert.deepEqual(evidenceViewports.map(({ width }) => width), [1280, 390]);
-  assert.equal(evidenceRoutes[2].formName, 'بحث عن مهنيين');
+test('evidence coverage is bounded to anonymous read-only routes at four screen sizes and both themes', () => {
+  assert.deepEqual(evidenceRoutes.map(({ path }) => path), ['/', '/categories', '/search', '/map', '/professional-profiles/search']);
+  assert.deepEqual(evidenceViewports.map(({ width }) => width), [1280, 390, 320, 768]);
+  assert.deepEqual(evidenceThemes, ['light', 'dark']);
+  assert.equal(evidenceRoutes[4].formName, 'بحث عن مهنيين');
 });
 
 // Orchestration tests use a browser double: they verify control flow and reporting,
@@ -62,7 +63,7 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   const browser = {
     version: () => 'test-double',
     close: async () => { if (options.closeFails) throw new Error('sensitive teardown details'); },
-    newContext: async () => {
+    newContext: async ({ colorScheme }) => {
       if (contextFailures-- > 0) throw new Error('context unavailable');
       let currentUrl;
       return {
@@ -76,7 +77,7 @@ async function exerciseMain(t, overrides = {}, options = {}) {
             return { status: () => 200 };
           },
           waitForFunction: async () => undefined,
-          evaluate: async (fn) => fn === browserReadyForCapture ? true : ({ ...ready }),
+          evaluate: async (fn) => fn === browserReadyForCapture ? true : ({ ...ready, theme: colorScheme }),
           url: () => currentUrl,
           screenshot: async () => undefined
         })
@@ -97,14 +98,14 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   return { report, visits, launches, directory };
 }
 
-test('orchestration captures all six Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
+test('orchestration captures all forty Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
   const { report, visits } = await exerciseMain(t, { BEFORE_URL: '' });
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
   assert.equal(report.before.status, 'blocked');
   assert.deepEqual(report.before.failures, ['BEFORE_URL_MISSING']);
-  assert.equal(report.after.length, 6);
-  assert.equal(visits.length, 6);
+  assert.equal(report.after.length, 40);
+  assert.equal(visits.length, 40);
   assert.ok(visits.every((url) => url.startsWith('https://preview.example.test/')));
   assert.equal(report.setupFailure, undefined);
 });
@@ -114,7 +115,7 @@ test('orchestration rejects an unsafe baseline without exposing it or substituti
   assert.deepEqual(report.before.failures, ['BEFORE_URL_INVALID']);
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
-  assert.equal(visits.length, 6);
+  assert.equal(visits.length, 40);
   assert.ok(!JSON.stringify(report).includes('private-value'));
 });
 
@@ -122,16 +123,16 @@ test('orchestration refuses using the same origin as before and after evidence',
   const { report, visits } = await exerciseMain(t, { BEFORE_URL: 'https://preview.example.test/' });
   assert.deepEqual(report.before.failures, ['BASELINE_EQUALS_PREVIEW']);
   assert.equal(report.status, 'failed');
-  assert.equal(visits.length, 6);
+  assert.equal(visits.length, 40);
 });
 
-test('orchestration accepts only a passing baseline AND six passing Preview scenarios', async (t) => {
+test('orchestration accepts only a passing baseline AND forty passing Preview scenarios', async (t) => {
   const { report, visits } = await exerciseMain(t);
   assert.equal(report.status, 'passed');
   assert.equal(report.previewStatus, 'passed');
   assert.equal(report.before.status, 'passed');
-  assert.equal(report.after.length, 6);
-  assert.equal(visits.length, 7);
+  assert.equal(report.after.length, 40);
+  assert.equal(visits.length, 41);
   assert.equal(report.headSha, 'test-head');
   assert.equal(report.checkoutSha, 'test-merge');
 });
@@ -141,7 +142,7 @@ test('orchestration still captures Preview after a baseline navigation failure',
   assert.equal(report.status, 'failed');
   assert.equal(report.before.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
-  assert.equal(report.after.length, 6);
+  assert.equal(report.after.length, 40);
 });
 
 for (const [value, code] of [[undefined, 'AFTER_URL_MISSING'], ['', 'AFTER_URL_MISSING'], ['not a URL', 'AFTER_URL_INVALID']]) {
@@ -171,8 +172,8 @@ test('one failed Preview context does not discard sibling captures or later rout
   const { report } = await exerciseMain(t, { BEFORE_URL: '' }, { contextFailures: 1 });
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'failed');
-  assert.equal(report.after.length, 6);
-  assert.equal(report.after.filter((item) => item.status === 'passed').length, 5);
+  assert.equal(report.after.length, 40);
+  assert.equal(report.after.filter((item) => item.status === 'passed').length, 39);
   assert.deepEqual(report.after[0].failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
 });
 
@@ -180,7 +181,7 @@ test('browser teardown failure still writes the manifest and fails the gate', as
   const { report } = await exerciseMain(t, {}, { closeFails: true });
   assert.equal(report.status, 'failed');
   assert.equal(report.setupFailure, 'BROWSER_CLOSE_FAILED');
-  assert.equal(report.after.length, 6);
+  assert.equal(report.after.length, 40);
 });
 
 test('CLI exits nonzero and saves an actionable report on missing Preview configuration', async (t) => {
@@ -213,7 +214,7 @@ test('a failed baseline browser context cannot suppress all Preview diagnostics'
   const { report } = await exerciseMain(t, {}, { contextFailures: 1 });
   assert.equal(report.status, 'failed');
   assert.deepEqual(report.before.failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
-  assert.equal(report.after.length, 6);
+  assert.equal(report.after.length, 40);
   assert.equal(report.previewStatus, 'passed');
 });
 
@@ -227,7 +228,7 @@ async function readinessWithFonts({ fontStatus = 'loaded', afterFrame = () => un
     fonts,
     body: { getBoundingClientRect() { layouts += 1; return {}; } },
     querySelector(selector) {
-      return selector.startsWith('main') ? { querySelector: () => ({ textContent: 'خدمة' }) } : {};
+      return selector.startsWith('main') ? { querySelector: () => ({ textContent: 'خدمة' }), hasAttribute: () => false } : {};
     },
     querySelectorAll() { return busy ? [{ getClientRects: () => [1] }] : []; }
   };
@@ -298,4 +299,15 @@ test('capture readiness has a bounded deadline rather than an unlimited polling 
   let called = false;
   await assert.rejects(waitForCaptureReadiness({ waitForFunction() { called = true; } }, 0), /deadline exceeded/);
   assert.equal(called, false);
+});
+
+
+test('evidence rejects an unapplied theme and an unready map independently', () => {
+  assert.deepEqual(assessEvidence({ ...ready, mapStatus: 'loading' }, 200, true, 0, 'dark'), ['THEME_NOT_APPLIED', 'MAP_NOT_READY']);
+  assert.deepEqual(assessEvidence({ ...ready, theme: 'dark', mapStatus: 'ready' }, 200, true, 0, 'dark'), []);
+});
+test('every route, viewport and theme capture has a unique evidence filename', async (t) => {
+  const { report } = await exerciseMain(t);
+  assert.equal(new Set(report.after.map(item => item.screenshot)).size, 40);
+  assert.equal(report.after.filter(item => item.theme === 'dark').length, 20);
 });
