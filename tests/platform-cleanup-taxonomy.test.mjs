@@ -122,7 +122,12 @@ test('category directory paginates every service result instead of stopping at t
     read('docs/contracts/CANONICAL-BUSINESS-SERVICE-LOCATION-RELATIONSHIP-CONTRACTS.md')
   ]);
 
-  assert.match(directory, /api\.services\.search\(\{ categoryCode: categoryCode \|\| undefined, page: pageNumber \}\)/);
+  const request = directory.match(/api\.services\.search\(\{([^}]*)\}\)/)?.[1];
+  assert.ok(request, 'directory must issue the existing service search request');
+  assert.match(request, /categoryCode: categoryCode \|\| undefined/);
+  assert.match(request, /cityCode: cityCode \|\| undefined/);
+  assert.match(request, /q: q \|\| undefined/);
+  assert.match(request, /page: pageNumber/);
   assert.match(directory, /setTotal\(data\.total\)/);
   assert.match(directory, /const totalPages = Math\.ceil\(total \/ PAGE_SIZE\)/);
   assert.match(directory, /aria-label="صفحات دليل الخدمات"/);
