@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { NextFunction, Request, Response } from 'express';
-import { createCsrfOriginMiddleware } from './csrf-origin.middleware';
+import { configuredOrigins, createCsrfOriginMiddleware } from './csrf-origin.middleware';
 
 const originalCorsOrigin = process.env.CORS_ORIGIN;
 const allowedOrigin = 'https://frontend.example.test';
@@ -141,4 +141,14 @@ test('unsafe session request fails closed when both Origin and Referer are absen
     statusCode: 403,
     message: 'Request origin is not allowed.'
   });
+});
+
+for (const environment of ['preview','staging']) test(`${environment} has no inherited production origin and accepts only explicit origin configuration`, () => {
+  const previous=process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV=environment;delete process.env.CORS_ORIGIN;assert.deepEqual(configuredOrigins(),[]);
+    process.env.CORS_ORIGIN='https://isolated.example.test';assert.deepEqual(configuredOrigins(),['https://isolated.example.test']);
+    const rejected=runMiddleware({method:'POST',cookie:'khedmah_session=fixture',origin:'https://other.example.test',configuredOrigins:'https://isolated.example.test'});assert.equal(rejected.statusCode,403);
+    const allowed=runMiddleware({method:'POST',cookie:'khedmah_session=fixture',origin:'https://isolated.example.test',configuredOrigins:'https://isolated.example.test'});assert.equal(allowed.nextCalls,1);
+  } finally {if(previous===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=previous;}
 });

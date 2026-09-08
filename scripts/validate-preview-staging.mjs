@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 const requiredFiles = [
   '.github/workflows/preview-deployment.yml', '.github/workflows/staging-deployment.yml',
-  'cloudbuild.preview.yaml', 'cloudbuild.preview-backend.yaml', 'cloudbuild.staging.yaml',
+  'cloudbuild.preview.yaml', 'cloudbuild.preview-backend.yaml', 'cloudbuild.staging.yaml', 'cloudbuild.staging-backend.yaml', 'scripts/deployment/verify-cors-preflight.mjs',
   'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/cleanup-preview.sh',
   'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
   'docs/deployment/PREVIEW-STAGING-ARCHITECTURE.md', 'docs/deployment/OWNER-REVIEW-GUIDE.md'
@@ -21,4 +21,11 @@ if (!deployment.includes('_NEXT_PUBLIC_API_URL=${backend_url}')) throw new Error
 for (const required of ['PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME', '--add-cloudsql-instances', 'DATABASE_URL=DATABASE_URL:latest', 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME}', 'Preview Cloud SQL instance must belong to the preview project and region']) {
   if (!joined.includes(required)) throw new Error(`Preview database isolation is missing: ${required}`);
 }
+const staging = contents[1];
+for (const required of ['postgres:16', 'ALLOW_DESTRUCTIVE_DB_TESTS', 'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME']) {
+  if (!staging.includes(required)) throw new Error(`Staging readiness is missing: ${required}`);
+}
+const stagingBuild = await readFile('cloudbuild.staging.yaml', 'utf8');
+if (!stagingBuild.includes('NEXT_PUBLIC_API_URL="${_NEXT_PUBLIC_API_URL}"')) throw new Error('Staging frontend must use the discovered isolated backend');
+if (!deployment.includes('CORS_ORIGIN=${frontend_url}') || !deployment.includes('verify-cors-preflight.mjs')) throw new Error('Isolated credentialed origins must be configured and verified');
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);

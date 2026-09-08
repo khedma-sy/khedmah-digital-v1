@@ -13,6 +13,8 @@ function hasSessionCookie(cookieHeader: string | undefined): boolean {
 }
 
 export function configuredOrigins(): string[] {
+  // Isolated deployments never inherit a production browser origin.
+  if (['preview', 'staging'].includes(process.env.NODE_ENV ?? '') && !process.env.CORS_ORIGIN) return [];
   return (process.env.CORS_ORIGIN ?? 'https://frontend-774201339973.europe-west1.run.app')
     .split(',')
     .map((origin) => origin.trim())

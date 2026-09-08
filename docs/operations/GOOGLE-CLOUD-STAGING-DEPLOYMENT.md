@@ -23,60 +23,29 @@ gcloud artifacts repositories describe "${REPOSITORY}" --location="${REGION}" >/
 
 The operator must have permission to submit builds, upload images, deploy Cloud Run services, and change the public invoker policy. Organization policy may prohibit public invocation; in that case, omit `--allow-unauthenticated` rather than weakening the policy.
 
-## Build both images
+## Deploy the matching backend and frontend
 
-Submit the repository root as the build context. The explicit substitutions keep the pushed image names identical to those in the deployment commands.
-
-```bash
-gcloud builds submit . \
-  --config=cloudbuild.staging.yaml \
-  --substitutions="_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG}"
-```
-
-## Deploy the backend
-
-This command deploys the exact backend image produced above, uses Cloud Run's required port, and configures the existing application environment variables without opening the UI wizard.
+Use the shared, tested deployment script from the repository root. Supply the isolated Staging project, region, runtime identity and existing Cloud SQL connection name. The connection must belong to the same project and region; the script refuses the Production project before making cloud calls.
 
 ```bash
-gcloud run deploy khedmah-backend-staging \
-  --image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/backend:${IMAGE_TAG}" \
-  --region="${REGION}" \
-  --platform=managed \
-  --port=8080 \
-  --set-env-vars="NODE_ENV=staging,APP_VERSION=${IMAGE_TAG}" \
-  --allow-unauthenticated \
-  --quiet
+export GOOGLE_CLOUD_PROJECT="${PROJECT_ID}"
+export GOOGLE_CLOUD_REGION="${REGION}"
+export ARTIFACT_REPOSITORY="${REPOSITORY}"
+export RUNTIME_SERVICE_ACCOUNT="YOUR_STAGING_RUNTIME_SERVICE_ACCOUNT"
+export CLOUD_SQL_INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:YOUR_STAGING_SQL_INSTANCE"
+export PRODUCTION_GOOGLE_CLOUD_PROJECT="YOUR_PRODUCTION_PROJECT_ID_FOR_EXCLUSION"
+scripts/deployment/deploy-cloud-run-environment.sh staging "${IMAGE_TAG}"
 ```
 
-Capture the authoritative backend URL returned by Cloud Run and verify its health endpoint:
+The existing `DATABASE_URL` secret must reference the isolated Staging database, and the runtime identity must already have permission to access that secret and connect to that Cloud SQL instance. This procedure references the secret by name; it does not create it or print its value. Staging's Firebase and Maps build values must also already exist in that project's Secret Manager.
 
-```bash
-export BACKEND_URL="$(gcloud run services describe khedmah-backend-staging --region="${REGION}" --format='value(status.url)')"
-curl --fail --silent --show-error "${BACKEND_URL}/api/v1/health"
-```
+The script builds and deploys the backend with `cloudbuild.staging-backend.yaml`, reads its authoritative Cloud Run URL, then passes that URL to `cloudbuild.staging.yaml` as the frontend's `NEXT_PUBLIC_API_URL` build argument. Next.js embeds this public value during the build; setting it only on an already-built frontend revision is insufficient.
 
-## Deploy the frontend
+After deploying the frontend, the script reads its authoritative URL and sets the backend's `CORS_ORIGIN` to that exact origin. Both health checks and a credentialed-origin OPTIONS preflight must pass before the script reports success. HTTPS Preview and Staging session cookies use Secure and SameSite=None; the CSRF origin middleware requires the configured isolated frontend origin.
 
-Deploy the frontend only after the backend health check passes:
-
-```bash
-gcloud run deploy khedmah-frontend-staging \
-  --image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/frontend:${IMAGE_TAG}" \
-  --region="${REGION}" \
-  --platform=managed \
-  --port=8080 \
-  --allow-unauthenticated \
-  --quiet
-```
-
-Retrieve and verify the frontend URL:
-
-```bash
-export FRONTEND_URL="$(gcloud run services describe khedmah-frontend-staging --region="${REGION}" --format='value(status.url)')"
-curl --fail --silent --show-error "${FRONTEND_URL}/"
-```
+For GitHub deployment, configure `STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME` in the protected `staging` environment. The workflow supplies disposable PostgreSQL to all tests, preserving the destructive-test guard. Deployment still requires an approved push to `develop` and the environment's existing review policy. A passing mocked deployment-flow test does not establish that Staging resources or permissions are provisioned.
 
 ## Deployment boundary
 
-The build file creates and pushes application containers only. The `gcloud run deploy` commands create new revisions and move traffic through Cloud Run. Database provisioning, migrations, secret creation, custom domains, and production deployment remain outside this staging runbook.
+The two build files create and push application containers only. The `gcloud run deploy` commands create new revisions and move traffic through Cloud Run. Database provisioning, migrations, secret creation, custom domains, and production deployment remain outside this staging runbook.
 
