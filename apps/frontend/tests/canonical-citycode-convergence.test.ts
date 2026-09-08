@@ -9,6 +9,17 @@ const cities = [
   { code: 'beirut', nameAr: 'بيروت', nameEn: 'Beirut', countryCode: 'LB' }
 ];
 
+// Guard the URLSearchParams instance and canonical key, not its local variable name.
+function assertCanonicalCityWriter(source: string) {
+  const builder = source.match(/\bconst\s+(\w+)\s*=\s*new URLSearchParams\(\);/);
+  assert.ok(builder, 'search must create a URLSearchParams instance');
+  const variable = builder[1];
+  assert.match(source, new RegExp(`\\b${variable}\\.set\\('cityCode',\\s*\\w+\\.cityCode\\)`));
+  assert.match(source, new RegExp(`router\\.replace\\(${variable}\\.size\\s*\\?`));
+  assert.ok(source.includes('${' + variable + '}'), 'navigation must serialize the same query builder');
+  assert.doesNotMatch(source, /\.set\(['"]location['"]/);
+}
+
 test('Locations API projection is filtered to Syria and unknown URL values stay invalid', async () => {
   const hook = await read('../lib/use-syrian-cities.ts');
   assert.match(hook, /api\.locations\.cities\(\)/);
@@ -26,11 +37,22 @@ test('global and Professional search restore and emit only cityCode URL state', 
   ]);
   for (const source of [globalSearch, professional]) {
     assert.match(source, /params\.get\('cityCode'\)/);
-    assert.match(source, /next\.set\('cityCode'/);
+    assertCanonicalCityWriter(source);
+    assert.match(source, /canonicalCityCode\(rawCity, cities\)/);
     assert.match(source, /setPage\(1\)/);
     assert.match(source, /next\.delete|new URLSearchParams|router\.replace/);
     assert.doesNotMatch(source, /const CITIES|[?&]location=|params\.get\('location'\)/);
   }
+});
+
+test('canonical city writer guard permits local renaming but rejects missing or aliased serialization', () => {
+  const source = "const query = new URLSearchParams(); if (state.cityCode) query.set('cityCode', state.cityCode); router.replace(query.size ? `/search?${query}` : '/search');";
+  assert.doesNotThrow(() => assertCanonicalCityWriter(source));
+  assert.doesNotThrow(() => assertCanonicalCityWriter(source.replaceAll('query', 'searchParams')));
+  assert.throws(() => assertCanonicalCityWriter(source.replace("query.set('cityCode', state.cityCode);", '')));
+  assert.throws(() => assertCanonicalCityWriter(source.replace("'cityCode'", "'location'")));
+  assert.throws(() => assertCanonicalCityWriter(source.replace("query.set('cityCode'", "other.set('cityCode'")));
+  assert.throws(() => assertCanonicalCityWriter(source.replace('${query}', '${other}')));
 });
 
 test('clear removes cityCode and Locations failures never install a static fallback', async () => {
