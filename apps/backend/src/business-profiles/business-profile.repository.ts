@@ -38,6 +38,8 @@ export class BusinessProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
   async save(profile: BusinessProfile): Promise<void> {
+    // Owner edits must not replay trust, suspension, organization or featured
+    // values read before a newer administrative decision. Those have dedicated writes.
     await this.db.query(
       `INSERT INTO business_profiles (
          id, name, description_ar, description_en, owner_user_id, organization_id,
@@ -50,10 +52,7 @@ export class BusinessProfileRepository {
          name = EXCLUDED.name,
          description_ar = EXCLUDED.description_ar,
          description_en = EXCLUDED.description_en,
-         organization_id = EXCLUDED.organization_id,
          visibility = EXCLUDED.visibility,
-         trust_status = EXCLUDED.trust_status,
-         status = EXCLUDED.status,
          phone = EXCLUDED.phone,
          email = EXCLUDED.email,
          website = EXCLUDED.website,
@@ -63,9 +62,7 @@ export class BusinessProfileRepository {
          lat = EXCLUDED.lat,
          lng = EXCLUDED.lng,
          address_ar = EXCLUDED.address_ar,
-         is_featured = EXCLUDED.is_featured,
-         featured_at = EXCLUDED.featured_at,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = GREATEST(clock_timestamp(), business_profiles.updated_at + interval '1 microsecond')`,
       [
         profile.id,
         profile.name,

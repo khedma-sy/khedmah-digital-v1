@@ -65,7 +65,8 @@ test('professional editor prefills and persists the authenticated professional p
   const page = await read('apps/frontend/app/professional-profiles/new/page.tsx');
   assert.match(page, /api\.professionals\.getMine/);
   assert.match(page, /api\.professionals\.createOrUpdate/);
-  assert.match(page, /router\.push\(`\/professional-profiles\/\$\{result\.professional\.id\}`\)/);
+  assert.match(page, /router\.push\('\/professional-profiles'\)/);
+  assert.doesNotMatch(page, /router\.push\(`\/professional-profiles\/\$\{/);
   assert.match(page, /useSyrianCities/);
   assert.doesNotMatch(page, /style=\{|خدمة الرقمية/);
 });
