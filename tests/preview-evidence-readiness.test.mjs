@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { main, assessEvidence, browserReadyForCapture, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
+import { main, assessEvidence, browserReadyForCapture, browserContentReadyForCapture, waitForCaptureReadiness, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
 
 const ready = { headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/mobility', '/classifieds'], authReady: true,
   busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
@@ -76,7 +76,7 @@ async function exerciseMain(t, overrides = {}, options = {}) {
             return { status: () => 200 };
           },
           waitForFunction: async () => undefined,
-          evaluate: async () => ({ ...ready }),
+          evaluate: async (fn) => fn === browserReadyForCapture ? true : ({ ...ready }),
           url: () => currentUrl,
           screenshot: async () => undefined
         })
@@ -250,4 +250,52 @@ test('capture readiness rejects a font load restarted during client rendering', 
 test('capture readiness never accepts an unfinished font load or visible skeleton', async () => {
   assert.deepEqual(await readinessWithFonts({ fontStatus: 'loading' }), { result: false, frames: 0, layouts: 0 });
   assert.deepEqual(await readinessWithFonts({ busy: true }), { result: false, frames: 0, layouts: 0 });
+});
+
+
+test('the polling predicate is synchronous and never returns a truthy Promise for an unready page', () => {
+  const execute = new Function('document', `return (${browserContentReadyForCapture.toString()})();`);
+  const document = { querySelector: () => null, querySelectorAll: () => [], fonts: { status: 'loading' } };
+  const result = execute(document);
+  assert.equal(result, false);
+  assert.equal(typeof result, 'boolean');
+  assert.equal(browserContentReadyForCapture.constructor.name, 'Function');
+});
+
+test('capture awaits font-settling evaluation and repolls if rendering restarts loading', async () => {
+  let polls = 0;
+  let evaluations = 0;
+  const page = {
+    waitForFunction: async (fn, arg, options) => {
+      assert.equal(fn, browserContentReadyForCapture);
+      assert.equal(fn.constructor.name, 'Function');
+      assert.equal(arg, null);
+      assert.ok(options.timeout > 0 && options.timeout <= 30000);
+      polls += 1;
+    },
+    evaluate: async (fn) => {
+      assert.equal(fn, browserReadyForCapture);
+      evaluations += 1;
+      return evaluations === 2;
+    }
+  };
+  await waitForCaptureReadiness(page);
+  assert.equal(polls, 2);
+  assert.equal(evaluations, 2);
+});
+
+test('capture does not evaluate or accept fonts before synchronous readiness resolves', async () => {
+  let evaluated = false;
+  const page = {
+    waitForFunction: async () => { throw new Error('readiness timeout'); },
+    evaluate: async () => { evaluated = true; return true; }
+  };
+  await assert.rejects(waitForCaptureReadiness(page), /readiness timeout/);
+  assert.equal(evaluated, false);
+});
+
+test('capture readiness has a bounded deadline rather than an unlimited polling loop', async () => {
+  let called = false;
+  await assert.rejects(waitForCaptureReadiness({ waitForFunction() { called = true; } }, 0), /deadline exceeded/);
+  assert.equal(called, false);
 });
