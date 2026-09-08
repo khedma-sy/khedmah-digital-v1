@@ -143,7 +143,7 @@ export function CategoryDirectory() {
               <button key={category.code} type="button" disabled={filtersUnavailable} onClick={() => selectCategory(category.code)}>
                 <span className="catalog-category-icon"><PlatformIcon name={categoryIcons[category.visualKey] ?? 'grid'} /></span>
                 <strong>{category.nameAr}</strong>
-                <small>{categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')} تخصصات</small>
+                <small>التخصصات: {categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')}</small>
                 <PlatformIcon name="arrow" />
               </button>
             ))}
