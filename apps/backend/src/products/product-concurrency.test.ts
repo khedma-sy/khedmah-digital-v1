@@ -66,7 +66,7 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
     });
     await t.test('reviewing an older queued item cannot publish a resubmitted edit', async () => {
       const before = await pending();
-      await service.update(undefined, before.id, { titleAr: 'المحتوى الجديد' }); await service.submit(undefined, before.id);
+      await service.update(undefined, before.id, { titleAr: 'المحتوى الجديد', expectedContentRevision: before.contentRevision }); await service.submit(undefined, before.id);
       await assert.rejects(() => service.review(undefined, before.id, 'approved', undefined, before.revision), ConflictException);
       const current = (await repository.findById(before.id))!; assert.equal(current.titleAr, 'المحتوى الجديد'); assert.equal(current.moderationStatus, 'pending');
     });
@@ -108,6 +108,17 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
       await assert.rejects(upload, ForbiddenException); await assert.rejects(() => media.delete(undefined, asset.id), ForbiddenException);
       await assert.rejects(() => service.update(undefined, before.id, { titleAr: 'محاولة تعديل' }), ForbiddenException);
       assert.equal((await repository.findById(before.id))!.revision, before.revision);
+    });
+    await t.test('owner content fingerprint rejects stale forms but survives image changes', async () => {
+      const before = await reset(); await upload();
+      const withImage = (await repository.findById(before.id))!;
+      assert.equal(withImage.contentRevision, before.contentRevision); assert.notEqual(withImage.revision, before.revision);
+      const saved = await service.update(undefined, before.id, { titleAr: 'تعديل مالك آمن', expectedContentRevision: before.contentRevision });
+      assert.notEqual(saved.contentRevision, before.contentRevision);
+      await assert.rejects(() => service.update(undefined, before.id, { titleAr: 'تبويب قديم', expectedContentRevision: before.contentRevision }), ConflictException);
+      const described = await service.update(undefined, before.id, { descriptionAr: 'وصف للحذف', expectedContentRevision: saved.contentRevision });
+      const cleared = await service.update(undefined, before.id, { descriptionAr: '', expectedContentRevision: described.contentRevision });
+      assert.equal(cleared.descriptionAr, undefined);
     });
     await t.test('a storage delete failure cannot leave a published image reference', async () => {
       const before = await pending(); await service.review(undefined, before.id, 'approved', undefined, before.revision);

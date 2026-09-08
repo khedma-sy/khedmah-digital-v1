@@ -6,12 +6,13 @@ interface ProductRow extends Record<string, unknown> {
   id: string; business_profile_id: string; owner_user_id: string; title_ar: string; description_ar: string | null;
   price: string; currency: 'SYP' | 'USD'; category_code: string; availability: ProductListing['availability'];
   status: ProductListing['status']; moderation_status: ProductListing['moderationStatus']; rejection_reason: string | null;
-  image_url: string | null; image_urls: string[] | null; business_name: string | null; city_code: string | null; created_at: Date; updated_at: Date; revision: string;
+  image_url: string | null; image_urls: string[] | null; business_name: string | null; city_code: string | null; created_at: Date; updated_at: Date; revision: string; content_revision: string;
 }
 
 const projection = `p.id, p.business_profile_id, p.owner_user_id, p.title_ar, p.description_ar, p.price, p.currency,
   p.category_code, p.availability, p.status, p.moderation_status, p.rejection_reason, p.created_at, p.updated_at,
   to_char(p.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision,
+  encode(sha256(convert_to(jsonb_build_array(p.id, p.title_ar, p.description_ar, p.price, p.currency, p.category_code, p.availability)::text, 'UTF8')), 'hex') AS content_revision,
   b.name AS business_name, b.city_code,
   (SELECT public_url FROM media_assets WHERE owner_type = 'product_listing' AND owner_id = p.id AND asset_type = 'product_image' AND visibility = 'public' ORDER BY sort_order, created_at LIMIT 1) AS image_url,
   (SELECT COALESCE(array_agg(public_url ORDER BY sort_order, created_at), ARRAY[]::text[]) FROM media_assets WHERE owner_type = 'product_listing' AND owner_id = p.id AND asset_type = 'product_image' AND visibility = 'public') AS image_urls`;
@@ -20,7 +21,7 @@ const projection = `p.id, p.business_profile_id, p.owner_user_id, p.title_ar, p.
 export class ProductRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
-  async insert(product: ProductListing): Promise<void> {
+  async insert(product: Omit<ProductListing, 'revision' | 'contentRevision'>): Promise<void> {
     await this.db.query(
       `INSERT INTO product_listings
         (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
@@ -104,5 +105,5 @@ function map(row: ProductRow): ProductListing {
     descriptionAr: row.description_ar ?? undefined, price: Number(row.price), currency: row.currency, categoryCode: row.category_code,
     availability: row.availability, status: row.status, moderationStatus: row.moderation_status, rejectionReason: row.rejection_reason ?? undefined,
     imageUrl: row.image_url ?? undefined, imageUrls: row.image_urls ?? [], businessName: row.business_name ?? undefined, cityCode: row.city_code ?? undefined,
-    createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(), revision: row.revision };
+    createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(), revision: row.revision, contentRevision: row.content_revision };
 }

@@ -13,7 +13,7 @@ const text = (value: unknown, field: string, min: number, max: number, optional 
 export function validateProductWrite(value: Record<string, unknown>, partial = false) {
   const result: Record<string, unknown> = {};
   if (!partial || value.titleAr !== undefined) result.titleAr = text(value.titleAr, 'titleAr', 2, 160);
-  if (!partial || value.descriptionAr !== undefined) result.descriptionAr = text(value.descriptionAr, 'descriptionAr', 0, 2000, true);
+  if (!partial || value.descriptionAr !== undefined) result.descriptionAr = text(value.descriptionAr, 'descriptionAr', 0, 2000, true) ?? (partial ? null : undefined);
   if (!partial || value.price !== undefined) {
     const price = Number(value.price);
     if (!Number.isFinite(price) || price <= 0 || price > 999999999999) throw new BadRequestException('price is invalid.');
@@ -31,7 +31,7 @@ export function validateProductWrite(value: Record<string, unknown>, partial = f
   }
   if (!partial || value.businessProfileId !== undefined) result.businessProfileId = text(value.businessProfileId, 'businessProfileId', 1, 100);
   return result as {
-    titleAr?: string; descriptionAr?: string; price?: number; currency?: 'SYP' | 'USD';
+    titleAr?: string; descriptionAr?: string | null; price?: number; currency?: 'SYP' | 'USD';
     categoryCode?: string; availability?: ProductAvailability; businessProfileId?: string;
   };
 }

@@ -140,6 +140,7 @@ export interface ProductListing {
   readonly cityCode?: string;
   readonly createdAt: string;
   readonly revision: string;
+  readonly contentRevision: string;
 }
 
 export interface MediaAsset {

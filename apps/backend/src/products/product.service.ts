@@ -27,11 +27,11 @@ export class ProductService {
     if (business.ownerUserId !== actor.id) throw new ForbiddenException('Access denied.');
     await this.categories.assertActiveCategory(input.categoryCode!);
     const now = new Date().toISOString();
-    const product: ProductListing = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
-      descriptionAr: input.descriptionAr, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
-      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now, revision: now.replace('Z', '000Z') };
+    const product: Omit<ProductListing, 'revision' | 'contentRevision'> = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
+      descriptionAr: input.descriptionAr ?? undefined, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
+      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
     await this.repository.insert(product);
-    return product;
+    return (await this.repository.findById(product.id))!;
   }
 
   async listMine(cookie: string | undefined) {
@@ -52,10 +52,16 @@ export class ProductService {
   async update(cookie: string | undefined, id: string, request: Record<string, unknown>) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const product = await this.requireOwner(actor.id, id);
+    if (typeof request.expectedContentRevision !== 'string' || !/^[a-f0-9]{64}$/.test(request.expectedContentRevision)) {
+      throw new BadRequestException('حدّث بيانات المنتج قبل حفظ المسودة.');
+    }
+    if (request.expectedContentRevision !== product.contentRevision) {
+      throw new ConflictException('تغيرت بيانات المنتج في جلسة أخرى. راجع النسخة الحالية قبل حفظ مسودتك.');
+    }
     const input = validateProductWrite(request, true);
     if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const updated: ProductListing = { ...product, titleAr: input.titleAr ?? product.titleAr,
-      descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
+      descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr ?? undefined,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
       availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
     return this.repository.update(updated, product.revision);

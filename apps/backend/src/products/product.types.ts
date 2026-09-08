@@ -23,6 +23,8 @@ export interface ProductListing {
   readonly updatedAt: string;
   /** Exact database timestamp; do not round through a JavaScript Date. */
   readonly revision: string;
+  /** Fingerprint of editable content; media and moderation do not advance it. */
+  readonly contentRevision: string;
 }
 
 export type PublicProductListing = Omit<ProductListing, 'ownerUserId' | 'rejectionReason'>;

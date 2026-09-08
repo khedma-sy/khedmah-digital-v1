@@ -8,7 +8,7 @@ const revision = '2026-09-08T01:00:00.123456Z';
 const nextRevision = '2026-09-08T01:00:00.123457Z';
 const base = { id: 'p', businessProfileId: 'b', ownerUserId: 'owner', titleAr: 'منتج أصلي', price: 100, currency: 'SYP',
   categoryCode: 'general', availability: 'in_stock', status: 'active', moderationStatus: 'pending',
-  createdAt: revision, updatedAt: revision, revision } as ProductListing & { revision: string };
+  createdAt: revision, updatedAt: revision, revision, contentRevision: 'a'.repeat(64) } as ProductListing & { revision: string };
 function fixture() {
   let product = { ...base }; let actor = 'owner'; let image = true; let authorized = true;
   let businessRead = async () => ({ ownerUserId: 'owner', visibility: 'public', moderationStatus: 'approved', trustStatus: 'approved', status: 'active' });
@@ -57,4 +57,21 @@ test('cross-owner edits and unauthorized reviews are denied', async () => {
 });
 test('missing images cannot be submitted or approved', async () => {
   const f = fixture(); f.image = false; await assert.rejects(() => f.service.submit(undefined, 'p'), BadRequestException); await assert.rejects(() => review(f), BadRequestException);
+});
+
+test('an owner cannot save a stale content draft over another tab', async () => {
+  const f = fixture(); f.product = { ...f.product, contentRevision: 'b'.repeat(64), titleAr: 'تعديل تبويب آخر' };
+  await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'مسودة قديمة', expectedContentRevision: 'a'.repeat(64) }), ConflictException);
+  assert.equal(f.product.titleAr, 'تعديل تبويب آخر'); assert.equal(f.writes.length, 0);
+});
+test('owner writes require the content reference but tolerate their own image-only changes', async () => {
+  const f = fixture(); await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'مسودة' }), BadRequestException);
+  f.product = { ...f.product, revision: nextRevision };
+  await f.service.update(undefined, 'p', { titleAr: 'تعديل بعد الصورة', expectedContentRevision: 'a'.repeat(64) });
+  assert.equal(f.product.titleAr, 'تعديل بعد الصورة');
+});
+test('an explicitly cleared description is saved instead of retaining the old text', async () => {
+  const f = fixture(); f.product = { ...f.product, descriptionAr: 'وصف قديم' };
+  await f.service.update(undefined, 'p', { descriptionAr: '', expectedContentRevision: 'a'.repeat(64) });
+  assert.equal(f.product.descriptionAr, undefined);
 });
