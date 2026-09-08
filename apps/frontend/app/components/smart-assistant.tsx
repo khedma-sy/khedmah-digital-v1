@@ -18,6 +18,7 @@ export function SmartAssistant() {
   function go(value: string) {
     const text = value.trim();
     if (!text) return setMessage('اكتب الخدمة أو الإعلان الذي تبحث عنه.');
+    setOpen(false);
     if (/تكسي|تاكسي|سيارة|سائق/.test(text)) return router.push('/mobility?type=taxi');
     if (/مندوب|توصيل|شحن/.test(text)) return router.push('/mobility?type=delivery');
     if (/إعلان|اعلان|منتج|بيع|شراء|مستعمل/.test(text)) return router.push(`/classifieds?q=${encodeURIComponent(text)}`);

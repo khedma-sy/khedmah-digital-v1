@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {clientPage,css,readSource} from './helpers/client-page-harness.mjs';
+function fixture(){const navigations=[];const page=clientPage(readSource('apps/frontend/app/components/smart-assistant.tsx')+'\nexport default SmartAssistant;',{'next/navigation':{useRouter:()=>({push:href=>navigations.push(href)})},'./smart-assistant.module.css':{default:css}});page.click('☂ اسأل خدمة');return{page,navigations};}
+test('assistant keeps an empty request open and does not navigate',()=>{const f=fixture();f.page.submit();assert.deepEqual(f.navigations,[]);assert.ok(f.page.find(n=>n.type==='input'));assert.match(f.page.text,/اكتب الخدمة أو الإعلان/);});
+test('assistant closes its panel after a valid search and preserves the query',()=>{const f=fixture();f.page.find(n=>n.type==='input').props.onChange({target:{value:'سباك في حلب'}});f.page.render();f.page.submit();assert.deepEqual(f.navigations,['/search?q='+encodeURIComponent('سباك في حلب')]);assert.ok(!f.page.find(n=>n.type==='input'));});
+for(const [label,path] of [['تكسي','/mobility?type=taxi'],['مندوب','/mobility?type=delivery'],['إعلانات','/classifieds?q='+encodeURIComponent('إعلانات')]])test(`assistant shortcut ${label} closes the panel on its destination`,()=>{const f=fixture();f.page.click(label);assert.deepEqual(f.navigations,[path]);assert.ok(!f.page.find(n=>n.type==='input'));});
