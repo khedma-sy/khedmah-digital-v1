@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assessEvidence, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { main, assessEvidence, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
 
 const ready = { headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, authReady: true,
   busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
@@ -42,4 +47,170 @@ test('evidence coverage is bounded to anonymous read-only routes at two screen s
   assert.deepEqual(evidenceRoutes.map(({ path }) => path), ['/', '/categories', '/professional-profiles/search']);
   assert.deepEqual(evidenceViewports.map(({ width }) => width), [1280, 390]);
   assert.equal(evidenceRoutes[2].formName, 'بحث عن مهنيين');
+});
+
+// Orchestration tests use a browser double: they verify control flow and reporting,
+// not page layout or real network readiness. Live captures remain the CI job's duty.
+async function exerciseMain(t, overrides = {}, options = {}) {
+  const directory = await mkdtemp(join(tmpdir(), 'khedmah-evidence-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const visits = [];
+  let launches = 0;
+  let contextFailures = options.contextFailures ?? 0;
+  const browser = {
+    version: () => 'test-double',
+    close: async () => { if (options.closeFails) throw new Error('sensitive teardown details'); },
+    newContext: async () => {
+      if (contextFailures-- > 0) throw new Error('context unavailable');
+      let currentUrl;
+      return {
+        close: async () => undefined,
+        newPage: async () => ({
+          on: () => undefined,
+          goto: async (url) => {
+            currentUrl = url;
+            visits.push(url);
+            if (options.baselineFails && url.startsWith('https://staging.example.test')) throw new Error('navigation failed');
+            return { status: () => 200 };
+          },
+          waitForFunction: async () => undefined,
+          evaluate: async () => ({ ...ready }),
+          url: () => currentUrl,
+          screenshot: async () => undefined
+        })
+      };
+    }
+  };
+  const env = { BEFORE_URL: 'https://staging.example.test', AFTER_URL: 'https://preview.example.test',
+    PREVIEW_HEAD_SHA: 'test-head', GITHUB_SHA: 'test-merge', EVIDENCE_DIR: directory, ...overrides };
+  const launchBrowser = async () => {
+    launches += 1;
+    if (options.launchFails) throw new Error('sensitive launch details');
+    return browser;
+  };
+  const originalExitCode = process.exitCode;
+  const report = await main(env, options.realLauncher ? {} : { launchBrowser });
+  assert.equal(process.exitCode, originalExitCode, 'imported main must not modify the test process exit status');
+  assert.deepEqual(JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')), report);
+  return { report, visits, launches, directory };
+}
+
+test('orchestration captures all six Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
+  const { report, visits } = await exerciseMain(t, { BEFORE_URL: '' });
+  assert.equal(report.status, 'failed');
+  assert.equal(report.previewStatus, 'passed');
+  assert.equal(report.before.status, 'blocked');
+  assert.deepEqual(report.before.failures, ['BEFORE_URL_MISSING']);
+  assert.equal(report.after.length, 6);
+  assert.equal(visits.length, 6);
+  assert.ok(visits.every((url) => url.startsWith('https://preview.example.test/')));
+  assert.equal(report.setupFailure, undefined);
+});
+
+test('orchestration rejects an unsafe baseline without exposing it or substituting the Preview', async (t) => {
+  const { report, visits } = await exerciseMain(t, { BEFORE_URL: 'https://user:private-value@staging.example.test/?token=private-value' });
+  assert.deepEqual(report.before.failures, ['BEFORE_URL_INVALID']);
+  assert.equal(report.status, 'failed');
+  assert.equal(report.previewStatus, 'passed');
+  assert.equal(visits.length, 6);
+  assert.ok(!JSON.stringify(report).includes('private-value'));
+});
+
+test('orchestration refuses using the same origin as before and after evidence', async (t) => {
+  const { report, visits } = await exerciseMain(t, { BEFORE_URL: 'https://preview.example.test/' });
+  assert.deepEqual(report.before.failures, ['BASELINE_EQUALS_PREVIEW']);
+  assert.equal(report.status, 'failed');
+  assert.equal(visits.length, 6);
+});
+
+test('orchestration accepts only a passing baseline AND six passing Preview scenarios', async (t) => {
+  const { report, visits } = await exerciseMain(t);
+  assert.equal(report.status, 'passed');
+  assert.equal(report.previewStatus, 'passed');
+  assert.equal(report.before.status, 'passed');
+  assert.equal(report.after.length, 6);
+  assert.equal(visits.length, 7);
+  assert.equal(report.headSha, 'test-head');
+  assert.equal(report.checkoutSha, 'test-merge');
+});
+
+test('orchestration still captures Preview after a baseline navigation failure', async (t) => {
+  const { report } = await exerciseMain(t, {}, { baselineFails: true });
+  assert.equal(report.status, 'failed');
+  assert.equal(report.before.status, 'failed');
+  assert.equal(report.previewStatus, 'passed');
+  assert.equal(report.after.length, 6);
+});
+
+for (const [value, code] of [[undefined, 'AFTER_URL_MISSING'], ['', 'AFTER_URL_MISSING'], ['not a URL', 'AFTER_URL_INVALID']]) {
+  test(`orchestration does not start a browser for ${code} (${String(value)})`, async (t) => {
+    const { report, launches } = await exerciseMain(t, { AFTER_URL: value });
+    assert.equal(report.setupFailure, code);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.previewStatus, 'not_run');
+    assert.equal(launches, 0);
+  });
+}
+
+test('orchestration reports a missing browser-tooling path explicitly', async (t) => {
+  const { report } = await exerciseMain(t, {}, { realLauncher: true });
+  assert.equal(report.setupFailure, 'BROWSER_TOOLING_PATH_MISSING');
+  assert.equal(report.status, 'failed');
+});
+
+test('orchestration persists sanitized diagnostics when Chromium cannot launch', async (t) => {
+  const { report } = await exerciseMain(t, {}, { launchFails: true });
+  assert.equal(report.setupFailure, 'BROWSER_LAUNCH_FAILED');
+  assert.equal(report.status, 'failed');
+  assert.ok(!JSON.stringify(report).includes('sensitive'));
+});
+
+test('one failed Preview context does not discard sibling captures or later routes', async (t) => {
+  const { report } = await exerciseMain(t, { BEFORE_URL: '' }, { contextFailures: 1 });
+  assert.equal(report.status, 'failed');
+  assert.equal(report.previewStatus, 'failed');
+  assert.equal(report.after.length, 6);
+  assert.equal(report.after.filter((item) => item.status === 'passed').length, 5);
+  assert.deepEqual(report.after[0].failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
+});
+
+test('browser teardown failure still writes the manifest and fails the gate', async (t) => {
+  const { report } = await exerciseMain(t, {}, { closeFails: true });
+  assert.equal(report.status, 'failed');
+  assert.equal(report.setupFailure, 'BROWSER_CLOSE_FAILED');
+  assert.equal(report.after.length, 6);
+});
+
+test('CLI exits nonzero and saves an actionable report on missing Preview configuration', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'khedmah-evidence-cli-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('../scripts/capture-preview-evidence.mjs', import.meta.url))], {
+    encoding: 'utf8', env: { ...process.env, BEFORE_URL: '', AFTER_URL: '', EVIDENCE_DIR: directory }, timeout: 10000
+  });
+  assert.equal(result.status, 1);
+  const report = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+  assert.equal(report.setupFailure, 'AFTER_URL_MISSING');
+  assert.deepEqual(report.before.failures, ['BEFORE_URL_MISSING']);
+});
+
+test('review-evidence binds protected Preview variables while retaining least privilege and failure reporting', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
+  const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
+  assert.match(reviewJob, /^    environment: preview$/m);
+  assert.match(reviewJob, /BEFORE_URL: \$\{\{ vars\.STAGING_FRONTEND_URL \}\}/);
+  assert.match(reviewJob, /contents: read\s+pull-requests: write/);
+  assert.doesNotMatch(reviewJob, /id-token: write|continue-on-error|\|\| true/);
+  assert.match(reviewJob, /if: always\(\)/);
+  assert.match(reviewJob, /evidence\.previewStatus/);
+  assert.match(reviewJob, /evidence\.before\?\.failures/);
+  assert.match(reviewJob, /evidence\.setupFailure/);
+});
+
+
+test('a failed baseline browser context cannot suppress all Preview diagnostics', async (t) => {
+  const { report } = await exerciseMain(t, {}, { contextFailures: 1 });
+  assert.equal(report.status, 'failed');
+  assert.deepEqual(report.before.failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
+  assert.equal(report.after.length, 6);
+  assert.equal(report.previewStatus, 'passed');
 });
