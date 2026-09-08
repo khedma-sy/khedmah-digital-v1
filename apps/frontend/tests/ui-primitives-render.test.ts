@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -11,7 +12,7 @@ import ts from 'typescript';
 // Next compiles JSX automatically. Explicitly use the same JSX runtime here so
 // these DOM-contract tests do not depend on tsx's interpretation of jsx: preserve.
 const sourceUrl = new URL('../app/components/ui-primitives.tsx', import.meta.url);
-const source = await readFile(sourceUrl, 'utf8');
+const source = readFileSync(sourceUrl, 'utf8');
 const compiled = ts.transpileModule(source, {
   fileName: fileURLToPath(sourceUrl),
   reportDiagnostics: true,
