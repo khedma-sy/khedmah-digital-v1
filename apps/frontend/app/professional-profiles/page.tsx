@@ -70,7 +70,7 @@ export default function ProfessionalProfilesPage() {
   }
 
   const moderationStatus = profile?.contactEligibility?.moderationStatus;
-  const canSubmit = !!profile?.contactEligibility && (moderationStatus === 'rejected' || profile.contactEligibility.lifecycleStatus === 'created');
+  const canSubmit = !!profile?.contactEligibility && !['suspended', 'archived'].includes(profile.contactEligibility.lifecycleStatus) && (moderationStatus === 'rejected' || (moderationStatus === 'pending' && ['created', 'active'].includes(profile.contactEligibility.lifecycleStatus)));
 
   return <PageShell className={styles.page} label="ملفي المهني">
     <PageHeader

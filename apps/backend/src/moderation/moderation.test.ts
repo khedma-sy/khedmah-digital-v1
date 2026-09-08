@@ -87,7 +87,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [adminEmail]: ['operations_product_director'] });
   const adminCookie = admin.cookie;
 
-  await businessService.approveModeration(adminCookie, business.id);
+  await businessService.approveModeration(adminCookie, business.id, (await businessService.listMine(ownerCookie))[0].revision);
 
   // To be public, it also needs trust_status=approved and visibility=public
   await businessService.update(ownerCookie, business.id, { visibility: 'public' });
@@ -98,7 +98,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   assert.equal(publicBusiness.moderationStatus, 'approved');
 
   // 4. Admin Reject
-  await businessService.rejectModeration(adminCookie, business.id, 'Inappropriate content');
+  await businessService.rejectModeration(adminCookie, business.id, 'Inappropriate content', (await businessService.listMine(ownerCookie))[0].revision);
   const rejected = await businessService.getPublic(business.id).catch(() => null);
   assert.equal(rejected, null); // Hidden again
 });
@@ -126,14 +126,14 @@ test('Moderation Vertical Slice: Professional Workflow', async () => {
   process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [adminEmail]: ['operations_product_director'] });
   const adminCookie = admin.cookie;
 
-  await professionalService.approveModeration(adminCookie, pro.id);
+  await professionalService.approveModeration(adminCookie, pro.id, (await professionalService.getMine(ownerCookie)).revision);
   await pool.query(`UPDATE professional_profiles SET visibility = 'public' WHERE professional_profile_identifier = $1`, [pro.id]);
   const approved = await professionalService.getProfile(pro.id);
   assert.equal(approved.id, pro.id);
   assert.equal(approved.headlineAr, 'محترف تيست');
 
   // 4. Admin Reject
-  await professionalService.rejectModeration(adminCookie, pro.id, 'Invalid credentials');
+  await professionalService.rejectModeration(adminCookie, pro.id, 'Invalid credentials', (await professionalService.getMine(ownerCookie)).revision);
   const rejected = await professionalService.getProfile(pro.id).catch(() => null);
   assert.equal(rejected, null); // Rejected profiles fail closed on public reads
 });

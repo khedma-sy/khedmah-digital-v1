@@ -45,6 +45,7 @@ export interface OperationsProductOverview {
 }
 
 export interface PublicBusinessProfile {
+  readonly revision?: string;
   readonly id: string;
   readonly name: string;
   readonly descriptionAr?: string;
@@ -85,6 +86,7 @@ export interface Category {
 }
 
 export interface PublicProfessionalProfile {
+  readonly revision?: string;
   readonly id: string;
   readonly headlineAr: string;
   readonly headlineEn?: string;
@@ -555,13 +557,13 @@ export const api = {
     submitForReview(id: string) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/submit`, { method: 'POST' });
     },
-    approveModeration(id: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST' });
+    approveModeration(id: string, expectedRevision: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST', body: JSON.stringify({ expectedRevision }) });
     },
-    rejectModeration(id: string, reason: string) {
+    rejectModeration(id: string, reason: string, expectedRevision: string) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason, expectedRevision })
       });
     },
     suspend(id: string, reason: string) {
@@ -628,13 +630,13 @@ export const api = {
     submitForReview(id: string) {
       return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/submit`, { method: 'POST' });
     },
-    approveModeration(id: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST' });
+    approveModeration(id: string, expectedRevision: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST', body: JSON.stringify({ expectedRevision }) });
     },
-    rejectModeration(id: string, reason: string) {
+    rejectModeration(id: string, reason: string, expectedRevision: string) {
       return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason, expectedRevision })
       });
     },
     suspend(id: string, reason: string) {

@@ -52,7 +52,7 @@ export class ProfessionalProfileService {
         };
 
     await this.repository.save(profile);
-    return this.toPublic(profile);
+    return this.toPublic(await this.requireProfile(profile.id));
   }
 
   async getMine(cookieHeader: string | undefined): Promise<PublicProfessionalProfile> {
@@ -161,71 +161,22 @@ export class ProfessionalProfileService {
 
   async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const profile = await this.requireProfile(id);
-    if (profile.userId !== actor.id) throw new ForbiddenException('Access denied');
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'pending', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'pending',
-      changedBy: actor.id,
-      reason: 'Submitted for review by owner',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.submitForReview(id, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async approveModeration(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
+  async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'active', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Approved by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.review(id, actor.id, 'approved', expectedRevision);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
+  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string, expectedRevision?: unknown): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'rejected',
-      changedBy: actor.id,
-      reason: reason || 'Rejected by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.review(id, actor.id, 'rejected', expectedRevision, reason);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async suspendProfessional(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
@@ -276,6 +227,7 @@ export class ProfessionalProfileService {
   private toPublic(profile: ProfessionalProfile): PublicProfessionalProfile {
     return {
       id: profile.id,
+      revision: profile.revision,
       headlineAr: profile.headlineAr,
       headlineEn: profile.headlineEn,
       bioAr: profile.bioAr,

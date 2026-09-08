@@ -13,6 +13,7 @@ export interface ProfessionalProfile {
   readonly skills: readonly string[];
   readonly isFeatured: boolean;
   readonly featuredAt?: string;
+  readonly revision?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -28,6 +29,7 @@ export interface PublicProfessionalProfile {
   readonly countryCode: string;
   readonly skills: readonly string[];
   readonly isFeatured: boolean;
+  readonly revision?: string;
   readonly createdAt: string;
   readonly contactEligibility?: {
     readonly visibility: 'public' | 'private' | 'internal';

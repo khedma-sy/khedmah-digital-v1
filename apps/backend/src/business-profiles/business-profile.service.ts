@@ -158,51 +158,17 @@ export class BusinessProfileService {
   // --- Moderation ---
   async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const profile = await this.requireProfile(id);
-    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'pending',
-      changedBy: actor.id,
-      reason: 'Submitted for review by owner',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'pending', updatedAt });
+    await this.repository.submitForReview(id, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async rejectModeration(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
+  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'rejected',
-      changedBy: actor.id,
-      reason: reason || 'Rejected by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'rejected', updatedAt });
+    await this.repository.review(id, actor.id, 'rejected', expectedRevision, reason);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  // --- Media ---
   async addMediaAsset(cookieHeader: string | undefined, entityId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(entityId);
@@ -339,27 +305,11 @@ export class BusinessProfileService {
     return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
   }
 
-  async approveModeration(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
+  async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Approved by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'approved', updatedAt });
+    await this.repository.review(id, actor.id, 'approved', expectedRevision);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async suspendBusiness(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
@@ -413,6 +363,7 @@ export class BusinessProfileService {
   private toPublic(profile: BusinessProfile): PublicBusinessProfile {
     return {
       id: profile.id,
+      revision: profile.revision,
       name: profile.name,
       descriptionAr: profile.descriptionAr,
       descriptionEn: profile.descriptionEn,

@@ -30,6 +30,7 @@ export interface BusinessProfile {
   readonly rating?: number;
   readonly responseSpeedMinutes?: number;
   readonly featuredAt?: string;
+  readonly revision?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -60,6 +61,7 @@ export interface PublicBusinessProfile {
   readonly responseSpeedMinutes?: number;
   readonly distanceKm?: number;
   readonly matchScore?: number;
+  readonly revision?: string;
   readonly createdAt: string;
 }
 

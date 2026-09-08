@@ -166,13 +166,13 @@ export class BusinessProfilesController {
   }
 
   @Post(':id/moderation/approve')
-  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { business: await this.businessProfiles.approveModeration(cookieHeader, id) };
+  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { expectedRevision?: unknown } | null) {
+    return { business: await this.businessProfiles.approveModeration(cookieHeader, id, body?.expectedRevision) };
   }
 
   @Post(':id/moderation/reject')
-  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
-    return { business: await this.businessProfiles.rejectModeration(cookieHeader, id, body.reason) };
+  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string; expectedRevision?: unknown } | null) {
+    return { business: await this.businessProfiles.rejectModeration(cookieHeader, id, body?.reason ?? '', body?.expectedRevision) };
   }
 
   @Post(':id/suspend')

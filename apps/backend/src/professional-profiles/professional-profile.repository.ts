@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { PROFILE_REVISION_SQL, writeProfileReview } from '../moderation/profile-review-write';
 import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
 
 interface ProfessionalProfileRow extends Record<string, unknown> {
@@ -17,11 +18,20 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
+  readonly revision: string;
 }
 
 @Injectable()
 export class ProfessionalProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
+
+  async review(id: string, actorId: string, status: 'approved' | 'rejected', expectedRevision: unknown, reason?: string): Promise<void> {
+    await writeProfileReview(this.db, 'professional', id, actorId, { status, expectedRevision, reason });
+  }
+
+  async submitForReview(id: string, actorId: string): Promise<void> {
+    await writeProfileReview(this.db, 'professional', id, actorId, { status: 'pending', ownerSubmission: true });
+  }
 
   async save(profile: ProfessionalProfile): Promise<void> {
     await this.db.query(
@@ -30,10 +40,14 @@ export class ProfessionalProfileRepository {
          lifecycle_status, visibility, moderation_status, headline_ar, headline_en, bio_ar, bio_en,
          availability, city_code, country_code, skills, created_at, updated_at
        )
-       SELECT $1, p.profile_identifier, $2, 'freelancer', 'active', 'private', 'pending',
+       SELECT $1, p.profile_identifier, $2, 'freelancer', 'created', 'private', 'pending',
               $3,$4,$5,$6,$7,$8,$9,$10,$11,$12
        FROM profiles p WHERE p.user_identifier = $2
        ON CONFLICT (professional_profile_identifier) DO UPDATE SET
+         moderation_status = CASE WHEN professional_profiles.moderation_status = 'suspended' THEN 'suspended'
+           WHEN ROW(professional_profiles.headline_ar,professional_profiles.headline_en,professional_profiles.bio_ar,professional_profiles.bio_en,professional_profiles.city_code,professional_profiles.country_code,professional_profiles.skills)
+             IS DISTINCT FROM ROW(EXCLUDED.headline_ar,EXCLUDED.headline_en,EXCLUDED.bio_ar,EXCLUDED.bio_en,EXCLUDED.city_code,EXCLUDED.country_code,EXCLUDED.skills) THEN 'pending'
+           ELSE professional_profiles.moderation_status END,
          headline_ar = EXCLUDED.headline_ar,
          headline_en = EXCLUDED.headline_en,
          bio_ar = EXCLUDED.bio_ar,
@@ -42,7 +56,7 @@ export class ProfessionalProfileRepository {
          city_code = EXCLUDED.city_code,
          country_code = EXCLUDED.country_code,
          skills = EXCLUDED.skills,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = GREATEST(clock_timestamp(),professional_profiles.updated_at+interval '1 microsecond')`,
       [
         profile.id,
         profile.userId,
@@ -62,7 +76,7 @@ export class ProfessionalProfileRepository {
 
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
        FROM professional_profiles
        WHERE professional_profile_identifier = $1
        LIMIT 1`,
@@ -80,7 +94,7 @@ export class ProfessionalProfileRepository {
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
        FROM professional_profiles
        WHERE user_identifier = $1
        LIMIT 1`,
@@ -108,7 +122,7 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
        FROM professional_profiles
        ${where ? `${where} AND` : 'WHERE'} visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY is_featured DESC, created_at DESC
@@ -120,7 +134,7 @@ export class ProfessionalProfileRepository {
 
   async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
        FROM professional_profiles
        WHERE is_featured = TRUE AND visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY featured_at DESC
@@ -132,7 +146,7 @@ export class ProfessionalProfileRepository {
 
   async listPendingModeration(): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
        FROM professional_profiles
        WHERE moderation_status = 'pending'
        ORDER BY created_at ASC`
@@ -143,7 +157,7 @@ export class ProfessionalProfileRepository {
   async updateModerationStatus(id: string, moderationStatus: string, updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE professional_profiles
-       SET moderation_status = $2, updated_at = $3
+       SET moderation_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE professional_profile_identifier = $1`,
       [id, moderationStatus, updatedAt]
     );
@@ -152,7 +166,7 @@ export class ProfessionalProfileRepository {
   async updateLifecycleStatus(id: string, lifecycleStatus: string, updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE professional_profiles
-       SET lifecycle_status = $2, updated_at = $3
+       SET lifecycle_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE professional_profile_identifier = $1`,
       [id, lifecycleStatus, updatedAt]
     );
@@ -173,7 +187,8 @@ export class ProfessionalProfileRepository {
       isFeatured: row.is_featured ?? false,
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
+      updatedAt: row.updated_at.toISOString(),
+      revision: row.revision
     };
   }
 
@@ -222,7 +237,7 @@ export class ProfessionalProfileRepository {
     await this.db.query(
       `INSERT INTO verification_requests (id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at`,
+       ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = GREATEST(clock_timestamp(),professional_profiles.updated_at+interval '1 microsecond')`,
       [req.id, req.entityType, req.entityId, req.requesterId, req.status, req.notes ?? null, null, null, req.createdAt, req.updatedAt]
     );
   }

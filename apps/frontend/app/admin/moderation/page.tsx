@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
 
 type DialogAction =
-  | { kind: 'approve-profile'; type: 'business' | 'professional'; id: string; title: string }
-  | { kind: 'reject-profile'; type: 'business' | 'professional'; id: string; title: string }
+  | { kind: 'approve-profile'; type: 'business' | 'professional'; id: string; title: string; revision: string }
+  | { kind: 'reject-profile'; type: 'business' | 'professional'; id: string; title: string; revision: string }
   | { kind: 'review-product'; status: 'approved' | 'rejected'; id: string; title: string; revision: string }
   | { kind: 'review-report'; status: 'in_review' | 'resolved' | 'dismissed'; id: string; title: string };
 
@@ -26,7 +26,17 @@ export default function ModerationPage() {
   const dialogCancelRef = useRef<HTMLButtonElement>(null);
   const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
 
+  const lifecycle = useRef(0);
+  const queueSequence = useRef(0);
+  const actionInProgress = useRef(false);
+
+  useEffect(() => {
+    lifecycle.current += 1;
+    return () => { lifecycle.current += 1; queueSequence.current += 1; };
+  }, []);
+
   const loadQueue = async () => {
+    const request = ++queueSequence.current;
     setLoading(true);
     try {
       const [{ businesses, professionals }, { products }, { reports }] = await Promise.all([
@@ -34,15 +44,16 @@ export default function ModerationPage() {
         api.adminProducts.pending(),
         api.moderation.listReports()
       ]);
+      if (request !== queueSequence.current) return;
       setBusinesses(businesses);
       setProfessionals(professionals);
       setProducts(products);
       setReports(reports);
       setError(null);
     } catch (err: unknown) {
-      setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
+      if (request === queueSequence.current) setError(messageFor(err, 'حدث خطأ أثناء تحميل قائمة المراجعة'));
     } finally {
-      setLoading(false);
+      if (request === queueSequence.current) setLoading(false);
     }
   };
 
@@ -51,11 +62,12 @@ export default function ModerationPage() {
     if (!dialogAction) return;
     if (!needsNote(dialogAction)) dialogCancelRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || actionLoading) return;
+      if (event.key !== 'Escape' || actionInProgress.current) return;
       event.preventDefault();
       setDialogAction(null);
       setDialogNote('');
-      window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
+      const focusGeneration = lifecycle.current;
+      window.requestAnimationFrame(() => { if (focusGeneration === lifecycle.current) dialogReturnFocusRef.current?.focus(); });
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -69,46 +81,57 @@ export default function ModerationPage() {
   }
 
   function closeDialog() {
-    if (actionLoading) return;
+    if (actionInProgress.current) return;
     setDialogAction(null);
     setDialogNote('');
-    window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
+    const focusGeneration = lifecycle.current;
+      window.requestAnimationFrame(() => { if (focusGeneration === lifecycle.current) dialogReturnFocusRef.current?.focus(); });
   }
 
   async function executeDialogAction() {
-    if (!dialogAction) return;
+    if (!dialogAction || actionInProgress.current) return;
     if (needsNote(dialogAction) && dialogNote.trim().length < 5) return;
+    actionInProgress.current = true;
+    queueSequence.current += 1;
+    const generation = lifecycle.current;
+    const active = () => generation === lifecycle.current;
     setActionLoading(true);
     setFeedback(null);
     try {
       if (dialogAction.kind === 'approve-profile') {
-        if (dialogAction.type === 'business') await api.businesses.approveModeration(dialogAction.id);
-        else await api.professionals.approveModeration(dialogAction.id);
+        if (dialogAction.type === 'business') await api.businesses.approveModeration(dialogAction.id, dialogAction.revision);
+        else await api.professionals.approveModeration(dialogAction.id, dialogAction.revision);
+        if (!active()) return;
         setFeedback({ tone: 'success', text: 'تمت الموافقة على الملف بنجاح.' });
       } else if (dialogAction.kind === 'reject-profile') {
-        if (dialogAction.type === 'business') await api.businesses.rejectModeration(dialogAction.id, dialogNote.trim());
-        else await api.professionals.rejectModeration(dialogAction.id, dialogNote.trim());
+        if (dialogAction.type === 'business') await api.businesses.rejectModeration(dialogAction.id, dialogNote.trim(), dialogAction.revision);
+        else await api.professionals.rejectModeration(dialogAction.id, dialogNote.trim(), dialogAction.revision);
+        if (!active()) return;
         setFeedback({ tone: 'success', text: 'تم رفض الملف وتسجيل السبب.' });
       } else if (dialogAction.kind === 'review-product') {
         await api.adminProducts.review(dialogAction.id, dialogAction.status, dialogAction.revision, dialogAction.status === 'rejected' ? dialogNote.trim() : undefined);
+        if (!active()) return;
         setFeedback({ tone: 'success', text: dialogAction.status === 'approved' ? 'تم نشر المنتج.' : 'تم رفض المنتج وتسجيل السبب.' });
       } else {
         await api.moderation.reviewReport(dialogAction.id, dialogAction.status, dialogNote.trim());
+        if (!active()) return;
         setFeedback({ tone: 'success', text: dialogAction.status === 'resolved' ? 'تم تسجيل معالجة البلاغ.' : dialogAction.status === 'dismissed' ? 'تم استبعاد البلاغ مع تسجيل السبب.' : 'تم بدء مراجعة البلاغ.' });
       }
       setDialogAction(null);
       setDialogNote('');
-      window.requestAnimationFrame(() => dialogReturnFocusRef.current?.focus());
+      const focusGeneration = lifecycle.current;
+      window.requestAnimationFrame(() => { if (focusGeneration === lifecycle.current) dialogReturnFocusRef.current?.focus(); });
       await loadQueue();
     } catch (err: unknown) {
+      if (!active()) return;
       const status = err && typeof err === 'object' && 'statusCode' in err ? err.statusCode : undefined;
-      if (dialogAction.kind === 'review-product' && status === 409) {
+      if (['review-product', 'approve-profile', 'reject-profile'].includes(dialogAction.kind) && status === 409) {
         setDialogAction(null); setDialogNote('');
-        setFeedback({ tone: 'error', text: 'تغير المنتج أو صوره. تم تحديث القائمة؛ راجع البيانات والصور الجديدة قبل اتخاذ قرار آخر.' });
+        setFeedback({ tone: 'error', text: dialogAction.kind === 'review-product' ? 'تغير المنتج أو صوره. تم تحديث القائمة؛ راجع البيانات والصور الجديدة قبل اتخاذ قرار آخر.' : 'تغير الملف. تم تحديث القائمة؛ راجع البيانات الجديدة قبل اتخاذ قرار آخر.' });
         await loadQueue();
       } else setFeedback({ tone: 'error', text: messageFor(err, 'تعذر تنفيذ إجراء المراجعة.') });
     } finally {
-      setActionLoading(false);
+      if (active()) { actionInProgress.current = false; setActionLoading(false); }
     }
   }
 
@@ -117,6 +140,7 @@ export default function ModerationPage() {
 
   return <main id="foundation-content" className="operations-shell moderation-page" dir="rtl">
     <header className="operations-header"><div><p className="eyebrow">خدمة · الإشراف</p><h1>إدارة المراجعة</h1><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والبلاغات قبل اتخاذ الإجراء.</p></div><span className="status-badge">{businesses.length + professionals.length + products.length} بانتظار المراجعة</span></header>
+    {(businesses.some((profile) => !profile.revision) || professionals.some((profile) => !profile.revision)) && <p className="moderation-feedback error" role="alert">تعذر تجهيز بعض الملفات لاتخاذ القرار. <button type="button" disabled={actionLoading} onClick={() => void loadQueue()}>إعادة تحميل القائمة</button></p>}
     {feedback && <p className={`moderation-feedback ${feedback.tone}`} role={feedback.tone === 'error' ? 'alert' : 'status'}>{feedback.text}</p>}
 
     <section className="operations-panel moderation-section" aria-labelledby="products-title">
@@ -124,11 +148,11 @@ export default function ModerationPage() {
       {products.length === 0 ? <p className="moderation-empty">لا توجد منتجات بانتظار المراجعة.</p> : <div className="moderation-list">{products.map((product) => <article key={product.id} className="moderation-card"><div><h3>{product.titleAr}</h3><p>{product.businessName ?? 'نشاط على خدمة'} · {product.price.toLocaleString('ar-SY')} {product.currency} · {product.categoryCode}</p>{product.descriptionAr && <p>{product.descriptionAr}</p>}<p>{product.availability === 'in_stock' ? 'متوفر' : product.availability === 'out_of_stock' ? 'غير متوفر' : 'حسب الطلب'}</p>{(product.imageUrls ?? (product.imageUrl ? [product.imageUrl] : [])).map((url, index) => <p key={url}><a href={url} target="_blank" rel="noreferrer">فتح صورة المنتج {index + 1}</a></p>)}</div><div className="moderation-actions"><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'approved', id: product.id, title: product.titleAr, revision: product.revision })} className="moderation-approve">نشر</button><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-product', status: 'rejected', id: product.id, title: product.titleAr, revision: product.revision })} className="moderation-reject">رفض</button></div></article>)}</div>}
     </section>
 
-    <section className="operations-panel moderation-section"><div className="panel-heading"><h2>الأعمال المعلقة</h2><span>{businesses.length}</span></div>{businesses.length === 0 ? <p className="moderation-empty">لا توجد أعمال بانتظار المراجعة.</p> : <div className="moderation-list">{businesses.map((business) => <article key={business.id} className="moderation-card"><div><h3>{business.name}</h3><p>{business.categoryCode} · {business.cityCode}</p></div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'business', id: business.id, title: business.name })} disabled={actionLoading} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'business', id: business.id, title: business.name })} disabled={actionLoading} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
+    <section className="operations-panel moderation-section"><div className="panel-heading"><h2>الأعمال المعلقة</h2><span>{businesses.length}</span></div>{businesses.length === 0 ? <p className="moderation-empty">لا توجد أعمال بانتظار المراجعة.</p> : <div className="moderation-list">{businesses.map((business) => <article key={business.id} className="moderation-card"><div><h3>{business.name}</h3><p>{business.categoryCode} · {business.cityCode}</p>{business.descriptionAr && <p>{business.descriptionAr}</p>}{business.descriptionEn && <p dir="ltr">{business.descriptionEn}</p>}<p><bdi>{business.phone}</bdi> · <bdi>{business.email}</bdi></p>{business.website && <p><bdi>{business.website}</bdi></p>}{business.addressAr && <p>{business.addressAr}</p>}</div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'business', id: business.id, title: business.name, revision: business.revision! })} disabled={actionLoading || !business.revision} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'business', id: business.id, title: business.name, revision: business.revision! })} disabled={actionLoading || !business.revision} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
 
     <section className="operations-panel moderation-section" aria-labelledby="reports-title"><div className="panel-heading"><h2 id="reports-title">بلاغات المستخدمين</h2><span>{reports.filter((report) => report.status === 'submitted' || report.status === 'in_review').length}</span></div>{reports.length === 0 ? <p className="moderation-empty">لا توجد بلاغات مسجلة.</p> : <div className="moderation-list">{reports.map((report) => <article key={report.id} className="moderation-card"><div><h3>{report.targetType === 'business' ? 'نشاط تجاري' : 'ملف مهني'} · {report.reasonCode}</h3><p>{report.details}</p><small><bdi>{report.targetId}</bdi> · {report.status}</small></div>{(report.status === 'submitted' || report.status === 'in_review') && <div className="moderation-actions">{report.status === 'submitted' && <button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-report', status: 'in_review', id: report.id, title: 'بدء مراجعة البلاغ' })}>بدء المراجعة</button>}<button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-report', status: 'resolved', id: report.id, title: 'معالجة البلاغ' })} className="moderation-approve">تمت المعالجة</button><button disabled={actionLoading} onClick={() => openDialog({ kind: 'review-report', status: 'dismissed', id: report.id, title: 'استبعاد البلاغ' })} className="moderation-reject">استبعاد</button></div>}</article>)}</div>}</section>
 
-    <section className="operations-panel moderation-section"><div className="panel-heading"><h2>المهنيون المعلقون</h2><span>{professionals.length}</span></div>{professionals.length === 0 ? <p className="moderation-empty">لا يوجد مهنيون بانتظار المراجعة.</p> : <div className="moderation-list">{professionals.map((professional) => <article key={professional.id} className="moderation-card"><div><h3>{professional.headlineAr}</h3><p>{professional.cityCode} · {professional.skills.join('، ')}</p></div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'professional', id: professional.id, title: professional.headlineAr })} disabled={actionLoading} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'professional', id: professional.id, title: professional.headlineAr })} disabled={actionLoading} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
+    <section className="operations-panel moderation-section"><div className="panel-heading"><h2>المهنيون المعلقون</h2><span>{professionals.length}</span></div>{professionals.length === 0 ? <p className="moderation-empty">لا يوجد مهنيون بانتظار المراجعة.</p> : <div className="moderation-list">{professionals.map((professional) => <article key={professional.id} className="moderation-card"><div><h3>{professional.headlineAr}</h3><p>{professional.cityCode} · {professional.skills.join('، ')}</p>{professional.headlineEn && <p dir="ltr">{professional.headlineEn}</p>}{professional.bioAr && <p>{professional.bioAr}</p>}{professional.bioEn && <p dir="ltr">{professional.bioEn}</p>}</div><div className="moderation-actions"><button onClick={() => openDialog({ kind: 'approve-profile', type: 'professional', id: professional.id, title: professional.headlineAr, revision: professional.revision! })} disabled={actionLoading || !professional.revision} className="moderation-approve">موافقة</button><button onClick={() => openDialog({ kind: 'reject-profile', type: 'professional', id: professional.id, title: professional.headlineAr, revision: professional.revision! })} disabled={actionLoading || !professional.revision} className="moderation-reject">رفض</button></div></article>)}</div>}</section>
 
     {dialogAction && <div className="moderation-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeDialog(); }}><section className="moderation-dialog" role="dialog" aria-modal="true" aria-labelledby="moderation-dialog-title" aria-describedby="moderation-dialog-description" dir="rtl"><h3 id="moderation-dialog-title">{dialogAction.title}</h3><p id="moderation-dialog-description">{dialogAction.kind === 'approve-profile' ? 'تأكد من اكتمال البيانات قبل اعتماد الملف ونشره.' : dialogAction.kind === 'review-product' && dialogAction.status === 'approved' ? 'سيصبح المنتج متاحًا في متجر خدمة بعد التأكيد.' : dialogAction.kind === 'review-report' ? 'اكتب ملاحظة إدارية واضحة تحفظ مع سجل البلاغ.' : 'اكتب سببًا واضحًا يمكن الرجوع إليه أثناء المراجعة.'}</p>{needsNote(dialogAction) && <textarea className="moderation-reason" rows={4} value={dialogNote} onChange={(event) => setDialogNote(event.target.value)} placeholder="اكتب الملاحظة أو سبب القرار (5 أحرف على الأقل)…" autoFocus/>}<div className="moderation-actions"><button ref={dialogCancelRef} type="button" onClick={closeDialog} disabled={actionLoading}>إلغاء</button><button type="button" onClick={() => void executeDialogAction()} disabled={actionLoading || (needsNote(dialogAction) && dialogNote.trim().length < 5)} className={dialogAction.kind === 'reject-profile' || (dialogAction.kind === 'review-product' && dialogAction.status === 'rejected') || (dialogAction.kind === 'review-report' && dialogAction.status === 'dismissed') ? 'moderation-reject' : 'moderation-approve'}>{actionLoading ? 'جارٍ التنفيذ…' : 'تأكيد القرار'}</button></div></section></div>}
   </main>;

@@ -91,13 +91,13 @@ export class ProfessionalProfilesController {
   }
 
   @Post(':id/moderation/approve')
-  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { professional: await this.professionals.approveModeration(cookieHeader, id) };
+  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { expectedRevision?: unknown } | null) {
+    return { professional: await this.professionals.approveModeration(cookieHeader, id, body?.expectedRevision) };
   }
 
   @Post(':id/moderation/reject')
-  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
-    return { professional: await this.professionals.rejectModeration(cookieHeader, id, body.reason) };
+  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string; expectedRevision?: unknown } | null) {
+    return { professional: await this.professionals.rejectModeration(cookieHeader, id, body?.reason ?? '', body?.expectedRevision) };
   }
 
   @Post(':id/moderation/suspend')
