@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { main, assessEvidence, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
+import { main, assessEvidence, browserReadyForCapture, evidenceRoutes, evidenceViewports, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
 
-const ready = { headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, authReady: true,
+const ready = { headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/mobility', '/classifieds'], authReady: true,
   busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
 
 test('evidence accepts a ready 2xx page but does not equate an image file with readiness', () => {
@@ -21,6 +21,8 @@ for (const [name, change, code] of [
   ['duplicated header', { headerCount: 2 }, 'HEADER_MISSING_OR_DUPLICATED'],
   ['unresolved navigation', { authReady: false }, 'NAVIGATION_NOT_READY'],
   ['missing discovery links', { navigationCount: 4 }, 'NAVIGATION_NOT_READY'],
+  ['clipped or covered navigation', { navigationInteractiveCount: 4 }, 'NAVIGATION_NOT_INTERACTIVE'],
+  ['changed link destinations', { navigationHrefs: ['/search'] }, 'NAVIGATION_DESTINATIONS_CHANGED'],
   ['unfinished skeleton', { busyCount: 1 }, 'LOADING_NOT_FINISHED'],
   ['visible error', { alertCount: 1 }, 'VISIBLE_ERROR_OR_WARNING'],
   ['unloaded font', { fontStatus: 'loading' }, 'FONTS_NOT_READY'],
@@ -213,4 +215,39 @@ test('a failed baseline browser context cannot suppress all Preview diagnostics'
   assert.deepEqual(report.before.failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
   assert.equal(report.after.length, 6);
   assert.equal(report.previewStatus, 'passed');
+});
+
+// Exercise the actual browser-side readiness function against a deterministic DOM double.
+// These tests complement, not replace, live Chromium captures.
+async function readinessWithFonts({ fontStatus = 'loaded', afterFrame = () => undefined, busy = false } = {}) {
+  const fonts = { status: fontStatus, ready: Promise.resolve() };
+  let frames = 0;
+  let layouts = 0;
+  const document = {
+    fonts,
+    body: { getBoundingClientRect() { layouts += 1; return {}; } },
+    querySelector(selector) {
+      return selector.startsWith('main') ? { querySelector: () => ({ textContent: 'خدمة' }) } : {};
+    },
+    querySelectorAll() { return busy ? [{ getClientRects: () => [1] }] : []; }
+  };
+  const requestAnimationFrame = (done) => { frames += 1; afterFrame(fonts, frames); queueMicrotask(() => done(frames)); };
+  const execute = new Function('document', 'requestAnimationFrame', `return (${browserReadyForCapture.toString()})();`);
+  const result = await execute(document, requestAnimationFrame);
+  return { result, frames, layouts };
+}
+
+test('capture readiness waits for layout and two rendering frames before accepting loaded fonts', async () => {
+  assert.deepEqual(await readinessWithFonts(), { result: true, frames: 2, layouts: 1 });
+});
+
+test('capture readiness rejects a font load restarted during client rendering', async () => {
+  const result = await readinessWithFonts({ afterFrame(fonts) { fonts.status = 'loading'; } });
+  assert.equal(result.result, false);
+  assert.equal(result.frames, 2);
+});
+
+test('capture readiness never accepts an unfinished font load or visible skeleton', async () => {
+  assert.deepEqual(await readinessWithFonts({ fontStatus: 'loading' }), { result: false, frames: 0, layouts: 0 });
+  assert.deepEqual(await readinessWithFonts({ busy: true }), { result: false, frames: 0, layouts: 0 });
 });
