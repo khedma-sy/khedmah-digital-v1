@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Inject, Param, Post, Query } from '@nestjs/common';
 import { CreateProfessionalProfileRequest, SearchProfessionalProfilesRequest } from './dto/professional-profile.dto';
 import { ProfessionalProfileService } from './professional-profile.service';
 
@@ -58,8 +58,10 @@ export class ProfessionalProfilesController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
-    return { assets: await this.professionals.getMediaAssets(id, assetType) };
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string, @Headers('cookie') cookieHeader?: string) {
+    return { assets: await this.professionals.getMediaAssets(id, assetType, cookieHeader) };
   }
 
   // --- Verification ---
@@ -69,13 +71,17 @@ export class ProfessionalProfilesController {
   }
 
   @Get(':id/verification-status')
-  async getVerificationStatus(@Param('id') id: string) {
-    return { status: await this.professionals.getVerificationStatus(id) ?? null };
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async getVerificationStatus(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { status: await this.professionals.getVerificationStatus(id, cookieHeader) ?? null };
   }
 
   @Get(':id/trust-history')
-  async getTrustHistory(@Param('id') id: string) {
-    const history = await this.professionals.getTrustHistory(id);
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async getTrustHistory(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    const history = await this.professionals.getTrustHistory(id, cookieHeader);
     return {
       history: history.map((entry) => ({
         oldStatus: entry.oldStatus,

@@ -1,5 +1,5 @@
 import { PROFESSIONAL_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeProfessionalSuspension } from '../moderation/profile-review-write';
 import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
@@ -261,19 +261,29 @@ export class ProfessionalProfileRepository {
     }));
   }
 
-  async saveVerificationRequest(req: VerificationRequest): Promise<void> {
-    await this.db.query(
-      `INSERT INTO verification_requests (id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = GREATEST(clock_timestamp(),professional_profiles.updated_at+interval '1 microsecond')`,
-      [req.id, req.entityType, req.entityId, req.requesterId, req.status, req.notes ?? null, null, null, req.createdAt, req.updatedAt]
-    );
+  async requestVerification(req: VerificationRequest): Promise<VerificationRequest> {
+    return this.db.transaction(async (client) => {
+      const parent = await client.query<{user_identifier:string}>(
+        `SELECT user_identifier FROM professional_profiles WHERE professional_profile_identifier=$1 FOR UPDATE`,[req.entityId]);
+      if (!parent.rows[0]) throw new NotFoundException('Professional profile not found.');
+      if (parent.rows[0].user_identifier !== req.requesterId) throw new ForbiddenException('Access denied');
+      const result = await client.query(
+        `SELECT * FROM verification_requests WHERE entity_type='professional' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,[req.entityId]);
+      const existing = result.rows[0];
+      if (existing && ['pending','approved'].includes(existing.status)) return {
+        id:existing.id,entityType:'professional',entityId:existing.entity_id,requesterId:existing.requester_id,status:existing.status,
+        notes:existing.notes??undefined,createdAt:existing.created_at.toISOString(),updatedAt:existing.updated_at.toISOString()};
+      const created = await client.query(
+        `INSERT INTO verification_requests (id,entity_type,entity_id,requester_id,status,created_at,updated_at)
+         VALUES ($1,'professional',$2,$3,'pending',clock_timestamp(),clock_timestamp()) RETURNING created_at,updated_at`,[req.id,req.entityId,req.requesterId]);
+      return {...req,entityType:'professional',status:'pending',createdAt:created.rows[0].created_at.toISOString(),updatedAt:created.rows[0].updated_at.toISOString()};
+    });
   }
 
   async findVerificationRequest(entityId: string): Promise<VerificationRequest | undefined> {
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; requester_id: string; status: string; notes: string | null; created_at: Date; updated_at: Date }>(
       `SELECT id, entity_type, entity_id, requester_id, status, notes, created_at, updated_at
-       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC,id DESC LIMIT 1`,
       ['professional', entityId]
     );
     if (!rows[0]) return undefined;

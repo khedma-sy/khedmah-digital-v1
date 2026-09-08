@@ -1,6 +1,6 @@
 import { requireContentRevision } from '../moderation/profile-content-revision';
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -109,9 +109,8 @@ export class ProfessionalProfileService {
     return existing;
   }
 
-  async getMediaAssets(profileId: string, assetType?: string): Promise<MediaAsset[]> {
-    await this.requirePublicProfile(profileId);
-    return this.repository.listMediaAssets(profileId, assetType);
+  async getMediaAssets(profileId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    return this.readProfileResource(profileId, cookieHeader, () => this.repository.listMediaAssets(profileId, assetType));
   }
 
   async requestVerification(cookieHeader: string | undefined, profileId: string): Promise<VerificationRequest> {
@@ -131,14 +130,11 @@ export class ProfessionalProfileService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await this.repository.saveVerificationRequest(req);
-    return req;
+    return this.repository.requestVerification(req);
   }
 
-  async getVerificationStatus(profileId: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
-    await this.requirePublicProfile(profileId);
-
-    const request = await this.repository.findVerificationRequest(profileId);
+  async getVerificationStatus(profileId: string, cookieHeader?: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
+    const request = await this.readProfileResource(profileId, cookieHeader, () => this.repository.findVerificationRequest(profileId));
 
     if (!request) {
       return undefined;
@@ -151,9 +147,8 @@ export class ProfessionalProfileService {
     };
   }
 
-  async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
-    await this.requirePublicProfile(profileId);
-    return this.repository.listTrustHistory(profileId);
+  async getTrustHistory(profileId: string, cookieHeader?: string): Promise<TrustHistoryEntry[]> {
+    return this.readProfileResource(profileId, cookieHeader, () => this.repository.listTrustHistory(profileId));
   }
 
   async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfile[]> {
@@ -192,6 +187,27 @@ export class ProfessionalProfileService {
     this.rbac.assert(actor.email, 'security.manage');
     await this.repository.suspend(id, actor.id, reason);
     return this.toPublic(await this.requireProfile(id));
+  }
+
+  private async readProfileResource<T>(id: string, cookieHeader: string | undefined, read: () => Promise<T>): Promise<T> {
+    const isPublic = (state: Awaited<ReturnType<ProfessionalProfileRepository['findContactEligibility']>>) =>
+      state?.visibility === 'public' && state.moderationStatus === 'approved' && state.lifecycleStatus === 'active';
+    const profile = await this.requireProfile(id);
+    let readerId: string | undefined;
+    if (!isPublic(await this.repository.findContactEligibility(id))) {
+      const token = readSessionToken(cookieHeader);
+      if (!token) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+      try { readerId = (await this.identity.getCurrentUser(token)).id; }
+      catch (cause) {
+        if (cause instanceof UnauthorizedException) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+        throw cause;
+      }
+      if (readerId !== profile.userId) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    const result = await read();
+    const current = await this.requireProfile(id);
+    if (readerId !== current.userId && !isPublic(await this.repository.findContactEligibility(id))) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    return result;
   }
 
   private async requireProfile(id: string): Promise<ProfessionalProfile> {
