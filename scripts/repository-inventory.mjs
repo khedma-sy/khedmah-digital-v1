@@ -11,7 +11,7 @@ export function reviewablePath(path) {
   if (/\.(?:pem|key|p12|pfx|keystore|jks|zip|png|jpe?g|webp|woff2?|ttf|env)$/i.test(path)) return false;
   if (/^(?:package(?:-lock)?\.json|README\.md|AGENTS\.md|ROADMAP-EXECUTION-2026-09-08\.md|Dockerfile\.(?:frontend|backend|migrations))$/.test(path)) return true;
   if (/^apps\/(?:frontend|backend)\/(?:package(?:-lock)?\.json|tsconfig\.json|next\.config\.(?:js|mjs|ts))$/.test(path)) return true;
-  return /^(?:apps\/frontend\/(?:app|components|lib|tests)\/|apps\/backend\/src\/|backend\/|tests\/|scripts\/|docs\/|\.github\/workflows\/)/.test(path)
+  return /^(?:apps\/frontend\/(?:app|components|lib|tests)\/|apps\/backend\/(?:src|tests)\/|backend\/|tests\/|scripts\/|docs\/|\.github\/workflows\/)/.test(path)
     && /\.(?:tsx?|mjs|cjs|css|md|sql|sh|ya?ml)$/.test(path);
 }
 
