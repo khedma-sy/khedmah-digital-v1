@@ -69,8 +69,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
-    return { assets: await this.businessProfiles.getMediaAssets('business', id, assetType) };
+  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string, @Headers('cookie') cookieHeader?: string) {
+    return { assets: await this.businessProfiles.getMediaAssets('business', id, assetType, cookieHeader) };
   }
 
   @Delete(':id/media/:assetId')
@@ -93,8 +93,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/opening-hours')
-  async getOpeningHours(@Param('id') id: string) {
-    return { hours: await this.businessProfiles.getOpeningHours(id) };
+  async getOpeningHours(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { hours: await this.businessProfiles.getOpeningHours(id, cookieHeader) };
   }
 
   // --- Branches ---
@@ -104,8 +104,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/branches')
-  async getBranches(@Param('id') id: string) {
-    return { branches: await this.businessProfiles.getBranches(id) };
+  async getBranches(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { branches: await this.businessProfiles.getBranches(id, cookieHeader) };
   }
 
   // --- Social Links ---
@@ -115,8 +115,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/social-links')
-  async getSocialLinks(@Param('id') id: string) {
-    return { links: await this.businessProfiles.getSocialLinks(id) };
+  async getSocialLinks(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { links: await this.businessProfiles.getSocialLinks(id, cookieHeader) };
   }
 
   @Delete(':id/social-links/:linkId')
@@ -132,8 +132,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/verification-status')
-  async getVerificationStatus(@Param('id') id: string) {
-    const verification = await this.businessProfiles.getVerificationStatus('business', id);
+  async getVerificationStatus(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    const verification = await this.businessProfiles.getVerificationStatus('business', id, cookieHeader);
     return {
       status: verification ? {
         status: verification.status,
@@ -144,8 +144,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/trust-history')
-  async getTrustHistory(@Param('id') id: string) {
-    const history = await this.businessProfiles.getTrustHistory('business', id);
+  async getTrustHistory(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    const history = await this.businessProfiles.getTrustHistory('business', id, cookieHeader);
     return {
       history: history.map((entry) => ({
         oldStatus: entry.oldStatus,

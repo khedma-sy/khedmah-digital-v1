@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -178,8 +178,9 @@ export class BusinessProfileService {
     return full;
   }
 
-  async getMediaAssets(entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
-    return this.repository.listMediaAssets(entityType, entityId, assetType);
+  async getMediaAssets(entityType: string, entityId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.listMediaAssets(entityType, entityId, assetType));
   }
 
   async deleteMediaAsset(cookieHeader: string | undefined, businessId: string, assetId: string): Promise<void> {
@@ -211,8 +212,8 @@ export class BusinessProfileService {
     return saved;
   }
 
-  async getOpeningHours(businessId: string): Promise<OpeningHours[]> {
-    return this.repository.listOpeningHours(businessId);
+  async getOpeningHours(businessId: string, cookieHeader?: string): Promise<OpeningHours[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listOpeningHours(businessId));
   }
 
   // --- Branches ---
@@ -226,8 +227,8 @@ export class BusinessProfileService {
     return full;
   }
 
-  async getBranches(businessId: string): Promise<BusinessBranch[]> {
-    return this.repository.listBranches(businessId);
+  async getBranches(businessId: string, cookieHeader?: string): Promise<BusinessBranch[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listBranches(businessId));
   }
 
   // --- Social Links ---
@@ -245,8 +246,8 @@ export class BusinessProfileService {
     return link;
   }
 
-  async getSocialLinks(businessId: string): Promise<BusinessSocialLink[]> {
-    return this.repository.listSocialLinks(businessId);
+  async getSocialLinks(businessId: string, cookieHeader?: string): Promise<BusinessSocialLink[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listSocialLinks(businessId));
   }
 
   async deleteSocialLink(cookieHeader: string | undefined, businessId: string, linkId: string): Promise<void> {
@@ -277,12 +278,14 @@ export class BusinessProfileService {
     return req;
   }
 
-  async getVerificationStatus(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
-    return this.repository.findVerificationRequest(entityType, entityId);
+  async getVerificationStatus(entityType: string, entityId: string, cookieHeader?: string): Promise<VerificationRequest | undefined> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.findVerificationRequest(entityType, entityId));
   }
 
-  async getTrustHistory(entityType: string, entityId: string): Promise<TrustHistoryEntry[]> {
-    return this.repository.listTrustHistory(entityType, entityId);
+  async getTrustHistory(entityType: string, entityId: string, cookieHeader?: string): Promise<TrustHistoryEntry[]> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.listTrustHistory(entityType, entityId));
   }
 
   async approveVerification(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
@@ -350,6 +353,27 @@ export class BusinessProfileService {
     };
     await this.repository.saveTrustHistory(historyEntry);
     return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
+  }
+
+  private async readProfileResource<T>(id: string, cookieHeader: string | undefined, read: () => Promise<T>): Promise<T> {
+    const isPublic = (profile: BusinessProfile) => profile.visibility === 'public' && profile.moderationStatus === 'approved' && profile.trustStatus === 'approved' && profile.status === 'active';
+    const profile = await this.requireProfile(id);
+    let readerId: string | undefined;
+    if (!isPublic(profile)) {
+      const token = readSessionToken(cookieHeader);
+      if (!token) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+      try { readerId = (await this.identity.getCurrentUser(token)).id; }
+      catch (cause) {
+        if (cause instanceof UnauthorizedException) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+        throw cause;
+      }
+      if (readerId !== profile.ownerUserId) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    const result = await read();
+    // Do not release child data if visibility or ownership changed while it loaded.
+    const current = await this.requireProfile(id);
+    if (readerId !== current.ownerUserId && !isPublic(current)) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    return result;
   }
 
   private async requireProfile(id: string): Promise<BusinessProfile> {

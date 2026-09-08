@@ -20,7 +20,8 @@ export function clientPage(source, adapters, globals = {}) {
     useState(initial) { const i = cursor++; const s = slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [s.value, v => { if (!mounted) { writesAfterUnmount++; return; } const next = typeof v === 'function' ? v(s.value) : v; if (!Object.is(next,s.value)) { s.value = next; dirty = true; } }]; },
     useRef(value) { return slots[cursor++] ??= { current: value }; },
     useEffect(setup,deps) { const i = cursor++; const s = slots[i] ??= {}; if (!same(s.deps,deps)) { s.deps = deps; s.setup = setup; pending.set(i,setup); } },
-    useCallback(fn,deps) { const i = cursor++; const s = slots[i] ??= {}; if (!same(s.deps,deps)) { s.deps = deps; s.value = fn; } return s.value; }
+    useCallback(fn,deps) { const i = cursor++; const s = slots[i] ??= {}; if (!same(s.deps,deps)) { s.deps = deps; s.value = fn; } return s.value; },
+    useMemo(fn,deps) { const i = cursor++; const s = slots[i] ??= {}; if (!same(s.deps,deps)) { s.deps = deps; s.value = fn(); } return s.value; }
   };
   const jsx = (type,props) => ({ type,props });
   const page = loadSource(source, { ...adapters, react: hooks, 'react/jsx-runtime': { jsx,jsxs:jsx,Fragment:'Fragment' } }, globals);

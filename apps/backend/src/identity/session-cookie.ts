@@ -18,7 +18,12 @@ export function readSessionToken(cookieHeader: string | undefined): string | und
     return undefined;
   }
 
-  return decodeURIComponent(sessionCookie.slice(COOKIE_NAME.length + 1));
+  try {
+    return decodeURIComponent(sessionCookie.slice(COOKIE_NAME.length + 1)) || undefined;
+  } catch {
+    // A malformed client cookie is unauthenticated input, not a server failure.
+    return undefined;
+  }
 }
 
 export function attachSessionCookie(response: Response, token: string): void {
