@@ -136,6 +136,7 @@ export function validateUpdateBusinessProfile(request: UpdateBusinessProfileRequ
 }
 
 export function validateUpdateTrustStatus(request: UpdateTrustStatusRequest) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) throw new BadRequestException('Request body must be an object.');
   return { trustStatus: trustStatus(request.trustStatus) };
 }
 

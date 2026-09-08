@@ -51,3 +51,31 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
       decision.status === 'pending' ? 'Submitted for review by owner' : decision.status === 'approved' ? 'Approved by moderator' : decision.reason!.trim()]);
   });
 }
+
+
+export async function writeBusinessTrust(db: DatabasePool, id: string, actorId: string, status: 'pending' | 'approved' | 'suspended', reason?: string): Promise<void> {
+  if (!['pending','approved','suspended'].includes(status)) throw new BadRequestException('Invalid trust status.');
+  if (reason !== undefined && (typeof reason !== 'string' || reason.length > 2000)) throw new BadRequestException('Trust reason must contain at most 2000 characters.');
+  await db.transaction(async (client) => {
+    const { rows } = await client.query<{ trust_status: string }>(`SELECT trust_status FROM business_profiles WHERE id=$1 FOR UPDATE`, [id]);
+    if (!rows[0]) throw new NotFoundException('Business profile not found.');
+    if (rows[0].trust_status === status) return;
+    await client.query(`UPDATE business_profiles SET trust_status=$2,updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [id,status]);
+    await client.query(`INSERT INTO trust_history (id,entity_type,entity_id,old_status,new_status,changed_by,reason,created_at)
+      VALUES ($1,'business',$2,$3,$4,$5,$6,clock_timestamp())`, [randomUUID(),id,rows[0].trust_status,status,actorId,reason?.trim() || null]);
+  });
+}
+
+export async function writeProfessionalSuspension(db: DatabasePool, id: string, actorId: string, reason: string): Promise<void> {
+  if (typeof reason !== 'string' || reason.length > 2000) throw new BadRequestException('Suspension reason must contain at most 2000 characters.');
+  await db.transaction(async (client) => {
+    const { rows } = await client.query<{ moderation_status: string; lifecycle_status: string }>(`SELECT moderation_status,lifecycle_status FROM professional_profiles WHERE professional_profile_identifier=$1 FOR UPDATE`, [id]);
+    const current = rows[0];
+    if (!current) throw new NotFoundException('Professional profile not found.');
+    if (current.lifecycle_status === 'archived') throw new ConflictException('An archived profile cannot be reactivated by suspension.');
+    if (current.moderation_status === 'suspended' && current.lifecycle_status === 'suspended') return;
+    await client.query(`UPDATE professional_profiles SET moderation_status='suspended',lifecycle_status='suspended',updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE professional_profile_identifier=$1`, [id]);
+    await client.query(`INSERT INTO trust_history (id,entity_type,entity_id,old_status,new_status,changed_by,reason,created_at)
+      VALUES ($1,'professional',$2,$3,'suspended',$4,$5,clock_timestamp())`, [randomUUID(),id,current.moderation_status,actorId,reason.trim() || 'Suspended by moderator']);
+  });
+}

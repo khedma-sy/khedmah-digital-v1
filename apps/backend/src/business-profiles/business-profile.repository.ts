@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { PROFILE_REVISION_SQL, writeProfileReview } from '../moderation/profile-review-write';
+import { PROFILE_REVISION_SQL, writeProfileReview, writeBusinessTrust } from '../moderation/profile-review-write';
 import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
 
 interface BusinessProfileRow extends Record<string, unknown> {
@@ -233,6 +233,10 @@ export class BusinessProfileRepository {
       params
     );
     return Number.parseInt(rows[0]?.count ?? '0', 10);
+  }
+
+  async changeTrustStatus(id: string, status: BusinessProfileTrustStatus, actorId: string, reason?: string): Promise<void> {
+    await writeBusinessTrust(this.db, id, actorId, status, reason);
   }
 
   async updateTrustStatus(id: string, trustStatus: BusinessProfileTrustStatus, updatedAt: string): Promise<void> {

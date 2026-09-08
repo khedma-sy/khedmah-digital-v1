@@ -9,7 +9,7 @@ import { BusinessProfileService } from '../business-profiles/business-profile.se
 import { ProfessionalProfileService } from '../professional-profiles/professional-profile.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
-import { writeProfileReview } from './profile-review-write';
+import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
@@ -101,6 +101,44 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
         const [count]=await db.query<{count:string}>(`SELECT count(*) FROM trust_history WHERE entity_type=$1 AND entity_id=$2`,[kind,id]);assert.equal(count.count,'1');
       });
     }
+    async function resetTrust(status='pending'){
+      actor='review_moderator';await db.query(`DELETE FROM trust_history WHERE entity_type='business' AND entity_id=$1`,[business.id]);
+      await db.query(`UPDATE business_profiles SET trust_status=$2 WHERE id=$1`,[business.id,status]);return (await businesses.findById(business.id))!;
+    }
+    for(const action of ['update','verify','suspend','reactivate']){
+      await t.test(`business ${action}: decision and its current-state history are committed together`,async()=>{
+        const before=await resetTrust(action==='reactivate'?'suspended':action==='suspend'?'approved':'pending');
+        const result=action==='update'?await businessService.updateTrustStatus(undefined,business.id,{trustStatus:'approved'}):action==='verify'?await businessService.approveVerification(undefined,business.id):action==='suspend'?await businessService.suspendBusiness(undefined,business.id,'سبب الإيقاف'):await businessService.reactivateBusiness(undefined,business.id);
+        const history=await businesses.listTrustHistory('business',business.id);assert.equal(history.length,1);assert.equal(history[0].oldStatus,before.trustStatus);assert.equal(history[0].newStatus,result.trustStatus);assert.equal(history[0].changedBy,'review_moderator');assert.equal(result.revision,(await businesses.findById(business.id))!.revision);
+      });
+    }
+    await t.test('business trust history failure rolls back the status and exact revision',async()=>{
+      const before=await resetTrust();await assert.rejects(()=>writeBusinessTrust(db,business.id,'missing_review_actor','approved'));
+      const current=(await businesses.findById(business.id))!;assert.equal(current.trustStatus,'pending');assert.equal(current.revision,before.revision);
+    });
+    await t.test('concurrent trust decisions produce a contiguous history rather than two stale old states',async()=>{
+      await resetTrust();await Promise.all([businessService.updateTrustStatus(undefined,business.id,{trustStatus:'approved'}),businessService.suspendBusiness(undefined,business.id,'سبب واضح')]);
+      const history=(await businesses.listTrustHistory('business',business.id)).reverse();assert.equal(history.length,2);assert.equal(history[0].oldStatus,'pending');assert.equal(history[1].oldStatus,history[0].newStatus);assert.equal(history[1].newStatus,(await businesses.findById(business.id))!.trustStatus);
+    });
+    await t.test('duplicate trust decisions are idempotent under concurrency',async()=>{
+      await resetTrust();await Promise.all([businessService.approveVerification(undefined,business.id),businessService.approveVerification(undefined,business.id)]);assert.equal((await businesses.listTrustHistory('business',business.id)).length,1);
+    });
+    await t.test('ordinary owner cannot use any administrative trust or suspension route',async()=>{
+      actor='review_owner';for(const call of [()=>businessService.updateTrustStatus(undefined,business.id,{trustStatus:'approved'}),()=>businessService.approveVerification(undefined,business.id),()=>businessService.suspendBusiness(undefined,business.id,'سبب'),()=>businessService.reactivateBusiness(undefined,business.id),()=>professionalService.suspendProfessional(undefined,professional.id,'سبب')])await assert.rejects(call,ForbiddenException);
+    });
+    async function resetProfessional(){actor='review_moderator';await db.query(`DELETE FROM trust_history WHERE entity_type='professional' AND entity_id=$1`,[professional.id]);await db.query(`UPDATE professional_profiles SET moderation_status='approved',lifecycle_status='active' WHERE professional_profile_identifier=$1`,[professional.id]);return (await professionals.findById(professional.id))!;}
+    await t.test('professional suspension rolls back both states when history fails',async()=>{
+      const before=await resetProfessional();await assert.rejects(()=>writeProfessionalSuspension(db,professional.id,'missing_review_actor','سبب واضح'));
+      const eligibility=(await professionals.findContactEligibility(professional.id))!;assert.equal(eligibility.moderationStatus,'approved');assert.equal(eligibility.lifecycleStatus,'active');assert.equal((await professionals.findById(professional.id))!.revision,before.revision);
+    });
+    await t.test('concurrent professional suspensions have one consistent state and one history entry',async()=>{
+      await resetProfessional();await Promise.all([professionalService.suspendProfessional(undefined,professional.id,'سبب واضح'),professionalService.suspendProfessional(undefined,professional.id,'سبب واضح')]);
+      const eligibility=(await professionals.findContactEligibility(professional.id))!;assert.equal(eligibility.moderationStatus,'suspended');assert.equal(eligibility.lifecycleStatus,'suspended');const history=await professionals.listTrustHistory(professional.id);assert.equal(history.length,1);assert.equal(history[0].oldStatus,'approved');
+    });
+    await t.test('suspension does not move an archived professional back into a live lifecycle',async()=>{
+      await resetProfessional();await db.query(`UPDATE professional_profiles SET lifecycle_status='archived',archived_at=clock_timestamp() WHERE professional_profile_identifier=$1`,[professional.id]);await assert.rejects(()=>professionalService.suspendProfessional(undefined,professional.id,'سبب واضح'),ConflictException);
+      assert.equal((await professionals.findContactEligibility(professional.id))!.lifecycleStatus,'archived');
+    });
   }finally{
     if(previous===undefined)delete process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;else process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS=previous;
     await pool.end();

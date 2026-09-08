@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
-import { PROFILE_REVISION_SQL, writeProfileReview } from '../moderation/profile-review-write';
+import { PROFILE_REVISION_SQL, writeProfileReview, writeProfessionalSuspension } from '../moderation/profile-review-write';
 import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
 
 interface ProfessionalProfileRow extends Record<string, unknown> {
@@ -25,6 +25,10 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
 @Injectable()
 export class ProfessionalProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
+
+  async suspend(id: string, actorId: string, reason: string): Promise<void> {
+    await writeProfessionalSuspension(this.db, id, actorId, reason);
+  }
 
   async review(id: string, actorId: string, status: 'approved' | 'rejected', expectedRevision: unknown, reason?: string): Promise<void> {
     await writeProfileReview(this.db, 'professional', id, actorId, { status, expectedRevision, reason });

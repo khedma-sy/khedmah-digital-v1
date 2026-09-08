@@ -100,25 +100,9 @@ export class BusinessProfileService {
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
     const input = validateUpdateTrustStatus(request);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateTrustStatus(profile.id, input.trustStatus, updatedAt);
-
-    // Record trust history
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: input.trustStatus,
-      changedBy: actor.id,
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, trustStatus: input.trustStatus, updatedAt });
+    await this.repository.changeTrustStatus(id, input.trustStatus, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
@@ -291,21 +275,8 @@ export class BusinessProfileService {
   async approveVerification(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Verification approved',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Verification approved');
+    return this.toPublic(await this.requireProfile(entityId));
   }
 
   async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
@@ -318,41 +289,15 @@ export class BusinessProfileService {
   async suspendBusiness(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'suspended', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'suspended',
-      changedBy: actor.id,
-      reason: reason || 'Suspended by operator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'suspended', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'suspended', actor.id, reason || 'Suspended by operator');
+    return this.toPublic(await this.requireProfile(entityId));
   }
 
   async reactivateBusiness(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Reactivated after suspension',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Reactivated after suspension');
+    return this.toPublic(await this.requireProfile(entityId));
   }
 
   private async readProfileResource<T>(id: string, cookieHeader: string | undefined, read: () => Promise<T>): Promise<T> {

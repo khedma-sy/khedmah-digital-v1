@@ -182,24 +182,8 @@ export class ProfessionalProfileService {
   async suspendProfessional(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'suspended', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'suspended',
-      changedBy: actor.id,
-      reason: reason || 'Suspended by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.suspend(id, actor.id, reason);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   private async requireProfile(id: string): Promise<ProfessionalProfile> {
