@@ -78,18 +78,18 @@ export class BusinessProfileService {
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,
-      descriptionAr: input.descriptionAr === undefined ? profile.descriptionAr : input.descriptionAr,
-      descriptionEn: input.descriptionEn === undefined ? profile.descriptionEn : input.descriptionEn,
-      phone: input.phone === undefined ? profile.phone : input.phone,
-      email: input.email === undefined ? profile.email : input.email,
-      website: input.website === undefined ? profile.website : input.website,
+      descriptionAr: input.descriptionAr === undefined ? profile.descriptionAr : input.descriptionAr ?? undefined,
+      descriptionEn: input.descriptionEn === undefined ? profile.descriptionEn : input.descriptionEn ?? undefined,
+      phone: input.phone === undefined ? profile.phone : input.phone ?? undefined,
+      email: input.email === undefined ? profile.email : input.email ?? undefined,
+      website: input.website === undefined ? profile.website : input.website ?? undefined,
       visibility: input.visibility ?? profile.visibility,
       categoryCode: input.categoryCode ?? profile.categoryCode,
       cityCode: input.cityCode ?? profile.cityCode,
       countryCode: input.countryCode ?? profile.countryCode,
-      lat: input.lat === undefined ? profile.lat : input.lat,
-      lng: input.lng === undefined ? profile.lng : input.lng,
-      addressAr: input.addressAr === undefined ? profile.addressAr : input.addressAr,
+      lat: input.lat === undefined ? profile.lat : input.lat ?? undefined,
+      lng: input.lng === undefined ? profile.lng : input.lng ?? undefined,
+      addressAr: input.addressAr === undefined ? profile.addressAr : input.addressAr ?? undefined,
       updatedAt: new Date().toISOString()
     };
 

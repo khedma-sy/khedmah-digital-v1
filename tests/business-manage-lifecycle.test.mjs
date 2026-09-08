@@ -51,3 +51,9 @@ test('changing business during file reading prevents upload to the closed worksp
   f.form('uploadMedia').props.onSubmit({preventDefault(){},currentTarget:{elements:{namedItem:()=>input}}});f.changeId('two');await f.resolve(f.loads[1]);
   f.readers[0].result='data:image/png;base64,AAAA';f.readers[0].onload();await f.page.flush();assert.equal(f.mutations.length,0);
 });
+
+test('business editor sends explicit empty contact fields when the owner clears them',async()=>{
+  const f=fixture();await f.resolve(f.loads[0],{businesses:[{...business('one'),phone:'0123456789',email:'owner@example.test',website:'https://example.test'}]});f.page.find(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('تعديل المعلومات')).props.onClick();f.page.render();
+  for(const type of ['tel','email','url']){const input=f.page.find(n=>n.type==='input'&&n.props.type===type);input.props.onChange({target:{value:''}});f.page.render();}
+  f.submit('updateProfile');assert.equal(f.mutations.length,1);for(const field of ['phone','email','website'])assert.equal(f.mutations[0].body[field],'');
+});

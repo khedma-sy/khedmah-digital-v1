@@ -127,7 +127,7 @@ export default function ManageBusinessProfilePage() {
 
   async function updateProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const active = begin('profile'); if (!active) return;
-    try { const result = await api.businesses.update(id, { ...profileForm, name: profileForm.name.trim(), descriptionAr: profileForm.descriptionAr.trim(), phone: profileForm.phone.trim() || undefined, email: profileForm.email.trim() || undefined, website: profileForm.website.trim() || undefined }); if (!active()) return; setBusiness(result.business); setShowProfileForm(false); succeeded('تم حفظ معلومات النشاط.', active); }
+    try { const result = await api.businesses.update(id, { ...profileForm, name: profileForm.name.trim(), descriptionAr: profileForm.descriptionAr.trim(), phone: profileForm.phone.trim(), email: profileForm.email.trim(), website: profileForm.website.trim() }); if (!active()) return; setBusiness(result.business); setShowProfileForm(false); succeeded('تم حفظ معلومات النشاط.', active); }
     catch { failed('تعذر حفظ معلومات النشاط. راجع الحقول وحاول مجدداً.', active); }
   }
 

@@ -86,6 +86,8 @@ function validatePage(value: unknown): number {
 }
 
 export function validateCreateBusinessProfile(request: CreateBusinessProfileRequest) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) throw new BadRequestException('Request body must be an object.');
+
   return {
     name: requiredString(request.name, 'name', 2, 200),
     descriptionAr: optionalString(request.descriptionAr, 'descriptionAr', 2000),
@@ -99,22 +101,32 @@ export function validateCreateBusinessProfile(request: CreateBusinessProfileRequ
   };
 }
 
+function coordinate(value: unknown, field: string, limit: number): number | null {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > limit) throw new BadRequestException(`${field} must be a finite coordinate between -${limit} and ${limit}.`);
+  return value;
+}
+
 export function validateUpdateBusinessProfile(request: UpdateBusinessProfileRequest) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) throw new BadRequestException('Request body must be an object.');
+
   const payload = {
     name: request.name === undefined ? undefined : requiredString(request.name, 'name', 2, 200),
-    descriptionAr: request.descriptionAr === undefined ? undefined : optionalString(request.descriptionAr, 'descriptionAr', 2000),
-    descriptionEn: request.descriptionEn === undefined ? undefined : optionalString(request.descriptionEn, 'descriptionEn', 2000),
-    phone: request.phone === undefined ? undefined : optionalString(request.phone, 'phone', 30),
-    email: request.email === undefined ? undefined : optionalEmail(request.email),
-    website: request.website === undefined ? undefined : optionalString(request.website, 'website', 500),
+    descriptionAr: request.descriptionAr === undefined ? undefined : (optionalString(request.descriptionAr, 'descriptionAr', 2000) ?? null),
+    descriptionEn: request.descriptionEn === undefined ? undefined : (optionalString(request.descriptionEn, 'descriptionEn', 2000) ?? null),
+    phone: request.phone === undefined ? undefined : (optionalString(request.phone, 'phone', 30) ?? null),
+    email: request.email === undefined ? undefined : (optionalEmail(request.email) ?? null),
+    website: request.website === undefined ? undefined : (optionalString(request.website, 'website', 500) ?? null),
     visibility: request.visibility === undefined ? undefined : visibility(request.visibility),
     categoryCode: request.categoryCode === undefined ? undefined : requiredString(request.categoryCode, 'categoryCode', 2, 50),
     cityCode: request.cityCode === undefined ? undefined : requiredCityCode(request.cityCode),
     countryCode: request.countryCode === undefined ? undefined : requiredString(request.countryCode, 'countryCode', 2, 10),
-    lat: request.lat === undefined ? undefined : (typeof request.lat === 'number' ? request.lat : undefined),
-    lng: request.lng === undefined ? undefined : (typeof request.lng === 'number' ? request.lng : undefined),
-    addressAr: request.addressAr === undefined ? undefined : optionalString(request.addressAr, 'addressAr', 500)
+    lat: request.lat === undefined ? undefined : coordinate(request.lat, 'lat', 90),
+    lng: request.lng === undefined ? undefined : coordinate(request.lng, 'lng', 180),
+    addressAr: request.addressAr === undefined ? undefined : (optionalString(request.addressAr, 'addressAr', 500) ?? null)
   };
+
+  if ((payload.lat === undefined) !== (payload.lng === undefined) || (payload.lat === null) !== (payload.lng === null)) throw new BadRequestException('lat and lng must be supplied or cleared together.');
 
   if (Object.values(payload).every((value) => value === undefined)) {
     throw new BadRequestException('At least one business profile field must be provided.');

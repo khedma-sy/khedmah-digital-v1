@@ -18,6 +18,7 @@ export function validateUploadMediaRequest(req: UploadMediaRequest): {
   assetType?: MediaAssetType;
   sortOrder: number;
 } {
+  if (!req || typeof req !== 'object' || Array.isArray(req)) throw new BadRequestException('Request body must be an object.');
   if (!ALLOWED_OWNER_TYPES.includes(req.ownerType as MediaOwnerType)) {
     throw new BadRequestException(`ownerType must be one of: ${ALLOWED_OWNER_TYPES.join(', ')}`);
   }

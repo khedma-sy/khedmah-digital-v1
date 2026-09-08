@@ -45,6 +45,13 @@ test('business owner writes preserve newer administrative decisions on PostgreSQ
       const current = (await repository.findById(stale.id))!;
       assert.equal(current.visibility, 'private'); assert.equal(current.moderationStatus, 'approved'); assert.equal(current.trustStatus, 'approved');
     });
+    await t.test('explicitly clearing stored contact data persists NULL and withdraws its old approval', async () => {
+      const before=await reset();await db.query(`UPDATE business_profiles SET phone='0123456789',email='owner@example.test',description_ar='وصف قديم',lat=33.5,lng=36.3 WHERE id=$1`,[before.id]);
+      const service=new BusinessProfileService(repository,{getCurrentUser:async()=>({id:'business_write_owner'})} as any,{} as any,{assertActiveCategory:async()=>{}} as any);
+      const result=await service.update(undefined,before.id,{phone:'',email:null,descriptionAr:'',lat:null,lng:null});
+      assert.equal(result.phone,undefined);assert.equal(result.email,undefined);assert.equal(result.descriptionAr,undefined);assert.equal(result.lat,undefined);assert.equal(result.moderationStatus,'pending');
+      const [stored]=await db.query<{phone:string|null;email:string|null;lat:number|null;lng:number|null}>(`SELECT phone,email,lat,lng FROM business_profiles WHERE id=$1`,[before.id]);assert.deepEqual(stored,{phone:null,email:null,lat:null,lng:null});
+    });
     await t.test('a moderator decision during owner validation remains authoritative in the response', async () => {
       const stale = await reset();
       let entered!: () => void; let release!: () => void;
