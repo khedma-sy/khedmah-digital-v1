@@ -4,7 +4,8 @@
   inset-block-start:0;
   z-index:120;
   min-height:4.25rem;
-  display:flex;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;
   justify-content:space-between;
   gap:1rem;
@@ -28,3 +29,23 @@
 .khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#e97835) 34%,var(--k-color-border));color:var(--brand-orange,#e97835)}
 .khedma-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:.45rem;min-width:0}
 @media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-brand-compact>svg{width:2.45rem}.khedma-brand-compact b{font-size:1.08rem}.khedma-brand-compact small{font-size:.44rem}}
+
+/* One discovery landmark across screen sizes; it does not depend on session loading. */
+.khedma-header .nav-discovery-group{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.3rem;min-width:0}
+.khedma-header .nav-discovery-group a{min-height:2.75rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:var(--k-radius-md);padding:.45rem .65rem;color:var(--k-color-text);background:transparent;font:inherit;font-size:.8rem;font-weight:800;text-decoration:none;white-space:nowrap}
+.khedma-header .nav-discovery-group a:hover,.khedma-header .nav-discovery-group a[aria-current='page']{border-color:var(--k-color-border);background:var(--k-color-surface-muted)}
+.khedma-header .nav-discovery-group a:focus-visible{outline:3px solid var(--k-color-primary);outline-offset:2px}
+@media(max-width:68rem){
+  .khedma-header{grid-template-columns:auto minmax(0,1fr);gap:.4rem .75rem}
+  .khedma-header>a{grid-column:1;grid-row:1}
+  .khedma-header-actions{grid-column:2;grid-row:1;flex-wrap:wrap}
+  .khedma-header .nav-session{flex-wrap:wrap;justify-content:flex-end}
+  .khedma-header .nav-discovery-group{grid-column:1/-1;grid-row:2;justify-content:center;border-block-start:1px solid var(--k-color-border);padding-block-start:.3rem}
+}
+@media(max-width:38rem){
+  .khedma-header{column-gap:.5rem}
+  .khedma-header .nav-user{max-width:6rem}
+  .khedma-header .nav-discovery-group{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.15rem}
+  .khedma-header .nav-discovery-group a{grid-column:span 2;padding-inline:.5rem;font-size:.75rem;white-space:normal;text-align:center}
+  .khedma-header .nav-discovery-group a:nth-last-child(-n+2){grid-column:span 3}
+}
