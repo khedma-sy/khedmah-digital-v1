@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve, relative, isAbsolute } from 'node:path';
+import { lstat, mkdir, realpath, writeFile } from 'node:fs/promises';
+import { basename, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const git = (cwd, args, options = {}) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options });
@@ -9,9 +9,9 @@ export function reviewablePath(path) {
   if (path.split('/').some((part) => part.startsWith('.') && part !== '.github')) return false;
   if (/(?:^|\/)(?:node_modules|dist|build|coverage|secrets|credentials)(?:\/|$)/i.test(path)) return false;
   if (/\.(?:pem|key|p12|pfx|keystore|jks|zip|png|jpe?g|webp|woff2?|ttf|env)$/i.test(path)) return false;
-  if (/^(?:package(?:-lock)?\.json|README\.md|AGENTS\.md|Dockerfile\.(?:frontend|backend|migrations))$/.test(path)) return true;
+  if (/^(?:package(?:-lock)?\.json|README\.md|AGENTS\.md|ROADMAP-EXECUTION-2026-09-08\.md|Dockerfile\.(?:frontend|backend|migrations))$/.test(path)) return true;
   if (/^apps\/(?:frontend|backend)\/(?:package(?:-lock)?\.json|tsconfig\.json|next\.config\.(?:js|mjs|ts))$/.test(path)) return true;
-  return /^(?:apps\/frontend\/(?:app|lib|tests)\/|apps\/backend\/(?:src|tests)\/|backend\/|tests\/|scripts\/|docs\/|\.github\/workflows\/)/.test(path)
+  return /^(?:apps\/frontend\/(?:app|components|lib|tests)\/|apps\/backend\/src\/|backend\/|tests\/|scripts\/|docs\/|\.github\/workflows\/)/.test(path)
     && /\.(?:tsx?|mjs|cjs|css|md|sql|sh|ya?ml)$/.test(path);
 }
 
@@ -40,6 +40,7 @@ export function inventory(cwd, ref = 'HEAD') {
     return {
       route, path, blob,
       redirect: /\bredirect\(\s*(['"`])([^\n]+?)\1\s*\)/.exec(source)?.[2] ?? null,
+      reexport: /^\s*export\s*\{\s*default\s*\}\s*from\s*(['"])([^'"]+)\1\s*;?\s*$/.exec(source)?.[2] ?? null,
       titles: [...source.matchAll(/\btitle="([^"]+)"|<h1(?:\s[^>]*)?>([^<{]+)<\/h1>/g)].map((m) => m[1] || m[2]),
       imports: [...source.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)].map((m) => m[1]),
       apiCalls: [...new Set([...source.matchAll(/\bapi\.[A-Za-z]+\.[A-Za-z]+/g)].map((m) => m[0]))],
@@ -66,18 +67,42 @@ export function inventory(cwd, ref = 'HEAD') {
   };
 }
 
+// Resolve existing parents before creating output; lexical paths alone do not detect
+// a symlink that points an apparently external directory back into the checkout.
+async function physicalDestination(path) {
+  let current = resolve(path);
+  const missing = [];
+  for (;;) {
+    try { return resolve(await realpath(current), ...missing.slice().reverse()); }
+    catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      const parent = dirname(current);
+      if (parent === current) throw error;
+      missing.push(basename(current));
+      current = parent;
+    }
+  }
+}
+
 export async function writeInventory({ cwd = process.cwd(), ref = 'HEAD', out, bundle = false }) {
   if (!out) throw new Error('An explicit output directory outside the checkout is required.');
-  const root = resolve(git(cwd, ['rev-parse', '--show-toplevel']).trim());
-  const output = resolve(out);
+  const root = await realpath(git(cwd, ['rev-parse', '--show-toplevel']).trim());
+  const output = await physicalDestination(out);
   const relation = relative(root, output);
   if (!relation || (!relation.startsWith('..' + '/') && relation !== '..' && !isAbsolute(relation))) {
     throw new Error('Output must be outside the checkout; the inventory never changes repository files.');
   }
+  // Refuse redirected output files as well as redirected output directories.
+  // Run in a trusted runner-owned directory; this is not an adversarial filesystem sandbox.
+  for (const name of ['repository-inventory.json', 'repository-inventory.md', 'review-source.tar']) {
+    try {
+      if ((await lstat(resolve(output, name))).isSymbolicLink()) throw new Error('Inventory output must not be a symbolic link.');
+    } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+  }
   const data = inventory(root, ref);
   await mkdir(output, { recursive: true });
   await writeFile(resolve(output, 'repository-inventory.json'), JSON.stringify(data, null, 2) + '\n');
-  const table = data.routes.map((r) => `| \`${r.route}\` | \`${r.path}\` | ${r.redirect ? `redirect: \`${r.redirect}\`` : 'source present; runtime not certified'} |`).join('\n');
+  const table = data.routes.map((r) => `| \`${r.route}\` | \`${r.path}\` | ${r.redirect ? `redirect: \`${r.redirect}\`` : r.reexport ? `shared page re-export: \`${r.reexport}\`` : 'source present; runtime not certified'} |`).join('\n');
   await writeFile(resolve(output, 'repository-inventory.md'), `# Repository inventory\n\nCommit: \`${data.commit}\`\n\nTracked files: ${data.fileCount}. Page entry files: ${data.routeCount}.\n\nThis is a source inventory, not deployment, safety, visual, or completeness certification. Duplicate content is a review signal, never deletion authority.\n\n## Routes\n\n| Route | Owning file | Source disposition |\n|---|---|---|\n${table}\n\n## CSS import order\n\n${data.cssLoadOrder.map((p, i) => `${i + 1}. \`${p}\``).join('\n')}\n`);
   if (bundle) {
     const paths = data.files.filter(({ path, mode }) => ['100644', '100755'].includes(mode) && reviewablePath(path)).map(({ path }) => path);
