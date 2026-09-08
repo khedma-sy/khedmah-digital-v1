@@ -35,18 +35,25 @@ test('legacy governorate routes converge on canonical data-backed search', async
 });
 
 test('categories owns the canonical directory route and the old catalog redirects', async () => {
-  const [navigation, categories, legacy, directory, sitemap] = await Promise.all([
+  const [navigation, categories, legacy, directory, sitemap, context] = await Promise.all([
     read('apps/frontend/app/auth-navigation.tsx'),
     read('apps/frontend/app/categories/page.tsx'),
     read('apps/frontend/app/service-catalog/page.tsx'),
     read('apps/frontend/app/components/category-directory.tsx'),
-    read('apps/frontend/app/sitemap.ts')
+    read('apps/frontend/app/sitemap.ts'),
+    read('apps/frontend/lib/discovery-context.ts')
   ]);
   assert.match(navigation, /href: '\/categories'/);
-  assert.match(categories, /CategoryDirectory/);
+  assert.match(categories, /export default function CategoriesPage\(/);
+  assert.equal((categories.match(/<CategoryDirectory\s*\/>/g) ?? []).length, 1);
+  assert.match(categories, /<Suspense\b[\s\S]*<CategoryDirectory\s*\/>[\s\S]*<\/Suspense>/);
   assert.match(legacy, /redirect\('\/categories'\)/);
-  assert.match(directory, /params\.set\('category', categoryCode\)/);
-  assert.match(directory, /`\/categories\?\$\{params\}`/);
+  assert.match(directory, /readDiscoveryContext\(params\)/);
+  assert.match(directory, /categoryDirectoryHref\(params, categoryCode, pageNumber\)/);
+  assert.match(context, /params\.get\('categoryCode'\) \?\? params\.get\('category'\)/);
+  assert.match(context, /params\.set\('categoryCode', categoryCode\.trim\(\)\)/);
+  assert.doesNotMatch(context, /params\.set\('category',/);
+  assert.match(context, /`\/categories\?\$\{params\}`/);
   assert.match(sitemap, /\/categories/);
   assert.doesNotMatch(sitemap, /\/service-catalog/);
 });
