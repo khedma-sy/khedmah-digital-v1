@@ -9,6 +9,7 @@ import { BusinessProfileService } from '../business-profiles/business-profile.se
 import { ProfessionalProfileService } from '../professional-profiles/professional-profile.service';
 import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
+import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
@@ -170,6 +171,17 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
     await t.test('verification submission checks current parent ownership inside its transaction',async()=>{
       const request=await requestFixture();await assert.rejects(()=>businesses.requestVerification({...request,id:'unowned-request',requesterId:'review_moderator'}),ForbiddenException);assert.equal((await businesses.findVerificationRequest('business',business.id))!.id,request.id);
     });
+    const catalog=new ServiceCatalogRepository(db);
+    for(const kind of ['business','professional'] as const){
+      await t.test(`${kind}: featured services and search totals follow parent publication and moderation`,async()=>{
+        const id=kind==='business'?business.id:professional.id;const table=kind==='business'?'business_profiles':'professional_profiles';const key=kind==='business'?'id':'professional_profile_identifier';
+        await db.query(`INSERT INTO service_listings(id,owner_type,owner_id,title_ar,category_code,status,is_featured,featured_at) VALUES($1,$2,$3,'خدمة أهلية',$4,'active',TRUE,clock_timestamp())`,['service_visibility_'+kind,kind,id,category.code]);
+        const includes=async()=>({featured:(await catalog.listFeatured(100)).some(row=>row.id==='service_visibility_'+kind),search:(await catalog.listPublicEligible({},100,0)).some(row=>row.id==='service_visibility_'+kind)});
+        await db.query(`UPDATE ${table} SET visibility='private',moderation_status='approved',${kind==='business'?"trust_status='approved',status='active'":"lifecycle_status='active'"} WHERE ${key}=$1`,[id]);assert.deepEqual(await includes(),{featured:false,search:false});
+        const countBefore=await catalog.countPublicEligible({});await db.query(`UPDATE ${table} SET visibility='public' WHERE ${key}=$1`,[id]);assert.deepEqual(await includes(),{featured:true,search:true});assert.equal(await catalog.countPublicEligible({}),countBefore+1);
+        await db.query(`UPDATE ${table} SET moderation_status='pending' WHERE ${key}=$1`,[id]);assert.deepEqual(await includes(),{featured:false,search:false});assert.equal(await catalog.countPublicEligible({}),countBefore);
+      });
+    }
   }finally{
     if(previous===undefined)delete process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;else process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS=previous;
     await pool.end();

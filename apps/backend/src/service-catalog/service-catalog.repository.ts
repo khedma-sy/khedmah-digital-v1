@@ -174,13 +174,14 @@ export class ServiceCatalogRepository {
   }
 
   async listFeatured(limit = 6): Promise<ServiceListing[]> {
+    const { whereClauses } = this.publicEligibleWhere({});
     const rows = await this.db.query<ServiceListingRow>(
       `SELECT sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en, sl.description_ar, sl.description_en,
               sl.category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = sl.category_code) AS category_name_ar,
               sl.price, sl.price_currency, sl.price_type, sl.status, sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
        FROM service_listings sl
-       WHERE sl.status = 'active' AND sl.is_featured = TRUE
+       WHERE ${whereClauses.join(' AND ')} AND sl.is_featured = TRUE
        ORDER BY sl.featured_at DESC
        LIMIT $1`,
       [limit]
@@ -205,6 +206,7 @@ export class ServiceCatalogRepository {
           WHERE bp.id = sl.owner_id
             AND bp.visibility = 'public'
             AND bp.trust_status = 'approved'
+            AND bp.moderation_status = 'approved'
             AND bp.status = 'active'
             ${businessCityClause}
         ))
