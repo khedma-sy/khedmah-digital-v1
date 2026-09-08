@@ -5,6 +5,7 @@ import { createContext, Script } from 'node:vm';
 import ts from 'typescript';
 
 const directorySource = readFileSync(new URL('../apps/frontend/app/components/category-directory.tsx', import.meta.url), 'utf8');
+const contextSource = readFileSync(new URL('../apps/frontend/lib/discovery-context.ts', import.meta.url), 'utf8');
 const categoriesSource = readFileSync(new URL('../apps/frontend/lib/use-categories.ts', import.meta.url), 'utf8');
 const categories = [
   { code: 'plumbing', nameAr: 'السباكة' },
@@ -60,6 +61,16 @@ function fixture({ query = '', hookOnly = false } = {}) {
     }
   };
   const location = new URL(`/categories${query}`, 'https://fixture.example.test');
+  const historyEntries = [location.href];
+  let historyIndex = 0;
+  const navigations = [];
+  function navigate(path, mode = 'push') {
+    location.href = new URL(path, location).href;
+    if (mode === 'push') { historyEntries.splice(historyIndex + 1); historyEntries.push(location.href); historyIndex += 1; }
+    else historyEntries[historyIndex] = location.href;
+    navigations.push(mode); dirty = true;
+  }
+  const router = { push: (path) => navigate(path), replace: (path) => navigate(path, 'replace') };
   const window = { location, scrollTo() {}, history: {
     replaceState(_state, _unused, path) { location.href = new URL(path, location).href; }
   } };
@@ -87,8 +98,11 @@ function fixture({ query = '', hookOnly = false } = {}) {
     new Script(compiled.outputText, { filename: name }).runInContext(context);
     return exports;
   }
+  const contextHelpers = load(contextSource, 'discovery-context.ts', {});
   const { useCategories } = load(categoriesSource, 'use-categories.ts', {});
   const { CategoryDirectory } = load(directorySource, 'category-directory.tsx', {
+    'next/navigation': { useSearchParams: () => new URLSearchParams(location.search), useRouter: () => router },
+    '../../lib/discovery-context': contextHelpers,
     'next/link': 'Link', './platform-icon': { PlatformIcon: 'PlatformIcon' }, './ui-primitives': primitives,
     '../../lib/use-categories': { useCategories() { currentCategories = useCategories(); return currentCategories; } }
   });
@@ -124,7 +138,11 @@ function fixture({ query = '', hookOnly = false } = {}) {
   };
   render();
   return {
-    categoryCalls, serviceCalls, location, render,
+    categoryCalls, serviceCalls, location, render, navigations,
+    navigate(query) { navigate(`/categories${query}`); render(); },
+    back() { if (historyIndex > 0) { location.href = historyEntries[--historyIndex]; dirty = true; render(); } },
+    forward() { if (historyIndex + 1 < historyEntries.length) { location.href = historyEntries[++historyIndex]; dirty = true; render(); } },
+    get header() { return all().find((node) => node.type === 'PageHeader')?.props.title; },
     get value() { return output; }, get writesAfterUnmount() { return writesAfterUnmount; },
     get busy() { return hookOnly ? output.isLoading : all().some((node) => node.type === 'SkeletonGrid'); },
     get alerts() { return all().filter((node) => node.type === 'StatusMessage').map(text).join('|'); },
@@ -189,7 +207,7 @@ test('an older success cannot replace the newest category results or pagination'
   current.resolve(serviceResult('new')); await f.flush();
   old.resolve(serviceResult('old', 9, 180)); await f.flush();
   assert.deepEqual(f.titles, ['new']); assert.equal(f.busy, false); assert.equal(f.alerts, '');
-  assert.equal(f.location.search, '?category=plumbing');
+  assert.equal(f.location.search, '?categoryCode=plumbing');
 });
 
 for (const outcome of ['resolve', 'reject']) {
@@ -272,4 +290,127 @@ test('effect setup/cleanup replay ignores the discarded metadata request', async
   f.categoryCalls[0].resolve({ categories: [categories[0]] }); await f.flush();
   assert.equal(f.serviceCalls.length, 0); assert.equal(f.busy, true);
   f.categoryCalls[1].resolve({ categories }); await f.flush(); assert.equal(f.serviceCalls.length, 1);
+});
+
+
+// B1.1: controlled routing integration. Next adapters are simulated here;
+// real browser navigation remains a separate acceptance check.
+test('canonical category and city are applied on entry without an unfiltered request', async () => {
+  const f = await loadedRegistry('?categoryCode=electrical&cityCode=aleppo&q=repair&page=2');
+  assert.equal(f.serviceCalls.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.serviceCalls[0].input)), {
+    categoryCode: 'electrical', cityCode: 'aleppo', q: 'repair', page: 2
+  });
+  assert.equal(f.header, 'الكهرباء');
+});
+
+test('canonical category takes precedence over an old alias, including explicit clearing', async () => {
+  for (const [query, expected] of [
+    ['?categoryCode=electrical&category=plumbing', 'electrical'],
+    ['?categoryCode=&category=plumbing', undefined]
+  ]) {
+    const f = await loadedRegistry(query);
+    assert.equal(f.serviceCalls.length, 1); assert.equal(f.serviceCalls[0].input.categoryCode, expected);
+    f.unmount();
+  }
+});
+
+test('category selection emits canonical URL, keeps query/city and requests only once', async () => {
+  const f = await loadedRegistry('?category=plumbing&cityCode=homs&q=repair&page=3&source=discovery');
+  f.serviceCalls[0].resolve(serviceResult('original', 3, 80)); await f.flush();
+  choose(f, 'الكهرباء');
+  const params = f.location.searchParams;
+  assert.equal(params.get('categoryCode'), 'electrical'); assert.equal(params.has('category'), false);
+  assert.equal(params.get('cityCode'), 'homs'); assert.equal(params.get('q'), 'repair');
+  assert.equal(params.get('source'), 'discovery'); assert.equal(params.has('page'), false);
+  assert.equal(f.serviceCalls.length, 2); assert.equal(f.serviceCalls.at(-1).input.cityCode, 'homs');
+  assert.equal(f.serviceCalls.at(-1).input.page, 1); assert.equal(f.navigations.at(-1), 'push');
+});
+
+test('back and forward restore category, page, city and result request together', async () => {
+  const f = await loadedRegistry('?category=plumbing&cityCode=aleppo&page=2');
+  f.serviceCalls[0].resolve(serviceResult('page-two', 2, 80)); await f.flush();
+  choose(f, 'الكهرباء');
+  f.serviceCalls.at(-1).resolve(serviceResult('electrical')); await f.flush();
+  f.back();
+  assert.equal(f.header, 'السباكة'); assert.equal(f.busy, true);
+  assert.equal(f.serviceCalls.length, 3);
+  assert.equal(f.serviceCalls.at(-1).input.categoryCode, 'plumbing');
+  assert.equal(f.serviceCalls.at(-1).input.page, 2); assert.equal(f.serviceCalls.at(-1).input.cityCode, 'aleppo');
+  f.serviceCalls.at(-1).resolve(serviceResult('restored', 2, 80)); await f.flush();
+  assert.deepEqual(f.titles, ['restored']);
+  f.forward();
+  assert.equal(f.header, 'الكهرباء'); assert.equal(f.serviceCalls.length, 4);
+  assert.equal(f.serviceCalls.at(-1).input.categoryCode, 'electrical'); assert.equal(f.serviceCalls.at(-1).input.page, 1);
+});
+
+test('pagination and retry retain query, city and canonical category', async () => {
+  const f = await loadedRegistry('?categoryCode=plumbing&cityCode=homs&q=repair');
+  f.serviceCalls[0].resolve(serviceResult('one', 1, 60)); await f.flush();
+  f.click('التالي');
+  assert.equal(f.location.searchParams.get('page'), '2');
+  assert.equal(f.serviceCalls.length, 2);
+  f.serviceCalls.at(-1).reject(new Error('offline')); await f.flush();
+  f.click('إعادة المحاولة');
+  assert.deepEqual(JSON.parse(JSON.stringify(f.serviceCalls.at(-1).input)), {
+    categoryCode: 'plumbing', cityCode: 'homs', q: 'repair', page: 2
+  });
+});
+
+test('alias-only normalization does not trigger a second request or permanent loading', async () => {
+  const f = await loadedRegistry('?category=plumbing&cityCode=aleppo');
+  f.serviceCalls[0].resolve(serviceResult('loaded')); await f.flush();
+  choose(f, 'السباكة');
+  assert.equal(f.location.searchParams.has('category'), false);
+  assert.equal(f.location.searchParams.get('categoryCode'), 'plumbing');
+  assert.equal(f.serviceCalls.length, 1); assert.equal(f.busy, false);
+  assert.equal(f.navigations.at(-1), 'replace');
+});
+
+test('an unknown category is not silently broadened, and explicit reset preserves city', async () => {
+  const f = await loadedRegistry('?categoryCode=missing&cityCode=aleppo');
+  assert.equal(f.serviceCalls.length, 0); assert.equal(f.busy, false);
+  assert.match(f.alerts, /التصنيف المحدد غير متاح/);
+  assert.equal(f.location.searchParams.get('categoryCode'), 'missing');
+  f.click('عرض كل التصنيفات');
+  assert.equal(f.serviceCalls.length, 1);
+  assert.equal(f.serviceCalls[0].input.categoryCode, undefined);
+  assert.equal(f.serviceCalls[0].input.cityCode, 'aleppo');
+});
+
+test('city-only URL changes invalidate old responses and never display the wrong city results', async () => {
+  const f = await loadedRegistry('?categoryCode=plumbing&cityCode=aleppo');
+  const old = f.serviceCalls.at(-1);
+  f.navigate('?categoryCode=plumbing&cityCode=homs');
+  const current = f.serviceCalls.at(-1);
+  assert.equal(f.serviceCalls.length, 2); assert.equal(current.input.cityCode, 'homs');
+  old.resolve(serviceResult('wrong-city')); await f.flush();
+  assert.equal(f.busy, true); assert.deepEqual(f.titles, []);
+  current.resolve(serviceResult('homs')); await f.flush();
+  assert.deepEqual(f.titles, ['homs']); assert.equal(f.busy, false);
+});
+
+test('Back to the unfiltered URL clears the prior selection rather than retaining it', async () => {
+  const f = await loadedRegistry();
+  f.serviceCalls[0].resolve(serviceResult('all')); await f.flush();
+  choose(f, 'الكهرباء'); f.serviceCalls.at(-1).resolve(serviceResult('one')); await f.flush();
+  f.back();
+  assert.equal(f.header, 'دليل الخدمات'); assert.equal(f.serviceCalls.at(-1).input.categoryCode, undefined);
+  assert.equal(f.serviceCalls.at(-1).input.page, 1);
+});
+
+test('reloading an emitted canonical URL restores the identical API filter tuple', async () => {
+  const f = await loadedRegistry('?category=plumbing&cityCode=aleppo&q=repair&page=2');
+  f.serviceCalls[0].resolve(serviceResult('first', 2, 60)); await f.flush();
+  f.click('التالي'); const expected = JSON.parse(JSON.stringify(f.serviceCalls.at(-1).input));
+  const reloaded = await loadedRegistry(f.location.search);
+  assert.deepEqual(JSON.parse(JSON.stringify(reloaded.serviceCalls[0].input)), expected);
+});
+
+test('invalid city errors are shown without retrying a broader request or deleting the URL context', async () => {
+  const f = await loadedRegistry('?categoryCode=plumbing&cityCode=unknown');
+  assert.equal(f.serviceCalls[0].input.cityCode, 'unknown');
+  f.serviceCalls[0].reject(new Error('cityCode must identify a supported Syrian city.')); await f.flush();
+  assert.match(f.alerts, /cityCode/); assert.equal(f.serviceCalls.length, 1); assert.equal(f.busy, false);
+  assert.equal(f.location.searchParams.get('cityCode'), 'unknown');
 });
