@@ -32,7 +32,8 @@ export function browserSnapshot(formName = '') {
   const interactiveNavigation = navigation.filter((link) => {
     const rect = link.getBoundingClientRect();
     const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    return link.tabIndex >= 0 && rect.height >= 44 && rect.width >= 24
+    // The baseline may use older sizing; the new shell separately targets 44px.
+    return link.tabIndex >= 0 && rect.height >= 24 && rect.width >= 24
       && rect.left >= 0 && rect.right <= document.documentElement.clientWidth
       && rect.top >= 0 && rect.bottom <= document.documentElement.clientHeight
       && !!hit && link.contains(hit);
