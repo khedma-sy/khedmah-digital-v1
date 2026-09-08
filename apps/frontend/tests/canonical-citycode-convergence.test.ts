@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { canonicalCityCode, cityLabel } from '../lib/use-syrian-cities';
+import { readSearchState, searchHref } from '../lib/search-context';
 
 const read = (path: string) => readFile(new URL(path, import.meta.url), 'utf8');
 const cities = [
@@ -35,7 +36,7 @@ test('global and Professional search restore and emit only cityCode URL state', 
   const [globalSearch, professional] = await Promise.all([
     read('../app/search/page.tsx'), read('../app/professional-profiles/search/page.tsx')
   ]);
-  for (const source of [globalSearch, professional]) {
+  for (const source of [professional]) {
     assert.match(source, /params\.get\('cityCode'\)/);
     assertCanonicalCityWriter(source);
     assert.match(source, /canonicalCityCode\(rawCity, cities\)/);
@@ -43,6 +44,18 @@ test('global and Professional search restore and emit only cityCode URL state', 
     assert.match(source, /next\.delete|new URLSearchParams|router\.replace/);
     assert.doesNotMatch(source, /const CITIES|[?&]location=|params\.get\('location'\)/);
   }
+  // Global search now delegates reading/serialization to the tested shared context.
+  assert.match(globalSearch, /readSearchState\(params\)/);
+  assert.match(globalSearch, /canonicalCityCode\(rawCity, cities\)/);
+  assert.match(globalSearch, /cityCode: appliedCity/);
+  assert.doesNotMatch(globalSearch, /const CITIES|[?&]location=|params\.get\('location'\)/);
+  const state = readSearchState(new URLSearchParams('q=repair&cityCode=damascus&category=plumbing&type=service&page=2'));
+  const url = new URL(searchHref(state), 'https://fixture.example.test');
+  assert.equal(state.cityCode, 'damascus');
+  assert.equal(url.searchParams.get('cityCode'), 'damascus');
+  assert.equal(url.searchParams.get('location'), null);
+  assert.equal(url.searchParams.get('categoryCode'), 'plumbing');
+  assert.equal(readSearchState(new URLSearchParams('location=damascus')).cityCode, '');
 });
 
 test('canonical city writer guard permits local renaming but rejects missing or aliased serialization', () => {
@@ -59,7 +72,7 @@ test('clear removes cityCode and Locations failures never install a static fallb
   const [globalSearch, professional, hook] = await Promise.all([
     read('../app/search/page.tsx'), read('../app/professional-profiles/search/page.tsx'), read('../lib/use-syrian-cities.ts')
   ]);
-  assert.match(globalSearch, /router\.replace\('\/search'\)/);
+  assert.match(globalSearch, /router\.push\('\/search', \{ scroll: false \}\)/);
   assert.match(professional, /router\.replace\('\/professional-profiles\/search'\)/);
   assert.match(hook, /setCities\(\[\]\)/);
   assert.match(hook, /إعادة المحاولة|تعذر تحميل المدن/);
