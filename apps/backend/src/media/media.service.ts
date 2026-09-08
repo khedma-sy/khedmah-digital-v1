@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { DatabasePool } from '../database/database.pool';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
+import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { createStorageAdapter, StorageAdapter } from './storage.adapter';
 import { MediaAsset, PublicMediaAsset, UploadMediaRequest } from './media.types';
 import { validateUploadMediaRequest } from './media.validation';
@@ -15,7 +16,8 @@ export class MediaService {
 
   constructor(
     @Inject(DatabasePool) private readonly db: DatabasePool,
-    @Inject(IdentityService) private readonly identity: IdentityService
+    @Inject(IdentityService) private readonly identity: IdentityService,
+    @Inject(OperationsRbacService) private readonly rbac: OperationsRbacService = new OperationsRbacService()
   ) {
     this.storage = createStorageAdapter();
   }
@@ -107,6 +109,8 @@ export class MediaService {
 
   async listForOwner(cookieHeader: string | undefined, ownerType: string, ownerId: string): Promise<PublicMediaAsset[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    if (!['business_profile','professional_profile','product_listing','user'].includes(ownerType)) throw new BadRequestException('Unsupported media owner type.');
+    await this.assertOwner(actor.id, ownerType as MediaAsset['ownerType'], ownerId);
     const rows = await this.db.query<{
       id: string; owner_user_id: string; owner_type: string; owner_id: string;
       filename: string; mime_type: string; size_bytes: number; visibility: string;
@@ -119,6 +123,7 @@ export class MediaService {
       [ownerType, ownerId]
     );
 
+    await this.assertOwner(actor.id, ownerType as MediaAsset['ownerType'], ownerId);
     return rows
       .filter((r) => r.visibility === 'public' || r.owner_user_id === actor.id)
       .map((r) => this.toPublic(this.mapRow(r)));
@@ -151,14 +156,53 @@ export class MediaService {
     await this.db.query(`DELETE FROM media_assets WHERE id = $1`, [id]);
   }
 
-  async readPublic(id: string): Promise<{ data: Buffer; mimeType: string }> {
-    const rows = await this.db.query<{ storage_key: string; mime_type: string }>(
-      `SELECT storage_key, mime_type FROM media_assets WHERE id = $1 AND visibility = 'public' LIMIT 1`,
-      [id]
-    );
-    if (!rows[0]) throw new NotFoundException('Public media asset not found.');
-    const object = await this.storage.read(rows[0].storage_key);
-    return { data: object.data, mimeType: rows[0].mime_type || object.mimeType };
+  async readPublic(id: string, cookieHeader?: string): Promise<{ data: Buffer; mimeType: string }> {
+    const asset = await this.readAssetMetadata(id);
+    await this.assertAssetReadable(asset, cookieHeader);
+    const object = await this.storage.read(asset.storage_key);
+    const current = await this.readAssetMetadata(id);
+    if (current.storage_key !== asset.storage_key || current.owner_type !== asset.owner_type || current.owner_id !== asset.owner_id) {
+      throw new NotFoundException('Media asset not found.');
+    }
+    await this.assertAssetReadable(current, cookieHeader);
+    return { data: object.data, mimeType: current.mime_type || object.mimeType };
+  }
+
+  private async readAssetMetadata(id: string) {
+    const rows = await this.db.query<{ storage_key: string; mime_type: string; owner_type: MediaAsset['ownerType']; owner_id: string; visibility: string }>(
+      `SELECT storage_key,mime_type,owner_type,owner_id,visibility FROM media_assets WHERE id=$1 LIMIT 1`, [id]);
+    if (!rows[0]) throw new NotFoundException('Media asset not found.');
+    return rows[0];
+  }
+
+  private async assertAssetReadable(asset: { owner_type: MediaAsset['ownerType']; owner_id: string; visibility: string }, cookieHeader?: string): Promise<void> {
+    if (asset.visibility === 'public' && await this.hasPublicParent(asset.owner_type, asset.owner_id)) return;
+    const token = readSessionToken(cookieHeader);
+    if (!token) throw new NotFoundException('Media asset not found.');
+    let actor;
+    try { actor = await this.identity.getCurrentUser(token); }
+    catch (cause) {
+      if (cause instanceof UnauthorizedException) throw new NotFoundException('Media asset not found.');
+      throw cause;
+    }
+    try { await this.assertOwner(actor.id, asset.owner_type, asset.owner_id); return; }
+    catch (cause) { if (!(cause instanceof ForbiddenException)) throw cause; }
+    // Reviewers may inspect publishable profile/product images, never another user's private files.
+    if (asset.visibility === 'public' && ['business_profile','professional_profile','product_listing'].includes(asset.owner_type)) {
+      try { this.rbac.assert(actor.email, 'security.manage'); return; }
+      catch (cause) { if (!(cause instanceof ForbiddenException)) throw cause; }
+    }
+    throw new NotFoundException('Media asset not found.');
+  }
+
+  private async hasPublicParent(ownerType: MediaAsset['ownerType'], id: string): Promise<boolean> {
+    let sql: string;
+    if (ownerType === 'business_profile') sql = `SELECT 1 FROM business_profiles WHERE id=$1 AND visibility = 'public' AND moderation_status='approved' AND trust_status='approved' AND status='active'`;
+    else if (ownerType === 'professional_profile') sql = `SELECT 1 FROM professional_profiles WHERE professional_profile_identifier=$1 AND visibility = 'public' AND moderation_status='approved' AND lifecycle_status='active'`;
+    else if (ownerType === 'product_listing') sql = `SELECT 1 FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1 AND p.status='active' AND p.moderation_status='approved' AND b.visibility = 'public' AND b.moderation_status='approved' AND b.trust_status='approved' AND b.status='active'`;
+    else if (ownerType === 'user') sql = `SELECT 1 FROM core_user_accounts WHERE user_identifier=$1 AND account_status='active' AND lifecycle_status='active'`;
+    else return false;
+    return (await this.db.query(sql, [id])).length > 0;
   }
 
   private toPublic(asset: MediaAsset): PublicMediaAsset {
