@@ -1,5 +1,6 @@
+import { requireContentRevision } from '../moderation/profile-content-revision';
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -21,6 +22,9 @@ export class ProfessionalProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateProfessionalProfileUpsert(request);
     const existing = await this.repository.findByUserId(actor.id);
+    if (existing && request.expectedContentRevision === undefined) throw new ConflictException('A professional profile already exists. Reload it before editing.');
+    const expected = existing ? requireContentRevision(request.expectedContentRevision, existing.contentRevision) : undefined;
+    if (!existing && request.expectedContentRevision !== undefined) throw new ConflictException('The edited profile is no longer available.');
     const now = new Date().toISOString();
     const profile: ProfessionalProfile = existing
       ? {
@@ -51,7 +55,11 @@ export class ProfessionalProfileService {
           updatedAt: now
         };
 
-    await this.repository.save(profile);
+    if (existing) return this.toPublic(await this.repository.updateOwner(profile, expected!, actor.id));
+    try { await this.repository.save(profile); } catch (cause) {
+      if ((cause as { code?: string }).code === '23505') throw new ConflictException('A professional profile already exists. Reload it before editing.');
+      throw cause;
+    }
     return this.toPublic(await this.requireProfile(profile.id));
   }
 
@@ -212,6 +220,7 @@ export class ProfessionalProfileService {
     return {
       id: profile.id,
       revision: profile.revision,
+      contentRevision: profile.contentRevision,
       reviewImageUrls: profile.reviewImageUrls,
       headlineAr: profile.headlineAr,
       headlineEn: profile.headlineEn,

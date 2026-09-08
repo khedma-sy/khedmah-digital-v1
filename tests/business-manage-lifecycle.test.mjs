@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {clientPage,css,deferred,primitives,readSource} from './helpers/client-page-harness.mjs';
-const business=id=>({id,name:`نشاط ${id}`,categoryCode:'repairs',cityCode:'damascus',visibility:'private',moderationStatus:'pending',trustStatus:'pending',status:'active'});
+const business=id=>({id,contentRevision:'a'.repeat(64),name:`نشاط ${id}`,categoryCode:'repairs',cityCode:'damascus',visibility:'private',moderationStatus:'pending',trustStatus:'pending',status:'active'});
 function fixture(){
   let id='one';const loads=[],mutations=[],navigations=[],readers=[];
   const call=(list,body)=>{const d=deferred();d.body=body;list.push(d);return d.promise;};
@@ -56,4 +56,20 @@ test('business editor sends explicit empty contact fields when the owner clears 
   const f=fixture();await f.resolve(f.loads[0],{businesses:[{...business('one'),phone:'0123456789',email:'owner@example.test',website:'https://example.test'}]});f.page.find(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('تعديل المعلومات')).props.onClick();f.page.render();
   for(const type of ['tel','email','url']){const input=f.page.find(n=>n.type==='input'&&n.props.type===type);input.props.onChange({target:{value:''}});f.page.render();}
   f.submit('updateProfile');assert.equal(f.mutations.length,1);for(const field of ['phone','email','website'])assert.equal(f.mutations[0].body[field],'');
+});
+
+test('business conflict preserves the draft and only explicit profile reload advances its revision',async()=>{
+  const f=fixture();await f.resolve(f.loads[0]);f.page.find(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('تعديل المعلومات')).props.onClick();f.page.render();
+  f.page.find(n=>n.type==='input'&&n.props.value==='نشاط one').props.onChange({target:{value:'مسودة تبويب قديم'}});f.page.render();
+  f.submit('updateProfile');assert.equal(f.mutations[0].body.expectedContentRevision,'a'.repeat(64));
+  await f.reject(f.mutations[0],Object.assign(new Error('changed'),{statusCode:409}));
+  assert.ok(f.page.find(n=>n.type==='input'&&n.props.value==='مسودة تبويب قديم'));assert.equal(f.loads.length,1);
+  f.submit('updateProfile');assert.equal(f.mutations.length,1);f.page.click('تحميل معلومات النشاط الحالية');
+  await f.resolve(f.loads[1],{businesses:[{...business('one'),name:'النسخة الجديدة',contentRevision:'b'.repeat(64)}]});
+  f.submit('updateProfile');assert.equal(f.mutations[1].body.name,'النسخة الجديدة');assert.equal(f.mutations[1].body.expectedContentRevision,'b'.repeat(64));
+});
+test('business profile reload ignores a response after route change',async()=>{
+  const f=fixture();await f.resolve(f.loads[0],{businesses:[{...business('one'),contentRevision:undefined}]});
+  f.page.find(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('تعديل المعلومات')).props.onClick();f.page.render();f.page.click('تحميل معلومات النشاط الحالية');
+  f.changeId('two');await f.resolve(f.loads[2]);await f.resolve(f.loads[1],{businesses:[business('one')]});assert.doesNotMatch(f.page.text,/نشاط one/);assert.deepEqual(f.navigations,[]);
 });

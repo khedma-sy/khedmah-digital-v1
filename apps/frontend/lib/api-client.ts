@@ -45,6 +45,7 @@ export interface OperationsProductOverview {
 }
 
 export interface PublicBusinessProfile {
+  readonly contentRevision?: string;
   readonly revision?: string;
   readonly reviewImageUrls?: readonly string[];
   readonly id: string;
@@ -87,6 +88,7 @@ export interface Category {
 }
 
 export interface PublicProfessionalProfile {
+  readonly contentRevision?: string;
   readonly revision?: string;
   readonly reviewImageUrls?: readonly string[];
   readonly id: string;
@@ -471,6 +473,7 @@ export const api = {
       return request<{ businesses: PublicBusinessProfile[]; total: number }>(`/businesses/search?${qs}`);
     },
     update(id: string, data: Partial<{
+      expectedContentRevision: string;
       name: string;
       descriptionAr: string;
       descriptionEn: string;
@@ -577,6 +580,7 @@ export const api = {
   },
   professionals: {
     createOrUpdate(data: {
+      expectedContentRevision?: string;
       headlineAr: string;
       headlineEn?: string;
       bioAr?: string;

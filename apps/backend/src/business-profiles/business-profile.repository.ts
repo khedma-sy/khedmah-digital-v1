@@ -1,4 +1,5 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BUSINESS_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeBusinessTrust } from '../moderation/profile-review-write';
 import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
@@ -29,6 +30,7 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly revision: string;
+  readonly content_revision: string;
   readonly review_image_urls?: string[];
   readonly service_radius?: string;
   readonly availability?: string;
@@ -106,13 +108,32 @@ export class BusinessProfileRepository {
     );
   }
 
+  async updateOwner(profile: BusinessProfile, expected: string, actorId: string): Promise<BusinessProfile> {
+    const rows = await this.db.query<BusinessProfileRow>(
+      `UPDATE business_profiles SET
+        moderation_status = CASE WHEN moderation_status = 'suspended' THEN 'suspended'
+          WHEN ROW(name,description_ar,description_en,phone,email,website,category_code,city_code,country_code,lat,lng,address_ar)
+            IS DISTINCT FROM ROW($2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$9::text,$10::text,$11::text,$12::numeric,$13::numeric,$14::text) THEN 'pending'
+          ELSE moderation_status END,
+        name=$2,description_ar=$3,description_en=$4,phone=$5,email=$6,website=$7,visibility=$8,
+        category_code=$9,city_code=$10,country_code=$11,lat=$12,lng=$13,address_ar=$14,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+       WHERE id=$1 AND owner_user_id=$15 AND ${BUSINESS_CONTENT_REVISION_SQL}=$16
+       RETURNING *, (SELECT c.name_ar FROM categories c WHERE c.code=business_profiles.category_code) AS category_name_ar,
+         ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision`,
+      [profile.id,profile.name,profile.descriptionAr??null,profile.descriptionEn??null,profile.phone??null,profile.email??null,profile.website??null,
+        profile.visibility,profile.categoryCode,profile.cityCode,profile.countryCode,profile.lat??null,profile.lng??null,profile.addressAr??null,actorId,expected]);
+    if (!rows[0]) throw new ConflictException('Profile content changed. Reload before saving.');
+    return this.map(rows[0]);
+  }
+
   async findById(id: string): Promise<BusinessProfile | undefined> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -131,7 +152,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -150,7 +171,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='business_profile' AND m.owner_id=b.id AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
@@ -170,7 +191,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -190,7 +211,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -211,7 +232,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -514,6 +535,7 @@ export class BusinessProfileRepository {
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       reviewImageUrls: row.review_image_urls,
+      contentRevision: row.content_revision,
       revision: row.revision,
       serviceRadius: Number(row.service_radius ?? 25),
       availability: (row.availability ?? 'available') as BusinessProfile['availability'],

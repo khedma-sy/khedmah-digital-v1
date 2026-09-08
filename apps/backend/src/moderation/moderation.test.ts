@@ -90,7 +90,7 @@ test('Moderation Vertical Slice: Business Workflow', async () => {
   await businessService.approveModeration(adminCookie, business.id, (await businessService.listMine(ownerCookie))[0].revision);
 
   // To be public, it also needs trust_status=approved and visibility=public
-  await businessService.update(ownerCookie, business.id, { visibility: 'public' });
+  await businessService.update(ownerCookie, business.id, { expectedContentRevision: business.contentRevision, visibility: 'public' });
   // Set trust approved (as admin)
   await businessService.updateTrustStatus(adminCookie, business.id, { trustStatus: 'approved' });
 

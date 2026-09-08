@@ -110,9 +110,9 @@ test('public projections preserve readable Arabic labels for inactive legacy ref
   for (const projection of [businessService, serviceService, combinedSearch, client]) {
     assert.match(projection, /categoryNameAr/);
   }
-  for (const mutationService of [businessService, serviceService]) {
-    assert.match(mutationService, /repository\.save\(updated\)[\s\S]*repository\.findById\(updated\.id\)/);
-  }
+  assert.match(serviceService, /repository\.save\(updated\)[\s\S]*repository\.findById\(updated\.id\)/);
+  assert.match(businessService, /toPublic\(await this\.repository\.updateOwner\(updated, expected, actor\.id\)\)/);
+  assert.match(businessRepository, /RETURNING \*, \(SELECT c\.name_ar FROM categories c WHERE c\.code=business_profiles\.category_code\) AS category_name_ar/);
   assert.match(searchPage, /categoryNameAr/);
   assert.doesNotMatch(searchPage, /\?\? code;/);
   assert.match(contract, /authoritative `categoryNameAr` resolved by code/);

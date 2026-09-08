@@ -1,3 +1,4 @@
+import { requireContentRevision } from '../moderation/profile-content-revision';
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
@@ -72,6 +73,7 @@ export class BusinessProfileService {
     }
 
     const input = validateUpdateBusinessProfile(request);
+    const expected = requireContentRevision(request.expectedContentRevision, profile.contentRevision);
     if (input.categoryCode && input.categoryCode !== profile.categoryCode) {
       await this.categories.assertActiveCategory(input.categoryCode);
     }
@@ -93,8 +95,7 @@ export class BusinessProfileService {
       updatedAt: new Date().toISOString()
     };
 
-    await this.repository.save(updated);
-    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
+    return this.toPublic(await this.repository.updateOwner(updated, expected, actor.id));
   }
 
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {
@@ -330,6 +331,7 @@ export class BusinessProfileService {
     return {
       id: profile.id,
       revision: profile.revision,
+      contentRevision: profile.contentRevision,
       reviewImageUrls: profile.reviewImageUrls,
       name: profile.name,
       descriptionAr: profile.descriptionAr,

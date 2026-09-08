@@ -55,6 +55,8 @@ export default function ManageBusinessProfilePage() {
   const [notice, setNotice] = useState('');
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
+  const [profileRevision, setProfileRevision] = useState<string>();
+  const [requiresProfileReload, setRequiresProfileReload] = useState(false);
   const [showReviewConfirm, setShowReviewConfirm] = useState(false);
   const [serviceForm, setServiceForm] = useState({ titleAr: '', descriptionAr: '', categoryCode: '', priceType: 'negotiable', price: '' });
   const [profileForm, setProfileForm] = useState({ name: '', descriptionAr: '', phone: '', email: '', website: '', categoryCode: '' });
@@ -79,6 +81,7 @@ export default function ManageBusinessProfilePage() {
       setHasSavedHours(storedHours.hours.length === 7);
       setHours(storedHours.hours.length === 7 ? storedHours.hours : defaultHours().map((hour) => ({ ...hour, businessProfileId: id })));
       setProfileForm({ name: owned.name, descriptionAr: owned.descriptionAr ?? '', phone: owned.phone ?? '', email: owned.email ?? '', website: owned.website ?? '', categoryCode: owned.categoryCode });
+      setProfileRevision(owned.contentRevision); setRequiresProfileReload(!owned.contentRevision);
       setBranchForm((current) => ({ ...current, cityCode: current.cityCode || owned.cityCode }));
     } catch (cause) {
       if (!active()) return;
@@ -125,10 +128,33 @@ export default function ManageBusinessProfilePage() {
     setError(message); setBusyAction(''); actionInProgress.current = false;
   }
 
+  async function reloadProfile() {
+    const active = begin('profile-reload'); if (!active) return;
+    try {
+      const { businesses } = await api.businesses.listMine(); if (!active()) return;
+      const owned = businesses.find((profile) => profile.id === id);
+      if (!owned?.contentRevision) { failed('تعذر تحميل نسخة النشاط الحالية. مسودتك ما زالت ظاهرة.', active); return; }
+      setBusiness(owned); setProfileRevision(owned.contentRevision); setRequiresProfileReload(false);
+      setProfileForm({ name: owned.name, descriptionAr: owned.descriptionAr ?? '', phone: owned.phone ?? '', email: owned.email ?? '', website: owned.website ?? '', categoryCode: owned.categoryCode });
+      succeeded('تم تحميل معلومات النشاط الحالية. يمكنك التعديل الآن.', active);
+    } catch { failed('تعذر إعادة تحميل معلومات النشاط. حاول مجدداً.', active); }
+  }
+
   async function updateProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const active = begin('profile'); if (!active) return;
-    try { const result = await api.businesses.update(id, { ...profileForm, name: profileForm.name.trim(), descriptionAr: profileForm.descriptionAr.trim(), phone: profileForm.phone.trim(), email: profileForm.email.trim(), website: profileForm.website.trim() }); if (!active()) return; setBusiness(result.business); setShowProfileForm(false); succeeded('تم حفظ معلومات النشاط.', active); }
-    catch { failed('تعذر حفظ معلومات النشاط. راجع الحقول وحاول مجدداً.', active); }
+    event.preventDefault();
+    if (requiresProfileReload || !profileRevision) { setRequiresProfileReload(true); return; }
+    const active = begin('profile'); if (!active) return;
+    try {
+      const result = await api.businesses.update(id, { ...profileForm, expectedContentRevision: profileRevision, name: profileForm.name.trim(), descriptionAr: profileForm.descriptionAr.trim(), phone: profileForm.phone.trim(), email: profileForm.email.trim(), website: profileForm.website.trim() });
+      if (!active()) return;
+      setBusiness(result.business); setProfileRevision(result.business.contentRevision); setShowProfileForm(false); succeeded('تم حفظ معلومات النشاط.', active);
+    } catch (cause) {
+      if (!active()) return;
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 409) {
+        setRequiresProfileReload(true); failed('تغيّرت معلومات النشاط في مكان آخر. مسودتك ما زالت ظاهرة؛ انسخ ما تحتاجه ثم حمّل النسخة الحالية قبل التعديل.', active); return;
+      }
+      failed('تعذر حفظ معلومات النشاط. راجع الحقول وحاول مجدداً.', active);
+    }
   }
 
   async function createService(event: FormEvent<HTMLFormElement>) {
@@ -246,7 +272,7 @@ export default function ManageBusinessProfilePage() {
     {showReviewConfirm && <StatusMessage tone="warning"><div role="group" aria-label="تأكيد إرسال النشاط للمراجعة"><strong>تأكيد إرسال النشاط للمراجعة</strong><p>سيُرسل الملف للمراجعة البشرية. تأكد من اكتمال المعلومات والخدمات قبل المتابعة.</p><div className={styles.actions}><ActionButton type="button" onClick={() => void submitForReview()} disabled={!!busyAction}>تأكيد الإرسال</ActionButton><ActionButton type="button" variant="secondary" onClick={() => setShowReviewConfirm(false)} disabled={!!busyAction}>إلغاء</ActionButton></div></div></StatusMessage>}
     <Surface className={styles.progress}><div><span>اكتمال الملف</span><strong>{completion.toLocaleString('ar-SY')}٪</strong></div><progress max="100" value={completion}>{completion}%</progress><p>أكمل بيانات التواصل والخدمات والساعات والفروع قبل الإرسال للمراجعة.</p></Surface>
 
-    {showProfileForm && <Surface as="form" className={styles.form} onSubmit={updateProfile} aria-busy={busyAction === 'profile'}><h2>المعلومات الأساسية</h2><label>اسم النشاط<input value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} minLength={2} maxLength={160} required/></label><label>نبذة عن النشاط<textarea value={profileForm.descriptionAr} onChange={(event) => setProfileForm((current) => ({ ...current, descriptionAr: event.target.value }))} maxLength={2000} rows={5}/></label><label>التخصص الدقيق<select value={profileForm.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setProfileForm((current) => ({ ...current, categoryCode: event.target.value }))} required>{profileForm.categoryCode && !hasSelectableCurrentCategory && <option value={profileForm.categoryCode}>التصنيف الحالي المحفوظ (قديم)</option>}<CategorySelectOptions categories={categories} allowRoots={false} /></select>{profileForm.categoryCode && !hasSelectableCurrentCategory && <small>يمكنك إبقاء التصنيف الحالي عند تعديل معلومات أخرى، أو اختيار تخصص نشط جديد.</small>}</label><div className={styles.formGrid}><label>الهاتف<input type="tel" value={profileForm.phone} onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}/></label><label>البريد الإلكتروني<input type="email" dir="ltr" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}/></label></div><label>الموقع الإلكتروني<input type="url" dir="ltr" value={profileForm.website} onChange={(event) => setProfileForm((current) => ({ ...current, website: event.target.value }))}/></label><ActionButton type="submit" disabled={!!busyAction}>{busyAction === 'profile' ? 'جارٍ الحفظ…' : 'حفظ المعلومات'}</ActionButton></Surface>}
+    {showProfileForm && <Surface as="form" className={styles.form} onSubmit={updateProfile} aria-busy={busyAction === 'profile'}><h2>المعلومات الأساسية</h2>{requiresProfileReload && <StatusMessage tone="warning"><p>يلزم تحميل النسخة الحالية قبل الحفظ. سيستبدل التحميل حقول معلومات النشاط الظاهرة؛ انسخ تعديلاتك التي تريد الاحتفاظ بها أولاً.</p><ActionButton type="button" disabled={!!busyAction} onClick={() => void reloadProfile()}>تحميل معلومات النشاط الحالية</ActionButton></StatusMessage>}<label>اسم النشاط<input value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} minLength={2} maxLength={160} required/></label><label>نبذة عن النشاط<textarea value={profileForm.descriptionAr} onChange={(event) => setProfileForm((current) => ({ ...current, descriptionAr: event.target.value }))} maxLength={2000} rows={5}/></label><label>التخصص الدقيق<select value={profileForm.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setProfileForm((current) => ({ ...current, categoryCode: event.target.value }))} required>{profileForm.categoryCode && !hasSelectableCurrentCategory && <option value={profileForm.categoryCode}>التصنيف الحالي المحفوظ (قديم)</option>}<CategorySelectOptions categories={categories} allowRoots={false} /></select>{profileForm.categoryCode && !hasSelectableCurrentCategory && <small>يمكنك إبقاء التصنيف الحالي عند تعديل معلومات أخرى، أو اختيار تخصص نشط جديد.</small>}</label><div className={styles.formGrid}><label>الهاتف<input type="tel" value={profileForm.phone} onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}/></label><label>البريد الإلكتروني<input type="email" dir="ltr" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}/></label></div><label>الموقع الإلكتروني<input type="url" dir="ltr" value={profileForm.website} onChange={(event) => setProfileForm((current) => ({ ...current, website: event.target.value }))}/></label><ActionButton type="submit" disabled={!!busyAction || requiresProfileReload || !profileRevision}>{busyAction === 'profile' ? 'جارٍ الحفظ…' : 'حفظ المعلومات'}</ActionButton></Surface>}
 
     {showServiceForm && <Surface as="form" className={styles.form} onSubmit={createService} aria-busy={busyAction === 'service'}><h2>خدمة جديدة</h2><label>اسم الخدمة<input value={serviceForm.titleAr} onChange={(event) => setServiceForm((current) => ({ ...current, titleAr: event.target.value }))} minLength={2} maxLength={200} required/></label><label>وصف مختصر<textarea value={serviceForm.descriptionAr} onChange={(event) => setServiceForm((current) => ({ ...current, descriptionAr: event.target.value }))} maxLength={2000} rows={4}/></label><div className={styles.formGrid}><label>التخصص<select value={serviceForm.categoryCode} disabled={categoriesLoading || !!categoriesError} required onChange={(event) => setServiceForm((current) => ({ ...current, categoryCode: event.target.value }))}><option value="">اختر تخصص الخدمة</option><CategorySelectOptions categories={categories} allowRoots={false} /></select></label><label>طريقة السعر<select value={serviceForm.priceType} onChange={(event) => setServiceForm((current) => ({ ...current, priceType: event.target.value }))}><option value="negotiable">قابل للتفاوض</option><option value="fixed">سعر ثابت</option><option value="hourly">بالساعة</option></select></label></div>{serviceForm.priceType !== 'negotiable' && <label>السعر بالليرة السورية<input type="number" value={serviceForm.price} onChange={(event) => setServiceForm((current) => ({ ...current, price: event.target.value }))} min="1" step="1" required/></label>}<ActionButton type="submit" disabled={!!busyAction}>{busyAction === 'service' ? 'جارٍ الحفظ…' : 'حفظ الخدمة'}</ActionButton></Surface>}
 

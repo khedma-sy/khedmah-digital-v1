@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { PROFESSIONAL_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeProfessionalSuspension } from '../moderation/profile-review-write';
 import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
@@ -19,6 +20,7 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly revision: string;
+  readonly content_revision: string;
   readonly review_image_urls?: string[];
 }
 
@@ -79,9 +81,27 @@ export class ProfessionalProfileRepository {
     );
   }
 
+  async updateOwner(profile: ProfessionalProfile, expected: string, actorId: string): Promise<ProfessionalProfile> {
+    const rows = await this.db.query<ProfessionalProfileRow>(
+      `UPDATE professional_profiles SET
+        moderation_status = CASE WHEN moderation_status='suspended' THEN 'suspended'
+          WHEN ROW(headline_ar,headline_en,bio_ar,bio_en,city_code,country_code,skills)
+            IS DISTINCT FROM ROW($2::text,$3::text,$4::text,$5::text,$7::text,$8::text,$9::text[]) THEN 'pending'
+          ELSE moderation_status END,
+        headline_ar=$2,headline_en=$3,bio_ar=$4,bio_en=$5,availability=$6,city_code=$7,country_code=$8,skills=$9,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+       WHERE professional_profile_identifier=$1 AND user_identifier=$10 AND ${PROFESSIONAL_CONTENT_REVISION_SQL}=$11
+       RETURNING *,professional_profile_identifier AS id,user_identifier AS user_id,
+         ${PROFILE_REVISION_SQL} AS revision,${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision`,
+      [profile.id,profile.headlineAr,profile.headlineEn??null,profile.bioAr??null,profile.bioEn??null,profile.availability,
+        profile.cityCode,profile.countryCode,[...profile.skills],actorId,expected]);
+    if (!rows[0]) throw new ConflictException('Profile content changed. Reload before saving.');
+    return this.map(rows[0]);
+  }
+
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE professional_profile_identifier = $1
        LIMIT 1`,
@@ -99,7 +119,7 @@ export class ProfessionalProfileRepository {
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE user_identifier = $1
        LIMIT 1`,
@@ -127,7 +147,7 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        ${where ? `${where} AND` : 'WHERE'} visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY is_featured DESC, created_at DESC
@@ -139,7 +159,7 @@ export class ProfessionalProfileRepository {
 
   async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE is_featured = TRUE AND visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY featured_at DESC
@@ -151,7 +171,7 @@ export class ProfessionalProfileRepository {
 
   async listPendingModeration(): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision,
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='professional_profile' AND m.owner_id=professional_profiles.professional_profile_identifier AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls
        FROM professional_profiles
        WHERE moderation_status = 'pending'
@@ -195,6 +215,7 @@ export class ProfessionalProfileRepository {
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       reviewImageUrls: row.review_image_urls,
+      contentRevision: row.content_revision,
       revision: row.revision
     };
   }
