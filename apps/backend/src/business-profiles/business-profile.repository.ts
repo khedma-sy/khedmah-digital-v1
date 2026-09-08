@@ -235,8 +235,8 @@ export class BusinessProfileRepository {
     return Number.parseInt(rows[0]?.count ?? '0', 10);
   }
 
-  async changeTrustStatus(id: string, status: BusinessProfileTrustStatus, actorId: string, reason?: string): Promise<void> {
-    await writeBusinessTrust(this.db, id, actorId, status, reason);
+  async changeTrustStatus(id: string, status: BusinessProfileTrustStatus, actorId: string, reason?: string, verificationApproval = false): Promise<void> {
+    await writeBusinessTrust(this.db, id, actorId, status, reason, verificationApproval);
   }
 
   async updateTrustStatus(id: string, trustStatus: BusinessProfileTrustStatus, updatedAt: string): Promise<void> {
@@ -380,6 +380,19 @@ export class BusinessProfileRepository {
     await this.db.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
   }
 
+  async requestVerification(req: VerificationRequest): Promise<VerificationRequest> {
+    return this.db.transaction(async (client) => {
+      const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [req.entityId]);
+      if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
+      if (parent.rows[0].owner_user_id !== req.requesterId) throw new ForbiddenException('Access denied.');
+      const result = await client.query(`SELECT * FROM verification_requests WHERE entity_type='business' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, [req.entityId]);
+      const existing = result.rows[0];
+      if (existing && ['pending','approved'].includes(existing.status)) return { id:existing.id,entityType:'business',entityId:existing.entity_id,requesterId:existing.requester_id,status:existing.status,notes:existing.notes ?? undefined,reviewedBy:existing.reviewed_by ?? undefined,reviewedAt:existing.reviewed_at?.toISOString(),createdAt:existing.created_at.toISOString(),updatedAt:existing.updated_at.toISOString() };
+      const created = await client.query(`INSERT INTO verification_requests (id,entity_type,entity_id,requester_id,status,created_at,updated_at) VALUES ($1,'business',$2,$3,'pending',clock_timestamp(),clock_timestamp()) RETURNING created_at,updated_at`, [req.id,req.entityId,req.requesterId]);
+      return {...req,entityType:'business',status:'pending',createdAt:created.rows[0].created_at.toISOString(),updatedAt:created.rows[0].updated_at.toISOString()};
+    });
+  }
+
   async saveVerificationRequest(req: VerificationRequest): Promise<void> {
     await this.db.query(
       `INSERT INTO verification_requests (id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at)
@@ -392,7 +405,7 @@ export class BusinessProfileRepository {
   async findVerificationRequest(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; requester_id: string; status: string; notes: string | null; reviewed_by: string | null; reviewed_at: Date | null; created_at: Date; updated_at: Date }>(
       `SELECT id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at
-       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC,id DESC LIMIT 1`,
       [entityType, entityId]
     );
     if (!rows[0]) return undefined;

@@ -53,13 +53,23 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
 }
 
 
-export async function writeBusinessTrust(db: DatabasePool, id: string, actorId: string, status: 'pending' | 'approved' | 'suspended', reason?: string): Promise<void> {
+export async function writeBusinessTrust(db: DatabasePool, id: string, actorId: string, status: 'pending' | 'approved' | 'suspended', reason?: string, verificationApproval = false): Promise<void> {
   if (!['pending','approved','suspended'].includes(status)) throw new BadRequestException('Invalid trust status.');
   if (reason !== undefined && (typeof reason !== 'string' || reason.length > 2000)) throw new BadRequestException('Trust reason must contain at most 2000 characters.');
   await db.transaction(async (client) => {
     const { rows } = await client.query<{ trust_status: string }>(`SELECT trust_status FROM business_profiles WHERE id=$1 FOR UPDATE`, [id]);
     if (!rows[0]) throw new NotFoundException('Business profile not found.');
-    if (rows[0].trust_status === status) return;
+    let reviewedRequest = false;
+    if (verificationApproval) {
+      const request = await client.query<{id:string;status:string}>(`SELECT id,status FROM verification_requests WHERE entity_type='business' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, [id]);
+      if (!request.rows[0] || request.rows[0].status === 'rejected') throw new ConflictException('A pending verification request is required.');
+      if (request.rows[0].status === 'approved' && rows[0].trust_status !== 'approved') throw new ConflictException('This verification decision is already recorded; use an explicit trust decision.');
+      if (request.rows[0].status === 'pending') {
+        await client.query(`UPDATE verification_requests SET status='approved',reviewed_by=$2,reviewed_at=clock_timestamp(),updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [request.rows[0].id,actorId]);
+        reviewedRequest = true;
+      }
+    }
+    if (rows[0].trust_status === status && !reviewedRequest) return;
     await client.query(`UPDATE business_profiles SET trust_status=$2,updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [id,status]);
     await client.query(`INSERT INTO trust_history (id,entity_type,entity_id,old_status,new_status,changed_by,reason,created_at)
       VALUES ($1,'business',$2,$3,$4,$5,$6,clock_timestamp())`, [randomUUID(),id,rows[0].trust_status,status,actorId,reason?.trim() || null]);

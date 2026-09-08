@@ -247,8 +247,6 @@ export class BusinessProfileService {
     if (entityType !== 'business') throw new BadRequestException('Unsupported verification entity type.');
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const existing = await this.repository.findVerificationRequest(entityType, entityId);
-    if (existing?.status === 'pending' || existing?.status === 'approved') return existing;
     const req: VerificationRequest = {
       id: randomUUID(),
       entityType,
@@ -258,8 +256,7 @@ export class BusinessProfileService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await this.repository.saveVerificationRequest(req);
-    return req;
+    return this.repository.requestVerification(req);
   }
 
   async getVerificationStatus(entityType: string, entityId: string, cookieHeader?: string): Promise<VerificationRequest | undefined> {
@@ -275,7 +272,7 @@ export class BusinessProfileService {
   async approveVerification(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Verification approved');
+    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Verification approved', true);
     return this.toPublic(await this.requireProfile(entityId));
   }
 
