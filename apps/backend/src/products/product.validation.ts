@@ -11,10 +11,15 @@ const text = (value: unknown, field: string, min: number, max: number, optional 
 };
 
 export function validateProductWrite(value: Record<string, unknown>, partial = false) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Product request must be an object.');
   const result: Record<string, unknown> = {};
   if (!partial || value.titleAr !== undefined) result.titleAr = text(value.titleAr, 'titleAr', 2, 160);
   if (!partial || value.descriptionAr !== undefined) result.descriptionAr = text(value.descriptionAr, 'descriptionAr', 0, 2000, true) ?? (partial ? null : undefined);
   if (!partial || value.price !== undefined) {
+    if ((typeof value.price !== 'number' && typeof value.price !== 'string')
+      || !/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(String(value.price).trim())) {
+      throw new BadRequestException('price must be a decimal amount with at most two fraction digits.');
+    }
     const price = Number(value.price);
     if (!Number.isFinite(price) || price <= 0 || price > 999999999999) throw new BadRequestException('price is invalid.');
     result.price = price;

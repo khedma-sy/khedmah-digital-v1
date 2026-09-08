@@ -21,13 +21,18 @@ const projection = `p.id, p.business_profile_id, p.owner_user_id, p.title_ar, p.
 export class ProductRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
-  async insert(product: Omit<ProductListing, 'revision' | 'contentRevision'>): Promise<void> {
-    await this.db.query(
-      `INSERT INTO product_listings
-        (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
-    );
+  async insert(product: Omit<ProductListing, 'revision' | 'contentRevision'>): Promise<ProductListing> {
+    return this.db.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO product_listings
+          (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         ON CONFLICT (id) DO NOTHING`,
+        [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
+      );
+      const result = await client.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1`, [product.id]);
+      return map(result.rows[0]);
+    });
   }
 
   async update(product: ProductListing, expectedRevision: string): Promise<ProductListing> {

@@ -307,7 +307,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = Array.isArray(message) ? message.join('. ') : (message as string);
     throw Object.assign(new Error(text), {
       statusCode: response.status,
-      code: (data as { code?: string }).code
+      code: (data as { code?: string }).code,
+      productId: typeof (data as { productId?: unknown }).productId === 'string' ? (data as { productId: string }).productId : undefined
     });
   }
 

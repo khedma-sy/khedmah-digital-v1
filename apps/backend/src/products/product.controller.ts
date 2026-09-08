@@ -16,5 +16,5 @@ export class ProductController {
 export class AdminProductController {
   constructor(@Inject(ProductService) private readonly products: ProductService) {}
   @Get('pending') async pending(@Headers('cookie') cookie: string | undefined) { return { products: await this.products.listPending(cookie) }; }
-  @Patch(':id/moderation') async review(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: { status: 'approved' | 'rejected'; reason?: string; expectedRevision?: string }) { return { product: await this.products.review(cookie, id, body.status, body.reason, body.expectedRevision) }; }
+  @Patch(':id/moderation') async review(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: { status: 'approved' | 'rejected'; reason?: string; expectedRevision?: string }) { return { product: await this.products.review(cookie, id, body?.status, body?.reason, body?.expectedRevision) }; }
 }

@@ -34,7 +34,7 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
     Object.defineProperty(media, 'storage', { value: storage });
     const service = new ProductService(repository, businesses, { assertActiveCategory: async () => {} } as any, identity, { assert() {} } as any);
     const png = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
-    const upload = () => media.upload(undefined, { ownerType: 'product_listing', ownerId: 'product_fixture', filename: 'fixture.png', mimeType: 'image/png',
+    const upload = (ownerId = 'product_fixture') => media.upload(undefined, { ownerType: 'product_listing', ownerId, filename: 'fixture.png', mimeType: 'image/png',
       sizeBytes: png.length, content: png.toString('base64'), visibility: 'public', assetType: 'product_image', sortOrder: 0 });
     async function reset(imageCount = 1) {
       actor = 'product_owner';
@@ -119,6 +119,19 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
       const described = await service.update(undefined, before.id, { descriptionAr: 'وصف للحذف', expectedContentRevision: saved.contentRevision });
       const cleared = await service.update(undefined, before.id, { descriptionAr: '', expectedContentRevision: described.contentRevision });
       assert.equal(cleared.descriptionAr, undefined);
+    });
+    await t.test('concurrent create retries share one durable listing and reject different payloads', async () => {
+      await reset(0);
+      const input = { businessProfileId: 'product_business', titleAr: 'إنشاء لا يتكرر', price: '12.50', currency: 'SYP', categoryCode: category.code,
+        availability: 'in_stock', clientRequestId: 'ci-product-create-request-1' };
+      const [first, second] = await Promise.all([service.create(undefined, input), service.create(undefined, input)]);
+      assert.equal(first.id, second.id); assert.equal(first.price, 12.5);
+      const [count] = await db.query<{ count: number }>(`SELECT count(*)::int AS count FROM product_listings WHERE title_ar=$1`, [input.titleAr]);
+      assert.equal(count.count, 1); await upload(first.id);
+      const replay = await service.create(undefined, input); assert.equal(replay.id, first.id); assert.equal(replay.imageUrls!.length, 1);
+      await assert.rejects(() => service.create(undefined, { ...input, titleAr: 'محتوى مختلف' }), ConflictException);
+      const saved = await service.update(undefined, first.id, { price: 15, expectedContentRevision: replay.contentRevision });
+      await assert.rejects(() => service.create(undefined, input), ConflictException); assert.equal((await repository.findById(first.id))!.price, saved.price);
     });
     await t.test('a storage delete failure cannot leave a published image reference', async () => {
       const before = await pending(); await service.review(undefined, before.id, 'approved', undefined, before.revision);

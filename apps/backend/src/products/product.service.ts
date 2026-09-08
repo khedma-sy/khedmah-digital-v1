@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { CategoryService } from '../categories/category.service';
 import { IdentityService } from '../identity/identity.service';
@@ -22,16 +22,26 @@ export class ProductService {
   async create(cookie: string | undefined, request: Record<string, unknown>) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const input = validateProductWrite(request);
+    const requestId = request.clientRequestId;
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{16,100}$/.test(requestId))) {
+      throw new BadRequestException('clientRequestId is invalid.');
+    }
+    const id = requestId === undefined ? randomUUID()
+      : createHash('sha256').update(JSON.stringify(['product-create-v1', actor.id, requestId])).digest('hex');
+    if (requestId !== undefined) {
+      const existing = await this.repository.findById(id);
+      if (existing) return this.assertCreateReplay(existing, actor.id, input);
+    }
     const business = await this.businesses.findById(input.businessProfileId!);
     if (!business) throw new NotFoundException('Business profile was not found.');
     if (business.ownerUserId !== actor.id) throw new ForbiddenException('Access denied.');
     await this.categories.assertActiveCategory(input.categoryCode!);
     const now = new Date().toISOString();
-    const product: Omit<ProductListing, 'revision' | 'contentRevision'> = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
+    const product: Omit<ProductListing, 'revision' | 'contentRevision'> = { id, businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
       descriptionAr: input.descriptionAr ?? undefined, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
       availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
-    await this.repository.insert(product);
-    return (await this.repository.findById(product.id))!;
+    const saved = await this.repository.insert(product);
+    return this.assertCreateReplay(saved, actor.id, input);
   }
 
   async listMine(cookie: string | undefined) {
@@ -52,13 +62,13 @@ export class ProductService {
   async update(cookie: string | undefined, id: string, request: Record<string, unknown>) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const product = await this.requireOwner(actor.id, id);
+    const input = validateProductWrite(request, true);
     if (typeof request.expectedContentRevision !== 'string' || !/^[a-f0-9]{64}$/.test(request.expectedContentRevision)) {
       throw new BadRequestException('حدّث بيانات المنتج قبل حفظ المسودة.');
     }
     if (request.expectedContentRevision !== product.contentRevision) {
       throw new ConflictException('تغيرت بيانات المنتج في جلسة أخرى. راجع النسخة الحالية قبل حفظ مسودتك.');
     }
-    const input = validateProductWrite(request, true);
     if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const updated: ProductListing = { ...product, titleAr: input.titleAr ?? product.titleAr,
       descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr ?? undefined,
@@ -97,6 +107,17 @@ export class ProductService {
     if (status === 'rejected' && (typeof reason !== 'string' || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
     const updated: ProductListing = { ...product, moderationStatus: status, rejectionReason: status === 'rejected' ? reason!.trim() : undefined, updatedAt: new Date().toISOString() };
     return this.repository.update(updated, product.revision);
+  }
+
+  private assertCreateReplay(product: ProductListing, actorId: string, input: ReturnType<typeof validateProductWrite>): ProductListing {
+    if (product.ownerUserId !== actorId) throw new ForbiddenException('Access denied.');
+    if (product.businessProfileId !== input.businessProfileId || product.titleAr !== input.titleAr
+      || product.descriptionAr !== (input.descriptionAr ?? undefined) || product.price !== input.price || product.currency !== input.currency
+      || product.categoryCode !== input.categoryCode || product.availability !== input.availability) {
+      throw new ConflictException({ message: 'توجد مسودة محفوظة لهذه المحاولة ببيانات مختلفة. افتحها للمراجعة بدلاً من إنشاء نسخة مكررة.',
+        code: 'PRODUCT_DRAFT_EXISTS', productId: product.id });
+    }
+    return product;
   }
 
   private async authorizeAdmin(cookie: string | undefined) {
