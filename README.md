@@ -2,6 +2,17 @@
 
 Khedmah Digital V1 is the official repository for the Khedmah Digital source of truth.
 
+## ابدأ من هنا — الصفحات وملفات الإصلاح
+
+[**أطلس خدمة: جميع الصفحات والتصميم ودور الإدارة وملفات التنفيذ**](docs/operations/SITE-ATLAS.md)
+
+- كود صفحات الويب: `apps/frontend/app/`، والمنطق المشترك: `apps/frontend/lib/`.
+- خادم التشغيل: `apps/backend/src/`. مجلد `backend/` يحتوي الأسس والعقود والترحيلات؛ ليس مستودعاً ثانياً.
+- الخطة التنفيذية: [خارطة البدء](ROADMAP-EXECUTION-2026-09-08.md). وصف النطاق المعتمد أدناه يبقى حاكماً.
+- التقارير المؤرخة وملفات التسليم أدلة لنسخ سابقة، وليست بديلاً عن ملفات التشغيل أو إثباتاً لجاهزية الإنتاج.
+- [أداة الجرد للقراءة فقط](scripts/repository-inventory.mjs) تولد قائمة الصفحات وملفاتها من commit محدد دون نقل أو حذف الملفات.
+
+
 The repository defines the approved foundation and bounded MVP baseline for an Arabic-first business growth platform. It contains governance, product scope, architecture principles, domain contracts, operational expectations, strategic vision, and the currently authorized MVP implementation foundations.
 
 ## Repository Purpose

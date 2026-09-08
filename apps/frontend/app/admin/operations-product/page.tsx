@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react';
 import { api, type OperationsProductOverview } from '../../../lib/api-client';
 
 const statusLabel = (status: string) => ({
-  configured: 'مُعدّ',
-  enabled: 'مفعّل',
+  configured: 'إعداد مسجّل',
+  enabled: 'علم تفعيل مسجّل',
   configuration_required: 'يتطلب إعدادًا',
-  disabled_pre_launch: 'غير مفعّل قبل الإطلاق'
+  disabled_pre_launch: 'علم التفعيل غير مسجّل'
 }[status] ?? status);
 
 export default function OperationsProductPage() {
@@ -49,8 +49,8 @@ export default function OperationsProductPage() {
 
   return <main id="foundation-content" className="operations-shell" dir="rtl">
     <header className="operations-header">
-      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>مركز التشغيل</h1><p>حالة الخدمات الفعلية التي يعرضها الخادم للحساب الإداري المصرح له.</p></div>
-      <span className="status-badge">{overview.health.productionTrafficEnabled ? 'حركة الإنتاج مفعّلة' : 'حركة الإنتاج مقفلة'}</span>
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>مركز التشغيل</h1><p>إعدادات يعلنها الخادم للحساب الإداري المصرح له؛ هذا الملخص ليس فحصاً حياً للخدمات.</p></div>
+      <span className="status-badge">حالة الإنتاج غير متحققة حيّاً</span>
     </header>
 
     <nav className="admin-navigation" aria-label="التنقل الإداري">
@@ -60,13 +60,15 @@ export default function OperationsProductPage() {
     </nav>
 
     <section className="operations-summary" aria-label="ملخص التشغيل">
-      <article><strong>{overview.services.length}</strong><span>خدمات مراقبة</span></article>
-      <article><strong>{overview.openIncidents}</strong><span>حوادث مفتوحة</span></article>
-      <article><strong>{overview.pendingChanges}</strong><span>تغييرات معلقة</span></article>
+      <article><strong>{overview.services.length}</strong><span>خدمات مدرجة في الإعداد</span></article>
+      <article><strong>{overview.openIncidents}</strong><span>حوادث في العملية الحالية</span></article>
+      <article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article>
       <article><strong>{overview.roles.length}</strong><span>أدوار هذا الحساب</span></article>
     </section>
 
-    <section className="operations-grid" aria-label="حالة الخدمات">
+    <section className="operations-panel" aria-label="حدود أدلة التشغيل"><h2>حدود البيانات المعروضة</h2><p>وجود إعداد أو علم تفعيل لا يثبت اتصالاً فعلياً بمزود الخدمة، ولا نجاح آخر بناء أو نشر، ولا حالة حركة الإنتاج.</p><p>سجلات الحوادث والتغييرات المعروضة مؤقتة في ذاكرة عملية الخادم؛ قد تفقد عند إعادة تشغيله. طلب التغيير أو التراجع المسجل لا يعني تنفيذ العملية.</p></section>
+
+    <section className="operations-grid" aria-label="إعداد الخدمات المعلن">
       {overview.services.map((service) => <article className="operations-panel" key={service.id}>
         <div className="panel-heading"><h2>{service.label}</h2><span>{statusLabel(service.status)}</span></div>
         <p>المعرّف التشغيلي: <bdi>{service.id}</bdi></p>
