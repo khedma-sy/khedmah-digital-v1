@@ -51,14 +51,17 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
 });
 
 test('professional discovery does not present or retain an unsupported category filter', async () => {
-  const [searchPage, mvpDefinition, taxonomy, blueprint] = await Promise.all([
+  const [searchPage, mvpDefinition, taxonomy, blueprint, context] = await Promise.all([
     read('apps/frontend/app/search/page.tsx'),
     read('docs/product/KHEDMAH-DIGITAL-MVP-DEFINITION.md'),
     read('docs/product/UNIVERSAL-TAXONOMY-MODEL.md'),
-    read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md')
+    read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md'),
+    read('apps/frontend/lib/search-context.ts')
   ]);
 
-  assert.match(searchPage, /nextState\.tab !== 'professional'/);
+  assert.match(searchPage, /readSearchState\(params\)/);
+  assert.match(context, /state\.tab !== 'professional'/);
+  assert.match(context, /categoryCode: tab === 'professional' \? '' : context\.categoryCode/);
   assert.match(searchPage, /nextTab === 'professional' \? '' : categoryCode/);
   assert.match(searchPage, /tab !== 'professional' && <div className=\{styles\.field\}><label htmlFor="category">/);
   assert.match(searchPage, /بحث المهنيين متاح بالكلمة والمدينة/);
@@ -122,12 +125,11 @@ test('category directory paginates every service result instead of stopping at t
     read('docs/contracts/CANONICAL-BUSINESS-SERVICE-LOCATION-RELATIONSHIP-CONTRACTS.md')
   ]);
 
-  const request = directory.match(/api\.services\.search\(\{([^}]*)\}\)/)?.[1];
-  assert.ok(request, 'directory must issue the existing service search request');
-  assert.match(request, /categoryCode: categoryCode \|\| undefined/);
-  assert.match(request, /cityCode: cityCode \|\| undefined/);
-  assert.match(request, /q: q \|\| undefined/);
-  assert.match(request, /page: pageNumber/);
+  assert.match(directory, /api\.services\.search\(\{[\s\S]*?categoryCode: categoryCode \|\| undefined,[\s\S]*?cityCode: cityCode \|\| undefined,[\s\S]*?q: q \|\| undefined, page: pageNumber/);
+  assert.match(directory, /readDiscoveryContext\(params\)/);
+  assert.match(directory, /categoryDirectoryHref\(params, categoryCode, pageNumber\)/);
+  assert.match(directory, /router\.push\(href, \{ scroll: false \}\)/);
+  assert.doesNotMatch(directory, /window\.history\.replaceState/);
   assert.match(directory, /setTotal\(data\.total\)/);
   assert.match(directory, /const totalPages = Math\.ceil\(total \/ PAGE_SIZE\)/);
   assert.match(directory, /aria-label="صفحات دليل الخدمات"/);
