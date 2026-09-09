@@ -35,6 +35,13 @@ export function browserSnapshot(formName = '') {
   const elements = (selector) => [...document.querySelectorAll(selector)].filter(visible);
   const main = document.querySelector('main#foundation-content');
   const form = document.querySelector('form[aria-label]');
+  const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? null;
+  const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? null;
+  // Inspect our own surface, not undocumented Google Maps child elements.
+  const surface = document.querySelector('[data-map-surface]');
+  const mapRect = surface?.getBoundingClientRect();
+  const mapSurfaceVisible = visible(surface) && mapRect.width >= 128 && mapRect.height >= 128;
+  const mapReady = mapRuntimeStatus === 'ready' && mapRenderStatus === 'ready' && mapSurfaceVisible;
   const navigation = elements('.khedma-header .nav-discovery');
   const interactiveNavigation = navigation.filter((link) => {
     const rect = link.getBoundingClientRect();
@@ -47,7 +54,11 @@ export function browserSnapshot(formName = '') {
   });
   return {
     theme: document.documentElement.dataset.theme,
-    mapStatus: main?.getAttribute('data-map-status') ?? null,
+    mapStatus: mapRuntimeStatus === null ? null : mapReady ? 'ready' : mapRuntimeStatus === 'error' ? 'error' : 'loading',
+    mapRuntimeStatus,
+    mapRenderStatus,
+    mapSurfaceVisible,
+    mapSurfaceSize: mapRect ? { width: mapRect.width, height: mapRect.height } : null,
     headerCount: elements('.khedma-header').length,
     mainCount: elements('main#foundation-content').length,
     headingLength: main?.querySelector('h1')?.textContent?.trim().length ?? 0,
@@ -87,10 +98,15 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
 // to false. Never pass the asynchronous font-settling function as its predicate.
 export function browserContentReadyForCapture() {
   const main = document.querySelector('main#foundation-content');
+  const surface = main?.hasAttribute('data-map-status') ? document.querySelector('[data-map-surface]') : null;
+  const rect = surface?.getBoundingClientRect();
+  const mapReady = !main?.hasAttribute('data-map-status') || (main.getAttribute('data-map-status') === 'ready'
+    && main.getAttribute('data-map-render-status') === 'ready' && !!surface?.getClientRects().length
+    && getComputedStyle(surface).visibility !== 'hidden' && rect.width >= 128 && rect.height >= 128);
   const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
   return !!main?.querySelector('h1')?.textContent?.trim()
     && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
-    && !busy && (!main?.hasAttribute('data-map-status') || main.getAttribute('data-map-status') === 'ready')
+    && !busy && mapReady
     && document.fonts.status === 'loaded';
 }
 
@@ -99,10 +115,15 @@ export function browserContentReadyForCapture() {
 export async function browserReadyForCapture() {
   const ready = () => {
     const main = document.querySelector('main#foundation-content');
+    const surface = main?.hasAttribute('data-map-status') ? document.querySelector('[data-map-surface]') : null;
+    const rect = surface?.getBoundingClientRect();
+    const mapReady = !main?.hasAttribute('data-map-status') || (main.getAttribute('data-map-status') === 'ready'
+      && main.getAttribute('data-map-render-status') === 'ready' && !!surface?.getClientRects().length
+      && getComputedStyle(surface).visibility !== 'hidden' && rect.width >= 128 && rect.height >= 128);
     const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
     return !!main?.querySelector('h1')?.textContent?.trim()
       && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
-      && !busy && (!main?.hasAttribute('data-map-status') || main.getAttribute('data-map-status') === 'ready')
+      && !busy && mapReady
     && document.fonts.status === 'loaded';
   };
   if (!ready()) return false;
@@ -177,9 +198,9 @@ async function launchChromium(env) {
 export async function main(env = process.env, { launchBrowser = launchChromium } = {}) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
-  const report = { schemaVersion: 3, capturedAt: new Date().toISOString(),
+  const report = { schemaVersion: 4, capturedAt: new Date().toISOString(),
     headSha: env.PREVIEW_HEAD_SHA || null, checkoutSha: env.GITHUB_SHA || null,
-    scope: 'Anonymous readiness: home, categories, search, map, professional search; light/dark at 320, 390, 768 and 1280px. Map checks require the real Google Maps runtime to be ready; they do not certify GPS or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
+    scope: 'Anonymous readiness: home, categories, search, map, professional search; light/dark at 320, 390, 768 and 1280px. Map checks require the runtime, tilesloaded rendering evidence and a visible non-collapsed surface; they do not certify GPS or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
     status: 'failed', previewStatus: 'not_run', before: null, after: [] };
   const before = readOrigin(env, 'BEFORE_URL');
   const after = readOrigin(env, 'AFTER_URL');

@@ -54,6 +54,10 @@ function MapDiscovery() {
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const mapNode = useRef<HTMLDivElement>(null);
   const map = useRef<MapHandle | null>(null);
+  // Constructing Map initializes the API, not its visible basemap. Track the
+  // documented tilesloaded event separately from runtime and search readiness.
+  const renderedMap = useRef<MapHandle | null>(null);
+  const [mapTilesLoaded, setMapTilesLoaded] = useState(false);
   const listeners = useRef<MapListener[]>([]);
   const overlays = useRef<Overlay[]>([]);
   const infoWindow = useRef<{ close(): void } | null>(null);
@@ -182,6 +186,7 @@ function MapDiscovery() {
     overlays.current = [];
     infoWindow.current?.close();
     map.current = null;
+    renderedMap.current = null;
   }, []);
 
   const initializeMap = useCallback(() => {
@@ -191,6 +196,8 @@ function MapDiscovery() {
     const handle = new window.google.maps.Map(mapNode.current, { center: DEFAULT_CENTER, zoom: 7,
       mapTypeControl: false, streetViewControl: false, fullscreenControl: true });
     map.current = handle;
+    renderedMap.current = null;
+    setMapTilesLoaded(false);
     setMapStatus('ready');
     setMapError('');
     const markViewportIntent = () => {
@@ -201,9 +208,19 @@ function MapDiscovery() {
       setRequestLoading(true);
     };
     listeners.current = [
+      handle.addListener('tilesloaded', () => {
+        // A queued event from a disposed/replaced map cannot certify this view.
+        if (map.current !== handle) return;
+        renderedMap.current = handle;
+        setMapTilesLoaded(true);
+      }),
       handle.addListener('dragstart', () => { programmaticView.current = false; markViewportIntent(); }),
       handle.addListener('zoom_changed', markViewportIntent),
-      handle.addListener('bounds_changed', markViewportIntent),
+      handle.addListener('bounds_changed', () => {
+        if (map.current !== handle) return;
+        setMapTilesLoaded(false);
+        markViewportIntent();
+      }),
       handle.addListener('idle', () => {
         if (idleTimer.current) clearTimeout(idleTimer.current);
         idleTimer.current = null;
@@ -293,7 +310,7 @@ function MapDiscovery() {
     }
 
     const timeout = window.setTimeout(() => {
-      if (!map.current) failMap('استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
+      if (!map.current || renderedMap.current !== map.current) failMap('استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
     }, 20000);
 
     return () => {
@@ -307,6 +324,7 @@ function MapDiscovery() {
 
   function retryMap() {
     clearMap();
+    setMapTilesLoaded(false);
     setMapStatus('loading');
     setMapError('');
     setActiveView('map');
@@ -349,7 +367,7 @@ function MapDiscovery() {
   const status = isLoading ? 'جاري تحديث النتائج…' : providers.length
     ? `عرض ${providers.length} من ${result.total} نشاط ${resultsScope}` : `لا توجد أنشطة مطابقة ${resultsScope}`;
 
-  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} dir="rtl">
+  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} data-map-render-status={mapStatus === 'error' ? 'error' : mapTilesLoaded ? 'ready' : 'loading'} dir="rtl">
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
@@ -379,11 +397,11 @@ function MapDiscovery() {
       </section>
     </aside>
     <section className={styles.mapStage} aria-label="منطقة الخريطة">
-      <div className={styles.mapCanvas} ref={mapNode} aria-label="خريطة مقدمي الخدمات" />
-      {mapStatus !== 'ready' && <div className={styles.mapFallback} role={mapStatus === 'error' ? 'alert' : 'status'}>
+      <div className={styles.mapCanvas} ref={mapNode} data-map-surface="true" aria-label="خريطة مقدمي الخدمات" />
+      {(mapStatus !== 'ready' || renderedMap.current !== map.current) && <div className={styles.mapFallback} role={mapStatus === 'error' ? 'alert' : 'status'}>
         <PlatformIcon name="pin" size={34}/>
         <h2>{mapStatus === 'error' ? 'تعذر تشغيل الخريطة' : 'جاري تجهيز الخريطة'}</h2>
-        <p>{mapStatus === 'error' ? mapError : 'لحظات ونحدد الخدمات الأقرب إليك.'}</p>
+        <p>{mapStatus === 'error' ? mapError : 'جاري تحميل تفاصيل الخريطة. يمكنك متابعة البحث من عرض النتائج.'}</p>
         {mapStatus === 'error' && <div className={styles.mapFallbackActions}>{MAPS_KEY && <ActionButton type="button" onClick={retryMap}>إعادة المحاولة</ActionButton>}<ActionButton type="button" variant="secondary" onClick={() => setActiveView('list')}>عرض النتائج</ActionButton></div>}
       </div>}
     </section>
