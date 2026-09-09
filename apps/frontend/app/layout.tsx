@@ -17,7 +17,7 @@ import './moderation-system.css';
 import './auth-experience.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-const SITE_NAME = 'خدمة';
+const SITE_NAME = 'خدمة ديجتل';
 
 const arabicFont = Noto_Sans_Arabic({
   subsets: ['arabic'],
@@ -32,12 +32,12 @@ export const metadata: Metadata = {
     default: `${SITE_NAME} — دليل الأعمال`,
     template: `%s | ${SITE_NAME}`
   },
-  description: 'خدمة منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة والتواصل معهم بسهولة.',
-  applicationName: 'خدمة',
-  keywords: ['أعمال', 'مهنيين', 'خدمات', 'دليل', 'سوريا', 'عربي', 'khedmah', 'خدمة'],
-  authors: [{ name: 'خدمة' }],
-  creator: 'خدمة',
-  publisher: 'خدمة',
+  description: 'خدمة ديجتل منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة والتواصل معهم بسهولة.',
+  applicationName: SITE_NAME,
+  keywords: ['أعمال', 'مهنيين', 'خدمات', 'دليل', 'سوريا', 'عربي', 'khedmah', 'خدمة ديجتل'],
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
   robots: {
     index: true,
     follow: true,
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} — دليل الأعمال`,
     description: 'منصة الأعمال الرقمية العربية — اكتشف الأعمال والمهنيين والخدمات.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'خدمة' }]
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: SITE_NAME }]
   },
   twitter: {
     card: 'summary_large_image',
@@ -79,7 +79,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           الانتقال إلى المحتوى
         </a>
         <header className="khedma-header">
-          <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
+          <Link href="/" aria-label="خدمة ديجتل - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
