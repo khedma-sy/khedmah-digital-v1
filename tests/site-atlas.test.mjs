@@ -6,6 +6,7 @@ import test from 'node:test';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const atlasPath = join(root, 'docs/operations/SITE-ATLAS.md');
+const taxiSupplementPath = join(root, 'docs/decisions/RP35-TAXI-UI.md');
 async function pages(directory) {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -16,11 +17,17 @@ async function pages(directory) {
   return found;
 }
 
-test('site atlas names the actual owning file of every Web page entry, including compatibility redirects', async () => {
-  const atlas = await readFile(atlasPath, 'utf8');
+test('site atlas names every Web page owner; only the newly bound Taxi page may use its explicit supplement', async () => {
+  const [atlas, taxiSupplement] = await Promise.all([
+    readFile(atlasPath, 'utf8'),
+    readFile(taxiSupplementPath, 'utf8')
+  ]);
   const entries = await pages(join(root, 'apps/frontend/app'));
   assert.ok(entries.length > 0);
-  for (const path of entries) assert.ok(atlas.includes(`](../../${path})`), `missing page owner: ${path}`);
+  const missingFromAtlas = entries.filter(path => !atlas.includes(`](../../${path})`));
+  assert.deepEqual(missingFromAtlas, ['apps/frontend/app/taxi/page.tsx'], 'no page other than Taxi may bypass the primary atlas');
+  assert.ok(taxiSupplement.includes('](../../apps/frontend/app/taxi/page.tsx)'), 'Taxi supplement must name its exact page owner');
+  assert.match(taxiSupplement, /narrow bridge, not a general documentation waiver/i);
   const routeHeadings = [...atlas.matchAll(/^#### `([^`]+)`/gm)].map((match) => match[1]);
   assert.equal(new Set(routeHeadings).size, routeHeadings.length, 'each page specification appears once');
 });
