@@ -21,7 +21,7 @@ test('taxi and delivery journey uses canonical categories and location-ranked se
   assert.match(page, /لا توجد رحلة مؤكدة قبل قبول المزود/);
 });
 
-test('mobility journey connects Google Places, geolocation and Google Maps directions', async () => {
+test('legacy mobility keeps Google discovery for delivery while canonical Taxi navigation opens the operational journey', async () => {
   const [page, map, navigation, home] = await Promise.all([
     read('app/mobility/page.tsx'),
     read('app/map/page.tsx'),
@@ -35,6 +35,7 @@ test('mobility journey connects Google Places, geolocation and Google Maps direc
   assert.match(page, /https:\/\/www\.google\.com\/maps\/dir\//);
   assert.match(page, /travelmode/);
   assert.match(map, /libraries=places/);
-  assert.match(navigation, /href: '\/mobility'/);
-  assert.match(home, /href="\/mobility"/);
+  assert.match(navigation, /href: '\/taxi', label: 'تكسي'/);
+  assert.match(home, /href="\/taxi"/);
+  assert.match(page, /\/mobility\?type=delivery/);
 });
