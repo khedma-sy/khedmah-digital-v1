@@ -293,13 +293,13 @@ function DriverJourney() {
 
 function TaxiContent() {
   const params = useSearchParams(); const driver = params.get('mode') === 'driver';
-  return <PageShell className={styles.page} label="خدمة ديجتل تكسي">
-    <PageHeader eyebrow="خدمة ديجتل — التنقل" title="تكسي" description="رحلة تشغيلية مرتبطة بالحساب والتعرفة والمسار واعتماد السائق. لا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
+  return <PageShell className={styles.page} label="خدمة تكسي">
+    <PageHeader eyebrow="خدمة — التنقل" title="تكسي" description="رحلة تشغيلية مرتبطة بالحساب والتعرفة والمسار واعتماد السائق. لا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
     <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
     {driver ? <DriverJourney /> : <RiderJourney />}
   </PageShell>;
 }
 
 export default function TaxiPage() {
-  return <Suspense fallback={<PageShell className={styles.page} label="خدمة ديجتل تكسي"><StatusMessage>جاري فتح رحلة التكسي…</StatusMessage></PageShell>}><TaxiContent /></Suspense>;
+  return <Suspense fallback={<PageShell className={styles.page} label="خدمة تكسي"><StatusMessage>جاري فتح رحلة التكسي…</StatusMessage></PageShell>}><TaxiContent /></Suspense>;
 }
