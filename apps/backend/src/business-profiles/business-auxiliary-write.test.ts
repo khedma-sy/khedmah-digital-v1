@@ -43,11 +43,14 @@ test('business auxiliary writes retain current parent ownership through commit',
   const serviceFor = (repo: BusinessProfileRepository) => new BusinessProfileService(
     repo, { getCurrentUser: async () => ({ id: owner }) } as any, {} as any, {} as any
   );
-  async function snapshot() {
+  async function snapshot(client?: PoolClient) {
+    const read = async (sql: string) => client
+      ? (await client.query(sql, [business, otherBusiness])).rows
+      : db.query(sql, [business, otherBusiness]);
     return Promise.all([
-      db.query(`SELECT * FROM business_opening_hours WHERE business_profile_id IN ($1,$2) ORDER BY id`, [business, otherBusiness]),
-      db.query(`SELECT * FROM business_branches WHERE business_profile_id IN ($1,$2) ORDER BY id`, [business, otherBusiness]),
-      db.query(`SELECT * FROM business_social_links WHERE business_profile_id IN ($1,$2) ORDER BY id`, [business, otherBusiness])
+      read(`SELECT * FROM business_opening_hours WHERE business_profile_id IN ($1,$2) ORDER BY id`),
+      read(`SELECT * FROM business_branches WHERE business_profile_id IN ($1,$2) ORDER BY id`),
+      read(`SELECT * FROM business_social_links WHERE business_profile_id IN ($1,$2) ORDER BY id`)
     ]);
   }
   // Poll a PostgreSQL-observed lock, not a guessed sleep duration or a mocked SQL result.
@@ -64,6 +67,11 @@ test('business auxiliary writes retain current parent ownership through commit',
     const [category] = await db.query<{ code: string }>(`SELECT code FROM categories WHERE status='active' AND parent_code IS NOT NULL LIMIT 1`);
     assert.ok(category);
     async function reset() {
+      // These canonical auxiliary tables do not all cascade on parent deletion.
+      // Isolate fixtures explicitly; do not change the production schema for this test.
+      await db.query(`DELETE FROM business_opening_hours WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
+      await db.query(`DELETE FROM business_branches WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
+      await db.query(`DELETE FROM business_social_links WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
       await db.query(`DELETE FROM business_profiles WHERE id IN ($1,$2)`, [business, otherBusiness]);
       await db.query(`INSERT INTO business_profiles (id,name,owner_user_id,visibility,moderation_status,trust_status,status,category_code,city_code,country_code)
         VALUES ($1,'RP24 test business',$3,'public','approved','approved','active',$5,'damascus','SY'),
@@ -91,12 +99,14 @@ test('business auxiliary writes retain current parent ownership through commit',
       });
       await t.test(`${operation.name}: a parent deleted after preflight is not resurrected`, async () => {
         await reset();
+        let afterDeletion: Awaited<ReturnType<typeof snapshot>> | undefined;
         const crossing = new Proxy(repository, {
           get(target, key, receiver) {
             const member = Reflect.get(target, key, receiver);
             if (typeof member !== 'function') return member;
             if (key === operation.method) return async (...args: unknown[]) => {
               await db.query(`DELETE FROM business_profiles WHERE id=$1`, [business]);
+              afterDeletion = await snapshot();
               return Reflect.apply(member, target, args);
             };
             return member.bind(target);
@@ -104,11 +114,12 @@ test('business auxiliary writes retain current parent ownership through commit',
         });
         await assert.rejects(operation.throughService(serviceFor(crossing)), NotFoundException);
         assert.equal(await repository.findById(business), undefined);
-        assert.deepEqual(await snapshot(), [[], [], []]);
+        assert.ok(afterDeletion, 'The test must delete the parent before attempting the write.');
+        assert.deepEqual(await snapshot(), afterDeletion);
       });
       for (const change of ['transfer', 'delete'] as const) {
         await t.test(`${operation.name}: waits for a real parent lock and rejects its committed ${change}`, async () => {
-          await reset(); const before = await snapshot();
+          await reset();
           const blocker = await pool.connect();
           let held = false;
           let writerPid: number | undefined;
@@ -139,10 +150,14 @@ test('business auxiliary writes retain current parent ownership through commit',
             }, 'Writer did not wait for the real parent row lock.');
             if (change === 'transfer') await blocker.query(`UPDATE business_profiles SET owner_user_id=$2 WHERE id=$1`, [business, nextOwner]);
             else await blocker.query(`DELETE FROM business_profiles WHERE id=$1`, [business]);
+            // Observe legitimate cascade/non-cascade effects before unblocking the writer.
+            const afterParentChange = await snapshot(blocker);
             await blocker.query('COMMIT'); held = false;
             const outcome = await pending;
             assert.ok(outcome.error instanceof (change === 'transfer' ? ForbiddenException : NotFoundException));
-            assert.deepEqual(await snapshot(), change === 'transfer' ? before : [[], [], []]);
+            assert.deepEqual(await snapshot(), afterParentChange);
+            if (change === 'delete') assert.equal(await repository.findById(business), undefined);
+            else assert.equal((await repository.findById(business))?.ownerUserId, nextOwner);
           } finally {
             if (held) await blocker.query('ROLLBACK');
             await pending;
