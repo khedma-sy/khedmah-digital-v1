@@ -9,6 +9,8 @@ export class TaxiTripController {
   quote(@Headers('cookie') cookie:string|undefined,@Body() body:unknown){return this.trips.quote(readSessionToken(cookie),body);}
   @Post('rider/trips') @Header('Cache-Control','private, no-store')
   place(@Headers('cookie') cookie:string|undefined,@Body() body:unknown){return this.trips.place(readSessionToken(cookie),body);}
+  @Get('rider/trips/active') @Header('Cache-Control','private, no-store')
+  riderActive(@Headers('cookie') cookie:string|undefined){return this.trips.active(readSessionToken(cookie),'customer');}
   @Get('rider/trips/:id') @Header('Cache-Control','private, no-store')
   riderRead(@Headers('cookie') cookie:string|undefined,@Param('id') id:string){return this.trips.read(readSessionToken(cookie),'customer',id);}
   @Post('rider/trips/:id/actions') @Header('Cache-Control','private, no-store')
@@ -17,6 +19,8 @@ export class TaxiTripController {
   consent(@Headers('cookie') cookie:string|undefined,@Param('id') id:string,@Body() body:unknown){return this.trips.consent(readSessionToken(cookie),id,body);}
   @Get('driver/offers') @Header('Cache-Control','private, no-store')
   offers(@Headers('cookie') cookie:string|undefined){return this.trips.offers(readSessionToken(cookie));}
+  @Get('driver/trips/active') @Header('Cache-Control','private, no-store')
+  driverActive(@Headers('cookie') cookie:string|undefined){return this.trips.active(readSessionToken(cookie),'driver');}
   @Get('driver/trips/:id') @Header('Cache-Control','private, no-store')
   driverRead(@Headers('cookie') cookie:string|undefined,@Param('id') id:string){return this.trips.read(readSessionToken(cookie),'driver',id);}
   @Post('driver/trips/:id/actions') @Header('Cache-Control','private, no-store')
