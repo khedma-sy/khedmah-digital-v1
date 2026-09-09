@@ -42,7 +42,7 @@ export const taxiApi = {
     command: (id: string, action: 'cancel'|'rate', expectedVersion: number, extra: Record<string, unknown> = {}) =>
       request<TaxiTrip>(`/taxi/rider/trips/${encodeURIComponent(id)}/actions`, body({ action, expectedVersion, requestId: key(), ...extra })),
     consent: (id: string, expectedVersion: number) => request<{ proofId: string; orderId: string; version: number }>(
-      `/taxi/rider/trips/${encodeURIComponent(id)}/consent`, body({ expectedVersion, requestId: key() }))
+      `/taxi/rider/trips/${encodeURIComponent(id)}/consent`, body({ expectedVersion }))
   },
   driver: {
     access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string }>('/taxi/driver/access'),
