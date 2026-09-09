@@ -11,7 +11,8 @@ export type TaxiTrip = {
   taxiAssignment?: { vehicleId: string; driverRevision: string; vehicleRevision: string };
   rideStartedAt?: number; rating?: number;
 };
-export type TaxiOfferResponse = { offers: TaxiTrip[]; limit: number };
+export type TaxiOffer = { id: string; kind: 'taxi'; pickupArea: string; dropoffArea?: string; version: number };
+export type TaxiOfferResponse = { offers: TaxiOffer[]; limit: number };
 export type TaxiAuthorization = { proofId: string | null; orderId: string; version: number };
 export type TaxiApiError = Error & { statusCode?: number; code?: string };
 
