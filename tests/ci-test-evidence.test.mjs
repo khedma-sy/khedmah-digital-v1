@@ -57,6 +57,10 @@ test('diagnostic archive tolerates absent optional documents and excludes runtim
   try {
     await mkdir(join(dir, 'apps'));
     await writeFile(join(dir, 'apps/source.ts'), 'export const fixture = true;\n');
+    await writeFile(join(dir, '.env'), 'synthetic excluded root fixture');
+    await writeFile(join(dir, '.env.production'), 'synthetic excluded root fixture');
+    await writeFile(join(dir, 'root.key'), 'synthetic excluded root fixture');
+    await writeFile(join(dir, 'root.pem'), 'synthetic excluded root fixture');
     await writeFile(join(dir, 'apps/.env'), 'synthetic excluded fixture');
     await writeFile(join(dir, 'apps/private.key'), 'synthetic excluded fixture');
     await writeFile(join(dir, 'apps/private.pem'), 'synthetic excluded fixture');
@@ -70,7 +74,7 @@ test('diagnostic archive tolerates absent optional documents and excludes runtim
     const evidence = join(dir, 'output/khedmah-test-evidence');
     const names = run('tar', ['-tzf', join(evidence, 'source-at-checkout.tar.gz')]);
     assert.match(names, /apps\/source\.ts/);
-    assert.doesNotMatch(names, /\.env|private\.key|private\.pem/);
+    assert.doesNotMatch(names, /\.env|(?:private|root)\.(?:key|pem)/);
     assert.match(await readFile(join(evidence, 'test-summary.txt'), 'utf8'), /NOT_EXECUTED/);
     assert.match(await readFile(join(evidence, 'source-sha256.txt'), 'utf8'), /^[a-f0-9]{64} /);
   } finally {

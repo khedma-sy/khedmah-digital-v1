@@ -67,16 +67,26 @@ export class DatabasePool implements OnModuleInit {
 
   async transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
+    let discardClient = false;
     try {
       await client.query('BEGIN');
       const result = await fn(client);
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // A failed rollback leaves transaction state uncertain. Never lend this
+        // connection to another request, and never hide the original failure.
+        discardClient = true;
+      }
+      // A failed COMMIT may have succeeded remotely: replay belongs to the
+      // caller's idempotency contract, not an automatic retry of this callback.
       throw err;
     } finally {
-      client.release();
+      if (discardClient) client.release(true);
+      else client.release();
     }
   }
 
