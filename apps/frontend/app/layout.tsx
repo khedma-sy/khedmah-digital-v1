@@ -32,9 +32,9 @@ export const metadata: Metadata = {
     default: `${SITE_NAME} — دليل الأعمال`,
     template: `%s | ${SITE_NAME}`
   },
-  description: 'خدمة ديجتل منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة والتواصل معهم بسهولة.',
+  description: 'خدمة منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة والتواصل معهم بسهولة.',
   applicationName: SITE_NAME,
-  keywords: ['أعمال', 'مهنيين', 'خدمات', 'دليل', 'سوريا', 'عربي', 'khedmah', 'خدمة ديجتل'],
+  keywords: ['أعمال', 'مهنيين', 'خدمات', 'دليل', 'سوريا', 'عربي', 'khedmah', 'خدمة'],
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
@@ -79,7 +79,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           الانتقال إلى المحتوى
         </a>
         <header className="khedma-header">
-          <Link href="/" aria-label="خدمة ديجتل - الرئيسية"><BrandMark compact /></Link>
+          <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
