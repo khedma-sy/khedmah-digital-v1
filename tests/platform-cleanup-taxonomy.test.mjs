@@ -110,7 +110,11 @@ test('public projections preserve readable Arabic labels for inactive legacy ref
   for (const projection of [businessService, serviceService, combinedSearch, client]) {
     assert.match(projection, /categoryNameAr/);
   }
-  assert.match(serviceService, /repository\.save\(updated\)[\s\S]*repository\.findById\(updated\.id\)/);
+  // Project the database-returned category label, not the retired upsert/read-back implementation.
+  assert.match(serviceService, /toPublic\(await this\.repository\.insertOwned\(service, actor\.id\)\)/);
+  assert.match(serviceService, /toPublic\(await this\.repository\.patchOwned\(service, input, actor\.id\)\)/);
+  assert.doesNotMatch(serviceService, /this\.repository\.save\(/);
+  assert.match(serviceRepository, /RETURNING \*, \(SELECT c\.name_ar FROM categories c WHERE c\.code=service_listings\.category_code\) AS category_name_ar/);
   assert.match(businessService, /toPublic\(await this\.repository\.updateOwner\(updated, expected, actor\.id\)\)/);
   assert.match(businessRepository, /RETURNING \*, \(SELECT c\.name_ar FROM categories c WHERE c\.code=business_profiles\.category_code\) AS category_name_ar/);
   assert.match(searchPage, /categoryNameAr/);
