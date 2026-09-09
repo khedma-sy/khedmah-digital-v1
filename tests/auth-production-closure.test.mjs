@@ -112,15 +112,15 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(reset, /auth-status-icon/);
 });
 
-test('public UI uses Khedmah only and profile fields remain readable', async () => {
+test('principal site title uses Khedmah Digital while functional profile copy stays Khedmah', async () => {
   const [layout, profile, styles] = await Promise.all([
     read('apps/frontend/app/layout.tsx'),
     read('apps/frontend/app/users/me/page.tsx'),
     read('apps/frontend/app/brand-system.css')
   ]);
 
-  assert.match(layout, /const SITE_NAME = 'خدمة'/);
-  assert.doesNotMatch(layout, /خدمة ديجتل|Khedmah Digital V1/);
+  assert.match(layout, /const SITE_NAME = 'خدمة ديجتل'/);
+  assert.match(layout, /aria-label="خدمة - الرئيسية"/);
   assert.doesNotMatch(profile, /خدمة ديجتل|Khedmah Digital V1|أنا مع خدمة/);
   assert.match(styles, /\.identity-card h1,\.identity-card h2,\.identity-card label/);
   assert.match(styles, /\.identity-card input:focus,\.identity-card select:focus/);
