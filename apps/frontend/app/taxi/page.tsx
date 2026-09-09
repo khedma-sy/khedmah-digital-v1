@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
@@ -53,9 +53,10 @@ function RiderJourney() {
   const [quote, setQuote] = useState<TaxiQuote>();
   const [trip, setTrip] = useState<TaxiTrip>();
   const [busy, setBusy] = useState(false);
+  const [hasPendingPlace, setHasPendingPlace] = useState(false);
   const [message, setMessage] = useState('حدد نقطتي الانطلاق والوجهة للحصول على تسعير خادمي معتمد.');
   const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => { setHasPendingPlace(!!sessionStorage.getItem(PLACE_KEY)); return () => { mounted.current = false; }; }, []);
 
   async function restore(id?: string) {
     const tripId = id || sessionStorage.getItem(RIDER_TRIP_KEY) || undefined;
@@ -89,11 +90,11 @@ function RiderJourney() {
     try { attempt = previous ? JSON.parse(previous) : { quoteId:quote.id, requestId:crypto.randomUUID() }; }
     catch { attempt = { quoteId:quote.id, requestId:crypto.randomUUID() }; }
     if (attempt.quoteId !== quote.id) attempt = { quoteId:quote.id, requestId:crypto.randomUUID() };
-    sessionStorage.setItem(PLACE_KEY, JSON.stringify(attempt));
+    sessionStorage.setItem(PLACE_KEY, JSON.stringify(attempt)); setHasPendingPlace(true);
     try {
       const created = await taxiApi.rider.place(attempt.quoteId, attempt.requestId);
       if (!mounted.current) return;
-      sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY);
+      sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY); setHasPendingPlace(false);
       setTrip(created); setQuote(undefined); setMessage('تم إنشاء طلب التكسي. ابقِ الصفحة مفتوحة أو عد لاحقًا لاستعادة نفس الرحلة.');
     } catch (cause) { if (mounted.current) setMessage(`${errorMessage(cause)} يمكنك الضغط على «استعادة/إعادة المحاولة» بنفس المحاولة دون إنشاء طلب جديد.`); }
     finally { if (mounted.current) setBusy(false); }
@@ -102,7 +103,7 @@ function RiderJourney() {
   async function retryPlacement() {
     const raw = sessionStorage.getItem(PLACE_KEY); if (!raw || busy) return;
     try { const attempt = JSON.parse(raw); setBusy(true); const created = await taxiApi.rider.place(attempt.quoteId, attempt.requestId);
-      if (mounted.current) { sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY); setTrip(created); setMessage('تم استرجاع نتيجة المحاولة السابقة.'); }
+      if (mounted.current) { sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY); setHasPendingPlace(false); setTrip(created); setMessage('تم استرجاع نتيجة المحاولة السابقة.'); }
     } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
     finally { if (mounted.current) setBusy(false); }
   }
@@ -127,8 +128,8 @@ function RiderJourney() {
       <AddressFields prefix="الوجهة" value={dropoff} onChange={setDropoff}/>
       <div className={styles.actions}><ActionButton type="button" variant="secondary" onClick={locate}><PlatformIcon name="pin"/> موقعي الحالي</ActionButton><ActionButton type="submit" disabled={busy}>احسب السعر</ActionButton></div>
       <StatusMessage tone="info">{message}</StatusMessage>
-      {(message.includes('تسجيل الدخول')) && <ActionLink href="/auth/login">تسجيل الدخول</ActionLink>}
-      {sessionStorage.getItem(PLACE_KEY) && <ActionButton type="button" variant="secondary" onClick={() => void retryPlacement()} disabled={busy}>استعادة/إعادة المحاولة</ActionButton>}
+      {message.includes('تسجيل الدخول') && <ActionLink href="/auth/login">تسجيل الدخول</ActionLink>}
+      {hasPendingPlace && <ActionButton type="button" variant="secondary" onClick={() => void retryPlacement()} disabled={busy}>استعادة/إعادة المحاولة</ActionButton>}
     </Surface>
     <div className={styles.panel}>
       {quote && <Surface className={styles.summary}><h2>عرض السعر</h2><dl><div><dt>المسافة</dt><dd>{km(quote.distanceMeters)}</dd></div><div><dt>التقدير الأولي</dt><dd>{amount(quote.totalMinor,quote.currency)}</dd></div></dl><p className={styles.note}>هذا تقدير خادمي للمسار. الأجرة النهائية تُحسب من العداد الموثوق والتعرفة المحفوظة للرحلة.</p><ActionButton type="button" onClick={() => void place()} disabled={busy}>اطلب التكسي</ActionButton></Surface>}
@@ -148,4 +149,6 @@ function DriverJourney() {
   return <div className={styles.grid}><Surface className={styles.panel}><h2>مساحة السائق</h2><p className={styles.note}>لا يمنح الملف المهني صلاحية قيادة. يلزم اعتماد مستقل للسائق والمركبة.</p><div className={styles.actions}><ActionButton type="button" onClick={()=>void loadOffers()} disabled={busy}>تحديث العروض</ActionButton><ActionLink href="/taxi">واجهة الراكب</ActionLink></div><StatusMessage tone="info">{message}</StatusMessage>{message.includes('تسجيل الدخول')&&<ActionLink href="/auth/login">تسجيل الدخول</ActionLink>}</Surface><div className={styles.offerList}>{!trip&&offers.map(offer=><Surface className={styles.offer} key={offer.id}><div className={styles.offerHeader}><div><strong>{offer.quote.request.pickup.area} ← {offer.quote.request.dropoff.area}</strong><p>{km(offer.quote.distanceMeters)}</p></div><span className={styles.phase}>{phase(offer)}</span></div><ActionButton type="button" onClick={()=>void accept(offer)} disabled={busy}>قبول الرحلة</ActionButton></Surface>)}{trip&&<><TripCard trip={trip} onRefresh={()=>read(trip.id)}/><Surface className={styles.panel}><h3>الخطوة التشغيلية</h3><p className={styles.note}>الوصول وإنهاء الرحلة يحتاجان إثباتات من كاتب موثوق/عداد؛ لا توجد أزرار لتزوير هذه البيانات من المتصفح.</p><div className={styles.actions}>{trip.delivery.state==='at_pickup'&&!trip.rideStartedAt&&<ActionButton type="button" onClick={()=>void checkConsent()} disabled={busy}>تحقق من موافقة الراكب وابدأ</ActionButton>}{trip.phase==='accepted'&&!trip.rideStartedAt&&<ActionButton type="button" variant="secondary" onClick={()=>void release()} disabled={busy}>تحرير المهمة</ActionButton>}</div></Surface></>}</div></div>;
 }
 
-export default function TaxiPage(){const params=useSearchParams();const driver=params.get('mode')==='driver';return <PageShell className={styles.page} label="خدمة ديجتل تكسي"><PageHeader eyebrow="خدمة ديجتل — التنقل" title="تكسي" description="رحلة تشغيلية مرتبطة بالحساب والتعرفة والمسار واعتماد السائق. لا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/"/><div className={styles.switcher}><ActionLink href="/taxi" variant={driver?'secondary':'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver?'primary':'secondary'}>سائق</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>{driver?<DriverJourney/>:<RiderJourney/>}</PageShell>}
+function TaxiContent(){const params=useSearchParams();const driver=params.get('mode')==='driver';return <PageShell className={styles.page} label="خدمة ديجتل تكسي"><PageHeader eyebrow="خدمة ديجتل — التنقل" title="تكسي" description="رحلة تشغيلية مرتبطة بالحساب والتعرفة والمسار واعتماد السائق. لا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/"/><div className={styles.switcher}><ActionLink href="/taxi" variant={driver?'secondary':'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver?'primary':'secondary'}>سائق</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>{driver?<DriverJourney/>:<RiderJourney/>}</PageShell>}
+
+export default function TaxiPage(){return <Suspense fallback={<PageShell className={styles.page} label="خدمة ديجتل تكسي"><StatusMessage>جاري فتح رحلة التكسي…</StatusMessage></PageShell>}><TaxiContent/></Suspense>}
