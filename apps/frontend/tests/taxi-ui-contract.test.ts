@@ -47,7 +47,7 @@ test('taxi page keeps uncertain placement replayable and URL mode behind Suspens
   assert.match(page, /sessionStorage\.setItem\(PLACE_KEY/);
   assert.match(page, /taxiApi\.rider\.place\(attempt\.quoteId, attempt\.requestId\)/);
   assert.match(page, /setHasPendingPlace\(!!sessionStorage\.getItem\(PLACE_KEY\)\)/);
-  assert.match(page, /<Suspense[\s\S]*<TaxiContent\/>/);
+  assert.match(page, /<Suspense[\s\S]*<TaxiContent\s*\/>/);
   assert.match(page, /لا توجد أزرار لتزوير هذه البيانات من المتصفح/);
 });
 
