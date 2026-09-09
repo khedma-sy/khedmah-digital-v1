@@ -22,6 +22,16 @@ test('taxi browser client does not mint trusted arrival or meter evidence', asyn
   assert.doesNotMatch(client, /tripMeters|waitSeconds|meterVerified|arrivalVerified/);
 });
 
+test('driver offer contract stays redacted until assignment', async () => {
+  const client = await read('lib/taxi-client.ts');
+  const page = await read('app/taxi/page.tsx');
+  assert.match(client, /type TaxiOffer = \{ id: string; kind: 'taxi'; pickupArea: string; dropoffArea\?: string; version: number \}/);
+  assert.match(page, /offer\.pickupArea/);
+  assert.match(page, /offer\.dropoffArea/);
+  assert.doesNotMatch(page, /offer\.quote|offer\.customerId|offer\.cash/);
+  assert.match(page, /التفاصيل الدقيقة لا تظهر قبل قبول الرحلة/);
+});
+
 test('rider consent sends only the backend-owned expected version contract', async () => {
   const client = await read('lib/taxi-client.ts');
   assert.match(client, /\/consent`, body\(\{ expectedVersion \}\)/);
@@ -35,4 +45,13 @@ test('taxi page keeps uncertain placement replayable and URL mode behind Suspens
   assert.match(page, /setHasPendingPlace\(!!sessionStorage\.getItem\(PLACE_KEY\)\)/);
   assert.match(page, /<Suspense[\s\S]*<TaxiContent\/>/);
   assert.match(page, /لا توجد أزرار لتزوير هذه البيانات من المتصفح/);
+});
+
+test('rider and driver can recover the active trip from their authenticated account', async () => {
+  const client = await read('lib/taxi-client.ts');
+  const page = await read('app/taxi/page.tsx');
+  assert.match(client, /rider:\s*\{[\s\S]*active: \(\) => request<\{ tripId: string \| null \}>\('\/taxi\/rider\/trips\/active'\)/);
+  assert.match(client, /driver:\s*\{[\s\S]*active: \(\) => request<\{ tripId: string \| null \}>\('\/taxi\/driver\/trips\/active'\)/);
+  assert.match(page, /taxiApi\.rider\.active\(\)/);
+  assert.match(page, /taxiApi\.driver\.active\(\)/);
 });
