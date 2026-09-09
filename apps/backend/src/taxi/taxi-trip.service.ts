@@ -27,11 +27,16 @@ type Operation = 'quote' | 'place' | 'command' | 'read' | 'consent' | 'authoriza
 export class TaxiTripService {
   constructor(@Inject(TaxiAccessService) private readonly access: TaxiAccessService) {}
 
-  private async run<T>(token: string | undefined, audience: TaxiAudience, operation: Operation,
-    body: unknown, orderId: string | undefined, execute: (engine: PersistentTaxiService, session: string) => Promise<T>): Promise<T> {
+  private requireTripsConfig(): string {
     if(process.env.TAXI_TRIPS_ENABLED!=='true') throw new ServiceUnavailableException('Taxi trips are not enabled.');
     const zone=process.env.TAXI_OPERATING_ZONE;
     if(!zone || !/^[A-Za-z0-9_-]{1,50}$/.test(zone)) throw new ServiceUnavailableException('Taxi operating zone is not configured.');
+    return zone;
+  }
+
+  private async run<T>(token: string | undefined, audience: TaxiAudience, operation: Operation,
+    body: unknown, orderId: string | undefined, execute: (engine: PersistentTaxiService, session: string) => Promise<T>): Promise<T> {
+    const zone=this.requireTripsConfig();
     let active: { tx: SqlClient; actor: TaxiActor; now: number; tick: number; deadline: number } | undefined;
     const clock=() => active ? Math.floor(active.now + performance.now()-active.tick) : Date.now();
     const assertContext=(tx:SqlClient, actor?:Actor)=>{
@@ -74,8 +79,6 @@ export class TaxiTripService {
       }},
       references:{readLocked:async(tx,actor):Promise<ReferenceSnapshot>=>{
         const ctx=assertContext(tx,actor);let saved:Quote|undefined;
-        // An already saved trip must remain recoverable after the active tariff expires.
-        // Immutable quote snapshots are enforced by the candidate schema's trigger.
         if(orderId){
           const r=await tx.query<{quote:Quote}>('SELECT payload->\'quote\' AS quote FROM jt_orders WHERE id=$1 AND archived=0',[orderId]);
           saved=r.rows[0]?.quote;
@@ -125,6 +128,24 @@ export class TaxiTripService {
       throw new HttpException({code:'TAXI_OPERATION_FAILED',message:'تعذر إكمال العملية؛ استعد حالتها قبل إعادة المحاولة.'},500);
     }
   }
+
+  async active(token:string|undefined,audience:TaxiAudience):Promise<{tripId:string|null}> {
+    this.requireTripsConfig();
+    try {
+      return await this.access.withActor(token,audience,async(pg,actor)=>{
+        await pg.query('SET LOCAL search_path TO khedmah_taxi, pg_catalog, pg_temp');
+        const column=audience==='customer'?'customer_id':'provider_id';
+        const result=await pg.query<{id:string}>(`SELECT id FROM jt_orders WHERE ${column}=$1 AND archived=0
+          AND phase NOT IN ('completed','cancelled','rejected') AND delivery_state NOT IN ('delivered','cancelled') ORDER BY id LIMIT 2`,[actor.id]);
+        if(result.rows.length>1) throw new ServiceUnavailableException('Taxi active-trip state is inconsistent.');
+        return {tripId:result.rows[0]?.id??null};
+      });
+    } catch(error) {
+      if(error instanceof HttpException) throw error;
+      throw new ServiceUnavailableException('Taxi active trip is temporarily unavailable.');
+    }
+  }
+
   quote(token:string|undefined,body:unknown){return this.run(token,'customer','quote',body,undefined,(e,s)=>e.quote(s,body));}
   place(token:string|undefined,body:unknown){return this.run(token,'customer','place',body,undefined,(e,s)=>e.place(s,body));}
   read(token:string|undefined,audience:TaxiAudience,orderId:string){return this.run(token,audience,'read',undefined,orderId,(e,s)=>e.read(s,orderId));}
