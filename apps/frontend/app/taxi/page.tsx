@@ -66,12 +66,31 @@ function RiderJourney() {
   }, []);
 
   async function restore(id?: string) {
-    const tripId = id || sessionStorage.getItem(RIDER_TRIP_KEY) || undefined;
-    if (!tripId) return;
+    let tripId = id || sessionStorage.getItem(RIDER_TRIP_KEY) || undefined;
     try {
+      if (!tripId) {
+        const active = await taxiApi.rider.active(); tripId = active.tripId ?? undefined;
+        if (tripId) sessionStorage.setItem(RIDER_TRIP_KEY, tripId);
+      }
+      if (!tripId) return;
       const current = await taxiApi.rider.read(tripId);
-      if (mounted.current) { setTrip(current); setMessage('تمت استعادة الرحلة المحفوظة.'); }
-    } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
+      if (mounted.current) { setTrip(current); setMessage('تمت استعادة الرحلة المحفوظة من حسابك.'); }
+    } catch (cause) {
+      const error = cause as TaxiApiError;
+      if (!id && tripId && error.statusCode === 404) {
+        sessionStorage.removeItem(RIDER_TRIP_KEY);
+        try {
+          const active = await taxiApi.rider.active();
+          if (active.tripId) {
+            sessionStorage.setItem(RIDER_TRIP_KEY, active.tripId);
+            const current = await taxiApi.rider.read(active.tripId);
+            if (mounted.current) { setTrip(current); setMessage('تمت استعادة الرحلة النشطة من الخادم.'); }
+            return;
+          }
+        } catch (fallback) { if (mounted.current) setMessage(errorMessage(fallback)); return; }
+      }
+      if (mounted.current) setMessage(errorMessage(cause));
+    }
   }
   useEffect(() => { void restore(); }, []);
 
@@ -108,9 +127,9 @@ function RiderJourney() {
       const created = await taxiApi.rider.place(attempt.quoteId, attempt.requestId);
       if (!mounted.current) return;
       sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY); setHasPendingPlace(false);
-      setTrip(created); setQuote(undefined); setMessage('تم إنشاء طلب التكسي. ابقِ الصفحة مفتوحة أو عد لاحقًا لاستعادة نفس الرحلة.');
+      setTrip(created); setQuote(undefined); setMessage('تم إنشاء طلب التكسي. يمكنك استعادته من حسابك حتى عند فتح جهاز آخر.');
     } catch (cause) {
-      if (mounted.current) setMessage(`${errorMessage(cause)} يمكنك الضغط على «استعادة/إعادة المحاولة» بنفس المحاولة دون إنشاء طلب جديد.`);
+      if (mounted.current) setMessage(`${errorMessage(cause)} استعد الرحلة النشطة أو أعد المحاولة بالمفتاح نفسه؛ لا تنشئ طلبًا بديلًا.`);
     } finally { if (mounted.current) setBusy(false); }
   }
 
@@ -123,8 +142,11 @@ function RiderJourney() {
         sessionStorage.setItem(RIDER_TRIP_KEY, created.id); sessionStorage.removeItem(PLACE_KEY); setHasPendingPlace(false);
         setTrip(created); setMessage('تم استرجاع نتيجة المحاولة السابقة.');
       }
-    } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
-    finally { if (mounted.current) setBusy(false); }
+    } catch (cause) {
+      if ((cause as TaxiApiError).statusCode === 409) await restore();
+      if (mounted.current && !(cause as TaxiApiError).statusCode) setMessage(errorMessage(cause));
+      else if (mounted.current) setMessage(errorMessage(cause));
+    } finally { if (mounted.current) setBusy(false); }
   }
 
   async function consent() {
@@ -155,6 +177,7 @@ function RiderJourney() {
       <StatusMessage tone="info">{message}</StatusMessage>
       {message.includes('تسجيل الدخول') && <ActionLink href="/auth/login">تسجيل الدخول</ActionLink>}
       {hasPendingPlace && <ActionButton type="button" variant="secondary" onClick={() => void retryPlacement()} disabled={busy}>استعادة/إعادة المحاولة</ActionButton>}
+      <ActionButton type="button" variant="secondary" onClick={() => void restore()} disabled={busy}>استعادة الرحلة النشطة من الحساب</ActionButton>
     </Surface>
     <div className={styles.panel}>
       {quote && <Surface className={styles.summary}>
@@ -186,9 +209,25 @@ function DriverJourney() {
   }
 
   async function read(id?: string) {
-    const tripId = id || sessionStorage.getItem(DRIVER_TRIP_KEY) || undefined; if (!tripId) return;
-    try { setTrip(await taxiApi.driver.read(tripId)); }
-    catch (cause) { setMessage(errorMessage(cause)); }
+    let tripId = id || sessionStorage.getItem(DRIVER_TRIP_KEY) || undefined;
+    try {
+      if (!tripId) {
+        const active = await taxiApi.driver.active(); tripId = active.tripId ?? undefined;
+        if (tripId) sessionStorage.setItem(DRIVER_TRIP_KEY, tripId);
+      }
+      if (!tripId) return;
+      const current = await taxiApi.driver.read(tripId); setTrip(current);
+      setMessage('تمت استعادة المهمة النشطة من حساب السائق.');
+    } catch (cause) {
+      if (!id && tripId && (cause as TaxiApiError).statusCode === 404) {
+        sessionStorage.removeItem(DRIVER_TRIP_KEY);
+        try {
+          const active = await taxiApi.driver.active();
+          if (active.tripId) { sessionStorage.setItem(DRIVER_TRIP_KEY, active.tripId); setTrip(await taxiApi.driver.read(active.tripId)); setMessage('تمت استعادة المهمة النشطة من الخادم.'); return; }
+        } catch (fallback) { setMessage(errorMessage(fallback)); return; }
+      }
+      setMessage(errorMessage(cause));
+    }
   }
   useEffect(() => { void read(); }, []);
 
@@ -198,8 +237,10 @@ function DriverJourney() {
       const current = await taxiApi.driver.accept(offer.id, offer.version);
       sessionStorage.setItem(DRIVER_TRIP_KEY, current.id); setTrip(current); setOffers([]);
       setMessage('تم قبول الرحلة. أصبحت تفاصيل الرحلة متاحة للسائق المسند وفق صلاحيات الخادم.');
-    } catch (cause) { setMessage(errorMessage(cause)); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      if ((cause as TaxiApiError).statusCode === 409) await read();
+      setMessage(errorMessage(cause));
+    } finally { setBusy(false); }
   }
 
   async function checkConsent() {
@@ -216,8 +257,8 @@ function DriverJourney() {
   async function release() {
     if (!trip || busy) return; setBusy(true);
     try {
-      const current = await taxiApi.driver.release(trip.id, trip.version, 'driver_unavailable'); setTrip(current);
-      sessionStorage.removeItem(DRIVER_TRIP_KEY); setMessage('تم تحرير المهمة.');
+      await taxiApi.driver.release(trip.id, trip.version, 'driver_unavailable');
+      setTrip(undefined); sessionStorage.removeItem(DRIVER_TRIP_KEY); setMessage('تم تحرير المهمة ويمكن تحميل عرض آخر.');
     } catch (cause) { setMessage(errorMessage(cause)); }
     finally { setBusy(false); }
   }
@@ -226,7 +267,11 @@ function DriverJourney() {
     <Surface className={styles.panel}>
       <h2>مساحة السائق</h2>
       <p className={styles.note}>لا يمنح الملف المهني صلاحية قيادة. يلزم اعتماد مستقل للسائق والمركبة.</p>
-      <div className={styles.actions}><ActionButton type="button" onClick={() => void loadOffers()} disabled={busy}>تحديث العروض</ActionButton><ActionLink href="/taxi">واجهة الراكب</ActionLink></div>
+      <div className={styles.actions}>
+        <ActionButton type="button" onClick={() => void loadOffers()} disabled={busy}>تحديث العروض</ActionButton>
+        <ActionButton type="button" variant="secondary" onClick={() => void read()} disabled={busy}>استعادة مهمتي النشطة</ActionButton>
+        <ActionLink href="/taxi">واجهة الراكب</ActionLink>
+      </div>
       <StatusMessage tone="info">{message}</StatusMessage>{message.includes('تسجيل الدخول') && <ActionLink href="/auth/login">تسجيل الدخول</ActionLink>}
     </Surface>
     <div className={styles.offerList}>
