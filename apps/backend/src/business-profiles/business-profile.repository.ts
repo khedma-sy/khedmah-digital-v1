@@ -3,6 +3,7 @@ import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundExce
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeBusinessTrust } from '../moderation/profile-review-write';
 import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+import { withBusinessOwnerWrite } from './business-owner-transaction';
 
 interface BusinessProfileRow extends Record<string, unknown> {
   readonly id: string;
@@ -350,8 +351,8 @@ export class BusinessProfileRepository {
     });
   }
 
-  async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[]): Promise<void> {
-    await this.db.transaction(async (client) => {
+  async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[], actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, businessProfileId, actorId, async (client) => {
       await client.query(
         `DELETE FROM business_opening_hours WHERE business_profile_id = $1`,
         [businessProfileId]
@@ -378,14 +379,19 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, dayOfWeek: r.day_of_week, openTime: r.open_time, closeTime: r.close_time, isClosed: r.is_closed }));
   }
 
-  async saveBranch(branch: BusinessBranch): Promise<void> {
-    await this.db.query(
-      `INSERT INTO business_branches (id, business_profile_id, name_ar, name_en, address_ar, phone, city_code, lat, lng, is_main, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar, name_en = EXCLUDED.name_en, address_ar = EXCLUDED.address_ar,
-         phone = EXCLUDED.phone, city_code = EXCLUDED.city_code, lat = EXCLUDED.lat, lng = EXCLUDED.lng, is_main = EXCLUDED.is_main, updated_at = NOW()`,
-      [branch.id, branch.businessProfileId, branch.nameAr, branch.nameEn ?? null, branch.addressAr ?? null, branch.phone ?? null, branch.cityCode, branch.lat ?? null, branch.lng ?? null, branch.isMain]
-    );
+  async saveBranch(branch: BusinessBranch, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, branch.businessProfileId, actorId, async (client) => {
+      const saved = await client.query(
+        `INSERT INTO business_branches (id, business_profile_id, name_ar, name_en, address_ar, phone, city_code, lat, lng, is_main, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar, name_en = EXCLUDED.name_en, address_ar = EXCLUDED.address_ar,
+           phone = EXCLUDED.phone, city_code = EXCLUDED.city_code, lat = EXCLUDED.lat, lng = EXCLUDED.lng, is_main = EXCLUDED.is_main, updated_at = NOW()
+         WHERE business_branches.business_profile_id = EXCLUDED.business_profile_id
+         RETURNING id`,
+        [branch.id, branch.businessProfileId, branch.nameAr, branch.nameEn ?? null, branch.addressAr ?? null, branch.phone ?? null, branch.cityCode, branch.lat ?? null, branch.lng ?? null, branch.isMain]
+      );
+      if (!saved.rowCount) throw new ForbiddenException('Access denied.');
+    });
   }
 
   async listBranches(businessProfileId: string): Promise<BusinessBranch[]> {
@@ -399,13 +405,18 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, nameAr: r.name_ar, nameEn: r.name_en ?? undefined, addressAr: r.address_ar ?? undefined, phone: r.phone ?? undefined, cityCode: r.city_code, lat: r.lat ? Number(r.lat) : undefined, lng: r.lng ? Number(r.lng) : undefined, isMain: r.is_main }));
   }
 
-  async saveSocialLink(link: BusinessSocialLink): Promise<void> {
-    await this.db.query(
-      `INSERT INTO business_social_links (id, business_profile_id, platform, url, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (id) DO UPDATE SET platform = EXCLUDED.platform, url = EXCLUDED.url`,
-      [link.id, link.businessProfileId, link.platform, link.url]
-    );
+  async saveSocialLink(link: BusinessSocialLink, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, link.businessProfileId, actorId, async (client) => {
+      const saved = await client.query(
+        `INSERT INTO business_social_links (id, business_profile_id, platform, url, created_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (id) DO UPDATE SET platform = EXCLUDED.platform, url = EXCLUDED.url
+         WHERE business_social_links.business_profile_id = EXCLUDED.business_profile_id
+         RETURNING id`,
+        [link.id, link.businessProfileId, link.platform, link.url]
+      );
+      if (!saved.rowCount) throw new ForbiddenException('Access denied.');
+    });
   }
 
   async listSocialLinks(businessProfileId: string): Promise<BusinessSocialLink[]> {
@@ -416,8 +427,10 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, platform: r.platform, url: r.url }));
   }
 
-  async deleteSocialLink(businessProfileId: string, id: string): Promise<void> {
-    await this.db.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
+  async deleteSocialLink(businessProfileId: string, id: string, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, businessProfileId, actorId, async (client) => {
+      await client.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
+    });
   }
 
   async requestVerification(req: VerificationRequest): Promise<VerificationRequest> {

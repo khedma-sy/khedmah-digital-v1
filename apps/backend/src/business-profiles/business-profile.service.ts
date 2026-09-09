@@ -213,8 +213,8 @@ export class BusinessProfileService {
         throw new BadRequestException('Opening time must be earlier than closing time.');
       }
     }
-    const saved = hours.map((hour) => ({ ...hour, id: randomUUID() }));
-    await this.repository.replaceOpeningHours(businessId, saved);
+    const saved = hours.map((hour) => ({ ...hour, id: randomUUID(), businessProfileId: businessId }));
+    await this.repository.replaceOpeningHours(businessId, saved, actor.id);
     return saved;
   }
 
@@ -229,7 +229,7 @@ export class BusinessProfileService {
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
     if (!branch.nameAr?.trim() || !branch.cityCode?.trim()) throw new BadRequestException('Branch name and city are required.');
     const full: BusinessBranch = { ...branch, nameAr: branch.nameAr.trim(), cityCode: branch.cityCode.trim(), id: randomUUID(), businessProfileId: businessId };
-    await this.repository.saveBranch(full);
+    await this.repository.saveBranch(full, actor.id);
     return full;
   }
 
@@ -248,7 +248,7 @@ export class BusinessProfileService {
     try { parsed = new URL(url); } catch { throw new BadRequestException('Social link must be a valid URL.'); }
     if (parsed.protocol !== 'https:') throw new BadRequestException('Social link must use HTTPS.');
     const link: BusinessSocialLink = { id: randomUUID(), businessProfileId: businessId, platform, url: parsed.toString() };
-    await this.repository.saveSocialLink(link);
+    await this.repository.saveSocialLink(link, actor.id);
     return link;
   }
 
@@ -260,7 +260,7 @@ export class BusinessProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteSocialLink(businessId, linkId);
+    await this.repository.deleteSocialLink(businessId, linkId, actor.id);
   }
 
   // --- Verification ---
