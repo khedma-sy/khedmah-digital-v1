@@ -15,7 +15,7 @@ export function DiscoveryNavigation() {
     { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' || pathname === '/mobility' },
     { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/store') || pathname === '/classifieds' }
   ];
-  return <nav className="nav-discovery-group" aria-label="أقسام خدمة ديجتل">{links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}</nav>;
+  return <nav className="nav-discovery-group" aria-label="أقسام خدمة">{links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}</nav>;
 }
 
 export function AuthNavigation() {
