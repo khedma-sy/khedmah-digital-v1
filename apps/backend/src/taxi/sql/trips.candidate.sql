@@ -19,6 +19,8 @@ CREATE TABLE khedmah_taxi.jt_orders (
 );
 CREATE UNIQUE INDEX jt_one_active_job ON khedmah_taxi.jt_orders(provider_id)
  WHERE provider_id IS NOT NULL AND archived=0 AND phase NOT IN('completed','cancelled','rejected') AND delivery_state NOT IN('delivered','cancelled');
+CREATE UNIQUE INDEX jt_one_active_customer_trip ON khedmah_taxi.jt_orders(customer_id)
+ WHERE archived=0 AND phase NOT IN('completed','cancelled','rejected') AND delivery_state NOT IN('delivered','cancelled');
 CREATE INDEX jt_customer_orders ON khedmah_taxi.jt_orders(customer_id,id);
 CREATE INDEX jt_merchant_orders ON khedmah_taxi.jt_orders(merchant_id,id);
 CREATE INDEX jt_job_queue ON khedmah_taxi.jt_orders(delivery_state,id) WHERE archived=0;
