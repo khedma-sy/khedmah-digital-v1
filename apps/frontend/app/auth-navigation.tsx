@@ -12,7 +12,7 @@ export function DiscoveryNavigation() {
     { href: '/search', label: 'اكتشف', active: pathname === '/search' },
     { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
     { href: '/map', label: 'بالقرب مني', active: pathname === '/map' },
-    { href: '/mobility', label: 'تاكسي وتوصيل', active: pathname === '/mobility' || pathname === '/taxi' },
+    { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' || pathname === '/mobility' },
     { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/store') || pathname === '/classifieds' }
   ];
   return <nav className="nav-discovery-group" aria-label="أقسام خدمة ديجتل">{links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}</nav>;
