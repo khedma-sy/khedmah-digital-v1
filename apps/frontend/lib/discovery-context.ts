@@ -10,7 +10,7 @@ type QueryReader = Pick<URLSearchParams, 'get'>;
 export function discoveryPage(value: string | null): number {
   if (!value || !/^[1-9]\d*$/.test(value)) return 1;
   const page = Number(value);
-  return Number.isSafeInteger(page) ? page : 1;
+  return Number.isSafeInteger(page) && Number.isSafeInteger((page - 1) * 20) ? page : 1;
 }
 
 export function readDiscoveryContext(params: QueryReader): DiscoveryContext {

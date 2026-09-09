@@ -20,8 +20,8 @@ const categoryIcons: Record<string, PlatformIconName> = {
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
-    ? `/business-profiles/${service.ownerId}`
-    : `/professional-profiles/${service.ownerId}`;
+    ? `/business-profiles/${encodeURIComponent(service.ownerId)}`
+    : `/professional-profiles/${encodeURIComponent(service.ownerId)}`;
 }
 
 export function CategoryDirectory() {
@@ -171,8 +171,9 @@ export function CategoryDirectory() {
           <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
         </nav> : null}
 
-        {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 && activeCategory ? (
-          <EmptyState icon={<PlatformIcon name="search" size={30} />} title="لا توجد نتائج في هذا التصنيف بعد" description="اختر تصنيفاً آخر، أو ابحث عبر الخريطة، أو أضف نشاطك ليظهر للعملاء." actions={<>
+        {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 ? (
+          <EmptyState icon={<PlatformIcon name="search" size={30} />} title={page > 1 ? 'لا توجد نتائج في هذه الصفحة' : activeCategory ? 'لا توجد نتائج في هذا التصنيف بعد' : 'لا توجد خدمات مطابقة'} description="اختر خدمة أو مدينة أخرى، أو ابحث عبر الخريطة دون فقد عوامل البحث." actions={<>
+            {page > 1 && <ActionButton variant="secondary" type="button" onClick={() => goToPage(1)}>العودة إلى الصفحة الأولى</ActionButton>}
             <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
             <ActionLink href={mapHref(context)}>فتح الخريطة</ActionLink>
             <ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink>
