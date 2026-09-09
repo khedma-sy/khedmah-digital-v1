@@ -26,7 +26,7 @@ export default function Home() {
         <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link><Link href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
         <p className={styles.heroNote}>للأفراد وأصحاب الأعمال والمهنيين</p>
       </div>
-      <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة ديجتل" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة ديجتل أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
+      <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
     </section>
     <section className={styles.discovery} aria-labelledby="categories-title">
       <div className={styles.sectionHeading}><span>اكتشف ما حولك</span><h2 id="categories-title">التصنيفات الرئيسية</h2><p>اختر المجال المناسب وانتقل مباشرة إلى نتائج البحث الحقيقية.</p></div>
@@ -34,9 +34,9 @@ export default function Home() {
     </section>
     <RecentlyAdded />
     <section className={styles.trust} aria-labelledby="trust-title">
-      <div className={styles.sectionHeading}><span>لماذا خدمة ديجتل؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
+      <div className={styles.sectionHeading}><span>لماذا خدمة؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
       <div className={styles.trustGrid}>{trustItems.map(item => <article key={item.title}><PlatformIcon name={item.icon} /><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
-      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة ديجتل</Link></div>
+      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة</Link></div>
     </section>
   </main>;
 }
