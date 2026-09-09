@@ -41,17 +41,39 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
 });
 
 
-test('map installs the Google callback before inserting one controlled script', async () => {
-  const page = await read('app/map/page.tsx');
-
-  const callback = page.indexOf('window.initKhedmahMap = () =>');
+function assertControlledMapScript(page: string) {
+  const binding = 'window.initKhedmahMap = initialize;';
+  const callback = page.indexOf(binding);
   const insertion = page.indexOf('document.head.appendChild(insertedScript)');
-  assert.ok(callback >= 0 && insertion > callback);
+  assert.equal(page.split(binding).length - 1, 1, 'exactly one owned callback registration');
+  assert.ok(callback >= 0 && insertion > callback, 'register callback before network loading');
+  assert.match(page, /const initialize = \(\) => \{\s*if \(cancelled\) return;\s*try \{ initializeMapRef\.current\(\); \}\s*catch \{ failMap\(/);
+  assert.match(page, /if \(window\.initKhedmahMap === initialize\) window\.initKhedmahMap = previousInitializer;/);
+  assert.match(page, /if \(window\.gm_authFailure === authFailure\) window\.gm_authFailure = previousAuthFailure;/);
   assert.match(page, /MAP_SCRIPT_ID = 'khedmah-google-maps'/);
   assert.match(page, /callback=initKhedmahMap/);
   assert.match(page, /data-map-status=\{mapStatus\}/);
   assert.doesNotMatch(page, /from 'next\/script'/);
+}
+
+test('map installs the Google callback before inserting one controlled script', async () => {
+  assertControlledMapScript(await read('app/map/page.tsx'));
 });
+
+for (const [name, mutate] of [
+  ['missing registration', (page: string) => page.replace('window.initKhedmahMap = initialize;', '')],
+  ['late registration', (page: string) => page.replace('window.initKhedmahMap = initialize;', '').replace('document.head.appendChild(insertedScript);', 'document.head.appendChild(insertedScript); window.initKhedmahMap = initialize;')],
+  ['unguarded cleanup', (page: string) => page.replace('if (window.initKhedmahMap === initialize) ', '')],
+  ['unguarded stale callback', (page: string) => page.replace('const initialize = () => {\n      if (cancelled) return;', 'const initialize = () => {')]
+] as const) {
+  test(`map callback contract rejects ${name}`, async () => {
+    const page = await read('app/map/page.tsx');
+    const broken = mutate(page);
+    assert.notEqual(broken, page, 'mutation must change the actual source');
+    assert.throws(() => assertControlledMapScript(broken));
+  });
+}
+
 
 
 test('public discovery surfaces keep compact rhythm and restrained brand glass borders', async () => {

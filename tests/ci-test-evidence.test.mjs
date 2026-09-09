@@ -45,3 +45,35 @@ test('evidence is retained after failure without weakening the original gates', 
   assert.match(workflow, /':!\*\*\/\.env\*'/);
   assert.match(workflow, /retention-days: 7/);
 });
+
+test('diagnostic archive tolerates absent optional documents and excludes runtime files', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'khedmah-ci-source-'));
+  const run = (tool, args, env = {}) => {
+    const result = spawnSync(tool, args, { cwd: dir, env: { ...process.env, ...env }, encoding: 'utf8', timeout: 10000 });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  try {
+    await mkdir(join(dir, 'apps'));
+    await writeFile(join(dir, 'apps/source.ts'), 'export const fixture = true;\n');
+    await writeFile(join(dir, 'apps/.env'), 'synthetic excluded fixture');
+    await writeFile(join(dir, 'apps/private.key'), 'synthetic excluded fixture');
+    await writeFile(join(dir, 'apps/private.pem'), 'synthetic excluded fixture');
+    run('git', ['init', '-q']);
+    run('git', ['add', '.']);
+    run('git', ['-c', 'user.name=Test Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'source fixture']);
+    const archiveStep = workflow.split('      - name: Preserve test evidence\n')[1].split('\n      - name:')[0];
+    const archive = archiveStep.match(/        run: \|\n([\s\S]*)/)[1]
+      .trimEnd().split('\n').map(line => line.slice(10)).join('\n');
+    run('bash', ['-c', archive], { RUNNER_TEMP: join(dir, 'output'), EVIDENCE_HEAD_SHA: 'synthetic-fixture', EVIDENCE_JOB_STATUS: 'failure' });
+    const evidence = join(dir, 'output/khedmah-test-evidence');
+    const names = run('tar', ['-tzf', join(evidence, 'source-at-checkout.tar.gz')]);
+    assert.match(names, /apps\/source\.ts/);
+    assert.doesNotMatch(names, /\.env|private\.key|private\.pem/);
+    assert.match(await readFile(join(evidence, 'test-summary.txt'), 'utf8'), /NOT_EXECUTED/);
+    assert.match(await readFile(join(evidence, 'source-sha256.txt'), 'utf8'), /^[a-f0-9]{64} /);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

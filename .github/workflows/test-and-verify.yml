@@ -107,7 +107,7 @@ jobs:
             printf '%s\n' 'NOT_EXECUTED: no test log was produced.' > "$evidence/test-summary.txt"
           fi
           # Tracked source only: never archive runtime secrets, credentials or node_modules.
-          git archive --format=tar.gz HEAD -- apps backend tests scripts docs package.json package-lock.json AGENTS.md V1_SCOPE_FREEZE.md ROADMAP-EXECUTION-2026-09-08.md ':!**/.env*' ':!**/*.pem' ':!**/*.key' ':!**/node_modules/**' > "$evidence/source-at-checkout.tar.gz"
+          git archive --format=tar.gz HEAD -- . ':!**/.env*' ':!**/*.pem' ':!**/*.key' ':!**/node_modules/**' > "$evidence/source-at-checkout.tar.gz"
           (cd "$evidence" && sha256sum source-at-checkout.tar.gz > source-sha256.txt)
           cat "$evidence/test-summary.txt"
 
