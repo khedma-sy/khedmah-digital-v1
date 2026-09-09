@@ -18,6 +18,7 @@ import { SearchModule } from './search/search.module';
 import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
 import { ReportsModule } from './reports/reports.module';
 import { ProductModule } from './products/product.module';
+import { TaxiModule } from './taxi/taxi.module';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { ProductModule } from './products/product.module';
     MediaModule,
     ModerationModule,
     ReportsModule,
-    ProductModule
+    ProductModule,
+    TaxiModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]
