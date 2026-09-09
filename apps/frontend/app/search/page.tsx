@@ -37,6 +37,10 @@ function SearchContent() {
   const [retryCount, setRetryCount] = useState(0);
   const [requestLoading, setRequestLoading] = useState(false);
   const sequence = useRef(0);
+  const currentKey = useRef(requestKey);
+  currentKey.current = requestKey;
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const isNavigating = pendingKey !== null && pendingKey !== requestKey;
   const [result, setResult] = useState<{
     key: string; businesses: PublicBusinessProfile[]; professionals: PublicProfessionalProfile[];
     services: PublicServiceListing[]; total: number; error: string;
@@ -51,9 +55,11 @@ function SearchContent() {
     : invalidCity ? 'المدينة المحددة غير متاحة. اختر مدينة أخرى أو امسح عوامل البحث.'
     : appliedCategory && categoriesError ? 'تعذر التحقق من التصنيف المحدد. أعد تحميل التصنيفات دون تغيير اختيارك.'
     : invalidCategory ? 'التصنيف المحدد غير متاح. اختر تصنيفاً آخر أو امسح عوامل البحث.' : '';
-  const isLoading = requested && !validationError && (waitingForMetadata || requestLoading || result.key !== requestKey);
-  const error = validationError || (result.key === requestKey ? result.error : '');
-  const searched = requested && !waitingForMetadata && !error && result.key === requestKey;
+  const isLoading = isNavigating || (requested && !validationError && (waitingForMetadata || requestLoading || result.key !== requestKey));
+  const error = isNavigating ? '' : validationError || (result.key === requestKey ? result.error : '');
+  const searched = requested && !isNavigating && !waitingForMetadata && !error && result.key === requestKey;
+
+  useEffect(() => { setPendingKey(null); }, [requestKey]);
 
   useEffect(() => {
     setQ(appliedQuery); setCityCode(appliedCity); setCategoryCode(appliedCategory);
@@ -71,7 +77,8 @@ function SearchContent() {
 
   useEffect(() => {
     const requestId = ++sequence.current;
-    if (!requested || waitingForMetadata || validationError) {
+    const active = () => requestId === sequence.current && requestKey === currentKey.current;
+    if (!requested || waitingForMetadata || validationError || isNavigating) {
       setRequestLoading(false);
       return () => { sequence.current += 1; };
     }
@@ -97,22 +104,24 @@ function SearchContent() {
           const data = await api.search.query({ q: next.q || undefined, categoryCode: next.categoryCode || undefined, cityCode: next.cityCode || undefined, page: next.page, type: 'all' });
           nextBusinesses = data.businesses; nextServices = data.services; nextTotal = data.total;
         }
-        if (requestId !== sequence.current) return;
+        if (!active()) return;
         setResult({ key: requestKey, businesses: nextBusinesses, professionals: nextProfessionals, services: nextServices, total: nextTotal, error: '' });
       } catch (cause) {
-        if (requestId === sequence.current) setResult({ key: requestKey, businesses: [], professionals: [], services: [], total: 0,
+        if (active()) setResult({ key: requestKey, businesses: [], professionals: [], services: [], total: 0,
           error: cause instanceof Error ? cause.message : 'تعذر إكمال البحث.' });
       } finally {
-        if (requestId === sequence.current) setRequestLoading(false);
+        if (active()) setRequestLoading(false);
       }
     }
     void runSearch();
     return () => { sequence.current += 1; };
-  }, [appliedQuery, appliedCity, appliedCategory, tab, page, requested, requestKey, waitingForMetadata, validationError, retryCount]);
+  }, [appliedQuery, appliedCity, appliedCategory, tab, page, requested, requestKey, waitingForMetadata, validationError, isNavigating, retryCount]);
 
   function syncUrl(nextState: { q: string; cityCode: string; categoryCode: string; tab: SearchTab; page: number }) {
     const href = searchHref(nextState, params);
     const target = readSearchState(new URLSearchParams(href.split('?')[1]));
+    sequence.current += 1;
+    setPendingKey(searchStateKey(target));
     if (searchStateKey(target) === requestKey) {
       if (`/search?${params}` !== href) router.replace(href, { scroll: false });
       setRetryCount((value) => value + 1);
@@ -127,6 +136,8 @@ function SearchContent() {
     syncUrl({ q, cityCode, categoryCode: nextCategoryCode, tab: nextTab, page: 1 });
   }
   function clear() {
+    sequence.current += 1;
+    setPendingKey(searchStateKey(readSearchState(new URLSearchParams())));
     setQ(''); setCityCode(''); setCategoryCode('');
     router.push('/search', { scroll: false });
   }
@@ -161,9 +172,9 @@ function SearchContent() {
     {error && <div role="alert"><StatusMessage tone="danger">{error} {!validationError && <ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton>}</StatusMessage></div>}
     {isLoading && <SkeletonGrid count={6} label="جاري البحث في الأنشطة والخدمات" />}
     {!isLoading && searched && <><p className={styles.resultSummary} aria-live="polite">{tab === 'professional' ? `${professionals.length} نتيجة في هذه الصفحة — الصفحة ${page}` : total ? `${total} نتيجة مطابقة${page > 1 ? ` — الصفحة ${page}` : ''}` : 'لم نعثر على نتيجة مطابقة'}</p>
-      {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.name}</h3><span className={styles.badge}><PlatformIcon name="check" size={14}/>{item.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)} · {cityLabel(item.cityCode,cities)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${item.id}`}>عرض النشاط <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
-      {professionals.length > 0 && <ResultSection title="المهنيون">{professionals.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.headlineAr}</h3><span className={styles.badge}>{availabilityLabel(item.availability)}</span></div><p className={styles.meta}><PlatformIcon name="pin" size={14}/> {cityLabel(item.cityCode,cities)}</p><div className={styles.tags}>{item.skills.slice(0,4).map((skill) => <span className={styles.tag} key={skill}>{skill}</span>)}</div><div className={styles.cardAction}><ActionLink href={`/professional-profiles/${item.id}`}>عرض الملف <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
-      {services.length > 0 && <ResultSection title={tab === 'all' ? 'الخدمات' : undefined}>{services.map((s) => <Surface as="article" className={styles.card} key={s.id}><div className={styles.cardTop}><h3>{s.titleAr}</h3><span className={styles.badge}>{priceLabel(s.priceType)}</span></div><p className={styles.meta}>{categoryName(s.categoryCode)}</p>{s.descriptionAr && <p className={styles.description}>{s.descriptionAr}</p>}{s.price != null && <p className={styles.price}>{s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}</p>}<div className={styles.cardAction}><ActionLink href={s.ownerType === 'business' ? `/business-profiles/${s.ownerId}` : `/professional-profiles/${s.ownerId}`}>عرض مقدم الخدمة <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {businesses.length > 0 && <ResultSection title={tab === 'all' ? 'الأنشطة' : undefined}>{businesses.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.name}</h3><span className={styles.badge}><PlatformIcon name="check" size={14}/>{item.trustStatus === 'approved' ? 'معتمد' : 'قيد المراجعة'}</span></div><p className={styles.meta}>{categoryName(item.categoryCode)} · {cityLabel(item.cityCode,cities)}</p>{item.descriptionAr && <p className={styles.description}>{item.descriptionAr}</p>}<div className={styles.cardAction}><ActionLink href={`/business-profiles/${encodeURIComponent(item.id)}`}>عرض النشاط <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {professionals.length > 0 && <ResultSection title="المهنيون">{professionals.map((item) => <Surface as="article" className={styles.card} key={item.id}><div className={styles.cardTop}><h3>{item.headlineAr}</h3><span className={styles.badge}>{availabilityLabel(item.availability)}</span></div><p className={styles.meta}><PlatformIcon name="pin" size={14}/> {cityLabel(item.cityCode,cities)}</p><div className={styles.tags}>{item.skills.slice(0,4).map((skill) => <span className={styles.tag} key={skill}>{skill}</span>)}</div><div className={styles.cardAction}><ActionLink href={`/professional-profiles/${encodeURIComponent(item.id)}`}>عرض الملف <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
+      {services.length > 0 && <ResultSection title={tab === 'all' ? 'الخدمات' : undefined}>{services.map((s) => <Surface as="article" className={styles.card} key={s.id}><div className={styles.cardTop}><h3>{s.titleAr}</h3><span className={styles.badge}>{priceLabel(s.priceType)}</span></div><p className={styles.meta}>{categoryName(s.categoryCode)}</p>{s.descriptionAr && <p className={styles.description}>{s.descriptionAr}</p>}{s.price != null && <p className={styles.price}>{s.price.toLocaleString('ar-SY')} {s.priceCurrency ?? 'SYP'}</p>}<div className={styles.cardAction}><ActionLink href={s.ownerType === 'business' ? `/business-profiles/${encodeURIComponent(s.ownerId)}` : `/professional-profiles/${encodeURIComponent(s.ownerId)}`}>عرض مقدم الخدمة <PlatformIcon name="arrow" size={16}/></ActionLink></div></Surface>)}</ResultSection>}
       {noResults && <EmptyState icon={<PlatformIcon name="search" size={38}/>} title="لا توجد نتائج مطابقة" description={tab === 'professional' ? 'جرّب كلمة أخرى أو وسّع المدينة.' : 'جرّب كلمة أخرى أو وسّع المدينة والتصنيف.'} actions={<ActionButton type="button" variant="secondary" onClick={clear}>مسح عوامل البحث</ActionButton>} />}
       {(page > 1 || canNext) && <nav className={styles.pagination} aria-label="صفحات النتائج"><button disabled={page <= 1} onClick={() => goToPage(page-1)}>السابق</button>{totalPages === null && <span>الصفحة {page.toLocaleString('ar-SY')}</span>}{visiblePages.map((value)=><button key={value} aria-current={value===page?'page':undefined} onClick={()=>goToPage(value)}>{value}</button>)}<button disabled={!canNext} onClick={() => goToPage(page+1)}>التالي</button></nav>}
     </>}

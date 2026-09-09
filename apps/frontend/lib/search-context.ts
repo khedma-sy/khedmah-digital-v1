@@ -51,6 +51,10 @@ export function searchPagination(tab: SearchTab, page: number, total: number, co
   const fullPage = tab === 'professional'
     ? counts.professionals === SEARCH_PAGE_SIZE
     : counts.businesses === SEARCH_PAGE_SIZE || counts.services === SEARCH_PAGE_SIZE;
-  const minimumSeen = (page - 1) * SEARCH_PAGE_SIZE + counts.businesses + counts.services;
+  // Each nonempty collection has independently traversed its previous pages.
+  // Do not count only one offset and offer a page already known to be empty.
+  const offset = (page - 1) * SEARCH_PAGE_SIZE;
+  const minimumSeen = (counts.businesses ? offset + counts.businesses : 0)
+    + (counts.services ? offset + counts.services : 0);
   return { totalPages: null, canNext: fullPage && (tab === 'professional' || total > minimumSeen) };
 }

@@ -23,7 +23,7 @@ type MapHandle = {
 };
 type Coordinates = { lat: number; lng: number };
 type Overlay = { setMap(map: MapHandle | null): void };
-type Marker = Overlay & { addListener(name: string, listener: () => void): void };
+type Marker = Overlay & { addListener(name: string, listener: () => void): MapListener };
 type MapsApi = {
   Map: new (node: HTMLElement, options: object) => MapHandle;
   Marker: new (options: object) => Marker;
@@ -60,12 +60,19 @@ function MapDiscovery() {
   const [mapTilesLoaded, setMapTilesLoaded] = useState(false);
   const listeners = useRef<MapListener[]>([]);
   const overlays = useRef<Overlay[]>([]);
+  const markerListeners = useRef<MapListener[]>([]);
+  const markerGeneration = useRef(0);
   const infoWindow = useRef<{ close(): void } | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const programmaticView = useRef(true);
   const viewportIntent = useRef(false);
   const sequence = useRef(0);
   const geoSequence = useRef(0);
+  const geoPanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearGeoPanTimer = useCallback(() => {
+    if (geoPanTimer.current !== null) clearTimeout(geoPanTimer.current);
+    geoPanTimer.current = null;
+  }, []);
   const [query, setQuery] = useState(appliedQuery);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | undefined>();
   const pendingLocation = useRef<typeof location>(undefined);
@@ -100,6 +107,7 @@ function MapDiscovery() {
     setViewportError('');
     setPendingContextKey(null);
     geoSequence.current += 1;
+    clearGeoPanTimer();
     pendingLocation.current = undefined;
     setLocating(false);
     setLocationStatus('');
@@ -156,14 +164,20 @@ function MapDiscovery() {
 
   const renderMarkers = useCallback(() => {
     if (!map.current || !window.google) return;
+    const handle = map.current;
+    const generation = ++markerGeneration.current;
+    markerListeners.current.forEach((listener) => listener.remove());
+    markerListeners.current = [];
     overlays.current.forEach((overlay) => overlay.setMap(null));
     infoWindow.current?.close();
+    infoWindow.current = null;
     overlays.current = providers.flatMap((provider) => {
       if (!providerBounds([provider])) return [];
       const position = { lat: provider.lat, lng: provider.lng };
       const circle = new window.google!.maps.Circle({ map: map.current, center: position, radius: (provider.serviceRadius ?? 25) * 1000, fillColor: '#7fc63b', fillOpacity: 0.08, strokeColor: '#7fc63b', strokeOpacity: 0.4 });
       const marker = new window.google!.maps.Marker({ map: map.current, position, title: provider.name });
-      marker.addListener('click', () => {
+      const clickListener = marker.addListener('click', () => {
+        if (map.current !== handle || generation !== markerGeneration.current) return;
         infoWindow.current?.close();
         const content = document.createElement('a');
         content.href = `/business-profiles/${encodeURIComponent(provider.id)}?source=map`;
@@ -173,11 +187,16 @@ function MapDiscovery() {
         popup.open({ map: map.current, anchor: marker });
         infoWindow.current = popup;
       });
+      if (clickListener) markerListeners.current.push(clickListener);
       return [circle, marker];
     });
   }, [providers]);
 
   const clearMap = useCallback(() => {
+    clearGeoPanTimer();
+    markerGeneration.current += 1;
+    markerListeners.current.forEach((listener) => listener.remove());
+    markerListeners.current = [];
     if (idleTimer.current) clearTimeout(idleTimer.current);
     idleTimer.current = null;
     listeners.current.forEach((listener) => listener.remove());
@@ -185,6 +204,7 @@ function MapDiscovery() {
     overlays.current.forEach((overlay) => overlay.setMap(null));
     overlays.current = [];
     infoWindow.current?.close();
+    infoWindow.current = null;
     map.current = null;
     renderedMap.current = null;
   }, []);
@@ -201,7 +221,7 @@ function MapDiscovery() {
     setMapStatus('ready');
     setMapError('');
     const markViewportIntent = () => {
-      if (programmaticView.current) return;
+      if (map.current !== handle || programmaticView.current) return;
       viewportIntent.current = true;
       // Invalidate an in-flight area's response as soon as the user moves away.
       sequence.current += 1;
@@ -214,7 +234,10 @@ function MapDiscovery() {
         renderedMap.current = handle;
         setMapTilesLoaded(true);
       }),
-      handle.addListener('dragstart', () => { programmaticView.current = false; markViewportIntent(); }),
+      handle.addListener('dragstart', () => {
+        if (map.current !== handle) return;
+        programmaticView.current = false; markViewportIntent();
+      }),
       handle.addListener('zoom_changed', markViewportIntent),
       handle.addListener('bounds_changed', () => {
         if (map.current !== handle) return;
@@ -222,6 +245,7 @@ function MapDiscovery() {
         markViewportIntent();
       }),
       handle.addListener('idle', () => {
+        if (map.current !== handle) return;
         if (idleTimer.current) clearTimeout(idleTimer.current);
         idleTimer.current = null;
         const shouldSearch = viewportIntent.current || !!pendingLocation.current;
@@ -232,7 +256,9 @@ function MapDiscovery() {
         idleTimer.current = setTimeout(() => {
           idleTimer.current = null;
           if (map.current !== handle || owner !== latest.current.contextKey) return;
-          const boundaries = handle.getBounds()?.toJSON();
+          let boundaries: Bounds | undefined;
+          try { boundaries = handle.getBounds()?.toJSON(); } catch { /* Recover without publishing the previous viewport. */ }
+          clearGeoPanTimer();
           if (!boundaries || !validMapBounds(boundaries)) {
             setViewportError('هذه المنطقة تتجاوز حدود البحث المدعومة. قرّب الخريطة أو امسح تحديد المنطقة.');
             setRequestLoading(false);
@@ -290,14 +316,17 @@ function MapDiscovery() {
       setActiveView('list');
     };
 
-    window.initKhedmahMap = () => {
+    const initialize = () => {
       if (cancelled) return;
-      initializeMapRef.current();
+      try { initializeMapRef.current(); }
+      catch { failMap('تعذر تجهيز الخريطة. يمكنك متابعة البحث من عرض النتائج أو إعادة المحاولة.'); }
     };
-    window.gm_authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+    const authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+    window.initKhedmahMap = initialize;
+    window.gm_authFailure = authFailure;
 
     if (window.google?.maps) {
-      initializeMapRef.current();
+      initialize();
     } else {
       document.getElementById(MAP_SCRIPT_ID)?.remove();
       insertedScript = document.createElement('script');
@@ -316,8 +345,8 @@ function MapDiscovery() {
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
-      window.gm_authFailure = previousAuthFailure;
-      window.initKhedmahMap = previousInitializer;
+      if (window.gm_authFailure === authFailure) window.gm_authFailure = previousAuthFailure;
+      if (window.initKhedmahMap === initialize) window.initKhedmahMap = previousInitializer;
       if (insertedScript && !window.google?.maps) insertedScript.remove();
     };
   }, [mapLoadAttempt]);
@@ -338,29 +367,60 @@ function MapDiscovery() {
     }
     const attempt = ++geoSequence.current;
     const owner = contextKey;
+    const active = () => attempt === geoSequence.current && owner === latest.current.contextKey;
+    clearGeoPanTimer();
+    pendingLocation.current = undefined;
     sequence.current += 1;
     setLocating(true);
     setLocationStatus('جاري تحديد موقعك…');
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      if (attempt !== geoSequence.current || owner !== latest.current.contextKey) return;
-      const next = { latitude: coords.latitude, longitude: coords.longitude };
-      const center = map.current?.getCenter();
-      if (map.current && mapStatus === 'ready' && (!center || center.lat() !== next.latitude || center.lng() !== next.longitude)) {
-        pendingLocation.current = next;
-        programmaticView.current = true;
-        // Read bounds after pan completes in idle, never from the old viewport.
-        map.current.panTo({ lat: next.latitude, lng: next.longitude });
-      } else {
-        setLocation(next);
-        setLocating(false);
-        setLocationStatus('');
-        navigate({ ...context, boundaries: map.current?.getBounds()?.toJSON(), invalidBounds: false });
-      }
-    }, () => {
-      if (attempt !== geoSequence.current || owner !== latest.current.contextKey) return;
+    const failLocation = (message: string) => {
+      if (!active()) return;
+      clearGeoPanTimer();
+      pendingLocation.current = undefined;
       setLocating(false);
-      setLocationStatus('تعذر الوصول إلى موقعك. يمكنك تحريك الخريطة أو اختيار المدينة من عوامل البحث.');
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+      setLocationStatus(message);
+    };
+    try {
+      navigator.geolocation.getCurrentPosition(({ coords }) => {
+        if (!active()) return;
+        const next = { latitude: coords.latitude, longitude: coords.longitude };
+        if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)
+          || Math.abs(next.latitude) > 90 || Math.abs(next.longitude) > 180) {
+          failLocation('الموقع المستلم غير صالح. أعد المحاولة أو اختر المدينة من عوامل البحث.');
+          return;
+        }
+        try {
+          const handle = map.current;
+          const center = handle?.getCenter();
+          if (handle && mapStatus === 'ready' && (!center || center.lat() !== next.latitude || center.lng() !== next.longitude)) {
+            pendingLocation.current = next;
+            programmaticView.current = true;
+            // GPS success is not camera success. Do not use old bounds if idle never arrives.
+            geoPanTimer.current = setTimeout(() => {
+              if (active() && map.current === handle && pendingLocation.current) {
+                failLocation('تعذر تحديث حدود الخريطة بعد تحديد موقعك. أعد المحاولة أو اختر المدينة يدويًا.');
+              }
+            }, 10000);
+            handle.panTo({ lat: next.latitude, lng: next.longitude });
+          } else {
+            const boundaries = handle?.getBounds()?.toJSON();
+            if (boundaries && !validMapBounds(boundaries)) {
+              failLocation('تعذر قراءة حدود الخريطة. امسح تحديد المنطقة أو اختر المدينة يدويًا.');
+              return;
+            }
+            setLocation(next);
+            setLocating(false);
+            setLocationStatus('');
+            navigate({ ...context, boundaries, invalidBounds: false });
+          }
+        } catch {
+          failLocation('تعذر تحديث حدود الخريطة. أعد المحاولة أو اختر المدينة من عوامل البحث.');
+        }
+      }, () => failLocation('تعذر الوصول إلى موقعك. يمكنك تحريك الخريطة أو اختيار المدينة من عوامل البحث.'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    } catch {
+      failLocation('تعذر الوصول إلى موقعك. يمكنك اختيار المدينة من عوامل البحث.');
+    }
   }
 
   const resultsScope = context.boundaries ? 'ضمن المنطقة المحددة' : 'وفق عوامل البحث';

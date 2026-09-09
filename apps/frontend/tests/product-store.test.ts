@@ -14,7 +14,12 @@ test('store journey includes discovery, selling, owner management and public det
     read('lib/api-client.ts')
   ]);
   assert.match(store, /api\.products\.list/);
-  assert.match(store, /query\.get\('q'\)/);
+  // Applied URL state, not a once-only window query snapshot, owns results.
+  assert.match(store, /const params = useSearchParams\(\)/);
+  assert.match(store, /params\.get\('q'\)/);
+  assert.match(store, /params\.get\('cityCode'\)/);
+  assert.match(store, /params\.get\('categoryCode'\)/);
+  assert.match(store, /pathname === '\/classifieds' \? '\/classifieds' : '\/store'/);
   assert.match(store, /كل التصنيفات/);
   assert.match(store, /كل المدن/);
   assert.match(sell, /api\.businesses\.listMine/);
