@@ -74,7 +74,11 @@ jobs:
         run: npm run build
 
       - name: ✅ Run all tests
-        run: npm run test:all
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/khedmah-test-evidence"
+          npm run test:all 2>&1 | tee "$RUNNER_TEMP/khedmah-test-evidence/test-all.log"
         env:
           PGHOST: 127.0.0.1
           PGPORT: 5432
@@ -82,6 +86,39 @@ jobs:
           PGPASSWORD: khedmah_dev
           PGDATABASE: khedmah_ci
           ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
+
+      - name: Preserve test evidence
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EVIDENCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/khedmah-test-evidence"
+          mkdir -p "$evidence"
+          git rev-parse HEAD > "$evidence/checkout-sha.txt"
+          printf '%s\n' "$EVIDENCE_HEAD_SHA" > "$evidence/head-sha.txt"
+          printf '%s\n' "$EVIDENCE_JOB_STATUS" > "$evidence/job-status-before-archive.txt"
+          node --version > "$evidence/node-version.txt"
+          if [ -f "$evidence/test-all.log" ]; then
+            grep -E '^not ok |^# (tests|pass|fail|skipped|cancelled) ' "$evidence/test-all.log" > "$evidence/test-summary.txt" || true
+          else
+            printf '%s\n' 'NOT_EXECUTED: no test log was produced.' > "$evidence/test-summary.txt"
+          fi
+          # Tracked source only: never archive runtime secrets, credentials or node_modules.
+          git archive --format=tar.gz HEAD -- apps backend tests scripts docs package.json package-lock.json AGENTS.md V1_SCOPE_FREEZE.md ROADMAP-EXECUTION-2026-09-08.md ':!**/.env*' ':!**/*.pem' ':!**/*.key' ':!**/node_modules/**' > "$evidence/source-at-checkout.tar.gz"
+          (cd "$evidence" && sha256sum source-at-checkout.tar.gz > source-sha256.txt)
+          cat "$evidence/test-summary.txt"
+
+      - name: Upload test evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.node-version }}
+          path: ${{ runner.temp }}/khedmah-test-evidence/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: 🔐 Security audit
         run: npm audit --omit=dev --audit-level=high
