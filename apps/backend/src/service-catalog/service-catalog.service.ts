@@ -26,7 +26,7 @@ export class ServiceCatalogService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateServiceRequest(request);
     await this.categories.assertActiveCategory(input.categoryCode);
-    if (actor.id != input.ownerUserId) {
+    if (actor.id !== input.ownerUserId) {
       throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
     }
 
@@ -67,8 +67,7 @@ export class ServiceCatalogService {
       updatedAt: now
     };
 
-    await this.repository.save(service);
-    return this.toPublic(await this.repository.findById(service.id) ?? service);
+    return this.toPublic(await this.repository.insertOwned(service, actor.id));
   }
 
   async listForOwner(cookieHeader: string | undefined, ownerId: string, request: ListOwnerServicesRequest): Promise<PublicServiceListing[]> {
@@ -95,28 +94,15 @@ export class ServiceCatalogService {
     if (input.categoryCode && input.categoryCode !== service.categoryCode) {
       await this.categories.assertActiveCategory(input.categoryCode);
     }
-    const updated: ServiceListing = {
-      ...service,
-      titleAr: input.titleAr ?? service.titleAr,
-      titleEn: input.titleEn === undefined ? service.titleEn : input.titleEn,
-      descriptionAr: input.descriptionAr === undefined ? service.descriptionAr : input.descriptionAr,
-      descriptionEn: input.descriptionEn === undefined ? service.descriptionEn : input.descriptionEn,
-      categoryCode: input.categoryCode ?? service.categoryCode,
-      price: input.price === undefined ? service.price : input.price,
-      priceCurrency: input.priceCurrency === undefined ? service.priceCurrency : input.priceCurrency,
-      priceType: input.priceType ?? service.priceType,
-      status: input.status ?? service.status,
-      updatedAt: new Date().toISOString()
-    };
-
-    await this.repository.save(updated);
-    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
+    // Pass only the validated delta. The repository locks the current parent and
+    // service, so unrelated fields are not copied from this earlier read.
+    return this.toPublic(await this.repository.patchOwned(service, input, actor.id));
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<{ readonly status: 'ok' }> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const service = await this.requireOwnedService(id, actor.id);
-    await this.repository.save({ ...service, status: 'inactive', updatedAt: new Date().toISOString() });
+    await this.repository.patchOwned(service, { status: 'inactive' }, actor.id);
     return { status: 'ok' };
   }
 

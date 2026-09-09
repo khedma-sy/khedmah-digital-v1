@@ -1,6 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { PoolClient } from 'pg';
 import { DatabasePool } from '../database/database.pool';
+import { SERVICE_ACCESS_DENIED_MESSAGE, SERVICE_NOT_FOUND_MESSAGE } from './service-catalog.errors';
 import { ServiceListing, ServiceOwnerType } from './service-catalog.types';
+
+export type ServiceOwnerPatch = Partial<Pick<ServiceListing,
+  'titleAr' | 'titleEn' | 'descriptionAr' | 'descriptionEn' | 'categoryCode' |
+  'price' | 'priceCurrency' | 'priceType' | 'status'>>;
+
+type ServiceTarget = Pick<ServiceListing, 'id' | 'ownerType' | 'ownerId'>;
 
 interface ServiceListingRow extends Record<string, unknown> {
   readonly id: string;
@@ -26,6 +34,85 @@ interface ServiceListingRow extends Record<string, unknown> {
 export class ServiceCatalogRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
+  /** Create only: an identifier collision must never overwrite an existing service. */
+  async insertOwned(service: ServiceListing, actorId: string): Promise<ServiceListing> {
+    return this.withOwner(service, actorId, async (client) => {
+      const result = await client.query<ServiceListingRow>(
+        `INSERT INTO service_listings (
+           id, owner_type, owner_id, title_ar, title_en, description_ar, description_en,
+           category_code, price, price_currency, price_type, status, created_at, updated_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,clock_timestamp(),clock_timestamp())
+         ON CONFLICT (id) DO NOTHING
+         RETURNING *, (SELECT c.name_ar FROM categories c WHERE c.code=service_listings.category_code) AS category_name_ar`,
+        [service.id,service.ownerType,service.ownerId,service.titleAr,service.titleEn??null,
+          service.descriptionAr??null,service.descriptionEn??null,service.categoryCode,
+          service.price??null,service.priceCurrency??null,service.priceType,service.status]
+      );
+      if (!result.rows[0]) throw new ConflictException('Service identifier already exists.');
+      return this.map(result.rows[0]);
+    });
+  }
+
+  /** Apply only submitted fields to the current row; never upsert an edit or replay a stale snapshot. */
+  async patchOwned(target: ServiceTarget, patch: ServiceOwnerPatch, actorId: string): Promise<ServiceListing> {
+    return this.withOwner(target, actorId, async (client) => {
+      const current = await client.query<{ owner_type: string; owner_id: string }>(
+        `SELECT owner_type,owner_id FROM service_listings WHERE id=$1 FOR UPDATE`, [target.id]
+      );
+      if (!current.rows[0]) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+      if (current.rows[0].owner_type !== target.ownerType || current.rows[0].owner_id !== target.ownerId) {
+        throw new ConflictException('Service ownership changed. Reload before saving.');
+      }
+      // Column names are a fixed allowlist, never client-provided SQL identifiers.
+      const columns = [
+        ['titleAr','title_ar'],['titleEn','title_en'],['descriptionAr','description_ar'],
+        ['descriptionEn','description_en'],['categoryCode','category_code'],['price','price'],
+        ['priceCurrency','price_currency'],['priceType','price_type'],['status','status']
+      ] as const;
+      const params: unknown[] = [target.id,target.ownerType,target.ownerId];
+      const assignments: string[] = [];
+      for (const [field,column] of columns) {
+        if (patch[field] !== undefined) {
+          params.push(patch[field]);
+          assignments.push(`${column}=$${params.length}`);
+        }
+      }
+      if (!assignments.length) throw new BadRequestException('At least one service field must be provided.');
+      const result = await client.query<ServiceListingRow>(
+        `UPDATE service_listings SET ${assignments.join(',')},
+           updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+         WHERE id=$1 AND owner_type=$2 AND owner_id=$3
+         RETURNING *, (SELECT c.name_ar FROM categories c WHERE c.code=service_listings.category_code) AS category_name_ar`,
+        params
+      );
+      if (!result.rows[0]) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+      return this.map(result.rows[0]);
+    });
+  }
+
+  private async withOwner<T>(
+    target: Pick<ServiceListing, 'ownerType' | 'ownerId'>,
+    actorId: string,
+    write: (client: PoolClient) => Promise<T>
+  ): Promise<T> {
+    return this.db.transaction(async (client) => {
+      // Lock parent before child consistently. A preflight read is not write authority.
+      let sql: string;
+      if (target.ownerType === 'business') {
+        sql = `SELECT owner_user_id AS actor_id FROM business_profiles WHERE id=$1 FOR UPDATE`;
+      } else if (target.ownerType === 'professional') {
+        sql = `SELECT user_identifier AS actor_id FROM professional_profiles WHERE professional_profile_identifier=$1 FOR UPDATE`;
+      } else {
+        throw new BadRequestException('Unsupported service owner type.');
+      }
+      const parent = await client.query<{ actor_id: string }>(sql, [target.ownerId]);
+      if (!parent.rows[0]) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+      if (parent.rows[0].actor_id !== actorId) throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
+      return write(client);
+    });
+  }
+
+  /** Internal fixture/legacy persistence only. Authenticated runtime mutations use insertOwned/patchOwned. */
   async save(service: ServiceListing): Promise<void> {
     await this.db.query(
       `INSERT INTO service_listings (

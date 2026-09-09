@@ -10,6 +10,7 @@ These instructions apply to the entire Khedmah Digital V1 repository.
 - For continuation and repair work, first read the live checkpoint at the top of `ROADMAP-EXECUTION-2026-09-08.md`, then verify the remote PR head and its workflow results. Read `docs/operations/SITE-ATLAS.md` only for the relevant page ownership and contracts.
 - Resume the checkpoint's next unfinished action. Do not restart a whole-repository review or reimplement completed passes just because a conversation changed. Inspect subsequent commits and local changes before choosing the next action.
 - Update that same checkpoint after a completed repair pass or before handing work off: implementation commit, exact validation evidence, unresolved blocker, next concrete action, and relevant files. Do not create another root report or present unverified work as complete.
+- Owner instruction, 2026-09-09: complete functional repairs and verification before changing page colors. Preserve current colors, layout, header and umbrella identity throughout repair passes; the full-page color redesign is a separate later phase, not authorized for this pass.
 - Preserve the Arabic-first product direction.
 - Preserve the business growth platform philosophy.
 - Preserve the `أنا مع خدمة` brand direction as a future-facing brand/community expression.
