@@ -37,6 +37,7 @@ const key = () => crypto.randomUUID();
 export const taxiApi = {
   rider: {
     access: () => request<{ id: string; role: 'customer' }>('/taxi/rider/access'),
+    active: () => request<{ tripId: string | null }>('/taxi/rider/trips/active'),
     quote: (pickup: TaxiAddress, dropoff: TaxiAddress) => request<TaxiQuote>('/taxi/rider/quotes', body({ pickup, dropoff })),
     place: (quoteId: string, requestId: string) => request<TaxiTrip>('/taxi/rider/trips', body({ quoteId, requestId })),
     read: (id: string) => request<TaxiTrip>(`/taxi/rider/trips/${encodeURIComponent(id)}`),
@@ -47,6 +48,7 @@ export const taxiApi = {
   },
   driver: {
     access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string }>('/taxi/driver/access'),
+    active: () => request<{ tripId: string | null }>('/taxi/driver/trips/active'),
     offers: () => request<TaxiOfferResponse>('/taxi/driver/offers'),
     read: (id: string) => request<TaxiTrip>(`/taxi/driver/trips/${encodeURIComponent(id)}`),
     accept: (id: string, expectedVersion: number) => request<TaxiTrip>(`/taxi/driver/trips/${encodeURIComponent(id)}/actions`, body({ action: 'accept_job', expectedVersion, requestId: key() })),
