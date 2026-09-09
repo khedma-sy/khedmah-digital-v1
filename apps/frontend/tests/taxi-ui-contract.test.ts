@@ -4,12 +4,16 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('خدمة ديجتل is the visible brand while the umbrella identity stays unchanged', async () => {
+test('principal title uses خدمة ديجتل while functional taxi wording stays خدمة and umbrella identity stays unchanged', async () => {
   const layout = await read('app/layout.tsx');
   const mark = await read('app/components/brand-mark.tsx');
+  const page = await read('app/taxi/page.tsx');
   assert.match(layout, /const SITE_NAME = 'خدمة ديجتل'/);
-  assert.match(layout, /aria-label="خدمة ديجتل - الرئيسية"/);
+  assert.match(layout, /aria-label="خدمة - الرئيسية"/);
   assert.match(mark, /<b>خدمة ديجتل<\/b>/);
+  assert.match(page, /label="خدمة تكسي"/);
+  assert.match(page, /eyebrow="خدمة — التنقل"/);
+  assert.doesNotMatch(page, /خدمة ديجتل/);
   for (const color of ['#07427c', '#81be49', '#fd9603']) assert.match(mark, new RegExp(color));
   assert.match(mark, /تحت مظلة واحدة/);
 });
