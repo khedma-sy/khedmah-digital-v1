@@ -7,7 +7,7 @@ import { PlatformIcon } from './components/platform-icon';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
+export const metadata: Metadata = { title: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
 
 const trustItems = [
   { icon: 'check' as const, title: 'معلومات واضحة', copy: 'ملفات منظمة تساعدك على الاختيار.' },
@@ -23,10 +23,10 @@ export default function Home() {
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
         <p className={styles.lead}>ابحث حسب الفئة والموقع، اطّلع على ملفات الأعمال ومقدمي الخدمات، ثم تواصل مباشرة دون وسطاء.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
-        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link><Link href="/mobility"><PlatformIcon name="car" />تاكسي وتوصيل</Link></div>
+        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link><Link href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
         <p className={styles.heroNote}>للأفراد وأصحاب الأعمال والمهنيين</p>
       </div>
-      <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
+      <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة ديجتل" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة ديجتل أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
     </section>
     <section className={styles.discovery} aria-labelledby="categories-title">
       <div className={styles.sectionHeading}><span>اكتشف ما حولك</span><h2 id="categories-title">التصنيفات الرئيسية</h2><p>اختر المجال المناسب وانتقل مباشرة إلى نتائج البحث الحقيقية.</p></div>
@@ -34,9 +34,9 @@ export default function Home() {
     </section>
     <RecentlyAdded />
     <section className={styles.trust} aria-labelledby="trust-title">
-      <div className={styles.sectionHeading}><span>لماذا خدمة؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
+      <div className={styles.sectionHeading}><span>لماذا خدمة ديجتل؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
       <div className={styles.trustGrid}>{trustItems.map(item => <article key={item.title}><PlatformIcon name={item.icon} /><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
-      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة</Link></div>
+      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة ديجتل</Link></div>
     </section>
   </main>;
 }
