@@ -62,13 +62,13 @@ test('business auxiliary writes retain current parent ownership through commit',
   try {
     await resetCanonicalTestSchema(pool);
     await db.query(`INSERT INTO core_user_accounts (user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification)
-      VALUES ($1,'rp24_identity_owner','individual_user','active','active','private'),
-             ($2,'rp24_identity_next','individual_user','active','active','private')`, [owner, nextOwner]);
+      VALUES ($1,'identity_rp24_owner','individual_user','active','active','private'),
+             ($2,'identity_rp24_next_owner','individual_user','active','active','private')`, [owner, nextOwner]);
     const [category] = await db.query<{ code: string }>(`SELECT code FROM categories WHERE status='active' AND parent_code IS NOT NULL LIMIT 1`);
     assert.ok(category);
     async function reset() {
-      // These canonical auxiliary tables do not all cascade on parent deletion.
-      // Isolate fixtures explicitly; do not change the production schema for this test.
+      // Isolate fixtures explicitly, independently of parent deletion cascades.
+      // Do not change the production schema to accommodate test data.
       await db.query(`DELETE FROM business_opening_hours WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
       await db.query(`DELETE FROM business_branches WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
       await db.query(`DELETE FROM business_social_links WHERE business_profile_id IN ($1,$2)`, [business, otherBusiness]);
