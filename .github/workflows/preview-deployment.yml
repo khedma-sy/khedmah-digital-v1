@@ -121,6 +121,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Install isolated browser tooling
+        id: browser-tools
         run: |
           npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
           "$RUNNER_TEMP/khedmah-browser/node_modules/.bin/playwright" install --with-deps chromium
@@ -132,6 +133,14 @@ jobs:
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
         run: node scripts/capture-preview-evidence.mjs
+      - name: Verify mobile assistant interactions
+        id: interactions
+        if: always() && !cancelled() && steps.browser-tools.outcome == 'success'
+        env:
+          AFTER_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
+        run: node scripts/check-preview-interactions.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -148,14 +157,17 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           QUALITY_RESULT: ${{ needs.quality-gates.result }}
           CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          INTERACTION_OUTCOME: ${{ steps.interactions.outcome }}
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           script: |
             const fs = require('node:fs');
             let evidence = { status: 'unavailable', previewStatus: 'not_run', before: null, after: [] };
             try { evidence = JSON.parse(fs.readFileSync('preview-evidence/manifest.json', 'utf8')); } catch {}
+            let interactions = { status: 'unavailable', scenarios: [] };
+            try { interactions = JSON.parse(fs.readFileSync('preview-evidence/interactions-manifest.json', 'utf8')); } catch {}
             const checks = evidence.after.map(item => `- ${item.route} (${item.viewport}, ${item.theme || 'light'}): **${item.status}**${item.failures.length ? ` — ${item.failures.join(', ')}` : ''}`).join('\n');
-            const body = `## 🔎 Preview Review\n\n### Verified reference\nHead: \`${process.env.PREVIEW_HEAD_SHA}\`\n\n### Automated results\nQuality gates: **${process.env.QUALITY_RESULT}**\nBrowser capture step: **${process.env.CAPTURE_OUTCOME || 'not run'}**\nEvidence manifest: **${evidence.status}**\nPreview readiness: **${evidence.previewStatus || 'not_run'}**\nStaging homepage baseline: **${evidence.before?.status || 'unavailable'}**\nBaseline blockers: ${(evidence.before?.failures || []).join(', ') || 'none'}\nSetup failure: ${evidence.setupFailure || 'none'}\n\n${checks}\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots and diagnostics\n[Open this run and download the screenshots plus manifest](${process.env.RUN_URL})\n\nA missing or invalid baseline keeps the comparison gate failed even when all Preview captures pass. Configure STAGING_FRONTEND_URL in the protected preview environment; never substitute Production or the Preview itself. Only passing captures are named before.png / after.png; failed captures are explicitly diagnostic. The Staging baseline is an environment comparison, not a verified parent-commit image. Coverage is anonymous home, categories, search, map and professional search in light/dark at 320, 390, 768 and 1280px; it is not a full visual, accessibility or end-to-end certification.\n\n### Owner review guide\n1. Inspect manifest.json before using screenshots as evidence.\n2. Resolve failures rather than accepting a blank or loading capture.\n3. Check RTL, responsive layout and changed paths manually.\n4. Exercise documented flows with test-only data.\n5. Record approval or defects before merge. No production deployment is authorized by this report.\n`;
+            const body = `## 🔎 Preview Review\n\n### Verified reference\nHead: \`${process.env.PREVIEW_HEAD_SHA}\`\n\n### Automated results\nQuality gates: **${process.env.QUALITY_RESULT}**\nBrowser capture step: **${process.env.CAPTURE_OUTCOME || 'not run'}**\nMobile interaction step: **${process.env.INTERACTION_OUTCOME || 'not run'}**\nMobile interactions: **${interactions.status}** (${interactions.scenarios.filter(item => item.status === 'passed').length}/20)\nEvidence manifest: **${evidence.status}**\nPreview readiness: **${evidence.previewStatus || 'not_run'}**\nStaging homepage baseline: **${evidence.before?.status || 'unavailable'}**\nBaseline blockers: ${(evidence.before?.failures || []).join(', ') || 'none'}\nSetup failure: ${evidence.setupFailure || 'none'}\n\n${checks}\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots and diagnostics\n[Open this run and download the screenshots plus manifest](${process.env.RUN_URL})\n\nA missing or invalid baseline keeps the comparison gate failed even when all Preview captures pass. Configure STAGING_FRONTEND_URL in the protected preview environment; never substitute Production or the Preview itself. Only passing captures are named before.png / after.png; failed captures are explicitly diagnostic. The Staging baseline is an environment comparison, not a verified parent-commit image. Coverage is anonymous home, categories, search, map and professional search in light/dark at 320, 390, 768 and 1280px; it is not a full visual, accessibility or end-to-end certification.\n\n### Owner review guide\n1. Inspect manifest.json before using screenshots as evidence.\n2. Resolve failures rather than accepting a blank or loading capture.\n3. Check RTL, responsive layout and changed paths manually.\n4. Exercise documented flows with test-only data.\n5. Record approval or defects before merge. No production deployment is authorized by this report.\n`;
             const marker = '## 🔎 Preview Review';
             const comments = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number });
             const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));

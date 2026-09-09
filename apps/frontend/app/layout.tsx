@@ -83,8 +83,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
-        {children}
         <SmartAssistant />
+        {children}
       </body>
     </html>
   );
