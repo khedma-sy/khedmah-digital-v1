@@ -3,13 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { ConflictException, HttpException } from '@nestjs/common';
-import { DatabasePool } from './database/database.pool';
-import { createTestPool, resetCanonicalTestSchema } from './database/test-pool';
-import { AdRepository } from './classifieds/ad.repository';
-import { AdService } from './classifieds/ad.service';
+import { DatabasePool } from '../database/database.pool';
+import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
+import { AdRepository } from '../classifieds/ad.repository';
+import { AdService } from '../classifieds/ad.service';
 
-// Runs last by filename so migration 024 tests complete before 025 is applied.
-// Uses the same explicitly disposable PostgreSQL gate as the rest of backend CI.
+// Lives under a lexically-last nested directory so the backend shell glob includes it
+// and migration 024 tests complete before 025 is applied to the shared disposable DB.
 test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async (t) => {
   const rawPool = createTestPool();
   const db = DatabasePool.fromPool(rawPool);
@@ -19,11 +19,11 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
     await resetCanonicalTestSchema(rawPool);
     const productExists = await db.query<{ exists: boolean }>(`SELECT to_regclass('public.product_listings') IS NOT NULL AS exists`);
     if (!productExists[0]?.exists) {
-      await db.query(await readFile(resolve(__dirname, '../../../backend/migrations/versions/024_product_store.sql'), 'utf8'));
+      await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/024_product_store.sql'), 'utf8'));
     }
     const adsExists = await db.query<{ exists: boolean }>(`SELECT to_regclass('public.ad_listings') IS NOT NULL AS exists`);
     if (!adsExists[0]?.exists) {
-      await db.query(await readFile(resolve(__dirname, '../../../backend/migrations/versions/025_classifieds.sql'), 'utf8'));
+      await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/025_classifieds.sql'), 'utf8'));
     }
 
     for (const [id, identity] of [
