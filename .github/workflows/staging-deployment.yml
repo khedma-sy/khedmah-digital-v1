@@ -48,6 +48,10 @@ jobs:
     needs: quality-gates
     runs-on: ubuntu-latest
     environment: staging
+    outputs:
+      frontend_url: ${{ steps.deploy.outputs.frontend_url }}
+      backend_url: ${{ steps.deploy.outputs.backend_url }}
+      classifieds_frontend_enabled: ${{ steps.classifieds-stage.outputs.frontend_enabled }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -71,6 +75,7 @@ jobs:
         name: Resolve Classifieds Staging rollout stage
         run: scripts/deployment/resolve-classifieds-staging-stage.sh >> "$GITHUB_OUTPUT"
       - id: deploy
+        name: Deploy Staging services
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
@@ -88,4 +93,34 @@ jobs:
           echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Frontend: ${{ steps.deploy.outputs.frontend_url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Backend health: ${{ steps.deploy.outputs.backend_url }}/api/v1/health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Classifieds stage: ${{ steps.classifieds-stage.outputs.stage }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Revision: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+  classifieds-staging-acceptance:
+    needs: [quality-gates, deploy-staging]
+    if: needs.deploy-staging.outputs.classifieds_frontend_enabled == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          "$RUNNER_TEMP/khedmah-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify Classifieds Staging acceptance
+        env:
+          AFTER_URL: ${{ needs.deploy-staging.outputs.frontend_url }}
+          BACKEND_URL: ${{ needs.deploy-staging.outputs.backend_url }}
+          PREVIEW_HEAD_SHA: ${{ github.sha }}
+          EVIDENCE_DIR: staging-evidence
+          PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
+        run: node scripts/check-classifieds-preview-acceptance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-classifieds-acceptance
+          path: staging-evidence/
+          if-no-files-found: error
+          retention-days: 14
