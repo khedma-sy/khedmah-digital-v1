@@ -52,5 +52,36 @@ gcloud run jobs deploy "$job" \
   --task-timeout 10m \
   --quiet
 
-gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait
+set +e
+execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait 2>&1)"
+execution_status=$?
+set -e
+printf '%s\n' "$execution_output"
+if [[ "$execution_status" -ne 0 ]]; then
+  echo "Classifieds migration 025 ${mode} execution failed; collecting non-production diagnostics." >&2
+  execution_name="$(gcloud run jobs executions list \
+    --job "$job" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --region "$GOOGLE_CLOUD_REGION" \
+    --limit 1 \
+    --sort-by='~metadata.creationTimestamp' \
+    --format='value(metadata.name)' 2>/dev/null || true)"
+  if [[ -n "$execution_name" ]]; then
+    echo "CLASSIFIEDS_025_FAILED_EXECUTION=${execution_name}" >&2
+    gcloud run jobs executions describe "$execution_name" \
+      --project "$GOOGLE_CLOUD_PROJECT" \
+      --region "$GOOGLE_CLOUD_REGION" \
+      --format='yaml(metadata.name,status.conditions,status.failedCount,status.succeededCount,status.startTime,status.completionTime,status.logUri)' || true
+  fi
+  echo 'CLASSIFIEDS_025_CONTAINER_LOGS_BEGIN' >&2
+  gcloud logging read \
+    "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${job}\"" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --freshness=30m \
+    --limit=200 \
+    --order=asc \
+    --format='value(timestamp,severity,textPayload,jsonPayload.message)' || true
+  echo 'CLASSIFIEDS_025_CONTAINER_LOGS_END' >&2
+  exit "$execution_status"
+fi
 printf 'Classifieds migration 025 %s completed and verified for %s.\n' "$mode" "$environment"
