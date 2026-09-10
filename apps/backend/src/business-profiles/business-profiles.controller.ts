@@ -160,10 +160,9 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.submitForReview(cookieHeader, id) };
   }
 
-  @Post(':id/approve')
-  async approve(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { business: await this.businessProfiles.approveVerification(cookieHeader, id) };
-  }
+  // Verification decisions are intentionally not exposed on the business owner surface.
+  // Human reviewers must use /admin/moderation/verification/:requestId/*, which binds the
+  // exact verification request and profile revision and records reviewer notes atomically.
 
   @Post(':id/moderation/approve')
   async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { expectedRevision?: unknown } | null) {
