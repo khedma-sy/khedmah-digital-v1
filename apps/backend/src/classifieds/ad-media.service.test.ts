@@ -3,11 +3,14 @@ import { test } from 'node:test';
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { AdMediaService } from './ad-media.service';
 
-function makeService() {
-  const db = { transaction: async () => { throw new Error('database must not be reached'); } } as any;
+function makeService(dbOverride?: unknown) {
+  const db = dbOverride ?? {
+    transaction: async () => { throw new Error('database must not be reached'); },
+    query: async () => { throw new Error('database must not be reached'); }
+  };
   const identity = { getCurrentUser: async () => ({ id: 'owner', email: 'owner@example.test' }) } as any;
   const rbac = { assert() {} } as any;
-  return new AdMediaService(db, identity, rbac);
+  return new AdMediaService(db as any, identity, rbac);
 }
 
 async function withFlag<T>(value: string | undefined, work: () => Promise<T>): Promise<T> {
@@ -38,4 +41,12 @@ test('classifieds media verifies file signature before database or storage work'
     sizeBytes: fakePng.length,
     content: fakePng.toString('base64')
   })), BadRequestException);
+});
+
+test('classifieds media maps missing migration 025 to service unavailable', async () => {
+  const service = makeService({
+    query: async () => { throw { code: '42P01', message: 'relation does not exist' }; },
+    transaction: async () => { throw { code: '42P01', message: 'relation does not exist' }; }
+  });
+  await assert.rejects(() => withFlag('true', () => service.listMine(undefined, 'ad-1')), ServiceUnavailableException);
 });
