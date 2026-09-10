@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { main, assessEvidence, browserReadyForCapture, browserContentReadyForCapture, waitForCaptureReadiness, evidenceRoutes, evidenceViewports, evidenceThemes, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
 
-const ready = { theme: 'light', mapStatus: null, headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/mobility', '/classifieds'], authReady: true,
+const ready = { theme: 'light', mapStatus: null, headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/taxi', '/classifieds'], authReady: true,
   busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
 
 test('evidence accepts a ready 2xx page but does not equate an image file with readiness', () => {

@@ -84,7 +84,7 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   if (snapshot.mainCount !== 1 || !snapshot.headingLength) failures.push('CONTENT_NOT_READY');
   if (snapshot.navigationCount !== 5 || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
   if (snapshot.navigationInteractiveCount !== 5) failures.push('NAVIGATION_NOT_INTERACTIVE');
-  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/map|/mobility|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
+  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/map|/taxi|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
   if (snapshot.fontStatus !== 'loaded') failures.push('FONTS_NOT_READY');
