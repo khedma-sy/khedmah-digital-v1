@@ -29,65 +29,117 @@ if [ "$mode" = 'apply' ]; then
 fi
 printf '%s  %s\n' "$APPROVED_SHA256" "$MIGRATION_FILE" | sha256sum -c - >/dev/null
 
-verify_schema() {
-  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
-DO $verify$
-DECLARE
-  required_table text;
-  required_index text;
-  required_trigger text;
-BEGIN
-  FOREACH required_table IN ARRAY ARRAY['ad_listings','ad_free_slots','ad_request_receipts','ad_moderation_events'] LOOP
-    IF to_regclass(current_schema() || '.' || required_table) IS NULL THEN
-      RAISE EXCEPTION 'MIGRATION_025_TABLE_POSTCONDITION_FAILED: %', required_table;
-    END IF;
-  END LOOP;
-  FOREACH required_index IN ARRAY ARRAY['ad_listings_owner_created_idx','ad_listings_public_idx','ad_listings_pending_idx','ad_free_slots_owner_idx'] LOOP
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname=current_schema() AND indexname=required_index) THEN
-      RAISE EXCEPTION 'MIGRATION_025_INDEX_POSTCONDITION_FAILED: %', required_index;
-    END IF;
-  END LOOP;
-  FOREACH required_trigger IN ARRAY ARRAY['ad_free_slot_limit_before_insert','ad_listing_identity_before_update','ad_free_slots_append_only','ad_request_receipts_append_only','ad_moderation_events_append_only'] LOOP
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_trigger t
+schema_state() {
+  psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 <<'SQL'
+SELECT CASE
+  WHEN to_regclass(current_schema() || '.product_listings') IS NULL
+    OR to_regclass(current_schema() || '.media_assets') IS NULL
+    THEN 'missing_024'
+  WHEN (
+      SELECT count(*) FROM (VALUES
+        (to_regclass(current_schema() || '.ad_listings')),
+        (to_regclass(current_schema() || '.ad_free_slots')),
+        (to_regclass(current_schema() || '.ad_request_receipts')),
+        (to_regclass(current_schema() || '.ad_moderation_events'))
+      ) AS tables(oid) WHERE oid IS NOT NULL
+    ) = 0
+    AND (
+      SELECT count(*) FROM (VALUES
+        (to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()')),
+        (to_regprocedure(current_schema() || '.protect_ad_listing_identity()')),
+        (to_regprocedure(current_schema() || '.reject_ad_audit_mutation()'))
+      ) AS functions(oid) WHERE oid IS NOT NULL
+    ) = 0
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_class t ON t.oid=c.conrelid
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname=current_schema() AND t.relname='media_assets'
+        AND c.conname IN ('media_assets_owner_type_check','media_assets_asset_type_check')
+        AND (pg_get_constraintdef(c.oid) LIKE '%ad_listing%' OR pg_get_constraintdef(c.oid) LIKE '%ad_image%')
+    )
+    THEN 'not_applied'
+  WHEN (
+      SELECT count(*) FROM (VALUES
+        (to_regclass(current_schema() || '.ad_listings')),
+        (to_regclass(current_schema() || '.ad_free_slots')),
+        (to_regclass(current_schema() || '.ad_request_receipts')),
+        (to_regclass(current_schema() || '.ad_moderation_events'))
+      ) AS tables(oid) WHERE oid IS NOT NULL
+    ) < 4
+    THEN 'partial_tables'
+  WHEN (
+      SELECT count(*) FROM pg_indexes
+      WHERE schemaname=current_schema()
+        AND indexname IN ('ad_listings_owner_created_idx','ad_listings_public_idx','ad_listings_pending_idx','ad_free_slots_owner_idx')
+    ) < 4
+    THEN 'missing_indexes'
+  WHEN (
+      SELECT count(*) FROM pg_trigger t
       JOIN pg_class c ON c.oid=t.tgrelid
       JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname=current_schema() AND t.tgname=required_trigger AND NOT t.tgisinternal
-    ) THEN
-      RAISE EXCEPTION 'MIGRATION_025_TRIGGER_POSTCONDITION_FAILED: %', required_trigger;
-    END IF;
-  END LOOP;
-  IF to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()') IS NULL
-    OR to_regprocedure(current_schema() || '.protect_ad_listing_identity()') IS NULL
-    OR to_regprocedure(current_schema() || '.reject_ad_audit_mutation()') IS NULL
-  THEN
-    RAISE EXCEPTION 'MIGRATION_025_FUNCTION_POSTCONDITION_FAILED';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
-    WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_owner_type_check'
-      AND pg_get_constraintdef(c.oid) LIKE '%ad_listing%'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
-    WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_asset_type_check'
-      AND pg_get_constraintdef(c.oid) LIKE '%ad_image%'
-  ) THEN
-    RAISE EXCEPTION 'MIGRATION_025_MEDIA_POSTCONDITION_FAILED';
-  END IF;
-END
-$verify$;
+      WHERE n.nspname=current_schema() AND NOT t.tgisinternal
+        AND t.tgname IN ('ad_free_slot_limit_before_insert','ad_listing_identity_before_update','ad_free_slots_append_only','ad_request_receipts_append_only','ad_moderation_events_append_only')
+    ) < 5
+    THEN 'missing_triggers'
+  WHEN (
+      SELECT count(*) FROM (VALUES
+        (to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()')),
+        (to_regprocedure(current_schema() || '.protect_ad_listing_identity()')),
+        (to_regprocedure(current_schema() || '.reject_ad_audit_mutation()'))
+      ) AS functions(oid) WHERE oid IS NOT NULL
+    ) < 3
+    THEN 'missing_functions'
+  WHEN NOT EXISTS (
+      SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_owner_type_check'
+        AND pg_get_constraintdef(c.oid) LIKE '%ad_listing%'
+    ) OR NOT EXISTS (
+      SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_asset_type_check'
+        AND pg_get_constraintdef(c.oid) LIKE '%ad_image%'
+    )
+    THEN 'missing_media'
+  ELSE 'verified'
+END;
 SQL
 }
 
-if verify_schema; then
+exit_for_schema_state() {
+  case "$1" in
+    missing_024) exit 41 ;;
+    not_applied) exit 42 ;;
+    partial_tables) exit 43 ;;
+    missing_indexes) exit 44 ;;
+    missing_triggers) exit 45 ;;
+    missing_functions) exit 46 ;;
+    missing_media) exit 47 ;;
+    *) exit 48 ;;
+  esac
+}
+
+read_schema_state() {
+  set +e
+  state="$(schema_state 2>/dev/null)"
+  state_status=$?
+  set -e
+  if [ "$state_status" -ne 0 ]; then
+    exit 49
+  fi
+  printf '%s' "$state"
+}
+
+state="$(read_schema_state)"
+if [ "$state" = 'verified' ]; then
   printf '%s\n' "MIGRATION_025_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
   exit 0
 fi
 
 if [ "$mode" = 'verify' ]; then
-  echo 'ERROR: Migration 025 is not fully applied in this non-production database.' >&2
-  exit 4
+  exit_for_schema_state "$state"
 fi
+
+[ "$state" = 'not_applied' ] || exit_for_schema_state "$state"
 
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
@@ -121,5 +173,8 @@ END
 COMMIT;
 SQL
 
-verify_schema
+state="$(read_schema_state)"
+if [ "$state" != 'verified' ]; then
+  exit_for_schema_state "$state"
+fi
 printf '%s\n' "MIGRATION_025_APPLIED_AND_VERIFIED:${environment}:${project}"
