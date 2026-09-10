@@ -52,12 +52,13 @@ test('release data integrity audit is deterministic and read-only', { timeout: 6
 
     await db.query(
       `INSERT INTO verification_requests
-         (id,entity_type,entity_id,requester_id,status,created_at,updated_at)
+         (id,entity_type,entity_id,requester_id,status,notes,reviewed_by,reviewed_at,created_at,updated_at)
        VALUES
-         ('integrity-orphan-verification','business','missing-business',$1,'pending',clock_timestamp()-interval '4 minutes',clock_timestamp()-interval '4 minutes'),
-         ('integrity-pending-one','business',$2,$3,'pending',clock_timestamp()-interval '3 minutes',clock_timestamp()-interval '3 minutes'),
-         ('integrity-pending-two','business',$2,$3,'pending',clock_timestamp()-interval '2 minutes',clock_timestamp()-interval '2 minutes'),
-         ('integrity-decided-without-reviewer','professional',$4,$1,'approved',clock_timestamp()-interval '1 minute',clock_timestamp()-interval '1 minute')`,
+         ('integrity-orphan-verification','business','missing-business',$1,'pending',NULL,NULL,NULL,clock_timestamp()-interval '5 minutes',clock_timestamp()-interval '5 minutes'),
+         ('integrity-pending-one','business',$2,$3,'pending',NULL,NULL,NULL,clock_timestamp()-interval '4 minutes',clock_timestamp()-interval '4 minutes'),
+         ('integrity-pending-two','business',$2,$3,'pending',NULL,NULL,NULL,clock_timestamp()-interval '3 minutes',clock_timestamp()-interval '3 minutes'),
+         ('integrity-decided-without-reviewer','professional',$4,$1,'approved',NULL,NULL,NULL,clock_timestamp()-interval '2 minutes',clock_timestamp()-interval '2 minutes'),
+         ('integrity-decided-short-notes','professional',$4,$1,'rejected','قصير',$3,clock_timestamp()-interval '1 minute',clock_timestamp()-interval '1 minute',clock_timestamp()-interval '1 minute')`,
       [owner, business, other, professional]
     );
 
@@ -93,7 +94,9 @@ test('release data integrity audit is deterministic and read-only', { timeout: 6
     const byCode = new Map(report.findings.map((finding) => [finding.code, finding]));
     assert.equal(byCode.get('ORPHAN_VERIFICATION_TARGET')?.count, 1);
     assert.equal(byCode.get('MULTIPLE_PENDING_VERIFICATION')?.count, 1);
-    assert.equal(byCode.get('VERIFICATION_DECISION_METADATA_MISMATCH')?.count, 1);
+    assert.equal(byCode.get('VERIFICATION_DECISION_METADATA_MISMATCH')?.count, 2);
+    assert.ok(byCode.get('VERIFICATION_DECISION_METADATA_MISMATCH')?.sampleIds.includes('integrity-decided-without-reviewer'));
+    assert.ok(byCode.get('VERIFICATION_DECISION_METADATA_MISMATCH')?.sampleIds.includes('integrity-decided-short-notes'));
     assert.equal(byCode.get('PENDING_VERIFICATION_REQUESTER_MISMATCH')?.count, 2);
     assert.equal(byCode.get('ORPHAN_MEDIA_OWNER')?.count, 1);
     assert.equal(byCode.get('MEDIA_OWNER_USER_MISMATCH')?.count, 1);

@@ -70,7 +70,13 @@ export async function auditReleaseDataIntegrity(db: DatabasePool): Promise<Relea
     SELECT id
     FROM verification_requests
     WHERE (status='pending' AND (reviewed_by IS NOT NULL OR reviewed_at IS NOT NULL))
-       OR (status IN ('approved','rejected') AND (reviewed_by IS NULL OR reviewed_at IS NULL))
+       OR (status IN ('approved','rejected') AND (
+            reviewed_by IS NULL
+            OR reviewed_at IS NULL
+            OR notes IS NULL
+            OR CHAR_LENGTH(BTRIM(notes)) < 10
+            OR CHAR_LENGTH(BTRIM(notes)) > 2000
+          ))
   `);
 
   await collect('PENDING_VERIFICATION_REQUESTER_MISMATCH', `
