@@ -1,5 +1,6 @@
 FROM postgres:16-alpine
 
+RUN apk add --no-cache python3
 COPY backend/migrations/versions/025_classifieds.sql /migrations/025_classifieds.sql
 COPY scripts/deployment/run-classifieds-nonproduction-migration.sh /usr/local/bin/run-classifieds-nonproduction-migration
 RUN chmod 0555 /usr/local/bin/run-classifieds-nonproduction-migration /migrations/025_classifieds.sql \
