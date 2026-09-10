@@ -19,7 +19,20 @@ test('Classifieds schema probe exposes stable read-only diagnostic exit codes', 
     assert.match(runner, new RegExp(`${state}\\) exit ${code}`));
   }
   assert.match(runner, /exit 48/);
-  assert.match(runner, /exit 49/);
+  assert.match(runner, /return 49/);
+  assert.match(runner, /exit 50/);
+  assert.match(runner, /return 51/);
+});
+
+test('connectivity is checked separately before schema catalog introspection', () => {
+  const connectivity = runner.indexOf("-c 'SELECT 1'");
+  const scalarProbe = runner.indexOf('psql_scalar()');
+  const schemaProbe = runner.indexOf('schema_state()');
+  assert.ok(connectivity > 0);
+  assert.ok(scalarProbe > connectivity);
+  assert.ok(schemaProbe > scalarProbe);
+  assert.match(runner.slice(connectivity, scalarProbe), /exit 50/);
+  assert.match(runner.slice(scalarProbe, schemaProbe), /return 49/);
 });
 
 test('verify mode cannot enter the migration apply transaction', () => {
@@ -32,12 +45,14 @@ test('verify mode cannot enter the migration apply transaction', () => {
   assert.match(runner.slice(verifyGate, applyGate), /exit_for_schema_state \"\$state\"/);
 });
 
-test('production refusal precedes any schema query or mutation path', () => {
+test('production refusal precedes connectivity, schema query and mutation paths', () => {
   const refusal = runner.indexOf('Refusing Classifieds migration 025 against the production project');
+  const connectivity = runner.indexOf("-c 'SELECT 1'");
   const schemaProbe = runner.indexOf('schema_state()');
   const transaction = runner.indexOf('BEGIN;');
   assert.ok(refusal > 0);
-  assert.ok(schemaProbe > refusal);
+  assert.ok(connectivity > refusal);
+  assert.ok(schemaProbe > connectivity);
   assert.ok(transaction > schemaProbe);
 });
 
@@ -46,4 +61,13 @@ test('schema state distinguishes unapplied and partial 025 footprints before app
     assert.match(runner, new RegExp(marker));
   }
   assert.match(runner, /MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE/);
+});
+
+test('test migration file override remains checksum bound', () => {
+  assert.match(runner, /CLASSIFIEDS_MIGRATION_FILE/);
+  assert.match(runner, /APPROVED_SHA256/);
+  const checksum = runner.indexOf("sha256sum -c -");
+  const connectivity = runner.indexOf("-c 'SELECT 1'");
+  assert.ok(checksum > 0);
+  assert.ok(connectivity > checksum);
 });
