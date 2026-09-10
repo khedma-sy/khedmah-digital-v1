@@ -8,7 +8,9 @@ function fixture(kind='business'){
   const loads=[],decisions=[];const call=list=>{const d=deferred();list.push(d);return d.promise;};
   const review=(...args)=>{const p=call(decisions);decisions.at(-1).args=args;return p;};
   const api={moderation:{listPending:()=>call(loads),listReports:async()=>({reports:[]})},adminProducts:{pending:async()=>({products:[]})},businesses:{approveModeration:review,rejectModeration:review},professionals:{approveModeration:review,rejectModeration:review}};
-  const page=clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'),{'../../../lib/api-client':{api}}, {window:{requestAnimationFrame:fn=>fn()},document:{activeElement:null,addEventListener(){},removeEventListener(){}},HTMLElement:class{}});
+  const page=clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'),{'../../../lib/api-client':{api},
+    '../../../lib/classifieds-client':{adminClassifiedsApi:{pending:async()=>({ads:[]})}},
+    '../../../lib/classifieds':{CLASSIFIEDS_ENABLED:false,AD_KIND_LABELS:{},formatAdPrice:()=>''}}, {window:{requestAnimationFrame:fn=>fn()},document:{activeElement:null,addEventListener(){},removeEventListener(){}},HTMLElement:class{}});
   const payload={businesses:kind==='business'?[business]:[],professionals:kind==='professional'?[professional]:[]};
   return{page,loads,decisions,payload,async resolve(c,v=payload){c.resolve(v);await page.flush();},async reject(c,v=new Error('offline')){c.reject(v);await page.flush();}};
 }
