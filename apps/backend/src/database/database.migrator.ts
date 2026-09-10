@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '025';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -90,7 +90,17 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
   table('classifieds', '024', 'product_listings'),
   ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
-  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
+  index('classifieds', '024', 'product_listings', 'product_listings_public_idx'),
+  table('classifieds', '025', 'ad_listings'),
+  ...['owner_user_id', 'kind', 'title_ar', 'category_code', 'price_mode', 'contact_mode', 'status', 'revision', 'content_revision', 'review_revision', 'expires_at'].map((name) => column('classifieds', '025', 'ad_listings', name)),
+  constraint('classifieds', '025', 'ad_listings', 'ad_listing_identity_owner_unique'),
+  index('classifieds', '025', 'ad_listings', 'ad_listings_public_idx'),
+  table('classifieds', '025', 'ad_free_slots'),
+  constraint('classifieds', '025', 'ad_free_slots', 'ad_free_slot_owner_fk'),
+  index('classifieds', '025', 'ad_free_slots', 'ad_free_slots_owner_idx'),
+  table('classifieds', '025', 'ad_request_receipts'),
+  table('classifieds', '025', 'ad_moderation_events'),
+  constraint('classifieds', '025', 'ad_moderation_events', 'ad_moderation_revision_unique')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }
