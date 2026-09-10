@@ -1,43 +1,56 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { readdir, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { test } from 'node:test';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+const exists = (path) => existsSync(new URL(`../${path}`, import.meta.url));
 
-async function read(relativePath) {
-  return fs.readFile(path.join(root, relativePath), 'utf8');
-}
+const approvedModules = [
+  'identity',
+  'users',
+  'profiles',
+  'professional_profiles',
+  'business_profiles',
+  'organizations',
+  'service_catalog',
+  'locations',
+  'trust_verification',
+  'relationships',
+  'audit',
+  'analytics',
+];
+const foundationModules = new Set(approvedModules);
 
 test('backend foundation structure and README exist', async () => {
-  const expectedPaths = [
-    'backend/README.md',
-    'backend/core/errors/README.md',
-    'backend/core/logging/README.md',
-    'backend/core/security/README.md',
-    'backend/core/validation/README.md',
-    'backend/config/README.md',
-    'backend/database/README.md',
-    'backend/migrations/README.md',
-    'backend/shared/README.md',
-    'backend/tests/README.md'
-  ];
-
-  for (const relativePath of expectedPaths) {
-    const stat = await fs.stat(path.join(root, relativePath));
-    assert.equal(stat.isFile(), true, `${relativePath} must be a file`);
+  assert.equal(exists('backend/README.md'), true);
+  for (const folder of ['modules', 'core', 'config', 'database', 'shared', 'tests', 'migrations']) {
+    assert.equal(exists(`backend/${folder}/README.md`), true, `${folder} README should exist`);
   }
+
+  const readme = await read('backend/README.md');
+  assert.match(readme, /Khedmah Digital V1 Backend Foundation/);
+  assert.match(readme, /Mission 049 Backend Foundation Architecture Contract/);
+  assert.match(readme, /Mission 050 Backend Module Skeleton Governance Contract/);
+  assert.match(readme, /API\n↓\nApplication\n↓\nDomain\n↓\nRepository\n↓\nDatabase/);
+  assert.match(readme, /No-Feature Boundary/);
 });
 
 test('core foundation areas preserve approved boundaries', async () => {
+  const core = await read('backend/core/README.md');
+  assert.match(core, /Backend Core Foundation/);
+  assert.match(core, /errors\//);
+  assert.match(core, /logging\//);
+  assert.match(core, /security\//);
+  assert.match(core, /validation\//);
+
   const errors = await read('backend/core/errors/README.md');
-  assert.match(errors, /shared error model/);
-  assert.match(errors, /does not define domain-specific error codes/);
+  assert.match(errors, /base error foundation/);
+  assert.match(errors, /does not implement API responses/);
 
   const logging = await read('backend/core/logging/README.md');
-  assert.match(logging, /logging design principles/);
-  assert.match(logging, /does not implement logging output/);
+  assert.match(logging, /structured logging foundation/);
+  assert.match(logging, /does not implement production log transport/);
 
   const security = await read('backend/core/security/README.md');
   assert.match(security, /documentation-only placeholder/);
@@ -84,32 +97,50 @@ test('configuration, database, migrations, shared, and test foundations preserve
 });
 
 test('approved module directories preserve governed placeholder or foundation structures', async () => {
-  const backend = await read('backend/README.md');
-  assert.match(backend, /Identity/);
-  assert.match(backend, /Users/);
-  assert.match(backend, /Profiles/);
-  assert.match(backend, /Business Profile/);
-  assert.match(backend, /Professional Profile/);
-  assert.match(backend, /Organizations/);
-  assert.match(backend, /Service Catalog/);
-  assert.match(backend, /Locations/);
-  assert.match(backend, /Relationships/);
-  assert.match(backend, /Trust/);
-  assert.match(backend, /Audit/);
-  assert.match(backend, /Job Work/);
-  assert.match(backend, /Analytics/);
+  const moduleEntries = await readdir(new URL('../backend/modules', import.meta.url), { withFileTypes: true });
+  const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  assert.deepEqual(modules.sort(), approvedModules.toSorted());
+
+  assert.deepEqual([...foundationModules], approvedModules, 'every approved module must retain foundation coverage');
+
+  for (const moduleName of approvedModules) {
+    const entries = await readdir(new URL(`../backend/modules/${moduleName}`, import.meta.url));
+    if (foundationModules.has(moduleName)) {
+      assert.deepEqual(entries.sort(), ['README.md', 'api', 'application', 'domain', 'repositories', 'schemas', 'tests'].sort());
+    } else {
+      assert.deepEqual(entries, ['README.md'], `${moduleName} should contain README.md only until implementation is authorized`);
+    }
+
+    const doc = await read(`backend/modules/${moduleName}/README.md`);
+    assert.match(doc, /Mission 0(5[159]|60|61|62|63|64) Boundary/);
+    assert.match(doc, /Module Responsibility|Service Domain Foundation|Location Domain Foundation|Trust Domain Foundation|Relationship Domain Foundation|Audit Module Foundation|Analytics Module Foundation|Domain Concepts/);
+    assert.match(doc, /Ownership Boundary|Ownership Decisions|Metadata Decision|Metric Definition Decisions|Domain Concepts/);
+    assert.match(doc, /Allowed Dependencies|Dependency Rules/);
+    assert.match(doc, /Forbidden Dependencies|Forbidden dependencies/);
+    assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers|does not implement API routes|does not implement audit storage|does not implement event tracking systems/);
+  }
 });
 
 test('kill-critical backend structure excludes forbidden modules and runtime artifacts', async () => {
-  const backend = await read('backend/README.md');
-  assert.match(backend, /no payment/);
-  assert.match(backend, /no marketplace/);
-  assert.match(backend, /no messaging/);
-  assert.match(backend, /no workflow engine/);
+  const moduleEntries = await readdir(new URL('../backend/modules', import.meta.url), { withFileTypes: true });
+  const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  const forbiddenModules = modules.filter((entry) => /^(marketplace|payments?|commissions?|advertising|social|ai|ranking|tracking|orders?|checkout|wallets?|chat|messaging)$/i.test(entry));
+  assert.deepEqual(forbiddenModules, []);
+
+  const rootReadme = await read('backend/README.md');
+  assert.match(rootReadme, /no business logic/i);
+  assert.match(rootReadme, /no API routes/i);
+  assert.match(rootReadme, /No database connection exists here/);
+  assert.match(rootReadme, /No authentication implementation exists here/);
+  assert.match(rootReadme, /No production configuration exists here/);
+  assert.match(rootReadme, /No-Feature Boundary/);
 });
 
 test('RTL Arabic direction remains preserved for backend foundation initialization', async () => {
-  const backend = await read('backend/README.md');
-  assert.match(backend, /RTL/);
-  assert.match(backend, /Arabic/);
+  const layout = await read('apps/frontend/app/layout.tsx');
+  const styles = await read('apps/frontend/app/globals.css');
+
+  assert.match(layout, /lang="ar"/);
+  assert.match(layout, /dir="rtl"/);
+  assert.match(styles, /direction:\s*rtl/);
 });
