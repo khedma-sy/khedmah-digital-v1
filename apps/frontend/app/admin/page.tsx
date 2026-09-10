@@ -53,13 +53,14 @@ export default function AdminPage() {
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
-      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مراجعة المحتوى والبلاغات، وعرض التصنيفات وملخص إعداد التشغيل حسب صلاحيات الحساب.</p></div>
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مراجعة المحتوى والتحقق والبلاغات، وعرض التصنيفات وملخص إعداد التشغيل حسب صلاحيات الحساب.</p></div>
       <span className="status-badge">{overview.roles.map(roleLabel).join(' · ')}</span>
     </header>
 
     <nav className="admin-navigation" aria-label="التنقل الإداري">
       <Link href="/">الرئيسية</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
+      {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
       <Link href="/categories">التصنيفات</Link>
       <Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
@@ -74,7 +75,8 @@ export default function AdminPage() {
     <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا ملخص إعداد معلن من الخادم، وليس فحصاً حياً لجاهزية الخدمات أو حركة الإنتاج.</p><p>سجلات الحوادث والتغييرات المعروضة مؤقتة في ذاكرة عملية الخادم؛ قد تفقد عند إعادة تشغيله، ولا تمثل سجل تشغيل دائماً.</p></section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
-      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
+      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة محتوى ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
+      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية بعقد مرتبط بالطلب ونسخة الملف، منفصل عن اعتماد المحتوى.</p><Link href="/admin/verification">فتح مراجعة التحقق</Link></article> : null}
       <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>
       <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>ملخص إعداد</span></div><p>إعدادات الخدمات المعلنة وسجلات التغييرات والحوادث الحالية، دون ادعاء مراقبة حية.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>
