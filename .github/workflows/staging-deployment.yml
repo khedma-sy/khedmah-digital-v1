@@ -54,6 +54,8 @@ jobs:
       classifieds_frontend_enabled: ${{ steps.classifieds-stage.outputs.frontend_enabled }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
       - name: Validate Staging deployment configuration
         env:
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -106,12 +108,32 @@ jobs:
           CLASSIFIEDS_MIGRATION_025_MODE: ${{ steps.classifieds-stage.outputs.migration_mode }}
           CLASSIFIEDS_MIGRATION_025_CONFIRMATION: ${{ steps.classifieds-stage.outputs.migration_confirmation }}
         run: scripts/deployment/deploy-cloud-run-environment.sh staging "${GITHUB_SHA}"
+      - name: Observe Staging runtime
+        env:
+          DEPLOYMENT_ENVIRONMENT: staging
+          GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          BACKEND_URL: ${{ steps.deploy.outputs.backend_url }}
+          FRONTEND_URL: ${{ steps.deploy.outputs.frontend_url }}
+          EVIDENCE_DIRECTORY: staging-runtime-evidence
+          STAGING_HEALTH_SAMPLES: '6'
+          STAGING_HEALTH_INTERVAL_MS: '10000'
+          STAGING_HEALTH_TIMEOUT_MS: '15000'
+        run: node scripts/deployment/observe-staging-runtime.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-runtime-observation
+          path: staging-runtime-evidence/
+          if-no-files-found: error
+          retention-days: 14
       - name: Record deployment summary
         run: |
           echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Frontend: ${{ steps.deploy.outputs.frontend_url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Backend health: ${{ steps.deploy.outputs.backend_url }}/api/v1/health" >> "$GITHUB_STEP_SUMMARY"
           echo "- Classifieds stage: ${{ steps.classifieds-stage.outputs.stage }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime observation: 6/6 health samples required" >> "$GITHUB_STEP_SUMMARY"
           echo "- Revision: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
   classifieds-staging-acceptance:
     needs: [quality-gates, deploy-staging]
