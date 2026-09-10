@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -10,6 +10,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const deployScript = new URL('../scripts/deployment/deploy-cloud-run-environment.sh', import.meta.url);
 const ensureScript = new URL('../scripts/deployment/ensure-classifieds-nonproduction-schema.sh', import.meta.url);
 const migrationScript = new URL('../scripts/deployment/run-classifieds-nonproduction-migration.sh', import.meta.url);
+const previewStageScript = new URL('../scripts/deployment/resolve-classifieds-preview-stage.sh', import.meta.url);
 const migration = read('backend/migrations/versions/025_classifieds.sql');
 const migrationSha = createHash('sha256').update(Buffer.from(migration)).digest('hex');
 
@@ -113,6 +114,36 @@ test('frontend build flags default false in both isolated environments', () => {
     assert.match(build, /_NEXT_PUBLIC_CLASSIFIEDS_ENABLED: "false"/);
     assert.match(build, /--build-arg NEXT_PUBLIC_CLASSIFIEDS_ENABLED="\$\{_NEXT_PUBLIC_CLASSIFIEDS_ENABLED\}"/);
   }
+});
+
+test('Preview rollout stage resolver preserves DB-before-backend-before-frontend ordering', () => {
+  const cases = new Map([
+    ['off', { backend_enabled: 'false', frontend_enabled: 'false', migration_mode: 'off', migration_confirmation: '' }],
+    ['apply-025', { backend_enabled: 'false', frontend_enabled: 'false', migration_mode: 'apply', migration_confirmation: 'APPLY_KHEDMAH_NONPROD_025_PREVIEW' }],
+    ['backend-on', { backend_enabled: 'true', frontend_enabled: 'false', migration_mode: 'verify', migration_confirmation: '' }],
+    ['frontend-on', { backend_enabled: 'true', frontend_enabled: 'true', migration_mode: 'verify', migration_confirmation: '' }]
+  ]);
+  for (const [stage, expected] of cases) {
+    const stagePath = new URL(`../.tmp-classifieds-preview-stage-${stage}`, import.meta.url);
+    const stageFile = fileURLToPath(stagePath);
+    writeFileSync(stageFile, `${stage}\n`);
+    const result = spawnSync('bash', [fileURLToPath(previewStageScript), stageFile], { cwd: root, encoding: 'utf8' });
+    unlinkSync(stageFile);
+    assert.equal(result.status, 0, `${stage}: ${result.stderr}`);
+    const output = Object.fromEntries(result.stdout.trim().split('\n').map((line) => line.split('=', 2)));
+    assert.equal(output.backend_enabled, expected.backend_enabled, stage);
+    assert.equal(output.frontend_enabled, expected.frontend_enabled, stage);
+    assert.equal(output.migration_mode, expected.migration_mode, stage);
+    assert.equal(output.migration_confirmation, expected.migration_confirmation, stage);
+  }
+});
+
+test('tracked Preview stage is explicit and Production has no equivalent activation control', () => {
+  assert.equal(read('.github/classifieds-preview-stage').trim(), 'apply-025');
+  const workflow = read('.github/workflows/preview-deployment.yml');
+  assert.match(workflow, /resolve-classifieds-preview-stage\.sh/);
+  assert.match(workflow, /steps\.classifieds-stage\.outputs\.migration_mode/);
+  assert.doesNotMatch(read('.github/workflows/production-operator.yml'), /classifieds-preview-stage|resolve-classifieds-preview-stage/);
 });
 
 test('Production operator has no Classifieds migration 025 capability', () => {
