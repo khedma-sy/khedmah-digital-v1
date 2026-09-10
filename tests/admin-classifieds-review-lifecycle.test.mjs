@@ -2,6 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clientPage, deferred, loadSource, readSource } from './helpers/client-page-harness.mjs';
 
+const smartAdmin = {
+  version: 'classifieds-smart-admin-v1',
+  reviewRevision: 3,
+  priority: 'elevated',
+  completeness: 'needs_attention',
+  humanDecisionRequired: true,
+  automatedDecisionAllowed: false,
+  signals: [{ code: 'DIRECT_CONTACT', level: 'info', messageAr: 'راجع مطابقة بيانات التواصل للمحتوى.' }],
+  summaryAr: 'رُصدت إشارة تتطلب انتباه المشرف قبل اتخاذ القرار.'
+};
+
 const ad = {
   id: 'ad/one',
   businessProfileId: 'business-1',
@@ -23,7 +34,8 @@ const ad = {
   updatedAt: '2026-09-10T00:00:00Z',
   revision: 8,
   contentRevision: 5,
-  reviewRevision: 3
+  reviewRevision: 3,
+  smartAdmin
 };
 
 function fixture({ enabled = true } = {}) {
@@ -85,14 +97,17 @@ test('Classifieds queue failure is isolated from the existing moderation queues'
   assert.doesNotMatch(page.text, /^حدث خطأ أثناء تحميل قائمة المراجعة$/);
 });
 
-test('Classifieds moderation shows the full review snapshot and never decides on queue load', async () => {
+test('Classifieds moderation shows the full review snapshot and Smart Admin assessment without deciding on queue load', async () => {
   const f = fixture();
   assert.equal(f.pendingCalls, 1);
   await f.resolve(f.queueLoads[0]);
   assert.equal(f.decisions.length, 0, 'loading the queue must never auto-approve or auto-reject an ad');
   assert.match(f.page.text, /إعلان للمراجعة/);
   assert.match(f.page.text, /وصف الإعلان الكامل/);
-  assert.match(f.page.text, /Smart Admin يجهّز سياق المراجعة فقط/);
+  assert.match(f.page.text, /Smart Admin · أولوية مرتفعة للمراجعة/);
+  assert.match(f.page.text, /رُصدت إشارة تتطلب انتباه المشرف/);
+  assert.match(f.page.text, /راجع مطابقة بيانات التواصل للمحتوى/);
+  assert.match(f.page.text, /القرار النهائي بشري ومسجل/);
   assert.ok(f.page.find(n => n.type === 'a' && n.props.href === '/api/v1/classifieds-media/first'));
   assert.ok(f.page.find(n => n.type === 'a' && n.props.href === '/api/v1/classifieds-media/second'));
 });
@@ -120,6 +135,17 @@ test('rejection requires a human note and sends it with the displayed review rev
   assert.deepEqual(f.decisions[0].args, ['ad/one', 'rejected', 3, 'سبب مراجعة واضح']);
 });
 
+test('stale Smart Admin assessment locks moderation decisions until queue refresh', async () => {
+  const f = fixture();
+  await f.resolve(f.queueLoads[0], { ads: [{ ...ad, smartAdmin: { ...smartAdmin, reviewRevision: 2 } }] });
+  assert.match(f.page.text, /تقييم Smart Admin لا يطابق نسخة المراجعة الحالية/);
+  const approve = f.page.find(n => n.type === 'button' && n.props.children === 'نشر الإعلان');
+  const reject = f.page.find(n => n.type === 'button' && n.props.children === 'رفض الإعلان');
+  assert.equal(approve.props.disabled, true);
+  assert.equal(reject.props.disabled, true);
+  assert.equal(f.decisions.length, 0);
+});
+
 test('409 closes the ad decision, refreshes its snapshot, and requires a new explicit decision', async () => {
   let pendingCalls = 0;
   const decisions = [];
@@ -132,7 +158,7 @@ test('409 closes the ad decision, refreshes its snapshot, and requires a new exp
   const page = clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'), {
     '../../../lib/api-client': { api },
     '../../../lib/classifieds-client': { adminClassifiedsApi: {
-      pending: async () => ({ ads: [{ ...ad, reviewRevision: ++pendingCalls + 2, titleAr: pendingCalls === 1 ? ad.titleAr : 'نسخة أحدث' }] }),
+      pending: async () => ({ ads: [{ ...ad, reviewRevision: ++pendingCalls + 2, smartAdmin: { ...smartAdmin, reviewRevision: pendingCalls + 2 }, titleAr: pendingCalls === 1 ? ad.titleAr : 'نسخة أحدث' }] }),
       review: async (...args) => { decisions.push(args); throw Object.assign(new Error('changed'), { statusCode: 409 }); }
     } },
     '../../../lib/classifieds': { CLASSIFIEDS_ENABLED: true, AD_KIND_LABELS: { sale: 'للبيع' }, formatAdPrice: () => '250000 SYP' }
