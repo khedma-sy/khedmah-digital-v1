@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { validateCategoryCode } from '../categories/category.validation';
+import { CLASSIFIEDS_SMART_ADMIN_VERSION } from './ad-moderation-assessment';
 import type { AdContactMode, AdContentInput, AdContentPatch, AdKind, AdPriceMode } from './ad.types';
 
 const KINDS: readonly AdKind[] = ['sale', 'service', 'wanted', 'rent'];
@@ -29,6 +30,7 @@ export interface ValidatedAdRevisionAction {
 
 export interface ValidatedAdModeration {
   readonly expectedReviewRevision: number;
+  readonly expectedAssessmentVersion: typeof CLASSIFIEDS_SMART_ADMIN_VERSION;
   readonly decision: 'approved' | 'rejected';
   readonly reason?: string;
 }
@@ -71,13 +73,21 @@ export function validateAdRevisionAction(value: unknown): ValidatedAdRevisionAct
 
 export function validateAdModeration(value: unknown): ValidatedAdModeration {
   const body = asRecord(value);
-  rejectUnknown(body, new Set(['expectedReviewRevision', 'decision', 'reason']));
+  rejectUnknown(body, new Set(['expectedReviewRevision', 'expectedAssessmentVersion', 'decision', 'reason']));
   const decision = body.decision;
   if (decision !== 'approved' && decision !== 'rejected') throw new BadRequestException('Moderation decision is invalid.');
+  if (body.expectedAssessmentVersion !== CLASSIFIEDS_SMART_ADMIN_VERSION) {
+    throw new BadRequestException('Smart Admin assessment version is missing or unsupported. Refresh the moderation queue before deciding.');
+  }
   const reason = optionalText(body.reason, 2000, 'reason');
   if (decision === 'rejected' && (!reason || reason.length < 2)) throw new BadRequestException('A rejection reason is required.');
   if (decision === 'approved' && reason) throw new BadRequestException('Approval cannot carry a rejection reason.');
-  return { expectedReviewRevision: positiveInteger(body.expectedReviewRevision, 'expectedReviewRevision'), decision, reason };
+  return {
+    expectedReviewRevision: positiveInteger(body.expectedReviewRevision, 'expectedReviewRevision'),
+    expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+    decision,
+    reason
+  };
 }
 
 export function validateAdPublicFilters(filters: { q?: unknown; categoryCode?: unknown; cityCode?: unknown }) {

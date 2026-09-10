@@ -4,6 +4,7 @@ export type AdKind = 'sale' | 'service' | 'wanted' | 'rent';
 export type AdPriceMode = 'fixed' | 'negotiable' | 'contact' | 'none';
 export type AdContactMode = 'profile' | 'phone' | 'whatsapp';
 export type AdStatus = 'draft' | 'pending_review' | 'active' | 'inactive' | 'expired' | 'rejected';
+export const CLASSIFIEDS_SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1' as const;
 
 export interface AdModerationSignal {
   readonly code: 'NO_DESCRIPTION' | 'NO_IMAGE' | 'UNLINKED_BUSINESS' | 'DIRECT_CONTACT' | 'PROFILE_WITHOUT_BUSINESS' | 'PRICE_CONTRACT_MISMATCH' | 'REVIEW_REVISION_INVALID';
@@ -12,7 +13,7 @@ export interface AdModerationSignal {
 }
 
 export interface AdModerationAssessment {
-  readonly version: 'classifieds-smart-admin-v1';
+  readonly version: typeof CLASSIFIEDS_SMART_ADMIN_VERSION;
   readonly reviewRevision: number;
   readonly priority: 'standard' | 'elevated';
   readonly completeness: 'complete' | 'needs_attention';
@@ -113,12 +114,14 @@ export const classifiedsApi = {
 
 export const adminClassifiedsApi = {
   pending() { return request<{ ads: OwnerAdListing[] }>('/admin/classifieds/pending'); },
-  review(id: string, decision: 'approved' | 'rejected', expectedReviewRevision: number, reason?: string) {
+  review(id: string, decision: 'approved' | 'rejected', expectedReviewRevision: number,
+    expectedAssessmentVersion: AdModerationAssessment['version'], reason?: string) {
     return request<{ ad: OwnerAdListing }>(`/admin/classifieds/${encodeURIComponent(id)}/moderation`, {
       method: 'PATCH',
       body: JSON.stringify({
         decision,
         expectedReviewRevision,
+        expectedAssessmentVersion,
         ...(decision === 'rejected' && reason ? { reason } : {})
       })
     });

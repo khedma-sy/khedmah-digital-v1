@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ModerationProviderReport, ProductListing, PublicBusinessProfile, PublicProfessionalProfile } from '../../../lib/api-client';
-import { adminClassifiedsApi, type OwnerAdListing } from '../../../lib/classifieds-client';
+import { adminClassifiedsApi, CLASSIFIEDS_SMART_ADMIN_VERSION, type OwnerAdListing } from '../../../lib/classifieds-client';
 import { AD_KIND_LABELS, CLASSIFIEDS_ENABLED, formatAdPrice } from '../../../lib/classifieds';
 
 type DialogAction =
   | { kind: 'approve-profile'; type: 'business' | 'professional'; id: string; title: string; revision: string }
   | { kind: 'reject-profile'; type: 'business' | 'professional'; id: string; title: string; revision: string }
   | { kind: 'review-product'; status: 'approved' | 'rejected'; id: string; title: string; revision: string }
-  | { kind: 'review-ad'; decision: 'approved' | 'rejected'; id: string; title: string; reviewRevision: number }
+  | { kind: 'review-ad'; decision: 'approved' | 'rejected'; id: string; title: string; reviewRevision: number; assessmentVersion: typeof CLASSIFIEDS_SMART_ADMIN_VERSION }
   | { kind: 'review-report'; status: 'in_review' | 'resolved' | 'dismissed'; id: string; title: string };
 
 const messageFor = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
@@ -126,7 +126,13 @@ export default function ModerationPage() {
         if (!active()) return;
         setFeedback({ tone: 'success', text: dialogAction.status === 'approved' ? 'تم نشر المنتج.' : 'تم رفض المنتج وتسجيل السبب.' });
       } else if (dialogAction.kind === 'review-ad') {
-        await adminClassifiedsApi.review(dialogAction.id, dialogAction.decision, dialogAction.reviewRevision, dialogAction.decision === 'rejected' ? dialogNote.trim() : undefined);
+        await adminClassifiedsApi.review(
+          dialogAction.id,
+          dialogAction.decision,
+          dialogAction.reviewRevision,
+          dialogAction.assessmentVersion,
+          dialogAction.decision === 'rejected' ? dialogNote.trim() : undefined
+        );
         if (!active()) return;
         setFeedback({ tone: 'success', text: dialogAction.decision === 'approved' ? 'تم نشر الإعلان.' : 'تم رفض الإعلان وتسجيل السبب.' });
       } else {
@@ -169,9 +175,16 @@ export default function ModerationPage() {
       <div className="panel-heading"><h2 id="classifieds-title">إعلانات خدمة المعلقة</h2><span>{ads.length}</span></div>
       {!CLASSIFIEDS_ENABLED ? <p className="moderation-empty">مراجعة إعلانات خدمة معطلة في هذه البيئة. لا يتم استدعاء طابور الإعلانات حتى تفعيل الميزة صراحة.</p> : adsError ? <p className="moderation-feedback error" role="alert">{adsError} <button type="button" disabled={actionLoading} onClick={() => void loadQueue()}>إعادة تحميل قائمة المراجعة</button></p> : ads.length === 0 ? <p className="moderation-empty">لا توجد إعلانات بانتظار المراجعة.</p> : <div className="moderation-list">{ads.map((ad) => {
         const validReviewRevision = Number.isSafeInteger(ad.reviewRevision) && ad.reviewRevision > 0;
-        const validAssessmentSnapshot = !ad.smartAdmin || ad.smartAdmin.reviewRevision === ad.reviewRevision;
+        const assessment = ad.smartAdmin;
+        const validAssessmentSnapshot = Boolean(
+          assessment &&
+          assessment.version === CLASSIFIEDS_SMART_ADMIN_VERSION &&
+          assessment.reviewRevision === ad.reviewRevision &&
+          assessment.humanDecisionRequired === true &&
+          assessment.automatedDecisionAllowed === false
+        );
         const decisionReady = validReviewRevision && validAssessmentSnapshot;
-        return <article key={ad.id} className="moderation-card"><div><h3>{ad.titleAr}</h3><p>{AD_KIND_LABELS[ad.kind]} · {formatAdPrice(ad)} · {ad.categoryCode}{ad.cityCode ? ` · ${ad.cityCode}` : ''}</p>{ad.areaText && <p>{ad.areaText}</p>}{ad.descriptionAr && <p>{ad.descriptionAr}</p>}<p>التواصل: {ad.contactMode === 'profile' ? 'عبر ملف النشاط' : <bdi>{ad.contactValue}</bdi>}</p>{ad.smartAdmin && <div className={`moderation-feedback ${ad.smartAdmin.priority === 'elevated' ? 'error' : ''}`} aria-label="تقييم Smart Admin"><strong>Smart Admin · {ad.smartAdmin.priority === 'elevated' ? 'أولوية مرتفعة للمراجعة' : 'فحص بنيوي مكتمل'}</strong><p>{ad.smartAdmin.summaryAr}</p>{ad.smartAdmin.signals.length > 0 && <ul>{ad.smartAdmin.signals.map((signal) => <li key={signal.code}>{signal.messageAr}</li>)}</ul>}<small>نسخة التقييم {ad.smartAdmin.reviewRevision} · القرار النهائي بشري ومسجل.</small></div>}{ad.imageUrls.map((url, index) => <p key={url}><a href={url} target="_blank" rel="noreferrer">فتح صورة الإعلان {index + 1}</a></p>)}{!validReviewRevision && <p className="moderation-feedback error" role="alert">تعذر تثبيت نسخة المراجعة لهذا الإعلان. أعد تحميل القائمة قبل اتخاذ قرار.</p>}{!validAssessmentSnapshot && <p className="moderation-feedback error" role="alert">تقييم Smart Admin لا يطابق نسخة المراجعة الحالية. أعد تحميل القائمة قبل اتخاذ قرار.</p>}</div><div className="moderation-actions"><button disabled={actionLoading || !decisionReady} onClick={() => openDialog({ kind: 'review-ad', decision: 'approved', id: ad.id, title: ad.titleAr, reviewRevision: ad.reviewRevision })} className="moderation-approve">نشر الإعلان</button><button disabled={actionLoading || !decisionReady} onClick={() => openDialog({ kind: 'review-ad', decision: 'rejected', id: ad.id, title: ad.titleAr, reviewRevision: ad.reviewRevision })} className="moderation-reject">رفض الإعلان</button></div></article>;
+        return <article key={ad.id} className="moderation-card"><div><h3>{ad.titleAr}</h3><p>{AD_KIND_LABELS[ad.kind]} · {formatAdPrice(ad)} · {ad.categoryCode}{ad.cityCode ? ` · ${ad.cityCode}` : ''}</p>{ad.areaText && <p>{ad.areaText}</p>}{ad.descriptionAr && <p>{ad.descriptionAr}</p>}<p>التواصل: {ad.contactMode === 'profile' ? 'عبر ملف النشاط' : <bdi>{ad.contactValue}</bdi>}</p>{ad.smartAdmin && <div className={`moderation-feedback ${ad.smartAdmin.priority === 'elevated' ? 'error' : ''}`} aria-label="تقييم Smart Admin"><strong>Smart Admin · {ad.smartAdmin.priority === 'elevated' ? 'أولوية مرتفعة للمراجعة' : 'فحص بنيوي مكتمل'}</strong><p>{ad.smartAdmin.summaryAr}</p>{ad.smartAdmin.signals.length > 0 && <ul>{ad.smartAdmin.signals.map((signal) => <li key={signal.code}>{signal.messageAr}</li>)}</ul>}<small>نسخة التقييم {ad.smartAdmin.reviewRevision} · القرار النهائي بشري ومسجل.</small></div>}{ad.imageUrls.map((url, index) => <p key={url}><a href={url} target="_blank" rel="noreferrer">فتح صورة الإعلان {index + 1}</a></p>)}{!validReviewRevision && <p className="moderation-feedback error" role="alert">تعذر تثبيت نسخة المراجعة لهذا الإعلان. أعد تحميل القائمة قبل اتخاذ قرار.</p>}{!validAssessmentSnapshot && <p className="moderation-feedback error" role="alert">تقييم Smart Admin مفقود أو قديم أو بعقد غير معتمد لهذه النسخة. أعد تحميل القائمة قبل اتخاذ قرار.</p>}</div><div className="moderation-actions"><button disabled={actionLoading || !decisionReady} onClick={() => { if (!ad.smartAdmin || !validAssessmentSnapshot) return; openDialog({ kind: 'review-ad', decision: 'approved', id: ad.id, title: ad.titleAr, reviewRevision: ad.reviewRevision, assessmentVersion: ad.smartAdmin.version }); }} className="moderation-approve">نشر الإعلان</button><button disabled={actionLoading || !decisionReady} onClick={() => { if (!ad.smartAdmin || !validAssessmentSnapshot) return; openDialog({ kind: 'review-ad', decision: 'rejected', id: ad.id, title: ad.titleAr, reviewRevision: ad.reviewRevision, assessmentVersion: ad.smartAdmin.version }); }} className="moderation-reject">رفض الإعلان</button></div></article>;
       })}</div>}
       <p className="moderation-empty">Smart Admin يجهّز سياق المراجعة فقط؛ اعتماد أو رفض الإعلان يبقى قرارًا بشريًا صريحًا.</p>
     </section>

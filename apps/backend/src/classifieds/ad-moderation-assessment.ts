@@ -1,5 +1,7 @@
 import type { AdListing } from './ad.types';
 
+export const CLASSIFIEDS_SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1' as const;
+
 export type AdModerationSignalCode =
   | 'NO_DESCRIPTION'
   | 'NO_IMAGE'
@@ -16,7 +18,7 @@ export interface AdModerationSignal {
 }
 
 export interface AdModerationAssessment {
-  readonly version: 'classifieds-smart-admin-v1';
+  readonly version: typeof CLASSIFIEDS_SMART_ADMIN_VERSION;
   readonly reviewRevision: number;
   readonly priority: 'standard' | 'elevated';
   readonly completeness: 'complete' | 'needs_attention';
@@ -58,7 +60,7 @@ export function assessAdForModeration(ad: AdListing): AdModerationAssessment {
   const attentionCount = signals.filter((signal) => signal.level === 'attention').length;
   const completeness = attentionCount === 0 ? 'complete' : 'needs_attention';
   return {
-    version: 'classifieds-smart-admin-v1',
+    version: CLASSIFIEDS_SMART_ADMIN_VERSION,
     reviewRevision: ad.reviewRevision,
     priority: attentionCount === 0 ? 'standard' : 'elevated',
     completeness,
