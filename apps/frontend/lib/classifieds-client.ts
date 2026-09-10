@@ -92,3 +92,17 @@ export const classifiedsApi = {
     return request<{ deleted: true; adRevision: number; contentRevision: number }>(`/classifieds/${encodeURIComponent(id)}/media/${encodeURIComponent(mediaId)}`, { method: 'DELETE', body: JSON.stringify(data) });
   }
 };
+
+export const adminClassifiedsApi = {
+  pending() { return request<{ ads: OwnerAdListing[] }>('/admin/classifieds/pending'); },
+  review(id: string, decision: 'approved' | 'rejected', expectedReviewRevision: number, reason?: string) {
+    return request<{ ad: OwnerAdListing }>(`/admin/classifieds/${encodeURIComponent(id)}/moderation`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        decision,
+        expectedReviewRevision,
+        ...(decision === 'rejected' && reason ? { reason } : {})
+      })
+    });
+  }
+};
