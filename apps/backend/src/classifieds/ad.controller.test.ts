@@ -44,3 +44,23 @@ test('pending admin queue attaches assessment to the exact review snapshot witho
   assert.equal(response.ads[0].smartAdmin.automatedDecisionAllowed, false);
   assert.equal(moderationCalls, 0, 'reading the moderation queue must never perform a moderation decision');
 });
+
+test('pending admin queue prioritizes elevated assessments and preserves source FIFO within each priority without deciding', async () => {
+  let moderationCalls = 0;
+  const queue: AdListing[] = [
+    { ...ad, id: 'standard-1', titleAr: 'قياسي أول' },
+    { ...ad, id: 'elevated-1', titleAr: 'مرتفع أول', imageUrls: [] },
+    { ...ad, id: 'elevated-2', titleAr: 'مرتفع ثان', descriptionAr: '' },
+    { ...ad, id: 'standard-2', titleAr: 'قياسي ثان' }
+  ];
+  const service = {
+    listPending: async () => queue.map((item) => ({ ...item })),
+    moderate: async () => { moderationCalls += 1; return { ...ad }; }
+  } as unknown as AdService;
+  const controller = new AdminAdController(service);
+  const response = await controller.pending('sid=fake');
+
+  assert.deepEqual(response.ads.map((item) => item.id), ['elevated-1', 'elevated-2', 'standard-1', 'standard-2']);
+  assert.deepEqual(response.ads.map((item) => item.smartAdmin.priority), ['elevated', 'elevated', 'standard', 'standard']);
+  assert.equal(moderationCalls, 0, 'risk prioritization must never perform a moderation decision');
+});

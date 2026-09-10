@@ -56,7 +56,16 @@ export class AdminAdController {
   @Get('pending')
   async pending(@Headers('cookie') cookie: string | undefined) {
     const ads = await this.ads.listPending(cookie);
-    return { ads: ads.map((ad) => ({ ...ad, smartAdmin: assessAdForModeration(ad) })) };
+    const priorityRank = { elevated: 0, standard: 1 } as const;
+    const assessedAds = ads.map((ad, fifoIndex) => ({
+      ad: { ...ad, smartAdmin: assessAdForModeration(ad) },
+      fifoIndex
+    }));
+    assessedAds.sort((left, right) => {
+      const priorityDelta = priorityRank[left.ad.smartAdmin.priority] - priorityRank[right.ad.smartAdmin.priority];
+      return priorityDelta !== 0 ? priorityDelta : left.fifoIndex - right.fifoIndex;
+    });
+    return { ads: assessedAds.map(({ ad }) => ad) };
   }
 
   @Patch(':id/moderation')
