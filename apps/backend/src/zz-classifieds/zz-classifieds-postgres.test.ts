@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { ConflictException, HttpException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
+import { CLASSIFIEDS_SMART_ADMIN_VERSION } from '../classifieds/ad-moderation-assessment';
 import { AdRepository } from '../classifieds/ad.repository';
 import { AdService } from '../classifieds/ad.service';
 
@@ -81,7 +82,7 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       assert.equal(pending.status, 'pending_review');
       actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
       const approved = await service.moderate(undefined, ad.id, {
-        expectedReviewRevision: pending.reviewRevision, decision: 'approved'
+        expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'
       });
       assert.equal(approved.status, 'active');
       const [event] = await db.query<{ id: string; content_revision: string | number }>(
@@ -94,7 +95,7 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       assert.equal('ownerUserId' in publicAd, false);
       assert.equal('reviewRevision' in publicAd, false);
       await assert.rejects(() => service.moderate(undefined, ad.id, {
-        expectedReviewRevision: pending.reviewRevision, decision: 'approved'
+        expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'
       }), ConflictException);
     });
 

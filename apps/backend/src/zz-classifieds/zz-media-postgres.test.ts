@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AdMediaService } from '../classifieds/ad-media.service';
+import { CLASSIFIEDS_SMART_ADMIN_VERSION } from '../classifieds/ad-moderation-assessment';
 import { AdRepository } from '../classifieds/ad.repository';
 import { AdService } from '../classifieds/ad.service';
 import { DatabasePool } from '../database/database.pool';
@@ -87,7 +88,7 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const reviewed = await media.readForReview(undefined, uploaded.image.id);
       assert.deepEqual(reviewed.data, png);
-      const approved = await ads.moderate(undefined, ad.id, { expectedReviewRevision: pending.reviewRevision, decision: 'approved' });
+      const approved = await ads.moderate(undefined, ad.id, { expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved' });
       assert.equal(approved.status, 'active');
       assert.deepEqual((await media.readPublic(uploaded.image.id)).data, png);
       actor = { id: 'classifieds_media_owner', email: 'owner@example.test' };
@@ -102,7 +103,7 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       const pending = await ads.submit(undefined, ad.id, { clientRequestId: 'classifieds-media-submit-0002' });
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const rejected = await ads.moderate(undefined, ad.id, {
-        expectedReviewRevision: pending.reviewRevision, decision: 'rejected', reason: 'الصورة تحتاج تحديثًا'
+        expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'rejected', reason: 'الصورة تحتاج تحديثًا'
       });
       actor = { id: 'classifieds_media_owner', email: 'owner@example.test' };
       const changed = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0007', rejected.contentRevision, 'replacement.png', 1));
@@ -115,7 +116,7 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       assert.ok(resubmitted.reviewRevision > pending.reviewRevision);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       await assert.rejects(() => ads.moderate(undefined, ad.id, {
-        expectedReviewRevision: pending.reviewRevision, decision: 'approved'
+        expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'
       }), ConflictException);
       assert.ok(firstImage.image.id);
     });

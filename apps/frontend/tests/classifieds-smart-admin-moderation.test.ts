@@ -11,7 +11,8 @@ test('Classifieds moderation fails closed when the Smart Admin assessment is abs
   assert.match(page, /assessment\.reviewRevision === ad\.reviewRevision/);
   assert.match(page, /assessment\.humanDecisionRequired === true/);
   assert.match(page, /assessment\.automatedDecisionAllowed === false/);
-  assert.doesNotMatch(page, /!ad\.smartAdmin\s*\|\|/);
+  assert.match(page, /const validAssessmentSnapshot = Boolean\(\s*assessment &&/);
+  assert.doesNotMatch(page, /const validAssessmentSnapshot = Boolean\(\s*!ad\.smartAdmin\s*\|\|/);
   assert.match(page, /disabled=\{actionLoading \|\| !decisionReady\}/);
   assert.match(page, /تقييم Smart Admin مفقود أو قديم أو بعقد غير معتمد/);
 });
