@@ -8,6 +8,7 @@ required=(
   DEVELOPMENT_GOOGLE_CLOUD_PROJECT
   PREVIEW_GOOGLE_CLOUD_PROJECT
   STAGING_GOOGLE_CLOUD_PROJECT
+  STAGING_GOOGLE_CLOUD_PROJECT_NUMBER
   PRODUCTION_GOOGLE_CLOUD_PROJECT
   DEVELOPMENT_FIREBASE_PROJECT_ID
   PREVIEW_FIREBASE_PROJECT_ID
@@ -56,13 +57,22 @@ assert_unique FIREBASE_PROJECT_ID \
   "$STAGING_FIREBASE_PROJECT_ID" \
   "$PRODUCTION_FIREBASE_PROJECT_ID"
 
-case "$GCP_WORKLOAD_IDENTITY_PROVIDER" in
-  projects/*/locations/global/workloadIdentityPools/*/providers/*) ;;
-  *)
-    echo '::error::GCP_WORKLOAD_IDENTITY_PROVIDER is not a canonical Workload Identity Provider resource name.' >&2
-    exit 2
-    ;;
-esac
+if [[ ! "$STAGING_GOOGLE_CLOUD_PROJECT_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo '::error::STAGING_GOOGLE_CLOUD_PROJECT_NUMBER must be a numeric Google Cloud project number.' >&2
+  exit 2
+fi
+
+if [[ "$GCP_WORKLOAD_IDENTITY_PROVIDER" =~ ^projects/([0-9]+)/locations/global/workloadIdentityPools/([^/]+)/providers/([^/]+)$ ]]; then
+  provider_project_number="${BASH_REMATCH[1]}"
+else
+  echo '::error::GCP_WORKLOAD_IDENTITY_PROVIDER is not a canonical Workload Identity Provider resource name.' >&2
+  exit 2
+fi
+
+if [[ "$provider_project_number" != "$STAGING_GOOGLE_CLOUD_PROJECT_NUMBER" ]]; then
+  echo '::error::GCP_WORKLOAD_IDENTITY_PROVIDER must belong to STAGING_GOOGLE_CLOUD_PROJECT_NUMBER; Preview or Production WIF providers are not accepted.' >&2
+  exit 2
+fi
 
 expected_sa_suffix="@${STAGING_GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 for name in GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT GCP_STAGING_RUNTIME_SERVICE_ACCOUNT; do
