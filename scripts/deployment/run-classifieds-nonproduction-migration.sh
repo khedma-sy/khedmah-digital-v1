@@ -2,9 +2,10 @@
 set -eu
 
 readonly MIGRATION_VERSION='025_classifieds'
-readonly MIGRATION_FILE='/migrations/025_classifieds.sql'
+readonly DEFAULT_MIGRATION_FILE='/migrations/025_classifieds.sql'
 readonly APPROVED_SHA256='0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d'
 
+migration_file="${CLASSIFIEDS_MIGRATION_FILE:-$DEFAULT_MIGRATION_FILE}"
 environment="${DEPLOYMENT_ENVIRONMENT:-}"
 mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
@@ -27,82 +28,72 @@ if [ "$mode" = 'apply' ]; then
   expected_confirmation="APPLY_KHEDMAH_NONPROD_025_$(printf '%s' "$environment" | tr '[:lower:]' '[:upper:]')"
   [ "${MIGRATION_CONFIRMATION:-}" = "$expected_confirmation" ] || { echo 'ERROR: Explicit non-production migration confirmation is required.' >&2; exit 3; }
 fi
-printf '%s  %s\n' "$APPROVED_SHA256" "$MIGRATION_FILE" | sha256sum -c - >/dev/null
+printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null
+
+# Keep connection/authentication failure distinguishable from SQL/catalog probe failure.
+psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1 || exit 50
+
+psql_scalar() {
+  psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 -c "$1"
+}
+
+probe_scalar() {
+  value="$(psql_scalar "$1" 2>/dev/null)" || return 49
+  [ -n "$value" ] || return 51
+  printf '%s' "$value"
+}
+
+probe_count() {
+  value="$(probe_scalar "$1")" || return $?
+  case "$value" in
+    *[!0-9]*|'') return 51 ;;
+  esac
+  printf '%s' "$value"
+}
 
 schema_state() {
-  psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 <<'SQL'
-SELECT CASE
-  WHEN to_regclass(current_schema() || '.product_listings') IS NULL
-    OR to_regclass(current_schema() || '.media_assets') IS NULL
-    THEN 'missing_024'
-  WHEN (
-      SELECT count(*) FROM (VALUES
-        (to_regclass(current_schema() || '.ad_listings')),
-        (to_regclass(current_schema() || '.ad_free_slots')),
-        (to_regclass(current_schema() || '.ad_request_receipts')),
-        (to_regclass(current_schema() || '.ad_moderation_events'))
-      ) AS tables(oid) WHERE oid IS NOT NULL
-    ) = 0
-    AND (
-      SELECT count(*) FROM (VALUES
-        (to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()')),
-        (to_regprocedure(current_schema() || '.protect_ad_listing_identity()')),
-        (to_regprocedure(current_schema() || '.reject_ad_audit_mutation()'))
-      ) AS functions(oid) WHERE oid IS NOT NULL
-    ) = 0
-    AND NOT EXISTS (
-      SELECT 1 FROM pg_constraint c
-      JOIN pg_class t ON t.oid=c.conrelid
-      JOIN pg_namespace n ON n.oid=t.relnamespace
-      WHERE n.nspname=current_schema() AND t.relname='media_assets'
-        AND c.conname IN ('media_assets_owner_type_check','media_assets_asset_type_check')
-        AND (pg_get_constraintdef(c.oid) LIKE '%ad_listing%' OR pg_get_constraintdef(c.oid) LIKE '%ad_image%')
-    )
-    THEN 'not_applied'
-  WHEN (
-      SELECT count(*) FROM (VALUES
-        (to_regclass(current_schema() || '.ad_listings')),
-        (to_regclass(current_schema() || '.ad_free_slots')),
-        (to_regclass(current_schema() || '.ad_request_receipts')),
-        (to_regclass(current_schema() || '.ad_moderation_events'))
-      ) AS tables(oid) WHERE oid IS NOT NULL
-    ) < 4
-    THEN 'partial_tables'
-  WHEN (
-      SELECT count(*) FROM pg_indexes
-      WHERE schemaname=current_schema()
-        AND indexname IN ('ad_listings_owner_created_idx','ad_listings_public_idx','ad_listings_pending_idx','ad_free_slots_owner_idx')
-    ) < 4
-    THEN 'missing_indexes'
-  WHEN (
-      SELECT count(*) FROM pg_trigger t
-      JOIN pg_class c ON c.oid=t.tgrelid
-      JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname=current_schema() AND NOT t.tgisinternal
-        AND t.tgname IN ('ad_free_slot_limit_before_insert','ad_listing_identity_before_update','ad_free_slots_append_only','ad_request_receipts_append_only','ad_moderation_events_append_only')
-    ) < 5
-    THEN 'missing_triggers'
-  WHEN (
-      SELECT count(*) FROM (VALUES
-        (to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()')),
-        (to_regprocedure(current_schema() || '.protect_ad_listing_identity()')),
-        (to_regprocedure(current_schema() || '.reject_ad_audit_mutation()'))
-      ) AS functions(oid) WHERE oid IS NOT NULL
-    ) < 3
-    THEN 'missing_functions'
-  WHEN NOT EXISTS (
-      SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
-      WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_owner_type_check'
-        AND pg_get_constraintdef(c.oid) LIKE '%ad_listing%'
-    ) OR NOT EXISTS (
-      SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
-      WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_asset_type_check'
-        AND pg_get_constraintdef(c.oid) LIKE '%ad_image%'
-    )
-    THEN 'missing_media'
-  ELSE 'verified'
-END;
-SQL
+  base_count="$(probe_count "SELECT ((to_regclass(current_schema() || '.product_listings') IS NOT NULL)::int + (to_regclass(current_schema() || '.media_assets') IS NOT NULL)::int)")" || return $?
+  if [ "$base_count" -lt 2 ]; then
+    printf '%s' 'missing_024'
+    return 0
+  fi
+
+  table_count="$(probe_count "SELECT ((to_regclass(current_schema() || '.ad_listings') IS NOT NULL)::int + (to_regclass(current_schema() || '.ad_free_slots') IS NOT NULL)::int + (to_regclass(current_schema() || '.ad_request_receipts') IS NOT NULL)::int + (to_regclass(current_schema() || '.ad_moderation_events') IS NOT NULL)::int)")" || return $?
+  function_count="$(probe_count "SELECT ((to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()') IS NOT NULL)::int + (to_regprocedure(current_schema() || '.protect_ad_listing_identity()') IS NOT NULL)::int + (to_regprocedure(current_schema() || '.reject_ad_audit_mutation()') IS NOT NULL)::int)")" || return $?
+  media_count="$(probe_count "SELECT ((EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_owner_type_check' AND pg_get_constraintdef(c.oid) LIKE '%ad_listing%'))::int + (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='media_assets' AND c.conname='media_assets_asset_type_check' AND pg_get_constraintdef(c.oid) LIKE '%ad_image%'))::int)")" || return $?
+
+  if [ "$table_count" -eq 0 ] && [ "$function_count" -eq 0 ] && [ "$media_count" -eq 0 ]; then
+    printf '%s' 'not_applied'
+    return 0
+  fi
+  if [ "$table_count" -lt 4 ]; then
+    printf '%s' 'partial_tables'
+    return 0
+  fi
+
+  index_count="$(probe_count "SELECT count(*)::int FROM pg_indexes WHERE schemaname=current_schema() AND indexname IN ('ad_listings_owner_created_idx','ad_listings_public_idx','ad_listings_pending_idx','ad_free_slots_owner_idx')")" || return $?
+  if [ "$index_count" -lt 4 ]; then
+    printf '%s' 'missing_indexes'
+    return 0
+  fi
+
+  if [ "$function_count" -lt 3 ]; then
+    printf '%s' 'missing_functions'
+    return 0
+  fi
+
+  trigger_count="$(probe_count "SELECT count(*)::int FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND NOT t.tgisinternal AND t.tgname IN ('ad_free_slot_limit_before_insert','ad_listing_identity_before_update','ad_free_slots_append_only','ad_request_receipts_append_only','ad_moderation_events_append_only')")" || return $?
+  if [ "$trigger_count" -lt 5 ]; then
+    printf '%s' 'missing_triggers'
+    return 0
+  fi
+
+  if [ "$media_count" -lt 2 ]; then
+    printf '%s' 'missing_media'
+    return 0
+  fi
+
+  printf '%s' 'verified'
 }
 
 exit_for_schema_state() {
@@ -118,23 +109,20 @@ exit_for_schema_state() {
   esac
 }
 
-read_schema_state() {
-  set +e
-  state="$(schema_state 2>/dev/null)"
-  state_status=$?
-  set -e
-  if [ "$state_status" -ne 0 ]; then
-    exit 49
-  fi
-  printf '%s' "$state"
-}
+set +e
+state="$(schema_state)"
+state_status=$?
+set -e
+if [ "$state_status" -ne 0 ]; then
+  exit "$state_status"
+fi
 
-state="$(read_schema_state)"
 if [ "$state" = 'verified' ]; then
   printf '%s\n' "MIGRATION_025_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
   exit 0
 fi
 
+# Verify mode is intentionally read-only and exits before the migration transaction.
 if [ "$mode" = 'verify' ]; then
   exit_for_schema_state "$state"
 fi
@@ -169,11 +157,17 @@ BEGIN
   END IF;
 END
 \$guard\$;
-\ir ${MIGRATION_FILE}
+\ir ${migration_file}
 COMMIT;
 SQL
 
-state="$(read_schema_state)"
+set +e
+state="$(schema_state)"
+state_status=$?
+set -e
+if [ "$state_status" -ne 0 ]; then
+  exit "$state_status"
+fi
 if [ "$state" != 'verified' ]; then
   exit_for_schema_state "$state"
 fi
