@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const runner = read('scripts/deployment/run-classifieds-nonproduction-migration.sh');
+const runnerPath = fileURLToPath(new URL('../scripts/deployment/run-classifieds-nonproduction-migration.sh', import.meta.url));
+const migrationPath = fileURLToPath(new URL('../backend/migrations/versions/025_classifieds.sql', import.meta.url));
+const migrationSha = '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d';
 
 test('Classifieds schema probe exposes stable read-only diagnostic exit codes', () => {
   const expected = new Map([
@@ -22,6 +30,7 @@ test('Classifieds schema probe exposes stable read-only diagnostic exit codes', 
   assert.match(runner, /return 49/);
   assert.match(runner, /exit 50/);
   assert.match(runner, /return 51/);
+  assert.match(runner, /exit 52/);
 });
 
 test('connectivity is checked separately before schema catalog introspection', () => {
@@ -66,8 +75,69 @@ test('schema state distinguishes unapplied and partial 025 footprints before app
 test('test migration file override remains checksum bound', () => {
   assert.match(runner, /CLASSIFIEDS_MIGRATION_FILE/);
   assert.match(runner, /APPROVED_SHA256/);
-  const checksum = runner.indexOf("sha256sum -c -");
+  const checksum = runner.indexOf('sha256sum -c -');
   const connectivity = runner.indexOf("-c 'SELECT 1'");
   assert.ok(checksum > 0);
   assert.ok(connectivity > checksum);
+});
+
+test('Cloud Run migration job receives its Cloud SQL connection identity and parser runtime', () => {
+  const ensure = read('scripts/deployment/ensure-classifieds-nonproduction-schema.sh');
+  const docker = read('Dockerfile.classifieds-migration');
+  assert.match(ensure, /CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$\{CLOUD_SQL_INSTANCE_CONNECTION_NAME\}/);
+  assert.match(ensure, /--set-cloudsql-instances "\$CLOUD_SQL_INSTANCE_CONNECTION_NAME"/);
+  assert.match(docker, /apk add --no-cache python3/);
+});
+
+test('Cloud SQL connection uses the attached Unix socket and decoded credentials without printing the password', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'khedmah-classifieds-socket-'));
+  try {
+    const fakePsql = join(temp, 'psql');
+    const capture = join(temp, 'capture.txt');
+    writeFileSync(fakePsql, `#!/bin/sh
+password_match=no
+[ "\${PGPASSWORD:-}" = "\${PROBE_EXPECTED_PASSWORD:-}" ] && password_match=yes
+{
+  printf 'PGHOST=%s\\n' "\${PGHOST:-}"
+  printf 'PGUSER=%s\\n' "\${PGUSER:-}"
+  printf 'PGDATABASE=%s\\n' "\${PGDATABASE:-}"
+  printf 'PGSSLMODE=%s\\n' "\${PGSSLMODE:-}"
+  printf 'PASSWORD_MATCH=%s\\n' "$password_match"
+} > "\${PROBE_CAPTURE_FILE}"
+case "$*" in
+  *"SELECT 1"*) printf '1\\n'; exit 0 ;;
+  *"product_listings"*"media_assets"*) printf '0\\n'; exit 0 ;;
+  *) printf '0\\n'; exit 0 ;;
+esac
+`);
+    chmodSync(fakePsql, 0o755);
+    const result = spawnSync('sh', [runnerPath], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${temp}:${process.env.PATH ?? ''}`,
+        DATABASE_URL: 'postgresql://probe%2Duser:p%40ss%3Aword@public.invalid:5432/probe%2Ddb?sslmode=require',
+        DEPLOYMENT_ENVIRONMENT: 'preview',
+        MIGRATION_MODE: 'verify',
+        GOOGLE_CLOUD_PROJECT: 'khedmah-preview-safe',
+        PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production-protected',
+        CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-preview-safe:europe-west1:preview-db',
+        MIGRATION_SHA256: migrationSha,
+        CLASSIFIEDS_MIGRATION_FILE: migrationPath,
+        PROBE_CAPTURE_FILE: capture,
+        PROBE_EXPECTED_PASSWORD: 'p@ss:word'
+      },
+      encoding: 'utf8'
+    });
+    assert.equal(result.status, 41, result.stderr || result.stdout);
+    const observed = readFileSync(capture, 'utf8');
+    assert.match(observed, /PGHOST=\/cloudsql\/khedmah-preview-safe:europe-west1:preview-db/);
+    assert.match(observed, /PGUSER=probe-user/);
+    assert.match(observed, /PGDATABASE=probe-db/);
+    assert.match(observed, /PGSSLMODE=disable/);
+    assert.match(observed, /PASSWORD_MATCH=yes/);
+    assert.doesNotMatch(observed, /p@ss:word/);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
 });
