@@ -5,6 +5,23 @@ export type AdPriceMode = 'fixed' | 'negotiable' | 'contact' | 'none';
 export type AdContactMode = 'profile' | 'phone' | 'whatsapp';
 export type AdStatus = 'draft' | 'pending_review' | 'active' | 'inactive' | 'expired' | 'rejected';
 
+export interface AdModerationSignal {
+  readonly code: 'NO_DESCRIPTION' | 'NO_IMAGE' | 'UNLINKED_BUSINESS' | 'DIRECT_CONTACT' | 'PROFILE_WITHOUT_BUSINESS' | 'PRICE_CONTRACT_MISMATCH' | 'REVIEW_REVISION_INVALID';
+  readonly level: 'info' | 'attention';
+  readonly messageAr: string;
+}
+
+export interface AdModerationAssessment {
+  readonly version: 'classifieds-smart-admin-v1';
+  readonly reviewRevision: number;
+  readonly priority: 'standard' | 'elevated';
+  readonly completeness: 'complete' | 'needs_attention';
+  readonly humanDecisionRequired: true;
+  readonly automatedDecisionAllowed: false;
+  readonly signals: readonly AdModerationSignal[];
+  readonly summaryAr: string;
+}
+
 export interface AdListingBase {
   readonly id: string;
   readonly businessProfileId?: string;
@@ -34,6 +51,7 @@ export interface OwnerAdListing extends AdListingBase {
   readonly revision: number;
   readonly contentRevision: number;
   readonly reviewRevision: number;
+  readonly smartAdmin?: AdModerationAssessment;
 }
 
 export interface AdImage {
