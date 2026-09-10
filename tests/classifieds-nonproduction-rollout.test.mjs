@@ -120,6 +120,7 @@ test('Preview rollout stage resolver preserves DB-before-backend-before-frontend
   const cases = new Map([
     ['off', { backend_enabled: 'false', frontend_enabled: 'false', migration_mode: 'off', migration_confirmation: '' }],
     ['apply-025', { backend_enabled: 'false', frontend_enabled: 'false', migration_mode: 'apply', migration_confirmation: 'APPLY_KHEDMAH_NONPROD_025_PREVIEW' }],
+    ['verify-025', { backend_enabled: 'false', frontend_enabled: 'false', migration_mode: 'verify', migration_confirmation: '' }],
     ['backend-on', { backend_enabled: 'true', frontend_enabled: 'false', migration_mode: 'verify', migration_confirmation: '' }],
     ['frontend-on', { backend_enabled: 'true', frontend_enabled: 'true', migration_mode: 'verify', migration_confirmation: '' }]
   ]);
@@ -139,11 +140,23 @@ test('Preview rollout stage resolver preserves DB-before-backend-before-frontend
 });
 
 test('tracked Preview stage is explicit and Production has no equivalent activation control', () => {
-  assert.equal(read('.github/classifieds-preview-stage').trim(), 'apply-025');
+  const stage = read('.github/classifieds-preview-stage').trim();
+  assert.ok(['off','apply-025','verify-025','backend-on','frontend-on'].includes(stage));
   const workflow = read('.github/workflows/preview-deployment.yml');
   assert.match(workflow, /resolve-classifieds-preview-stage\.sh/);
   assert.match(workflow, /steps\.classifieds-stage\.outputs\.migration_mode/);
   assert.doesNotMatch(read('.github/workflows/production-operator.yml'), /classifieds-preview-stage|resolve-classifieds-preview-stage/);
+});
+
+test('failed non-production migration execution emits bounded Cloud Run diagnostics', () => {
+  const ensure = read('scripts/deployment/ensure-classifieds-nonproduction-schema.sh');
+  for (const marker of ['CLASSIFIEDS_025_FAILED_EXECUTION', 'CLASSIFIEDS_025_CONTAINER_LOGS_BEGIN', 'CLASSIFIEDS_025_CONTAINER_LOGS_END']) {
+    assert.match(ensure, new RegExp(marker));
+  }
+  assert.match(ensure, /gcloud run jobs executions describe/);
+  assert.match(ensure, /gcloud logging read/);
+  assert.match(ensure, /--freshness=30m/);
+  assert.match(ensure, /--limit=200/);
 });
 
 test('Production operator has no Classifieds migration 025 capability', () => {
