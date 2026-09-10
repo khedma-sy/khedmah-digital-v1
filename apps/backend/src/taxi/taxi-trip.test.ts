@@ -135,7 +135,6 @@ test('Taxi trip uses one native authority transaction and independently issued r
         const rows=(await query('SELECT (SELECT count(*) FROM khedmah_taxi.jt_orders WHERE id=$1) orders,(SELECT count(*) FROM khedmah_taxi.jt_events WHERE order_id=$1) events,(SELECT count(*) FROM khedmah_taxi.jt_cash_receipts WHERE order_id=$1) cash',[o.id])).rows[0];
         assert.equal(Number(rows.orders),1);assert.equal(Number(rows.events),7);assert.equal(Number(rows.cash),1);
         console.log('RP33_HTTP_EVIDENCE',JSON.stringify({trace,phase:o.phase,cash:o.cash.status,orders:Number(rows.orders),events:Number(rows.events),cashReceipts:Number(rows.cash)}));
-        // Every public operation above owns one access transaction, not an outer authority check plus another commit.
         assert.equal(transactions-beforeTx,trace.length+2);
       } finally {await app.close();await resetReferences();}
     });
@@ -151,9 +150,6 @@ test('Taxi trip uses one native authority transaction and independently issued r
       await assert.rejects(service.place(sessions.rider,input));
       assert.equal(Number((await query('SELECT count(*) n FROM khedmah_taxi.jt_orders WHERE id=$1',[o.id])).rows[0].n),1);
     });
-    // Force a genuine PostgreSQL wait AFTER validation and aggregate/event writes.
-    // Never use this on a shared or operational database: createTestPool above
-    // requires the canonical, explicitly disposable database/host configuration.
     for(const kind of ['proof','quote'] as const) await t.test(`expiry at commit rolls back ${kind} after a real outbox table-lock wait`,async()=>{
       await resetReferences();
       if(kind==='quote')await asRole(reference,c=>c.query("UPDATE khedmah_taxi.tariffs SET payload=jsonb_set(payload,'{quoteTtlMs}','2000')"));
@@ -231,9 +227,14 @@ test('Taxi trip uses one native authority transaction and independently issued r
       const current=await service.read(sessions.rider,'customer',o.id);assert.equal(current.version,2);await cancel(current);
     });
     await t.test('one driver cannot accept two active trips concurrently',async()=>{
-      const list=await Promise.all([place(),place()]);const results=await Promise.allSettled(list.map(o=>command(o,'accept_job')));
+      const list=await Promise.all([place('rider'),place('other')]);
+      const results=await Promise.allSettled(list.map(o=>command(o,'accept_job')));
       assert.equal(results.filter(x=>x.status==='fulfilled').length,1);
-      for(const o of list) await cancel(await service.read(sessions.rider,'customer',o.id));
+      for(const [index,o] of list.entries()){
+        const person=index===0?'rider':'other';
+        const current=await service.read(sessions[person],'customer',o.id);
+        await command(current,'cancel',person);
+      }
     });
     await t.test('a stale cancellation cannot overwrite driver acceptance',async()=>{
       const first=await place(),o=await command(first,'accept_job');await rejects(cancel(first),409);assert.equal((await service.read(sessions.rider,'customer',o.id)).phase,'accepted');await cancel(o);
