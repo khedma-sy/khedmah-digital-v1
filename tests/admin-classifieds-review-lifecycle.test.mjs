@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clientPage, deferred, loadSource, readSource } from './helpers/client-page-harness.mjs';
 
+const SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1';
+
 const smartAdmin = {
-  version: 'classifieds-smart-admin-v1',
+  version: SMART_ADMIN_VERSION,
   reviewRevision: 3,
   priority: 'elevated',
   completeness: 'needs_attention',
@@ -55,7 +57,7 @@ function fixture({ enabled = true } = {}) {
   };
   const page = clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'), {
     '../../../lib/api-client': { api },
-    '../../../lib/classifieds-client': { adminClassifiedsApi },
+    '../../../lib/classifieds-client': { adminClassifiedsApi, CLASSIFIEDS_SMART_ADMIN_VERSION: SMART_ADMIN_VERSION },
     '../../../lib/classifieds': {
       CLASSIFIEDS_ENABLED: enabled,
       AD_KIND_LABELS: { sale: 'للبيع', service: 'خدمة', wanted: 'مطلوب', rent: 'للإيجار' },
@@ -88,7 +90,7 @@ test('Classifieds queue failure is isolated from the existing moderation queues'
   };
   const page = clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'), {
     '../../../lib/api-client': { api },
-    '../../../lib/classifieds-client': { adminClassifiedsApi: { pending: async () => { throw new Error('ads offline'); }, review: async () => ({}) } },
+    '../../../lib/classifieds-client': { adminClassifiedsApi: { pending: async () => { throw new Error('ads offline'); }, review: async () => ({}) }, CLASSIFIEDS_SMART_ADMIN_VERSION: SMART_ADMIN_VERSION },
     '../../../lib/classifieds': { CLASSIFIEDS_ENABLED: true, AD_KIND_LABELS: { sale: 'للبيع' }, formatAdPrice: () => '' }
   }, { window: { requestAnimationFrame: fn => fn() }, document: { activeElement: null, addEventListener() {}, removeEventListener() {} }, HTMLElement: class {} });
   await page.flush();
@@ -112,18 +114,18 @@ test('Classifieds moderation shows the full review snapshot and Smart Admin asse
   assert.ok(f.page.find(n => n.type === 'a' && n.props.href === '/api/v1/classifieds-media/second'));
 });
 
-test('approval sends the displayed review revision and is single-flight', async () => {
+test('approval sends the displayed review revision and Smart Admin assessment version and is single-flight', async () => {
   const f = fixture(); await f.resolve(f.queueLoads[0]);
   f.page.click('نشر الإعلان');
   const confirm = f.page.find(n => n.type === 'button' && n.props.children === 'تأكيد القرار');
   confirm.props.onClick(); confirm.props.onClick();
   assert.equal(f.decisions.length, 1);
-  assert.deepEqual(f.decisions[0].args, ['ad/one', 'approved', 3, undefined]);
+  assert.deepEqual(f.decisions[0].args, ['ad/one', 'approved', 3, SMART_ADMIN_VERSION, undefined]);
   await f.resolve(f.decisions[0], { ad });
   assert.equal(f.pendingCalls, 2, 'successful decision refreshes the queue once');
 });
 
-test('rejection requires a human note and sends it with the displayed review revision', async () => {
+test('rejection requires a human note and sends it with the displayed review revision and assessment version', async () => {
   const f = fixture(); await f.resolve(f.queueLoads[0]);
   f.page.click('رفض الإعلان');
   const confirm = f.page.find(n => n.type === 'button' && n.props.children === 'تأكيد القرار');
@@ -132,13 +134,13 @@ test('rejection requires a human note and sends it with the displayed review rev
   textarea.props.onChange({ target: { value: 'سبب مراجعة واضح' } });
   f.page.render();
   f.page.click('تأكيد القرار');
-  assert.deepEqual(f.decisions[0].args, ['ad/one', 'rejected', 3, 'سبب مراجعة واضح']);
+  assert.deepEqual(f.decisions[0].args, ['ad/one', 'rejected', 3, SMART_ADMIN_VERSION, 'سبب مراجعة واضح']);
 });
 
 test('stale Smart Admin assessment locks moderation decisions until queue refresh', async () => {
   const f = fixture();
   await f.resolve(f.queueLoads[0], { ads: [{ ...ad, smartAdmin: { ...smartAdmin, reviewRevision: 2 } }] });
-  assert.match(f.page.text, /تقييم Smart Admin لا يطابق نسخة المراجعة الحالية/);
+  assert.match(f.page.text, /تقييم Smart Admin مفقود أو قديم أو بعقد غير معتمد/);
   const approve = f.page.find(n => n.type === 'button' && n.props.children === 'نشر الإعلان');
   const reject = f.page.find(n => n.type === 'button' && n.props.children === 'رفض الإعلان');
   assert.equal(approve.props.disabled, true);
@@ -160,7 +162,7 @@ test('409 closes the ad decision, refreshes its snapshot, and requires a new exp
     '../../../lib/classifieds-client': { adminClassifiedsApi: {
       pending: async () => ({ ads: [{ ...ad, reviewRevision: ++pendingCalls + 2, smartAdmin: { ...smartAdmin, reviewRevision: pendingCalls + 2 }, titleAr: pendingCalls === 1 ? ad.titleAr : 'نسخة أحدث' }] }),
       review: async (...args) => { decisions.push(args); throw Object.assign(new Error('changed'), { statusCode: 409 }); }
-    } },
+    }, CLASSIFIEDS_SMART_ADMIN_VERSION: SMART_ADMIN_VERSION },
     '../../../lib/classifieds': { CLASSIFIEDS_ENABLED: true, AD_KIND_LABELS: { sale: 'للبيع' }, formatAdPrice: () => '250000 SYP' }
   }, { window: { requestAnimationFrame: fn => fn() }, document: { activeElement: null, addEventListener() {}, removeEventListener() {} }, HTMLElement: class {} });
   await page.flush();
@@ -170,9 +172,10 @@ test('409 closes the ad decision, refreshes its snapshot, and requires a new exp
   assert.match(page.text, /تغير الإعلان أو صوره/);
   assert.match(page.text, /نسخة أحدث/);
   assert.equal(decisions.length, 1, 'refresh must not replay the old moderation decision');
+  assert.deepEqual(decisions[0], ['ad/one', 'approved', 3, SMART_ADMIN_VERSION, undefined]);
 });
 
-test('Classifieds admin client serializes review revision and rejection reason and preserves conflicts', async () => {
+test('Classifieds admin client serializes review revision, Smart Admin version and rejection reason and preserves conflicts', async () => {
   const calls = [];
   const { adminClassifiedsApi } = loadSource(readSource('apps/frontend/lib/classifieds-client.ts'), {}, {
     fetch: async (url, init) => {
@@ -181,9 +184,9 @@ test('Classifieds admin client serializes review revision and rejection reason a
       return { ok: true, status: 200, json: async () => ({ ad }) };
     }
   });
-  await adminClassifiedsApi.review('ad/one', 'approved', 3);
+  await adminClassifiedsApi.review('ad/one', 'approved', 3, SMART_ADMIN_VERSION);
   assert.equal(calls[0].url, '/api/v1/admin/classifieds/ad%2Fone/moderation');
-  assert.deepEqual(JSON.parse(calls[0].init.body), { decision: 'approved', expectedReviewRevision: 3 });
-  await assert.rejects(() => adminClassifiedsApi.review('ad/one', 'rejected', 4, 'سبب واضح'), cause => cause.statusCode === 409 && cause.code === 'AD_REVIEW_CONFLICT');
-  assert.deepEqual(JSON.parse(calls[1].init.body), { decision: 'rejected', expectedReviewRevision: 4, reason: 'سبب واضح' });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { decision: 'approved', expectedReviewRevision: 3, expectedAssessmentVersion: SMART_ADMIN_VERSION });
+  await assert.rejects(() => adminClassifiedsApi.review('ad/one', 'rejected', 4, SMART_ADMIN_VERSION, 'سبب واضح'), cause => cause.statusCode === 409 && cause.code === 'AD_REVIEW_CONFLICT');
+  assert.deepEqual(JSON.parse(calls[1].init.body), { decision: 'rejected', expectedReviewRevision: 4, expectedAssessmentVersion: SMART_ADMIN_VERSION, reason: 'سبب واضح' });
 });
