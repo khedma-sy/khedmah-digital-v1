@@ -48,6 +48,19 @@ test('Staging rollout stage is fail-closed and ordered', async () => {
   assert.notEqual(invalid.status, 0);
 });
 
+test('Staging workflow validates protected configuration before WIF authentication', async () => {
+  const text = await readFile(workflow, 'utf8');
+  const preflightIndex = text.indexOf('Validate Staging deployment configuration');
+  const authIndex = text.indexOf('google-github-actions/auth@v2');
+  assert.ok(preflightIndex >= 0, 'Staging configuration preflight must exist');
+  assert.ok(authIndex > preflightIndex, 'configuration preflight must run before GCP auth');
+  assert.match(text, /validate-staging-deployment-config\.sh/);
+  assert.match(text, /GCP_WORKLOAD_IDENTITY_PROVIDER: \$\{\{ secrets\.GCP_WORKLOAD_IDENTITY_PROVIDER \}\}/);
+  assert.match(text, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT \}\}/);
+  assert.match(text, /GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT \}\}/);
+  assert.match(text, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: \$\{\{ vars\.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME \}\}/);
+});
+
 test('Staging workflow uses repository stage outputs and never production rollout variables', async () => {
   const text = await readFile(workflow, 'utf8');
   assert.match(text, /Resolve Classifieds Staging rollout stage/);
