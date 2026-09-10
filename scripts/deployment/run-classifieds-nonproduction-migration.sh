@@ -30,11 +30,57 @@ if [ "$mode" = 'apply' ]; then
 fi
 printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null
 
+# Cloud Run exposes an attached Cloud SQL instance through a Unix socket.
+# DATABASE_URL is the credential source only; its TCP host must not override
+# /cloudsql/<instance>. This mirrors DatabasePool's Cloud Run connection policy.
+if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
+  command -v python3 >/dev/null 2>&1 || exit 52
+  set +e
+  connection_exports="$(DATABASE_URL="$DATABASE_URL" python3 - <<'PY'
+import os
+import shlex
+from urllib.parse import unquote, urlsplit
+
+try:
+    parsed = urlsplit(os.environ['DATABASE_URL'])
+    if parsed.scheme not in ('postgres', 'postgresql'):
+        raise ValueError('unsupported database URL scheme')
+    database = unquote(parsed.path[1:] if parsed.path.startswith('/') else parsed.path)
+    if not database:
+        raise ValueError('database name is required')
+    for name, value in {
+        'PGDATABASE': database,
+        'PGUSER': unquote(parsed.username or ''),
+        'PGPASSWORD': unquote(parsed.password or ''),
+    }.items():
+        print(f"{name}={shlex.quote(value)}")
+except Exception:
+    raise SystemExit(1)
+PY
+)"
+  parse_status=$?
+  set -e
+  [ "$parse_status" -eq 0 ] || exit 52
+  eval "$connection_exports"
+  export PGDATABASE PGUSER PGPASSWORD
+  PGHOST="/cloudsql/${CLOUD_SQL_INSTANCE_CONNECTION_NAME}"
+  PGSSLMODE=disable
+  export PGHOST PGSSLMODE
+fi
+
+psql_exec() {
+  if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
+    psql -d "$PGDATABASE" "$@"
+  else
+    psql -d "$DATABASE_URL" "$@"
+  fi
+}
+
 # Keep connection/authentication failure distinguishable from SQL/catalog probe failure.
-psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1 || exit 50
+psql_exec -X -Atq -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1 || exit 50
 
 psql_scalar() {
-  psql "$DATABASE_URL" -X -Atq -v ON_ERROR_STOP=1 -c "$1"
+  psql_exec -X -Atq -v ON_ERROR_STOP=1 -c "$1"
 }
 
 probe_scalar() {
@@ -129,7 +175,7 @@ fi
 
 [ "$state" = 'not_applied' ] || exit_for_schema_state "$state"
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
+psql_exec -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-classifieds-025', 0));
 DO \$guard\$
