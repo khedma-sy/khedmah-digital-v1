@@ -61,6 +61,10 @@ backend_deploy_args+=(
 backend_url="$(gcloud run services describe "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 
 [[ "$backend_url" == https://*run.app ]] || { echo 'Isolated backend URL is not a Cloud Run URL.' >&2; exit 5; }
+if [[ "$CLASSIFIEDS_ENABLED" == 'true' ]]; then
+  node scripts/deployment/verify-classifieds-backend-smoke.mjs "$backend_url"
+fi
+
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag},_NEXT_PUBLIC_API_URL=${backend_url},_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"
 
