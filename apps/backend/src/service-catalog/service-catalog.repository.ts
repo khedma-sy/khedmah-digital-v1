@@ -108,7 +108,29 @@ export class ServiceCatalogRepository {
       const parent = await client.query<{ actor_id: string }>(sql, [target.ownerId]);
       if (!parent.rows[0]) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
       if (parent.rows[0].actor_id !== actorId) throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
-      return write(client);
+
+      const result = await write(client);
+
+      // A service is public content of its owning profile. Invalidate the exact parent review
+      // in the same transaction as the service mutation, while never lifting a suspension.
+      if (target.ownerType === 'business') {
+        await client.query(
+          `UPDATE business_profiles
+           SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
+               updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+           WHERE id=$1`,
+          [target.ownerId]
+        );
+      } else {
+        await client.query(
+          `UPDATE professional_profiles
+           SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
+               updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+           WHERE professional_profile_identifier=$1`,
+          [target.ownerId]
+        );
+      }
+      return result;
     });
   }
 
