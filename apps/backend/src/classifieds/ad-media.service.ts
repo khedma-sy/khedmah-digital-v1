@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -24,6 +23,7 @@ import {
 interface AdLockRow extends Record<string, unknown> {
   id: string;
   owner_user_id: string;
+  business_profile_id: string | null;
   status: AdListing['status'];
   revision: string | number;
   content_revision: string | number;
@@ -79,20 +79,22 @@ export class AdMediaService {
     const bytes = decodeAndValidateImage(input.content, input.sizeBytes, input.mimeType);
     const fingerprint = digest({
       operation: 'upload', adId, expectedContentRevision: input.expectedContentRevision, filename: input.filename,
-      mimeType: input.mimeType, sizeBytes: input.sizeBytes, sortOrder: input.sortOrder, contentHash: createHash('sha256').update(bytes).digest('hex')
+      mimeType: input.mimeType, sizeBytes: input.sizeBytes, sortOrder: input.sortOrder,
+      contentHash: createHash('sha256').update(bytes).digest('hex')
     });
     const imageId = digest(['ad-image-v1', actor.id, adId, input.clientRequestId]);
     const extension = input.mimeType === 'image/jpeg' ? 'jpg' : input.mimeType === 'image/png' ? 'png' : 'webp';
     const storageKey = `media/ad_listing/${adId}/${imageId}.${extension}`;
 
     return this.db.transaction(async (client) => {
-      const ad = await this.requireMutableOwner(client, actor.id, adId, input.expectedContentRevision);
+      const ad = await this.requireOwnedAdLocked(client, actor.id, adId);
       const replay = await this.readReceipt(client, actor.id, input.clientRequestId, fingerprint);
       if (replay) {
         const image = await this.requireImage(client, imageId, actor.id, adId);
         const current = await this.requireAd(client, adId);
         return { adRevision: current.revision, contentRevision: current.contentRevision, image: toPublicImage(image) };
       }
+      this.assertMutable(ad, input.expectedContentRevision);
 
       await this.storage.save(storageKey, bytes, input.mimeType);
       await client.query(
@@ -121,12 +123,13 @@ export class AdMediaService {
     let retiredStorageKey: string | undefined;
 
     const result = await this.db.transaction(async (client) => {
-      const ad = await this.requireMutableOwner(client, actor.id, adId, input.expectedContentRevision);
+      const ad = await this.requireOwnedAdLocked(client, actor.id, adId);
       const replay = await this.readReceipt(client, actor.id, input.clientRequestId, fingerprint);
       if (replay) {
         const current = await this.requireAd(client, adId);
         return { deleted: true as const, adRevision: current.revision, contentRevision: current.contentRevision };
       }
+      this.assertMutable(ad, input.expectedContentRevision);
       const image = await this.requireImage(client, mediaId, actor.id, adId);
       retiredStorageKey = image.storage_key;
       const removed = await client.query(
@@ -149,7 +152,9 @@ export class AdMediaService {
   async listMine(cookie: string | undefined, adId: string): Promise<PublicAdImage[]> {
     this.assertEnabled();
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    const rows = await this.db.query<AdLockRow>(`SELECT id,owner_user_id,status,revision,content_revision FROM ad_listings WHERE id=$1`, [adId]);
+    const rows = await this.db.query<AdLockRow>(
+      `SELECT id,owner_user_id,business_profile_id,status,revision,content_revision FROM ad_listings WHERE id=$1`, [adId]
+    );
     if (!rows[0] || rows[0].owner_user_id !== actor.id) throw new NotFoundException('Ad was not found.');
     return (await this.db.query<MediaRow>(
       `SELECT id,owner_user_id,owner_id,filename,mime_type,size_bytes,visibility,storage_key,public_url,sort_order,created_at
@@ -157,11 +162,21 @@ export class AdMediaService {
     )).map(toPublicImage);
   }
 
+  async readMine(cookie: string | undefined, adId: string, mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
+    this.assertEnabled();
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const before = await this.readOwnedMetadata(actor.id, adId, mediaId);
+    const object = await this.storage.read(before.storage_key);
+    const after = await this.readOwnedMetadata(actor.id, adId, mediaId);
+    if (after.storage_key !== before.storage_key || after.owner_id !== before.owner_id) throw new NotFoundException('Ad image was not found.');
+    return { data: object.data, mimeType: after.mime_type || object.mimeType };
+  }
+
   async readPublic(mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
     this.assertEnabled();
-    const before = await this.readPublicMetadata(mediaId, false);
+    const before = await this.readReadableMetadata(mediaId, false);
     const object = await this.storage.read(before.storage_key);
-    const after = await this.readPublicMetadata(mediaId, false);
+    const after = await this.readReadableMetadata(mediaId, false);
     if (after.storage_key !== before.storage_key || after.owner_id !== before.owner_id) throw new NotFoundException('Ad image was not found.');
     return { data: object.data, mimeType: after.mime_type || object.mimeType };
   }
@@ -170,9 +185,9 @@ export class AdMediaService {
     this.assertEnabled();
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     this.rbac.assert(actor.email, 'security.manage');
-    const before = await this.readPublicMetadata(mediaId, true);
+    const before = await this.readReadableMetadata(mediaId, true);
     const object = await this.storage.read(before.storage_key);
-    const after = await this.readPublicMetadata(mediaId, true);
+    const after = await this.readReadableMetadata(mediaId, true);
     if (after.storage_key !== before.storage_key || after.owner_id !== before.owner_id) throw new NotFoundException('Ad image was not found.');
     return { data: object.data, mimeType: after.mime_type || object.mimeType };
   }
@@ -181,17 +196,20 @@ export class AdMediaService {
     if (process.env.CLASSIFIEDS_ENABLED !== 'true') throw new ServiceUnavailableException('Classifieds are not enabled.');
   }
 
-  private async requireMutableOwner(client: PoolClient, ownerUserId: string, adId: string, expectedContentRevision: number) {
-    const ad = await this.requireAdLocked(client, adId);
-    if (ad.ownerUserId !== ownerUserId) throw new NotFoundException('Ad was not found.');
+  private assertMutable(ad: ReturnType<typeof mapAd>, expectedContentRevision: number): void {
     if (ad.contentRevision !== expectedContentRevision) throw new ConflictException({ code: 'CONTENT_REVISION_CONFLICT' });
     if (ad.status === 'pending_review' || ad.status === 'active') throw new ConflictException({ code: 'AD_MEDIA_LOCKED_FOR_REVIEW' });
+  }
+
+  private async requireOwnedAdLocked(client: PoolClient, ownerUserId: string, adId: string) {
+    const ad = await this.requireAdLocked(client, adId);
+    if (ad.ownerUserId !== ownerUserId) throw new NotFoundException('Ad was not found.');
     return ad;
   }
 
   private async requireAdLocked(client: PoolClient, adId: string) {
     const result = await client.query<AdLockRow>(
-      `SELECT id,owner_user_id,status,revision,content_revision FROM ad_listings WHERE id=$1 FOR UPDATE`, [adId]
+      `SELECT id,owner_user_id,business_profile_id,status,revision,content_revision FROM ad_listings WHERE id=$1 FOR UPDATE`, [adId]
     );
     if (!result.rows[0]) throw new NotFoundException('Ad was not found.');
     return mapAd(result.rows[0]);
@@ -199,7 +217,7 @@ export class AdMediaService {
 
   private async requireAd(client: PoolClient, adId: string) {
     const result = await client.query<AdLockRow>(
-      `SELECT id,owner_user_id,status,revision,content_revision FROM ad_listings WHERE id=$1`, [adId]
+      `SELECT id,owner_user_id,business_profile_id,status,revision,content_revision FROM ad_listings WHERE id=$1`, [adId]
     );
     if (!result.rows[0]) throw new NotFoundException('Ad was not found.');
     return mapAd(result.rows[0]);
@@ -210,7 +228,7 @@ export class AdMediaService {
     const result = await client.query<AdLockRow>(
       `UPDATE ad_listings SET status=$2,rejection_reason=NULL,revision=revision+1,content_revision=content_revision+1,
          updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
-       WHERE id=$1 RETURNING id,owner_user_id,status,revision,content_revision`, [ad.id, nextStatus]
+       WHERE id=$1 RETURNING id,owner_user_id,business_profile_id,status,revision,content_revision`, [ad.id, nextStatus]
     );
     return mapAd(result.rows[0]);
   }
@@ -245,13 +263,27 @@ export class AdMediaService {
     return result.rows[0];
   }
 
-  private async readPublicMetadata(mediaId: string, reviewer: boolean): Promise<MediaRow> {
+  private async readOwnedMetadata(ownerUserId: string, adId: string, mediaId: string): Promise<MediaRow> {
+    const rows = await this.db.query<MediaRow>(
+      `SELECT m.id,m.owner_user_id,m.owner_id,m.filename,m.mime_type,m.size_bytes,m.visibility,m.storage_key,m.public_url,m.sort_order,m.created_at
+       FROM media_assets m JOIN ad_listings a ON a.id=m.owner_id
+       WHERE m.id=$1 AND m.owner_type='ad_listing' AND m.owner_id=$2 AND m.asset_type='ad_image' AND m.owner_user_id=$3 AND a.owner_user_id=$3`,
+      [mediaId, adId, ownerUserId]
+    );
+    if (!rows[0]) throw new NotFoundException('Ad image was not found.');
+    return rows[0];
+  }
+
+  private async readReadableMetadata(mediaId: string, reviewer: boolean): Promise<MediaRow> {
     const statusClause = reviewer ? "a.status IN ('pending_review','active','rejected')" : "a.status='active'";
+    const businessClause = reviewer ? '' : `AND (a.business_profile_id IS NULL OR EXISTS(
+      SELECT 1 FROM business_profiles b WHERE b.id=a.business_profile_id AND b.visibility='public'
+        AND b.moderation_status='approved' AND b.trust_status='approved' AND b.status='active'))`;
     const rows = await this.db.query<MediaRow>(
       `SELECT m.id,m.owner_user_id,m.owner_id,m.filename,m.mime_type,m.size_bytes,m.visibility,m.storage_key,m.public_url,m.sort_order,m.created_at
        FROM media_assets m JOIN ad_listings a ON a.id=m.owner_id
        WHERE m.id=$1 AND m.owner_type='ad_listing' AND m.asset_type='ad_image' AND m.visibility='public'
-         AND ${statusClause} AND (a.expires_at IS NULL OR a.expires_at>clock_timestamp())`, [mediaId]
+         AND ${statusClause} AND (a.expires_at IS NULL OR a.expires_at>clock_timestamp()) ${businessClause}`, [mediaId]
     );
     if (!rows[0]) throw new NotFoundException('Ad image was not found.');
     return rows[0];
@@ -262,6 +294,7 @@ function mapAd(row: AdLockRow) {
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
+    businessProfileId: row.business_profile_id ?? undefined,
     status: row.status,
     revision: Number(row.revision),
     contentRevision: Number(row.content_revision)
