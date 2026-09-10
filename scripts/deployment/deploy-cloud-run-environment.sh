@@ -43,6 +43,29 @@ scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$i
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
 
+if [[ "$environment" == "staging" ]]; then
+  integrity_job="khedmah-release-data-integrity-staging"
+  gcloud run jobs deploy "$integrity_job" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --region "$GOOGLE_CLOUD_REGION" \
+    --image "$backend_image" \
+    --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+    --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+    --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
+    --set-env-vars="NODE_ENV=staging,CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME}" \
+    --command=node \
+    --args=apps/backend/dist/database/release-data-integrity.cli.js \
+    --tasks=1 \
+    --parallelism=1 \
+    --max-retries=0 \
+    --task-timeout=10m \
+    --quiet
+  gcloud run jobs execute "$integrity_job" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --region "$GOOGLE_CLOUD_REGION" \
+    --wait
+fi
+
 backend_deploy_args=(
   gcloud run deploy "$backend_service"
   --project "$GOOGLE_CLOUD_PROJECT"
