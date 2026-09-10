@@ -56,3 +56,19 @@ test('staging deployment configuration preflight rejects malformed WIF and servi
   assert.equal(malformedDeployer.status, 2);
   assert.match(malformedDeployer.stderr, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT/);
 });
+
+test('staging deployment configuration preflight rejects Preview and Production service accounts even when syntactically valid', () => {
+  const previewDeployer = run({ GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: 'github-preview@khedmah-preview.iam.gserviceaccount.com' });
+  assert.equal(previewDeployer.status, 2);
+  assert.match(previewDeployer.stderr, /must belong to STAGING_GOOGLE_CLOUD_PROJECT/);
+
+  const productionRuntime = run({ GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: 'runtime-production@khedmah-production.iam.gserviceaccount.com' });
+  assert.equal(productionRuntime.status, 2);
+  assert.match(productionRuntime.stderr, /must belong to STAGING_GOOGLE_CLOUD_PROJECT/);
+});
+
+test('staging deployment configuration preflight requires distinct deployer and runtime identities', () => {
+  const result = run({ GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: valid.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /deployer and runtime service accounts must be distinct/);
+});

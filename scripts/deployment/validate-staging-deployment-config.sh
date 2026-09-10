@@ -39,12 +39,18 @@ case "$GCP_WORKLOAD_IDENTITY_PROVIDER" in
     ;;
 esac
 
+expected_sa_suffix="@${STAGING_GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 for name in GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT GCP_STAGING_RUNTIME_SERVICE_ACCOUNT; do
   value="${!name}"
-  if [[ "$value" != *@*.iam.gserviceaccount.com ]]; then
-    echo "::error::${name} must be a Google service-account email." >&2
+  if [[ "$value" != *"${expected_sa_suffix}" ]]; then
+    echo "::error::${name} must belong to STAGING_GOOGLE_CLOUD_PROJECT; Preview or Production identities are not accepted." >&2
     exit 2
   fi
 done
+
+if [[ "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" == "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" ]]; then
+  echo '::error::Staging deployer and runtime service accounts must be distinct identities.' >&2
+  exit 2
+fi
 
 echo 'Staging deployment configuration preflight passed.'
