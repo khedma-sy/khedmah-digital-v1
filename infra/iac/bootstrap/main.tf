@@ -102,13 +102,13 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "google.subject"         = "assertion.sub"
     "attribute.repository"   = "assertion.repository"
     "attribute.ref"          = "assertion.ref"
-    "attribute.workflow_ref" = "assertion.job_workflow_ref"
+    "attribute.workflow_ref" = "assertion.workflow_ref"
   }
 
   attribute_condition = <<-EOT
     assertion.repository == "${var.github_repository}" &&
     assertion.ref == "${var.github_ref}" &&
-    assertion.job_workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"
+    assertion.workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"
   EOT
 
   oidc {
