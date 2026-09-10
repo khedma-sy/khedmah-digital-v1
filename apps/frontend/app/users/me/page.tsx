@@ -48,7 +48,7 @@ export default function ProfilePage() {
       <Surface className="ui-account-links">
         <h2>إدارة حضورك في خدمة</h2>
         <p>حدّث أنشطتك وخدماتك من مساحة أعمال واحدة مرتبطة بحسابك.</p>
-        <div className="ui-page-actions"><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink></div>
+        <div className="ui-page-actions"><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink></div>
       </Surface>
     </div>
   </PageShell>;

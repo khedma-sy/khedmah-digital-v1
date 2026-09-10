@@ -4,15 +4,16 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('home classifieds strip uses only the moderated product API with no fixture content', async () => {
+test('home classifieds strip uses only the independent classifieds API with no product fallback', async () => {
   const home = await read('app/page.tsx');
   const feed = await read('app/components/recently-added.tsx');
 
   assert.match(home, /<RecentlyAdded \/>/);
-  assert.match(feed, /api\.products\.list\(\{\}\)/);
-  assert.match(feed, /products\.slice\(0, 8\)/);
+  assert.match(feed, /classifiedsApi\.list\(\{\}\)/);
+  assert.match(feed, /items\.slice\(0, 8\)/);
   assert.match(feed, /الإعلانات المبوبة/);
   assert.match(feed, /href="\/classifieds"/);
+  assert.doesNotMatch(feed, /api\.products|\/store\/products|\/store\/sell/);
   assert.doesNotMatch(feed, /setTimeout|Math\.random|localStorage/);
   assert.doesNotMatch(feed, /return null/);
   assert.match(feed, /لا توجد إعلانات منشورة حاليًا/);

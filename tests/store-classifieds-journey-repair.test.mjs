@@ -30,7 +30,7 @@ function fixture({path='/store',query='',categoryError='',cityError='',cityLoadi
   get categoryRetries(){return categoryRetries;},get cityRetries(){return cityRetries;}
  };
 }
-for (const path of ['/store','/classifieds']) {
+for (const path of ['/store']) {
  test(`${path}: filter submission stays on its current route and preserves all filters`,async()=>{
   const f=fixture({path});await f.resolve(0);f.edit('q','  هاتف  ');f.edit('cityCode','damascus');f.edit('categoryCode','shopping');f.submit();
   const [p,q]=f.navigations.at(-1).split('?');assert.equal(p,path);const params=new URLSearchParams(q);
@@ -72,10 +72,14 @@ for (const path of ['/store','/classifieds']) {
 test('store is named متجر خدمة rather than advertising an independent ads system',()=>{
  const f=fixture();assert.equal(f.h.find(n=>n.type==='PageHeader').props.title,'متجر خدمة');
 });
-test('classifieds declares its current product-offer scope instead of a fake independent ad submission',()=>{
- const f=fixture({path:'/classifieds'});assert.match(f.h.find(n=>n.type==='PageHeader').props.title,/إعلانات/);
- assert.match(f.h.text,/الإعلانات المستقلة/);assert.equal(f.h.find(n=>n.type==='ActionLink'&&n.props.children==='أضف إعلانًا'),undefined);
- assert.match(readSource('apps/frontend/app/classifieds/page.tsx'),/from '\.\.\/store\/page'/);
+test('classifieds is an independent source route and store no longer contains classifieds branching',()=>{
+ const classifieds=readSource('apps/frontend/app/classifieds/page.tsx');
+ const store=readSource('apps/frontend/app/store/page.tsx');
+ assert.doesNotMatch(classifieds,/\.\.\/store\/page|api\.products|ProductListing/);
+ assert.match(classifieds,/classifiedsApi\.list/);
+ assert.match(classifieds,/\/classifieds\/new/);
+ assert.match(classifieds,/\/classifieds\/manage/);
+ assert.doesNotMatch(store,/classifieds|isClassifieds/);
 });
 
 test('selected city waits for the canonical registry; no silent broadening',()=>{

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import { api, type ProductListing } from '../../lib/api-client';
 import { useCategories } from '../../lib/use-categories';
@@ -17,12 +17,8 @@ const EMPTY_FILTERS: StoreFilters = { q: '', categoryCode: '', cityCode: '' };
 
 function StoreContent() {
   const router = useRouter();
-  const pathname = usePathname();
   const params = useSearchParams();
-  // /classifieds currently reuses the product catalog, not an independent Ads API.
-  // Keep that limitation explicit and never silently navigate its searches to /store.
-  const basePath = pathname === '/classifieds' ? '/classifieds' : '/store';
-  const isClassifieds = basePath === '/classifieds';
+  const basePath = '/store';
   const applied: StoreFilters = {
     q: (params.get('q') ?? '').trim(),
     categoryCode: (params.get('categoryCode') ?? '').trim(),
@@ -96,10 +92,9 @@ function StoreContent() {
   function clearFilters() { setFilters(EMPTY_FILTERS); syncUrl(EMPTY_FILTERS); }
   const hasFilters = !!(filters.q || filters.categoryCode || filters.cityCode || applied.q || applied.categoryCode || applied.cityCode);
 
-  return <PageShell className={styles.page} label={isClassifieds ? 'الإعلانات المبوبة' : 'متجر خدمة'}>
-    <PageHeader eyebrow={isClassifieds ? 'عروض الأنشطة المحلية' : 'منتجات الأنشطة المحلية'} title={isClassifieds ? 'الإعلانات المبوبة' : 'متجر خدمة'} description="استكشف المنتجات والعروض المنشورة، ثم تواصل مباشرة مع النشاط. لا توجد مدفوعات أو طلبات شراء داخل هذه الصفحة." actions={<><ActionLink href="/store/sell">عرض منتج للبيع</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink></>} />
-    {isClassifieds && <StatusMessage>تعرض هذه الصفحة حالياً عروض منتجات المتجر. إنشاء الإعلانات المستقلة وحصتها ليس مفعّلاً بعد؛ إضافة منتج لا تعني نشر إعلان مستقل.</StatusMessage>}
-    <Surface as="form" className={styles.toolbar} onSubmit={search} role="search" aria-label={isClassifieds ? 'البحث في عروض الإعلانات' : 'البحث في المتجر'} aria-busy={loading}>
+  return <PageShell className={styles.page} label="متجر خدمة">
+    <PageHeader eyebrow="منتجات الأنشطة المحلية" title="متجر خدمة" description="استكشف المنتجات المنشورة، ثم تواصل مباشرة مع النشاط. لا توجد مدفوعات أو طلبات شراء داخل هذه الصفحة." actions={<><ActionLink href="/store/sell">عرض منتج للبيع</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink></>} />
+    <Surface as="form" className={styles.toolbar} onSubmit={search} role="search" aria-label="البحث في المتجر" aria-busy={loading}>
       <label className={styles.field}>ابحث عن منتج<input name="q" value={filters.q} onChange={(event) => setFilters((value) => ({ ...value, q: event.target.value }))} placeholder="مثال: لحوم، أثاث، هاتف"/></label>
       <label className={styles.field}>التصنيف<select name="categoryCode" value={filters.categoryCode} disabled={categoriesLoading || !!categoriesError} onChange={(event) => setFilters((value) => ({ ...value, categoryCode: event.target.value }))}><option value="">كل التصنيفات</option>{filters.categoryCode && !categories.some(item => item.code === filters.categoryCode) && <option value={filters.categoryCode}>التصنيف المحدد (غير متاح حالياً)</option>}<CategorySelectOptions categories={categories}/></select></label>
       <label className={styles.field}>المدينة<select name="cityCode" value={filters.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setFilters((value) => ({ ...value, cityCode: event.target.value }))}><option value="">كل المدن</option>{filters.cityCode && !cities.some(item => item.code === filters.cityCode) && <option value={filters.cityCode}>المدينة المحددة (غير متاحة حالياً)</option>}{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label>

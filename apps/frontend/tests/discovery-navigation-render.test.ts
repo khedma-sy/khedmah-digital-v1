@@ -38,7 +38,7 @@ for (const path of ['/', ...expectedLinks, '/mobility', '/users/me', '/store']) 
     assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), expectedLinks);
     for (const label of ['اكتشف', 'التصنيفات', 'بالقرب مني', 'تكسي', 'الإعلانات']) assert.ok(html.includes(label));
     const active = [...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*aria-current="page"/g)].map((match) => match[1]);
-    const expectedActive = path === '/store' ? ['/classifieds'] : path === '/mobility' ? ['/taxi'] : expectedLinks.includes(path) ? [path] : [];
+    const expectedActive = path === '/mobility' ? ['/taxi'] : expectedLinks.includes(path) ? [path] : [];
     assert.deepEqual(active, expectedActive);
     assert.doesNotMatch(html, /aria-hidden|tabindex="-1"|role="menu"/);
   });

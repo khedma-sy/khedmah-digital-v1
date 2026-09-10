@@ -19,7 +19,8 @@ test('store journey includes discovery, selling, owner management and public det
   assert.match(store, /params\.get\('q'\)/);
   assert.match(store, /params\.get\('cityCode'\)/);
   assert.match(store, /params\.get\('categoryCode'\)/);
-  assert.match(store, /pathname === '\/classifieds' \? '\/classifieds' : '\/store'/);
+  assert.match(store, /const basePath = '\/store'/);
+  assert.doesNotMatch(store, /classifieds|isClassifieds/);
   assert.match(store, /كل التصنيفات/);
   assert.match(store, /كل المدن/);
   assert.match(sell, /api\.businesses\.listMine/);
