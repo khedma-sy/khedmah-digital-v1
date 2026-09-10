@@ -23,10 +23,11 @@ for (const required of ['PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME', '--add-clo
   if (!joined.includes(required)) throw new Error(`Preview database isolation is missing: ${required}`);
 }
 
+const allowedPreviewStages = ['off','apply-025','verify-025','backend-on','frontend-on'];
 const previewStage = (await readFile('.github/classifieds-preview-stage', 'utf8')).trim();
-if (!['off','apply-025','backend-on','frontend-on'].includes(previewStage)) throw new Error('Invalid tracked Classifieds Preview stage');
+if (!allowedPreviewStages.includes(previewStage)) throw new Error('Invalid tracked Classifieds Preview stage');
 const previewStageResolver = await readFile('scripts/deployment/resolve-classifieds-preview-stage.sh', 'utf8');
-for (const required of ['apply-025','backend-on','frontend-on','APPLY_KHEDMAH_NONPROD_025_PREVIEW']) {
+for (const required of ['apply-025','verify-025','backend-on','frontend-on','APPLY_KHEDMAH_NONPROD_025_PREVIEW']) {
   if (!previewStageResolver.includes(required)) throw new Error(`Classifieds Preview stage resolver is missing: ${required}`);
 }
 if (!preview.includes('steps.classifieds-stage.outputs.backend_enabled') || !preview.includes('steps.classifieds-stage.outputs.frontend_enabled') || !preview.includes('steps.classifieds-stage.outputs.migration_mode')) throw new Error('Preview workflow must derive Classifieds activation from the tracked stage resolver');
@@ -38,7 +39,6 @@ for (const required of ['postgres:16', 'ALLOW_DESTRUCTIVE_DB_TESTS', 'STAGING_CL
 const stagingBuild = await readFile('cloudbuild.staging.yaml', 'utf8');
 if (!stagingBuild.includes('NEXT_PUBLIC_API_URL="${_NEXT_PUBLIC_API_URL}"')) throw new Error('Staging frontend must use the discovered isolated backend');
 if (!deployment.includes('CORS_ORIGIN=${frontend_url}') || !deployment.includes('verify-cors-preflight.mjs')) throw new Error('Isolated credentialed origins must be configured and verified');
-
 
 const previewDeployBlock = preview.slice(preview.indexOf('  deploy-preview:'), preview.indexOf('  review-evidence:'));
 const previewCleanupBlock = preview.slice(preview.indexOf('  cleanup-preview:'));
@@ -72,6 +72,10 @@ for (const buildFile of ['cloudbuild.preview.yaml', 'cloudbuild.staging.yaml']) 
 }
 for (const required of ['CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED}', 'ensure-classifieds-nonproduction-schema.sh', '_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}', 'Frontend Classifieds cannot be enabled before backend Classifieds', 'Backend Classifieds requires migration 025 verification before enablement']) {
   if (!deployment.includes(required)) throw new Error(`Classifieds deployment gate is missing: ${required}`);
+}
+const ensureClassifiedsSchema = await readFile('scripts/deployment/ensure-classifieds-nonproduction-schema.sh', 'utf8');
+for (const required of ['CLASSIFIEDS_025_FAILED_EXECUTION', 'CLASSIFIEDS_025_CONTAINER_LOGS_BEGIN', 'gcloud run jobs executions describe', 'gcloud logging read']) {
+  if (!ensureClassifiedsSchema.includes(required)) throw new Error(`Classifieds migration diagnostics are missing: ${required}`);
 }
 const classifiedsMigration = await readFile('scripts/deployment/run-classifieds-nonproduction-migration.sh', 'utf8');
 for (const required of ['025_classifieds', '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d', 'preview|staging', 'Refusing Classifieds migration 025 against the production project', 'MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE']) {

@@ -16,6 +16,12 @@ case "$stage" in
     migration_mode=apply
     migration_confirmation='APPLY_KHEDMAH_NONPROD_025_PREVIEW'
     ;;
+  verify-025)
+    backend_enabled=false
+    frontend_enabled=false
+    migration_mode=verify
+    migration_confirmation=''
+    ;;
   backend-on)
     backend_enabled=true
     frontend_enabled=false
