@@ -10,7 +10,7 @@ if (file("google-services.json").isFile) {
 
 android {
     namespace = "com.khedmah.digital"
-    compileSdk = 35
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -25,7 +25,7 @@ android {
             ?: ""
         applicationId = "com.khedmah.digital"
         minSdk = 23
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         val apiBaseUrl = providers.gradleProperty("KHEDMAH_API_BASE_URL").orNull ?: ""
