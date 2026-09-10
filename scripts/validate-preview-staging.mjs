@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 const requiredFiles = [
   '.github/workflows/preview-deployment.yml', '.github/workflows/staging-deployment.yml',
   'cloudbuild.preview.yaml', 'cloudbuild.preview-backend.yaml', 'cloudbuild.staging.yaml', 'cloudbuild.staging-backend.yaml', 'scripts/deployment/verify-cors-preflight.mjs',
-  'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/cleanup-preview.sh',
+  'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/ensure-classifieds-nonproduction-schema.sh',
+  'scripts/deployment/run-classifieds-nonproduction-migration.sh', 'Dockerfile.classifieds-migration', 'cloudbuild.classifieds-migration.yaml', 'scripts/deployment/cleanup-preview.sh',
   'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
   'docs/deployment/PREVIEW-STAGING-ARCHITECTURE.md', 'docs/deployment/OWNER-REVIEW-GUIDE.md'
 ];
@@ -28,4 +29,39 @@ for (const required of ['postgres:16', 'ALLOW_DESTRUCTIVE_DB_TESTS', 'STAGING_CL
 const stagingBuild = await readFile('cloudbuild.staging.yaml', 'utf8');
 if (!stagingBuild.includes('NEXT_PUBLIC_API_URL="${_NEXT_PUBLIC_API_URL}"')) throw new Error('Staging frontend must use the discovered isolated backend');
 if (!deployment.includes('CORS_ORIGIN=${frontend_url}') || !deployment.includes('verify-cors-preflight.mjs')) throw new Error('Isolated credentialed origins must be configured and verified');
+
+
+const previewDeployBlock = preview.slice(preview.indexOf('  deploy-preview:'), preview.indexOf('  review-evidence:'));
+const previewCleanupBlock = preview.slice(preview.indexOf('  cleanup-preview:'));
+for (const required of [
+  "CLASSIFIEDS_ENABLED: ${{ vars.CLASSIFIEDS_ENABLED || 'false' }}",
+  "NEXT_PUBLIC_CLASSIFIEDS_ENABLED: ${{ vars.NEXT_PUBLIC_CLASSIFIEDS_ENABLED || 'false' }}",
+  "CLASSIFIEDS_MIGRATION_025_MODE: ${{ vars.CLASSIFIEDS_MIGRATION_025_MODE || 'off' }}",
+  "CLASSIFIEDS_MIGRATION_025_CONFIRMATION: ${{ vars.CLASSIFIEDS_MIGRATION_025_CONFIRMATION || '' }}"
+]) {
+  if (!previewDeployBlock.includes(required)) throw new Error(`Preview deploy is missing Classifieds rollout input: ${required}`);
+  if (previewCleanupBlock.includes(required)) throw new Error(`Preview cleanup must not receive Classifieds rollout input: ${required}`);
+  if (!staging.includes(required)) throw new Error(`Staging deploy is missing Classifieds rollout input: ${required}`);
+}
+
+const frontendDocker = await readFile('Dockerfile.frontend', 'utf8');
+for (const required of ['ARG NEXT_PUBLIC_CLASSIFIEDS_ENABLED=false', 'NEXT_PUBLIC_CLASSIFIEDS_ENABLED=$NEXT_PUBLIC_CLASSIFIEDS_ENABLED']) {
+  if (!frontendDocker.includes(required)) throw new Error(`Classifieds frontend build flag is missing: ${required}`);
+}
+for (const buildFile of ['cloudbuild.preview.yaml', 'cloudbuild.staging.yaml']) {
+  const build = await readFile(buildFile, 'utf8');
+  if (!build.includes('NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"') || !build.includes('_NEXT_PUBLIC_CLASSIFIEDS_ENABLED: "false"')) {
+    throw new Error(`${buildFile} must compile Classifieds from an explicit default-false build substitution`);
+  }
+}
+for (const required of ['CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED}', 'ensure-classifieds-nonproduction-schema.sh', '_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}', 'Frontend Classifieds cannot be enabled before backend Classifieds', 'Backend Classifieds requires migration 025 verification before enablement']) {
+  if (!deployment.includes(required)) throw new Error(`Classifieds deployment gate is missing: ${required}`);
+}
+const classifiedsMigration = await readFile('scripts/deployment/run-classifieds-nonproduction-migration.sh', 'utf8');
+for (const required of ['025_classifieds', '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d', 'preview|staging', 'Refusing Classifieds migration 025 against the production project', 'MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE']) {
+  if (!classifiedsMigration.includes(required)) throw new Error(`Classifieds migration safety gate is missing: ${required}`);
+}
+const productionOperator = await readFile('.github/workflows/production-operator.yml', 'utf8');
+if (productionOperator.includes('APPLY_MIGRATION_025') || productionOperator.includes('025_classifieds')) throw new Error('Migration 025 must not be exposed through the Production operator');
+
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);

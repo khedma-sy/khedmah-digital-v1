@@ -1,0 +1,8 @@
+FROM postgres:16-alpine
+
+COPY backend/migrations/versions/025_classifieds.sql /migrations/025_classifieds.sql
+COPY scripts/deployment/run-classifieds-nonproduction-migration.sh /usr/local/bin/run-classifieds-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-classifieds-nonproduction-migration /migrations/025_classifieds.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-classifieds-nonproduction-migration"]
