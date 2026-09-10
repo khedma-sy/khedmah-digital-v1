@@ -47,6 +47,16 @@ test('staging deployment configuration preflight reports every missing protected
   assert.match(result.stderr, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME/);
 });
 
+test('staging deployment configuration preflight rejects duplicate cloud and Firebase identities before authentication', () => {
+  const duplicateCloud = run({ STAGING_GOOGLE_CLOUD_PROJECT: valid.PREVIEW_GOOGLE_CLOUD_PROJECT });
+  assert.equal(duplicateCloud.status, 2);
+  assert.match(duplicateCloud.stderr, /GOOGLE_CLOUD_PROJECT identities must be unique/);
+
+  const duplicateFirebase = run({ STAGING_FIREBASE_PROJECT_ID: valid.PRODUCTION_FIREBASE_PROJECT_ID });
+  assert.equal(duplicateFirebase.status, 2);
+  assert.match(duplicateFirebase.stderr, /FIREBASE_PROJECT_ID identities must be unique/);
+});
+
 test('staging deployment configuration preflight rejects malformed WIF and service-account identities', () => {
   const malformedProvider = run({ GCP_WORKLOAD_IDENTITY_PROVIDER: 'preview-provider' });
   assert.equal(malformedProvider.status, 2);

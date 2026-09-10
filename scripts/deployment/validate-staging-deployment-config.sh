@@ -31,6 +31,31 @@ if ((${#missing[@]})); then
   exit 2
 fi
 
+assert_unique() {
+  local family="$1"
+  shift
+  local -A seen=()
+  local value
+  for value in "$@"; do
+    if [[ -n "${seen[$value]:-}" ]]; then
+      echo "::error::${family} identities must be unique across development, preview, staging, and production before GCP authentication." >&2
+      exit 2
+    fi
+    seen[$value]=1
+  done
+}
+
+assert_unique GOOGLE_CLOUD_PROJECT \
+  "$DEVELOPMENT_GOOGLE_CLOUD_PROJECT" \
+  "$PREVIEW_GOOGLE_CLOUD_PROJECT" \
+  "$STAGING_GOOGLE_CLOUD_PROJECT" \
+  "$PRODUCTION_GOOGLE_CLOUD_PROJECT"
+assert_unique FIREBASE_PROJECT_ID \
+  "$DEVELOPMENT_FIREBASE_PROJECT_ID" \
+  "$PREVIEW_FIREBASE_PROJECT_ID" \
+  "$STAGING_FIREBASE_PROJECT_ID" \
+  "$PRODUCTION_FIREBASE_PROJECT_ID"
+
 case "$GCP_WORKLOAD_IDENTITY_PROVIDER" in
   projects/*/locations/global/workloadIdentityPools/*/providers/*) ;;
   *)
