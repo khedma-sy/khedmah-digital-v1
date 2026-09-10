@@ -58,4 +58,8 @@ test('Staging workflow uses repository stage outputs and never production rollou
   assert.doesNotMatch(text, /vars\.CLASSIFIEDS_ENABLED/);
   assert.doesNotMatch(text, /vars\.NEXT_PUBLIC_CLASSIFIEDS_ENABLED/);
   assert.doesNotMatch(text, /APPLY_KHEDMAH_NONPROD_025_PRODUCTION/);
+  assert.match(text, /classifieds-staging-acceptance:/);
+  assert.match(text, /needs\.deploy-staging\.outputs\.classifieds_frontend_enabled == 'true'/);
+  assert.match(text, /check-classifieds-preview-acceptance\.mjs/);
+  assert.match(text, /EVIDENCE_DIR: staging-evidence/);
 });
