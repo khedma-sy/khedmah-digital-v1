@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { assessAdForModeration } from './ad-moderation-assessment';
 import { AdService } from './ad.service';
 
 @Controller('classifieds')
@@ -53,7 +54,10 @@ export class AdminAdController {
   constructor(@Inject(AdService) private readonly ads: AdService) {}
 
   @Get('pending')
-  async pending(@Headers('cookie') cookie: string | undefined) { return { ads: await this.ads.listPending(cookie) }; }
+  async pending(@Headers('cookie') cookie: string | undefined) {
+    const ads = await this.ads.listPending(cookie);
+    return { ads: ads.map((ad) => ({ ...ad, smartAdmin: assessAdForModeration(ad) })) };
+  }
 
   @Patch(':id/moderation')
   async moderate(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: unknown) {
