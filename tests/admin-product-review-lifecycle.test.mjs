@@ -20,7 +20,9 @@ function fixture() {
   const api = { moderation: { listPending: async () => ({ businesses: [], professionals: [] }), listReports: async () => ({ reports: [] }) },
     adminProducts: { pending: async () => { queueReads++; if (queueFailure) throw queueFailure; return { products: [{ ...product }] }; }, review: async (...args) => { calls.push(args); if (failure) throw failure; return { product }; } } };
   const jsx = (type, props) => ({ type, props });
-  const page = load(read('apps/frontend/app/admin/moderation/page.tsx'), { react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../../../lib/api-client': { api } },
+  const page = load(read('apps/frontend/app/admin/moderation/page.tsx'), { react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../../../lib/api-client': { api },
+    '../../../lib/classifieds-client': { adminClassifiedsApi: { pending: async () => ({ ads: [] }) } },
+    '../../../lib/classifieds': { CLASSIFIEDS_ENABLED: false, AD_KIND_LABELS: {}, formatAdPrice: () => '' } },
     { window: { requestAnimationFrame: fn => fn() }, document: { activeElement: null, addEventListener() {}, removeEventListener() {} }, HTMLElement: class {} });
   function render() { let n = 0; do { cursor = 0; dirty = false; tree = page.default(); const effects = [...pending]; pending.clear(); for (const [i, setup] of effects) { slots[i].cleanup?.(); slots[i].cleanup = setup(); } assert.ok(++n < 20); } while (dirty); }
   function* walk(n) { if (Array.isArray(n)) { for (const v of n) yield* walk(v); } else if (n && typeof n === 'object') { yield n; yield* walk(n.props?.children); } }
