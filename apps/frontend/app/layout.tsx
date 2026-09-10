@@ -85,6 +85,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </header>
         <SmartAssistant />
         {children}
+        <footer className="khedma-footer" aria-label="روابط قانونية">
+          <Link href="/privacy">سياسة الخصوصية</Link>
+          <Link href="/terms">شروط الاستخدام</Link>
+          <Link href="/delete-account">حذف الحساب</Link>
+        </footer>
       </body>
     </html>
   );

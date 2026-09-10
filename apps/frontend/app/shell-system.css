@@ -50,3 +50,11 @@
   .khedma-header .nav-discovery-group a{grid-column:span 2;padding-inline:.5rem;font-size:.75rem;white-space:normal;text-align:center}
   .khedma-header .nav-discovery-group a:nth-last-child(-n+2){grid-column:span 3}
 }
+
+.khedma-footer{display:flex;flex-wrap:wrap;justify-content:center;gap:.65rem 1rem;padding:1rem max(1rem,env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left));border-top:1px solid var(--k-color-border);background:var(--k-glass);color:var(--k-color-text-muted);font-size:.86rem}
+.khedma-footer a{color:inherit;text-decoration:none}
+.khedma-footer a:hover,.khedma-footer a:focus-visible{color:var(--k-color-primary);text-decoration:underline;text-underline-offset:.2em}
+.khedma-legal-grid{display:grid;gap:1rem;max-width:68rem;margin-inline:auto}
+.khedma-legal-grid>section,.khedma-legal-grid>article,.khedma-legal-grid>div{padding:clamp(1rem,2vw,1.5rem)}
+.khedma-legal-grid h2{margin-block:0 .5rem;font-size:var(--k-type-card)}
+.khedma-legal-grid p,.khedma-legal-grid li{line-height:1.85}
