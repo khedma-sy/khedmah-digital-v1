@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { hashPassword } from '../security/password-security';
 import { IdentityRepository } from '../identity.repository';
@@ -36,6 +36,13 @@ function validateBootstrapRequest(req: BootstrapAdminRequest): { email: string; 
   };
 }
 
+function secretMatches(provided: string | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const providedDigest = createHash('sha256').update(provided).digest();
+  const expectedDigest = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
+
 @Injectable()
 export class BootstrapAdminService {
   constructor(
@@ -56,7 +63,7 @@ export class BootstrapAdminService {
       throw new ForbiddenException('Bootstrap is not available.');
     }
 
-    if (!providedSecret || providedSecret !== expectedSecret) {
+    if (!secretMatches(providedSecret, expectedSecret)) {
       throw new ForbiddenException('Bootstrap secret invalid.');
     }
 
