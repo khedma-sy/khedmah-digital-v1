@@ -33,6 +33,11 @@
     "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
+  "allowScripts": {
+    "@firebase/util@1.15.1": true,
+    "esbuild@0.25.12": true,
+    "protobufjs@7.6.5": true
+  },
   "overrides": {
     "next": {
       "postcss": "8.5.24",
