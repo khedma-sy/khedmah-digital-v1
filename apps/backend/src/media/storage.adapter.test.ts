@@ -12,7 +12,7 @@ afterEach(() => {
   else process.env.GCS_MEDIA_BUCKET = originalBucket;
 });
 
-for (const environment of ['production', 'preview', 'staging']) {
+for (const environment of ['production', 'staging']) {
   test(`media storage fails closed without GCS_MEDIA_BUCKET in ${environment}`, () => {
     process.env.NODE_ENV = environment;
     delete process.env.GCS_MEDIA_BUCKET;
@@ -24,14 +24,19 @@ for (const environment of ['production', 'preview', 'staging']) {
   });
 }
 
-test('media storage fails closed when deployed bucket is blank', () => {
+test('media storage fails closed when durable environment bucket is blank', () => {
   process.env.NODE_ENV = 'production';
   process.env.GCS_MEDIA_BUCKET = '   ';
-
   assert.throws(() => createStorageAdapter(), /Refusing ephemeral media storage/);
 });
 
-test('media storage remains local only for development and test-style environments', () => {
+test('isolated preview may use disposable local media when no preview bucket exists', () => {
+  process.env.NODE_ENV = 'preview';
+  delete process.env.GCS_MEDIA_BUCKET;
+  assert.ok(createStorageAdapter() instanceof LocalStorageAdapter);
+});
+
+test('media storage remains local for development and test-style environments', () => {
   process.env.NODE_ENV = 'development';
   delete process.env.GCS_MEDIA_BUCKET;
   assert.ok(createStorageAdapter() instanceof LocalStorageAdapter);
@@ -40,8 +45,8 @@ test('media storage remains local only for development and test-style environmen
   assert.ok(createStorageAdapter() instanceof LocalStorageAdapter);
 });
 
-test('configured media storage uses GCS', () => {
-  process.env.NODE_ENV = 'production';
+test('configured media storage uses GCS in any environment', () => {
+  process.env.NODE_ENV = 'preview';
   process.env.GCS_MEDIA_BUCKET = 'khedmah-media-fixture';
   assert.ok(createStorageAdapter() instanceof GcsStorageAdapter);
 });
