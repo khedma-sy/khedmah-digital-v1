@@ -5,6 +5,7 @@ import test from 'node:test';
 const deploy = await readFile(new URL('../scripts/google-production-deploy.sh', import.meta.url), 'utf8');
 const rollback = await readFile(new URL('../scripts/google-production-rollback.sh', import.meta.url), 'utf8');
 const certification = await readFile(new URL('../scripts/run-live-production-certification.sh', import.meta.url), 'utf8');
+const evidence = await readFile(new URL('../scripts/collect-live-production-evidence.sh', import.meta.url), 'utf8');
 
 test('manual Production deployment is explicitly approved, project-bound and locked to latest main', () => {
   assert.match(deploy, /OPERATIONS_APPROVED_PRODUCTION/);
@@ -45,4 +46,16 @@ test('live Production certification observes serving traffic and fails back to t
   assert.match(certification, /google-production-rollback\.sh "\$after_backend" "\$after_frontend"/);
   assert.doesNotMatch(certification, /gcloud run services update-traffic/);
   assert.match(certification, /collect-live-production-evidence\.sh/);
+});
+
+test('live evidence collection is bound to the explicit Production project and deployer identity', () => {
+  assert.match(evidence, /PRODUCTION_GOOGLE_CLOUD_PROJECT/);
+  assert.match(evidence, /GOOGLE_CLOUD_PROJECT.*PRODUCTION_GOOGLE_CLOUD_PROJECT/s);
+  assert.match(evidence, /gcloud auth list/);
+  assert.match(evidence, /active_account.*OPERATIONS_DEPLOYER_SERVICE_ACCOUNT/s);
+  assert.match(evidence, /alert-policies\.json/);
+  assert.match(evidence, /logging-signal\.json/);
+  assert.match(evidence, /certificates\.json/);
+  assert.match(evidence, /dns-zones\.json/);
+  assert.doesNotMatch(evidence, /secrets versions access/);
 });
