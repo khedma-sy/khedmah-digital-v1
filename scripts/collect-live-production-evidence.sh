@@ -7,7 +7,7 @@ mkdir -p "$output"
 chmod 700 "$output"
 required=(gcloud jq)
 for command_name in "${required[@]}"; do
-  command -v "$command_name" >/dev/null 2>&1 || { echo "Missing required command: $command_name" >&2; exit 3; }
+  command -v "$command_name" >/dev/null 2>&1 || { echo "missing required command: $command_name" >&2; exit 3; }
 done
 for name in \
   GOOGLE_CLOUD_PROJECT \
