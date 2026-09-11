@@ -9,6 +9,7 @@ import { RateLimitRepository } from './database/rate-limit.repository';
 import { createRequestContextMiddleware } from './middleware/request-context.middleware';
 import { configuredOrigins, createCsrfOriginMiddleware } from './middleware/csrf-origin.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
+import { createSecurityHeadersMiddleware } from './middleware/security-headers.middleware';
 
 export async function createBackendApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -19,6 +20,8 @@ export async function createBackendApp() {
   const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use(createSecurityHeadersMiddleware());
   app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
