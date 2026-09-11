@@ -7,6 +7,7 @@ locals {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com",
+    "storage.googleapis.com",
     "sts.googleapis.com",
   ])
 
@@ -19,6 +20,7 @@ locals {
     "roles/secretmanager.viewer",
     "roles/serviceusage.serviceUsageConsumer",
     "roles/serviceusage.serviceUsageViewer",
+    "roles/storage.bucketViewer",
   ])
 }
 

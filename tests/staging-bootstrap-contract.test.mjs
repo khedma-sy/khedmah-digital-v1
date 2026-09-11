@@ -39,11 +39,14 @@ test('bootstrap provider enforces the same workflow_ref claim family used by the
   assert.match(bootstrap, /google_service_account\.deployer\.name/);
 });
 
-test('staging bootstrap enables Cloud SQL API, grants least-privilege SQL read/client roles and creates runtime secret containers only', () => {
+test('staging bootstrap enables Cloud SQL and Storage APIs, grants metadata-only bucket visibility, and creates runtime secret containers only', () => {
   assert.match(bootstrap, /sqladmin\.googleapis\.com/);
+  assert.match(bootstrap, /storage\.googleapis\.com/);
   assert.match(bootstrap, /roles\/cloudsql\.client/);
   assert.match(bootstrap, /roles\/cloudsql\.viewer/);
   assert.match(bootstrap, /roles\/serviceusage\.serviceUsageViewer/);
+  assert.match(bootstrap, /roles\/storage\.bucketViewer/);
+  assert.doesNotMatch(bootstrap, /roles\/storage\.admin/);
   assert.doesNotMatch(bootstrap, /google_sql_database_instance/);
   assert.doesNotMatch(bootstrap, /secret_data\s*=/);
   for (const secret of ['DATABASE_URL', 'FIREBASE_API_KEY', 'OPERATIONS_PRODUCT_ROLE_BINDINGS', 'RESEND_API_KEY']) {

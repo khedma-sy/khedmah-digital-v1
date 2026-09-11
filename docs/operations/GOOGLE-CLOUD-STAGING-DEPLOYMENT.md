@@ -6,7 +6,7 @@ This runbook builds the bounded backend and frontend images with Cloud Build and
 
 `infra/iac/bootstrap` prepares only the shared Staging foundation: required Google APIs, Artifact Registry, runtime/deployer service accounts, Workload Identity Federation, runtime secret **containers**, and the minimum IAM needed for deployment/runtime access. It does not create a Cloud SQL database instance, populate secret values, create the media bucket, apply application migrations, or deploy Cloud Run services.
 
-The bootstrap API set includes Cloud Run, Cloud Build, Artifact Registry, Secret Manager and Cloud SQL Admin. The runtime identity receives `roles/cloudsql.client`; the deployer receives read-only Cloud SQL and Service Usage visibility in addition to its existing deployment roles. Secret values continue to be managed outside Terraform.
+The bootstrap API set includes Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Cloud SQL Admin and Cloud Storage. The runtime identity receives `roles/cloudsql.client`; the deployer receives read-only Cloud SQL, Service Usage and Cloud Storage bucket-metadata visibility (`roles/storage.bucketViewer`) in addition to its existing deployment roles. The bucket-viewer role does not grant object read/write access; runtime media-object permissions remain configured on the pre-existing private bucket outside this stack. Secret values continue to be managed outside Terraform.
 
 For an existing project with manually created resources, import/reconcile them before applying Terraform. Do not create duplicate resources or overwrite an existing secret value merely to satisfy the bootstrap stack.
 
@@ -44,7 +44,7 @@ Before deployment, Staging must have an enabled `latest` version for the runtime
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
 
-The repository never prints these values. `scripts/deployment/validate-staging-cloud-resources.sh` checks only API/resource metadata and secret-version state after WIF authentication; it never calls `secrets versions access`, never enables an API, and never creates or updates a cloud resource.
+The repository never prints these values. `scripts/deployment/validate-staging-cloud-resources.sh` checks only API/resource metadata, media-bucket metadata and secret-version state after WIF authentication; it never calls `secrets versions access`, never writes a storage object, never enables an API, and never creates or updates a cloud resource.
 
 ## Cloud resources that must already exist
 
@@ -56,7 +56,7 @@ The following are deployment prerequisites, not side effects of the application 
 4. A private media bucket referenced by `STAGING_GCS_MEDIA_BUCKET`, with the runtime identity authorized for the required object operations.
 5. Enabled secret versions listed above.
 
-The cloud-resource preflight verifies the first, second and secret-version state. Bucket existence/IAM is deliberately proved through authenticated media acceptance after deployment rather than by granting the deployer unnecessary storage permissions.
+The cloud-resource preflight verifies the Artifact Registry repository, Cloud SQL instance, the media bucket's existence/readability to the deployer identity, and secret-version state. It does **not** prove runtime object read/write/delete IAM; that remains an authenticated post-deploy media acceptance gate.
 
 ## Deployment flow
 
