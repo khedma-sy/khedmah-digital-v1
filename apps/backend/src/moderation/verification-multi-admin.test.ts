@@ -17,7 +17,7 @@ test('two authorized administrators cannot overwrite the same verification decis
   const reviewerAEmail = 'verification-admin-a@example.test';
   const reviewerBEmail = 'verification-admin-b@example.test';
   const profile = 'profile_verification_multi_admin_1234';
-  const professional = 'professional_verification_multi_admin_1234';
+  const professional = 'professional_profile_verification_multi_admin_1234';
   const requestId = 'verification-multi-admin-current';
 
   try {
