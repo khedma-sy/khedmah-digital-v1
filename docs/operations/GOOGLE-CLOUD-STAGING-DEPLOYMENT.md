@@ -1,51 +1,119 @@
 # Google Cloud staging deployment
 
-This runbook builds the bounded V1 backend and frontend images with Cloud Build and deploys them directly to Cloud Run. It does not use the Cloud Run console wizard and does not store credentials, secrets, or deployment URLs in the repository.
+This runbook builds the bounded backend and frontend images with Cloud Build and deploys them directly to the isolated Staging project. It does not use the Cloud Run console wizard, does not expose secret values, and does not authorize Production deployment.
 
-## One-time project setup
+## Bootstrap boundary
 
-Set the values for the target project and operator-selected immutable image tag. The tag should identify the source revision being deployed.
+`infra/iac/bootstrap` prepares only the shared Staging foundation: required Google APIs, Artifact Registry, runtime/deployer service accounts, Workload Identity Federation, runtime secret **containers**, and the minimum IAM needed for deployment/runtime access. It does not create a Cloud SQL database instance, populate secret values, create the media bucket, apply application migrations, or deploy Cloud Run services.
+
+The bootstrap API set includes Cloud Run, Cloud Build, Artifact Registry, Secret Manager and Cloud SQL Admin. The runtime identity receives `roles/cloudsql.client`; the deployer receives read-only Cloud SQL and Service Usage visibility in addition to its existing deployment roles. Secret values continue to be managed outside Terraform.
+
+For an existing project with manually created resources, import/reconcile them before applying Terraform. Do not create duplicate resources or overwrite an existing secret value merely to satisfy the bootstrap stack.
+
+## Required protected Staging configuration
+
+The protected `staging` GitHub environment must define isolated Staging identities and resource references. In addition to the development/preview/production separation variables, the deployment requires:
+
+- `STAGING_GOOGLE_CLOUD_PROJECT`
+- `STAGING_GOOGLE_CLOUD_PROJECT_NUMBER`
+- `GOOGLE_CLOUD_REGION`
+- `STAGING_ARTIFACT_REPOSITORY`
+- `STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME`
+- `STAGING_GCS_MEDIA_BUCKET`
+- `STAGING_EMAIL_FROM`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT`
+- `GCP_STAGING_RUNTIME_SERVICE_ACCOUNT`
+
+The Cloud SQL connection name must belong to the selected Staging project and region. The project, Firebase project, WIF provider and service accounts must remain isolated from Preview and Production.
+
+## Required Secret Manager versions
+
+Before deployment, Staging must have an enabled `latest` version for the runtime/build secrets used by the current source:
+
+- `DATABASE_URL`
+- `OPERATIONS_PRODUCT_ROLE_BINDINGS`
+- `FIREBASE_API_KEY`
+- `RESEND_API_KEY`
+- `GOOGLE_MAPS_BROWSER_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+
+The repository never prints these values. `scripts/deployment/validate-staging-cloud-resources.sh` checks only API/resource metadata and secret-version state after WIF authentication; it never calls `secrets versions access`, never enables an API, and never creates or updates a cloud resource.
+
+## Cloud resources that must already exist
+
+The following are deployment prerequisites, not side effects of the application deployment workflow:
+
+1. The Artifact Registry repository in the selected Staging region.
+2. A Cloud SQL instance matching `STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME`.
+3. The Staging database and valid `DATABASE_URL` secret value.
+4. A private media bucket referenced by `STAGING_GCS_MEDIA_BUCKET`, with the runtime identity authorized for the required object operations.
+5. Enabled secret versions listed above.
+
+The cloud-resource preflight verifies the first, second and secret-version state. Bucket existence/IAM is deliberately proved through authenticated media acceptance after deployment rather than by granting the deployer unnecessary storage permissions.
+
+## Deployment flow
+
+The GitHub Staging workflow runs, in order:
+
+1. source build/tests/security/deployment contract gates against disposable PostgreSQL;
+2. protected configuration validation **before** Google authentication;
+3. WIF authentication into the isolated Staging project;
+4. environment-separation validation;
+5. read-only cloud-resource preflight;
+6. optional Classifieds 025 verification/apply stage according to its protected rollout marker;
+7. backend image build;
+8. read-only release data-integrity Cloud Run Job;
+9. backend service deployment;
+10. frontend build using the authoritative backend URL;
+11. frontend deployment;
+12. backend `CORS_ORIGIN` and `NEXT_PUBLIC_SITE_URL` binding to the authoritative Staging frontend URL;
+13. backend/frontend health and credentialed CORS preflight;
+14. six runtime health observations and, when enabled, Classifieds browser acceptance.
+
+The backend Staging revision receives persistent Cloud SQL plus these production-like runtime bindings:
+
+- `DATABASE_URL`
+- `OPERATIONS_PRODUCT_ROLE_BINDINGS`
+- `FIREBASE_API_KEY`
+- `RESEND_API_KEY`
+- `GCS_MEDIA_BUCKET`
+- `EMAIL_FROM`
+
+This is required for authenticated admin/reviewer acceptance, social sign-in verification, verification/recovery mail, and persistent media behavior. A Staging backend that only returns a green `/health` response without these bindings is not accepted as a production-like test environment.
+
+Taxi trips remain explicitly disabled by this deployment path while the Taxi SQL is candidate-only. Preview/Staging deployment refuses `TAXI_TRIPS_ENABLED=true` until a reviewed migration/role/rollback path replaces the candidate schema.
+
+## Manual operator path
+
+For a controlled manual Staging deployment from the repository root, select only the isolated Staging project and export the same protected references used by CI:
 
 ```bash
-export PROJECT_ID="YOUR_GOOGLE_CLOUD_PROJECT_ID"
-export REGION="me-central1"
-export REPOSITORY="khedmah-staging"
-export IMAGE_TAG="$(git rev-parse --short=12 HEAD)"
-
-gcloud config set project "${PROJECT_ID}"
-gcloud services enable artifactregistry.googleapis.com cloudbuild.googleapis.com run.googleapis.com
-gcloud artifacts repositories describe "${REPOSITORY}" --location="${REGION}" >/dev/null 2>&1 || \
-  gcloud artifacts repositories create "${REPOSITORY}" \
-    --repository-format=docker \
-    --location="${REGION}" \
-    --description="Khedmah Digital staging images"
-```
-
-The operator must have permission to submit builds, upload images, deploy Cloud Run services, and change the public invoker policy. Organization policy may prohibit public invocation; in that case, omit `--allow-unauthenticated` rather than weakening the policy.
-
-## Deploy the matching backend and frontend
-
-Use the shared, tested deployment script from the repository root. Supply the isolated Staging project, region, runtime identity and existing Cloud SQL connection name. The connection must belong to the same project and region; the script refuses the Production project before making cloud calls.
-
-```bash
-export GOOGLE_CLOUD_PROJECT="${PROJECT_ID}"
-export GOOGLE_CLOUD_REGION="${REGION}"
-export ARTIFACT_REPOSITORY="${REPOSITORY}"
+export GOOGLE_CLOUD_PROJECT="YOUR_STAGING_PROJECT_ID"
+export GOOGLE_CLOUD_REGION="YOUR_STAGING_REGION"
+export ARTIFACT_REPOSITORY="YOUR_STAGING_ARTIFACT_REPOSITORY"
 export RUNTIME_SERVICE_ACCOUNT="YOUR_STAGING_RUNTIME_SERVICE_ACCOUNT"
-export CLOUD_SQL_INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:YOUR_STAGING_SQL_INSTANCE"
+export CLOUD_SQL_INSTANCE_CONNECTION_NAME="YOUR_STAGING_PROJECT_ID:YOUR_STAGING_REGION:YOUR_STAGING_SQL_INSTANCE"
+export GCS_MEDIA_BUCKET="YOUR_STAGING_MEDIA_BUCKET"
+export EMAIL_FROM="YOUR_VERIFIED_STAGING_SENDER"
 export PRODUCTION_GOOGLE_CLOUD_PROJECT="YOUR_PRODUCTION_PROJECT_ID_FOR_EXCLUSION"
-scripts/deployment/deploy-cloud-run-environment.sh staging "${IMAGE_TAG}"
+
+scripts/deployment/validate-staging-cloud-resources.sh
+scripts/deployment/deploy-cloud-run-environment.sh staging "$(git rev-parse HEAD)"
 ```
 
-The existing `DATABASE_URL` secret must reference the isolated Staging database, and the runtime identity must already have permission to access that secret and connect to that Cloud SQL instance. This procedure references the secret by name; it does not create it or print its value. Staging's Firebase and Maps build values must also already exist in that project's Secret Manager.
+Do not paste secret payloads into shell history. The deployment script references Secret Manager by secret name only.
 
-The script builds and deploys the backend with `cloudbuild.staging-backend.yaml`, reads its authoritative Cloud Run URL, then passes that URL to `cloudbuild.staging.yaml` as the frontend's `NEXT_PUBLIC_API_URL` build argument. Next.js embeds this public value during the build; setting it only on an already-built frontend revision is insufficient.
+## Acceptance boundary
 
-After deploying the frontend, the script reads its authoritative URL and sets the backend's `CORS_ORIGIN` to that exact origin. Both health checks and a credentialed-origin OPTIONS preflight must pass before the script reports success. HTTPS Preview and Staging session cookies use Secure and SameSite=None; the CSRF origin middleware requires the configured isolated frontend origin.
+A successful deploy proves only the executed deployment and health checks. Before Staging can satisfy the release gate, use test-only accounts to exercise registration/login/recovery or approved external sign-in, owner media persistence across service revisions, owner/reviewer/admin authorization including multi-admin conflict handling, and any enabled Classifieds flows. Media acceptance must prove that an uploaded object remains readable after a new instance/revision rather than relying on process-local storage.
 
-For GitHub deployment, configure `STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME` in the protected `staging` environment. The workflow supplies disposable PostgreSQL to all tests, preserving the destructive-test guard. Deployment still requires an approved push to `develop` and the environment's existing review policy. A passing mocked deployment-flow test does not establish that Staging resources or permissions are provisioned.
+The Staging frontend URL can be used as `STAGING_FRONTEND_URL` for the protected Preview visual baseline only after this environment is healthy and approved. Never substitute Production or Preview as that baseline.
 
-## Deployment boundary
-
-The two build files create and push application containers only. The `gcloud run deploy` commands create new revisions and move traffic through Cloud Run. Database provisioning, migrations, secret creation, custom domains, and production deployment remain outside this staging runbook.
-
+Database provisioning, destructive account-deletion lifecycle, Taxi candidate-schema promotion, custom Production domains, and Production deployment remain outside this runbook.

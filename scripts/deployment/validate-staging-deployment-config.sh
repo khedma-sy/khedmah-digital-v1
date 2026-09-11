@@ -17,6 +17,8 @@ required=(
   GOOGLE_CLOUD_REGION
   STAGING_ARTIFACT_REPOSITORY
   STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME
+  STAGING_GCS_MEDIA_BUCKET
+  STAGING_EMAIL_FROM
 )
 
 missing=()
@@ -85,6 +87,22 @@ done
 
 if [[ "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" == "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" ]]; then
   echo '::error::Staging deployer and runtime service accounts must be distinct identities.' >&2
+  exit 2
+fi
+
+expected_sql_prefix="${STAGING_GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"
+if [[ "$STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME" != "${expected_sql_prefix}"* ]]; then
+  echo '::error::STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME must belong to the Staging project and configured region.' >&2
+  exit 2
+fi
+
+if [[ ! "$STAGING_GCS_MEDIA_BUCKET" =~ ^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$ ]]; then
+  echo '::error::STAGING_GCS_MEDIA_BUCKET is not a valid Cloud Storage bucket name.' >&2
+  exit 2
+fi
+
+if [[ ! "$STAGING_EMAIL_FROM" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+  echo '::error::STAGING_EMAIL_FROM must be a valid sender email address.' >&2
   exit 2
 fi
 

@@ -21,7 +21,9 @@ const valid = {
   PRODUCTION_FIREBASE_PROJECT_ID: 'khedmah-production-firebase',
   GOOGLE_CLOUD_REGION: 'me-central1',
   STAGING_ARTIFACT_REPOSITORY: 'khedmah-staging',
-  STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging:me-central1:khedmah-staging-db'
+  STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging:me-central1:khedmah-staging-db',
+  STAGING_GCS_MEDIA_BUCKET: 'khedmah-staging-media',
+  STAGING_EMAIL_FROM: 'noreply@staging.example'
 };
 
 function run(overrides = {}, removals = []) {
@@ -41,12 +43,23 @@ test('staging deployment configuration preflight accepts a complete isolated con
 });
 
 test('staging deployment configuration preflight reports every missing protected value before GCP auth', () => {
-  const result = run({}, ['GCP_WORKLOAD_IDENTITY_PROVIDER', 'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT', 'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER', 'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME']);
+  const result = run({}, [
+    'GCP_WORKLOAD_IDENTITY_PROVIDER',
+    'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT',
+    'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER',
+    'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME',
+    'STAGING_GCS_MEDIA_BUCKET',
+    'STAGING_EMAIL_FROM'
+  ]);
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /GCP_WORKLOAD_IDENTITY_PROVIDER/);
-  assert.match(result.stderr, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT/);
-  assert.match(result.stderr, /STAGING_GOOGLE_CLOUD_PROJECT_NUMBER/);
-  assert.match(result.stderr, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME/);
+  for (const name of [
+    'GCP_WORKLOAD_IDENTITY_PROVIDER',
+    'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT',
+    'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER',
+    'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME',
+    'STAGING_GCS_MEDIA_BUCKET',
+    'STAGING_EMAIL_FROM'
+  ]) assert.match(result.stderr, new RegExp(name));
 });
 
 test('staging deployment configuration preflight rejects duplicate cloud and Firebase identities before authentication', () => {
@@ -95,4 +108,18 @@ test('staging deployment configuration preflight requires distinct deployer and 
   const result = run({ GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: valid.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /deployer and runtime service accounts must be distinct/);
+});
+
+test('staging deployment configuration preflight rejects cross-project SQL, invalid bucket and invalid sender', () => {
+  const sql = run({ STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'other-project:me-central1:db' });
+  assert.equal(sql.status, 2);
+  assert.match(sql.stderr, /Cloud SQL/);
+
+  const bucket = run({ STAGING_GCS_MEDIA_BUCKET: 'INVALID BUCKET' });
+  assert.equal(bucket.status, 2);
+  assert.match(bucket.stderr, /bucket name/);
+
+  const sender = run({ STAGING_EMAIL_FROM: 'not-an-email' });
+  assert.equal(sender.status, 2);
+  assert.match(sender.stderr, /sender email/);
 });

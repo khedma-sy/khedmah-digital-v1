@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const bootstrap = readFileSync('infra/iac/bootstrap/main.tf', 'utf8');
+const bootstrapVariables = readFileSync('infra/iac/bootstrap/variables.tf', 'utf8');
 const productionWif = readFileSync('infra/iac/production_operator.tf', 'utf8');
 const vars = readFileSync('infra/iac/bootstrap/staging.tfvars.example', 'utf8');
 const ci = readFileSync('.github/workflows/node.js.yml', 'utf8');
@@ -36,6 +37,18 @@ test('bootstrap provider enforces the same workflow_ref claim family used by the
   assert.match(productionWif, /assertion\.workflow_ref/);
   assert.match(bootstrap, /roles\/iam\.workloadIdentityUser/);
   assert.match(bootstrap, /google_service_account\.deployer\.name/);
+});
+
+test('staging bootstrap enables Cloud SQL API, grants least-privilege SQL read/client roles and creates runtime secret containers only', () => {
+  assert.match(bootstrap, /sqladmin\.googleapis\.com/);
+  assert.match(bootstrap, /roles\/cloudsql\.client/);
+  assert.match(bootstrap, /roles\/cloudsql\.viewer/);
+  assert.match(bootstrap, /roles\/serviceusage\.serviceUsageViewer/);
+  assert.doesNotMatch(bootstrap, /google_sql_database_instance/);
+  assert.doesNotMatch(bootstrap, /secret_data\s*=/);
+  for (const secret of ['DATABASE_URL', 'FIREBASE_API_KEY', 'OPERATIONS_PRODUCT_ROLE_BINDINGS', 'RESEND_API_KEY']) {
+    assert.match(bootstrapVariables, new RegExp(`"${secret}"`));
+  }
 });
 
 test('CI validates the bootstrap Terraform stack without applying it', () => {

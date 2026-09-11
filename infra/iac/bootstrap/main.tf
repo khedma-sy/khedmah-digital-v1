@@ -13,10 +13,12 @@ locals {
   deployer_roles = toset([
     "roles/artifactregistry.writer",
     "roles/cloudbuild.builds.editor",
+    "roles/cloudsql.viewer",
     "roles/iam.serviceAccountUser",
     "roles/run.admin",
     "roles/secretmanager.viewer",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/serviceusage.serviceUsageViewer",
   ])
 }
 

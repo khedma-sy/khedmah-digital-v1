@@ -39,6 +39,13 @@ fi
 backend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/backend:${tag}"
 frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/frontend:${tag}"
 backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
+backend_secret_bindings="DATABASE_URL=DATABASE_URL:latest"
+if [[ "$environment" == "staging" ]]; then
+  [[ -n "${GCS_MEDIA_BUCKET:-}" ]] || { echo 'Missing GCS_MEDIA_BUCKET for Staging persistent media.' >&2; exit 3; }
+  [[ -n "${EMAIL_FROM:-}" ]] || { echo 'Missing EMAIL_FROM for Staging email delivery.' >&2; exit 3; }
+  backend_runtime_env+=",GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},EMAIL_FROM=${EMAIL_FROM}"
+  backend_secret_bindings+=",OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest"
+fi
 
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
@@ -81,7 +88,7 @@ backend_deploy_args=(
 )
 backend_deploy_args+=(
   --add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
-  --set-secrets="DATABASE_URL=DATABASE_URL:latest"
+  --set-secrets="$backend_secret_bindings"
 )
 "${backend_deploy_args[@]}"
 backend_url="$(gcloud run services describe "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
@@ -97,9 +104,9 @@ gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD
 gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$RUNTIME_SERVICE_ACCOUNT" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
 frontend_url="$(gcloud run services describe "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 [[ "$frontend_url" == https://*run.app ]] || { echo 'Isolated frontend URL is not a Cloud Run URL.' >&2; exit 5; }
-# The runtime allowlist must match this deployment, including credentialed requests.
+# The runtime allowlist and action-link origin must match this deployment.
 gcloud run services update "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-  --update-env-vars="CORS_ORIGIN=${frontend_url}" --quiet
+  --update-env-vars="CORS_ORIGIN=${frontend_url},NEXT_PUBLIC_SITE_URL=${frontend_url}" --quiet
 
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${backend_url}/api/v1/health" >/dev/null
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${frontend_url}/" >/dev/null
