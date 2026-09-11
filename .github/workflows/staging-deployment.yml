@@ -25,9 +25,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run build
       - run: npm run test:all
@@ -53,9 +53,9 @@ jobs:
       backend_url: ${{ steps.deploy.outputs.backend_url }}
       classifieds_frontend_enabled: ${{ steps.classifieds-stage.outputs.frontend_enabled }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
       - name: Validate Staging deployment configuration
         env:
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -76,11 +76,11 @@ jobs:
           STAGING_GCS_MEDIA_BUCKET: ${{ vars.STAGING_GCS_MEDIA_BUCKET }}
           STAGING_EMAIL_FROM: ${{ vars.STAGING_EMAIL_FROM }}
         run: scripts/deployment/validate-staging-deployment-config.sh
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
       - name: Validate environment isolation
         env:
           DEPLOYMENT_ENVIRONMENT: staging
@@ -135,7 +135,7 @@ jobs:
           STAGING_HEALTH_INTERVAL_MS: '10000'
           STAGING_HEALTH_TIMEOUT_MS: '15000'
         run: node scripts/deployment/observe-staging-runtime.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && steps.observe.outcome != 'skipped'
         with:
           name: staging-runtime-observation
@@ -157,9 +157,9 @@ jobs:
     environment: staging
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
       - name: Install isolated browser tooling
         run: |
           npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
@@ -172,7 +172,7 @@ jobs:
           EVIDENCE_DIR: staging-evidence
           PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
         run: node scripts/check-classifieds-preview-acceptance.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: staging-classifieds-acceptance
