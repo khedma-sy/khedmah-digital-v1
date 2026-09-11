@@ -64,4 +64,4 @@ for (const contract of ['/api/v1/health', '/api/v1/health/ready', 'ready:true'])
   if (!healthCheck.includes(contract)) throw new Error(`Production health evidence script missing readiness contract: ${contract}`);
 }
 
-console.log('Production operator gated deployment, Node 24, and database readiness contracts valid.');
+console.log('Production operator gated deployment contract valid; Node 24 and database readiness contracts valid.');
