@@ -28,9 +28,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
       - run: npm ci
       - name: Build
         run: npm run build
@@ -64,7 +64,9 @@ jobs:
       frontend_url: ${{ steps.deploy.outputs.frontend_url }}
       backend_url: ${{ steps.deploy.outputs.backend_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
       - name: Check GCP credentials
         id: gcp-check
         env:
@@ -76,12 +78,12 @@ jobs:
             echo "has_gcp=false" >> "$GITHUB_OUTPUT"
             echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cloud deployment"
           fi
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Validate environment isolation
         if: steps.gcp-check.outputs.has_gcp == 'true'
@@ -125,9 +127,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
       - name: Install isolated browser tooling
         id: browser-tools
         run: |
@@ -158,7 +160,7 @@ jobs:
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
         run: node scripts/check-preview-interactions.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: preview-${{ github.event.pull_request.number }}-screenshots
@@ -167,7 +169,7 @@ jobs:
           retention-days: 14
       - name: Publish owner review guide
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PREVIEW_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
           BACKEND_URL: ${{ needs.deploy-preview.outputs.backend_url }}
@@ -198,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: preview
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check GCP credentials
         id: gcp-check
         env:
@@ -210,12 +212,12 @@ jobs:
             echo "has_gcp=false" >> "$GITHUB_OUTPUT"
             echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cleanup"
           fi
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Delete PR Cloud Run services
         if: steps.gcp-check.outputs.has_gcp == 'true'
