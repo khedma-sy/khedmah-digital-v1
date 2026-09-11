@@ -13,10 +13,12 @@ test('skip navigation remains visible above the sticky application header', () =
   assert.match(shell, /\.skip-link\{z-index:300\}/);
 });
 
-test('header keyboard focus uses only the approved umbrella accent token', () => {
+test('header keyboard focus uses the approved high-contrast umbrella palette', () => {
   assert.match(shell, /\.khedma-header>a:focus-visible/);
   assert.match(shell, /\.nav-session a:focus-visible/);
   assert.match(shell, /\.nav-session button:focus-visible/);
-  assert.match(shell, /outline:3px solid var\(--k-color-accent\)/);
+  assert.match(shell, /outline:3px solid var\(--k-color-primary\)/);
+  assert.match(shell, /box-shadow:0 0 0 1px var\(--k-color-accent\)/);
+  assert.match(tokens, /--k-color-primary:\s*#07427c/);
   assert.match(tokens, /--k-color-accent:\s*#fd9603/);
 });
