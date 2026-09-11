@@ -92,7 +92,7 @@ fi
 
 expected_sql_prefix="${STAGING_GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"
 if [[ "$STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME" != "${expected_sql_prefix}"* ]]; then
-  echo '::error::STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME must belong to the Staging project and configured region.' >&2
+  echo '::error::Staging Cloud SQL connection name must belong to the Staging project and configured region.' >&2
   exit 2
 fi
 
