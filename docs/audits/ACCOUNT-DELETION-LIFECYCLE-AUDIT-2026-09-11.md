@@ -19,7 +19,7 @@ The repository's account-lifecycle contract explicitly states that account delet
 
 ## Technical disposition matrix
 
-The `Technical action` column is a source-derived engineering classification, not a legal retention decision.
+The `Technical action` column is a source-derived engineering classification, not a legal retention decision. Taxi rows marked **candidate-only** are not part of the canonical migration chain today; they become deletion dependencies if that candidate schema is ever promoted.
 
 | Domain / table | Current linkage | Current delete behavior | Technical action before account-root deletion | Policy dependency |
 | --- | --- | --- | --- | --- |
@@ -60,6 +60,13 @@ The `Technical action` column is a source-derived engineering classification, no
 | `ad_request_receipts.owner_user_id` | direct user FK | `RESTRICT`; append-only | Direct account deletion is blocked | **Yes — architecture decision required** |
 | `ad_moderation_events.reviewer_user_id` | direct user FK | `RESTRICT`; append-only | Moderator account deletion is blocked | **Yes — architecture decision required** |
 | rate-limit buckets | SHA-256 digest only; raw user/IP identifiers not stored | independent expiry/reset semantics | No direct user-row cleanup path | Retention policy still applies to operational security data |
+| `khedmah_taxi.vehicle_approvals.driver_user_id` **candidate-only** | direct account FK | default `NO ACTION` | If promoted, explicit approval disposition must precede account deletion | Yes |
+| `khedmah_taxi.vehicle_approvals.reviewed_by` **candidate-only** | reviewer account FK | default `NO ACTION` | If promoted, reviewer identity retention/detachment rule is required | Yes |
+| `khedmah_taxi.driver_approvals.user_id` / `reviewed_by` **candidate-only** | direct/reviewer account FKs | default `NO ACTION` | If promoted, explicit approval/audit disposition is required | Yes |
+| `khedmah_taxi.jt_quotes` / `jt_orders` **candidate-only** | customer/provider/merchant identifiers are textual; trip data also exists in JSON | no account FK cascade | If promoted, explicit trip-data disposition/anonymization is required | **Yes — architecture decision required** |
+| `khedmah_taxi.jt_events` **candidate-only** | textual `actor_id` | append-only trigger rejects update/delete | If promoted, actor linkability and retention must be designed before account deletion | **Yes — architecture decision required** |
+| `khedmah_taxi.jt_evidence` / `jt_ride_consents` **candidate-only** | textual `actor_id` plus evidence/consent payload | no account FK cascade | If promoted, explicit evidence/consent disposition is required | **Yes — architecture decision required** |
+| `khedmah_taxi.jt_cash_receipts` **candidate-only** | textual `actor_id` and trip cash record | append-only trigger rejects update/delete | If promoted, cannot be erased/rewritten by ordinary lifecycle SQL | **Yes — architecture decision required** |
 
 ## External state blockers
 
@@ -83,11 +90,25 @@ The application stores only local external-identity bindings (`provider`, provid
 
 Therefore local account deletion alone does not prove deletion of the Firebase Authentication identity. It also does not prevent a still-valid external identity from signing in later and causing creation of a new KHEDMA account. The approved design must decide whether to delete/revoke the Firebase identity, retain a minimal non-login tombstone, or use another approved prevention mechanism.
 
-## V1 domain scope reconciliation
+## Taxi scope reconciliation
 
-Current V1 authority defines Taxi and Delivery as location-based discovery of approved providers with direct contact. Internal dispatch, assignment, tracking, pricing and payment are excluded. The current mobility page searches canonical business categories and opens Google Maps for routing. No independent Taxi trip/order persistence was found in the canonical migrations.
+The older canonical V1 scope describes Taxi/Delivery as location-based discovery with direct provider contact and excludes internal dispatch, assignment, tracking, pricing and payment. The current PR, however, contains a later explicit RP32/RP33/RP35 Taxi implementation track: authenticated Taxi controllers/services, rider/driver UI, and candidate SQL for approvals, quotes, trips, events, consent/evidence and cash receipts.
 
-Food appears as taxonomy/business discovery in current V1 sources; a separate restaurant ordering/payment data model is not part of the canonical V1 migration set.
+This newer source does **not** mean Taxi is released. `apps/backend/src/taxi/sql/access.candidate.sql` and `trips.candidate.sql` explicitly state that they are candidate-only and are not registered with the canonical migrator. `TaxiTripService` refuses operational requests unless `TAXI_TRIPS_ENABLED=true`, and the current isolated Preview/Staging deployment path is now fail-closed: it defaults the flag to `false`, refuses attempts to enable it while the SQL remains candidate-only, passes the same disabled state to backend/frontend, and the server-side `/taxi` layout falls back to `/mobility?type=taxi` discovery rather than exposing the operational journey.
+
+If Taxi candidate storage is later promoted, account deletion must classify at least:
+
+- driver/vehicle approvals and reviewer identifiers;
+- customer/provider/merchant identifiers in trip records;
+- pickup/dropoff, route, quote and other potentially identifying values inside JSON payloads;
+- immutable event/evidence/consent history;
+- append-only cash receipts and actor identifiers.
+
+The candidate SQL itself calls for review of immutable evidence retention before deployment. Therefore an approved retention/deletion contract is also a Taxi production-enablement gate.
+
+## Food and review scope reconciliation
+
+Food appears as taxonomy/business discovery in current V1 sources; a separate restaurant ordering/payment data model is not part of the canonical V1 migration set audited here.
 
 A standalone user-review table was not found in the canonical migration set. The current `rating` value is an aggregate column on `business_profiles`, introduced by migration 007, not evidence of a persisted review author/body lifecycle.
 
@@ -100,7 +121,8 @@ These domains must be handled explicitly because account/profile deletion cannot
 - `contact_action_events.business_profile_id`;
 - analytics textual entity/session/anonymous references;
 - physical media objects in GCS;
-- external Firebase Authentication identity.
+- external Firebase Authentication identity;
+- if Taxi candidate storage is promoted: `jt_quotes.customer_id`, `jt_orders.customer_id/provider_id/merchant_id`, `jt_events.actor_id`, evidence/consent actor ids, cash-receipt actor ids and identifying JSON payload content.
 
 ## Required policy decisions before destructive implementation
 
@@ -116,8 +138,9 @@ The approved policy/contract must decide, at minimum:
 6. operational/audit-log retention and actor detachment rules;
 7. GCS versioning/soft-delete alignment and deletion-completion semantics;
 8. Firebase Authentication identity deletion/revocation/tombstone behavior;
-9. deletion completion SLA and retry/reconciliation behavior;
-10. how a user-facing request moves through requested → verified → frozen → processed → completed/partially retained states.
+9. if Taxi is promoted, trip/location/evidence/consent/cash-record retention and anonymization, including immutable append-only records;
+10. deletion completion SLA and retry/reconciliation behavior;
+11. how a user-facing request moves through requested → verified → frozen → processed → completed/partially retained states.
 
 No duration or legal basis is invented by this audit.
 
@@ -133,7 +156,7 @@ Only after the disposition contract is approved:
 6. perform external GCS/Firebase cleanup with retry/reconciliation;
 7. remove/anonymize account root only after blocking references are resolved;
 8. retain only approved minimal audit evidence;
-9. add integration tests for ordinary user, business owner, professional owner, organization owner/member, ad owner, moderator/admin, external-auth account, media-owner account, repeated request, partial external failure, and concurrent writes;
+9. add integration tests for ordinary user, business owner, professional owner, organization owner/member, ad owner, moderator/admin, external-auth account, media-owner account, repeated request, partial external failure, concurrent writes and — if promoted — Taxi rider/driver histories;
 10. prove the lifecycle in isolated Staging before any Production release.
 
 ## Release decision
