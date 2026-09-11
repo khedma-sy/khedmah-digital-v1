@@ -7,6 +7,8 @@ set +x
   exit 5
 }
 
+: "${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
+
 for name in \
   GOOGLE_CLOUD_PROJECT \
   PRODUCTION_GOOGLE_CLOUD_PROJECT \
