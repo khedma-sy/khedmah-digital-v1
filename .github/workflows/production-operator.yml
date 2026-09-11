@@ -49,16 +49,16 @@ jobs:
       FACEBOOK_AUTH_ENABLED: ${{ vars.FACEBOOK_AUTH_ENABLED || 'false' }}
     steps:
       - name: Check out main readiness controls
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
 
       - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Verify authenticated production project
         run: |
@@ -107,7 +107,7 @@ jobs:
       MIGRATION_SHA256: ${{ inputs.mode == 'APPLY_MIGRATION_021' && '61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698' || inputs.mode == 'APPLY_MIGRATION_022' && 'f6a8f8dd9c64b6cdbeb6eda29e53be1d48884b922b8e9aa6f2a1dcc8a6830330' || 'd2141fab35a163cd46511d35bef13a060f9ceb4b2d25acbedb0afa44a4be16a6' }}
     steps:
       - name: Check out requested commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
@@ -125,13 +125,13 @@ jobs:
           test "$CONFIRMATION" = "$EXPECTED_CONFIRMATION"
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
 
       - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Verify exact recent pre-migration backup
         run: |
@@ -236,7 +236,7 @@ jobs:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
     steps:
       - name: Check out requested commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
@@ -253,13 +253,13 @@ jobs:
           printf 'DEPLOY_COMMIT=%s\n' "$ACTUAL_SHA"
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
 
       - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Submit protected Cloud Build and wait for completion
         id: cloud-build
