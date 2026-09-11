@@ -51,7 +51,7 @@ test('Staging rollout stage is fail-closed and ordered', async () => {
 test('Staging workflow validates protected configuration before WIF authentication', async () => {
   const text = await readFile(workflow, 'utf8');
   const preflightIndex = text.indexOf('Validate Staging deployment configuration');
-  const authIndex = text.indexOf('google-github-actions/auth@v2');
+  const authIndex = text.indexOf('google-github-actions/auth@v3');
   assert.ok(preflightIndex >= 0, 'Staging configuration preflight must exist');
   assert.ok(authIndex > preflightIndex, 'configuration preflight must run before GCP auth');
   assert.match(text, /validate-staging-deployment-config\.sh/);
