@@ -60,11 +60,11 @@ test('Staging observation is isolated from Production and is uploaded as release
   assert.doesNotMatch(script, /\b(?:DELETE|UPDATE|INSERT|DROP)\b/);
 
   const deployJob = workflow.slice(workflow.indexOf('  deploy-staging:'), workflow.indexOf('  classifieds-staging-acceptance:'));
-  assert.match(deployJob, /actions\/setup-node@v4[\s\S]*node-version: 20/);
+  assert.match(deployJob, /actions\/setup-node@v7[\s\S]*node-version: 24/);
   assert.match(deployJob, /name: Observe Staging runtime/);
   assert.match(deployJob, /BACKEND_URL: \$\{\{ steps\.deploy\.outputs\.backend_url \}\}/);
   assert.match(deployJob, /FRONTEND_URL: \$\{\{ steps\.deploy\.outputs\.frontend_url \}\}/);
   assert.match(deployJob, /run: node scripts\/deployment\/observe-staging-runtime\.mjs/);
   assert.match(deployJob, /name: staging-runtime-observation/);
-  assert.match(deployJob, /if: always\(\)/);
+  assert.match(deployJob, /if: always\(\) && steps\.observe\.outcome != 'skipped'/);
 });
