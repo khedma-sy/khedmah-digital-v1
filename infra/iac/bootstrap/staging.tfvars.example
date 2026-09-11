@@ -1,0 +1,14 @@
+# Staging-only bootstrap inputs. This example is never auto-loaded by Terraform.
+# Copy it outside the repository or pass values explicitly after the isolated
+# Staging project has been selected and verified by the operator.
+
+project_id = "REPLACE_WITH_ISOLATED_STAGING_PROJECT_ID"
+region     = "me-central1"
+
+artifact_registry_repository_id = "khedmah-staging"
+runtime_service_account_id       = "khedmah-v1-staging-runtime"
+deployer_service_account_id      = "khedmah-v1-staging-deployer"
+
+github_repository    = "khedma-sy/khedmah-digital-v1"
+github_workflow_path = ".github/workflows/staging-deployment.yml"
+github_ref           = "refs/heads/develop"

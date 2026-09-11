@@ -14,17 +14,22 @@ export default function VerifyEmailPage() {
   const [existing, setExisting] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const nextEmail = params.get('email') ?? '';
-    const nextToken = params.get('token') ?? '';
-    setExisting(params.get('existing') === '1');
+    const url = new URL(window.location.href);
+    const nextEmail = url.searchParams.get('email') ?? '';
+    const nextToken = url.searchParams.get('token') ?? '';
+    setExisting(url.searchParams.get('existing') === '1');
     setEmail(nextEmail);
     setToken(nextToken);
+    if (url.searchParams.has('token')) {
+      url.searchParams.delete('token');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
     if (nextToken) {
       setStatus('confirming');
       void identityApi.confirmEmailVerification(nextToken)
         .then((result) => {
           setEmail(result.email);
+          setToken('');
           setStatus('verified');
           setMessage('تم تأكيد بريدك الإلكتروني بنجاح. يمكنك الآن تسجيل الدخول.');
         })

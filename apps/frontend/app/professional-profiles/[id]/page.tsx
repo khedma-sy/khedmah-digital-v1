@@ -26,24 +26,32 @@ export default function ProfessionalProfilePage() {
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [unavailableSections, setUnavailableSections] = useState<string[]>([]);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLoad = () => setLoadAttempt((attempt) => attempt + 1);
   const [shareMessage, setShareMessage] = useState('');
 
   useEffect(() => {
     let active = true;
     async function load() {
-      setIsLoading(true); setError('');
+      setIsLoading(true); setError(''); setUnavailableSections([]);
+      const failedSections: string[] = [];
+      async function optional<T>(request: Promise<T>, fallback: T, label: string): Promise<T> {
+        try { return await request; } catch { failedSections.push(label); return fallback; }
+      }
       try {
         const [profileData, serviceData, mediaData, verificationData] = await Promise.all([
-          api.professionals.getProfile(id), api.services.listForOwner(id, 'professional').catch(() => ({ services: [] })),
-          api.professionals.getMedia(id).catch(() => ({ assets: [] })), api.professionals.getVerificationStatus(id).catch(() => ({ status: null }))
+          api.professionals.getProfile(id), optional(api.services.listForOwner(id, 'professional'), { services: [] }, 'الخدمات'),
+          optional(api.professionals.getMedia(id), { assets: [] }, 'الصور'), optional(api.professionals.getVerificationStatus(id), { status: null }, 'حالة التوثيق')
         ]);
         if (!active) return;
+        setUnavailableSections(failedSections);
         setProfile(profileData.professional); setServices(serviceData.services); setMedia(mediaData.assets); setVerification(verificationData.status);
       } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل الملف المهني.'); }
       finally { if (active) setIsLoading(false); }
     }
     void load(); return () => { active = false; };
-  }, [id]);
+  }, [id, loadAttempt]);
 
   async function share() {
     const url = window.location.href;
@@ -54,7 +62,7 @@ export default function ProfessionalProfilePage() {
   }
 
   if (isLoading) return <PageShell className={styles.page} label="جاري تحميل الملف المهني"><SkeletonGrid count={5} label="جاري تحميل معلومات مقدم الخدمة" /></PageShell>;
-  if (error || !profile) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح الملف المهني" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<ActionLink href="/professional-profiles/search">العودة إلى البحث</ActionLink>} /></PageShell>;
+  if (error || !profile) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح الملف المهني" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<><ActionButton type="button" onClick={retryLoad}>إعادة المحاولة</ActionButton><ActionLink href="/professional-profiles/search">العودة إلى البحث</ActionLink></>} /></PageShell>;
 
   const portrait = media.find((asset) => asset.assetType === 'profile_image');
   const cover = media.find((asset) => asset.assetType === 'cover');
@@ -85,18 +93,20 @@ export default function ProfessionalProfilePage() {
         </div>
       </Surface>
 
+      {unavailableSections.length > 0 && <StatusMessage tone="warning"><p>تعذر تحميل: {unavailableSections.join('، ')}. يمكنك إعادة المحاولة لعرض المعلومات الحالية.</p><ActionButton type="button" variant="secondary" onClick={retryLoad}>إعادة تحميل التفاصيل</ActionButton></StatusMessage>}
+
       {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>
           {(profile.bioAr || profile.bioEn) && <Surface className={styles.section}><h2>نبذة مهنية</h2>{profile.bioAr && <p>{profile.bioAr}</p>}{profile.bioEn && <p className={styles.english}>{profile.bioEn}</p>}</Surface>}
           {profile.skills.length > 0 && <Surface className={styles.section}><h2>المهارات والتخصصات</h2><div className={styles.skills}>{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></Surface>}
-          <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات المقدمة</h2><span>{activeServices.length}</span></div>{activeServices.length > 0 ? <div className={styles.serviceGrid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceTypeLabel(service.priceType)}</span></div><p className={styles.category}>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة مهنية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div> : <EmptyState icon={<PlatformIcon name="briefcase" size={28}/>} title="لم تُضف خدمات بعد" description="يمكنك استكشاف مهنيين آخرين أو العودة إلى نتائج البحث." actions={<ActionLink href="/professional-profiles/search">استكشف المهنيين</ActionLink>} />}</Surface>
+          <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الخدمات المقدمة</h2>{!unavailableSections.includes('الخدمات') && <span>{activeServices.length}</span>}</div>{unavailableSections.includes('الخدمات') ? <p>تعذر تحميل الخدمات الحالية.</p> : activeServices.length > 0 ? <div className={styles.serviceGrid}>{activeServices.map((service) => <Surface as="article" className={styles.service} key={service.id}><div className={styles.serviceTop}><h3>{service.titleAr}</h3><span className={styles.badge}>{priceTypeLabel(service.priceType)}</span></div><p className={styles.category}>{service.categoryNameAr ?? categories.find((category) => category.code === service.categoryCode)?.nameAr ?? 'خدمة مهنية'}</p>{service.descriptionAr && <p>{service.descriptionAr}</p>}{service.price != null && <strong>{service.price.toLocaleString('ar-SY')} {service.priceCurrency ?? 'SYP'}</strong>}</Surface>)}</div> : <EmptyState icon={<PlatformIcon name="briefcase" size={28}/>} title="لم تُضف خدمات بعد" description="يمكنك استكشاف مهنيين آخرين أو العودة إلى نتائج البحث." actions={<ActionLink href="/professional-profiles/search">استكشف المهنيين</ActionLink>} />}</Surface>
           {gallery.length > 0 && <Surface className={styles.section}><div className={styles.sectionHeading}><h2>معرض الأعمال</h2><span>{gallery.length}</span></div><div className={styles.gallery}>{gallery.map((image) => <img key={image.id} src={image.url} alt={`عمل من معرض ${profile.headlineAr}`} loading="lazy" />)}</div></Surface>}
         </div>
 
         <aside className={styles.aside} aria-label="ملخص الملف المهني">
-          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
+          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{unavailableSections.includes('الخدمات') ? 'غير متاحة الآن' : activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{unavailableSections.includes('حالة التوثيق') ? 'تعذر تحميل حالة التوثيق' : verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
           <Surface className={styles.safety}><span><PlatformIcon name="lock" size={22}/></span><div><h2>تواصل آمن وواضح</h2><p>راجع تفاصيل الخدمة واتفق مباشرة مع مقدمها. لا توفر «خدمة» دفعاً أو دردشة فورية في الإصدار الحالي.</p></div></Surface>
           <Surface className={styles.discover}><h2>تبحث عن تخصص آخر؟</h2><p>قارن بين الملفات المنشورة حسب المهارة والمدينة.</p><Link href="/professional-profiles/search">تصفح جميع المهنيين</Link></Surface>
         </aside>

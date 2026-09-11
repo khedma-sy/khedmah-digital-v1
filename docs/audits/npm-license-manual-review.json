@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "busboy",
+      "version": "1.6.0",
+      "license": "MIT",
+      "reason": "The published manifest declares the legacy `licenses` array, which npm lockfile v3 does not normalize into a `license` field for this package.",
+      "evidence": "https://github.com/mscdex/busboy/blob/v1.6.0/package.json"
+    },
+    {
+      "name": "streamsearch",
+      "version": "1.1.0",
+      "license": "MIT",
+      "reason": "The published manifest declares the legacy `licenses` array, which npm lockfile v3 does not normalize into a `license` field for this package.",
+      "evidence": "https://github.com/mscdex/streamsearch/blob/v1.1.0/package.json"
+    }
+  ]
+}

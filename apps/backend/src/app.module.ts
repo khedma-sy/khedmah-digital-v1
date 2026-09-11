@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
 import { CategoryModule } from './categories/category.module';
+import { AdModule } from './classifieds/ad.module';
 import { ContactModule } from './contact/contact.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
@@ -18,6 +19,7 @@ import { SearchModule } from './search/search.module';
 import { ServiceCatalogModule } from './service-catalog/service-catalog.module';
 import { ReportsModule } from './reports/reports.module';
 import { ProductModule } from './products/product.module';
+import { TaxiModule } from './taxi/taxi.module';
 
 @Module({
   imports: [
@@ -36,7 +38,9 @@ import { ProductModule } from './products/product.module';
     MediaModule,
     ModerationModule,
     ReportsModule,
-    ProductModule
+    ProductModule,
+    TaxiModule,
+    AdModule
   ],
   controllers: [HealthController],
   providers: [HealthService, PlatformLogger]

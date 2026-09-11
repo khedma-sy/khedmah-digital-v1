@@ -3,6 +3,8 @@ package com.khedmah.digital
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.net.Uri
 import android.location.LocationManager
 import android.location.LocationListener
 import android.os.Bundle
@@ -230,6 +232,11 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                         },
                         onLogout = {
                             scope.launch { loading = true; runCatching { api.logout() }; runCatching { googleIdentity.signOut() }; user = null; loading = false }
+                        },
+                        onDeleteAccount = {
+                            val request = Uri.parse("mailto:support@khedmah.uk?subject=%D8%B7%D9%84%D8%A8%20%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D8%AE%D8%AF%D9%85%D8%A9")
+                            runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, request)) }
+                                .onFailure { accountError = "تعذر فتح تطبيق البريد. استخدم support@khedmah.uk لإرسال طلب الحذف." }
                         }
                     )
                 }
@@ -261,8 +268,9 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     }
 }
 
-@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, businesses: List<KhedmahBusiness>, onManageBusiness: (KhedmahBusiness) -> Unit, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit) {
+@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, businesses: List<KhedmahBusiness>, onManageBusiness: (KhedmahBusiness) -> Unit, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit, onDeleteAccount: () -> Unit) {
     var registering by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
     var displayName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -282,6 +290,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
                     }
                 }
             }
+            item { OutlinedButton(onClick = onDeleteAccount, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("طلب حذف الحساب والبيانات") } }
             item { Button(onLogout, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text(if (loading) "جاري الخروج..." else "تسجيل الخروج") } }
         } else {
             item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!registering, { registering = false }, label = { Text("تسجيل الدخول") }, modifier = Modifier.weight(1f)); FilterChip(registering, { registering = true }, label = { Text("سجل الآن") }, modifier = Modifier.weight(1f)) } }
@@ -294,6 +303,15 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
             item { HorizontalDivider() }
             if (googleConfigured) item { OutlinedButton(onGoogle, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("المتابعة باستخدام Google") } }
             item { OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Facebook — قريبًا") } }
+        }
+        item { TextButton(onClick = { showPrivacy = !showPrivacy }, modifier = Modifier.fillMaxWidth()) { Text(if (showPrivacy) "إخفاء سياسة الخصوصية" else "سياسة الخصوصية") } }
+        if (showPrivacy) item {
+            Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("خصوصيتك في خدمة", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    Text("نعالج بيانات الحساب والمحتوى الذي ترسله لتشغيل المنصة والتحقق والأمان والدعم. قد تستخدم ميزات الخريطة موقعك الأمامي عند اختيارها، ولا يطلب التطبيق صلاحية الموقع في الخلفية. قد تعتمد خدمة على Google/Firebase للمصادقة، Google Maps للخرائط، Google Cloud للبنية والوسائط، وResend للبريد التشغيلي. يمكن طلب حذف الحساب والبيانات المرتبطة به من زر الحذف أعلاه أو عبر support@khedmah.uk، وقد يحتفظ فقط بما يلزم قانونيًا أو للأمن ومنع الاحتيال. لا ترسل كلمات المرور أو الرموز السرية إلى الدعم.", color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 20.sp)
+                }
+            }
         }
     }
 }

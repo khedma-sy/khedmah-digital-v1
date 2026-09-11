@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { Response } from 'express';
-import { attachSessionCookie, clearSessionCookie } from './session-cookie';
+import { attachSessionCookie, clearSessionCookie, readSessionToken } from './session-cookie';
 
 const originalNodeEnv = process.env.NODE_ENV;
+
+test('malformed and empty client cookies cannot crash session parsing', () => {
+  for (const cookie of [undefined, 'unrelated=value', 'khedmah_session=', 'khedmah_session=%', 'khedmah_session=%E0%A4%A']) {
+    assert.equal(readSessionToken(cookie), undefined);
+  }
+  assert.equal(readSessionToken('unrelated=value; khedmah_session=owner%2Fsession'), 'owner/session');
+});
 
 afterEach(() => {
   if (originalNodeEnv === undefined) {
@@ -13,8 +20,8 @@ afterEach(() => {
   }
 });
 
-test('production session cookie supports the credentialed cross-site frontend', () => {
-  process.env.NODE_ENV = 'production';
+for (const environment of ['production', 'preview', 'staging']) test(`${environment} session cookie supports the credentialed cross-site frontend`, () => {
+  process.env.NODE_ENV = environment;
   let attachedOptions: Parameters<Response['cookie']>[2];
   let clearedOptions: Parameters<Response['clearCookie']>[1];
   const response = {
@@ -31,11 +38,13 @@ test('production session cookie supports the credentialed cross-site frontend', 
 
   assert.equal(attachedOptions!.sameSite, 'none');
   assert.equal(attachedOptions!.secure, true);
+  assert.equal(attachedOptions!.httpOnly, true);
+  assert.equal(attachedOptions!.path, '/api/v1');
   assert.equal(clearedOptions!.sameSite, 'none');
   assert.equal(clearedOptions!.secure, true);
 });
 
-test('non-production session cookie retains the strict same-site boundary', () => {
+test('local test session cookie retains the strict same-site boundary', () => {
   process.env.NODE_ENV = 'test';
   let options: Parameters<Response['cookie']>[2];
   const response = {

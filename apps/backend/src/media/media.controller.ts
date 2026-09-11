@@ -15,9 +15,10 @@ export class MediaController {
   }
 
   @Get('public/:id')
-  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400')
-  async readPublic(@Param('id') id: string): Promise<StreamableFile> {
-    const asset = await this.media.readPublic(id);
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async readPublic(@Param('id') id: string, @Headers('cookie') cookieHeader?: string): Promise<StreamableFile> {
+    const asset = await this.media.readPublic(id, cookieHeader);
     return new StreamableFile(asset.data, { type: asset.mimeType });
   }
 

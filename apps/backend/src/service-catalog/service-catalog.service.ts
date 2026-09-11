@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
@@ -26,7 +26,7 @@ export class ServiceCatalogService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateServiceRequest(request);
     await this.categories.assertActiveCategory(input.categoryCode);
-    if (actor.id != input.ownerUserId) {
+    if (actor.id !== input.ownerUserId) {
       throw new ForbiddenException(SERVICE_ACCESS_DENIED_MESSAGE);
     }
 
@@ -67,35 +67,24 @@ export class ServiceCatalogService {
       updatedAt: now
     };
 
-    await this.repository.save(service);
-    return this.toPublic(await this.repository.findById(service.id) ?? service);
+    return this.toPublic(await this.repository.insertOwned(service, actor.id));
   }
 
   async listForOwner(cookieHeader: string | undefined, ownerId: string, request: ListOwnerServicesRequest): Promise<PublicServiceListing[]> {
     const input = validateOwnerServicesRequest(request);
+    await this.readOwnerContext(input.ownerType, ownerId, cookieHeader);
     const services = await this.repository.listForOwner(ownerId, input.ownerType);
-    const session = await this.identity.getSession(readSessionToken(cookieHeader));
-    if (!session) {
-      return services.filter((service) => service.status === 'active').map((service) => this.toPublic(service));
-    }
-
-    const isOwner = await this.verifyOwnership(input.ownerType, ownerId, session.id);
-    const visibleServices = isOwner ? services : services.filter((service) => service.status === 'active');
-    return visibleServices.map((service) => this.toPublic(service));
+    const isOwner = await this.readOwnerContext(input.ownerType, ownerId, cookieHeader);
+    return services.filter(service => isOwner || service.status === 'active').map(service => this.toPublic(service));
   }
 
   async getOne(cookieHeader: string | undefined, id: string): Promise<PublicServiceListing> {
     const service = await this.requireService(id);
-    if (service.status === 'active') {
-      return this.toPublic(service);
-    }
-
-    const session = await this.identity.getSession(readSessionToken(cookieHeader));
-    if (!session || !await this.verifyOwnership(service.ownerType, service.ownerId, session.id)) {
-      throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
-    }
-
-    return this.toPublic(service);
+    await this.readOwnerContext(service.ownerType, service.ownerId, cookieHeader);
+    const current = await this.requireService(id);
+    const isOwner = await this.readOwnerContext(current.ownerType, current.ownerId, cookieHeader);
+    if (current.status !== 'active' && !isOwner) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+    return this.toPublic(current);
   }
 
   async update(cookieHeader: string | undefined, id: string, request: UpdateServiceRequest): Promise<PublicServiceListing> {
@@ -105,28 +94,15 @@ export class ServiceCatalogService {
     if (input.categoryCode && input.categoryCode !== service.categoryCode) {
       await this.categories.assertActiveCategory(input.categoryCode);
     }
-    const updated: ServiceListing = {
-      ...service,
-      titleAr: input.titleAr ?? service.titleAr,
-      titleEn: input.titleEn === undefined ? service.titleEn : input.titleEn,
-      descriptionAr: input.descriptionAr === undefined ? service.descriptionAr : input.descriptionAr,
-      descriptionEn: input.descriptionEn === undefined ? service.descriptionEn : input.descriptionEn,
-      categoryCode: input.categoryCode ?? service.categoryCode,
-      price: input.price === undefined ? service.price : input.price,
-      priceCurrency: input.priceCurrency === undefined ? service.priceCurrency : input.priceCurrency,
-      priceType: input.priceType ?? service.priceType,
-      status: input.status ?? service.status,
-      updatedAt: new Date().toISOString()
-    };
-
-    await this.repository.save(updated);
-    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
+    // Pass only the validated delta. The repository locks the current parent and
+    // service, so unrelated fields are not copied from this earlier read.
+    return this.toPublic(await this.repository.patchOwned(service, input, actor.id));
   }
 
   async delete(cookieHeader: string | undefined, id: string): Promise<{ readonly status: 'ok' }> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const service = await this.requireOwnedService(id, actor.id);
-    await this.repository.save({ ...service, status: 'inactive', updatedAt: new Date().toISOString() });
+    await this.repository.patchOwned(service, { status: 'inactive' }, actor.id);
     return { status: 'ok' };
   }
 
@@ -171,13 +147,31 @@ export class ServiceCatalogService {
   async addMediaAsset(cookieHeader: string | undefined, serviceId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     await this.requireOwnedService(serviceId, actor.id);
-    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
-    await this.businessProfiles.saveMediaAsset(full);
-    return full;
+    const existing = (await this.businessProfiles.listMediaAssets('service', serviceId)).find(item => item.url === asset.url && item.storagePath === asset.storagePath && item.assetType === asset.assetType);
+    if (!existing) throw new BadRequestException('Service image registration requires an existing image belonging to this service.');
+    return existing;
   }
 
-  async getMediaAssets(serviceId: string, assetType?: string): Promise<MediaAsset[]> {
-    return this.businessProfiles.listMediaAssets('service', serviceId, assetType);
+  async getMediaAssets(serviceId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    await this.getOne(cookieHeader, serviceId);
+    const assets = await this.businessProfiles.listMediaAssets('service', serviceId, assetType);
+    await this.getOne(cookieHeader, serviceId);
+    return assets;
+  }
+
+  private async readOwnerContext(ownerType: ServiceListing['ownerType'], ownerId: string, cookieHeader?: string): Promise<boolean> {
+    const token = readSessionToken(cookieHeader);
+    const session = token ? await this.identity.getSession(token) : undefined;
+    const parent = ownerType === 'business' ? await this.businessProfiles.findById(ownerId) : await this.professionalProfiles.findById(ownerId);
+    if (!parent) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+    const ownerUserId = 'ownerUserId' in parent ? parent.ownerUserId : parent.userId;
+    if (session?.id === ownerUserId) return true;
+    const eligibility = ownerType === 'business' ? parent as Awaited<ReturnType<BusinessProfileRepository['findById']>> : await this.professionalProfiles.findContactEligibility(ownerId);
+    const isPublic = eligibility?.visibility === 'public' && eligibility.moderationStatus === 'approved' && (ownerType === 'business'
+      ? 'trustStatus' in eligibility && eligibility.trustStatus === 'approved' && 'status' in eligibility && eligibility.status === 'active'
+      : 'lifecycleStatus' in eligibility && eligibility.lifecycleStatus === 'active');
+    if (!isPublic) throw new NotFoundException(SERVICE_NOT_FOUND_MESSAGE);
+    return false;
   }
 
   private async verifyOwnership(ownerType: ServiceListing['ownerType'], ownerId: string, actorUserId: string): Promise<boolean> {

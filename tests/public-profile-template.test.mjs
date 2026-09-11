@@ -35,7 +35,7 @@ test('profile preserves discovery, contact, trust and structured-data journeys',
 });
 
 test('profile layout supports theme tokens, desktop and mobile', () => {
-  for (const token of ['--k-color-canvas', '--k-color-surface', '--k-color-text', '--k-color-primary', '--k-color-border']) {
+  for (const token of ['--k-color-canvas', '--k-color-surface', '--k-color-text', '--brand-navy', '--k-color-border']) {
     assert.match(styles, new RegExp(token));
   }
   assert.match(styles, /grid-template-columns:minmax\(0,1\.6fr\)/);

@@ -30,13 +30,21 @@
     "validate:production-readiness": "npm run validate:database && npm run validate:google && npm run validate:firebase && npm run validate:operations"
   },
   "engines": {
-    "node": ">=20.11.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.1": true,
+    "esbuild@0.25.12": true,
+    "protobufjs@7.6.5": true
   },
   "overrides": {
     "next": {
       "postcss": "8.5.24",
-      "sharp": "0.35.3"
-    }
+      "sharp": "0.35.4"
+    },
+    "qs": "6.16.0",
+    "postcss": "8.5.24",
+    "multer": "2.3.0"
   }
 }

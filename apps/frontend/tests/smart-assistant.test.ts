@@ -10,11 +10,13 @@ test('Arabic smart assistant routes intent and provides private browser speech i
     read('app/layout.tsx')
   ]);
   assert.match(layout, /<SmartAssistant\s*\/>/);
-  assert.match(assistant, /\/mobility\?type=taxi/);
+  assert.match(assistant, /router\.push\('\/taxi'\)/);
   assert.match(assistant, /\/mobility\?type=delivery/);
   assert.match(assistant, /\/classifieds\?q=/);
   assert.match(assistant, /\/search\?q=/);
   assert.match(assistant, /webkitSpeechRecognition/);
   assert.match(assistant, /recognition\.lang = 'ar-SY'/);
   assert.match(assistant, /لا يتم حفظ التسجيل الصوتي/);
+  assert.match(assistant, /اسأل خدمة/);
+  assert.doesNotMatch(assistant, /اسأل خدمة ديجتل/);
 });

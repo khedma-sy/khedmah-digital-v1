@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
 
     services:
       postgres:
@@ -32,12 +32,12 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -74,7 +74,11 @@ jobs:
         run: npm run build
 
       - name: ✅ Run all tests
-        run: npm run test:all
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/khedmah-test-evidence"
+          npm run test:all 2>&1 | tee "$RUNNER_TEMP/khedmah-test-evidence/test-all.log"
         env:
           PGHOST: 127.0.0.1
           PGPORT: 5432
@@ -82,6 +86,38 @@ jobs:
           PGPASSWORD: khedmah_dev
           PGDATABASE: khedmah_ci
           ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
+
+      - name: Preserve test evidence
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EVIDENCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/khedmah-test-evidence"
+          mkdir -p "$evidence"
+          git rev-parse HEAD > "$evidence/checkout-sha.txt"
+          printf '%s\n' "$EVIDENCE_HEAD_SHA" > "$evidence/head-sha.txt"
+          printf '%s\n' "$EVIDENCE_JOB_STATUS" > "$evidence/job-status-before-archive.txt"
+          node --version > "$evidence/node-version.txt"
+          if [ -f "$evidence/test-all.log" ]; then
+            grep -E '^not ok |^# (tests|pass|fail|skipped|cancelled) ' "$evidence/test-all.log" > "$evidence/test-summary.txt" || true
+          else
+            printf '%s\n' 'NOT_EXECUTED: no test log was produced.' > "$evidence/test-summary.txt"
+          fi
+          git archive --format=tar.gz HEAD -- . ':!.env*' ':!*.pem' ':!*.key' ':!**/.env*' ':!**/*.pem' ':!**/*.key' ':!**/node_modules/**' > "$evidence/source-at-checkout.tar.gz"
+          (cd "$evidence" && sha256sum source-at-checkout.tar.gz > source-sha256.txt)
+          cat "$evidence/test-summary.txt"
+
+      - name: Upload test evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.node-version }}
+          path: ${{ runner.temp }}/khedmah-test-evidence/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: 🔐 Security audit
         run: npm audit --omit=dev --audit-level=high
@@ -97,7 +133,14 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: 📦 Setup Node.js 24
+        uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+
+      - name: 📋 Install dependencies
+        run: npm ci
 
       - name: 🔍 Check executable directory structure
         run: |
@@ -106,18 +149,8 @@ jobs:
           test -d "apps/frontend" && echo "✅ apps/frontend (executable frontend) present" || { echo "❌ apps/frontend missing"; exit 1; }
           test -d "backend/migrations/versions" && echo "✅ backend/migrations/versions (governed migrations) present" || { echo "❌ backend/migrations/versions missing"; exit 1; }
 
-      - name: 📄 Verify approved SQL migrations (001-003 only)
-        run: |
-          set -euo pipefail
-          echo "🔍 Checking migration files..."
-          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found"
-          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found"
-          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found"
-          echo "🔍 Checking approved migration files..."
-          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found" || { echo "❌ Migration 001 missing"; exit 1; }
-          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found" || { echo "❌ Migration 002 missing"; exit 1; }
-          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found" || { echo "❌ Migration 003 missing"; exit 1; }
-          echo "ℹ️  Migration 004 is not approved — it must not be created until contracts are reviewed."
+      - name: 📄 Validate governed migration contract
+        run: npm run validate:database
 
       - name: 🔒 Verify no forbidden tables in migrations
         run: |
@@ -140,7 +173,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 📊 Check PR files changed
         env:

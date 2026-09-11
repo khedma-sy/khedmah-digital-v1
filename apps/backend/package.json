@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "dev": "tsx src/main.ts",
-    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx --node-arg=--test-concurrency=1 src/**/*.test.ts"
+    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx --node-arg=--test-concurrency=1 src/**/*.test.ts",
+    "audit:release-data": "tsx src/database/release-data-integrity.cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.28",

@@ -1,17 +1,31 @@
 import type { Metadata, Viewport } from 'next';
+import { Noto_Sans_Arabic } from 'next/font/google';
 import Link from 'next/link';
-import { AuthNavigation } from './auth-navigation';
+import { AuthNavigation, DiscoveryNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
+import './section-themes.css';
+import './shell-system.css';
 import './ui-primitives.css';
+import './home-system.css';
+import './admin-system.css';
+import './moderation-system.css';
 import './auth-experience.css';
+import './accessibility-system.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-const SITE_NAME = 'خدمة';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
+const SITE_NAME = 'خدمة ديجتل';
+
+const arabicFont = Noto_Sans_Arabic({
+  subsets: ['arabic'],
+  display: 'swap',
+  fallback: ['Segoe UI', 'Tahoma', 'Arial', 'sans-serif'],
+  variable: '--font-khedmah-arabic'
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -20,11 +34,11 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`
   },
   description: 'خدمة منصة عربية لاكتشاف الأعمال والمهنيين والخدمات الموثوقة والتواصل معهم بسهولة.',
-  applicationName: 'خدمة',
+  applicationName: SITE_NAME,
   keywords: ['أعمال', 'مهنيين', 'خدمات', 'دليل', 'سوريا', 'عربي', 'khedmah', 'خدمة'],
-  authors: [{ name: 'خدمة' }],
-  creator: 'خدمة',
-  publisher: 'خدمة',
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
   robots: {
     index: true,
     follow: true,
@@ -37,7 +51,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} — دليل الأعمال`,
     description: 'منصة الأعمال الرقمية العربية — اكتشف الأعمال والمهنيين والخدمات.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'خدمة' }]
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: SITE_NAME }]
   },
   twitter: {
     card: 'summary_large_image',
@@ -59,18 +73,24 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const themeScript = `(function(){try{var p=localStorage.getItem('khedma-theme');var v=p==='light'||p==='dark'?p:'system';var d=v==='dark'||(v==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.dataset.themePreference=v;r.dataset.theme=d?'dark':'light';r.style.colorScheme=d?'dark':'light'}catch(e){}})()`;
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning className={arabicFont.variable}>
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
-      <body>
+      <body className={arabicFont.className}>
         <a className="skip-link" href="#foundation-content">
           الانتقال إلى المحتوى
         </a>
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
+          <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
         </header>
-        {children}
         <SmartAssistant />
+        {children}
+        <footer className="khedma-footer" aria-label="روابط قانونية">
+          <Link href="/privacy">سياسة الخصوصية</Link>
+          <Link href="/terms">شروط الاستخدام</Link>
+          <Link href="/delete-account">حذف الحساب</Link>
+        </footer>
       </body>
     </html>
   );

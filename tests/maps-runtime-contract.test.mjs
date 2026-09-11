@@ -9,7 +9,11 @@ test('Web map sanitizes its protected key and requests async Google Maps loading
   assert.match(page, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY\?\.trim\(\)/);
   assert.match(page, /loading=async/);
   assert.match(page, /callback=initKhedmahMap/);
-  assert.match(page, /window\.initKhedmahMap = \(\) =>/);
+  // Named ownership is required so cleanup cannot overwrite a newer route's callback.
+  assert.match(page, /const initialize = \(\) => \{/);
+  assert.match(page, /window\.initKhedmahMap = initialize;/);
+  assert.match(page, /if \(window\.initKhedmahMap === initialize\) window\.initKhedmahMap = previousInitializer;/);
+  assert.match(page, /try \{ initializeMapRef\.current\(\); \}/);
   assert.match(page, /document\.head\.appendChild\(insertedScript\)/);
   assert.match(page, /data-map-status=\{mapStatus\}/);
 });

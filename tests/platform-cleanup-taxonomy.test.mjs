@@ -51,14 +51,17 @@ test('category discovery accepts parent filters and Arabic aliases while owner w
 });
 
 test('professional discovery does not present or retain an unsupported category filter', async () => {
-  const [searchPage, mvpDefinition, taxonomy, blueprint] = await Promise.all([
+  const [searchPage, mvpDefinition, taxonomy, blueprint, context] = await Promise.all([
     read('apps/frontend/app/search/page.tsx'),
     read('docs/product/KHEDMAH-DIGITAL-MVP-DEFINITION.md'),
     read('docs/product/UNIVERSAL-TAXONOMY-MODEL.md'),
-    read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md')
+    read('docs/architecture/PUBLIC-DISCOVERY-EXPERIENCE-BLUEPRINT.md'),
+    read('apps/frontend/lib/search-context.ts')
   ]);
 
-  assert.match(searchPage, /nextState\.tab !== 'professional'/);
+  assert.match(searchPage, /readSearchState\(params\)/);
+  assert.match(context, /state\.tab !== 'professional'/);
+  assert.match(context, /categoryCode: tab === 'professional' \? '' : context\.categoryCode/);
   assert.match(searchPage, /nextTab === 'professional' \? '' : categoryCode/);
   assert.match(searchPage, /tab !== 'professional' && <div className=\{styles\.field\}><label htmlFor="category">/);
   assert.match(searchPage, /بحث المهنيين متاح بالكلمة والمدينة/);
@@ -107,9 +110,13 @@ test('public projections preserve readable Arabic labels for inactive legacy ref
   for (const projection of [businessService, serviceService, combinedSearch, client]) {
     assert.match(projection, /categoryNameAr/);
   }
-  for (const mutationService of [businessService, serviceService]) {
-    assert.match(mutationService, /repository\.save\(updated\)[\s\S]*repository\.findById\(updated\.id\)/);
-  }
+  // Project the database-returned category label, not the retired upsert/read-back implementation.
+  assert.match(serviceService, /toPublic\(await this\.repository\.insertOwned\(service, actor\.id\)\)/);
+  assert.match(serviceService, /toPublic\(await this\.repository\.patchOwned\(service, input, actor\.id\)\)/);
+  assert.doesNotMatch(serviceService, /this\.repository\.save\(/);
+  assert.match(serviceRepository, /RETURNING \*, \(SELECT c\.name_ar FROM categories c WHERE c\.code=service_listings\.category_code\) AS category_name_ar/);
+  assert.match(businessService, /toPublic\(await this\.repository\.updateOwner\(updated, expected, actor\.id\)\)/);
+  assert.match(businessRepository, /RETURNING \*, \(SELECT c\.name_ar FROM categories c WHERE c\.code=business_profiles\.category_code\) AS category_name_ar/);
   assert.match(searchPage, /categoryNameAr/);
   assert.doesNotMatch(searchPage, /\?\? code;/);
   assert.match(contract, /authoritative `categoryNameAr` resolved by code/);
@@ -122,7 +129,12 @@ test('category directory paginates every service result instead of stopping at t
     read('docs/contracts/CANONICAL-BUSINESS-SERVICE-LOCATION-RELATIONSHIP-CONTRACTS.md')
   ]);
 
-  assert.match(directory, /api\.services\.search\(\{ categoryCode: categoryCode \|\| undefined, page: pageNumber \}\)/);
+  const request = directory.match(/api\.services\.search\(\{([^}]*)\}\)/)?.[1];
+  assert.ok(request, 'directory must issue the existing service search request');
+  assert.match(request, /categoryCode: categoryCode \|\| undefined/);
+  assert.match(request, /cityCode: cityCode \|\| undefined/);
+  assert.match(request, /q: q \|\| undefined/);
+  assert.match(request, /page: pageNumber/);
   assert.match(directory, /setTotal\(data\.total\)/);
   assert.match(directory, /const totalPages = Math\.ceil\(total \/ PAGE_SIZE\)/);
   assert.match(directory, /aria-label="صفحات دليل الخدمات"/);

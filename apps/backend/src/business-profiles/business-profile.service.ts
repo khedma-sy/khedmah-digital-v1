@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { requireContentRevision } from '../moderation/profile-content-revision';
+import { createHash, randomUUID } from 'node:crypto';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -22,10 +23,20 @@ export class BusinessProfileService {
   async create(cookieHeader: string | undefined, request: CreateBusinessProfileRequest): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateCreateBusinessProfile(request);
+    const requestId = request.clientRequestId;
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{16,100}$/.test(requestId))) {
+      throw new BadRequestException('clientRequestId is invalid.');
+    }
+    const id = requestId === undefined ? randomUUID()
+      : createHash('sha256').update(JSON.stringify(['business-create-v1', actor.id, requestId])).digest('hex');
+    if (requestId !== undefined) {
+      const existing = await this.repository.findById(id);
+      if (existing) return this.toPublic(this.assertCreateReplay(existing, actor.id, input));
+    }
     await this.categories.assertActiveCategory(input.categoryCode);
     const now = new Date().toISOString();
     const profile: BusinessProfile = {
-      id: randomUUID(),
+      id,
       name: input.name,
       descriptionAr: input.descriptionAr,
       descriptionEn: input.descriptionEn,
@@ -46,8 +57,19 @@ export class BusinessProfileService {
       updatedAt: now
     };
 
-    await this.repository.save(profile);
-    return this.toPublic(await this.repository.findById(profile.id) ?? profile);
+    const saved = await this.repository.insert(profile);
+    return this.toPublic(this.assertCreateReplay(saved, actor.id, input));
+  }
+
+  private assertCreateReplay(profile: BusinessProfile, actorId: string, input: ReturnType<typeof validateCreateBusinessProfile>): BusinessProfile {
+    if (profile.ownerUserId !== actorId) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
+    if (profile.name !== input.name || profile.descriptionAr !== input.descriptionAr || profile.descriptionEn !== input.descriptionEn
+      || profile.phone !== input.phone || profile.email !== input.email || profile.website !== input.website
+      || profile.categoryCode !== input.categoryCode || profile.cityCode !== input.cityCode || profile.countryCode !== input.countryCode) {
+      throw new ConflictException({ message: 'توجد بيانات محفوظة لهذه المحاولة. افتح النشاط الحالي قبل إنشاء نشاط آخر.',
+        code: 'BUSINESS_DRAFT_EXISTS', businessId: profile.id });
+    }
+    return profile;
   }
 
   async listMine(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {
@@ -72,53 +94,37 @@ export class BusinessProfileService {
     }
 
     const input = validateUpdateBusinessProfile(request);
+    const expected = requireContentRevision(request.expectedContentRevision, profile.contentRevision);
     if (input.categoryCode && input.categoryCode !== profile.categoryCode) {
       await this.categories.assertActiveCategory(input.categoryCode);
     }
     const updated: BusinessProfile = {
       ...profile,
       name: input.name ?? profile.name,
-      descriptionAr: input.descriptionAr === undefined ? profile.descriptionAr : input.descriptionAr,
-      descriptionEn: input.descriptionEn === undefined ? profile.descriptionEn : input.descriptionEn,
-      phone: input.phone === undefined ? profile.phone : input.phone,
-      email: input.email === undefined ? profile.email : input.email,
-      website: input.website === undefined ? profile.website : input.website,
+      descriptionAr: input.descriptionAr === undefined ? profile.descriptionAr : input.descriptionAr ?? undefined,
+      descriptionEn: input.descriptionEn === undefined ? profile.descriptionEn : input.descriptionEn ?? undefined,
+      phone: input.phone === undefined ? profile.phone : input.phone ?? undefined,
+      email: input.email === undefined ? profile.email : input.email ?? undefined,
+      website: input.website === undefined ? profile.website : input.website ?? undefined,
       visibility: input.visibility ?? profile.visibility,
       categoryCode: input.categoryCode ?? profile.categoryCode,
       cityCode: input.cityCode ?? profile.cityCode,
       countryCode: input.countryCode ?? profile.countryCode,
-      lat: input.lat === undefined ? profile.lat : input.lat,
-      lng: input.lng === undefined ? profile.lng : input.lng,
-      addressAr: input.addressAr === undefined ? profile.addressAr : input.addressAr,
+      lat: input.lat === undefined ? profile.lat : input.lat ?? undefined,
+      lng: input.lng === undefined ? profile.lng : input.lng ?? undefined,
+      addressAr: input.addressAr === undefined ? profile.addressAr : input.addressAr ?? undefined,
       updatedAt: new Date().toISOString()
     };
 
-    await this.repository.save(updated);
-    return this.toPublic(await this.repository.findById(updated.id) ?? updated);
+    return this.toPublic(await this.repository.updateOwner(updated, expected, actor.id));
   }
 
   async updateTrustStatus(cookieHeader: string | undefined, id: string, request: UpdateTrustStatusRequest): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
     const input = validateUpdateTrustStatus(request);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateTrustStatus(profile.id, input.trustStatus, updatedAt);
-
-    // Record trust history
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: input.trustStatus,
-      changedBy: actor.id,
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, trustStatus: input.trustStatus, updatedAt });
+    await this.repository.changeTrustStatus(id, input.trustStatus, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async search(request: SearchBusinessProfilesRequest): Promise<{ readonly businesses: PublicBusinessProfile[]; readonly total: number; readonly page: number; }> {
@@ -158,69 +164,36 @@ export class BusinessProfileService {
   // --- Moderation ---
   async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const profile = await this.requireProfile(id);
-    if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'pending',
-      changedBy: actor.id,
-      reason: 'Submitted for review by owner',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'pending', updatedAt });
+    await this.repository.submitForReview(id, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async rejectModeration(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
+  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'rejected',
-      changedBy: actor.id,
-      reason: reason || 'Rejected by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'rejected', updatedAt });
+    await this.repository.review(id, actor.id, 'rejected', expectedRevision, reason);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  // --- Media ---
   async addMediaAsset(cookieHeader: string | undefined, entityId: string, asset: Omit<MediaAsset, 'id' | 'createdAt'>): Promise<MediaAsset> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
-    await this.repository.saveMediaAsset(full);
-    return full;
+    const existing = (await this.repository.listMediaAssets('business', entityId)).find((item) => item.url === asset.url && item.storagePath === asset.storagePath && item.assetType === asset.assetType);
+    if (!existing) throw new BadRequestException('Upload image bytes through the media endpoint before registering the owned image.');
+    return existing;
   }
 
-  async getMediaAssets(entityType: string, entityId: string, assetType?: string): Promise<MediaAsset[]> {
-    return this.repository.listMediaAssets(entityType, entityId, assetType);
+  async getMediaAssets(entityType: string, entityId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.listMediaAssets(entityType, entityId, assetType));
   }
 
   async deleteMediaAsset(cookieHeader: string | undefined, businessId: string, assetId: string): Promise<void> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteMediaAsset(businessId, assetId);
+    await this.repository.deleteMediaAsset(businessId, assetId, actor.id);
   }
 
   // --- Opening Hours ---
@@ -240,13 +213,13 @@ export class BusinessProfileService {
         throw new BadRequestException('Opening time must be earlier than closing time.');
       }
     }
-    const saved = hours.map((hour) => ({ ...hour, id: randomUUID() }));
-    await this.repository.replaceOpeningHours(businessId, saved);
+    const saved = hours.map((hour) => ({ ...hour, id: randomUUID(), businessProfileId: businessId }));
+    await this.repository.replaceOpeningHours(businessId, saved, actor.id);
     return saved;
   }
 
-  async getOpeningHours(businessId: string): Promise<OpeningHours[]> {
-    return this.repository.listOpeningHours(businessId);
+  async getOpeningHours(businessId: string, cookieHeader?: string): Promise<OpeningHours[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listOpeningHours(businessId));
   }
 
   // --- Branches ---
@@ -256,12 +229,12 @@ export class BusinessProfileService {
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
     if (!branch.nameAr?.trim() || !branch.cityCode?.trim()) throw new BadRequestException('Branch name and city are required.');
     const full: BusinessBranch = { ...branch, nameAr: branch.nameAr.trim(), cityCode: branch.cityCode.trim(), id: randomUUID(), businessProfileId: businessId };
-    await this.repository.saveBranch(full);
+    await this.repository.saveBranch(full, actor.id);
     return full;
   }
 
-  async getBranches(businessId: string): Promise<BusinessBranch[]> {
-    return this.repository.listBranches(businessId);
+  async getBranches(businessId: string, cookieHeader?: string): Promise<BusinessBranch[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listBranches(businessId));
   }
 
   // --- Social Links ---
@@ -275,19 +248,19 @@ export class BusinessProfileService {
     try { parsed = new URL(url); } catch { throw new BadRequestException('Social link must be a valid URL.'); }
     if (parsed.protocol !== 'https:') throw new BadRequestException('Social link must use HTTPS.');
     const link: BusinessSocialLink = { id: randomUUID(), businessProfileId: businessId, platform, url: parsed.toString() };
-    await this.repository.saveSocialLink(link);
+    await this.repository.saveSocialLink(link, actor.id);
     return link;
   }
 
-  async getSocialLinks(businessId: string): Promise<BusinessSocialLink[]> {
-    return this.repository.listSocialLinks(businessId);
+  async getSocialLinks(businessId: string, cookieHeader?: string): Promise<BusinessSocialLink[]> {
+    return this.readProfileResource(businessId, cookieHeader, () => this.repository.listSocialLinks(businessId));
   }
 
   async deleteSocialLink(cookieHeader: string | undefined, businessId: string, linkId: string): Promise<void> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(businessId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    await this.repository.deleteSocialLink(businessId, linkId);
+    await this.repository.deleteSocialLink(businessId, linkId, actor.id);
   }
 
   // --- Verification ---
@@ -296,8 +269,6 @@ export class BusinessProfileService {
     if (entityType !== 'business') throw new BadRequestException('Unsupported verification entity type.');
     const profile = await this.requireProfile(entityId);
     if (profile.ownerUserId !== actor.id) throw new ForbiddenException(BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE);
-    const existing = await this.repository.findVerificationRequest(entityType, entityId);
-    if (existing?.status === 'pending' || existing?.status === 'approved') return existing;
     const req: VerificationRequest = {
       id: randomUUID(),
       entityType,
@@ -307,99 +278,66 @@ export class BusinessProfileService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await this.repository.saveVerificationRequest(req);
-    return req;
+    return this.repository.requestVerification(req);
   }
 
-  async getVerificationStatus(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
-    return this.repository.findVerificationRequest(entityType, entityId);
+  async getVerificationStatus(entityType: string, entityId: string, cookieHeader?: string): Promise<VerificationRequest | undefined> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.findVerificationRequest(entityType, entityId));
   }
 
-  async getTrustHistory(entityType: string, entityId: string): Promise<TrustHistoryEntry[]> {
-    return this.repository.listTrustHistory(entityType, entityId);
+  async getTrustHistory(entityType: string, entityId: string, cookieHeader?: string): Promise<TrustHistoryEntry[]> {
+    if (entityType !== 'business') throw new BadRequestException('Unsupported entity type.');
+    return this.readProfileResource(entityId, cookieHeader, () => this.repository.listTrustHistory(entityType, entityId));
   }
 
   async approveVerification(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Verification approved',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Verification approved', true);
+    return this.toPublic(await this.requireProfile(entityId));
   }
 
-  async approveModeration(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
+  async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-
-    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.moderationStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Approved by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, moderationStatus: 'approved', updatedAt });
+    await this.repository.review(id, actor.id, 'approved', expectedRevision);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async suspendBusiness(cookieHeader: string | undefined, entityId: string, reason: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'suspended', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'suspended',
-      changedBy: actor.id,
-      reason: reason || 'Suspended by operator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'suspended', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'suspended', actor.id, reason || 'Suspended by operator');
+    return this.toPublic(await this.requireProfile(entityId));
   }
 
   async reactivateBusiness(cookieHeader: string | undefined, entityId: string): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(entityId);
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateTrustStatus(profile.id, 'approved', updatedAt);
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'business',
-      entityId: profile.id,
-      oldStatus: profile.trustStatus,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Reactivated after suspension',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-    return this.toPublic({ ...profile, trustStatus: 'approved', updatedAt });
+    await this.repository.changeTrustStatus(entityId, 'approved', actor.id, 'Reactivated after suspension');
+    return this.toPublic(await this.requireProfile(entityId));
+  }
+
+  private async readProfileResource<T>(id: string, cookieHeader: string | undefined, read: () => Promise<T>): Promise<T> {
+    const isPublic = (profile: BusinessProfile) => profile.visibility === 'public' && profile.moderationStatus === 'approved' && profile.trustStatus === 'approved' && profile.status === 'active';
+    const profile = await this.requireProfile(id);
+    let readerId: string | undefined;
+    if (!isPublic(profile)) {
+      const token = readSessionToken(cookieHeader);
+      if (!token) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+      try { readerId = (await this.identity.getCurrentUser(token)).id; }
+      catch (cause) {
+        if (cause instanceof UnauthorizedException) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+        throw cause;
+      }
+      if (readerId !== profile.ownerUserId) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    const result = await read();
+    // Do not release child data if visibility or ownership changed while it loaded.
+    const current = await this.requireProfile(id);
+    if (readerId !== current.ownerUserId && !isPublic(current)) throw new NotFoundException(BUSINESS_PROFILE_NOT_FOUND_MESSAGE);
+    return result;
   }
 
   private async requireProfile(id: string): Promise<BusinessProfile> {
@@ -413,6 +351,9 @@ export class BusinessProfileService {
   private toPublic(profile: BusinessProfile): PublicBusinessProfile {
     return {
       id: profile.id,
+      revision: profile.revision,
+      contentRevision: profile.contentRevision,
+      reviewImageUrls: profile.reviewImageUrls,
       name: profile.name,
       descriptionAr: profile.descriptionAr,
       descriptionEn: profile.descriptionEn,

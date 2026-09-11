@@ -30,30 +30,38 @@ export default function BusinessProfilePage() {
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [unavailableSections, setUnavailableSections] = useState<string[]>([]);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLoad = () => setLoadAttempt((attempt) => attempt + 1);
   const [shareMsg, setShareMsg] = useState('');
 
   useEffect(() => {
     let active = true;
     async function load() {
-      setIsLoading(true); setError('');
+      setIsLoading(true); setError(''); setUnavailableSections([]);
+      const failedSections: string[] = [];
+      async function optional<T>(request: Promise<T>, fallback: T, label: string): Promise<T> {
+        try { return await request; } catch { failedSections.push(label); return fallback; }
+      }
       try {
         const [businessData, serviceData, mediaData, hoursData, branchData, socialData, verificationData] = await Promise.all([
           api.businesses.getPublic(id),
-          api.services.listForOwner(id, 'business').catch(() => ({ services: [] })),
-          api.businesses.getMedia(id).catch(() => ({ assets: [] })),
-          api.businesses.getOpeningHours(id).catch(() => ({ hours: [] })),
-          api.businesses.getBranches(id).catch(() => ({ branches: [] })),
-          api.businesses.getSocialLinks(id).catch(() => ({ links: [] })),
-          api.businesses.getVerificationStatus(id).catch(() => ({ status: null }))
+          optional(api.services.listForOwner(id, 'business'), { services: [] }, 'الخدمات'),
+          optional(api.businesses.getMedia(id), { assets: [] }, 'الصور'),
+          optional(api.businesses.getOpeningHours(id), { hours: [] }, 'ساعات العمل'),
+          optional(api.businesses.getBranches(id), { branches: [] }, 'الفروع'),
+          optional(api.businesses.getSocialLinks(id), { links: [] }, 'روابط التواصل'),
+          optional(api.businesses.getVerificationStatus(id), { status: null }, 'حالة التوثيق')
         ]);
         if (!active) return;
+        setUnavailableSections(failedSections);
         setBusiness(businessData.business); setServices(serviceData.services); setMedia(mediaData.assets);
         setHours(hoursData.hours); setBranches(branchData.branches); setSocialLinks(socialData.links); setVerification(verificationData.status);
       } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل ملف النشاط.'); }
       finally { if (active) setIsLoading(false); }
     }
     void load(); return () => { active = false; };
-  }, [id]);
+  }, [id, loadAttempt]);
 
   async function copyProfileLink() {
     try {
@@ -87,7 +95,7 @@ export default function BusinessProfilePage() {
   }
 
   if (isLoading) return <PageShell className={styles.page} label="جاري تحميل ملف النشاط"><SkeletonGrid count={5} label="جاري تحميل معلومات النشاط" /></PageShell>;
-  if (error || !business) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح ملف النشاط" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<ActionLink href="/search">العودة إلى البحث</ActionLink>} /></PageShell>;
+  if (error || !business) return <PageShell className={styles.page}><EmptyState icon={<PlatformIcon name="close" size={32}/>} title="تعذر فتح ملف النشاط" description={error || 'هذا الملف غير موجود أو غير متاح للنشر.'} actions={<><ActionButton type="button" onClick={retryLoad}>إعادة المحاولة</ActionButton><ActionLink href="/search">العودة إلى البحث</ActionLink></>} /></PageShell>;
 
   const logo = media.find((asset) => asset.assetType === 'logo');
   const cover = media.find((asset) => asset.assetType === 'cover');
@@ -130,6 +138,8 @@ export default function BusinessProfilePage() {
         </div>
       </Surface>
 
+      {unavailableSections.length > 0 && <StatusMessage tone="warning"><p>تعذر تحميل: {unavailableSections.join('، ')}. يمكنك إعادة المحاولة لعرض المعلومات الحالية.</p><ActionButton type="button" variant="secondary" onClick={retryLoad}>إعادة تحميل التفاصيل</ActionButton></StatusMessage>}
+
       {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق النشاط' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
 
       <div className={styles.content}>
@@ -150,7 +160,7 @@ export default function BusinessProfilePage() {
 
           {business.lat !== undefined && business.lng !== undefined && <Surface className={styles.section}><h2>الموقع</h2><a className={styles.mapLink} href={`https://www.google.com/maps?q=${business.lat},${business.lng}`} target="_blank" rel="noopener noreferrer"><PlatformIcon name="pin" size={28}/><strong>عرض الموقع على خرائط جوجل</strong><span className={styles.coordinates}>{business.lat.toFixed(5)}, {business.lng.toFixed(5)}</span></a></Surface>}
 
-          {!business.phone && !business.email && !business.website && !hours.length && <Surface className={styles.section}><h2>معلومات النشاط</h2><p>لم يضف مقدم النشاط معلومات تواصل أو ساعات عمل بعد.</p><Link href="/search">استكشف نشاطاً آخر</Link></Surface>}
+          {!unavailableSections.length && !business.phone && !business.email && !business.website && !hours.length && !socialLinks.length && <Surface className={styles.section}><h2>معلومات النشاط</h2><p>لم يضف مقدم النشاط معلومات تواصل أو ساعات عمل بعد.</p><Link href="/search">استكشف نشاطاً آخر</Link></Surface>}
         </aside>
       </div>
     </div>

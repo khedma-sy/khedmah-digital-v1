@@ -1,6 +1,6 @@
 steps:
   - id: validate
-    name: node:20
+    name: node:24
     entrypoint: npm
     args: [ci]
   - id: test-run
@@ -34,7 +34,7 @@ steps:
           -w /workspace \
           -e DATABASE_URL="postgresql://khedmah_test:khedmah_test_secret@pg-test:5432/khedmah_test" \
           -e ALLOW_DESTRUCTIVE_DB_TESTS=true \
-          node:20 \
+          node:24 \
           bash -euo pipefail -c "npm ci && npm run test:workspaces"
   - id: build-backend-image
     name: gcr.io/cloud-builders/docker
@@ -127,6 +127,22 @@ steps:
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
     args: [run, deploy, '${_FRONTEND_SERVICE}', --image, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$COMMIT_SHA', --region, '${_REGION}', --platform, managed, --service-account, '${_RUNTIME_SERVICE_ACCOUNT}', --allow-unauthenticated, --port, '8080', --quiet]
+  - id: verify-runtime-readiness
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -euo
+      - pipefail
+      - -c
+      - |
+        BACKEND_URL="$$(gcloud run services describe '${_BACKEND_SERVICE}' --region '${_REGION}' --format='value(status.url)')"
+        FRONTEND_URL="$$(gcloud run services describe '${_FRONTEND_SERVICE}' --region '${_REGION}' --format='value(status.url)')"
+        test -n "$$BACKEND_URL"
+        test -n "$$FRONTEND_URL"
+        curl --fail --silent --show-error --retry 6 --retry-all-errors "$$BACKEND_URL/api/v1/health" >/dev/null
+        curl --fail --silent --show-error --retry 6 --retry-all-errors "$$BACKEND_URL/api/v1/health/ready" >/dev/null
+        curl --fail --silent --show-error --retry 6 --retry-all-errors "$$FRONTEND_URL/" >/dev/null
+        echo 'Production runtime liveness and readiness verified.'
 substitutions:
   _REGION: europe-west1
   _AR_REPOSITORY: khedmah-digital

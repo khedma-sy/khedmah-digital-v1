@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 
 const SESSION_COOKIE_NAME = 'khedmah_session';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const DEPLOYED_ENVIRONMENTS = new Set(['production', 'preview', 'staging']);
+const DEVELOPMENT_ORIGIN = 'http://localhost:3000';
 
 function hasSessionCookie(cookieHeader: string | undefined): boolean {
   if (!cookieHeader) return false;
@@ -13,10 +15,18 @@ function hasSessionCookie(cookieHeader: string | undefined): boolean {
 }
 
 export function configuredOrigins(): string[] {
-  return (process.env.CORS_ORIGIN ?? 'https://frontend-774201339973.europe-west1.run.app')
-    .split(',')
+  const configured = process.env.CORS_ORIGIN
+    ?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  if (configured?.length) return configured;
+
+  const environment = process.env.NODE_ENV?.trim().toLowerCase() ?? '';
+  // Deployed environments must never inherit another environment's browser origin.
+  if (DEPLOYED_ENVIRONMENTS.has(environment)) return [];
+
+  // Local development remains usable without cloud configuration.
+  return [DEVELOPMENT_ORIGIN];
 }
 
 function originFromReferer(referer: string): string | undefined {

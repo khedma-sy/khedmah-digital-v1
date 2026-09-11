@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash, randomUUID } from 'node:crypto';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { CategoryService } from '../categories/category.service';
 import { IdentityService } from '../identity/identity.service';
@@ -22,16 +22,26 @@ export class ProductService {
   async create(cookie: string | undefined, request: Record<string, unknown>) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const input = validateProductWrite(request);
+    const requestId = request.clientRequestId;
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{16,100}$/.test(requestId))) {
+      throw new BadRequestException('clientRequestId is invalid.');
+    }
+    const id = requestId === undefined ? randomUUID()
+      : createHash('sha256').update(JSON.stringify(['product-create-v1', actor.id, requestId])).digest('hex');
+    if (requestId !== undefined) {
+      const existing = await this.repository.findById(id);
+      if (existing) return this.assertCreateReplay(existing, actor.id, input);
+    }
     const business = await this.businesses.findById(input.businessProfileId!);
     if (!business) throw new NotFoundException('Business profile was not found.');
     if (business.ownerUserId !== actor.id) throw new ForbiddenException('Access denied.');
     await this.categories.assertActiveCategory(input.categoryCode!);
     const now = new Date().toISOString();
-    const product: ProductListing = { id: randomUUID(), businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
-      descriptionAr: input.descriptionAr, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
+    const product: Omit<ProductListing, 'revision' | 'contentRevision'> = { id, businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
+      descriptionAr: input.descriptionAr ?? undefined, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
       availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
-    await this.repository.insert(product);
-    return product;
+    const saved = await this.repository.insert(product);
+    return this.assertCreateReplay(saved, actor.id, input);
   }
 
   async listMine(cookie: string | undefined) {
@@ -53,12 +63,18 @@ export class ProductService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const product = await this.requireOwner(actor.id, id);
     const input = validateProductWrite(request, true);
+    if (typeof request.expectedContentRevision !== 'string' || !/^[a-f0-9]{64}$/.test(request.expectedContentRevision)) {
+      throw new BadRequestException('حدّث بيانات المنتج قبل حفظ المسودة.');
+    }
+    if (request.expectedContentRevision !== product.contentRevision) {
+      throw new ConflictException('تغيرت بيانات المنتج في جلسة أخرى. راجع النسخة الحالية قبل حفظ مسودتك.');
+    }
     if (input.categoryCode) await this.categories.assertActiveCategory(input.categoryCode);
     const updated: ProductListing = { ...product, titleAr: input.titleAr ?? product.titleAr,
-      descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr,
+      descriptionAr: input.descriptionAr === undefined ? product.descriptionAr : input.descriptionAr ?? undefined,
       price: input.price ?? product.price, currency: input.currency ?? product.currency, categoryCode: input.categoryCode ?? product.categoryCode,
       availability: input.availability ?? product.availability, status: 'draft', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
   }
 
   async submit(cookie: string | undefined, id: string) {
@@ -66,16 +82,20 @@ export class ProductService {
     const product = await this.requireOwner(actor.id, id);
     if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Add a product image before submitting it for review.');
     const updated: ProductListing = { ...product, status: 'active', moderationStatus: 'pending', rejectionReason: undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
   }
 
   async listPending(cookie: string | undefined) { await this.authorizeAdmin(cookie); return this.repository.listPending(); }
 
-  async review(cookie: string | undefined, id: string, status: 'approved' | 'rejected', reason?: string) {
+  async review(cookie: string | undefined, id: string, status: 'approved' | 'rejected', reason?: string, expectedRevision?: unknown) {
     await this.authorizeAdmin(cookie);
+    if (typeof expectedRevision !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(expectedRevision)) {
+      throw new BadRequestException('حدّث قائمة المراجعة للحصول على نسخة المنتج الحالية.');
+    }
     if (status !== 'approved' && status !== 'rejected') throw new BadRequestException('Moderation status is invalid.');
     const product = await this.repository.findById(id);
     if (!product) throw new NotFoundException('Product was not found.');
+    if (product.revision !== expectedRevision) throw new ConflictException('تغير المنتج أو صوره. حدّث قائمة المراجعة وراجع النسخة الحالية.');
     if (product.status !== 'active' || product.moderationStatus !== 'pending') throw new BadRequestException('Product is not awaiting moderation.');
     if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Product image is required.');
     if (status === 'approved') {
@@ -84,9 +104,20 @@ export class ProductService {
         throw new BadRequestException('Seller business must be public, approved, trusted, and active before product publication.');
       }
     }
-    if (status === 'rejected' && (!reason || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
+    if (status === 'rejected' && (typeof reason !== 'string' || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
     const updated: ProductListing = { ...product, moderationStatus: status, rejectionReason: status === 'rejected' ? reason!.trim() : undefined, updatedAt: new Date().toISOString() };
-    await this.repository.update(updated); return updated;
+    return this.repository.update(updated, product.revision);
+  }
+
+  private assertCreateReplay(product: ProductListing, actorId: string, input: ReturnType<typeof validateProductWrite>): ProductListing {
+    if (product.ownerUserId !== actorId) throw new ForbiddenException('Access denied.');
+    if (product.businessProfileId !== input.businessProfileId || product.titleAr !== input.titleAr
+      || product.descriptionAr !== (input.descriptionAr ?? undefined) || product.price !== input.price || product.currency !== input.currency
+      || product.categoryCode !== input.categoryCode || product.availability !== input.availability) {
+      throw new ConflictException({ message: 'توجد مسودة محفوظة لهذه المحاولة ببيانات مختلفة. افتحها للمراجعة بدلاً من إنشاء نسخة مكررة.',
+        code: 'PRODUCT_DRAFT_EXISTS', productId: product.id });
+    }
+    return product;
   }
 
   private async authorizeAdmin(cookie: string | undefined) {

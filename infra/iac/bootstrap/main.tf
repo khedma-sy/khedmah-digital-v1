@@ -6,16 +6,21 @@ locals {
     "iamcredentials.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "sqladmin.googleapis.com",
+    "storage.googleapis.com",
     "sts.googleapis.com",
   ])
 
   deployer_roles = toset([
     "roles/artifactregistry.writer",
     "roles/cloudbuild.builds.editor",
+    "roles/cloudsql.viewer",
     "roles/iam.serviceAccountUser",
     "roles/run.admin",
     "roles/secretmanager.viewer",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/serviceusage.serviceUsageViewer",
+    "roles/storage.bucketViewer",
   ])
 }
 
@@ -51,6 +56,12 @@ resource "google_service_account" "deployer" {
   display_name = "Khedmah V1 deployer"
 
   depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_member" "runtime_cloud_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 resource "google_project_iam_member" "deployer" {
@@ -102,13 +113,13 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "google.subject"         = "assertion.sub"
     "attribute.repository"   = "assertion.repository"
     "attribute.ref"          = "assertion.ref"
-    "attribute.workflow_ref" = "assertion.job_workflow_ref"
+    "attribute.workflow_ref" = "assertion.workflow_ref"
   }
 
   attribute_condition = <<-EOT
     assertion.repository == "${var.github_repository}" &&
     assertion.ref == "${var.github_ref}" &&
-    assertion.job_workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"
+    assertion.workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"
   EOT
 
   oidc {

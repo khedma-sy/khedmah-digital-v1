@@ -1,5 +1,5 @@
 import { Controller, Get, Inject } from '@nestjs/common';
-import { HealthService, type HealthResponse } from './health.service';
+import { HealthService, type HealthResponse, type ReadinessResponse } from './health.service';
 
 @Controller('health')
 export class HealthController {
@@ -8,5 +8,10 @@ export class HealthController {
   @Get()
   getHealth(): HealthResponse {
     return this.healthService.getHealth();
+  }
+
+  @Get('ready')
+  getReadiness(): Promise<ReadinessResponse> {
+    return this.healthService.getReadiness();
   }
 }

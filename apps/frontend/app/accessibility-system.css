@@ -1,0 +1,15 @@
+/* Final accessibility fallback. Component-specific styles may be richer, but no interactive control may lose keyboard visibility. */
+:is(a[href],button,input,select,textarea,summary,[tabindex]:not([tabindex='-1'])):focus-visible{
+  outline:3px solid var(--k-color-primary);
+  outline-offset:3px;
+}
+
+@media(prefers-reduced-motion:reduce){
+  html:focus-within{scroll-behavior:auto}
+  *,*::before,*::after{
+    scroll-behavior:auto!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+}

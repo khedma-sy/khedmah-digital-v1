@@ -1,5 +1,6 @@
+import { requireContentRevision } from '../moderation/profile-content-revision';
 import { randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -21,6 +22,9 @@ export class ProfessionalProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const input = validateProfessionalProfileUpsert(request);
     const existing = await this.repository.findByUserId(actor.id);
+    if (existing && request.expectedContentRevision === undefined) throw new ConflictException('A professional profile already exists. Reload it before editing.');
+    const expected = existing ? requireContentRevision(request.expectedContentRevision, existing.contentRevision) : undefined;
+    if (!existing && request.expectedContentRevision !== undefined) throw new ConflictException('The edited profile is no longer available.');
     const now = new Date().toISOString();
     const profile: ProfessionalProfile = existing
       ? {
@@ -51,8 +55,12 @@ export class ProfessionalProfileService {
           updatedAt: now
         };
 
-    await this.repository.save(profile);
-    return this.toPublic(profile);
+    if (existing) return this.toPublic(await this.repository.updateOwner(profile, expected!, actor.id));
+    try { await this.repository.save(profile); } catch (cause) {
+      if ((cause as { code?: string }).code === '23505') throw new ConflictException('A professional profile already exists. Reload it before editing.');
+      throw cause;
+    }
+    return this.toPublic(await this.requireProfile(profile.id));
   }
 
   async getMine(cookieHeader: string | undefined): Promise<PublicProfessionalProfile> {
@@ -61,7 +69,14 @@ export class ProfessionalProfileService {
     if (!profile) {
       throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
     }
-    return this.toPublic(profile);
+    const eligibility = await this.repository.findContactEligibility(profile.id);
+    return {
+      ...this.toPublic(profile),
+      ...(eligibility ? { contactEligibility: {
+        ...eligibility,
+        eligible: eligibility.visibility === 'public' && eligibility.moderationStatus === 'approved' && eligibility.lifecycleStatus === 'active'
+      } } : {})
+    };
   }
 
   async getProfile(id: string): Promise<PublicProfessionalProfile> {
@@ -89,14 +104,13 @@ export class ProfessionalProfileService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     const profile = await this.requireProfile(profileId);
     if (profile.userId !== actor.id) throw new ForbiddenException('Access denied');
-    const full: MediaAsset = { ...asset, id: randomUUID(), createdAt: new Date().toISOString() };
-    await this.repository.saveMediaAsset(full);
-    return full;
+    const existing = (await this.repository.listMediaAssets(profileId)).find((item) => item.url === asset.url && item.storagePath === asset.storagePath && item.assetType === asset.assetType);
+    if (!existing) throw new BadRequestException('Upload image bytes through the media endpoint before registering the owned image.');
+    return existing;
   }
 
-  async getMediaAssets(profileId: string, assetType?: string): Promise<MediaAsset[]> {
-    await this.requirePublicProfile(profileId);
-    return this.repository.listMediaAssets(profileId, assetType);
+  async getMediaAssets(profileId: string, assetType?: string, cookieHeader?: string): Promise<MediaAsset[]> {
+    return this.readProfileResource(profileId, cookieHeader, () => this.repository.listMediaAssets(profileId, assetType));
   }
 
   async requestVerification(cookieHeader: string | undefined, profileId: string): Promise<VerificationRequest> {
@@ -116,14 +130,11 @@ export class ProfessionalProfileService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await this.repository.saveVerificationRequest(req);
-    return req;
+    return this.repository.requestVerification(req);
   }
 
-  async getVerificationStatus(profileId: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
-    await this.requirePublicProfile(profileId);
-
-    const request = await this.repository.findVerificationRequest(profileId);
+  async getVerificationStatus(profileId: string, cookieHeader?: string): Promise<{ status: VerificationRequest['status']; createdAt: string; updatedAt: string } | undefined> {
+    const request = await this.readProfileResource(profileId, cookieHeader, () => this.repository.findVerificationRequest(profileId));
 
     if (!request) {
       return undefined;
@@ -136,9 +147,8 @@ export class ProfessionalProfileService {
     };
   }
 
-  async getTrustHistory(profileId: string): Promise<TrustHistoryEntry[]> {
-    await this.requirePublicProfile(profileId);
-    return this.repository.listTrustHistory(profileId);
+  async getTrustHistory(profileId: string, cookieHeader?: string): Promise<TrustHistoryEntry[]> {
+    return this.readProfileResource(profileId, cookieHeader, () => this.repository.listTrustHistory(profileId));
   }
 
   async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfile[]> {
@@ -154,94 +164,50 @@ export class ProfessionalProfileService {
 
   async submitForReview(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    const profile = await this.requireProfile(id);
-    if (profile.userId !== actor.id) throw new ForbiddenException('Access denied');
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'pending', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'pending', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'pending',
-      changedBy: actor.id,
-      reason: 'Submitted for review by owner',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.submitForReview(id, actor.id);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async approveModeration(cookieHeader: string | undefined, id: string): Promise<PublicProfessionalProfile> {
+  async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'approved', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'active', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'approved',
-      changedBy: actor.id,
-      reason: 'Approved by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.review(id, actor.id, 'approved', expectedRevision);
+    return this.toPublic(await this.requireProfile(id));
   }
 
-  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
+  async rejectModeration(cookieHeader: string | undefined, id: string, reason: string, expectedRevision?: unknown): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
-    const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'rejected', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'rejected',
-      changedBy: actor.id,
-      reason: reason || 'Rejected by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    await this.repository.review(id, actor.id, 'rejected', expectedRevision, reason);
+    return this.toPublic(await this.requireProfile(id));
   }
 
   async suspendProfessional(cookieHeader: string | undefined, id: string, reason: string): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
+    await this.repository.suspend(id, actor.id, reason);
+    return this.toPublic(await this.requireProfile(id));
+  }
+
+  private async readProfileResource<T>(id: string, cookieHeader: string | undefined, read: () => Promise<T>): Promise<T> {
+    const isPublic = (state: Awaited<ReturnType<ProfessionalProfileRepository['findContactEligibility']>>) =>
+      state?.visibility === 'public' && state.moderationStatus === 'approved' && state.lifecycleStatus === 'active';
     const profile = await this.requireProfile(id);
-
-    const updatedAt = new Date().toISOString();
-    await this.repository.updateModerationStatus(profile.id, 'suspended', updatedAt);
-    await this.repository.updateLifecycleStatus(profile.id, 'suspended', updatedAt);
-
-    const historyEntry: TrustHistoryEntry = {
-      id: randomUUID(),
-      entityType: 'professional',
-      entityId: profile.id,
-      newStatus: 'suspended',
-      changedBy: actor.id,
-      reason: reason || 'Suspended by moderator',
-      createdAt: updatedAt
-    };
-    await this.repository.saveTrustHistory(historyEntry);
-
-    return this.toPublic({ ...profile, updatedAt });
+    let readerId: string | undefined;
+    if (!isPublic(await this.repository.findContactEligibility(id))) {
+      const token = readSessionToken(cookieHeader);
+      if (!token) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+      try { readerId = (await this.identity.getCurrentUser(token)).id; }
+      catch (cause) {
+        if (cause instanceof UnauthorizedException) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+        throw cause;
+      }
+      if (readerId !== profile.userId) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    }
+    const result = await read();
+    const current = await this.requireProfile(id);
+    if (readerId !== current.userId && !isPublic(await this.repository.findContactEligibility(id))) throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
+    return result;
   }
 
   private async requireProfile(id: string): Promise<ProfessionalProfile> {
@@ -269,6 +235,9 @@ export class ProfessionalProfileService {
   private toPublic(profile: ProfessionalProfile): PublicProfessionalProfile {
     return {
       id: profile.id,
+      revision: profile.revision,
+      contentRevision: profile.contentRevision,
+      reviewImageUrls: profile.reviewImageUrls,
       headlineAr: profile.headlineAr,
       headlineEn: profile.headlineEn,
       bioAr: profile.bioAr,

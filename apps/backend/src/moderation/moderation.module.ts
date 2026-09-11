@@ -4,6 +4,7 @@ import { ProfessionalProfilesModule } from '../professional-profiles/professiona
 import { OperationsProductModule } from '../operations-product/operations-product.module';
 import { IdentityModule } from '../identity/identity.module';
 import { ModerationController } from './moderation.controller';
+import { VerificationReviewService } from './verification-review.service';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { ModerationController } from './moderation.controller';
     OperationsProductModule,
     IdentityModule
   ],
-  controllers: [ModerationController]
+  controllers: [ModerationController],
+  providers: [VerificationReviewService]
 })
 export class ModerationModule {}

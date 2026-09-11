@@ -2,23 +2,40 @@
 
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
-import { ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
+import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<PublicUserProfile | null>();
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    setUser(undefined);
+    setSessionExpired(false);
+    setError('');
     let active = true;
     void api.auth.session()
       .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
-      .catch((reason) => { if (active) { setUser(null); setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.'); } });
+      .catch((reason) => {
+        if (!active) return;
+        const status = reason instanceof Error ? (reason as Error & { statusCode?: number }).statusCode : undefined;
+        if (status === 401) {
+          setSessionExpired(true);
+          setUser(null);
+          return;
+        }
+        setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.');
+        setUser(null);
+      });
     return () => { active = false; };
-  }, []);
+  }, [retryCount]);
 
   if (user === undefined) return <PageShell label="حسابي"><PageHeader title="حسابي" description="جاري تحميل بيانات حسابك الآمنة." /><SkeletonGrid count={2} label="جاري تحميل الحساب" /></PageShell>;
 
-  if (!user) return <PageShell label="حسابي"><PageHeader title="حسابي" /><StatusMessage tone="warning">{error || 'انتهت الجلسة أو لم تسجل الدخول.'}</StatusMessage><ActionLink href="/auth/login">تسجيل الدخول</ActionLink></PageShell>;
+  if (!user && sessionExpired) return <PageShell label="حسابي"><PageHeader title="حسابي" /><StatusMessage tone="warning">انتهت الجلسة أو لم تسجل الدخول.</StatusMessage><ActionLink href="/auth/login?next=%2Fusers%2Fme">تسجيل الدخول</ActionLink></PageShell>;
+
+  if (!user) return <PageShell label="حسابي"><PageHeader title="تعذر تحميل الحساب" description="لم نتمكن من التحقق من حسابك بسبب مشكلة مؤقتة، ولم نعتبر الجلسة منتهية." /><StatusMessage tone="danger">{error || 'تعذر تحميل الحساب.'}</StatusMessage><ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton></PageShell>;
 
   return <PageShell label="حسابي">
     <PageHeader title="حسابي" description="بيانات الحساب المرتبطة بجلسة تسجيل الدخول الحالية." actions={<ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>} />
@@ -31,7 +48,7 @@ export default function ProfilePage() {
       <Surface className="ui-account-links">
         <h2>إدارة حضورك في خدمة</h2>
         <p>حدّث أنشطتك وخدماتك من مساحة أعمال واحدة مرتبطة بحسابك.</p>
-        <div className="ui-page-actions"><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink></div>
+        <div className="ui-page-actions"><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink><ActionLink href="/delete-account" variant="secondary">حذف الحساب والبيانات</ActionLink></div>
       </Surface>
     </div>
   </PageShell>;

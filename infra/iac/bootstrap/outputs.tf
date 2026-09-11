@@ -23,6 +23,11 @@ output "workload_identity_provider" {
   value       = google_iam_workload_identity_pool_provider.github.name
 }
 
+output "workload_identity_project_number" {
+  description = "Google Cloud project number encoded in the Workload Identity Provider resource name. Configure it as STAGING_GOOGLE_CLOUD_PROJECT_NUMBER in the protected staging environment."
+  value       = split("/", google_iam_workload_identity_pool_provider.github.name)[1]
+}
+
 output "secret_ids" {
   description = "Secret Manager secret IDs created without secret values."
   value       = { for name, secret in google_secret_manager_secret.runtime : name => secret.secret_id }

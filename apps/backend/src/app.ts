@@ -9,6 +9,7 @@ import { RateLimitRepository } from './database/rate-limit.repository';
 import { createRequestContextMiddleware } from './middleware/request-context.middleware';
 import { configuredOrigins, createCsrfOriginMiddleware } from './middleware/csrf-origin.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
+import { createSecurityHeadersMiddleware } from './middleware/security-headers.middleware';
 
 export async function createBackendApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -19,6 +20,8 @@ export async function createBackendApp() {
   const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use(createSecurityHeadersMiddleware());
   app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
@@ -38,7 +41,16 @@ export async function createBackendApp() {
 
   app.use('/api/v1/auth/register', createRateLimitMiddleware(rateLimitRepository, 'auth.register', authWindowMs, authMax));
   app.use('/api/v1/auth/login', createRateLimitMiddleware(rateLimitRepository, 'auth.login', authWindowMs, authMax));
-  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify', authWindowMs, authMax));
+  app.use('/api/v1/auth/google', createRateLimitMiddleware(rateLimitRepository, 'auth.google', authWindowMs, authMax));
+  app.use('/api/v1/auth/facebook', createRateLimitMiddleware(rateLimitRepository, 'auth.facebook', authWindowMs, authMax));
+  app.use('/api/v1/auth/forgot-password', createRateLimitMiddleware(rateLimitRepository, 'auth.forgot-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/reset-password', createRateLimitMiddleware(rateLimitRepository, 'auth.reset-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify.request', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/confirm', createRateLimitMiddleware(rateLimitRepository, 'email.verify.confirm', authWindowMs, authMax));
+  app.use('/api/v1/admin/bootstrap', createRateLimitMiddleware(rateLimitRepository, 'admin.bootstrap', authWindowMs, authMax));
+  app.use('/api/v1/taxi', createRateLimitMiddleware(rateLimitRepository, 'taxi', publicWindowMs, publicMax));
+  app.use('/api/v1/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds', publicWindowMs, publicMax));
+  app.use('/api/v1/admin/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds.admin', authWindowMs, authMax));
   app.use('/api/v1/search', createRateLimitMiddleware(rateLimitRepository, 'search', searchWindowMs, searchMax));
   app.use('/api/v1/contact', createRateLimitMiddleware(rateLimitRepository, 'contact', publicWindowMs, publicMax));
   app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));

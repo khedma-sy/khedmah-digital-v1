@@ -1,17 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set +x
+
 output="${1:-artifacts/live-certification/evidence}"
 mkdir -p "$output"
 chmod 700 "$output"
 required=(gcloud jq)
-for command_name in "${required[@]}"; do command -v "$command_name" >/dev/null || { echo "missing required command: $command_name" >&2; exit 3; }; done
-for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION FIREBASE_PROJECT_ID OPERATIONS_RUNTIME_SERVICE_ACCOUNT OPERATIONS_DEPLOYER_SERVICE_ACCOUNT OPERATIONS_BACKEND_SERVICE OPERATIONS_FRONTEND_SERVICE; do
-  [[ -n "${!name:-}" ]] || { echo "missing required environment variable: $name" >&2; exit 4; }
+for command_name in "${required[@]}"; do
+  command -v "$command_name" >/dev/null 2>&1 || { echo "missing required command: $command_name" >&2; exit 3; }
 done
-[[ "${OPERATIONS_APPROVED_PRODUCTION:-}" == "true" ]] || { echo 'OPERATIONS_APPROVED_PRODUCTION=true is required' >&2; exit 5; }
+for name in \
+  GOOGLE_CLOUD_PROJECT \
+  PRODUCTION_GOOGLE_CLOUD_PROJECT \
+  GOOGLE_CLOUD_REGION \
+  FIREBASE_PROJECT_ID \
+  OPERATIONS_RUNTIME_SERVICE_ACCOUNT \
+  OPERATIONS_DEPLOYER_SERVICE_ACCOUNT \
+  OPERATIONS_BACKEND_SERVICE \
+  OPERATIONS_FRONTEND_SERVICE; do
+  [[ -n "${!name:-}" ]] || { echo "Missing required environment variable: $name" >&2; exit 4; }
+done
+[[ "${OPERATIONS_APPROVED_PRODUCTION:-}" == "true" ]] || { echo 'OPERATIONS_APPROVED_PRODUCTION=true is required.' >&2; exit 5; }
+[[ "$GOOGLE_CLOUD_PROJECT" == "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || {
+  echo 'Live evidence collection is bound to the explicit Production project.' >&2
+  exit 6
+}
 active_account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n1)"
-[[ -n "$active_account" ]] || { echo 'no active gcloud identity' >&2; exit 6; }
-# Evidence contains metadata only. Secret payloads, tokens, URLs, log payloads and IAM member identities are excluded.
+[[ "$active_account" == "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT" ]] || {
+  echo 'The active gcloud identity is not the configured Production deployer service account.' >&2
+  exit 6
+}
+# Evidence contains metadata only. Secret payloads, tokens, service URLs, log payloads and IAM member identities are excluded.
 gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format=json | jq '{projectNumber,lifecycleState,createTime}' > "$output/project.json"
 gcloud services list --enabled --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name:.config.name,state}]' > "$output/enabled-services.json"
 gcloud run services list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json | jq '[.[] | {name:.metadata.name,latestReadyRevision:.status.latestReadyRevisionName,traffic:.status.traffic}]' > "$output/cloud-run.json"
@@ -30,5 +49,5 @@ gcloud certificate-manager certificates list --project "$GOOGLE_CLOUD_PROJECT" -
 gcloud dns managed-zones list --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name,dnsName,visibility,creationTime}]' > "$output/dns-zones.json"
 gcloud projects describe "$FIREBASE_PROJECT_ID" --format=json | jq '{projectNumber,lifecycleState,createTime}' > "$output/firebase-project.json"
 gcloud services list --enabled --project "$FIREBASE_PROJECT_ID" --format=json | jq '[.[] | select(.config.name | test("firebase|identitytoolkit|fcm|analytics")) | {name:.config.name,state}]' > "$output/firebase-services.json"
-printf '{"collectedAt":"%s","collectorVersion":"1","status":"collected"}\n' "$(date -u +%FT%TZ)" > "$output/manifest.json"
+printf '{"collectedAt":"%s","collectorVersion":"2","status":"collected"}\n' "$(date -u +%FT%TZ)" > "$output/manifest.json"
 echo "Live evidence collected in $output; review and attach through the approved restricted evidence channel."

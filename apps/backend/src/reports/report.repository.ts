@@ -42,10 +42,17 @@ export class ReportRepository {
     }));
   }
 
+  async exists(id: string): Promise<boolean> {
+    const rows = await this.db.query(`SELECT report_identifier FROM provider_reports WHERE report_identifier=$1`, [id]);
+    return rows.length === 1;
+  }
+
   async review(id: string, reviewerUserId: string, status: 'in_review' | 'resolved' | 'dismissed', note: string): Promise<boolean> {
     const rows = await this.db.query(
       `UPDATE provider_reports SET status=$2,reviewed_by_user_identifier=$3,resolution_note=$4,updated_at=NOW()
-       WHERE report_identifier=$1 AND status IN ('submitted','in_review') RETURNING report_identifier`,
+       WHERE report_identifier=$1 AND status IN ('submitted','in_review')
+         AND (status='submitted' OR reviewed_by_user_identifier=$3)
+       RETURNING report_identifier`,
       [id, status, reviewerUserId, note]
     );
     return rows.length === 1;

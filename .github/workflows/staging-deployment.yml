@@ -11,13 +11,33 @@ concurrency:
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: khedmah
+          POSTGRES_PASSWORD: khedmah_dev
+          POSTGRES_DB: khedmah_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run build
       - run: npm run test:all
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: khedmah
+          PGPASSWORD: khedmah_dev
+          PGDATABASE: khedmah_ci
+          ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
       - run: npm run lint --workspaces --if-present
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run validate:firebase
@@ -28,13 +48,39 @@ jobs:
     needs: quality-gates
     runs-on: ubuntu-latest
     environment: staging
+    outputs:
+      frontend_url: ${{ steps.deploy.outputs.frontend_url }}
+      backend_url: ${{ steps.deploy.outputs.backend_url }}
+      classifieds_frontend_enabled: ${{ steps.classifieds-stage.outputs.frontend_enabled }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - name: Validate Staging deployment configuration
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT }}
+          GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT }}
+          DEVELOPMENT_GOOGLE_CLOUD_PROJECT: ${{ vars.DEVELOPMENT_GOOGLE_CLOUD_PROJECT }}
+          PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          STAGING_GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          STAGING_GOOGLE_CLOUD_PROJECT_NUMBER: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT_NUMBER }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          DEVELOPMENT_FIREBASE_PROJECT_ID: ${{ vars.DEVELOPMENT_FIREBASE_PROJECT_ID }}
+          PREVIEW_FIREBASE_PROJECT_ID: ${{ vars.PREVIEW_FIREBASE_PROJECT_ID }}
+          STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
+          PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          STAGING_ARTIFACT_REPOSITORY: ${{ vars.STAGING_ARTIFACT_REPOSITORY }}
+          STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+          STAGING_GCS_MEDIA_BUCKET: ${{ vars.STAGING_GCS_MEDIA_BUCKET }}
+          STAGING_EMAIL_FROM: ${{ vars.STAGING_EMAIL_FROM }}
+        run: scripts/deployment/validate-staging-deployment-config.sh
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
       - name: Validate environment isolation
         env:
           DEPLOYMENT_ENVIRONMENT: staging
@@ -47,17 +93,89 @@ jobs:
           STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
         run: node scripts/validate-environment-separation.mjs
-      - id: deploy
+      - name: Validate Staging cloud resources
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           ARTIFACT_REPOSITORY: ${{ vars.STAGING_ARTIFACT_REPOSITORY }}
+          CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+          GCS_MEDIA_BUCKET: ${{ vars.STAGING_GCS_MEDIA_BUCKET }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: scripts/deployment/validate-staging-cloud-resources.sh
+      - id: classifieds-stage
+        name: Resolve Classifieds Staging rollout stage
+        run: scripts/deployment/resolve-classifieds-staging-stage.sh >> "$GITHUB_OUTPUT"
+      - id: deploy
+        name: Deploy Staging services
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          ARTIFACT_REPOSITORY: ${{ vars.STAGING_ARTIFACT_REPOSITORY }}
+          CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
           RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          GCS_MEDIA_BUCKET: ${{ vars.STAGING_GCS_MEDIA_BUCKET }}
+          EMAIL_FROM: ${{ vars.STAGING_EMAIL_FROM }}
+          TAXI_TRIPS_ENABLED: 'false'
+          CLASSIFIEDS_ENABLED: ${{ steps.classifieds-stage.outputs.backend_enabled }}
+          NEXT_PUBLIC_CLASSIFIEDS_ENABLED: ${{ steps.classifieds-stage.outputs.frontend_enabled }}
+          CLASSIFIEDS_MIGRATION_025_MODE: ${{ steps.classifieds-stage.outputs.migration_mode }}
+          CLASSIFIEDS_MIGRATION_025_CONFIRMATION: ${{ steps.classifieds-stage.outputs.migration_confirmation }}
         run: scripts/deployment/deploy-cloud-run-environment.sh staging "${GITHUB_SHA}"
+      - id: observe
+        name: Observe Staging runtime
+        env:
+          DEPLOYMENT_ENVIRONMENT: staging
+          GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          BACKEND_URL: ${{ steps.deploy.outputs.backend_url }}
+          FRONTEND_URL: ${{ steps.deploy.outputs.frontend_url }}
+          EVIDENCE_DIRECTORY: staging-runtime-evidence
+          STAGING_HEALTH_SAMPLES: '6'
+          STAGING_HEALTH_INTERVAL_MS: '10000'
+          STAGING_HEALTH_TIMEOUT_MS: '15000'
+        run: node scripts/deployment/observe-staging-runtime.mjs
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.observe.outcome != 'skipped'
+        with:
+          name: staging-runtime-observation
+          path: staging-runtime-evidence/
+          if-no-files-found: error
+          retention-days: 14
       - name: Record deployment summary
         run: |
           echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Frontend: ${{ steps.deploy.outputs.frontend_url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Backend health: ${{ steps.deploy.outputs.backend_url }}/api/v1/health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Classifieds stage: ${{ steps.classifieds-stage.outputs.stage }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime observation: 6/6 health samples required" >> "$GITHUB_STEP_SUMMARY"
           echo "- Revision: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+  classifieds-staging-acceptance:
+    needs: [quality-gates, deploy-staging]
+    if: needs.deploy-staging.outputs.classifieds_frontend_enabled == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          "$RUNNER_TEMP/khedmah-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify Classifieds Staging acceptance
+        env:
+          AFTER_URL: ${{ needs.deploy-staging.outputs.frontend_url }}
+          BACKEND_URL: ${{ needs.deploy-staging.outputs.backend_url }}
+          PREVIEW_HEAD_SHA: ${{ github.sha }}
+          EVIDENCE_DIR: staging-evidence
+          PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
+        run: node scripts/check-classifieds-preview-acceptance.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: staging-classifieds-acceptance
+          path: staging-evidence/
+          if-no-files-found: error
+          retention-days: 14

@@ -80,7 +80,8 @@ test('configuration, database, migrations, shared, and test foundations preserve
   const migrations = await read('backend/migrations/README.md');
   assert.match(migrations, /001_core_identity_accounts\.sql/);
   assert.match(migrations, /Mission 048/);
-  assert.match(migrations, /every version from `001` through `022`/);
+  assert.match(migrations, /every version through `025`/);
+  assert.match(migrations, /version `023` intentionally unused/);
   assert.match(migrations, /never executed by application startup/);
 
   const shared = await read('backend/shared/README.md');
@@ -119,6 +120,7 @@ test('approved module directories preserve governed placeholder or foundation st
     assert.match(doc, /does not implement APIs, services, repositories, schemas|does not implement API routes, controllers|does not implement API routes|does not implement audit storage|does not implement event tracking systems/);
   }
 });
+
 test('kill-critical backend structure excludes forbidden modules and runtime artifacts', async () => {
   const moduleEntries = await readdir(new URL('../backend/modules', import.meta.url), { withFileTypes: true });
   const modules = moduleEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);

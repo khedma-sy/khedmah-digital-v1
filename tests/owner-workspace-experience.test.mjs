@@ -65,14 +65,15 @@ test('professional editor prefills and persists the authenticated professional p
   const page = await read('apps/frontend/app/professional-profiles/new/page.tsx');
   assert.match(page, /api\.professionals\.getMine/);
   assert.match(page, /api\.professionals\.createOrUpdate/);
-  assert.match(page, /router\.push\(`\/professional-profiles\/\$\{result\.professional\.id\}`\)/);
+  assert.match(page, /router\.push\('\/professional-profiles'\)/);
+  assert.doesNotMatch(page, /router\.push\(`\/professional-profiles\/\$\{/);
   assert.match(page, /useSyrianCities/);
   assert.doesNotMatch(page, /style=\{|خدمة الرقمية/);
 });
 
 test('shared owner workspace is responsive and token driven', async () => {
   const css = await read('apps/frontend/components/owner-workspace.module.css');
-  for (const token of ['--k-color-canvas', '--k-color-surface', '--k-color-text', '--k-color-primary', '--k-color-accent']) assert.match(css, new RegExp(token));
+  for (const token of ['--k-color-canvas', '--k-color-surface', '--k-color-text', '--brand-navy', '--k-color-success', '--k-color-warning', '--k-color-danger']) assert.match(css, new RegExp(token));
   assert.match(css, /@media\(max-width:52rem\)/);
   assert.match(css, /@media\(max-width:38rem\)/);
   assert.doesNotMatch(css, /#(?:[0-9a-f]{3}|[0-9a-f]{6})\b/i);

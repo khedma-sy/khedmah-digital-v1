@@ -1,0 +1,24 @@
+steps:
+  - id: build-classifieds-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.classifieds-migration
+      - -t
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/classifieds-migration:${_IMAGE_TAG}'
+      - .
+  - id: push-classifieds-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/classifieds-migration:${_IMAGE_TAG}'
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: khedmah-preview
+  _IMAGE_TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: MUST_MATCH
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/classifieds-migration:${_IMAGE_TAG}'

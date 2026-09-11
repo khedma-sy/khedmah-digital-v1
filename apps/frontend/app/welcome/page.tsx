@@ -18,27 +18,47 @@ export default function WelcomePage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUserProfile | null>();
   const [error, setError] = useState('');
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (sessionStorage.getItem('khedmah.onboarding.complete') === 'true') {
-      router.replace('/');
-      return;
-    }
+    try {
+      if (sessionStorage.getItem('khedmah.onboarding.complete') === 'true') {
+        router.replace('/');
+        return;
+      }
+    } catch { /* Storage is optional; session validation remains authoritative. */ }
     let active = true;
+    setUser(undefined);
+    setError('');
+    setSessionExpired(false);
     void api.auth.session()
-      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
-      .catch(() => { if (active) { setUser(null); setError('انتهت الجلسة. سجّل الدخول للمتابعة.'); } });
+      .then(({ user: currentUser }) => { if (active) {
+        setUser(currentUser);
+        if (!currentUser) { setSessionExpired(true); setError('انتهت الجلسة. سجّل الدخول للمتابعة.'); }
+      } })
+      .catch((cause: unknown) => {
+        if (!active) return;
+        const status = cause && typeof cause === 'object' && 'statusCode' in cause ? cause.statusCode : undefined;
+        setUser(null);
+        setSessionExpired(status === 401);
+        setError(status === 401 ? 'انتهت الجلسة. سجّل الدخول للمتابعة.'
+          : status === 403 ? 'تعذر الوصول إلى بيانات الحساب. أعد المحاولة أو ارجع للرئيسية.'
+          : 'تعذر تحميل بيانات الجلسة. تحقق من الاتصال ثم أعد المحاولة.');
+      });
     return () => { active = false; };
-  }, [router]);
+  }, [router, retryCount]);
 
   function completeOnboarding() {
-    sessionStorage.setItem('khedmah.onboarding.complete', 'true');
+    try { sessionStorage.setItem('khedmah.onboarding.complete', 'true'); } catch { /* Continue if browser storage is unavailable. */ }
     router.push('/');
   }
 
   if (user === undefined) return <main id="foundation-content" className={styles.page} aria-label="جاري تجهيز تجربة خدمة"><div className={styles.container}><SkeletonGrid count={3} label="جاري تجهيز تجربتك" /></div></main>;
 
-  if (!user) return <main id="foundation-content" className={styles.page}><div className={styles.container}><StatusMessage tone="warning">{error}</StatusMessage><ActionButton type="button" onClick={() => router.push('/auth/login')}>تسجيل الدخول</ActionButton></div></main>;
+  if (!user) return <main id="foundation-content" className={styles.page}><div className={styles.container}><StatusMessage tone="warning">{error}</StatusMessage>{sessionExpired
+    ? <ActionButton type="button" onClick={() => router.push('/auth/login')}>تسجيل الدخول</ActionButton>
+    : <><ActionButton type="button" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton><ActionButton type="button" variant="secondary" onClick={() => router.push('/')}>العودة للرئيسية</ActionButton></>}</div></main>;
 
   return <main id="foundation-content" className={styles.page} aria-label="مرحباً بك في خدمة">
     <div className={styles.container}>

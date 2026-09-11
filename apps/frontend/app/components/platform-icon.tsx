@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'truck' | 'technology' | 'building' | 'events' | 'leaf' | 'factory' | 'travel';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -22,6 +22,17 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
   menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
   filter: <path d="M3 5h18l-7 8v6l-4 2v-8Z"/>,
+  food: <><path d="M5 3v7m-2-7v4a2 2 0 0 0 4 0V3M5 10v11M18 3c-4 3-4 8 0 8V3Zm0 8v10"/></>,
+  health: <><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10M7 12h10"/></>,
+  education: <><path d="m2 8 10-5 10 5-10 5-10-5Zm4 2v7c4 3 8 3 12 0v-7M22 8v9"/></>,
+  beauty: <><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></>,
+  truck: <><path d="M3 5h11v12H3V5Zm11 5h4l3 4v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
+  technology: <><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4m-2-14-3 3 3 3m4-6 3 3-3 3"/></>,
+  building: <><path d="M4 21V8h7v13m0-18h9v18M2 21h20M7 11v2m0 3v2m7-11h3m-3 4h3m-3 4h3"/></>,
+  events: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-14 5 3 3 6-5"/></>,
+  leaf: <><path d="M20 3C8 3 3 7 5 14c2 7 13 6 15-11ZM4 21l11-11"/></>,
+  factory: <><path d="M3 21V9l6 4V9l6 4V3h5v18H3Zm4-4h1m3 0h1m4 0h1"/></>,
+  travel: <><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M9 6V3h6v3M9 10v7m6-7v7M8 21v1m8-1v1"/></>,
   refresh: <><path d="M20 7v5h-5"/><path d="M18.2 16.5A8 8 0 1 1 20 12"/></>
 };
 

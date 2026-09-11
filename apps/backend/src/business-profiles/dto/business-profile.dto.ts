@@ -1,4 +1,5 @@
 export interface CreateBusinessProfileRequest {
+  readonly clientRequestId?: unknown;
   readonly name?: unknown;
   readonly descriptionAr?: unknown;
   readonly descriptionEn?: unknown;
@@ -11,6 +12,7 @@ export interface CreateBusinessProfileRequest {
 }
 
 export interface UpdateBusinessProfileRequest {
+  readonly expectedContentRevision?: unknown;
   readonly name?: unknown;
   readonly descriptionAr?: unknown;
   readonly descriptionEn?: unknown;

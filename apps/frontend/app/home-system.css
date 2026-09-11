@@ -1,0 +1,9 @@
+[data-khedmah-home]{background:var(--k-color-canvas)}
+[data-khedmah-home]>section{background:var(--k-color-canvas)}
+[data-khedmah-home]>section:first-child{background:linear-gradient(145deg,var(--k-color-canvas-soft),var(--k-color-canvas))}
+[data-khedmah-home] article,[data-khedmah-home] form{box-shadow:var(--k-shadow-sm)}
+[data-khedmah-home] article{background:var(--k-color-surface)}
+[data-khedmah-home] section+section{border-block-start:1px solid var(--k-color-border)}
+[data-khedmah-home] h1,[data-khedmah-home] h2,[data-khedmah-home] h3{color:var(--k-color-text)}
+[data-khedmah-home] form:focus-within{outline:3px solid color-mix(in srgb,var(--brand-navy,#173247) 14%,transparent);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){[data-khedmah-home] *{scroll-behavior:auto!important}}

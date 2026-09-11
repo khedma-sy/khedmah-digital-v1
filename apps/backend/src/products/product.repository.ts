@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import type { ProductListing } from './product.types';
 
@@ -6,11 +6,13 @@ interface ProductRow extends Record<string, unknown> {
   id: string; business_profile_id: string; owner_user_id: string; title_ar: string; description_ar: string | null;
   price: string; currency: 'SYP' | 'USD'; category_code: string; availability: ProductListing['availability'];
   status: ProductListing['status']; moderation_status: ProductListing['moderationStatus']; rejection_reason: string | null;
-  image_url: string | null; image_urls: string[] | null; business_name: string | null; city_code: string | null; created_at: Date; updated_at: Date;
+  image_url: string | null; image_urls: string[] | null; business_name: string | null; city_code: string | null; created_at: Date; updated_at: Date; revision: string; content_revision: string;
 }
 
 const projection = `p.id, p.business_profile_id, p.owner_user_id, p.title_ar, p.description_ar, p.price, p.currency,
   p.category_code, p.availability, p.status, p.moderation_status, p.rejection_reason, p.created_at, p.updated_at,
+  to_char(p.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision,
+  encode(sha256(convert_to(jsonb_build_array(p.id, p.title_ar, p.description_ar, p.price, p.currency, p.category_code, p.availability)::text, 'UTF8')), 'hex') AS content_revision,
   b.name AS business_name, b.city_code,
   (SELECT public_url FROM media_assets WHERE owner_type = 'product_listing' AND owner_id = p.id AND asset_type = 'product_image' AND visibility = 'public' ORDER BY sort_order, created_at LIMIT 1) AS image_url,
   (SELECT COALESCE(array_agg(public_url ORDER BY sort_order, created_at), ARRAY[]::text[]) FROM media_assets WHERE owner_type = 'product_listing' AND owner_id = p.id AND asset_type = 'product_image' AND visibility = 'public') AS image_urls`;
@@ -19,21 +21,36 @@ const projection = `p.id, p.business_profile_id, p.owner_user_id, p.title_ar, p.
 export class ProductRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
-  async insert(product: ProductListing): Promise<void> {
-    await this.db.query(
-      `INSERT INTO product_listings
-        (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
-    );
+  async insert(product: Omit<ProductListing, 'revision' | 'contentRevision'>): Promise<ProductListing> {
+    return this.db.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO product_listings
+          (id,business_profile_id,owner_user_id,title_ar,description_ar,price,currency,category_code,availability,status,moderation_status,rejection_reason,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         ON CONFLICT (id) DO NOTHING`,
+        [product.id, product.businessProfileId, product.ownerUserId, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.createdAt, product.updatedAt]
+      );
+      const result = await client.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1`, [product.id]);
+      return map(result.rows[0]);
+    });
   }
 
-  async update(product: ProductListing): Promise<void> {
-    await this.db.query(
-      `UPDATE product_listings SET title_ar=$2,description_ar=$3,price=$4,currency=$5,category_code=$6,
-       availability=$7,status=$8,moderation_status=$9,rejection_reason=$10,updated_at=$11 WHERE id=$1`,
-      [product.id, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode, product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, product.updatedAt]
-    );
+  async update(product: ProductListing, expectedRevision: string): Promise<ProductListing> {
+    return this.db.transaction(async (client) => {
+      // The row predicate is rechecked after a concurrent writer releases its lock.
+      // A strictly increasing database timestamp also covers writes in the same millisecond.
+      const updated = await client.query(
+        `UPDATE product_listings SET title_ar=$2,description_ar=$3,price=$4,currency=$5,category_code=$6,
+         availability=$7,status=$8,moderation_status=$9,rejection_reason=$10,
+         updated_at=GREATEST(clock_timestamp(), updated_at + interval '1 microsecond')
+         WHERE id=$1 AND updated_at=$11::timestamptz RETURNING id`,
+        [product.id, product.titleAr, product.descriptionAr ?? null, product.price, product.currency, product.categoryCode,
+          product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, expectedRevision]
+      );
+      if (!updated.rowCount) throw new ConflictException('تغير المنتج أو صوره. حدّث البيانات وراجع النسخة الحالية قبل إعادة المحاولة.');
+      const result = await client.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1`, [product.id]);
+      return map(result.rows[0]);
+    });
   }
 
   async findById(id: string): Promise<ProductListing | undefined> {
@@ -93,5 +110,5 @@ function map(row: ProductRow): ProductListing {
     descriptionAr: row.description_ar ?? undefined, price: Number(row.price), currency: row.currency, categoryCode: row.category_code,
     availability: row.availability, status: row.status, moderationStatus: row.moderation_status, rejectionReason: row.rejection_reason ?? undefined,
     imageUrl: row.image_url ?? undefined, imageUrls: row.image_urls ?? [], businessName: row.business_name ?? undefined, cityCode: row.city_code ?? undefined,
-    createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() };
+    createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(), revision: row.revision, contentRevision: row.content_revision };
 }

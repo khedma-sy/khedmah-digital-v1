@@ -144,7 +144,7 @@ test('public business profile does not expose ownerUserId', async () => {
     await businessRepo.updateTrustStatus(businessId, 'approved', new Date().toISOString());
     await pool.query('UPDATE business_profiles SET moderation_status = $2 WHERE id = $1', [businessId, 'approved']);
 
-    await service.update(ownerCookie, businessId, { visibility: 'public' });
+    await service.update(ownerCookie, businessId, { expectedContentRevision: (await businessRepo.findById(businessId))!.contentRevision, visibility: 'public' });
 
     const publicProfile = await service.getPublic(businessId);
     assert.equal('ownerUserId' in publicProfile, false, 'ownerUserId must not appear in public projection');
@@ -163,7 +163,7 @@ test('listMine does not expose ownerUserId in owner projection', async () => {
 });
 
 test('unchanged inactive legacy category does not block unrelated profile edits', async () => {
-  const { pool, service, ownerCookie, businessId } = await createFixture();
+  const { pool, service, ownerCookie, businessId, businessRepo } = await createFixture();
   await pool.query(`
     INSERT INTO categories (code, name_ar, status) VALUES
       ('legacy_business', 'تصنيف نشاط قديم', 'inactive'),
@@ -173,6 +173,7 @@ test('unchanged inactive legacy category does not block unrelated profile edits'
   await pool.query('UPDATE business_profiles SET category_code = $2 WHERE id = $1', [businessId, 'legacy_business']);
 
   const updated = await service.update(ownerCookie, businessId, {
+    expectedContentRevision: (await businessRepo.findById(businessId))!.contentRevision,
     descriptionAr: 'تعديل لا يغير التصنيف القديم',
     categoryCode: 'legacy_business'
   });
@@ -187,11 +188,12 @@ test('unchanged inactive legacy category does not block unrelated profile edits'
   );
   const publicProfile = await service.getPublic(businessId);
   assert.equal(publicProfile.categoryNameAr, 'تصنيف نشاط قديم');
+  const displayedRevision = (await businessRepo.findById(businessId))!.contentRevision;
   await assert.rejects(
-    () => service.update(ownerCookie, businessId, { categoryCode: 'legacy_other' }),
+    () => service.update(ownerCookie, businessId, { expectedContentRevision: displayedRevision, categoryCode: 'legacy_other' }),
     BadRequestException
   );
-  const reclassified = await service.update(ownerCookie, businessId, { categoryCode: 'restaurant' });
+  const reclassified = await service.update(ownerCookie, businessId, { expectedContentRevision: displayedRevision, categoryCode: 'restaurant' });
   assert.equal(reclassified.categoryCode, 'restaurant');
   assert.equal(reclassified.categoryNameAr, 'مطاعم');
 });

@@ -5,6 +5,7 @@
     <application
         android:name=".KhedmahApplication"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">

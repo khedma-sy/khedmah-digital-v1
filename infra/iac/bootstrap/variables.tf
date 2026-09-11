@@ -41,11 +41,13 @@ variable "runtime_secret_names" {
   description = "Secret names to create. Secret values are managed outside Terraform."
   type        = set(string)
   default = [
+    "DATABASE_URL",
     "FIREBASE_API_KEY",
     "FIREBASE_APP_ID",
     "GOOGLE_MAPS_SERVER_API_KEY",
     "GOOGLE_OAUTH_SERVER_CLIENT_ID",
     "OPERATIONS_PRODUCT_ROLE_BINDINGS",
+    "RESEND_API_KEY",
   ]
 
   validation {
