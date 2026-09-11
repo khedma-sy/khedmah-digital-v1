@@ -1,7 +1,7 @@
 /**
  * Storage abstraction. Implementations:
- *   - LocalStorageAdapter (development/test): writes to local filesystem temp
- *   - GcsStorageAdapter (production): writes to Google Cloud Storage
+ *   - LocalStorageAdapter (development/test): keeps objects in process memory
+ *   - GcsStorageAdapter (deployed environments): writes to Google Cloud Storage
  */
 export interface StorageAdapter {
   save(key: string, data: Buffer, mimeType: string): Promise<void>;
@@ -31,7 +31,7 @@ export class GcsStorageAdapter implements StorageAdapter {
   private readonly bucket: string;
 
   constructor() {
-    const bucket = process.env.GCS_MEDIA_BUCKET;
+    const bucket = process.env.GCS_MEDIA_BUCKET?.trim();
     if (!bucket) {
       throw new Error('GCS_MEDIA_BUCKET environment variable is required for GcsStorageAdapter.');
     }
@@ -72,9 +72,18 @@ export class GcsStorageAdapter implements StorageAdapter {
   }
 }
 
+const DEPLOYED_ENVIRONMENTS = new Set(['production', 'preview', 'staging']);
+
 export function createStorageAdapter(): StorageAdapter {
-  if (process.env.GCS_MEDIA_BUCKET) {
+  const bucket = process.env.GCS_MEDIA_BUCKET?.trim();
+  if (bucket) {
     return new GcsStorageAdapter();
   }
+
+  const environment = process.env.NODE_ENV?.trim().toLowerCase() ?? '';
+  if (DEPLOYED_ENVIRONMENTS.has(environment)) {
+    throw new Error(`GCS_MEDIA_BUCKET is required when NODE_ENV=${environment}. Refusing ephemeral media storage.`);
+  }
+
   return new LocalStorageAdapter();
 }
