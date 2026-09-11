@@ -109,6 +109,7 @@ gcloud run services update "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" 
   --update-env-vars="CORS_ORIGIN=${frontend_url},NEXT_PUBLIC_SITE_URL=${frontend_url}" --quiet
 
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${backend_url}/api/v1/health" >/dev/null
+curl --fail --silent --show-error --retry 6 --retry-all-errors "${backend_url}/api/v1/health/ready" >/dev/null
 curl --fail --silent --show-error --retry 6 --retry-all-errors "${frontend_url}/" >/dev/null
 headers_file="$(mktemp)"
 trap 'rm -f "$headers_file"' EXIT
@@ -117,4 +118,4 @@ curl --fail --silent --show-error --retry 3 --retry-all-errors --request OPTIONS
   --dump-header "$headers_file" --output /dev/null "${backend_url}/api/v1/auth/session"
 node scripts/deployment/verify-cors-preflight.mjs "$headers_file" "$frontend_url"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then printf 'backend_url=%s\nfrontend_url=%s\nbackend_service=%s\nfrontend_service=%s\n' "$backend_url" "$frontend_url" "$backend_service" "$frontend_service" >> "$GITHUB_OUTPUT"; fi
-echo "${environment^} deployment healthy."
+echo "${environment^} deployment healthy and ready."
