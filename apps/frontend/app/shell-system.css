@@ -58,3 +58,12 @@
 .khedma-legal-grid>section,.khedma-legal-grid>article,.khedma-legal-grid>div{padding:clamp(1rem,2vw,1.5rem)}
 .khedma-legal-grid h2{margin-block:0 .5rem;font-size:var(--k-type-card)}
 .khedma-legal-grid p,.khedma-legal-grid li{line-height:1.85}
+
+/* P2 keyboard visibility uses only the approved umbrella orange accent. */
+.skip-link{z-index:300}
+.khedma-header>a:focus-visible,
+.khedma-header .nav-session a:focus-visible,
+.khedma-header .nav-session button:focus-visible{
+  outline:3px solid var(--k-color-accent);
+  outline-offset:3px;
+}
