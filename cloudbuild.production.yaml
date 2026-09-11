@@ -1,6 +1,6 @@
 steps:
   - id: validate
-    name: node:20
+    name: node:24
     entrypoint: npm
     args: [ci]
   - id: test-run
@@ -34,7 +34,7 @@ steps:
           -w /workspace \
           -e DATABASE_URL="postgresql://khedmah_test:khedmah_test_secret@pg-test:5432/khedmah_test" \
           -e ALLOW_DESTRUCTIVE_DB_TESTS=true \
-          node:20 \
+          node:24 \
           bash -euo pipefail -c "npm ci && npm run test:workspaces"
   - id: build-backend-image
     name: gcr.io/cloud-builders/docker
