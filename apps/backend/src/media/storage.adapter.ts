@@ -1,7 +1,7 @@
 /**
  * Storage abstraction. Implementations:
- *   - LocalStorageAdapter (development/test): keeps objects in process memory
- *   - GcsStorageAdapter (deployed environments): writes to Google Cloud Storage
+ *   - LocalStorageAdapter (development/test/isolated preview): keeps objects in process memory
+ *   - GcsStorageAdapter (staging/production, or any explicitly configured environment): writes to Google Cloud Storage
  */
 export interface StorageAdapter {
   save(key: string, data: Buffer, mimeType: string): Promise<void>;
@@ -72,7 +72,7 @@ export class GcsStorageAdapter implements StorageAdapter {
   }
 }
 
-const DEPLOYED_ENVIRONMENTS = new Set(['production', 'preview', 'staging']);
+const DURABLE_STORAGE_REQUIRED_ENVIRONMENTS = new Set(['production', 'staging']);
 
 export function createStorageAdapter(): StorageAdapter {
   const bucket = process.env.GCS_MEDIA_BUCKET?.trim();
@@ -81,9 +81,11 @@ export function createStorageAdapter(): StorageAdapter {
   }
 
   const environment = process.env.NODE_ENV?.trim().toLowerCase() ?? '';
-  if (DEPLOYED_ENVIRONMENTS.has(environment)) {
+  if (DURABLE_STORAGE_REQUIRED_ENVIRONMENTS.has(environment)) {
     throw new Error(`GCS_MEDIA_BUCKET is required when NODE_ENV=${environment}. Refusing ephemeral media storage.`);
   }
 
+  // Preview is intentionally isolated and disposable. It may use ephemeral media
+  // unless a preview bucket is explicitly provisioned; Staging/Production may not.
   return new LocalStorageAdapter();
 }
