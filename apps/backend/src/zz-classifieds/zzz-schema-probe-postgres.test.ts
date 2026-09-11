@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { AdSchemaGuard, ClassifiedsSchemaError } from '../classifieds/ad-schema.guard';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 
@@ -42,7 +43,17 @@ function runProbe(databaseUrl: string) {
   });
 }
 
-test('Classifieds shell schema probe returns 42 before 025 and verifies after 025 on PostgreSQL', async () => {
+async function withClassifiedsEnabled<T>(work: () => Promise<T>): Promise<T> {
+  const previous = process.env.CLASSIFIEDS_ENABLED;
+  process.env.CLASSIFIEDS_ENABLED = 'true';
+  try { return await work(); }
+  finally {
+    if (previous === undefined) delete process.env.CLASSIFIEDS_ENABLED;
+    else process.env.CLASSIFIEDS_ENABLED = previous;
+  }
+}
+
+test('Classifieds shell and startup schema gates reject pre-025 and verify post-025 PostgreSQL', async () => {
   const rawPool = createTestPool();
   const db = DatabasePool.fromPool(rawPool);
   try {
@@ -51,11 +62,20 @@ test('Classifieds shell schema probe returns 42 before 025 and verifies after 02
 
     const before = runProbe(disposableDatabaseUrl());
     assert.equal(before.status, 42, `pre-025 probe failed unexpectedly: ${before.stderr || before.stdout}`);
+    await assert.rejects(
+      () => withClassifiedsEnabled(() => new AdSchemaGuard(db).onModuleInit()),
+      (error: unknown) => {
+        assert.ok(error instanceof ClassifiedsSchemaError);
+        assert.match(error.message, /CLASSIFIEDS_SCHEMA_INCOMPATIBLE required=025/);
+        return true;
+      }
+    );
 
     await db.query(await readFile(migration025Path, 'utf8'));
     const after = runProbe(disposableDatabaseUrl());
     assert.equal(after.status, 0, `post-025 probe failed unexpectedly: ${after.stderr || after.stdout}`);
     assert.match(after.stdout, /MIGRATION_025_ALREADY_APPLIED_AND_VERIFIED/);
+    await assert.doesNotReject(() => withClassifiedsEnabled(() => new AdSchemaGuard(db).onModuleInit()));
   } finally {
     await db.end();
   }
