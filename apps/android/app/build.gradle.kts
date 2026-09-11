@@ -18,6 +18,8 @@ val releaseSigningConfigured = listOf(
     releaseKeyAlias,
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
+val configuredVersionCode = providers.environmentVariable("ANDROID_VERSION_CODE").orNull?.toIntOrNull()
+val configuredVersionName = providers.environmentVariable("ANDROID_VERSION_NAME").orNull?.trim()?.takeIf { it.isNotEmpty() }
 
 android {
     namespace = "com.khedmah.digital"
@@ -48,8 +50,8 @@ android {
         applicationId = "com.khedmah.digital"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = configuredVersionCode ?: 1
+        versionName = configuredVersionName ?: "1.0"
         val apiBaseUrl = providers.gradleProperty("KHEDMAH_API_BASE_URL").orNull ?: ""
         buildConfigField("String", "KHEDMAH_API_BASE_URL", "\"${apiBaseUrl.replace("\"", "\\\"")}\"")
         val googleServerClientId = providers.gradleProperty("GOOGLE_OAUTH_SERVER_CLIENT_ID").orNull
