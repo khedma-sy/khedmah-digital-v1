@@ -6,6 +6,7 @@ locals {
     "iamcredentials.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "sqladmin.googleapis.com",
     "sts.googleapis.com",
   ])
 
@@ -51,6 +52,12 @@ resource "google_service_account" "deployer" {
   display_name = "Khedmah V1 deployer"
 
   depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_member" "runtime_cloud_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 resource "google_project_iam_member" "deployer" {
