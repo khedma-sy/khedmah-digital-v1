@@ -35,6 +35,12 @@ export function browserSnapshot(formName = '') {
   const elements = (selector) => [...document.querySelectorAll(selector)].filter(visible);
   const main = document.querySelector('main#foundation-content');
   const form = document.querySelector('form[aria-label]');
+  const images = main ? [...main.querySelectorAll('img')].filter((image) => {
+    const style = getComputedStyle(image);
+    return image.getClientRects().length > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+      && !!(image.currentSrc || image.getAttribute('src'));
+  }) : [];
+  const incompleteImages = images.filter((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0);
   const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? null;
   const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? null;
   // Inspect our own surface, not undocumented Google Maps child elements.
@@ -68,6 +74,8 @@ export function browserSnapshot(formName = '') {
     authReady: !!document.querySelector('.nav-session[data-auth-state="guest"], .nav-session[data-auth-state="authenticated"]'),
     busyCount: elements('[aria-busy="true"]').length,
     alertCount: elements('[role="alert"], .ui-status-danger, .ui-status-warning').length,
+    imageCount: images.length,
+    incompleteImageCount: incompleteImages.length,
     fontStatus: document.fonts.status,
     overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
     formNamed: !formName || (visible(form) && form.getAttribute('aria-label') === formName)
@@ -87,6 +95,7 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/map|/taxi|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
+  if ((snapshot.incompleteImageCount ?? 0) !== 0) failures.push('IMAGES_NOT_READY');
   if (snapshot.fontStatus !== 'loaded') failures.push('FONTS_NOT_READY');
   if (!Number.isFinite(snapshot.overflowPx) || snapshot.overflowPx > 1) failures.push('HORIZONTAL_OVERFLOW');
   if (!snapshot.formNamed) failures.push('FORM_NAME_MISSING');
@@ -124,13 +133,45 @@ export async function browserReadyForCapture() {
     return !!main?.querySelector('h1')?.textContent?.trim()
       && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
       && !busy && mapReady
-    && document.fonts.status === 'loaded';
+      && document.fonts.status === 'loaded';
   };
   if (!ready()) return false;
   document.body.getBoundingClientRect();
   await document.fonts.ready;
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
   return ready();
+}
+
+// Full-page screenshots do not guarantee browser-native lazy images have intersected
+// the viewport. Walk the document before capture, wait for rendered images to settle,
+// then restore the original scroll position so evidence represents the real page.
+export async function browserPrepareFullPageCapture() {
+  const frame = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  const originalX = window.scrollX;
+  const originalY = window.scrollY;
+  const viewportHeight = Math.max(1, window.innerHeight || 1);
+  const step = Math.max(128, Math.floor(viewportHeight * 0.75));
+  const documentHeight = Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0);
+  for (let y = 0; y < documentHeight; y += step) {
+    window.scrollTo(0, y);
+    await frame();
+  }
+  window.scrollTo(0, documentHeight);
+  await frame();
+  const renderedImages = [...document.querySelectorAll('main#foundation-content img')].filter((image) => {
+    const style = getComputedStyle(image);
+    return image.getClientRects().length > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+      && !!(image.currentSrc || image.getAttribute('src'));
+  });
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline && renderedImages.some((image) => !image.complete)) {
+    await new Promise((done) => setTimeout(done, 50));
+  }
+  await frame();
+  const incompleteImageCount = renderedImages.filter((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0).length;
+  window.scrollTo(originalX, originalY);
+  await frame();
+  return { imageCount: renderedImages.length, incompleteImageCount };
 }
 
 export async function waitForCaptureReadiness(page, timeoutMs = 30000) {
@@ -156,6 +197,11 @@ async function capture(browser, origin, target, route, viewport, directory, them
       await waitForCaptureReadiness(page);
     } catch {
       record.failures.push('READINESS_TIMEOUT');
+    }
+    try {
+      record.imageReadiness = await page.evaluate(browserPrepareFullPageCapture);
+    } catch {
+      record.failures.push('IMAGE_READINESS_ERROR');
     }
     record.snapshot = await page.evaluate(browserSnapshot, route.formName);
     record.failures.push(...assessEvidence(record.snapshot, record.httpStatus,
@@ -198,9 +244,9 @@ async function launchChromium(env) {
 export async function main(env = process.env, { launchBrowser = launchChromium } = {}) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
-  const report = { schemaVersion: 4, capturedAt: new Date().toISOString(),
+  const report = { schemaVersion: 5, capturedAt: new Date().toISOString(),
     headSha: env.PREVIEW_HEAD_SHA || null, checkoutSha: env.GITHUB_SHA || null,
-    scope: 'Anonymous readiness: home, categories, search, map, professional search; light/dark at 320, 390, 768 and 1280px. Map checks require the runtime, tilesloaded rendering evidence and a visible non-collapsed surface; they do not certify GPS or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
+    scope: 'Anonymous readiness: home, categories, search, map, professional search; light/dark at 320, 390, 768 and 1280px. Full-page capture scrolls through rendered content to trigger browser-native lazy images and rejects incomplete rendered images. Map checks require the runtime, tilesloaded rendering evidence and a visible non-collapsed surface; they do not certify GPS or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
     status: 'failed', previewStatus: 'not_run', before: null, after: [] };
   const before = readOrigin(env, 'BEFORE_URL');
   const after = readOrigin(env, 'AFTER_URL');
