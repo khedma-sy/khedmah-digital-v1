@@ -1,4 +1,4 @@
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 WORKDIR /workspace
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -57,7 +57,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_CLASSIFIEDS_ENABLED=$NEXT_PUBLIC_CLASSIFIEDS_ENABLED
 RUN npm --workspace apps/frontend run build
 
-FROM node:20-slim AS runtime
+FROM node:24-slim AS runtime
 ENV NODE_ENV=production \
     PORT=8080 \
     HOSTNAME=0.0.0.0
