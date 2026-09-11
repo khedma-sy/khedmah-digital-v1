@@ -27,7 +27,8 @@
 .khedma-header .nav-session a:hover,.khedma-header .nav-session button:hover{border-color:var(--k-color-border);background:var(--k-color-surface-muted)}
 .khedma-header .nav-session .nav-cta{border-color:var(--k-color-primary);color:var(--k-color-on-primary);background:var(--k-color-primary)}
 .khedma-header .nav-session .nav-cta:hover{border-color:var(--k-color-primary-hover);color:var(--k-color-on-primary);background:var(--k-color-primary-hover)}
-.khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#e97835) 34%,var(--k-color-border));color:var(--brand-orange,#e97835)}
+.khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#e97835) 34%,var(--k-color-border));color:color-mix(in srgb,var(--brand-orange,#e97835) 70%,var(--brand-navy,#173247))}
+:root[data-theme='dark'] .khedma-header .nav-session .nav-register{color:var(--brand-orange,#e97835)}
 .khedma-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:.45rem;min-width:0}
 @media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-brand-compact>svg{width:2.45rem}.khedma-brand-compact b{font-size:1.08rem}.khedma-brand-compact small{font-size:.44rem}}
 
