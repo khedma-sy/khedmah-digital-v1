@@ -122,7 +122,8 @@ jobs:
           CLASSIFIEDS_MIGRATION_025_MODE: ${{ steps.classifieds-stage.outputs.migration_mode }}
           CLASSIFIEDS_MIGRATION_025_CONFIRMATION: ${{ steps.classifieds-stage.outputs.migration_confirmation }}
         run: scripts/deployment/deploy-cloud-run-environment.sh staging "${GITHUB_SHA}"
-      - name: Observe Staging runtime
+      - id: observe
+        name: Observe Staging runtime
         env:
           DEPLOYMENT_ENVIRONMENT: staging
           GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
@@ -135,7 +136,7 @@ jobs:
           STAGING_HEALTH_TIMEOUT_MS: '15000'
         run: node scripts/deployment/observe-staging-runtime.mjs
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.observe.outcome != 'skipped'
         with:
           name: staging-runtime-observation
           path: staging-runtime-evidence/
