@@ -38,7 +38,12 @@ export async function createBackendApp() {
 
   app.use('/api/v1/auth/register', createRateLimitMiddleware(rateLimitRepository, 'auth.register', authWindowMs, authMax));
   app.use('/api/v1/auth/login', createRateLimitMiddleware(rateLimitRepository, 'auth.login', authWindowMs, authMax));
-  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify', authWindowMs, authMax));
+  app.use('/api/v1/auth/google', createRateLimitMiddleware(rateLimitRepository, 'auth.google', authWindowMs, authMax));
+  app.use('/api/v1/auth/facebook', createRateLimitMiddleware(rateLimitRepository, 'auth.facebook', authWindowMs, authMax));
+  app.use('/api/v1/auth/forgot-password', createRateLimitMiddleware(rateLimitRepository, 'auth.forgot-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/reset-password', createRateLimitMiddleware(rateLimitRepository, 'auth.reset-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify.request', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/confirm', createRateLimitMiddleware(rateLimitRepository, 'email.verify.confirm', authWindowMs, authMax));
   app.use('/api/v1/admin/bootstrap', createRateLimitMiddleware(rateLimitRepository, 'admin.bootstrap', authWindowMs, authMax));
   app.use('/api/v1/taxi', createRateLimitMiddleware(rateLimitRepository, 'taxi', publicWindowMs, publicMax));
   app.use('/api/v1/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds', publicWindowMs, publicMax));
