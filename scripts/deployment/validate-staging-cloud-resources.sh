@@ -34,6 +34,7 @@ required_apis=(
   run.googleapis.com
   secretmanager.googleapis.com
   sqladmin.googleapis.com
+  storage.googleapis.com
 )
 for api in "${required_apis[@]}"; do
   state="$(gcloud services describe "$api" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)' 2>/dev/null || true)"
@@ -84,11 +85,18 @@ for secret_name in "${required_secrets[@]}"; do
   fi
 done
 
-# Bucket existence/IAM is exercised by authenticated media acceptance after deploy.
-# This preflight intentionally does not grant storage roles or write an object.
 [[ "$GCS_MEDIA_BUCKET" =~ ^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$ ]] || {
   echo '::error::GCS_MEDIA_BUCKET is not a valid bucket identifier.' >&2
   exit 8
 }
 
-echo 'Staging cloud resource preflight passed.'
+# This proves bucket existence/readability only for the authenticated deployer identity.
+# Runtime object read/write/delete IAM remains a separate post-deploy acceptance gate.
+gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" \
+  --project "$GOOGLE_CLOUD_PROJECT" \
+  --format='value(name)' >/dev/null 2>&1 || {
+    echo '::error::Staging GCS media bucket is missing or unreadable by the deployer identity.' >&2
+    exit 9
+  }
+
+echo 'Staging cloud resource preflight passed: isolated Artifact Registry, Cloud SQL, and GCS media bucket resources are readable by the deployer identity, and required runtime secret versions are enabled without reading secret payloads.'

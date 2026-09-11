@@ -33,6 +33,7 @@ if(a[0]==='secrets'&&a[1]==='versions'&&a[2]==='describe'){
   console.log(name===process.env.MOCK_DISABLED_SECRET?'DISABLED':'ENABLED');
   process.exit(0);
 }
+if(a[0]==='storage'&&a[1]==='buckets'&&a[2]==='describe') process.exit(process.env.MOCK_MISSING_BUCKET==='1'?1:0);
 process.exit(9);
 `;
   writeFileSync(join(bin, 'gcloud'), fake, { mode: 0o755 });
@@ -56,7 +57,7 @@ process.exit(9);
   };
 }
 
-test('staging cloud-resource preflight verifies APIs, repository, SQL and enabled secret versions without reading secret payloads', () => {
+test('staging cloud-resource preflight verifies APIs, repository, SQL, media bucket and enabled secret versions without reading secret payloads', () => {
   const f = fixture();
   try {
     const result = f.run();
@@ -65,6 +66,7 @@ test('staging cloud-resource preflight verifies APIs, repository, SQL and enable
     const calls = f.calls();
     assert.ok(calls.some(a => a[0] === 'sql' && a[1] === 'instances' && a[2] === 'describe'));
     assert.ok(calls.some(a => a[0] === 'artifacts' && a[1] === 'repositories' && a[2] === 'describe'));
+    assert.ok(calls.some(a => a[0] === 'storage' && a[1] === 'buckets' && a[2] === 'describe' && a[3] === 'gs://khedmah-staging-media'));
     const secretCalls = calls.filter(a => a[0] === 'secrets');
     assert.ok(secretCalls.length >= 10);
     for (const args of secretCalls) {
@@ -74,7 +76,7 @@ test('staging cloud-resource preflight verifies APIs, repository, SQL and enable
       assert.ok(!args.includes('access'));
     }
     const joined = calls.flat().join(' ');
-    assert.doesNotMatch(joined, /services enable|run deploy|builds submit|versions access/);
+    assert.doesNotMatch(joined, /services enable|run deploy|builds submit|versions access|storage cp|storage rm|buckets create/);
   } finally { f.close(); }
 });
 
@@ -105,6 +107,18 @@ test('staging cloud-resource preflight rejects a Cloud SQL instance that does no
     assert.equal(result.status, 6);
     assert.match(result.stderr, /Cloud SQL instance/);
     assert.doesNotMatch(result.stderr, /other-db/);
+  } finally { f.close(); }
+});
+
+test('staging cloud-resource preflight rejects a missing or unreadable GCS media bucket without writing objects', () => {
+  const f = fixture({ MOCK_MISSING_BUCKET: '1' });
+  try {
+    const result = f.run();
+    assert.equal(result.status, 9);
+    assert.match(result.stderr, /GCS media bucket/);
+    const calls = f.calls();
+    assert.ok(calls.some(a => a[0] === 'storage' && a[1] === 'buckets' && a[2] === 'describe'));
+    assert.equal(calls.some(a => a[0] === 'storage' && a[1] !== 'buckets'), false);
   } finally { f.close(); }
 });
 
