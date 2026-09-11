@@ -17,7 +17,7 @@ test('media apply is manual, production protected, and pinned to reviewed eviden
   assert.match(workflow, /APPROVED_SHA: 679f6698/);
   assert.match(workflow, /APPROVED_PLAN_RUN_ID: "33023641715"/);
   assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "2"/);
-  assert.match(workflow, /actions\/download-artifact@v4/);
+  assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /run-id: \$\{\{ inputs\.plan_run_id \}\}/);
   assert.match(workflow, /sha256sum --check SHA256SUMS/);
   assert.match(workflow, /git diff --name-only "\$APPROVED_SHA" origin\/main/);
