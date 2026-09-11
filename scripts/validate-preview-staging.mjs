@@ -10,7 +10,7 @@ const requiredFiles = [
 ];
 const contents = await Promise.all(requiredFiles.map(file => readFile(file, 'utf8')));
 const joined = contents.join('\n');
-for (const required of ['pull_request:', "branches: [develop]", 'cleanup-preview.sh', 'upload-artifact@v4', 'actions/github-script@v7', 'npm audit', 'validate:firebase', 'validate:google', 'api/v1/health']) {
+for (const required of ['pull_request:', "branches: [develop]", 'cleanup-preview.sh', 'upload-artifact@v7', 'actions/github-script@v9', 'npm audit', 'validate:firebase', 'validate:google', 'api/v1/health']) {
   if (!joined.includes(required)) throw new Error(`Preview/staging infrastructure is missing: ${required}`);
 }
 const preview = contents[0];
