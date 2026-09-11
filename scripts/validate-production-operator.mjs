@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 
 const workflow = await readFile('.github/workflows/production-operator.yml', 'utf8');
+const cloudBuild = await readFile('cloudbuild.production.yaml', 'utf8');
+const healthCheck = await readFile('scripts/production-operator-health-check.sh', 'utf8');
 
 for (const contract of [
   'name: Production Operator',
@@ -46,4 +48,20 @@ for (const forbidden of ['push:', 'schedule:', 'pull_request:', 'terraform apply
   if (workflow.includes(forbidden)) throw new Error(`Production operator contains forbidden trigger or operation: ${forbidden}`);
 }
 
-console.log('Production operator gated deployment contract valid.');
+for (const contract of [
+  'name: node:24',
+  'node:24',
+  'id: verify-runtime-readiness',
+  '/api/v1/health',
+  '/api/v1/health/ready',
+  'Production runtime liveness and readiness verified.'
+]) {
+  if (!cloudBuild.includes(contract)) throw new Error(`Production Cloud Build missing runtime contract: ${contract}`);
+}
+if (/\bnode:20\b/.test(cloudBuild)) throw new Error('Production Cloud Build must not use Node 20 after the Node 24 runtime migration.');
+
+for (const contract of ['/api/v1/health', '/api/v1/health/ready', 'ready:true']) {
+  if (!healthCheck.includes(contract)) throw new Error(`Production health evidence script missing readiness contract: ${contract}`);
+}
+
+console.log('Production operator gated deployment, Node 24, and database readiness contracts valid.');
