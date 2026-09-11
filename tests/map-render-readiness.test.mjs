@@ -107,7 +107,8 @@ function browserFixture(options = {}) {
   const main = {
     hasAttribute: name => name === 'data-map-status',
     getAttribute: name => name === 'data-map-status' ? state.runtime : name === 'data-map-render-status' ? state.rendering : null,
-    querySelector: () => ({ textContent: 'الخدمات بالقرب منك' })
+    querySelector: () => ({ textContent: 'الخدمات بالقرب منك' }),
+    querySelectorAll: () => []
   };
   const document = {
     fonts: { status: 'loaded', ready: Promise.resolve() }, body: { getBoundingClientRect() {} },
