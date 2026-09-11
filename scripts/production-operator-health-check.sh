@@ -8,6 +8,7 @@ frontend_url="$(gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE" --pr
 
 start="$SECONDS"
 curl --fail --silent --show-error --retry 6 --retry-all-errors "$backend_url/api/v1/health" >/dev/null
+curl --fail --silent --show-error --retry 6 --retry-all-errors "$backend_url/api/v1/health/ready" >/dev/null
 backend_seconds=$((SECONDS-start))
 start="$SECONDS"
 curl --fail --silent --show-error --retry 6 --retry-all-errors "$frontend_url/" >/dev/null
@@ -15,6 +16,6 @@ frontend_seconds=$((SECONDS-start))
 
 mkdir -p "$EVIDENCE_DIRECTORY"
 jq -n --argjson backendSeconds "$backend_seconds" --argjson frontendSeconds "$frontend_seconds" \
-  '{backend:{healthy:true,durationSeconds:$backendSeconds},frontend:{healthy:true,durationSeconds:$frontendSeconds},urlsRecorded:false}' \
+  '{backend:{healthy:true,ready:true,durationSeconds:$backendSeconds},frontend:{healthy:true,durationSeconds:$frontendSeconds},urlsRecorded:false}' \
   > "$EVIDENCE_DIRECTORY/health-check.json"
-echo 'Production health checks passed; service URLs were not written to evidence.'
+echo 'Production liveness, readiness, and frontend health checks passed; service URLs were not written to evidence.'
