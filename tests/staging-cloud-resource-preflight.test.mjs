@@ -17,8 +17,10 @@ function fixture(overrides = {}) {
 const fs=require('node:fs');
 const a=process.argv.slice(2);
 fs.appendFileSync(process.env.MOCK_LOG, JSON.stringify(a)+'\\n');
-if(a[0]==='services'&&a[1]==='describe'){
-  console.log(a[2]===process.env.MOCK_DISABLED_API?'DISABLED':'ENABLED');
+if(a[0]==="services"&&a[1]==="list"){
+  const f=a.find(v=>v.startsWith("--filter=config.name="));
+  const name=f?.slice("--filter=config.name=".length)??"";
+  if(name!==process.env.MOCK_DISABLED_API) console.log(name);
   process.exit(0);
 }
 if(a[0]==='artifacts'&&a[1]==='repositories'&&a[2]==='describe') process.exit(process.env.MOCK_MISSING_REPO==='1'?1:0);
