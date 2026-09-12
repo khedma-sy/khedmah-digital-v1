@@ -263,11 +263,19 @@ async function readinessWithFonts({ fontStatus = 'loaded', afterFrame = () => un
   const fonts = { status: fontStatus, ready: Promise.resolve() };
   let frames = 0;
   let layouts = 0;
+  const main = {
+    querySelector: () => ({ textContent: 'خدمة' }),
+    hasAttribute: () => false,
+    getAttribute: () => null
+  };
   const document = {
     fonts,
     body: { getBoundingClientRect() { layouts += 1; return {}; } },
     querySelector(selector) {
-      return selector.startsWith('main') ? { querySelector: () => ({ textContent: 'خدمة' }), hasAttribute: () => false } : {};
+      if (selector.startsWith('main')) return main;
+      if (selector === '[data-taxi-map-status]') return null;
+      if (selector.includes('.nav-session[data-auth-state=')) return {};
+      return null;
     },
     querySelectorAll() { return busy ? [{ getClientRects: () => [1] }] : []; }
   };
