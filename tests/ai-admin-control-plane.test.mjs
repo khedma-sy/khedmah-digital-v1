@@ -55,4 +55,19 @@ test('AI Admin contract forbids direct secret and production autonomy', async ()
   assert.match(contract, /never receives database credentials, API keys, service-account keys, passwords, or Secret Manager payloads/i);
   assert.match(contract, /Production deploys.*require explicit human approval/i);
   assert.match(contract, /server-side kill switch/i);
+  assert.match(contract, /Production autonomy is forbidden/i);
+});
+
+test('Kora supervised contract locks the first four tools and analysis modes without claiming runtime readiness', async () => {
+  const contract = await read('docs/ai-admin/KHEDMA-AI-ADMIN-CONTROL-CONTRACT.md');
+  assert.match(contract, /attached to \*\*Kora Admin\*\*/);
+  for (const tool of ['read_metrics', 'detect_ui_failures', 'review_operational_anomalies', 'draft_admin_tasks']) {
+    assert.match(contract, new RegExp(`\\\`${tool}\\\``));
+  }
+  for (const mode of ['executive', 'expose', 'killcritic', 'autopsy']) {
+    assert.match(contract, new RegExp(`\\\`${mode}\\\``));
+  }
+  assert.match(contract, /Declaring a tool here does \*\*not\*\* claim that its runtime implementation is already available/);
+  assert.match(contract, /direct database, SQL, or cloud-console access/i);
+  assert.match(contract, /low-risk automatic actions.*allowlisted/i);
 });
