@@ -14,9 +14,9 @@ test('web loads canonical section theme layer after design tokens', async () => 
 
 test('web brand accents match the approved Khedmah navy green orange system', async () => {
   const themes = await read('apps/frontend/app/section-themes.css');
-  assert.match(themes, /--brand-navy:\s*#173247/i);
-  assert.match(themes, /--brand-green:\s*#16875f/i);
-  assert.match(themes, /--brand-orange:\s*#e97835/i);
+  assert.match(themes, /--brand-navy:\s*#07427c/i);
+  assert.match(themes, /--brand-green:\s*#81be49/i);
+  assert.match(themes, /--brand-orange:\s*#fd9603/i);
 });
 
 test('categories use green without mutating the global functional primary color', async () => {
@@ -30,8 +30,8 @@ test('categories use green without mutating the global functional primary color'
 test('mobility and commerce keep independent visual accents', async () => {
   const mobility = await read('apps/frontend/app/mobility/mobility.module.css');
   const store = await read('apps/frontend/app/store/store.module.css');
-  assert.match(mobility, /--mobility-accent:\s*var\(--brand-navy,#173247\)/i);
-  assert.match(store, /--store-accent:\s*var\(--brand-orange,#e97835\)/i);
+  assert.match(mobility, /--mobility-accent:\s*var\(--brand-navy,#07427c\)/i);
+  assert.match(store, /--store-accent:\s*var\(--brand-orange,#fd9603\)/i);
   assert.match(store, /ui-action-primary/i);
   assert.match(mobility, /@media\(max-width:42rem\)/i);
   assert.match(store, /prefers-reduced-motion:reduce/i);
@@ -41,7 +41,7 @@ test('search and nearby share the navy discovery hierarchy without changing thei
   const discovery = await read('apps/frontend/app/discovery.module.css');
   const search = await read('apps/frontend/app/search/page.tsx');
   const map = await read('apps/frontend/app/map/page.tsx');
-  assert.match(discovery, /--discovery-accent:\s*var\(--brand-navy,#173247\)/i);
+  assert.match(discovery, /--discovery-accent:\s*var\(--brand-navy,#07427c\)/i);
   assert.match(discovery, /2026-09 visual convergence/i);
   assert.match(search, /api\.search\.query|api\.services\.search/);
   assert.match(map, /google\.maps\.Map/);

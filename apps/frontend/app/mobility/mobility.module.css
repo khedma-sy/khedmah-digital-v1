@@ -1,6 +1,6 @@
 .page{
   min-height:100svh;
-  --mobility-accent:var(--brand-navy,#173247);
+  --mobility-accent:var(--brand-navy,#07427c);
   --mobility-accent-soft:color-mix(in srgb,var(--mobility-accent) 9%,var(--k-color-surface));
 }
 .planner{
