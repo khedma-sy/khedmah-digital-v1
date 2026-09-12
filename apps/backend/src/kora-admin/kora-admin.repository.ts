@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 
-interface CountRow { readonly count: string; }
+interface CountRow extends Record<string, unknown> {
+  readonly count: string;
+}
 
 @Injectable()
 export class KoraAdminRepository {
