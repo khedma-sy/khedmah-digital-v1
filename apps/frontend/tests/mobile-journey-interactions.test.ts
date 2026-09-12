@@ -12,7 +12,11 @@ test('ordered welcome, home, and catalog journey has working navigation targets'
   ]);
 
   assert.match(welcome, /onClick=\{completeOnboarding\}/);
-  assert.match(home, /href="\/search"/);
+  assert.match(home, /<form action="\/search"/);
+  assert.match(home, /href: '\/food'/);
+  assert.match(home, /href: '\/mobility\?type=delivery'/);
+  assert.match(home, /href: '\/taxi'/);
+  assert.match(home, /href="\/store"/);
   assert.match(home, /href="\/auth\/register"/);
   assert.match(catalog, /PageHeader title=\{title\}.*backHref="\/"/s);
   assert.match(catalog, /onClick=\{\(\) => setShowFilters/);
