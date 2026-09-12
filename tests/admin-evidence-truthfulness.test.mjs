@@ -51,6 +51,7 @@ function fixture(path, { permissions = [], failure, productionTrafficEnabled = f
       if (id === 'next/navigation') return { useRouter: () => router };
       if (id === 'next/link') return 'Link';
       if (id.endsWith('/api-client')) return { api };
+      if (id === './components/ai-admin-control') return { AiAdminControl: () => null };
       throw new Error(`Unexpected dependency: ${id}`);
     }
   }));
