@@ -15,10 +15,12 @@ export class KoraAdminService {
   async readMetrics(cookie: string | undefined) {
     const measuredAt = new Date().toISOString();
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const [users, searches, history] = await Promise.all([
+    // Authorize before any aggregate database read so an unauthenticated caller
+    // cannot cause Kora to inspect administrative metrics as a side effect.
+    const history = await this.operations.histories(cookie);
+    const [users, searches] = await Promise.all([
       this.repository.countUsers(),
-      this.repository.countSearchActionsSince(since),
-      this.operations.histories(cookie)
+      this.repository.countSearchActionsSince(since)
     ]);
 
     const metrics: KoraMetric[] = [
