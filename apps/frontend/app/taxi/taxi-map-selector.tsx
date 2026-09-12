@@ -29,7 +29,6 @@ type MapsApi = {
   Polyline: new (options: Record<string, unknown>) => PolylineInstance;
   LatLngBounds: new () => LatLngBoundsInstance;
 };
-type MapsWindow = Window & { google?: { maps?: MapsApi } };
 type MapStatus = 'loading' | 'ready' | 'unavailable';
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
@@ -37,6 +36,7 @@ const MAP_SCRIPT_ID = 'khedmah-google-maps';
 
 const pointFor = (address: TaxiAddress): LatLngLiteral => ({ lat: address.latitude, lng: address.longitude });
 const valid = (point: LatLngLiteral) => Number.isFinite(point.lat) && Math.abs(point.lat) <= 90 && Number.isFinite(point.lng) && Math.abs(point.lng) <= 180;
+const mapsRuntime = () => window.google?.maps as unknown as MapsApi | undefined;
 
 export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChange }: {
   pickup: TaxiAddress;
@@ -89,7 +89,6 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   useEffect(() => {
     const mapsKey = MAPS_KEY;
     if (!mapsKey || !element.current) return;
-    const runtime = window as MapsWindow;
     let cancelled = false;
     let script = document.getElementById(MAP_SCRIPT_ID) as HTMLScriptElement | null;
 
@@ -101,7 +100,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
 
     const initialize = () => {
       if (cancelled || mapRef.current || !element.current) return;
-      const maps = runtime.google?.maps;
+      const maps = mapsRuntime();
       if (!maps) return;
       try {
         const start = pointFor(pickupRef.current);
@@ -137,7 +136,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
       } catch { fail(); }
     };
 
-    if (runtime.google?.maps) initialize();
+    if (mapsRuntime()) initialize();
     else {
       if (!script) {
         script = document.createElement('script');
@@ -170,8 +169,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   }, []);
 
   useEffect(() => {
-    const runtime = window as MapsWindow;
-    const maps = runtime.google?.maps;
+    const maps = mapsRuntime();
     const map = mapRef.current;
     if (mapStatus !== 'ready' || !maps || !map) return;
     const start = pointFor(pickup);
