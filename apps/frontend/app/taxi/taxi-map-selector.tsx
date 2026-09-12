@@ -44,10 +44,10 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   onDropoffChange(value: TaxiAddress): void;
 }) {
   const element = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapInstance>();
-  const pickupMarkerRef = useRef<MarkerInstance>();
-  const dropoffMarkerRef = useRef<MarkerInstance>();
-  const lineRef = useRef<PolylineInstance>();
+  const mapRef = useRef<MapInstance | null>(null);
+  const pickupMarkerRef = useRef<MarkerInstance | null>(null);
+  const dropoffMarkerRef = useRef<MarkerInstance | null>(null);
+  const lineRef = useRef<PolylineInstance | null>(null);
   const listenersRef = useRef<MapsListener[]>([]);
   const selectionRef = useRef<'pickup' | 'dropoff'>('pickup');
   const pickupRef = useRef(pickup);
@@ -86,7 +86,8 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   }
 
   useEffect(() => {
-    if (!MAPS_KEY || !element.current) return;
+    const mapsKey = MAPS_KEY;
+    if (!mapsKey || !element.current) return;
     const runtime = window as MapsWindow;
     let cancelled = false;
     let script = document.getElementById(MAP_SCRIPT_ID) as HTMLScriptElement | null;
@@ -142,7 +143,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
         script.id = MAP_SCRIPT_ID;
         script.async = true;
         script.defer = true;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}&language=ar&region=SY&loading=async`;
         document.head.appendChild(script);
       }
       script.addEventListener('load', initialize);
@@ -160,10 +161,10 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
       pickupMarkerRef.current?.setMap(null);
       dropoffMarkerRef.current?.setMap(null);
       lineRef.current?.setMap(null);
-      pickupMarkerRef.current = undefined;
-      dropoffMarkerRef.current = undefined;
-      lineRef.current = undefined;
-      mapRef.current = undefined;
+      pickupMarkerRef.current = null;
+      dropoffMarkerRef.current = null;
+      lineRef.current = null;
+      mapRef.current = null;
     };
   }, []);
 
