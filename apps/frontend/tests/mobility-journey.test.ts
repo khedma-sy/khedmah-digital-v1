@@ -4,33 +4,38 @@ import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('taxi and delivery journey uses canonical categories and location-ranked search', async () => {
+test('mobility journey keeps canonical provider discovery without pretending to dispatch', async () => {
   const page = await read('app/mobility/page.tsx');
   assert.match(page, /type === 'taxi' \? 'taxi' : 'delivery_courier'/);
-  assert.match(page, /searchParams\(window\.location\.search\)|URLSearchParams\(window\.location\.search\)/);
   assert.match(page, /get\('type'\) === 'delivery'/);
-  assert.match(page, /api\.search\.query/);
   assert.match(page, /categoryCode: categoryFor\(type\)/);
-  assert.match(page, /latitude: pickupCoordinates\.latitude/);
-  assert.match(page, /longitude: pickupCoordinates\.longitude/);
+  assert.match(page, /latitude: resolvedPickup\.latitude/);
+  assert.match(page, /longitude: resolvedPickup\.longitude/);
   assert.match(page, /result\.businesses\.slice\(0, 12\)/);
-  assert.match(page, /لا توجد رحلة مؤكدة قبل قبول المزود/);
+  assert.match(page, /لا تعني حجزًا أو تسعيرًا أو تتبعًا لحظيًا/);
+  assert.doesNotMatch(page, /تم تعيين السائق|تم تأكيد الرحلة|سعر الرحلة/);
 });
 
-test('mobility journey connects Google Places, geolocation and Google Maps directions', async () => {
-  const [page, map, navigation, home] = await Promise.all([
-    read('app/mobility/page.tsx'),
-    read('app/map/page.tsx'),
-    read('app/auth-navigation.tsx'),
-    read('app/page.tsx')
-  ]);
+test('mobility journey renders a resilient two-point Google map and accepts typed addresses', async () => {
+  const page = await read('app/mobility/page.tsx');
   assert.match(page, /maps\.googleapis\.com\/maps\/api\/js/);
   assert.match(page, /libraries=places/);
-  assert.match(page, /places\.Autocomplete/);
+  assert.match(page, /new maps\.Map/);
+  assert.match(page, /new maps\.Marker/);
+  assert.match(page, /new maps\.Polyline/);
+  assert.match(page, /map\.current\.addListener\('click'/);
+  assert.match(page, /geocodeAddress\(pickup\)/);
+  assert.match(page, /geocodeAddress\(destination\)/);
   assert.match(page, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(page, /gm_authFailure/);
   assert.match(page, /https:\/\/www\.google\.com\/maps\/dir\//);
-  assert.match(page, /travelmode/);
-  assert.match(map, /libraries=places/);
-  assert.match(navigation, /href: '\/mobility'/);
-  assert.match(home, /href="\/mobility"/);
+});
+
+test('mobility journey has explicit loading, empty-data and recovery states', async () => {
+  const page = await read('app/mobility/page.tsx');
+  assert.match(page, /mapsStatus === 'error'/);
+  assert.match(page, /الخدمة تعمل، لكن لا يوجد مزود معتمد منشور هنا/);
+  assert.match(page, /لن نعرض سائقًا وهميًا/);
+  assert.match(page, /SkeletonGrid/);
+  assert.match(page, /توسيع البحث على الخريطة/);
 });
