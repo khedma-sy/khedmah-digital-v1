@@ -1,8 +1,8 @@
 /* Canonical section accents for Khedmah. Keep functional state colors separate from brand colors. */
 :root {
-  --brand-navy: #173247;
-  --brand-green: #16875f;
-  --brand-orange: #e97835;
+  --brand-navy: #07427c;
+  --brand-green: #81be49;
+  --brand-orange: #fd9603;
   --brand-warm: #f8faf9;
   --section-accent: var(--brand-navy);
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
@@ -42,12 +42,12 @@
   background: var(--section-accent);
 }
 
-/* Marketplace / food commerce surfaces can opt into the orange sector accent without changing the global shell. */
+/* Food / commerce uses the official orange sector identity. */
 [data-khedmah-section='commerce'] {
   --section-accent: var(--brand-orange);
 }
 
-/* Map / nearby and mobility remain anchored to navy until their dedicated page passes are completed. */
+/* Mobility uses the official navy identity; delivery may opt into green locally. */
 .map-welcome,
 [data-khedmah-section='mobility'] {
   --section-accent: var(--brand-navy);
