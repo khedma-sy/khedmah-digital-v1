@@ -7,6 +7,7 @@ import test from 'node:test';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const atlasPath = join(root, 'docs/operations/SITE-ATLAS.md');
 const taxiSupplementPath = join(root, 'docs/decisions/RP35-TAXI-UI.md');
+const aiAdminSupplementPath = join(root, 'docs/ai-admin/KHEDMA-AI-ADMIN-CONTROL-CONTRACT.md');
 async function pages(directory) {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -17,17 +18,24 @@ async function pages(directory) {
   return found;
 }
 
-test('site atlas names every Web page owner; only the newly bound Taxi page may use its explicit supplement', async () => {
-  const [atlas, taxiSupplement] = await Promise.all([
+test('site atlas names every Web page owner; Taxi and AI Admin may use their explicit supplements', async () => {
+  const [atlas, taxiSupplement, aiAdminSupplement] = await Promise.all([
     readFile(atlasPath, 'utf8'),
-    readFile(taxiSupplementPath, 'utf8')
+    readFile(taxiSupplementPath, 'utf8'),
+    readFile(aiAdminSupplementPath, 'utf8')
   ]);
   const entries = await pages(join(root, 'apps/frontend/app'));
   assert.ok(entries.length > 0);
   const missingFromAtlas = entries.filter(path => !atlas.includes(`](../../${path})`));
-  assert.deepEqual(missingFromAtlas, ['apps/frontend/app/taxi/page.tsx'], 'no page other than Taxi may bypass the primary atlas');
+  assert.deepEqual(
+    missingFromAtlas,
+    ['apps/frontend/app/admin/ai/page.tsx', 'apps/frontend/app/taxi/page.tsx'],
+    'only pages with explicit, tested supplements may bypass the primary atlas'
+  );
   assert.ok(taxiSupplement.includes('](../../apps/frontend/app/taxi/page.tsx)'), 'Taxi supplement must name its exact page owner');
   assert.match(taxiSupplement, /narrow bridge, not a general documentation waiver/i);
+  assert.ok(aiAdminSupplement.includes('](../../apps/frontend/app/admin/ai/page.tsx)'), 'AI Admin control contract must name its exact page owner');
+  assert.match(aiAdminSupplement, /does not create a privileged path around backend RBAC, audit, or human approvals/i);
   const routeHeadings = [...atlas.matchAll(/^#### `([^`]+)`/gm)].map((match) => match[1]);
   assert.equal(new Set(routeHeadings).size, routeHeadings.length, 'each page specification appears once');
 });
