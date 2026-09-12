@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, type OperationsProductOverview, type PublicUserProfile } from '../../lib/api-client';
+import { AiAdminControl } from './components/ai-admin-control';
 
 const roleLabel = (role: string) => role === 'operations_product_director'
   ? 'مالك المنصة'
@@ -50,15 +51,17 @@ export default function AdminPage() {
   }
 
   const canManageModeration = overview.permissions.includes('security.manage');
+  const canManageAi = overview.permissions.includes('ai.manage');
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
-      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مراجعة المحتوى والتحقق والبلاغات، وعرض التصنيفات وملخص إعداد التشغيل حسب صلاحيات الحساب.</p></div>
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مراجعة المحتوى والتحقق والبلاغات، والتحكم بالمدير الذكي، وعرض ملخص إعداد التشغيل حسب صلاحيات الحساب.</p></div>
       <span className="status-badge">{overview.roles.map(roleLabel).join(' · ')}</span>
     </header>
 
     <nav className="admin-navigation" aria-label="التنقل الإداري">
       <Link href="/">الرئيسية</Link>
+      {canManageAi ? <Link href="/admin/ai">المدير الذكي</Link> : null}
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
       <Link href="/categories">التصنيفات</Link>
@@ -72,9 +75,12 @@ export default function AdminPage() {
       <article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article>
     </section>
 
+    {canManageAi ? <AiAdminControl /> : null}
+
     <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا ملخص إعداد معلن من الخادم، وليس فحصاً حياً لجاهزية الخدمات أو حركة الإنتاج.</p><p>سجلات الحوادث والتغييرات المعروضة مؤقتة في ذاكرة عملية الخادم؛ قد تفقد عند إعادة تشغيله، ولا تمثل سجل تشغيل دائماً.</p></section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
+      {canManageAi ? <article className="operations-panel"><div className="panel-heading"><h2>المدير الذكي</h2><span>مالك المنصة</span></div><p>إدارة حالة Khedmah AI Admin، السقف الشهري، أنماط التحليل، وحدود الموافقات البشرية.</p><Link href="/admin/ai">فتح مركز المدير الذكي</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة محتوى ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية بعقد مرتبط بالطلب ونسخة الملف، منفصل عن اعتماد المحتوى.</p><Link href="/admin/verification">فتح مراجعة التحقق</Link></article> : null}
       <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>

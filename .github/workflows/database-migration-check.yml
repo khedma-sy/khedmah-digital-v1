@@ -53,6 +53,7 @@ jobs:
             022_expand_category_taxonomy
             024_product_store
             025_classifieds
+            026_ai_admin_control_plane
           )
 
           for migration in "${migrations[@]}"; do
@@ -125,6 +126,8 @@ jobs:
             024_product_store_rollback.sql \
             025_classifieds.sql \
             025_classifieds_rollback.sql \
+            026_ai_admin_control_plane.sql \
+            026_ai_admin_control_plane_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
