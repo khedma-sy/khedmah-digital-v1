@@ -30,6 +30,7 @@ type MapsApi = {
   LatLngBounds: new () => LatLngBoundsInstance;
 };
 type MapsWindow = Window & { google?: { maps?: MapsApi } };
+type MapStatus = 'loading' | 'ready' | 'unavailable';
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const MAP_SCRIPT_ID = 'khedmah-google-maps';
@@ -53,7 +54,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   const pickupRef = useRef(pickup);
   const dropoffRef = useRef(dropoff);
   const [selection, setSelection] = useState<'pickup' | 'dropoff'>('pickup');
-  const [ready, setReady] = useState(false);
+  const [mapStatus, setMapStatus] = useState<MapStatus>(MAPS_KEY ? 'loading' : 'unavailable');
   const [message, setMessage] = useState(MAPS_KEY ? 'اختر نقطة الانطلاق ثم الوجهة على الخريطة.' : 'خريطة Google غير مهيأة في هذه البيئة.');
 
   pickupRef.current = pickup;
@@ -94,7 +95,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
 
     const fail = () => {
       if (cancelled) return;
-      setReady(false);
+      setMapStatus('unavailable');
       setMessage('تعذر تحميل خريطة التكسي. استخدم موقعي الحالي أو الإدخال اليدوي مؤقتًا.');
     };
 
@@ -132,7 +133,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
           if (position) applyPoint('dropoff', { lat: position.lat(), lng: position.lng() });
         }));
         fitRoute(maps);
-        setReady(true);
+        setMapStatus('ready');
       } catch { fail(); }
     };
 
@@ -172,7 +173,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
     const runtime = window as MapsWindow;
     const maps = runtime.google?.maps;
     const map = mapRef.current;
-    if (!ready || !maps || !map) return;
+    if (mapStatus !== 'ready' || !maps || !map) return;
     const start = pointFor(pickup);
     const end = pointFor(dropoff);
     if (valid(start)) pickupMarkerRef.current?.setPosition(start);
@@ -181,14 +182,14 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
       lineRef.current?.setPath([start, end]);
       fitRoute(maps);
     } else if (valid(start)) map.setCenter(start);
-  }, [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, ready]);
+  }, [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, mapStatus]);
 
-  return <section className={styles.mapPanel} aria-label="خريطة رحلة التكسي">
+  return <section className={styles.mapPanel} aria-label="خريطة رحلة التكسي" data-taxi-map-surface data-taxi-map-status={mapStatus}>
     <div className={styles.mapToolbar}>
       <button type="button" className={selection === 'pickup' ? styles.mapPointActive : ''} onClick={() => { setSelection('pickup'); setMessage('انقر على الخريطة لتحديد نقطة الانطلاق.'); }}><PlatformIcon name="pin" size={17}/> تحديد الانطلاق</button>
       <button type="button" className={selection === 'dropoff' ? styles.mapPointActive : ''} onClick={() => { setSelection('dropoff'); setMessage('انقر على الخريطة لتحديد الوجهة.'); }}><PlatformIcon name="pin" size={17}/> تحديد الوجهة</button>
     </div>
     <div ref={element} className={styles.mapCanvas} aria-label="خريطة Google لاختيار الانطلاق والوجهة" />
-    <p className={ready ? styles.mapMessage : styles.mapWarning}>{message}</p>
+    <p className={mapStatus === 'ready' ? styles.mapMessage : styles.mapWarning}>{message}</p>
   </section>;
 }
