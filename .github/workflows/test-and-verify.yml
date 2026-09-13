@@ -153,18 +153,46 @@ jobs:
         run: npm run validate:database
 
       - name: 🔒 Verify no forbidden tables in migrations
+        shell: bash
         run: |
           set -euo pipefail
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+
+          # These capabilities remain forbidden everywhere, including the governed
+          # cash-fulfillment migration.
+          globally_forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
-            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${globally_forbidden})" \
             backend/migrations/versions; then
             echo "❌ Forbidden MVP table definition detected"
             exit 1
           fi
-          echo "✅ Boundary check completed"
+
+          # Order tables are allowed only in the exact governed cash-fulfillment
+          # migration. Any future order schema requires an explicit reviewed gate change.
+          if grep -Eirn \
+            --include='*.sql' \
+            --exclude='026_cash_fulfillment_orders.sql' \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(orders?)" \
+            backend/migrations/versions; then
+            echo "❌ Order table definition detected outside governed migration 026"
+            exit 1
+          fi
+
+          fulfillment_migration='backend/migrations/versions/026_cash_fulfillment_orders.sql'
+          test -f "$fulfillment_migration" || { echo "❌ Governed fulfillment migration 026 is missing"; exit 1; }
+          allowed_tables='fulfillment_orders fulfillment_order_events fulfillment_order_items fulfillment_order_location_updates fulfillment_order_ratings'
+          actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$fulfillment_migration" || true; } | sort | xargs)"
+          expected_tables="$(printf '%s\n' $allowed_tables | sort | xargs)"
+          if [ "$actual_tables" != "$expected_tables" ]; then
+            echo "❌ Migration 026 defines an unexpected table set"
+            echo "Expected: $expected_tables"
+            echo "Actual:   $actual_tables"
+            exit 1
+          fi
+
+          echo "✅ Boundary check completed with exact governed fulfillment exception"
 
   validate-pr:
     name: PR Validation
