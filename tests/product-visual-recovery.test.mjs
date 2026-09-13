@@ -9,6 +9,8 @@ const home = await readFile('apps/frontend/app/page.tsx', 'utf8');
 const homeStyles = await readFile('apps/frontend/app/home.module.css', 'utf8');
 const food = await readFile('apps/frontend/app/food/page.tsx', 'utf8');
 const taxi = await readFile('apps/frontend/app/taxi/page.tsx', 'utf8');
+const taxiLayout = await readFile('apps/frontend/app/taxi/layout.tsx', 'utf8');
+const taxiPlanningPreview = await readFile('apps/frontend/app/taxi/taxi-planning-preview.tsx', 'utf8');
 const taxiMap = await readFile('apps/frontend/app/taxi/taxi-map-selector.tsx', 'utf8');
 const previewEvidence = await readFile('scripts/capture-preview-evidence.mjs', 'utf8');
 
@@ -58,6 +60,14 @@ test('Taxi keeps map selection inside the Taxi journey', () => {
   assert.match(taxiMap, /data-taxi-map-status=\{mapStatus\}/);
 });
 
+test('Taxi rollout keeps execution fail-closed while map planning remains reviewable', () => {
+  assert.match(taxiLayout, /process\.env\.TAXI_TRIPS_ENABLED === 'true'/);
+  assert.match(taxiLayout, /TaxiPlanningPreview/);
+  assert.match(taxiPlanningPreview, /TaxiMapSelector/);
+  assert.match(taxiPlanningPreview, /data-taxi-trip-execution="disabled"/);
+  assert.doesNotMatch(taxiPlanningPreview, /taxiApi|rider\.quote|rider\.place|driver\./);
+});
+
 test('Preview evidence cannot skip Food Store or Taxi again', () => {
   assert.match(previewEvidence, /key: 'food', path: '\/food'/);
   assert.match(previewEvidence, /key: 'taxi', path: '\/taxi'/);
@@ -65,4 +75,6 @@ test('Preview evidence cannot skip Food Store or Taxi again', () => {
   assert.match(previewEvidence, /snapshot\.navigationCount !== 7/);
   assert.match(previewEvidence, /\/search\|\/categories\|\/food\|\/map\|\/taxi\|\/store\|\/classifieds/);
   assert.match(previewEvidence, /data-taxi-map-status/);
+  assert.match(previewEvidence, /MAP_SURFACE_MISSING/);
+  assert.match(previewEvidence, /route\.key === 'map' \|\| route\.key === 'taxi'/);
 });
