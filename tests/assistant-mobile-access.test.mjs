@@ -56,16 +56,19 @@ test('assistant trigger precedes its region in DOM reading and keyboard order', 
   assert.equal(children[0].type, 'button'); assert.equal(children[1].props.role, 'region');
 });
 
-test('mobile assistant has real flow space outside the unchanged single global header', () => {
+test('assistant has real flow space outside the unchanged single global header at every viewport', () => {
   const layout = readSource('apps/frontend/app/layout.tsx');
   assert.equal((layout.match(/<header className="khedma-header">/g) ?? []).length, 1);
   assert.equal((layout.match(/<SmartAssistant \/>/g) ?? []).length, 1);
   assert.match(layout, /<\/header>\s*<SmartAssistant \/>\s*\{children\}/);
   const styles = readSource('apps/frontend/app/components/smart-assistant.module.css');
-  const mobile = styles.split('@media(max-width:38rem)')[1];
-  assert.match(mobile, /position:static/); assert.match(mobile, /flex-direction:column/);
+  const root = styles.match(/\.root\{([^}]*)\}/)?.[1] ?? '';
+  const mobile = styles.split('@media(max-width:38rem)')[1] ?? '';
+  assert.match(root, /position:static/);
+  assert.match(root, /flex-direction:column/);
+  assert.doesNotMatch(root, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
   assert.doesNotMatch(mobile, /position:(?:fixed|sticky)|display:none/);
-  assert.match(styles, /flex-direction:column-reverse/);
+  assert.match(mobile, /\.root\{[^}]*margin:/);
   assert.match(styles, /min-width:2\.75rem;min-height:2\.75rem/);
 });
 
