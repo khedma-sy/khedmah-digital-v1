@@ -71,12 +71,13 @@ test('homepage restores blue identity and prioritizes launch services', () => {
   assert.doesNotMatch(homeSystem, />section\{background:/);
 });
 
-test('smart assistant stays in document flow so it cannot cover service cards at any viewport', () => {
-  assert.match(layout, /<SmartAssistant \/>\s*\{children\}/);
-  assert.match(assistantStyles, /\.root\{[^}]*position:static/);
-  assert.match(assistantStyles, /\.root\{[^}]*flex-direction:column/);
-  assert.doesNotMatch(assistantStyles, /\.root\{[^}]*position:fixed/);
-  assert.doesNotMatch(assistantStyles, /inset-inline-(?:start|end):1rem/);
+test('smart assistant belongs to the global header instead of creating a standalone page row', () => {
+  assert.match(layout, /<div className="khedma-header-actions"><AuthNavigation \/><ThemeToggle \/><SmartAssistant \/><\/div>/);
+  assert.doesNotMatch(layout, /<\/header>\s*<SmartAssistant \/>\s*\{children\}/);
+  assert.match(assistantStyles, /\.root\{[^}]*position:relative/);
+  assert.match(assistantStyles, /\.root\{[^}]*display:flex/);
+  assert.doesNotMatch(assistantStyles, /\.root\{[^}]*position:(?:fixed|sticky)/);
+  assert.match(assistantStyles, /\.panel\{[^}]*position:absolute/);
 });
 
 test('Food is a dedicated page backed by real category search links', () => {
