@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const migration = readFileSync(new URL('../../../../backend/migrations/versions/035_platform_notifications.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../../../backend/migrations/versions/028_platform_notifications.sql', import.meta.url), 'utf8');
 const repository = readFileSync(new URL('./notification.repository.ts', import.meta.url), 'utf8');
 const orders = readFileSync(new URL('../orders/order.service.ts', import.meta.url), 'utf8');
 
