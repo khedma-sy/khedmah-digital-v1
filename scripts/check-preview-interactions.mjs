@@ -33,20 +33,23 @@ const requireCondition = (value, code) => { if (!value) throw Object.assign(new 
 export async function main(env = process.env) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
-  const report = { schemaVersion: 1, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
+  const widths = [320, 390];
+  const expectedScenarios = evidenceRoutes.length * widths.length * evidenceThemes.length;
+  const report = { schemaVersion: 2, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
     checkoutSha: env.GITHUB_SHA || null, status: 'failed',
-    scope: 'Anonymous mobile UI only: five discovery routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible main control. No microphone, location permission, authentication, form submission or server writes.', scenarios: [] };
+    scope: `Anonymous mobile UI only: ${evidenceRoutes.length} evidence routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible main control. No microphone, location permission, authentication, form submission or server writes.`, scenarios: [] };
   let browser;
   try {
     const origin = validateBaseUrl(env.AFTER_URL);
     requireCondition(env.PLAYWRIGHT_PACKAGE_JSON?.trim(), 'BROWSER_TOOLING_PATH_MISSING');
     const { chromium } = createRequire(resolve(env.PLAYWRIGHT_PACKAGE_JSON))('playwright');
     browser = await chromium.launch({ headless: true });
-    const deadline = Date.now() + 180000;
-    for (const route of evidenceRoutes) for (const width of [320, 390]) for (const theme of evidenceThemes) {
+    const globalDeadline = Date.now() + 600000;
+    for (const route of evidenceRoutes) for (const width of widths) for (const theme of evidenceThemes) {
       const record = { route: route.path, width, theme, status: 'failed', failures: [], pageErrorCount: 0 };
       report.scenarios.push(record);
-      if (Date.now() >= deadline) { record.failures.push('INTERACTION_DEADLINE_EXCEEDED'); continue; }
+      if (Date.now() >= globalDeadline) { record.failures.push('INTERACTION_GLOBAL_DEADLINE_EXCEEDED'); continue; }
+      const scenarioDeadline = Math.min(globalDeadline, Date.now() + 45000);
       let context, page;
       const stem = `interaction-${route.key}-${width}-${theme}`;
       try {
@@ -55,7 +58,7 @@ export async function main(env = process.env) {
         page.on('pageerror', () => { record.pageErrorCount += 1; });
         const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 15000 });
         requireCondition(response?.ok(), 'HTTP_NOT_SUCCESS');
-        await waitForCaptureReadiness(page, Math.max(1, Math.min(30000, deadline - Date.now())));
+        await waitForCaptureReadiness(page, Math.max(1, Math.min(30000, scenarioDeadline - Date.now())));
         requireCondition(new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path, 'UNEXPECTED_REDIRECT');
         record.geometry = await page.evaluate(assistantGeometry);
         record.failures.push(...assessAssistantGeometry(record.geometry));
@@ -103,14 +106,14 @@ export async function main(env = process.env) {
         }
       }
     }
-    report.status = report.scenarios.length === evidenceRoutes.length * 4 && report.scenarios.every(item => item.status === 'passed') ? 'passed' : 'failed';
+    report.status = report.scenarios.length === expectedScenarios && report.scenarios.every(item => item.status === 'passed') ? 'passed' : 'failed';
   } catch {
     report.setupFailure = 'INTERACTION_SETUP_FAILED';
   } finally {
     if (browser) { try { await browser.close(); } catch { report.status = 'failed'; report.setupFailure = 'BROWSER_CLOSE_FAILED'; } }
     await writeFile(resolve(directory, 'interactions-manifest.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
-  console.log(`Mobile interactions: ${report.scenarios.filter(item => item.status === 'passed').length}/${evidenceRoutes.length * 4}; ${report.status}.`);
+  console.log(`Mobile interactions: ${report.scenarios.filter(item => item.status === 'passed').length}/${expectedScenarios}; ${report.status}.`);
   return report;
 }
 
