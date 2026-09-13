@@ -10,6 +10,7 @@ type MapsListener = { remove(): void };
 type MapClickEvent = { latLng?: { lat(): number; lng(): number } };
 type MapInstance = {
   addListener(name: 'click', callback: (event: MapClickEvent) => void): MapsListener;
+  addListener(name: 'tilesloaded', callback: () => void): MapsListener;
   setCenter(point: LatLngLiteral): void;
   fitBounds(bounds: LatLngBoundsInstance, padding?: number): void;
 };
@@ -31,6 +32,12 @@ type MapsApi = {
 };
 type MapStatus = 'loading' | 'ready' | 'unavailable';
 
+declare global {
+  interface Window {
+    initKhedmahTaxiMap?: () => void;
+  }
+}
+
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const MAP_SCRIPT_ID = 'khedmah-google-maps';
 
@@ -46,6 +53,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
 }) {
   const element = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
+  const renderedRef = useRef(false);
   const pickupMarkerRef = useRef<MarkerInstance | null>(null);
   const dropoffMarkerRef = useRef<MarkerInstance | null>(null);
   const lineRef = useRef<PolylineInstance | null>(null);
@@ -90,18 +98,24 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
     const mapsKey = MAPS_KEY;
     if (!mapsKey || !element.current) return;
     let cancelled = false;
-    let script = document.getElementById(MAP_SCRIPT_ID) as HTMLScriptElement | null;
+    let insertedScript: HTMLScriptElement | null = null;
+    const previousAuthFailure = window.gm_authFailure;
+    const previousInitializer = window.initKhedmahTaxiMap;
 
-    const fail = () => {
+    const fail = (nextMessage = 'تعذر تحميل خريطة التكسي. استخدم موقعي الحالي أو الإدخال اليدوي مؤقتًا.') => {
       if (cancelled) return;
+      renderedRef.current = false;
       setMapStatus('unavailable');
-      setMessage('تعذر تحميل خريطة التكسي. استخدم موقعي الحالي أو الإدخال اليدوي مؤقتًا.');
+      setMessage(nextMessage);
     };
 
     const initialize = () => {
       if (cancelled || mapRef.current || !element.current) return;
       const maps = mapsRuntime();
-      if (!maps) return;
+      if (!maps) {
+        fail();
+        return;
+      }
       try {
         const start = pointFor(pickupRef.current);
         const end = pointFor(dropoffRef.current);
@@ -115,6 +129,13 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
           clickableIcons: false
         });
         mapRef.current = map;
+        renderedRef.current = false;
+        listenersRef.current.push(map.addListener('tilesloaded', () => {
+          if (cancelled || mapRef.current !== map) return;
+          renderedRef.current = true;
+          setMapStatus('ready');
+          setMessage('اختر نقطة الانطلاق ثم الوجهة على الخريطة.');
+        }));
         pickupMarkerRef.current = new maps.Marker({ map, position: start, draggable: true, title: 'نقطة الانطلاق' });
         dropoffMarkerRef.current = new maps.Marker({ map, position: end, draggable: true, title: 'الوجهة' });
         lineRef.current = new maps.Polyline({ map, path: [start, end], strokeColor: '#07427c', strokeOpacity: .9, strokeWeight: 4, geodesic: true });
@@ -132,30 +153,38 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
           if (position) applyPoint('dropoff', { lat: position.lat(), lng: position.lng() });
         }));
         fitRoute(maps);
-        setMapStatus('ready');
-      } catch { fail(); }
+      } catch {
+        fail('تعذر تجهيز خريطة التكسي. استخدم موقعي الحالي أو الإدخال اليدوي مؤقتًا.');
+      }
     };
 
-    if (mapsRuntime()) initialize();
-    else {
-      if (!script) {
-        script = document.createElement('script');
-        script.id = MAP_SCRIPT_ID;
-        script.async = true;
-        script.defer = true;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}&language=ar&region=SY&loading=async`;
-        document.head.appendChild(script);
-      }
-      script.addEventListener('load', initialize);
-      script.addEventListener('error', fail);
+    const authFailure = () => fail('رفضت Google Maps مفتاح هذا النطاق. استخدم الإدخال اليدوي مؤقتًا إلى حين تصحيح الإعداد.');
+    window.initKhedmahTaxiMap = initialize;
+    window.gm_authFailure = authFailure;
+
+    if (mapsRuntime()) {
+      initialize();
+    } else {
+      document.getElementById(MAP_SCRIPT_ID)?.remove();
+      insertedScript = document.createElement('script');
+      insertedScript.id = MAP_SCRIPT_ID;
+      insertedScript.async = true;
+      insertedScript.defer = true;
+      insertedScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}&language=ar&region=SY&loading=async&callback=initKhedmahTaxiMap`;
+      insertedScript.onerror = () => fail('تعذر الاتصال بخدمة خرائط Google. استخدم الإدخال اليدوي مؤقتًا.');
+      document.head.appendChild(insertedScript);
     }
-    const timeout = window.setTimeout(() => { if (!mapRef.current) fail(); }, 15000);
+
+    const timeout = window.setTimeout(() => {
+      if (!renderedRef.current) fail('استغرق تحميل خريطة التكسي وقتًا أطول من المتوقع. استخدم الإدخال اليدوي مؤقتًا.');
+    }, 20000);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
-      script?.removeEventListener('load', initialize);
-      script?.removeEventListener('error', fail);
+      if (window.gm_authFailure === authFailure) window.gm_authFailure = previousAuthFailure;
+      if (window.initKhedmahTaxiMap === initialize) window.initKhedmahTaxiMap = previousInitializer;
+      if (insertedScript && !mapsRuntime()) insertedScript.remove();
       listenersRef.current.forEach(listener => listener.remove());
       listenersRef.current = [];
       pickupMarkerRef.current?.setMap(null);
@@ -165,6 +194,7 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
       dropoffMarkerRef.current = null;
       lineRef.current = null;
       mapRef.current = null;
+      renderedRef.current = false;
     };
   }, []);
 
