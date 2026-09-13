@@ -3,6 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const navigation = await readFile('apps/frontend/app/auth-navigation.tsx', 'utf8');
+const layout = await readFile('apps/frontend/app/layout.tsx', 'utf8');
+const brandMark = await readFile('apps/frontend/app/components/brand-mark.tsx', 'utf8');
+const categoryDirectory = await readFile('apps/frontend/app/components/category-directory.tsx', 'utf8');
 const shell = await readFile('apps/frontend/app/shell-system.css', 'utf8');
 const themes = await readFile('apps/frontend/app/section-themes.css', 'utf8');
 const home = await readFile('apps/frontend/app/page.tsx', 'utf8');
@@ -30,6 +33,27 @@ test('section identity uses the approved Khedmah brand colors', () => {
   assert.match(themes, /--brand-navy:\s*#07427c/i);
   assert.match(themes, /--brand-green:\s*#81be49/i);
   assert.match(themes, /--brand-orange:\s*#fd9603/i);
+});
+
+test('primary brand stays خدمة and stacks the umbrella above the name', () => {
+  assert.match(layout, /const SITE_NAME = 'خدمة';/);
+  assert.doesNotMatch(layout, /const SITE_NAME = 'خدمة ديجتل';/);
+  assert.match(brandMark, /aria-label="خدمة - تحت مظلة واحدة"/);
+  assert.match(brandMark, /<b>خدمة<\/b>/);
+  assert.doesNotMatch(brandMark, /خدمة ديجتل/);
+  assert.match(shell, /\.khedma-header \.khedma-brand\{[^}]*display:grid/);
+  assert.match(shell, /\.khedma-header \.khedma-brand>svg\{width:2\.45rem/);
+  assert.doesNotMatch(home, /خدمة ديجتل/);
+});
+
+test('category icons use semantic official brand tones instead of one global blue', () => {
+  assert.match(categoryDirectory, /type CategoryTone = 'navy' \| 'green' \| 'orange'/);
+  assert.match(categoryDirectory, /food: 'orange'/);
+  assert.match(categoryDirectory, /transport: 'green'/);
+  assert.match(categoryDirectory, /data-category-tone=\{categoryTone\(category\.visualKey\)\}/);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='green'\]/);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='orange'\]/);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='navy'\]/);
 });
 
 test('homepage restores blue identity and prioritizes launch services', () => {
