@@ -6,6 +6,7 @@ const navigation = await readFile('apps/frontend/app/auth-navigation.tsx', 'utf8
 const layout = await readFile('apps/frontend/app/layout.tsx', 'utf8');
 const brandMark = await readFile('apps/frontend/app/components/brand-mark.tsx', 'utf8');
 const categoryDirectory = await readFile('apps/frontend/app/components/category-directory.tsx', 'utf8');
+const assistantStyles = await readFile('apps/frontend/app/components/smart-assistant.module.css', 'utf8');
 const shell = await readFile('apps/frontend/app/shell-system.css', 'utf8');
 const themes = await readFile('apps/frontend/app/section-themes.css', 'utf8');
 const home = await readFile('apps/frontend/app/page.tsx', 'utf8');
@@ -68,6 +69,14 @@ test('homepage restores blue identity and prioritizes launch services', () => {
   assert.match(homeSystem, />section:first-child\{background-color:/);
   assert.doesNotMatch(homeSystem, />section:first-child\{background:/);
   assert.doesNotMatch(homeSystem, />section\{background:/);
+});
+
+test('smart assistant stays in document flow so it cannot cover service cards at any viewport', () => {
+  assert.match(layout, /<SmartAssistant \/>\s*\{children\}/);
+  assert.match(assistantStyles, /\.root\{[^}]*position:static/);
+  assert.match(assistantStyles, /\.root\{[^}]*flex-direction:column/);
+  assert.doesNotMatch(assistantStyles, /\.root\{[^}]*position:fixed/);
+  assert.doesNotMatch(assistantStyles, /inset-inline-(?:start|end):1rem/);
 });
 
 test('Food is a dedicated page backed by real category search links', () => {
