@@ -25,6 +25,12 @@
   --section-on-accent: #143653;
 }
 
+/* Delivery / road discovery owns the green section identity. Taxi stays navy in /taxi. */
+[data-khedmah-section='mobility'] {
+  --section-accent: var(--brand-green);
+  --section-on-accent: #143653;
+}
+
 [data-khedmah-section='taxi'],
 [data-khedmah-section='auth'] {
   --section-accent: var(--brand-navy);
@@ -122,8 +128,7 @@
   --section-accent: var(--brand-orange);
 }
 
-/* Mobility uses the official navy identity; delivery may opt into green locally. */
-.map-welcome,
-[data-khedmah-section='mobility'] {
+/* General nearby-map discovery stays on the umbrella navy identity. */
+.map-welcome {
   --section-accent: var(--brand-navy);
 }
