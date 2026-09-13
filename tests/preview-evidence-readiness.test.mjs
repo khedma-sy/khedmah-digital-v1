@@ -111,7 +111,20 @@ async function exerciseMain(t, overrides = {}, options = {}) {
             return { status: () => 200 };
           },
           waitForFunction: async () => undefined,
-          evaluate: async (fn) => fn === browserReadyForCapture ? true : ({ ...ready, theme: colorScheme }),
+          evaluate: async (fn) => {
+            if (fn === browserReadyForCapture) return true;
+            const pathname = new URL(currentUrl).pathname;
+            const mapExpected = pathname === '/map' || pathname === '/taxi';
+            return mapExpected ? {
+              ...ready,
+              theme: colorScheme,
+              mapStatus: 'ready',
+              mapRuntimeStatus: 'ready',
+              mapRenderStatus: 'ready',
+              mapSurfaceVisible: true,
+              mapSurfaceSize: { width: 320, height: 320 }
+            } : { ...ready, theme: colorScheme };
+          },
           url: () => currentUrl,
           screenshot: async () => undefined
         })
@@ -354,6 +367,19 @@ test('capture readiness has a bounded deadline rather than an unlimited polling 
 test('evidence rejects an unapplied theme and an unready map independently', () => {
   assert.deepEqual(assessEvidence({ ...ready, mapStatus: 'loading' }, 200, true, 0, 'dark'), ['THEME_NOT_APPLIED', 'MAP_NOT_READY']);
   assert.deepEqual(assessEvidence({ ...ready, theme: 'dark', mapStatus: 'ready' }, 200, true, 0, 'dark'), []);
+});
+
+test('expected map routes fail closed on a missing surface and accept only a visible ready surface', () => {
+  assert.ok(assessEvidence(ready, 200, true, 0, 'light', true).includes('MAP_SURFACE_MISSING'));
+  const readyMap = {
+    ...ready,
+    mapStatus: 'ready',
+    mapRuntimeStatus: 'ready',
+    mapRenderStatus: 'ready',
+    mapSurfaceVisible: true,
+    mapSurfaceSize: { width: 320, height: 320 }
+  };
+  assert.deepEqual(assessEvidence(readyMap, 200, true, 0, 'light', true), []);
 });
 
 test('every route, viewport and theme capture has a unique evidence filename', async (t) => {
