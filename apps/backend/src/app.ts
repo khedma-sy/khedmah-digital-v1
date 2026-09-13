@@ -48,6 +48,7 @@ export async function createBackendApp() {
   app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify.request', authWindowMs, authMax));
   app.use('/api/v1/auth/email-verification/confirm', createRateLimitMiddleware(rateLimitRepository, 'email.verify.confirm', authWindowMs, authMax));
   app.use('/api/v1/admin/bootstrap', createRateLimitMiddleware(rateLimitRepository, 'admin.bootstrap', authWindowMs, authMax));
+  app.use('/api/v1/admin/kora', createRateLimitMiddleware(rateLimitRepository, 'kora.admin', authWindowMs, authMax));
   app.use('/api/v1/taxi', createRateLimitMiddleware(rateLimitRepository, 'taxi', publicWindowMs, publicMax));
   app.use('/api/v1/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds', publicWindowMs, publicMax));
   app.use('/api/v1/admin/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds.admin', authWindowMs, authMax));

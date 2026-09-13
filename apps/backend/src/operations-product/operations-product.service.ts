@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
+import type { AuditEventType } from '../identity/identity.types';
 import { readSessionToken } from '../identity/session-cookie';
 import { CreateIncidentRequest, CreateOperationsChangeRequest, RollbackRequest } from './dto/operations-product.dto';
 import { OperationsProductRepository } from './operations-product.repository';
@@ -31,6 +32,12 @@ export class OperationsProductService {
     'Remote Config', 'App Check', 'Hosting', 'Google OAuth', 'Google Identity', 'Maps', 'Places', 'Geocoding', 'Directions'
   ].map(name => ({ name, management: 'configuration_driven', secretsExposed: false })); }
   async histories(cookie: string | undefined) { await this.actor(cookie, 'operations.read'); return { builds: [], deployments: [], releases: [], changes: this.repository.listChanges(), incidents: this.repository.listIncidents(), audit: this.repository.listAudit() }; }
+  async recordSupervisedAdminAudit(cookie: string | undefined, eventType: Extract<AuditEventType, `kora.${string}`>, resource: string) {
+    const { actor } = await this.actor(cookie, 'operations.read');
+    const context = getRequestContext();
+    this.repository.audit({ actorUserId: actor.id, action: eventType, resource, requestId: context?.requestId, correlationId: context?.correlationId });
+    await this.identityRepository.appendAuditLog(eventType, { actorUserId: actor.id, requestId: context?.requestId, correlationId: context?.correlationId });
+  }
   async requestChange(cookie: string | undefined, input: CreateOperationsChangeRequest) { const { actor } = await this.actor(cookie, 'infrastructure.manage'); const change = { id: randomUUID(), area: input.area, action: input.action.trim(), reason: input.reason.trim(), status: 'pending_approval' as const, actorUserId: actor.id, createdAt: new Date().toISOString() }; this.repository.saveChange(change); await this.audit(actor.id, 'operations.change.requested', `${input.area}:${input.action}`); return change; }
   async createIncident(cookie: string | undefined, input: CreateIncidentRequest) { const { actor } = await this.actor(cookie, 'incidents.manage'); const incident = this.repository.saveIncident({ title: input.title.trim(), severity: input.severity, summary: input.summary.trim() }); await this.audit(actor.id, 'operations.incident.created', incident.id); return incident; }
   async rollback(cookie: string | undefined, input: RollbackRequest) { const { actor } = await this.actor(cookie, 'releases.manage'); const change = await this.requestChangeFor(actor.id, 'production', `rollback:${input.deploymentId}`, input.reason); return change; }
