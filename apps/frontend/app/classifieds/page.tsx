@@ -89,6 +89,10 @@ function ClassifiedsContent() {
   function search(event: FormEvent) { event.preventDefault(); syncUrl(filters); }
   function clearFilters() { setFilters(EMPTY); syncUrl(EMPTY); }
   const hasFilters = !!(filters.q || filters.categoryCode || filters.cityCode || applied.q || applied.categoryCode || applied.cityCode);
+  const emptyTitle = hasFilters ? 'لا توجد إعلانات مطابقة' : 'لا توجد إعلانات منشورة بعد';
+  const emptyDescription = hasFilters
+    ? 'غيّر كلمة البحث أو التصنيف أو المدينة لعرض إعلانات أخرى.'
+    : 'ستظهر هنا الإعلانات بعد إضافتها ومراجعتها.';
 
   return <PageShell className={styles.page} label="إعلانات خدمة">
     <PageHeader eyebrow="إعلانات خدمة" title="الإعلانات المبوبة" description="اعثر على عروض وطلبات وخدمات محلية منشورة بعد المراجعة. التواصل مباشر مع المعلن، ولا توجد مدفوعات داخل هذه الصفحة." actions={<><ActionLink href="/classifieds/new">أضف إعلانًا</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink></>} />
@@ -107,7 +111,10 @@ function ClassifiedsContent() {
       <div className={styles.meta}><span>{AD_KIND_LABELS[ad.kind]}</span>{ad.cityCode && <><span>·</span><span>{cityLabel(ad.cityCode, cities)}</span></>}</div>
       <h2>{ad.titleAr}</h2><strong className={styles.price}>{formatAdPrice(ad)}</strong>
       <ActionLink href={`/classifieds/${encodeURIComponent(ad.id)}`}>عرض الإعلان</ActionLink>
-    </Surface>)}</section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لا توجد إعلانات مطابقة" description="غيّر البحث أو أضف إعلانك الأول." actions={<ActionLink href="/classifieds/new">أضف إعلانًا</ActionLink>} />}
+    </Surface>)}</section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title={emptyTitle} description={emptyDescription} actions={<>
+      {hasFilters && <ActionButton type="button" variant="secondary" onClick={clearFilters}>مسح عوامل البحث</ActionButton>}
+      <ActionLink href="/classifieds/new">أضف إعلانًا</ActionLink>
+    </>} />}
   </PageShell>;
 }
 

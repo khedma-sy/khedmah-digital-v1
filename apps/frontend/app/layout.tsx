@@ -15,10 +15,11 @@ import './home-system.css';
 import './admin-system.css';
 import './moderation-system.css';
 import './auth-experience.css';
+import './auth-shell-override.css';
 import './accessibility-system.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
-const SITE_NAME = 'خدمة ديجتل';
+const SITE_NAME = 'خدمة';
 
 const arabicFont = Noto_Sans_Arabic({
   subsets: ['arabic'],
@@ -82,9 +83,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
-          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
+          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>
-        <SmartAssistant />
         {children}
         <footer className="khedma-footer" aria-label="روابط قانونية">
           <Link href="/privacy">سياسة الخصوصية</Link>

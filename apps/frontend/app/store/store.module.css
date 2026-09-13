@@ -1,6 +1,6 @@
 .page{
   min-height:100svh;
-  --store-accent:var(--brand-orange,#e97835);
+  --store-accent:var(--brand-orange,#fd9603);
   --store-accent-soft:color-mix(in srgb,var(--store-accent) 10%,var(--k-color-surface));
 }
 .page :global(.ui-action-primary){background:var(--store-accent)}

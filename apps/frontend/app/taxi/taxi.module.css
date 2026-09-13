@@ -1,12 +1,17 @@
-.page{display:grid;gap:1rem}
+.page{display:grid;gap:1rem;--taxi-navy:#07427c;--taxi-green:#81be49;background:linear-gradient(180deg,color-mix(in srgb,var(--taxi-navy) 5%,var(--k-color-canvas)),var(--k-color-canvas))}
 .hero{display:grid;gap:.5rem}
 .switcher{display:flex;gap:.5rem;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(18rem,.9fr);gap:1rem;align-items:start}
 .panel{display:grid;gap:.85rem}
+.addressBlock{display:grid;gap:.55rem;border:1px solid var(--k-color-border);border-radius:var(--k-radius-lg);padding:.85rem;background:var(--k-color-surface-muted)}
+.addressBlock h3{margin:0;color:var(--taxi-navy);font-size:.95rem}
+:root[data-theme='dark'] .addressBlock h3{color:#8fc0ee}
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
 .fields label,.compactFields label{display:grid;gap:.35rem;font-weight:750;color:var(--k-color-text)}
 .fields input,.compactFields input{min-height:2.8rem;border:1px solid var(--k-color-border);border-radius:.75rem;padding:.65rem .75rem;background:var(--k-color-surface);color:var(--k-color-text);font:inherit}
-.compactFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+.compactFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;margin-top:.65rem}
+.coordinateDetails{border-top:1px solid var(--k-color-border);padding-top:.6rem;color:var(--k-color-text-muted);font-size:.8rem}
+.coordinateDetails summary{width:max-content;cursor:pointer;font-weight:750;color:var(--k-color-text-muted)}
 .actions{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}
 .summary{display:grid;gap:.65rem}
 .summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;margin:0}
@@ -14,7 +19,8 @@
 .summary dt{font-size:.8rem;color:var(--k-color-text-muted)}
 .summary dd{margin:.2rem 0 0;font-weight:850;color:var(--k-color-text)}
 .trip{display:grid;gap:.75rem}
-.phase{display:inline-flex;width:max-content;border-radius:999px;padding:.35rem .65rem;background:color-mix(in srgb,var(--k-color-primary) 12%,transparent);color:var(--k-color-primary);font-weight:850}
+.phase{display:inline-flex;width:max-content;border-radius:999px;padding:.35rem .65rem;background:color-mix(in srgb,var(--taxi-navy) 12%,transparent);color:var(--taxi-navy);font-weight:850}
+:root[data-theme='dark'] .phase{color:#8fc0ee}
 .route{display:grid;gap:.45rem}
 .route p{margin:0;color:var(--k-color-text-muted)}
 .offerList{display:grid;gap:.75rem}
@@ -22,5 +28,15 @@
 .offerHeader{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start}
 .note{font-size:.9rem;color:var(--k-color-text-muted);line-height:1.7}
 .kpi{font-variant-numeric:tabular-nums}
+
+.mapPanel{display:grid;gap:.65rem;border:1px solid color-mix(in srgb,var(--taxi-navy) 28%,var(--k-color-border));border-radius:var(--k-radius-lg);padding:.75rem;background:var(--k-color-surface);box-shadow:var(--k-shadow-sm)}
+.mapToolbar{display:flex;gap:.5rem;flex-wrap:wrap}
+.mapToolbar button{min-height:2.5rem;display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--k-color-border);border-radius:.7rem;padding:.5rem .75rem;color:var(--k-color-text);background:var(--k-color-surface-muted);font:inherit;font-size:.82rem;font-weight:800;cursor:pointer}
+.mapToolbar button.mapPointActive{border-color:var(--taxi-navy);color:#fff;background:var(--taxi-navy)}
+.mapCanvas{width:100%;height:clamp(18rem,38vw,28rem);overflow:hidden;border:1px solid var(--k-color-border);border-radius:var(--k-radius-lg);background:linear-gradient(135deg,#dfe9f1,#eef3f6)}
+.mapMessage,.mapWarning{margin:0;font-size:.82rem;line-height:1.6}
+.mapMessage{color:var(--k-color-text-muted)}
+.mapWarning{color:var(--k-color-warning)}
+
 @media(max-width:52rem){.grid{grid-template-columns:1fr}.fields,.compactFields{grid-template-columns:1fr 1fr}}
-@media(max-width:38rem){.fields,.compactFields{grid-template-columns:1fr}.summary dl{grid-template-columns:1fr}.actions>*{width:100%}}
+@media(max-width:38rem){.fields,.compactFields{grid-template-columns:1fr}.summary dl{grid-template-columns:1fr}.actions>*{width:100%}.mapToolbar{display:grid;grid-template-columns:1fr 1fr}.mapToolbar button{justify-content:center}.mapCanvas{height:20rem}}

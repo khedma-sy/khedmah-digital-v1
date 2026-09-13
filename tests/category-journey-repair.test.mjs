@@ -23,8 +23,16 @@ function fixture(query='') {
     async reject(i){requests[i].reject(new Error('offline'));await h.flush();}
   };
 }
-for (const query of ['', 'q=كهربائي&cityCode=damascus']) test(`directory empty search has explicit recovery: ${query || 'all'}`,async()=>{
-  const f=fixture(query);await f.resolve(0);assert.ok(f.h.find(n=>n.type==='EmptyState'));
+
+test('unfiltered directory landing keeps category choices visible without claiming a failed search',async()=>{
+  const f=fixture();await f.resolve(0);
+  assert.equal(f.h.find(n=>n.type==='EmptyState'),undefined);
+  assert.ok(f.h.find(n=>n.type==='button'&&JSON.stringify(n.props.children).includes('الصيانة')));
+});
+
+test('filtered directory empty search has explicit recovery',async()=>{
+  const f=fixture('q=كهربائي&cityCode=damascus');await f.resolve(0);
+  assert.ok(f.h.find(n=>n.type==='EmptyState'));
   assert.ok(f.h.find(n=>n.type==='ActionLink'&&n.props.href.startsWith('/map')));
 });
 for (const total of [0,7]) test(`out-of-range directory page recovers without clearing filters (total ${total})`,async()=>{

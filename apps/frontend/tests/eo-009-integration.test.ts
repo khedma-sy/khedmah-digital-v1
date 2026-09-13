@@ -22,7 +22,6 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
   assert.match(search, /البحث/);
 
   assert.match(businessProfiles, /StatusMessage tone="danger"/);
-  // The page delegates alert semantics to the shared primitive; verify both ends.
   assert.match(professionalProfiles, /import\s*\{[^}]*\bStatusMessage\b[^}]*\}\s*from '\.\.\/components\/ui-primitives'/);
   assert.match(professionalProfiles, /\{error && <StatusMessage tone="danger">\{error\}<\/StatusMessage>\}/);
   assert.match(primitives, /export function StatusMessage\([\s\S]*?return <div[^>]*role=\{tone === 'danger' \? 'alert' : 'status'\}/);
@@ -37,7 +36,11 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   const home = await read('app/page.tsx');
   const admin = await read('app/admin/page.tsx');
 
-  assert.match(home, /href="\/search"/);
+  assert.match(home, /<form action="\/search"/);
+  assert.match(home, /href: '\/food'/);
+  assert.match(home, /href: '\/mobility\?type=delivery'/);
+  assert.match(home, /href: '\/taxi'/);
+  assert.match(home, /href="\/store"/);
   assert.match(home, /href="\/auth\/register"/);
 
   for (const href of ['/admin/moderation', '/categories', '/admin/operations-product']) assert.match(admin, new RegExp(`href=\\"${href}\\"`));

@@ -53,7 +53,7 @@
   --success: var(--k-color-success);
   --warning: var(--k-color-warning);
   --brand-navy: var(--k-color-brand);
-  --brand-green: var(--k-color-primary);
+  --brand-green: #81be49;
   --brand-orange: var(--k-color-accent);
   --brand-warm: var(--k-color-canvas-soft);
   --brand-shadow: var(--k-shadow-lg);

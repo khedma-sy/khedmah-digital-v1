@@ -1,14 +1,76 @@
 /* Canonical section accents for Khedmah. Keep functional state colors separate from brand colors. */
 :root {
-  --brand-navy: #173247;
-  --brand-green: #16875f;
-  --brand-orange: #e97835;
+  --brand-navy: #07427c;
+  --brand-green: #81be49;
+  --brand-orange: #fd9603;
   --brand-warm: #f8faf9;
   --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
 
-/* Categories / service directory: green sector identity. */
+/* Route-family identity is owned by layouts, not by one landing page. */
+.khedmah-section-identity {
+  min-height: 100%;
+  --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
+  --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+[data-khedmah-section='food'],
+[data-khedmah-section='commerce'],
+[data-khedmah-section='store'],
+[data-khedmah-section='classifieds'] {
+  --section-accent: var(--brand-orange);
+  --section-on-accent: #143653;
+}
+
+/* Delivery / road discovery owns the green section identity. Taxi stays navy in /taxi. */
+[data-khedmah-section='mobility'] {
+  --section-accent: var(--brand-green);
+  --section-on-accent: #143653;
+}
+
+[data-khedmah-section='taxi'],
+[data-khedmah-section='auth'] {
+  --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
+}
+
+.khedmah-section-identity .ui-page {
+  background:
+    radial-gradient(circle at 92% 9%, color-mix(in srgb, var(--section-accent) 10%, transparent), transparent 27rem),
+    radial-gradient(circle at 8% 82%, color-mix(in srgb, var(--section-accent) 5%, transparent), transparent 24rem),
+    linear-gradient(145deg, var(--k-color-canvas-soft), var(--k-color-canvas));
+}
+
+.khedmah-section-identity .ui-page-header {
+  border-block-end: 1px solid color-mix(in srgb, var(--section-accent) 16%, var(--k-color-border));
+  padding-block-end: .75rem;
+}
+
+.khedmah-section-identity .ui-eyebrow { color: var(--section-accent); }
+.khedmah-section-identity .ui-action-primary {
+  color: var(--section-on-accent);
+  background: var(--section-accent);
+}
+.khedmah-section-identity .ui-action-primary:hover {
+  color: var(--section-on-accent);
+  background: color-mix(in srgb, var(--section-accent) 86%, #000);
+}
+.khedmah-section-identity .ui-empty-icon {
+  color: var(--section-accent);
+  background: var(--section-accent-soft);
+}
+.khedmah-section-identity .ui-surface {
+  border-color: color-mix(in srgb, var(--section-accent) 12%, var(--k-glass-border));
+}
+.khedmah-section-identity .ui-action:focus-visible,
+.khedmah-section-identity .ui-back:focus-visible {
+  outline-color: var(--section-accent);
+}
+
+/* Categories / service directory: green sector identity with category-specific brand tones. */
 .catalog-experience {
   --section-accent: var(--brand-green);
 }
@@ -23,10 +85,29 @@
 }
 
 .catalog-experience .catalog-category-icon {
-  background: var(--section-accent);
+  background: var(--brand-navy);
+  color: #fff;
 }
 
-.catalog-experience .catalog-service-icon,
+.catalog-experience .catalog-category-icon[data-category-tone='green'] {
+  background: var(--brand-green);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='orange'] {
+  background: var(--brand-orange);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='navy'] {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.catalog-experience .catalog-service-icon[data-category-tone='green'] { color: var(--brand-green); }
+.catalog-experience .catalog-service-icon[data-category-tone='orange'] { color: var(--brand-orange); }
+.catalog-experience .catalog-service-icon[data-category-tone='navy'] { color: var(--brand-navy); }
+
 .catalog-experience .catalog-service small {
   color: var(--section-accent);
 }
@@ -38,17 +119,16 @@
 }
 
 .catalog-experience .catalog-state-actions a:first-of-type {
-  color: #fff;
+  color: #143653;
   background: var(--section-accent);
 }
 
-/* Marketplace / food commerce surfaces can opt into the orange sector accent without changing the global shell. */
+/* Food / commerce uses the official orange sector identity. */
 [data-khedmah-section='commerce'] {
   --section-accent: var(--brand-orange);
 }
 
-/* Map / nearby and mobility remain anchored to navy until their dedicated page passes are completed. */
-.map-welcome,
-[data-khedmah-section='mobility'] {
+/* General nearby-map discovery stays on the umbrella navy identity. */
+.map-welcome {
   --section-accent: var(--brand-navy);
 }
