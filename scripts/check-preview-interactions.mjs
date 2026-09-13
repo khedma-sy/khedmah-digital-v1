@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evidenceRoutes, evidenceThemes, validateBaseUrl, waitForCaptureReadiness } from './capture-preview-evidence.mjs';
+import { evidenceRoutes, evidenceThemes, validateBaseUrl } from './capture-preview-evidence.mjs';
 
 export function assessAssistantGeometry(snapshot) {
   const failures = [];
@@ -28,6 +28,17 @@ export function assistantGeometry() {
     position: assistant ? getComputedStyle(assistant).position : null, viewportWidth: document.documentElement.clientWidth };
 }
 
+export async function waitForInteractionReadiness(page, timeout) {
+  await page.waitForFunction(() => {
+    const assistant = document.querySelector('[data-khedmah-assistant]');
+    const trigger = assistant?.querySelector('button[aria-expanded]');
+    const shellReady = !!trigger && !!document.querySelector('main#foundation-content') && !!document.querySelector('.khedma-header');
+    const fontsReady = !document.fonts || document.fonts.status === 'loaded';
+    const ownedBusyCount = document.querySelectorAll('[aria-busy="true"]').length;
+    return shellReady && fontsReady && ownedBusyCount === 0;
+  }, null, { timeout });
+}
+
 const requireCondition = (value, code) => { if (!value) throw Object.assign(new Error(code), { code }); };
 
 export async function main(env = process.env) {
@@ -37,7 +48,7 @@ export async function main(env = process.env) {
   const expectedScenarios = evidenceRoutes.length * widths.length * evidenceThemes.length;
   const report = { schemaVersion: 2, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
     checkoutSha: env.GITHUB_SHA || null, status: 'failed',
-    scope: `Anonymous mobile UI only: ${evidenceRoutes.length} evidence routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible main control. No microphone, location permission, authentication, form submission or server writes.`, scenarios: [] };
+    scope: `Anonymous mobile UI only: ${evidenceRoutes.length} evidence routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible main control. Map-provider readiness is intentionally assessed by visual evidence, not duplicated here. No microphone, location permission, authentication, form submission or server writes.`, scenarios: [] };
   let browser;
   try {
     const origin = validateBaseUrl(env.AFTER_URL);
@@ -58,7 +69,7 @@ export async function main(env = process.env) {
         page.on('pageerror', () => { record.pageErrorCount += 1; });
         const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 15000 });
         requireCondition(response?.ok(), 'HTTP_NOT_SUCCESS');
-        await waitForCaptureReadiness(page, Math.max(1, Math.min(30000, scenarioDeadline - Date.now())));
+        await waitForInteractionReadiness(page, Math.max(1, Math.min(30000, scenarioDeadline - Date.now())));
         requireCondition(new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path, 'UNEXPECTED_REDIRECT');
         record.geometry = await page.evaluate(assistantGeometry);
         record.failures.push(...assessAssistantGeometry(record.geometry));
