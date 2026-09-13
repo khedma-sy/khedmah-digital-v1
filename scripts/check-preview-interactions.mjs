@@ -87,7 +87,9 @@ export async function main(env = process.env) {
         record.failures.push(...assessAssistantGeometry(record.geometry));
         requireCondition(record.failures.length === 0, 'ASSISTANT_GEOMETRY_FAILED');
         const url = page.url();
-        const trigger = page.getByRole('button', { name: 'فتح مساعد خدمة', exact: true });
+        // Keep the trigger locator stable while aria-label and aria-expanded change as the panel opens/closes.
+        const trigger = page.locator('[data-khedmah-assistant] button[aria-expanded]').first();
+        requireCondition(await trigger.getAttribute('aria-label') === 'فتح مساعد خدمة', 'ASSISTANT_TRIGGER_LABEL_INVALID');
         await trigger.click();
         const input = page.getByRole('textbox', { name: 'طلبك للمساعد', exact: true });
         await input.waitFor({ state: 'visible' });
