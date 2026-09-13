@@ -55,9 +55,13 @@ test('Taxi keeps map selection inside the Taxi journey', () => {
   assert.doesNotMatch(taxi, /href="\/map"/);
   assert.match(taxiMap, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY/);
   assert.match(taxiMap, /maps\.googleapis\.com\/maps\/api\/js/);
+  assert.match(taxiMap, /callback=initKhedmahTaxiMap/);
+  assert.match(taxiMap, /gm_authFailure/);
+  assert.match(taxiMap, /map\.addListener\('tilesloaded'/);
   assert.match(taxiMap, /map\.addListener\('click'/);
   assert.match(taxiMap, /draggable:\s*true/);
   assert.match(taxiMap, /data-taxi-map-status=\{mapStatus\}/);
+  assert.doesNotMatch(taxiMap, /addEventListener\('load'/);
 });
 
 test('Taxi rollout keeps execution fail-closed while map planning remains reviewable', () => {
