@@ -5,7 +5,63 @@
   --brand-orange: #fd9603;
   --brand-warm: #f8faf9;
   --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+/* Route-family identity is owned by layouts, not by one landing page. */
+.khedmah-section-identity {
+  min-height: 100%;
+  --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
+  --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+[data-khedmah-section='food'],
+[data-khedmah-section='commerce'],
+[data-khedmah-section='store'],
+[data-khedmah-section='classifieds'] {
+  --section-accent: var(--brand-orange);
+  --section-on-accent: #143653;
+}
+
+[data-khedmah-section='taxi'],
+[data-khedmah-section='auth'] {
+  --section-accent: var(--brand-navy);
+  --section-on-accent: #fff;
+}
+
+.khedmah-section-identity .ui-page {
+  background:
+    radial-gradient(circle at 92% 9%, color-mix(in srgb, var(--section-accent) 10%, transparent), transparent 27rem),
+    radial-gradient(circle at 8% 82%, color-mix(in srgb, var(--section-accent) 5%, transparent), transparent 24rem),
+    linear-gradient(145deg, var(--k-color-canvas-soft), var(--k-color-canvas));
+}
+
+.khedmah-section-identity .ui-page-header {
+  border-block-end: 1px solid color-mix(in srgb, var(--section-accent) 16%, var(--k-color-border));
+  padding-block-end: .75rem;
+}
+
+.khedmah-section-identity .ui-eyebrow { color: var(--section-accent); }
+.khedmah-section-identity .ui-action-primary {
+  color: var(--section-on-accent);
+  background: var(--section-accent);
+}
+.khedmah-section-identity .ui-action-primary:hover {
+  color: var(--section-on-accent);
+  background: color-mix(in srgb, var(--section-accent) 86%, #000);
+}
+.khedmah-section-identity .ui-empty-icon {
+  color: var(--section-accent);
+  background: var(--section-accent-soft);
+}
+.khedmah-section-identity .ui-surface {
+  border-color: color-mix(in srgb, var(--section-accent) 12%, var(--k-glass-border));
+}
+.khedmah-section-identity .ui-action:focus-visible,
+.khedmah-section-identity .ui-back:focus-visible {
+  outline-color: var(--section-accent);
 }
 
 /* Categories / service directory: green sector identity with category-specific brand tones. */
@@ -57,7 +113,7 @@
 }
 
 .catalog-experience .catalog-state-actions a:first-of-type {
-  color: #fff;
+  color: #143653;
   background: var(--section-accent);
 }
 
