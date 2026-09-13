@@ -55,3 +55,16 @@ test('landing states do not claim a failed search before the user has a search c
   assert.match(store, /hasFilters \? 'لا توجد منتجات مطابقة' : 'لا توجد منتجات منشورة بعد'/);
   assert.match(classifieds, /hasFilters \? 'لا توجد إعلانات مطابقة' : 'لا توجد إعلانات منشورة بعد'/);
 });
+
+test('Auth keeps Ask Khedmah visible without restoring the full global header or a blank shell row', async () => {
+  const [layout, authShell] = await Promise.all([
+    read('apps/frontend/app/layout.tsx'),
+    read('apps/frontend/app/auth-shell-override.css')
+  ]);
+  assert.match(layout, /import '\.\/auth-shell-override\.css';/);
+  assert.match(authShell, /body:has\(\.auth-experience\) \.khedma-header\s*\{[^}]*min-height:\s*0/s);
+  assert.match(authShell, /\.khedma-header > a,[\s\S]*?\.nav-discovery-group\s*\{\s*display:\s*none/s);
+  assert.match(authShell, /\.khedma-header-actions\s*\{[^}]*position:\s*fixed/s);
+  assert.match(authShell, /> :not\(\[data-khedmah-assistant\]\)\s*\{\s*display:\s*none/s);
+  assert.match(authShell, /\[data-khedmah-assistant\]\s*\{\s*display:\s*flex/s);
+});
