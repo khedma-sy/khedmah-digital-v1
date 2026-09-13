@@ -82,9 +82,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
-          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
+          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>
-        <SmartAssistant />
         {children}
         <footer className="khedma-footer" aria-label="روابط قانونية">
           <Link href="/privacy">سياسة الخصوصية</Link>
