@@ -186,6 +186,14 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
   }, []);
 
   useEffect(() => {
+    const start = pointFor(pickup);
+    const end = pointFor(dropoff);
+    if (valid(start) && !valid(end) && selectionRef.current === 'pickup') {
+      setSelection('dropoff');
+    }
+  }, [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude]);
+
+  useEffect(() => {
     const maps = mapsRuntime();
     const map = mapRef.current;
     if (mapStatus !== 'ready' || !maps || !map) return;
