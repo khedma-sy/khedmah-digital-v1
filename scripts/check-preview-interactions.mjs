@@ -9,8 +9,9 @@ export function assessAssistantGeometry(snapshot) {
   const { assistant, main, header, trigger, position, viewportWidth } = snapshot;
   const box = value => value && ['top', 'bottom', 'left', 'right', 'width', 'height'].every(key => Number.isFinite(value[key]));
   if (![assistant, main, header, trigger].every(box) || !Number.isFinite(viewportWidth) || viewportWidth <= 0) return ['GEOMETRY_UNAVAILABLE'];
-  if (position !== 'static') failures.push('MOBILE_ASSISTANT_NOT_IN_FLOW');
-  if (assistant.top < header.bottom - 1 || assistant.bottom > main.top + 1) failures.push('ASSISTANT_OVERLAPS_PAGE');
+  if (position !== 'relative') failures.push('ASSISTANT_NOT_HEADER_ANCHORED');
+  if (assistant.top < header.top - 1 || assistant.bottom > header.bottom + 1) failures.push('ASSISTANT_OUTSIDE_HEADER');
+  if (header.bottom > main.top + 1) failures.push('HEADER_OVERLAPS_PAGE');
   if (trigger.width < 44 || trigger.height < 44 || trigger.left < 0 || trigger.right > viewportWidth) failures.push('ASSISTANT_TARGET_CLIPPED');
   return failures;
 }
