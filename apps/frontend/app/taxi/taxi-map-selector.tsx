@@ -118,7 +118,6 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
       }
       try {
         const start = pointFor(pickupRef.current);
-        const end = pointFor(dropoffRef.current);
         const center = valid(start) ? start : { lat: 33.5138, lng: 36.2765 };
         const map = new maps.Map(element.current, {
           center,
@@ -136,23 +135,11 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
           setMapStatus('ready');
           setMessage('اختر نقطة الانطلاق ثم الوجهة على الخريطة.');
         }));
-        pickupMarkerRef.current = new maps.Marker({ map, position: start, draggable: true, title: 'نقطة الانطلاق' });
-        dropoffMarkerRef.current = new maps.Marker({ map, position: end, draggable: true, title: 'الوجهة' });
-        lineRef.current = new maps.Polyline({ map, path: [start, end], strokeColor: '#07427c', strokeOpacity: .9, strokeWeight: 4, geodesic: true });
         listenersRef.current.push(map.addListener('click', (event) => {
           const position = event.latLng;
           if (!position) return;
           applyPoint(selectionRef.current, { lat: position.lat(), lng: position.lng() });
         }));
-        listenersRef.current.push(pickupMarkerRef.current.addListener('dragend', (event) => {
-          const position = event.latLng;
-          if (position) applyPoint('pickup', { lat: position.lat(), lng: position.lng() });
-        }));
-        listenersRef.current.push(dropoffMarkerRef.current.addListener('dragend', (event) => {
-          const position = event.latLng;
-          if (position) applyPoint('dropoff', { lat: position.lat(), lng: position.lng() });
-        }));
-        fitRoute(maps);
       } catch {
         fail('تعذر تجهيز خريطة التكسي. استخدم موقعي الحالي أو الإدخال اليدوي مؤقتًا.');
       }
@@ -204,12 +191,45 @@ export function TaxiMapSelector({ pickup, dropoff, onPickupChange, onDropoffChan
     if (mapStatus !== 'ready' || !maps || !map) return;
     const start = pointFor(pickup);
     const end = pointFor(dropoff);
-    if (valid(start)) pickupMarkerRef.current?.setPosition(start);
-    if (valid(end)) dropoffMarkerRef.current?.setPosition(end);
+
+    if (valid(start)) {
+      if (!pickupMarkerRef.current) {
+        const marker = new maps.Marker({ map, position: start, draggable: true, title: 'نقطة الانطلاق' });
+        pickupMarkerRef.current = marker;
+        listenersRef.current.push(marker.addListener('dragend', (event) => {
+          const position = event.latLng;
+          if (position) applyPoint('pickup', { lat: position.lat(), lng: position.lng() });
+        }));
+      } else pickupMarkerRef.current.setPosition(start);
+    } else if (pickupMarkerRef.current) {
+      pickupMarkerRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+    }
+
+    if (valid(end)) {
+      if (!dropoffMarkerRef.current) {
+        const marker = new maps.Marker({ map, position: end, draggable: true, title: 'الوجهة' });
+        dropoffMarkerRef.current = marker;
+        listenersRef.current.push(marker.addListener('dragend', (event) => {
+          const position = event.latLng;
+          if (position) applyPoint('dropoff', { lat: position.lat(), lng: position.lng() });
+        }));
+      } else dropoffMarkerRef.current.setPosition(end);
+    } else if (dropoffMarkerRef.current) {
+      dropoffMarkerRef.current.setMap(null);
+      dropoffMarkerRef.current = null;
+    }
+
     if (valid(start) && valid(end)) {
-      lineRef.current?.setPath([start, end]);
+      if (!lineRef.current) lineRef.current = new maps.Polyline({ map, path: [start, end], strokeColor: '#07427c', strokeOpacity: .9, strokeWeight: 4, geodesic: true });
+      else lineRef.current.setPath([start, end]);
       fitRoute(maps);
-    } else if (valid(start)) map.setCenter(start);
+    } else {
+      lineRef.current?.setMap(null);
+      lineRef.current = null;
+      if (valid(start)) map.setCenter(start);
+      else if (valid(end)) map.setCenter(end);
+    }
   }, [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, mapStatus]);
 
   return <section className={styles.mapPanel} aria-label="خريطة رحلة التكسي" data-taxi-map-surface data-taxi-map-status={mapStatus}>
