@@ -85,9 +85,10 @@ export async function main(env = process.env) {
     requireCondition(isAdsEnvelope(envelope), 'CLASSIFIEDS_PROXY_API_INVALID');
     report.adCount = envelope.ads.length;
 
-    await page.waitForFunction(() => {
-      return !!document.querySelector('[aria-label="الإعلانات المنشورة"]') || document.body.innerText.includes('لا توجد إعلانات مطابقة');
-    }, null, { timeout: 15000 });
+    await page.waitForFunction((expectedCount) => {
+      if (expectedCount > 0) return !!document.querySelector('[aria-label="الإعلانات المنشورة"]');
+      return document.body.innerText.includes('لا توجد إعلانات منشورة بعد');
+    }, report.adCount, { timeout: 15000 });
     requireCondition(pageErrors === 0, 'CLASSIFIEDS_BROWSER_RUNTIME_ERROR');
 
     report.screenshot = 'classifieds-preview-acceptance.png';
