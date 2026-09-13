@@ -82,13 +82,15 @@ export class KoraAdminService {
       detectedAt: new Date().toISOString()
     } : null;
 
-    return {
+    const result = {
       tool: 'detect_ui_failures' as const,
       checkId: check.id,
       observedStatus: input.status,
       failure,
       automaticActionAuthorized: false
     };
+    await this.audit(cookie, 'kora.ui_observation.evaluated', check.id);
+    return result;
   }
 
   async reviewOperationalAnomalies(cookie: string | undefined) {
@@ -141,6 +143,7 @@ export class KoraAdminService {
       autoExecutable: false,
       createdAt: new Date().toISOString()
     };
+    await this.audit(cookie, 'kora.task.drafted', input.resource.trim());
     return { tool: 'draft_admin_tasks', task };
   }
 
@@ -150,7 +153,7 @@ export class KoraAdminService {
       this.reviewOperationalAnomalies(cookie)
     ]);
     const highestRisk = this.highestRisk(anomalies.findings.map((finding) => finding.severity));
-    return {
+    const result = {
       mode: 'executive' as const,
       operatingMode: 'supervised' as const,
       whatHappened: metrics.metrics.filter((metric) => metric.status !== 'not_instrumented'),
@@ -162,11 +165,13 @@ export class KoraAdminService {
       needsOwnerDecision: anomalies.findings.some((finding) => finding.severity === 'high' || finding.severity === 'critical'),
       evidenceBoundary: anomalies.sourceBoundary
     };
+    await this.audit(cookie, 'kora.executive', 'executive-summary');
+    return result;
   }
 
   async expose(cookie: string | undefined) {
     const [ui, metrics] = await Promise.all([this.uiChecklist(cookie), this.readMetrics(cookie)]);
-    return {
+    const result = {
       mode: 'expose' as const,
       operatingMode: 'supervised' as const,
       confirmedUiFailures: [] as KoraFinding[],
@@ -174,12 +179,14 @@ export class KoraAdminService {
       telemetryGaps: metrics.metrics.filter((metric) => metric.status === 'not_instrumented'),
       note: 'No live UI failure is claimed without structured browser or CI evidence.'
     };
+    await this.audit(cookie, 'kora.expose', 'supervised-evidence');
+    return result;
   }
 
   async killCritic(cookie: string | undefined, input: KillCriticRequest) {
     await this.authorize(cookie);
     const humanApprovalRequired = input.targetEnvironment === 'production' || input.impact === 'high' || input.impact === 'critical';
-    return {
+    const result = {
       mode: 'killcritic' as const,
       operatingMode: 'supervised' as const,
       action: input.action.trim(),
@@ -194,11 +201,13 @@ export class KoraAdminService {
       ],
       automaticExecutionAllowed: false
     };
+    await this.audit(cookie, 'kora.killcritic', `${input.targetEnvironment}:${input.impact}`);
+    return result;
   }
 
   async autopsy(cookie: string | undefined, input: AutopsyRequest) {
     await this.authorize(cookie);
-    return {
+    const result = {
       mode: 'autopsy' as const,
       operatingMode: 'supervised' as const,
       incident: {
@@ -217,10 +226,16 @@ export class KoraAdminService {
       preventionDecision: 'Define prevention only after root-cause evidence is established.',
       automaticExecutionAllowed: false
     };
+    await this.audit(cookie, 'kora.autopsy', 'root-cause-analysis');
+    return result;
   }
 
   private async authorize(cookie: string | undefined): Promise<void> {
     await this.operations.overview(cookie);
+  }
+
+  private async audit(cookie: string | undefined, eventType: Parameters<OperationsProductService['recordSupervisedAdminAudit']>[1], resource: string): Promise<void> {
+    await this.operations.recordSupervisedAdminAudit(cookie, eventType, resource);
   }
 
   private availableMetric(key: string, label: string, value: number, source: string, window: 'all_time' | '24h', measuredAt: string): KoraMetric {
