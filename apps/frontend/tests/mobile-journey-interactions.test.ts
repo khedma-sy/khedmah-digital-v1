@@ -66,10 +66,14 @@ test('preview reachability checks exclude provider-owned Google Maps controls', 
   assert.match(script, /record\.lastControl = await last\.evaluate/);
 });
 
-test('desktop assistant uses the opposite RTL edge while mobile stays in normal flow', async () => {
+test('assistant stays in normal flow on desktop and mobile so it cannot cover journey controls', async () => {
   const styles = await read('app/components/smart-assistant.module.css');
+  const root = styles.match(/\.root\{([^}]*)\}/)?.[1] ?? '';
+  const mobile = styles.split('@media(max-width:38rem)')[1] ?? '';
 
-  assert.match(styles, /\.root\{[^}]*position:fixed[^}]*inset-inline-end:1rem/s);
-  assert.doesNotMatch(styles, /\.root\{[^}]*inset-inline-start:1rem/s);
-  assert.match(styles, /@media\(max-width:38rem\)[\s\S]*\.root\{position:static[^}]*inset:auto/);
+  assert.match(root, /position:static/);
+  assert.match(root, /flex-direction:column/);
+  assert.doesNotMatch(root, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
+  assert.doesNotMatch(mobile, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
+  assert.match(mobile, /\.root\{[^}]*margin:/);
 });
