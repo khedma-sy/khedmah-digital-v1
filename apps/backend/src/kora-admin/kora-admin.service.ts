@@ -12,60 +12,15 @@ export class KoraAdminService {
     @Inject(OperationsProductService) private readonly operations: OperationsProductService
   ) {}
 
-  async readMetrics(cookie: string | undefined, recordAudit = true) {
-    const measuredAt = new Date().toISOString();
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    // Authorize before any aggregate database read so an unauthenticated caller
-    // cannot cause Kora to inspect administrative metrics as a side effect.
-    const history = await this.operations.histories(cookie);
-    const [users, searches] = await Promise.all([
-      this.repository.countUsers(),
-      this.repository.countSearchActionsSince(since)
-    ]);
-
-    const metrics: KoraMetric[] = [
-      this.availableMetric('users_total', 'Users', users, 'canonical_database.core_user_accounts', 'all_time', measuredAt),
-      this.availableMetric('searches_24h', 'Search actions', searches, 'analytics_events.search_action', '24h', measuredAt),
-      this.processMetric('open_operational_issues', 'Open operational issues', history.incidents.length, 'operations_product.current_process', measuredAt,
-        'Process-local only; it is not a durable incident total across Cloud Run instances.'),
-      this.processMetric('pending_changes', 'Pending operational changes', history.changes.length, 'operations_product.current_process', measuredAt,
-        'Process-local only; creating a record does not execute a change.'),
-      this.unavailableMetric('zero_result_searches_24h', 'Zero-result searches', measuredAt, 'Search result-count telemetry is not instrumented yet.'),
-      this.unavailableMetric('orders_24h', 'Orders', measuredAt, 'No canonical cross-product order metric is instrumented.'),
-      this.unavailableMetric('cancellations_24h', 'Cancellations', measuredAt, 'No canonical cross-product cancellation metric is instrumented.'),
-      this.unavailableMetric('taxi_metrics', 'Taxi metrics', measuredAt, 'Taxi operational metrics are not connected to Kora yet.'),
-      this.unavailableMetric('food_metrics', 'Food metrics', measuredAt, 'Food runtime metrics are not instrumented yet.'),
-      this.unavailableMetric('delivery_metrics', 'Delivery metrics', measuredAt, 'Delivery runtime metrics are not instrumented yet.'),
-      this.unavailableMetric('store_metrics', 'Store metrics', measuredAt, 'Store operational metrics are not connected to Kora yet.'),
-      this.unavailableMetric('ads_metrics', 'Ads metrics', measuredAt, 'Classifieds Smart Admin remains separate; aggregate Ads metrics are not connected yet.')
-    ];
-
-    const result = {
-      tool: 'read_metrics' as const,
-      operatingMode: 'supervised' as const,
-      measuredAt,
-      windowStart: since,
-      metrics,
-      truthfulUnavailableValues: true
-    };
-    if (recordAudit) await this.audit(cookie, 'kora.metrics.read', 'operational-metrics');
+  async readMetrics(cookie: string | undefined) {
+    const result = await this.readMetricsInternal(cookie);
+    await this.audit(cookie, 'kora.metrics.read', 'operational-metrics');
     return result;
   }
 
-  async uiChecklist(cookie: string | undefined, recordAudit = true) {
-    await this.authorize(cookie);
-    const result = {
-      tool: 'detect_ui_failures' as const,
-      operatingMode: 'supervised' as const,
-      liveBrowserEvidenceConnected: false,
-      checks: KORA_UI_CHECKS.map((check) => ({
-        ...check,
-        status: 'not_observed' as const,
-        evidenceKind: 'runtime_browser_evidence_not_connected' as const,
-        note: 'Kora will not claim pass or failure until structured browser/CI evidence is supplied.'
-      }))
-    };
-    if (recordAudit) await this.audit(cookie, 'kora.ui_checklist.read', 'ui-readiness-checklist');
+  async uiChecklist(cookie: string | undefined) {
+    const result = await this.uiChecklistInternal(cookie);
+    await this.audit(cookie, 'kora.ui_checklist.read', 'ui-readiness-checklist');
     return result;
   }
 
@@ -97,40 +52,9 @@ export class KoraAdminService {
     return result;
   }
 
-  async reviewOperationalAnomalies(cookie: string | undefined, recordAudit = true) {
-    const history = await this.operations.histories(cookie);
-    const detectedAt = new Date().toISOString();
-    const findings: KoraFinding[] = history.incidents
-      .filter((incident) => incident.severity === 'high' || incident.severity === 'critical')
-      .map((incident) => ({
-        id: randomUUID(),
-        kind: 'incident' as const,
-        resource: `operations-incident:${incident.id}`,
-        title: incident.title,
-        summary: incident.summary,
-        severity: incident.severity as KoraSeverity,
-        evidence: `incident_id=${incident.id};created_at=${incident.createdAt};status=${incident.status}`,
-        source: 'operations_product.current_process',
-        detectedAt
-      }));
-
-    const result = {
-      tool: 'review_operational_anomalies' as const,
-      operatingMode: 'supervised' as const,
-      findings,
-      coverageGaps: [
-        'cancellation_rate',
-        'abnormal_user_activity',
-        'duplicate_ads_aggregate',
-        'driver_issue_rate',
-        'restaurant_issue_rate',
-        'api_failure_rate',
-        'error_rate_baseline'
-      ],
-      sourceBoundary: 'Only current-process Operations incidents are evaluated in this first slice; missing telemetry is never interpreted as zero.',
-      automaticDecisionAuthorized: false
-    };
-    if (recordAudit) await this.audit(cookie, 'kora.anomalies.reviewed', 'operational-anomalies');
+  async reviewOperationalAnomalies(cookie: string | undefined) {
+    const result = await this.reviewOperationalAnomaliesInternal(cookie);
+    await this.audit(cookie, 'kora.anomalies.reviewed', 'operational-anomalies');
     return result;
   }
 
@@ -155,8 +79,8 @@ export class KoraAdminService {
 
   async executive(cookie: string | undefined) {
     const [metrics, anomalies] = await Promise.all([
-      this.readMetrics(cookie, false),
-      this.reviewOperationalAnomalies(cookie, false)
+      this.readMetricsInternal(cookie),
+      this.reviewOperationalAnomaliesInternal(cookie)
     ]);
     const highestRisk = this.highestRisk(anomalies.findings.map((finding) => finding.severity));
     const result = {
@@ -176,7 +100,10 @@ export class KoraAdminService {
   }
 
   async expose(cookie: string | undefined) {
-    const [ui, metrics] = await Promise.all([this.uiChecklist(cookie, false), this.readMetrics(cookie, false)]);
+    const [ui, metrics] = await Promise.all([
+      this.uiChecklistInternal(cookie),
+      this.readMetricsInternal(cookie)
+    ]);
     const result = {
       mode: 'expose' as const,
       operatingMode: 'supervised' as const,
@@ -234,6 +161,94 @@ export class KoraAdminService {
     };
     await this.audit(cookie, 'kora.autopsy', 'root-cause-analysis');
     return result;
+  }
+
+  private async readMetricsInternal(cookie: string | undefined) {
+    const measuredAt = new Date().toISOString();
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Authorize before any aggregate database read so an unauthenticated caller
+    // cannot cause Kora to inspect administrative metrics as a side effect.
+    const history = await this.operations.histories(cookie);
+    const [users, searches] = await Promise.all([
+      this.repository.countUsers(),
+      this.repository.countSearchActionsSince(since)
+    ]);
+
+    const metrics: KoraMetric[] = [
+      this.availableMetric('users_total', 'Users', users, 'canonical_database.core_user_accounts', 'all_time', measuredAt),
+      this.availableMetric('searches_24h', 'Search actions', searches, 'analytics_events.search_action', '24h', measuredAt),
+      this.processMetric('open_operational_issues', 'Open operational issues', history.incidents.length, 'operations_product.current_process', measuredAt,
+        'Process-local only; it is not a durable incident total across Cloud Run instances.'),
+      this.processMetric('pending_changes', 'Pending operational changes', history.changes.length, 'operations_product.current_process', measuredAt,
+        'Process-local only; creating a record does not execute a change.'),
+      this.unavailableMetric('zero_result_searches_24h', 'Zero-result searches', measuredAt, 'Search result-count telemetry is not instrumented yet.'),
+      this.unavailableMetric('orders_24h', 'Orders', measuredAt, 'No canonical cross-product order metric is instrumented.'),
+      this.unavailableMetric('cancellations_24h', 'Cancellations', measuredAt, 'No canonical cross-product cancellation metric is instrumented.'),
+      this.unavailableMetric('taxi_metrics', 'Taxi metrics', measuredAt, 'Taxi operational metrics are not connected to Kora yet.'),
+      this.unavailableMetric('food_metrics', 'Food metrics', measuredAt, 'Food runtime metrics are not instrumented yet.'),
+      this.unavailableMetric('delivery_metrics', 'Delivery metrics', measuredAt, 'Delivery runtime metrics are not instrumented yet.'),
+      this.unavailableMetric('store_metrics', 'Store metrics', measuredAt, 'Store operational metrics are not connected to Kora yet.'),
+      this.unavailableMetric('ads_metrics', 'Ads metrics', measuredAt, 'Classifieds Smart Admin remains separate; aggregate Ads metrics are not connected yet.')
+    ];
+
+    return {
+      tool: 'read_metrics' as const,
+      operatingMode: 'supervised' as const,
+      measuredAt,
+      windowStart: since,
+      metrics,
+      truthfulUnavailableValues: true
+    };
+  }
+
+  private async uiChecklistInternal(cookie: string | undefined) {
+    await this.authorize(cookie);
+    return {
+      tool: 'detect_ui_failures' as const,
+      operatingMode: 'supervised' as const,
+      liveBrowserEvidenceConnected: false,
+      checks: KORA_UI_CHECKS.map((check) => ({
+        ...check,
+        status: 'not_observed' as const,
+        evidenceKind: 'runtime_browser_evidence_not_connected' as const,
+        note: 'Kora will not claim pass or failure until structured browser/CI evidence is supplied.'
+      }))
+    };
+  }
+
+  private async reviewOperationalAnomaliesInternal(cookie: string | undefined) {
+    const history = await this.operations.histories(cookie);
+    const detectedAt = new Date().toISOString();
+    const findings: KoraFinding[] = history.incidents
+      .filter((incident) => incident.severity === 'high' || incident.severity === 'critical')
+      .map((incident) => ({
+        id: randomUUID(),
+        kind: 'incident' as const,
+        resource: `operations-incident:${incident.id}`,
+        title: incident.title,
+        summary: incident.summary,
+        severity: incident.severity as KoraSeverity,
+        evidence: `incident_id=${incident.id};created_at=${incident.createdAt};status=${incident.status}`,
+        source: 'operations_product.current_process',
+        detectedAt
+      }));
+
+    return {
+      tool: 'review_operational_anomalies' as const,
+      operatingMode: 'supervised' as const,
+      findings,
+      coverageGaps: [
+        'cancellation_rate',
+        'abnormal_user_activity',
+        'duplicate_ads_aggregate',
+        'driver_issue_rate',
+        'restaurant_issue_rate',
+        'api_failure_rate',
+        'error_rate_baseline'
+      ],
+      sourceBoundary: 'Only current-process Operations incidents are evaluated in this first slice; missing telemetry is never interpreted as zero.',
+      automaticDecisionAuthorized: false
+    };
   }
 
   private async authorize(cookie: string | undefined): Promise<void> {
