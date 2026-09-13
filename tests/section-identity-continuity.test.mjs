@@ -6,12 +6,13 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const exists = async (path) => { try { await access(new URL(`../${path}`, import.meta.url)); return true; } catch { return false; } };
 
 test('route families own identity at layout level instead of landing-page-only styling', async () => {
-  const [food, store, classifieds, taxi, auth, themes] = await Promise.all([
+  const [food, store, classifieds, taxi, auth, mobility, themes] = await Promise.all([
     read('apps/frontend/app/food/layout.tsx'),
     read('apps/frontend/app/store/layout.tsx'),
     read('apps/frontend/app/classifieds/layout.tsx'),
     read('apps/frontend/app/taxi/layout.tsx'),
     read('apps/frontend/app/auth/layout.tsx'),
+    read('apps/frontend/app/mobility/layout.tsx'),
     read('apps/frontend/app/section-themes.css')
   ]);
   assert.match(food, /data-khedmah-section="food"/);
@@ -19,10 +20,13 @@ test('route families own identity at layout level instead of landing-page-only s
   assert.match(classifieds, /data-khedmah-section="classifieds"/);
   assert.match(taxi, /data-khedmah-section="taxi"/);
   assert.match(auth, /data-khedmah-section="auth"/);
+  assert.match(mobility, /data-khedmah-section="mobility"/);
   assert.match(themes, /\.khedmah-section-identity \.ui-page/);
   assert.match(themes, /\[data-khedmah-section='store'\]/);
   assert.match(themes, /\[data-khedmah-section='classifieds'\]/);
   assert.match(themes, /\[data-khedmah-section='taxi'\]/);
+  assert.match(themes, /\[data-khedmah-section='mobility'\]\s*\{[^}]*--section-accent:\s*var\(--brand-green\)/s);
+  assert.match(themes, /\[data-khedmah-section='taxi'\][\s\S]*?--section-accent:\s*var\(--brand-navy\)/);
 });
 
 test('existing nested Store and Classifieds routes remain covered by their parent layout', async () => {
