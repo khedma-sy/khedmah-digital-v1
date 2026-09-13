@@ -12,7 +12,7 @@ export class KoraAdminService {
     @Inject(OperationsProductService) private readonly operations: OperationsProductService
   ) {}
 
-  async readMetrics(cookie: string | undefined) {
+  async readMetrics(cookie: string | undefined, recordAudit = true) {
     const measuredAt = new Date().toISOString();
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     // Authorize before any aggregate database read so an unauthenticated caller
@@ -40,7 +40,7 @@ export class KoraAdminService {
       this.unavailableMetric('ads_metrics', 'Ads metrics', measuredAt, 'Classifieds Smart Admin remains separate; aggregate Ads metrics are not connected yet.')
     ];
 
-    return {
+    const result = {
       tool: 'read_metrics' as const,
       operatingMode: 'supervised' as const,
       measuredAt,
@@ -48,11 +48,13 @@ export class KoraAdminService {
       metrics,
       truthfulUnavailableValues: true
     };
+    if (recordAudit) await this.audit(cookie, 'kora.metrics.read', 'operational-metrics');
+    return result;
   }
 
-  async uiChecklist(cookie: string | undefined) {
+  async uiChecklist(cookie: string | undefined, recordAudit = true) {
     await this.authorize(cookie);
-    return {
+    const result = {
       tool: 'detect_ui_failures' as const,
       operatingMode: 'supervised' as const,
       liveBrowserEvidenceConnected: false,
@@ -63,6 +65,8 @@ export class KoraAdminService {
         note: 'Kora will not claim pass or failure until structured browser/CI evidence is supplied.'
       }))
     };
+    if (recordAudit) await this.audit(cookie, 'kora.ui_checklist.read', 'ui-readiness-checklist');
+    return result;
   }
 
   async evaluateUiObservation(cookie: string | undefined, input: EvaluateUiObservationRequest) {
@@ -93,7 +97,7 @@ export class KoraAdminService {
     return result;
   }
 
-  async reviewOperationalAnomalies(cookie: string | undefined) {
+  async reviewOperationalAnomalies(cookie: string | undefined, recordAudit = true) {
     const history = await this.operations.histories(cookie);
     const detectedAt = new Date().toISOString();
     const findings: KoraFinding[] = history.incidents
@@ -110,7 +114,7 @@ export class KoraAdminService {
         detectedAt
       }));
 
-    return {
+    const result = {
       tool: 'review_operational_anomalies' as const,
       operatingMode: 'supervised' as const,
       findings,
@@ -126,6 +130,8 @@ export class KoraAdminService {
       sourceBoundary: 'Only current-process Operations incidents are evaluated in this first slice; missing telemetry is never interpreted as zero.',
       automaticDecisionAuthorized: false
     };
+    if (recordAudit) await this.audit(cookie, 'kora.anomalies.reviewed', 'operational-anomalies');
+    return result;
   }
 
   async draftAdminTask(cookie: string | undefined, input: DraftAdminTaskRequest): Promise<{ tool: 'draft_admin_tasks'; task: KoraDraftTask }> {
@@ -149,8 +155,8 @@ export class KoraAdminService {
 
   async executive(cookie: string | undefined) {
     const [metrics, anomalies] = await Promise.all([
-      this.readMetrics(cookie),
-      this.reviewOperationalAnomalies(cookie)
+      this.readMetrics(cookie, false),
+      this.reviewOperationalAnomalies(cookie, false)
     ]);
     const highestRisk = this.highestRisk(anomalies.findings.map((finding) => finding.severity));
     const result = {
@@ -170,7 +176,7 @@ export class KoraAdminService {
   }
 
   async expose(cookie: string | undefined) {
-    const [ui, metrics] = await Promise.all([this.uiChecklist(cookie), this.readMetrics(cookie)]);
+    const [ui, metrics] = await Promise.all([this.uiChecklist(cookie, false), this.readMetrics(cookie, false)]);
     const result = {
       mode: 'expose' as const,
       operatingMode: 'supervised' as const,
