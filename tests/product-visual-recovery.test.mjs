@@ -7,6 +7,7 @@ const shell = await readFile('apps/frontend/app/shell-system.css', 'utf8');
 const themes = await readFile('apps/frontend/app/section-themes.css', 'utf8');
 const home = await readFile('apps/frontend/app/page.tsx', 'utf8');
 const homeStyles = await readFile('apps/frontend/app/home.module.css', 'utf8');
+const homeSystem = await readFile('apps/frontend/app/home-system.css', 'utf8');
 const food = await readFile('apps/frontend/app/food/page.tsx', 'utf8');
 const taxi = await readFile('apps/frontend/app/taxi/page.tsx', 'utf8');
 const taxiLayout = await readFile('apps/frontend/app/taxi/layout.tsx', 'utf8');
@@ -36,10 +37,13 @@ test('homepage restores blue identity and prioritizes launch services', () => {
   assert.match(home, /href: '\/mobility\?type=delivery'/);
   assert.match(home, /href: '\/taxi'/);
   assert.match(home, /href="\/store"/);
-  assert.match(homeStyles, /#07427c/i);
+  assert.match(homeStyles, /linear-gradient\(135deg,#052f59 0%,#07427c 58%,#0b4f8e 100%\)/i);
   assert.match(homeStyles, /\.foodCard/);
   assert.match(homeStyles, /\.deliveryCard/);
   assert.match(homeStyles, /\.taxiCard/);
+  assert.match(homeSystem, />section:first-child\{background-color:/);
+  assert.doesNotMatch(homeSystem, />section:first-child\{background:/);
+  assert.doesNotMatch(homeSystem, />section\{background:/);
 });
 
 test('Food is a dedicated page backed by real category search links', () => {
@@ -50,15 +54,22 @@ test('Food is a dedicated page backed by real category search links', () => {
   assert.doesNotMatch(food, /طلبك تم|تم الدفع|تتبع الطلب/);
 });
 
-test('Taxi keeps map selection inside the Taxi journey', () => {
+test('Taxi keeps map selection inside the Taxi journey and never prices placeholder coordinates', () => {
   assert.match(taxi, /TaxiMapSelector/);
   assert.doesNotMatch(taxi, /href="\/map"/);
+  assert.match(taxi, /latitude: Number\.NaN, longitude: Number\.NaN/);
+  assert.doesNotMatch(taxi, /latitude: 33\.5138, longitude: 36\.2765/);
+  assert.match(taxi, /!validCoordinates\(pickup\) \|\| !validCoordinates\(dropoff\)/);
+  assert.match(taxi, /حدد نقطة الانطلاق والوجهة على الخريطة أو أدخل الإحداثيات يدويًا قبل حساب السعر/);
   assert.match(taxiMap, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY/);
   assert.match(taxiMap, /maps\.googleapis\.com\/maps\/api\/js/);
   assert.match(taxiMap, /callback=initKhedmahTaxiMap/);
   assert.match(taxiMap, /gm_authFailure/);
   assert.match(taxiMap, /map\.addListener\('tilesloaded'/);
   assert.match(taxiMap, /map\.addListener\('click'/);
+  assert.match(taxiMap, /if \(!pickupMarkerRef\.current\)/);
+  assert.match(taxiMap, /if \(!dropoffMarkerRef\.current\)/);
+  assert.match(taxiMap, /if \(!lineRef\.current\)/);
   assert.match(taxiMap, /draggable:\s*true/);
   assert.match(taxiMap, /data-taxi-map-status=\{mapStatus\}/);
   assert.doesNotMatch(taxiMap, /addEventListener\('load'/);
@@ -69,6 +80,8 @@ test('Taxi rollout keeps execution fail-closed while map planning remains review
   assert.match(taxiLayout, /TaxiPlanningPreview/);
   assert.match(taxiPlanningPreview, /TaxiMapSelector/);
   assert.match(taxiPlanningPreview, /data-taxi-trip-execution="disabled"/);
+  assert.match(taxiPlanningPreview, /latitude: Number\.NaN, longitude: Number\.NaN/);
+  assert.doesNotMatch(taxiPlanningPreview, /latitude: 33\.5138|longitude: 36\.2765/);
   assert.doesNotMatch(taxiPlanningPreview, /taxiApi|rider\.quote|rider\.place|driver\./);
 });
 
