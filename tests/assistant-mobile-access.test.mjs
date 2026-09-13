@@ -56,34 +56,32 @@ test('assistant trigger precedes its region in DOM reading and keyboard order', 
   assert.equal(children[0].type, 'button'); assert.equal(children[1].props.role, 'region');
 });
 
-test('assistant has real flow space outside the unchanged single global header at every viewport', () => {
+test('assistant trigger is part of the single global header and creates no standalone page row', () => {
   const layout = readSource('apps/frontend/app/layout.tsx');
   assert.equal((layout.match(/<header className="khedma-header">/g) ?? []).length, 1);
   assert.equal((layout.match(/<SmartAssistant \/>/g) ?? []).length, 1);
-  assert.match(layout, /<\/header>\s*<SmartAssistant \/>\s*\{children\}/);
+  assert.match(layout, /<div className="khedma-header-actions">[\s\S]*<SmartAssistant \/>[\s\S]*<\/div>\s*<\/header>\s*\{children\}/);
   const styles = readSource('apps/frontend/app/components/smart-assistant.module.css');
   const root = styles.match(/\.root\{([^}]*)\}/)?.[1] ?? '';
-  const mobile = styles.split('@media(max-width:38rem)')[1] ?? '';
-  assert.match(root, /position:static/);
-  assert.match(root, /flex-direction:column/);
-  assert.doesNotMatch(root, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
-  assert.doesNotMatch(mobile, /position:(?:fixed|sticky)|display:none/);
-  assert.match(mobile, /\.root\{[^}]*margin:/);
+  const panel = styles.match(/\.panel\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(root, /position:relative/);
+  assert.doesNotMatch(root, /position:(?:fixed|sticky)|margin:/);
+  assert.match(panel, /position:absolute/);
   assert.match(styles, /min-width:2\.75rem;min-height:2\.75rem/);
 });
 
 import { assessAssistantGeometry } from '../scripts/check-preview-interactions.mjs';
 const box = (top, height, left = 12, width = 140) => ({ top, bottom: top + height, left, right: left + width, width, height });
-const geometry = { assistant: box(172, 48), header: box(0, 164), main: box(228, 1000), trigger: box(172, 48), position: 'static', viewportWidth: 320 };
-test('mobile interaction assessment accepts a separate in-flow accessible assistant', () => {
+const geometry = { assistant: box(24, 48), header: box(0, 96, 0, 320), main: box(96, 1000, 0, 320), trigger: box(24, 48), position: 'relative', viewportWidth: 320 };
+test('mobile interaction assessment accepts a header-contained accessible assistant', () => {
   assert.deepEqual(assessAssistantGeometry(geometry), []);
 });
 for (const [name, change, code] of [
-  ['floating corner', { position: 'fixed' }, 'MOBILE_ASSISTANT_NOT_IN_FLOW'],
-  ['main overlap', { main: box(200, 1000) }, 'ASSISTANT_OVERLAPS_PAGE'],
-  ['header overlap', { assistant: box(150, 48) }, 'ASSISTANT_OVERLAPS_PAGE'],
-  ['tiny target', { trigger: box(172, 20) }, 'ASSISTANT_TARGET_CLIPPED'],
-  ['clipped target', { trigger: box(172, 48, 300) }, 'ASSISTANT_TARGET_CLIPPED'],
+  ['detached positioning', { position: 'fixed' }, 'ASSISTANT_NOT_HEADER_ANCHORED'],
+  ['outside header', { assistant: box(100, 48), trigger: box(100, 48) }, 'ASSISTANT_OUTSIDE_HEADER'],
+  ['header overlapping page', { main: box(80, 1000, 0, 320) }, 'HEADER_OVERLAPS_PAGE'],
+  ['tiny target', { trigger: box(24, 20) }, 'ASSISTANT_TARGET_CLIPPED'],
+  ['clipped target', { trigger: box(24, 48, 300) }, 'ASSISTANT_TARGET_CLIPPED'],
   ['missing geometry', { assistant: null }, 'GEOMETRY_UNAVAILABLE']
 ]) test(`mobile interaction assessment rejects ${name}`, () => {
   assert.ok(assessAssistantGeometry({ ...geometry, ...change }).includes(code));
