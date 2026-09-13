@@ -5,9 +5,9 @@ import type { TaxiAddress } from '../../lib/taxi-client';
 import { TaxiMapSelector } from './taxi-map-selector';
 import styles from './taxi.module.css';
 
-const initialPickup: TaxiAddress = { area: '', detail: '', latitude: 33.5138, longitude: 36.2765 };
-const initialDropoff: TaxiAddress = { area: '', detail: '', latitude: 33.5, longitude: 36.3 };
-const coordinate = (value: number) => Number.isFinite(value) ? value.toFixed(5) : '—';
+const initialPickup: TaxiAddress = { area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN };
+const initialDropoff: TaxiAddress = { area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN };
+const coordinate = (value: number, limit: number) => Number.isFinite(value) && Math.abs(value) <= limit ? value.toFixed(5) : '—';
 
 /**
  * Read-only route-planning surface for environments where Taxi trip execution
@@ -24,8 +24,8 @@ export function TaxiPlanningPreview() {
     <TaxiMapSelector pickup={pickup} dropoff={dropoff} onPickupChange={setPickup} onDropoffChange={setDropoff} />
     <div className={styles.summary} aria-label="إحداثيات مسار المعاينة">
       <dl>
-        <div><dt>الانطلاق</dt><dd>{coordinate(pickup.latitude)}, {coordinate(pickup.longitude)}</dd></div>
-        <div><dt>الوجهة</dt><dd>{coordinate(dropoff.latitude)}, {coordinate(dropoff.longitude)}</dd></div>
+        <div><dt>الانطلاق</dt><dd>{coordinate(pickup.latitude, 90)}, {coordinate(pickup.longitude, 180)}</dd></div>
+        <div><dt>الوجهة</dt><dd>{coordinate(dropoff.latitude, 90)}, {coordinate(dropoff.longitude, 180)}</dd></div>
       </dl>
     </div>
   </section>;
