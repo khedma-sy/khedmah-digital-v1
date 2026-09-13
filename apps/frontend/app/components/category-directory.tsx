@@ -121,6 +121,7 @@ export function CategoryDirectory() {
     ? categories.filter((category) => category.parentCode === activeRootCode)
     : [];
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const hasResultContext = !!(activeCategory || q || cityCode || page > 1);
 
   return (
     <PageShell label="دليل الخدمات" className="catalog-experience">
@@ -178,12 +179,11 @@ export function CategoryDirectory() {
           <button type="button" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>التالي</button>
         </nav> : null}
 
-        {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 ? (
-          <EmptyState icon={<PlatformIcon name="search" size={30} />} title={page > 1 ? 'لا توجد نتائج في هذه الصفحة' : activeCategory ? 'لا توجد نتائج في هذا التصنيف بعد' : 'لا توجد خدمات مطابقة'} description="اختر خدمة أو مدينة أخرى، أو ابحث عبر الخريطة دون فقد عوامل البحث." actions={<>
+        {!isLoading && !categoriesError && !invalidCategory && !error && services.length === 0 && hasResultContext ? (
+          <EmptyState icon={<PlatformIcon name="search" size={30} />} title={page > 1 ? 'لا توجد نتائج في هذه الصفحة' : activeCategory ? 'لا توجد نتائج في هذا التصنيف بعد' : 'لا توجد خدمات مطابقة لعوامل البحث'} description="اختر خدمة أو مدينة أخرى، أو ابحث عبر الخريطة دون فقد عوامل البحث." actions={<>
             {page > 1 && <ActionButton variant="secondary" type="button" onClick={() => goToPage(1)}>العودة إلى الصفحة الأولى</ActionButton>}
             <ActionButton variant="secondary" type="button" onClick={() => selectCategory('')}>تغيير التصنيف</ActionButton>
             <ActionLink href={mapHref(context)}>فتح الخريطة</ActionLink>
-            <ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink>
           </>} />
         ) : null}
     </PageShell>
