@@ -216,6 +216,15 @@ async function capture(browser, origin, target, route, viewport, directory, them
     } catch {
       record.failures.push('IMAGE_READINESS_ERROR');
     }
+    // Full-page preparation can trigger additional client or third-party font work
+    // after the initial readiness check. Re-apply the same readiness contract
+    // immediately before the final DOM snapshot instead of accepting a transient
+    // document.fonts=loading state as product failure.
+    try {
+      await waitForCaptureReadiness(page);
+    } catch {
+      record.failures.push('FINAL_READINESS_TIMEOUT');
+    }
     record.snapshot = await page.evaluate(browserSnapshot, route.formName);
     record.failures.push(...assessEvidence(record.snapshot, record.httpStatus,
       new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path,
