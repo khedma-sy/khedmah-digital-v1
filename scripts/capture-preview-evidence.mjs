@@ -86,9 +86,10 @@ export function browserSnapshot(formName = '') {
   };
 }
 
-export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount = 0, expectedTheme = 'light') {
+export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount = 0, expectedTheme = 'light', expectedMap = false) {
   const failures = [];
   if (snapshot.theme !== expectedTheme) failures.push('THEME_NOT_APPLIED');
+  if (expectedMap && (snapshot.mapStatus === null || snapshot.mapStatus === undefined || snapshot.mapSurfaceVisible !== true)) failures.push('MAP_SURFACE_MISSING');
   if (snapshot.mapStatus !== null && snapshot.mapStatus !== undefined && snapshot.mapStatus !== 'ready') failures.push('MAP_NOT_READY');
   if (!(httpStatus >= 200 && httpStatus < 300)) failures.push('HTTP_NOT_SUCCESS');
   if (!pathMatches) failures.push('UNEXPECTED_REDIRECT');
@@ -217,7 +218,8 @@ async function capture(browser, origin, target, route, viewport, directory, them
     }
     record.snapshot = await page.evaluate(browserSnapshot, route.formName);
     record.failures.push(...assessEvidence(record.snapshot, record.httpStatus,
-      new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path, record.pageErrorCount, theme));
+      new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path,
+      record.pageErrorCount, theme, route.key === 'map' || route.key === 'taxi'));
     record.status = record.failures.length ? 'failed' : 'passed';
   } catch (error) {
     record.failures.push(error?.name === 'TimeoutError' ? 'NAVIGATION_TIMEOUT' : 'CAPTURE_ERROR');
