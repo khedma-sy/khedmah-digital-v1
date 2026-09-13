@@ -101,9 +101,15 @@ export async function main(env = process.env) {
         await page.locator('#khedmah-assistant-panel').waitFor({ state: 'detached' });
         requireCondition(await trigger.evaluate(element => element === document.activeElement), 'ESCAPE_FOCUS_NOT_RESTORED');
         record.escapeFocusRestored = true;
+
         await trigger.click();
-        await page.getByRole('button', { name: 'إغلاق المساعد', exact: true }).click();
-        await page.locator('#khedmah-assistant-panel').waitFor({ state: 'detached' });
+        const panel = page.locator('#khedmah-assistant-panel');
+        await panel.waitFor({ state: 'visible' });
+        const closeButton = panel.locator('button[aria-label="إغلاق المساعد"]').first();
+        await closeButton.waitFor({ state: 'visible' });
+        record.closeButtonVisible = true;
+        await closeButton.click();
+        await panel.waitFor({ state: 'detached' });
         requireCondition(await trigger.evaluate(element => element === document.activeElement), 'CLOSE_FOCUS_NOT_RESTORED');
         record.closeFocusRestored = true;
         requireCondition(page.url() === url, 'ASSISTANT_CHANGED_ROUTE');
