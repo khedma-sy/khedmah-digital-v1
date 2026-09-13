@@ -67,6 +67,7 @@ test('Taxi keeps map selection inside the Taxi journey and never prices placehol
   assert.match(taxiMap, /gm_authFailure/);
   assert.match(taxiMap, /map\.addListener\('tilesloaded'/);
   assert.match(taxiMap, /map\.addListener\('click'/);
+  assert.match(taxiMap, /valid\(start\) && !valid\(end\) && selectionRef\.current === 'pickup'/);
   assert.match(taxiMap, /if \(!pickupMarkerRef\.current\)/);
   assert.match(taxiMap, /if \(!dropoffMarkerRef\.current\)/);
   assert.match(taxiMap, /if \(!lineRef\.current\)/);
