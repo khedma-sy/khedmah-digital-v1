@@ -7,7 +7,7 @@ import { PlatformIcon } from './components/platform-icon';
 import styles from './home.module.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
-export const metadata: Metadata = { title: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
+export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
 
 const launchServices = [
   { href: '/food', icon: 'food' as const, title: 'خدمة فود', copy: 'مطاعم، مقاهٍ، مخابز وحلويات.', tone: 'foodCard' as const },
