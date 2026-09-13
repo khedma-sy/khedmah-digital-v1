@@ -45,8 +45,9 @@ test('Kora authorizes metrics before any aggregate database read', async () => {
   assert.equal(searchesRead, false);
 });
 
-test('Kora reports measured values and never invents zero for missing telemetry', async () => {
-  const service = createService();
+test('Kora reports measured values, never invents zero for missing telemetry, and audits direct metric reads', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
   const result = await service.readMetrics('session=operator');
   const users = result.metrics.find((metric) => metric.key === 'users_total');
   const searches = result.metrics.find((metric) => metric.key === 'searches_24h');
@@ -62,15 +63,28 @@ test('Kora reports measured values and never invents zero for missing telemetry'
   assert.equal(food?.status, 'not_instrumented');
   assert.equal(food?.value, undefined);
   assert.equal(result.truthfulUnavailableValues, true);
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.metrics.read', resource: 'operational-metrics' }]);
 });
 
-test('Kora UI checklist stays unobserved until structured evidence is supplied', async () => {
-  const service = createService();
+test('Kora UI checklist stays unobserved until structured evidence is supplied and audits the direct read', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
   const checklist = await service.uiChecklist('session=operator');
 
   assert.equal(checklist.liveBrowserEvidenceConnected, false);
   assert.ok(checklist.checks.length > 0);
   assert.ok(checklist.checks.every((check) => check.status === 'not_observed'));
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.ui_checklist.read', resource: 'ui-readiness-checklist' }]);
+});
+
+test('Kora direct anomaly review remains supervised and records actor-bound audit', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
+  const result = await service.reviewOperationalAnomalies('session=operator');
+
+  assert.equal(result.operatingMode, 'supervised');
+  assert.equal(result.automaticDecisionAuthorized, false);
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.anomalies.reviewed', resource: 'operational-anomalies' }]);
 });
 
 test('Kora evaluates supplied UI failure evidence without authorizing an automatic action and audits the observation', async () => {
@@ -129,7 +143,7 @@ test('Autopsy keeps root cause undetermined on incomplete evidence and records a
   assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.autopsy', resource: 'root-cause-analysis' }]);
 });
 
-test('Expose produces evidence-bound output and records who invoked the supervised tool', async () => {
+test('Expose produces evidence-bound output and records only its composite supervised audit event', async () => {
   const audits: KoraAuditCall[] = [];
   const service = createService({ audits });
   const result = await service.expose('session=operator');
