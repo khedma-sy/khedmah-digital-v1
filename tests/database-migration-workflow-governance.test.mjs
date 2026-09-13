@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('database migration workflow governs every canonical pair through 025', async () => {
+test('database migration workflow governs every canonical pair through 028', async () => {
   const workflow = await read('.github/workflows/database-migration-check.yml');
 
   const names = [
@@ -17,11 +17,16 @@ test('database migration workflow governs every canonical pair through 025', asy
     '018_persistent_rate_limit_buckets',
     '019_remove_out_of_scope_subscription_schema',
     '020_identity_recovery_oauth', '021_provider_reports',
-    '022_expand_category_taxonomy', '024_product_store', '025_classifieds'
+    '022_expand_category_taxonomy', '024_product_store', '025_classifieds',
+    '026_cash_fulfillment_orders', '027_mobility_document_reviews', '028_platform_notifications'
   ];
   for (const name of names) {
     assert.match(workflow, new RegExp(`^\\s+${name}$`, 'm'));
     assert.match(workflow, new RegExp(`^\\s+${name}\\.sql \\\\$`, 'm'));
     assert.match(workflow, new RegExp(`^\\s+${name}_rollback\\.sql \\\\$`, 'm'));
   }
+
+  assert.match(workflow, /Cash fulfillment orders and scoped courier location evidence are approved product scope/);
+  assert.match(workflow, /forbidden='marketplace\|payments\?\|commissions\?\|inventory\|tracking\|social_profiles\?'/);
+  assert.doesNotMatch(workflow, /forbidden='[^']*orders\?/);
 });

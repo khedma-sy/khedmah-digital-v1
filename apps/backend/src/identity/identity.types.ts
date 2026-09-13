@@ -62,6 +62,8 @@ export type AuditEventType =
   | 'service.create'
   | 'service.update'
   | 'service.delete'
+  | 'fulfillment.order.created'
+  | 'fulfillment.order.status_changed'
   | 'admin.bootstrap'
   | 'email.verification.requested'
   | 'email.verification.confirmed'

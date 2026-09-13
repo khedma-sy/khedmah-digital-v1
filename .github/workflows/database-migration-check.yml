@@ -53,6 +53,9 @@ jobs:
             022_expand_category_taxonomy
             024_product_store
             025_classifieds
+            026_cash_fulfillment_orders
+            027_mobility_document_reviews
+            028_platform_notifications
           )
 
           for migration in "${migrations[@]}"; do
@@ -125,22 +128,30 @@ jobs:
             024_product_store_rollback.sql \
             025_classifieds.sql \
             025_classifieds_rollback.sql \
+            026_cash_fulfillment_orders.sql \
+            026_cash_fulfillment_orders_rollback.sql \
+            027_mobility_document_reviews.sql \
+            027_mobility_document_reviews_rollback.sql \
+            028_platform_notifications.sql \
+            028_platform_notifications_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
 
           diff -u "$expected" "$actual"
 
-      - name: Enforce MVP table boundaries
+      - name: Enforce governed product table boundaries
         shell: bash
         run: |
           set -euo pipefail
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+          # Cash fulfillment orders and scoped courier location evidence are approved product scope.
+          # Generic payment, marketplace, inventory, social-profile and tracking schemas remain forbidden.
+          forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
             "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
             backend/migrations/versions; then
-            echo 'Forbidden MVP table definition detected.' >&2
+            echo 'Forbidden product table definition detected.' >&2
             exit 1
           fi
 
