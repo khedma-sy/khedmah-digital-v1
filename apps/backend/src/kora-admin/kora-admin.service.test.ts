@@ -4,11 +4,18 @@ import type { OperationsProductService } from '../operations-product/operations-
 import type { KoraAdminRepository } from './kora-admin.repository';
 import { KoraAdminService } from './kora-admin.service';
 
+type KoraAuditCall = {
+  cookie: string | undefined;
+  eventType: Parameters<OperationsProductService['recordSupervisedAdminAudit']>[1];
+  resource: string;
+};
+
 function createService(overrides: {
   histories?: () => Promise<{ incidents: Array<Record<string, unknown>>; changes: Array<Record<string, unknown>> }>;
   overview?: () => Promise<unknown>;
   countUsers?: () => Promise<number>;
   countSearchActionsSince?: (since: string) => Promise<number>;
+  audits?: KoraAuditCall[];
 } = {}) {
   const repository = {
     countUsers: overrides.countUsers ?? (async () => 12),
@@ -16,7 +23,10 @@ function createService(overrides: {
   } as unknown as KoraAdminRepository;
   const operations = {
     histories: overrides.histories ?? (async () => ({ incidents: [], changes: [] })),
-    overview: overrides.overview ?? (async () => ({}))
+    overview: overrides.overview ?? (async () => ({})),
+    recordSupervisedAdminAudit: async (cookie: string | undefined, eventType: KoraAuditCall['eventType'], resource: string) => {
+      overrides.audits?.push({ cookie, eventType, resource });
+    }
   } as unknown as OperationsProductService;
   return new KoraAdminService(repository, operations);
 }
@@ -63,8 +73,9 @@ test('Kora UI checklist stays unobserved until structured evidence is supplied',
   assert.ok(checklist.checks.every((check) => check.status === 'not_observed'));
 });
 
-test('Kora evaluates supplied UI failure evidence without authorizing an automatic action', async () => {
-  const service = createService();
+test('Kora evaluates supplied UI failure evidence without authorizing an automatic action and audits the observation', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
   const result = await service.evaluateUiObservation('session=operator', {
     checkId: 'taxi_embedded_map',
     status: 'fail',
@@ -75,10 +86,12 @@ test('Kora evaluates supplied UI failure evidence without authorizing an automat
   assert.equal(result.failure?.kind, 'ui_failure');
   assert.equal(result.failure?.source, 'structured_ui_observation');
   assert.equal(result.automaticActionAuthorized, false);
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.ui_observation.evaluated', resource: 'taxi_embedded_map' }]);
 });
 
-test('KillCritic requires human approval for Production and never auto-executes any impact level', async () => {
-  const service = createService();
+test('KillCritic requires human approval for Production, never auto-executes, and records supervised audit events', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
   const production = await service.killCritic('session=operator', {
     action: 'deploy a release',
     targetEnvironment: 'production',
@@ -94,10 +107,15 @@ test('KillCritic requires human approval for Production and never auto-executes 
   assert.equal(production.automaticExecutionAllowed, false);
   assert.equal(preview.decision, 'review_required');
   assert.equal(preview.automaticExecutionAllowed, false);
+  assert.deepEqual(audits.map(({ eventType, resource }) => ({ eventType, resource })), [
+    { eventType: 'kora.killcritic', resource: 'production:medium' },
+    { eventType: 'kora.killcritic', resource: 'preview:low' }
+  ]);
 });
 
-test('Autopsy keeps root cause undetermined when only incident evidence is supplied', async () => {
-  const service = createService();
+test('Autopsy keeps root cause undetermined on incomplete evidence and records an audit event', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
   const result = await service.autopsy('session=operator', {
     title: 'Preview mismatch',
     observedAt: '2026-09-13T07:00:00.000Z',
@@ -108,4 +126,17 @@ test('Autopsy keeps root cause undetermined when only incident evidence is suppl
   assert.equal(result.rootCause.status, 'undetermined');
   assert.equal(result.automaticExecutionAllowed, false);
   assert.ok(result.nextEvidence.length >= 3);
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.autopsy', resource: 'root-cause-analysis' }]);
+});
+
+test('Expose produces evidence-bound output and records who invoked the supervised tool', async () => {
+  const audits: KoraAuditCall[] = [];
+  const service = createService({ audits });
+  const result = await service.expose('session=operator');
+
+  assert.equal(result.mode, 'expose');
+  assert.equal(result.operatingMode, 'supervised');
+  assert.equal(result.confirmedUiFailures.length, 0);
+  assert.ok(result.telemetryGaps.length > 0);
+  assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.expose', resource: 'supervised-evidence' }]);
 });
