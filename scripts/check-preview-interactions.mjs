@@ -108,9 +108,17 @@ export async function main(env = process.env) {
         const closeButton = panel.locator('button[aria-label="إغلاق المساعد"]').first();
         await closeButton.waitFor({ state: 'visible' });
         record.closeButtonVisible = true;
-        await closeButton.click();
+        await closeButton.focus();
+        requireCondition(await closeButton.evaluate(element => element === document.activeElement), 'CLOSE_BUTTON_FOCUS_FAILED');
+        record.closeButtonFocused = true;
+        await page.keyboard.press('Enter');
+        record.closeButtonActivated = true;
         await panel.waitFor({ state: 'detached' });
-        requireCondition(await trigger.evaluate(element => element === document.activeElement), 'CLOSE_FOCUS_NOT_RESTORED');
+        record.closePanelDetached = true;
+        await page.waitForFunction(() => {
+          const currentTrigger = document.querySelector('[data-khedmah-assistant] button[aria-expanded]');
+          return currentTrigger?.getAttribute('aria-expanded') === 'false' && currentTrigger === document.activeElement;
+        }, null, { timeout: 6000 });
         record.closeFocusRestored = true;
         requireCondition(page.url() === url, 'ASSISTANT_CHANGED_ROUTE');
         // Focus and hit testing only: never click a main form's submit button.
