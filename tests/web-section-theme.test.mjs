@@ -19,18 +19,21 @@ test('web brand accents match the approved Khedmah navy green orange system', as
   assert.match(themes, /--brand-orange:\s*#fd9603/i);
 });
 
-test('categories use green without mutating the global functional primary color', async () => {
+test('categories use approved multicolor tones without mutating the global functional primary color', async () => {
   const themes = await read('apps/frontend/app/section-themes.css');
   const tokens = await read('apps/frontend/app/design-tokens.css');
   assert.match(themes, /\.catalog-experience\s*\{[^}]*--section-accent:\s*var\(--brand-green\)/s);
-  assert.match(themes, /\.catalog-experience \.catalog-category-icon\s*\{[^}]*background:\s*var\(--section-accent\)/s);
+  assert.match(themes, /\.catalog-experience \.catalog-category-icon\s*\{[^}]*background:\s*var\(--brand-navy\)/s);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='green'\][^}]*background:\s*var\(--brand-green\)/s);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='orange'\][^}]*background:\s*var\(--brand-orange\)/s);
+  assert.match(themes, /catalog-category-icon\[data-category-tone='navy'\][^}]*background:\s*var\(--brand-navy\)/s);
   assert.match(tokens, /--k-color-primary:\s*#07427c/i);
 });
 
 test('mobility and commerce keep independent visual accents', async () => {
   const mobility = await read('apps/frontend/app/mobility/mobility.module.css');
   const store = await read('apps/frontend/app/store/store.module.css');
-  assert.match(mobility, /--mobility-accent:\s*var\(--brand-navy,#07427c\)/i);
+  assert.match(mobility, /--mobility-accent:\s*var\(--brand-green,#81be49\)/i);
   assert.match(store, /--store-accent:\s*var\(--brand-orange,#fd9603\)/i);
   assert.match(store, /ui-action-primary/i);
   assert.match(mobility, /@media\(max-width:42rem\)/i);
