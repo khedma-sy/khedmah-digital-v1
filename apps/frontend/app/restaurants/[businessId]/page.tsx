@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api, type ProductListing } from "../../../lib/recovered-service-client";
@@ -240,7 +241,7 @@ export default function RestaurantMenuPage() {
           )}
         </Surface>
       </div>
-      {!!selected.length && !mixedCurrency && <ActionLink className={styles.mobileCart} href={`/orders/checkout?businessId=${encodeURIComponent(businessId)}`}><PlatformIcon name="cart" size={19}/><span>السلة · {selected.reduce((sum, item) => sum + item.quantity, 0).toLocaleString("ar-SY-u-nu-latn")}</span><strong>{total.toLocaleString("ar-SY-u-nu-latn")} {currency ?? ""}</strong></ActionLink>}
+      {!!selected.length && !mixedCurrency && <Link className={styles.mobileCart} href={`/orders/checkout?businessId=${encodeURIComponent(businessId)}`}><PlatformIcon name="cart" size={19}/><span>السلة · {selected.reduce((sum, item) => sum + item.quantity, 0).toLocaleString("ar-SY-u-nu-latn")}</span><strong>{total.toLocaleString("ar-SY-u-nu-latn")} {currency ?? ""}</strong></Link>}
     </PageShell>
   );
 }
