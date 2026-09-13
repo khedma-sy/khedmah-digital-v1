@@ -10,12 +10,13 @@ BEGIN
     SELECT 1 FROM media_assets
     WHERE asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
   ) THEN
-    RAISE EXCEPTION 'Cannot restore the pre-driver media constraint while driver documents still exist.';
+    RAISE EXCEPTION 'Cannot restore the post-Classifieds media constraint while driver documents still exist.';
   END IF;
 END $$;
 
+-- Return exactly to the Migration 025 Classifieds media contract.
 ALTER TABLE media_assets
   DROP CONSTRAINT media_assets_asset_type_check,
   ADD CONSTRAINT media_assets_asset_type_check CHECK (asset_type IN (
-    'logo','cover','gallery','profile_image','service_image','product_image'
+    'logo','cover','gallery','profile_image','service_image','product_image','ad_image'
   ));

@@ -47,8 +47,23 @@ if [[ "$environment" == "staging" ]]; then
   backend_secret_bindings+=",OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest"
 fi
 
+# Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
+# is therefore applied in isolated non-production even when Classifieds feature
+# flags remain disabled. Feature exposure and schema presence stay separate.
+if [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' ]]; then
+  CLASSIFIEDS_MIGRATION_025_MODE='apply'
+  CLASSIFIEDS_MIGRATION_025_CONFIRMATION="APPLY_KHEDMAH_NONPROD_025_${environment^^}"
+  echo 'Migration 025 schema is required as the predecessor of fulfillment 026-028; Classifieds feature flags are unchanged.'
+fi
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
+
+# Orders, driver-document review and durable notifications are runtime contracts,
+# not optional Preview cosmetics. Apply atomically before building/deploying backend.
+FULFILLMENT_MIGRATIONS_026_028_MODE='apply'
+FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION="APPLY_KHEDMAH_NONPROD_026_028_${environment^^}"
+export FULFILLMENT_MIGRATIONS_026_028_MODE FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION
+scripts/deployment/ensure-fulfillment-nonproduction-schema.sh "$environment" "$identifier"
 
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"

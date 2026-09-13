@@ -27,7 +27,7 @@ export function validateUploadMediaRequest(request: UploadMediaRequest): Require
   if (visibility !== 'public' && visibility !== 'private') throw new BadRequestException('visibility is invalid.');
   const assetType = request.assetType;
   if (assetType !== undefined && !ASSET_TYPES.has(assetType)) throw new BadRequestException('assetType is invalid.');
-  if (ownerType === 'business_profile' && assetType && !businessAssetTypes.has(assetType)) throw new BadRequestException('Business media assetType is invalid.');
+  if (ownerType === 'business_profile' && assetType && !businessAssetTypes.has(assetType)) throw new BadRequestException('Business media requires logo, cover, or gallery, or a governed private driver document.');
   if (ownerType === 'professional_profile' && assetType && !professionalAssetTypes.has(assetType)) throw new BadRequestException('Professional media assetType is invalid.');
   if (ownerType === 'product_listing' && assetType !== 'product_image') throw new BadRequestException('Product media requires product_image assetType.');
   if (ownerType === 'user' && assetType !== undefined) throw new BadRequestException('User media does not accept assetType.');

@@ -1,9 +1,10 @@
 -- Governed driver-document review contract shared by Taxi and Delivery.
+-- Migration 025 Classifieds is the required predecessor; preserve its ad_image media contract.
 -- This migration deliberately does NOT restore the historical Mobility 025/032 schema.
 ALTER TABLE media_assets
   DROP CONSTRAINT media_assets_asset_type_check,
   ADD CONSTRAINT media_assets_asset_type_check CHECK (asset_type IN (
-    'logo','cover','gallery','profile_image','service_image','product_image',
+    'logo','cover','gallery','profile_image','service_image','product_image','ad_image',
     'driver_photo','identity_card','driving_license','vehicle_license'
   ));
 

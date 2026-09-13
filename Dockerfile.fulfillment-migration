@@ -1,0 +1,11 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/026_cash_fulfillment_orders.sql /migrations/026_cash_fulfillment_orders.sql
+COPY backend/migrations/versions/027_mobility_document_reviews.sql /migrations/027_mobility_document_reviews.sql
+COPY backend/migrations/versions/028_platform_notifications.sql /migrations/028_platform_notifications.sql
+COPY scripts/deployment/run-fulfillment-nonproduction-migrations.sh /usr/local/bin/run-fulfillment-nonproduction-migrations
+RUN chmod 0555 /usr/local/bin/run-fulfillment-nonproduction-migrations /migrations/*.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-fulfillment-nonproduction-migrations"]

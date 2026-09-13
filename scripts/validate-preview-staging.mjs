@@ -4,8 +4,10 @@ const requiredFiles = [
   'cloudbuild.preview.yaml', 'cloudbuild.preview-backend.yaml', 'cloudbuild.staging.yaml', 'cloudbuild.staging-backend.yaml', 'scripts/deployment/verify-cors-preflight.mjs',
   'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/ensure-classifieds-nonproduction-schema.sh',
   'scripts/deployment/run-classifieds-nonproduction-migration.sh', 'scripts/deployment/resolve-classifieds-preview-stage.sh', '.github/classifieds-preview-stage',
-  'scripts/deployment/resolve-classifieds-staging-stage.sh', '.github/classifieds-staging-stage', 'scripts/check-classifieds-preview-acceptance.mjs', 'Dockerfile.classifieds-migration', 'cloudbuild.classifieds-migration.yaml', 'scripts/deployment/cleanup-preview.sh',
-  'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
+  'scripts/deployment/resolve-classifieds-staging-stage.sh', '.github/classifieds-staging-stage', 'scripts/check-classifieds-preview-acceptance.mjs', 'Dockerfile.classifieds-migration', 'cloudbuild.classifieds-migration.yaml',
+  'scripts/deployment/ensure-fulfillment-nonproduction-schema.sh', 'scripts/deployment/run-fulfillment-nonproduction-migrations.sh',
+  'Dockerfile.fulfillment-migration', 'cloudbuild.fulfillment-migration.yaml',
+  'scripts/deployment/cleanup-preview.sh', 'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
   'docs/deployment/PREVIEW-STAGING-ARCHITECTURE.md', 'docs/deployment/OWNER-REVIEW-GUIDE.md'
 ];
 const contents = await Promise.all(requiredFiles.map(file => readFile(file, 'utf8')));
@@ -93,7 +95,47 @@ const classifiedsMigration = await readFile('scripts/deployment/run-classifieds-
 for (const required of ['025_classifieds', '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d', 'preview|staging', 'Refusing Classifieds migration 025 against the production project', 'MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE']) {
   if (!classifiedsMigration.includes(required)) throw new Error(`Classifieds migration safety gate is missing: ${required}`);
 }
+
+for (const required of [
+  'ensure-fulfillment-nonproduction-schema.sh',
+  'FULFILLMENT_MIGRATIONS_026_028_MODE',
+  'APPLY_KHEDMAH_NONPROD_026_028_${environment^^}',
+  'Migration 025 schema is required as the predecessor of fulfillment 026-028'
+]) {
+  if (!deployment.includes(required)) throw new Error(`Fulfillment deployment gate is missing: ${required}`);
+}
+const ensureFulfillmentSchema = await readFile('scripts/deployment/ensure-fulfillment-nonproduction-schema.sh', 'utf8');
+for (const required of [
+  'Refusing fulfillment schema operation on the production project',
+  'FULFILLMENT_026_028_FAILED_EXECUTION',
+  'FULFILLMENT_026_028_CONTAINER_LOGS_BEGIN',
+  'gcloud run jobs executions describe',
+  'gcloud logging read',
+  '751262c11264815488136847e39e3dc162feab85',
+  'af18327bf03735f6ceaba5f5a60ab973822db355',
+  'a4dc42dac87226a3628d282d027164e33212c493'
+]) {
+  if (!ensureFulfillmentSchema.includes(required)) throw new Error(`Fulfillment migration diagnostics or reviewed blobs are missing: ${required}`);
+}
+const fulfillmentMigration = await readFile('scripts/deployment/run-fulfillment-nonproduction-migrations.sh', 'utf8');
+for (const required of [
+  '026_cash_fulfillment_orders.sql',
+  '027_mobility_document_reviews.sql',
+  '028_platform_notifications.sql',
+  'Refusing fulfillment migrations 026-028 against the production project',
+  'FULFILLMENT_026_028_REQUIRES_MIGRATION_025',
+  'FULFILLMENT_026_028_PARTIAL_OR_UNVERIFIED_STATE',
+  "pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-fulfillment-026-028', 0))",
+  'ad_image',
+  'driver_photo'
+]) {
+  if (!fulfillmentMigration.includes(required)) throw new Error(`Fulfillment migration safety gate is missing: ${required}`);
+}
+
 const productionOperator = await readFile('.github/workflows/production-operator.yml', 'utf8');
 if (productionOperator.includes('APPLY_MIGRATION_025') || productionOperator.includes('025_classifieds')) throw new Error('Migration 025 must not be exposed through the Production operator');
+for (const forbidden of ['026_cash_fulfillment_orders', '027_mobility_document_reviews', '028_platform_notifications', 'APPLY_MIGRATION_026', 'APPLY_MIGRATION_027', 'APPLY_MIGRATION_028']) {
+  if (productionOperator.includes(forbidden)) throw new Error(`Fulfillment non-production migration must not be exposed through the Production operator: ${forbidden}`);
+}
 
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);
