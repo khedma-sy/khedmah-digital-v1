@@ -66,14 +66,21 @@ test('preview reachability checks exclude provider-owned Google Maps controls', 
   assert.match(script, /record\.lastControl = await last\.evaluate/);
 });
 
-test('assistant stays in normal flow on desktop and mobile so it cannot cover journey controls', async () => {
-  const styles = await read('app/components/smart-assistant.module.css');
+test('assistant stays owned by the global header while its panel can open without creating page flow', async () => {
+  const [styles, layout] = await Promise.all([
+    read('app/components/smart-assistant.module.css'),
+    read('app/layout.tsx')
+  ]);
   const root = styles.match(/\.root\{([^}]*)\}/)?.[1] ?? '';
+  const panel = styles.match(/\.panel\{([^}]*)\}/)?.[1] ?? '';
   const mobile = styles.split('@media(max-width:38rem)')[1] ?? '';
 
-  assert.match(root, /position:static/);
-  assert.match(root, /flex-direction:column/);
+  assert.match(layout, /<div className="khedma-header-actions"><AuthNavigation \/><ThemeToggle \/><SmartAssistant \/><\/div>/);
+  assert.doesNotMatch(layout, /<\/header>\s*<SmartAssistant \/>\s*\{children\}/);
+  assert.match(root, /position:relative/);
+  assert.match(root, /display:flex/);
   assert.doesNotMatch(root, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
-  assert.doesNotMatch(mobile, /position:(?:fixed|sticky)|inset-inline-(?:start|end)/);
-  assert.match(mobile, /\.root\{[^}]*margin:/);
+  assert.match(panel, /position:absolute/);
+  assert.doesNotMatch(mobile, /\.root\{[^}]*position:(?:fixed|sticky)/);
+  assert.match(mobile, /\.panel\{[^}]*position:fixed/);
 });
