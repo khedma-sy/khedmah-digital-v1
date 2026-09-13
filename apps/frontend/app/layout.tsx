@@ -15,6 +15,7 @@ import './home-system.css';
 import './admin-system.css';
 import './moderation-system.css';
 import './auth-experience.css';
+import './auth-shell-override.css';
 import './accessibility-system.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
