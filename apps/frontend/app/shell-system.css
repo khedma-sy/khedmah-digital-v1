@@ -19,9 +19,12 @@
   backdrop-filter:blur(14px) saturate(105%);
 }
 .khedma-header>a{flex:0 0 auto;color:inherit;text-decoration:none}
-.khedma-header .khedma-brand{color:var(--k-color-text)}
-.khedma-header .khedma-brand b{color:var(--brand-orange,#fd9603)}
-.khedma-header .khedma-brand small{color:var(--k-color-text-muted)}
+.khedma-header .khedma-brand{min-width:4.15rem;display:grid;justify-items:center;align-content:center;gap:0;color:var(--k-color-text);line-height:1}
+.khedma-header .khedma-brand>svg{width:2.45rem;height:auto}
+.khedma-header .khedma-brand>span{display:grid;justify-items:center;gap:.05rem;margin:0}
+.khedma-header .khedma-brand b{color:var(--brand-navy,#07427c);font-size:1.02rem;font-weight:900;line-height:1}
+.khedma-header .khedma-brand small{color:var(--k-color-text-muted);font-size:.46rem;font-weight:800;line-height:1.2;white-space:nowrap}
+:root[data-theme='dark'] .khedma-header .khedma-brand b{color:var(--k-color-text)}
 .khedma-header .nav-session{display:flex;align-items:center;flex-wrap:nowrap;gap:.3rem;min-width:0}
 .khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.45rem;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:1px solid transparent;border-radius:var(--k-radius-md);padding:.45rem .65rem;color:var(--k-color-text);background:transparent;font:inherit;font-size:.8rem;font-weight:800;text-decoration:none;white-space:nowrap;cursor:pointer}
 .khedma-header .nav-session a:hover,.khedma-header .nav-session button:hover{border-color:var(--k-color-border);background:var(--k-color-surface-muted)}
@@ -30,7 +33,7 @@
 .khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#fd9603) 34%,var(--k-color-border));color:color-mix(in srgb,var(--brand-orange,#fd9603) 55%,var(--brand-navy,#07427c))}
 :root[data-theme='dark'] .khedma-header .nav-session .nav-register{color:var(--brand-orange,#fd9603)}
 .khedma-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:.45rem;min-width:0}
-@media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-brand-compact>svg{width:2.45rem}.khedma-brand-compact b{font-size:1.08rem}.khedma-brand-compact small{font-size:.44rem}}
+@media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-header .khedma-brand>svg{width:2.05rem}.khedma-header .khedma-brand b{font-size:.92rem}.khedma-header .khedma-brand small{font-size:.4rem}}
 
 /* One discovery landmark across screen sizes; it does not depend on session loading. */
 .khedma-header .nav-discovery-group{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.3rem;min-width:0}
