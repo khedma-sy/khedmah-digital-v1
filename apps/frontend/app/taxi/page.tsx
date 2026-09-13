@@ -23,9 +23,18 @@ function errorMessage(cause: unknown) {
 const amount = (minor: number, currency: string) => `${(minor / 100).toFixed(2)} ${currency}`;
 const km = (meters?: number) => typeof meters === 'number' ? `${(meters / 1000).toFixed(1)} كم` : '—';
 const phase = (trip: TaxiTrip) => ({ submitted: 'بانتظار سائق', accepted: 'السائق في الطريق', in_progress: 'الرحلة جارية', completed: 'مكتملة', cancelled: 'ملغاة', rejected: 'مرفوضة' }[trip.phase]);
+const validCoordinates = (value: TaxiAddress) => Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180;
 
 function AddressFields({ prefix, value, onChange }: { prefix: string; value: TaxiAddress; onChange(value: TaxiAddress): void }) {
-  const set = (field: keyof TaxiAddress, raw: string) => onChange({ ...value, [field]: field === 'latitude' || field === 'longitude' ? Number(raw) : raw });
+  const set = (field: keyof TaxiAddress, raw: string) => {
+    if (field === 'latitude' || field === 'longitude') {
+      onChange({ ...value, [field]: raw.trim() === '' ? Number.NaN : Number(raw) });
+      return;
+    }
+    onChange({ ...value, [field]: raw });
+  };
+  const latitude = Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 ? value.latitude : '';
+  const longitude = Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180 ? value.longitude : '';
   return <section className={styles.addressBlock} aria-label={`تفاصيل ${prefix}`}>
     <h3>{prefix}</h3>
     <div className={styles.fields}>
@@ -35,8 +44,8 @@ function AddressFields({ prefix, value, onChange }: { prefix: string; value: Tax
     <details className={styles.coordinateDetails}>
       <summary>إدخال الإحداثيات يدويًا</summary>
       <div className={styles.compactFields}>
-        <label>خط العرض<input type="number" step="any" value={value.latitude} onChange={event => set('latitude', event.target.value)} /></label>
-        <label>خط الطول<input type="number" step="any" value={value.longitude} onChange={event => set('longitude', event.target.value)} /></label>
+        <label>خط العرض<input type="number" step="any" value={latitude} onChange={event => set('latitude', event.target.value)} /></label>
+        <label>خط الطول<input type="number" step="any" value={longitude} onChange={event => set('longitude', event.target.value)} /></label>
       </div>
     </details>
   </section>;
@@ -60,8 +69,8 @@ function TripCard({ trip, onRefresh }: { trip: TaxiTrip; onRefresh(): Promise<vo
 }
 
 function RiderJourney() {
-  const [pickup, setPickup] = useState<TaxiAddress>({ area: '', detail: '', latitude: 33.5138, longitude: 36.2765 });
-  const [dropoff, setDropoff] = useState<TaxiAddress>({ area: '', detail: '', latitude: 33.5, longitude: 36.3 });
+  const [pickup, setPickup] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
+  const [dropoff, setDropoff] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
   const [quote, setQuote] = useState<TaxiQuote>();
   const [trip, setTrip] = useState<TaxiTrip>();
   const [busy, setBusy] = useState(false);
@@ -115,7 +124,16 @@ function RiderJourney() {
 
   async function price(event: FormEvent) {
     event.preventDefault(); if (busy) return;
-    setBusy(true); setMessage('جاري اعتماد المسار والتعرفة…'); setQuote(undefined);
+    setQuote(undefined);
+    if (!validCoordinates(pickup) || !validCoordinates(dropoff)) {
+      setMessage('حدد نقطة الانطلاق والوجهة على الخريطة أو أدخل الإحداثيات يدويًا قبل حساب السعر.');
+      return;
+    }
+    if (!pickup.area.trim() || !pickup.detail.trim() || !dropoff.area.trim() || !dropoff.detail.trim()) {
+      setMessage('أكمل المنطقة ووصف العنوان لنقطتي الانطلاق والوجهة قبل حساب السعر.');
+      return;
+    }
+    setBusy(true); setMessage('جاري اعتماد المسار والتعرفة…');
     try {
       const result = await taxiApi.rider.quote(pickup, dropoff);
       if (mounted.current) { setQuote(result); setMessage('العرض صالح مؤقتًا. السعر النهائي يعتمد على العداد الموثوق عند إنهاء الرحلة.'); }
