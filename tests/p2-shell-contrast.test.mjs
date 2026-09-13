@@ -28,14 +28,14 @@ function contrast(first, second) {
 }
 
 test('light registration text derives only from umbrella orange and navy and meets normal-text contrast', () => {
-  assert.match(themes, /--brand-navy:\s*#173247/);
-  assert.match(themes, /--brand-orange:\s*#e97835/);
-  assert.match(shell, /nav-register\{[^}]*color:color-mix\(in srgb,var\(--brand-orange,#e97835\) 70%,var\(--brand-navy,#173247\)\)/);
-  assert.ok(contrast(mix('#e97835', '#173247', 0.70), '#ffffff') >= 4.5);
+  assert.match(themes, /--brand-navy:\s*#07427c/);
+  assert.match(themes, /--brand-orange:\s*#fd9603/);
+  assert.match(shell, /nav-register\{[^}]*color:color-mix\(in srgb,var\(--brand-orange,#fd9603\) 55%,var\(--brand-navy,#07427c\)\)/);
+  assert.ok(contrast(mix('#fd9603', '#07427c', 0.55), '#ffffff') >= 4.5);
 });
 
 test('dark registration text keeps the umbrella orange where it meets contrast', () => {
   assert.match(tokens, /--k-color-surface:\s*#1c2124/);
-  assert.match(shell, /:root\[data-theme='dark'\][^{]*nav-register\{color:var\(--brand-orange,#e97835\)\}/);
-  assert.ok(contrast('#e97835', '#1c2124') >= 4.5);
+  assert.match(shell, /:root\[data-theme='dark'\][^{]*nav-register\{color:var\(--brand-orange,#fd9603\)\}/);
+  assert.ok(contrast('#fd9603', '#1c2124') >= 4.5);
 });

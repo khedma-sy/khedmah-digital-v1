@@ -17,6 +17,13 @@ const categoryIcons: Record<string, PlatformIconName> = {
   beauty: 'beauty', shopping: 'cart', automotive: 'car', transport: 'truck', technology: 'technology',
   construction: 'building', events: 'events', agriculture: 'leaf', industry: 'factory', travel: 'travel'
 };
+type CategoryTone = 'navy' | 'green' | 'orange';
+const categoryTones: Record<string, CategoryTone> = {
+  home: 'navy', food: 'orange', health: 'green', education: 'navy', professional: 'navy',
+  beauty: 'orange', shopping: 'orange', automotive: 'navy', transport: 'green', technology: 'navy',
+  construction: 'orange', events: 'orange', agriculture: 'green', industry: 'navy', travel: 'green'
+};
+const categoryTone = (visualKey?: string): CategoryTone => categoryTones[visualKey ?? ''] ?? 'navy';
 
 function providerHref(service: PublicServiceListing) {
   return service.ownerType === 'business'
@@ -141,7 +148,7 @@ export function CategoryDirectory() {
           <section className="catalog-category-grid" aria-label="تصنيفات الخدمات">
             {roots.map((category) => (
               <button key={category.code} type="button" disabled={filtersUnavailable} onClick={() => selectCategory(category.code)}>
-                <span className="catalog-category-icon"><PlatformIcon name={categoryIcons[category.visualKey] ?? 'grid'} /></span>
+                <span className="catalog-category-icon" data-category-tone={categoryTone(category.visualKey)}><PlatformIcon name={categoryIcons[category.visualKey] ?? 'grid'} /></span>
                 <strong>{category.nameAr}</strong>
                 <small>التخصصات: {categories.filter((item) => item.parentCode === category.code).length.toLocaleString('ar-SY')}</small>
                 <PlatformIcon name="arrow" />
@@ -157,7 +164,7 @@ export function CategoryDirectory() {
           <section className="catalog-results" aria-label={`${total} خدمة متاحة`}>
             {services.map((service) => (
               <article className="catalog-service" key={service.id}>
-                <span className="catalog-service-icon"><PlatformIcon name={categoryIcons[categories.find((item) => item.code === service.categoryCode)?.visualKey ?? ''] ?? 'grid'} /></span>
+                <span className="catalog-service-icon" data-category-tone={categoryTone(categories.find((item) => item.code === service.categoryCode)?.visualKey)}><PlatformIcon name={categoryIcons[categories.find((item) => item.code === service.categoryCode)?.visualKey ?? ''] ?? 'grid'} /></span>
                 <div><h2>{service.titleAr}</h2>{service.descriptionAr ? <p>{service.descriptionAr}</p> : null}<small>{service.ownerType === 'business' ? 'مقدم أعمال' : 'مهني'}</small></div>
                 <Link href={providerHref(service)} aria-label={`عرض مقدم خدمة ${service.titleAr}`}><PlatformIcon name="arrow" /></Link>
               </article>

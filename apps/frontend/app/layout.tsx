@@ -18,7 +18,7 @@ import './auth-experience.css';
 import './accessibility-system.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
-const SITE_NAME = 'خدمة ديجتل';
+const SITE_NAME = 'خدمة';
 
 const arabicFont = Noto_Sans_Arabic({
   subsets: ['arabic'],

@@ -1,14 +1,14 @@
 /* Canonical section accents for Khedmah. Keep functional state colors separate from brand colors. */
 :root {
-  --brand-navy: #173247;
-  --brand-green: #16875f;
-  --brand-orange: #e97835;
+  --brand-navy: #07427c;
+  --brand-green: #81be49;
+  --brand-orange: #fd9603;
   --brand-warm: #f8faf9;
   --section-accent: var(--brand-navy);
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
 
-/* Categories / service directory: green sector identity. */
+/* Categories / service directory: green sector identity with category-specific brand tones. */
 .catalog-experience {
   --section-accent: var(--brand-green);
 }
@@ -23,10 +23,29 @@
 }
 
 .catalog-experience .catalog-category-icon {
-  background: var(--section-accent);
+  background: var(--brand-navy);
+  color: #fff;
 }
 
-.catalog-experience .catalog-service-icon,
+.catalog-experience .catalog-category-icon[data-category-tone='green'] {
+  background: var(--brand-green);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='orange'] {
+  background: var(--brand-orange);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='navy'] {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.catalog-experience .catalog-service-icon[data-category-tone='green'] { color: var(--brand-green); }
+.catalog-experience .catalog-service-icon[data-category-tone='orange'] { color: var(--brand-orange); }
+.catalog-experience .catalog-service-icon[data-category-tone='navy'] { color: var(--brand-navy); }
+
 .catalog-experience .catalog-service small {
   color: var(--section-accent);
 }
@@ -42,12 +61,12 @@
   background: var(--section-accent);
 }
 
-/* Marketplace / food commerce surfaces can opt into the orange sector accent without changing the global shell. */
+/* Food / commerce uses the official orange sector identity. */
 [data-khedmah-section='commerce'] {
   --section-accent: var(--brand-orange);
 }
 
-/* Map / nearby and mobility remain anchored to navy until their dedicated page passes are completed. */
+/* Mobility uses the official navy identity; delivery may opt into green locally. */
 .map-welcome,
 [data-khedmah-section='mobility'] {
   --section-accent: var(--brand-navy);

@@ -19,18 +19,21 @@
   backdrop-filter:blur(14px) saturate(105%);
 }
 .khedma-header>a{flex:0 0 auto;color:inherit;text-decoration:none}
-.khedma-header .khedma-brand{color:var(--k-color-text)}
-.khedma-header .khedma-brand b{color:var(--brand-orange,#e97835)}
-.khedma-header .khedma-brand small{color:var(--k-color-text-muted)}
+.khedma-header .khedma-brand{min-width:4.15rem;display:grid;justify-items:center;align-content:center;gap:0;color:var(--k-color-text);line-height:1}
+.khedma-header .khedma-brand>svg{width:2.45rem;height:auto}
+.khedma-header .khedma-brand>span{display:grid;justify-items:center;gap:.05rem;margin:0}
+.khedma-header .khedma-brand b{color:var(--brand-navy,#07427c);font-size:1.02rem;font-weight:900;line-height:1}
+.khedma-header .khedma-brand small{color:var(--k-color-text-muted);font-size:.46rem;font-weight:800;line-height:1.2;white-space:nowrap}
+:root[data-theme='dark'] .khedma-header .khedma-brand b{color:var(--k-color-text)}
 .khedma-header .nav-session{display:flex;align-items:center;flex-wrap:nowrap;gap:.3rem;min-width:0}
 .khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.45rem;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:1px solid transparent;border-radius:var(--k-radius-md);padding:.45rem .65rem;color:var(--k-color-text);background:transparent;font:inherit;font-size:.8rem;font-weight:800;text-decoration:none;white-space:nowrap;cursor:pointer}
 .khedma-header .nav-session a:hover,.khedma-header .nav-session button:hover{border-color:var(--k-color-border);background:var(--k-color-surface-muted)}
 .khedma-header .nav-session .nav-cta{border-color:var(--k-color-primary);color:var(--k-color-on-primary);background:var(--k-color-primary)}
 .khedma-header .nav-session .nav-cta:hover{border-color:var(--k-color-primary-hover);color:var(--k-color-on-primary);background:var(--k-color-primary-hover)}
-.khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#e97835) 34%,var(--k-color-border));color:color-mix(in srgb,var(--brand-orange,#e97835) 70%,var(--brand-navy,#173247))}
-:root[data-theme='dark'] .khedma-header .nav-session .nav-register{color:var(--brand-orange,#e97835)}
+.khedma-header .nav-session .nav-register{border-color:color-mix(in srgb,var(--brand-orange,#fd9603) 34%,var(--k-color-border));color:color-mix(in srgb,var(--brand-orange,#fd9603) 55%,var(--brand-navy,#07427c))}
+:root[data-theme='dark'] .khedma-header .nav-session .nav-register{color:var(--brand-orange,#fd9603)}
 .khedma-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:.45rem;min-width:0}
-@media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-brand-compact>svg{width:2.45rem}.khedma-brand-compact b{font-size:1.08rem}.khedma-brand-compact small{font-size:.44rem}}
+@media(max-width:38rem){.khedma-header{min-height:4rem;padding-inline:.75rem}.khedma-header .nav-session{gap:.15rem}.khedma-header .nav-session a,.khedma-header .nav-session button{min-height:2.35rem;padding-inline:.45rem;font-size:.72rem}.khedma-header .khedma-brand>svg{width:2.05rem}.khedma-header .khedma-brand b{font-size:.92rem}.khedma-header .khedma-brand small{font-size:.4rem}}
 
 /* One discovery landmark across screen sizes; it does not depend on session loading. */
 .khedma-header .nav-discovery-group{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.3rem;min-width:0}
@@ -47,9 +50,24 @@
 @media(max-width:38rem){
   .khedma-header{column-gap:.5rem}
   .khedma-header .nav-user{max-width:6rem}
-  .khedma-header .nav-discovery-group{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.15rem}
-  .khedma-header .nav-discovery-group a{grid-column:span 2;padding-inline:.5rem;font-size:.75rem;white-space:normal;text-align:center}
-  .khedma-header .nav-discovery-group a:nth-last-child(-n+2){grid-column:span 3}
+  .khedma-header .nav-discovery-group{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    justify-content:stretch;
+    gap:.25rem;
+    overflow:visible;
+    padding-block:.35rem .15rem;
+  }
+  .khedma-header .nav-discovery-group a{
+    min-width:0;
+    min-height:2.45rem;
+    padding:.35rem .25rem;
+    font-size:.68rem;
+    line-height:1.2;
+    text-align:center;
+    white-space:normal;
+  }
 }
 
 .khedma-footer{display:flex;flex-wrap:wrap;justify-content:center;gap:.65rem 1rem;padding:1rem max(1rem,env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left));border-top:1px solid var(--k-color-border);background:var(--k-glass);color:var(--k-color-text-muted);font-size:.86rem}

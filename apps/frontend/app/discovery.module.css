@@ -71,7 +71,7 @@
 .providerCard h2,.providerCard h3 { font-size: var(--k-type-card); }
 
 /* 2026-09 visual convergence: keep discovery task-focused and reduce decorative glass depth. */
-.page{--discovery-accent:var(--brand-navy,#173247)}
+.page{--discovery-accent:var(--brand-navy,#07427c)}
 .page :global(.ui-surface){box-shadow:var(--k-shadow-sm);background:color-mix(in srgb,var(--k-color-surface) 94%,transparent)}
 .page :global(.ui-page-header){padding-block-end:.2rem;border-block-end:1px solid var(--k-color-border)}
 .form{border-radius:var(--k-radius-lg)}
@@ -82,8 +82,8 @@
 .cardAction :global(.ui-action){width:100%}
 .mapPage{background:linear-gradient(145deg,var(--k-color-canvas-soft),var(--k-color-canvas))}
 .mapPanel{border-inline-end-color:var(--k-color-border);background:color-mix(in srgb,var(--k-color-surface) 94%,transparent);box-shadow:var(--k-shadow-sm);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-.mapBrand{color:var(--brand-navy,#173247)}
-.provider{border:1px solid color-mix(in srgb,var(--brand-navy,#173247) 14%,var(--k-color-border));background:var(--k-color-surface);box-shadow:none}
-.provider:hover{border-color:color-mix(in srgb,var(--brand-navy,#173247) 35%,var(--k-color-border))}
+.mapBrand{color:var(--brand-navy,#07427c)}
+.provider{border:1px solid color-mix(in srgb,var(--brand-navy,#07427c) 14%,var(--k-color-border));background:var(--k-color-surface);box-shadow:none}
+.provider:hover{border-color:color-mix(in srgb,var(--brand-navy,#07427c) 35%,var(--k-color-border))}
 .mapFallback{background:color-mix(in srgb,var(--k-color-surface) 92%,transparent)}
 @media(prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}

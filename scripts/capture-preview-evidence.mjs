@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 export const evidenceRoutes = Object.freeze([
   { key: 'home', path: '/', formName: '' },
   { key: 'categories', path: '/categories', formName: '' },
+  { key: 'food', path: '/food', formName: '' },
   { key: 'search', path: '/search', formName: 'البحث في خدمة' },
   { key: 'map', path: '/map', formName: 'البحث عن الأنشطة على الخريطة' },
+  { key: 'taxi', path: '/taxi', formName: '' },
+  { key: 'store', path: '/store', formName: 'البحث في المتجر' },
   { key: 'professional-search', path: '/professional-profiles/search', formName: 'بحث عن مهنيين' }
 ]);
 export const evidenceViewports = Object.freeze([
@@ -41,10 +44,11 @@ export function browserSnapshot(formName = '') {
       && !!(image.currentSrc || image.getAttribute('src'));
   }) : [];
   const incompleteImages = images.filter((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0);
-  const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? null;
-  const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? null;
-  // Inspect our own surface, not undocumented Google Maps child elements.
-  const surface = document.querySelector('[data-map-surface]');
+  const taxiMapRuntimeStatus = document.querySelector('[data-taxi-map-status]')?.getAttribute('data-taxi-map-status') ?? null;
+  const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? taxiMapRuntimeStatus;
+  const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? taxiMapRuntimeStatus;
+  // Inspect only Khedmah-owned surfaces, not undocumented Google Maps child elements.
+  const surface = document.querySelector('[data-map-surface], [data-taxi-map-surface]');
   const mapRect = surface?.getBoundingClientRect();
   const mapSurfaceVisible = visible(surface) && mapRect.width >= 128 && mapRect.height >= 128;
   const mapReady = mapRuntimeStatus === 'ready' && mapRenderStatus === 'ready' && mapSurfaceVisible;
@@ -60,7 +64,7 @@ export function browserSnapshot(formName = '') {
   });
   return {
     theme: document.documentElement.dataset.theme,
-    mapStatus: mapRuntimeStatus === null ? null : mapReady ? 'ready' : mapRuntimeStatus === 'error' ? 'error' : 'loading',
+    mapStatus: mapRuntimeStatus === null ? null : mapReady ? 'ready' : mapRuntimeStatus === 'error' || mapRuntimeStatus === 'unavailable' ? 'error' : 'loading',
     mapRuntimeStatus,
     mapRenderStatus,
     mapSurfaceVisible,
@@ -82,17 +86,18 @@ export function browserSnapshot(formName = '') {
   };
 }
 
-export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount = 0, expectedTheme = 'light') {
+export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount = 0, expectedTheme = 'light', expectedMap = false) {
   const failures = [];
   if (snapshot.theme !== expectedTheme) failures.push('THEME_NOT_APPLIED');
+  if (expectedMap && (snapshot.mapStatus === null || snapshot.mapStatus === undefined || snapshot.mapSurfaceVisible !== true)) failures.push('MAP_SURFACE_MISSING');
   if (snapshot.mapStatus !== null && snapshot.mapStatus !== undefined && snapshot.mapStatus !== 'ready') failures.push('MAP_NOT_READY');
   if (!(httpStatus >= 200 && httpStatus < 300)) failures.push('HTTP_NOT_SUCCESS');
   if (!pathMatches) failures.push('UNEXPECTED_REDIRECT');
   if (snapshot.headerCount !== 1) failures.push('HEADER_MISSING_OR_DUPLICATED');
   if (snapshot.mainCount !== 1 || !snapshot.headingLength) failures.push('CONTENT_NOT_READY');
-  if (snapshot.navigationCount !== 5 || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
-  if (snapshot.navigationInteractiveCount !== 5) failures.push('NAVIGATION_NOT_INTERACTIVE');
-  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/map|/taxi|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
+  if (snapshot.navigationCount !== 7 || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
+  if (snapshot.navigationInteractiveCount !== 7) failures.push('NAVIGATION_NOT_INTERACTIVE');
+  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/food|/map|/taxi|/store|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
   if ((snapshot.incompleteImageCount ?? 0) !== 0) failures.push('IMAGES_NOT_READY');
@@ -107,11 +112,15 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
 // to false. Never pass the asynchronous font-settling function as its predicate.
 export function browserContentReadyForCapture() {
   const main = document.querySelector('main#foundation-content');
-  const surface = main?.hasAttribute('data-map-status') ? document.querySelector('[data-map-surface]') : null;
+  const taxiMapRuntimeStatus = document.querySelector('[data-taxi-map-status]')?.getAttribute('data-taxi-map-status') ?? null;
+  const hasMap = !!main?.hasAttribute('data-map-status') || taxiMapRuntimeStatus !== null;
+  const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? taxiMapRuntimeStatus;
+  const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? taxiMapRuntimeStatus;
+  const surface = hasMap ? document.querySelector('[data-map-surface], [data-taxi-map-surface]') : null;
   const rect = surface?.getBoundingClientRect();
-  const mapReady = !main?.hasAttribute('data-map-status') || (main.getAttribute('data-map-status') === 'ready'
-    && main.getAttribute('data-map-render-status') === 'ready' && !!surface?.getClientRects().length
-    && getComputedStyle(surface).visibility !== 'hidden' && rect.width >= 128 && rect.height >= 128);
+  const mapReady = !hasMap || (mapRuntimeStatus === 'ready' && mapRenderStatus === 'ready'
+    && !!surface?.getClientRects().length && getComputedStyle(surface).visibility !== 'hidden'
+    && rect.width >= 128 && rect.height >= 128);
   const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
   return !!main?.querySelector('h1')?.textContent?.trim()
     && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
@@ -124,11 +133,15 @@ export function browserContentReadyForCapture() {
 export async function browserReadyForCapture() {
   const ready = () => {
     const main = document.querySelector('main#foundation-content');
-    const surface = main?.hasAttribute('data-map-status') ? document.querySelector('[data-map-surface]') : null;
+    const taxiMapRuntimeStatus = document.querySelector('[data-taxi-map-status]')?.getAttribute('data-taxi-map-status') ?? null;
+    const hasMap = !!main?.hasAttribute('data-map-status') || taxiMapRuntimeStatus !== null;
+    const mapRuntimeStatus = main?.getAttribute('data-map-status') ?? taxiMapRuntimeStatus;
+    const mapRenderStatus = main?.getAttribute('data-map-render-status') ?? taxiMapRuntimeStatus;
+    const surface = hasMap ? document.querySelector('[data-map-surface], [data-taxi-map-surface]') : null;
     const rect = surface?.getBoundingClientRect();
-    const mapReady = !main?.hasAttribute('data-map-status') || (main.getAttribute('data-map-status') === 'ready'
-      && main.getAttribute('data-map-render-status') === 'ready' && !!surface?.getClientRects().length
-      && getComputedStyle(surface).visibility !== 'hidden' && rect.width >= 128 && rect.height >= 128);
+    const mapReady = !hasMap || (mapRuntimeStatus === 'ready' && mapRenderStatus === 'ready'
+      && !!surface?.getClientRects().length && getComputedStyle(surface).visibility !== 'hidden'
+      && rect.width >= 128 && rect.height >= 128);
     const busy = [...document.querySelectorAll('[aria-busy="true"]')].some((element) => element.getClientRects().length > 0);
     return !!main?.querySelector('h1')?.textContent?.trim()
       && !!document.querySelector('.khedma-header .nav-session[data-auth-state="guest"], .khedma-header .nav-session[data-auth-state="authenticated"]')
@@ -203,9 +216,19 @@ async function capture(browser, origin, target, route, viewport, directory, them
     } catch {
       record.failures.push('IMAGE_READINESS_ERROR');
     }
+    // Full-page preparation can trigger additional client or third-party font work
+    // after the initial readiness check. Re-apply the same readiness contract
+    // immediately before the final DOM snapshot instead of accepting a transient
+    // document.fonts=loading state as product failure.
+    try {
+      await waitForCaptureReadiness(page);
+    } catch {
+      record.failures.push('FINAL_READINESS_TIMEOUT');
+    }
     record.snapshot = await page.evaluate(browserSnapshot, route.formName);
     record.failures.push(...assessEvidence(record.snapshot, record.httpStatus,
-      new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path, record.pageErrorCount, theme));
+      new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path,
+      record.pageErrorCount, theme, route.key === 'map' || route.key === 'taxi'));
     record.status = record.failures.length ? 'failed' : 'passed';
   } catch (error) {
     record.failures.push(error?.name === 'TimeoutError' ? 'NAVIGATION_TIMEOUT' : 'CAPTURE_ERROR');
@@ -246,7 +269,7 @@ export async function main(env = process.env, { launchBrowser = launchChromium }
   await mkdir(directory, { recursive: true });
   const report = { schemaVersion: 5, capturedAt: new Date().toISOString(),
     headSha: env.PREVIEW_HEAD_SHA || null, checkoutSha: env.GITHUB_SHA || null,
-    scope: 'Anonymous readiness: home, categories, search, map, professional search; light/dark at 320, 390, 768 and 1280px. Full-page capture scrolls through rendered content to trigger browser-native lazy images and rejects incomplete rendered images. Map checks require the runtime, tilesloaded rendering evidence and a visible non-collapsed surface; they do not certify GPS or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
+    scope: 'Anonymous readiness: home, categories, Food, search, map, Taxi, Store and professional search; light/dark at 320, 390, 768 and 1280px. Full-page capture scrolls through rendered content to trigger browser-native lazy images and rejects incomplete rendered images. Map checks require Khedmah-owned runtime readiness plus a visible non-collapsed surface; they do not certify GPS, routing accuracy or marker data. Staging homepage is an environment baseline, not a verified parent-commit snapshot. No login, writes, business transactions or full accessibility audit.',
     status: 'failed', previewStatus: 'not_run', before: null, after: [] };
   const before = readOrigin(env, 'BEFORE_URL');
   const after = readOrigin(env, 'AFTER_URL');

@@ -41,7 +41,6 @@ test('map exposes a usable Arabic fallback when Google rejects the live origin',
   assert.match(page, /عرض النتائج/);
 });
 
-
 function assertControlledMapScript(page: string) {
   const binding = 'window.initKhedmahMap = initialize;';
   const callback = page.indexOf(binding);
@@ -75,8 +74,6 @@ for (const [name, mutate] of [
   });
 }
 
-
-
 test('public discovery surfaces keep compact rhythm and restrained brand glass borders', async () => {
   const home = await read('app/home.module.css');
   const primitives = await read('app/ui-primitives.css');
@@ -88,13 +85,13 @@ test('public discovery surfaces keep compact rhythm and restrained brand glass b
   assert.match(home, /aspect-ratio:1200\/804/);
   assert.doesNotMatch(home, /umbrella-pattern\.svg/);
   assert.match(home, /\.trustGrid article[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\)/);
-  assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
-  assert.match(home, /\.heroCopy::before[\s\S]*opacity:\.7/);
+  assert.match(home, /\.heroCopy[\s\S]*backdrop-filter:blur\(18px\) saturate\(112%\)/);
+  assert.match(home, /\.heroCopy::before[\s\S]*opacity:\.9/);
+  assert.match(home, /linear-gradient\(135deg,#052f59 0%,#07427c 58%,#0b4f8e 100%\)/);
   assert.match(primitives, /background:var\(--k-glass\)/);
   assert.match(discovery, /\.tabs[\s\S]*backdrop-filter:blur\(18px\)/);
   assert.match(discovery, /\.provider[\s\S]*linear-gradient\(115deg/);
 });
-
 
 test('homepage keeps every real category in the same complete-image grid', async () => {
   const home = await read('app/home.module.css');

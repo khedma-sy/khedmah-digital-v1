@@ -113,7 +113,13 @@ function browserFixture(options = {}) {
   const document = {
     fonts: { status: 'loaded', ready: Promise.resolve() }, body: { getBoundingClientRect() {} },
     documentElement: { dataset: { theme: 'light' }, clientWidth: 1280, scrollWidth: 1280 },
-    querySelector: selector => selector.startsWith('main') ? main : selector === '[data-map-surface]' ? (state.missing ? null : surface) : {},
+    querySelector: selector => {
+      if (selector.startsWith('main')) return main;
+      if (selector === '[data-taxi-map-status]') return null;
+      if (selector === '[data-map-surface], [data-taxi-map-surface]') return state.missing ? null : surface;
+      if (selector.includes('.nav-session[data-auth-state=')) return {};
+      return null;
+    },
     querySelectorAll: () => []
   };
   const getComputedStyle = () => ({ visibility: state.hidden ? 'hidden' : 'visible' });

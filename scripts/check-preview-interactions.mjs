@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evidenceRoutes, evidenceThemes, validateBaseUrl, waitForCaptureReadiness } from './capture-preview-evidence.mjs';
+import { evidenceRoutes, evidenceThemes, validateBaseUrl } from './capture-preview-evidence.mjs';
 
 export function assessAssistantGeometry(snapshot) {
   const failures = [];
@@ -28,25 +28,50 @@ export function assistantGeometry() {
     position: assistant ? getComputedStyle(assistant).position : null, viewportWidth: document.documentElement.clientWidth };
 }
 
+export async function lastApplicationControl(page) {
+  const controls = page.locator('main#foundation-content a[href]:visible, main#foundation-content button:not([disabled]):visible, main#foundation-content input:visible');
+  for (let index = (await controls.count()) - 1; index >= 0; index -= 1) {
+    const candidate = controls.nth(index);
+    // Google Maps injects its own anchors/buttons into the map surface. They are
+    // provider UI, not Khedmah controls, and their DOM order is provider-owned.
+    if (await candidate.evaluate(element => !element.closest('[data-map-surface="true"]'))) return candidate;
+  }
+  return null;
+}
+
+export async function waitForInteractionReadiness(page, timeout) {
+  await page.waitForFunction(() => {
+    const assistant = document.querySelector('[data-khedmah-assistant]');
+    const trigger = assistant?.querySelector('button[aria-expanded]');
+    const shellReady = !!trigger && !!document.querySelector('main#foundation-content') && !!document.querySelector('.khedma-header');
+    const fontsReady = !document.fonts || document.fonts.status === 'loaded';
+    const ownedBusyCount = document.querySelectorAll('[aria-busy="true"]').length;
+    return shellReady && fontsReady && ownedBusyCount === 0;
+  }, null, { timeout });
+}
+
 const requireCondition = (value, code) => { if (!value) throw Object.assign(new Error(code), { code }); };
 
 export async function main(env = process.env) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
-  const report = { schemaVersion: 1, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
+  const widths = [320, 390];
+  const expectedScenarios = evidenceRoutes.length * widths.length * evidenceThemes.length;
+  const report = { schemaVersion: 2, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
     checkoutSha: env.GITHUB_SHA || null, status: 'failed',
-    scope: 'Anonymous mobile UI only: five discovery routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible main control. No microphone, location permission, authentication, form submission or server writes.', scenarios: [] };
+    scope: `Anonymous mobile UI only: ${evidenceRoutes.length} evidence routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible Khedmah-owned main control. Provider map internals are excluded from application-control reachability. Map-provider readiness is intentionally assessed by visual evidence, not duplicated here. No microphone, location permission, authentication, form submission or server writes.`, scenarios: [] };
   let browser;
   try {
     const origin = validateBaseUrl(env.AFTER_URL);
     requireCondition(env.PLAYWRIGHT_PACKAGE_JSON?.trim(), 'BROWSER_TOOLING_PATH_MISSING');
     const { chromium } = createRequire(resolve(env.PLAYWRIGHT_PACKAGE_JSON))('playwright');
     browser = await chromium.launch({ headless: true });
-    const deadline = Date.now() + 180000;
-    for (const route of evidenceRoutes) for (const width of [320, 390]) for (const theme of evidenceThemes) {
+    const globalDeadline = Date.now() + 600000;
+    for (const route of evidenceRoutes) for (const width of widths) for (const theme of evidenceThemes) {
       const record = { route: route.path, width, theme, status: 'failed', failures: [], pageErrorCount: 0 };
       report.scenarios.push(record);
-      if (Date.now() >= deadline) { record.failures.push('INTERACTION_DEADLINE_EXCEEDED'); continue; }
+      if (Date.now() >= globalDeadline) { record.failures.push('INTERACTION_GLOBAL_DEADLINE_EXCEEDED'); continue; }
+      const scenarioDeadline = Math.min(globalDeadline, Date.now() + 45000);
       let context, page;
       const stem = `interaction-${route.key}-${width}-${theme}`;
       try {
@@ -55,7 +80,7 @@ export async function main(env = process.env) {
         page.on('pageerror', () => { record.pageErrorCount += 1; });
         const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 15000 });
         requireCondition(response?.ok(), 'HTTP_NOT_SUCCESS');
-        await waitForCaptureReadiness(page, Math.max(1, Math.min(30000, deadline - Date.now())));
+        await waitForInteractionReadiness(page, Math.max(1, Math.min(30000, scenarioDeadline - Date.now())));
         requireCondition(new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path, 'UNEXPECTED_REDIRECT');
         record.geometry = await page.evaluate(assistantGeometry);
         record.failures.push(...assessAssistantGeometry(record.geometry));
@@ -80,9 +105,14 @@ export async function main(env = process.env) {
         record.closeFocusRestored = true;
         requireCondition(page.url() === url, 'ASSISTANT_CHANGED_ROUTE');
         // Focus and hit testing only: never click a main form's submit button.
-        const controls = page.locator('main#foundation-content a[href]:visible, main#foundation-content button:not([disabled]):visible, main#foundation-content input:visible');
-        if (await controls.count()) {
-          const last = controls.last(); await last.scrollIntoViewIfNeeded(); await last.focus();
+        const last = await lastApplicationControl(page);
+        if (last) {
+          await last.scrollIntoViewIfNeeded(); await last.focus();
+          record.lastControl = await last.evaluate(element => ({
+            tag: element.tagName.toLowerCase(),
+            ariaLabel: element.getAttribute('aria-label'),
+            text: (element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120)
+          }));
           record.lastControlReachable = await last.evaluate(element => {
             const r = element.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
             return element === document.activeElement && !!hit && element.contains(hit);
@@ -103,14 +133,14 @@ export async function main(env = process.env) {
         }
       }
     }
-    report.status = report.scenarios.length === evidenceRoutes.length * 4 && report.scenarios.every(item => item.status === 'passed') ? 'passed' : 'failed';
+    report.status = report.scenarios.length === expectedScenarios && report.scenarios.every(item => item.status === 'passed') ? 'passed' : 'failed';
   } catch {
     report.setupFailure = 'INTERACTION_SETUP_FAILED';
   } finally {
     if (browser) { try { await browser.close(); } catch { report.status = 'failed'; report.setupFailure = 'BROWSER_CLOSE_FAILED'; } }
     await writeFile(resolve(directory, 'interactions-manifest.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
-  console.log(`Mobile interactions: ${report.scenarios.filter(item => item.status === 'passed').length}/${evidenceRoutes.length * 4}; ${report.status}.`);
+  console.log(`Mobile interactions: ${report.scenarios.filter(item => item.status === 'passed').length}/${expectedScenarios}; ${report.status}.`);
   return report;
 }
 
