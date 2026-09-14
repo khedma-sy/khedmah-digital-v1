@@ -85,7 +85,7 @@ schema_state() {
   total=$((table_count + function_count + trigger_count))
   if [ "$total" -eq 0 ]; then printf '%s' 'not_applied'; return 0; fi
   if [ "$table_count" -eq 10 ] && [ "$function_count" -eq 2 ] && [ "$trigger_count" -eq 4 ]; then
-    config="$(probe_count "SELECT count(*)::int FROM billing_program_config WHERE id=1 AND currency='SYP' AND currency_era='SYP_NEW_2026' AND welcome_points=100 AND welcome_expiry_days=30")" || return $?
+    config="$(probe_count "SELECT count(*)::int FROM billing_program_config WHERE id='default' AND currency='SYP' AND currency_era='SYP_NEW_2026' AND welcome_points=100 AND welcome_expiry_days=30")" || return $?
     plans="$(probe_count "SELECT count(*)::int FROM billing_plans WHERE currency='SYP' AND currency_era='SYP_NEW_2026' AND published=true")" || return $?
     rates="$(probe_count "SELECT count(*)::int FROM billing_usage_rates WHERE active=true")" || return $?
     promo="$(probe_count "SELECT count(*)::int FROM billing_promo_codes WHERE code='KHEDMA30' AND percentage_off=30 AND per_user_limit=1")" || return $?
