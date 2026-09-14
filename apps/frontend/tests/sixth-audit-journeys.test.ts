@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, merchant, courier, classifieds] = await Promise.all([
+const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, orders, merchant, courier, classifieds] = await Promise.all([
   read('app/page.tsx'),
   read('app/components/category-directory.tsx'),
   read('app/map/page.tsx'),
@@ -13,6 +13,7 @@ const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp,
   read('app/admin/taxi-drivers/page.tsx'),
   read('app/components/delivery-help.tsx'),
   read('app/restaurants/[businessId]/page.tsx'),
+  read('app/orders/page.tsx'),
   read('app/orders/merchant/page.tsx'),
   read('app/orders/courier/page.tsx'),
   read('app/classifieds/[id]/page.tsx')
@@ -85,7 +86,13 @@ test('delivery bridge preserves integrated restaurant fulfillment versus indepen
   assert.match(classifieds, /DeliveryHelp mode="independent"/);
 });
 
-test('restaurant and courier operational decisions use in-app evidence dialogs, never native browser prompts', () => {
+test('customer, restaurant and courier decisions use in-app evidence forms, never native browser prompts', () => {
+  assert.match(orders, /ratingDialog/);
+  assert.match(orders, /ratingScore/);
+  assert.match(orders, /ratingComment/);
+  assert.match(orders, /التقييم متاح فقط بعد التسليم/);
+  assert.match(orders, /maxLength=\{500\}/);
+  assert.doesNotMatch(orders, /window\.(prompt|confirm)\s*\(/);
   assert.match(merchant, /orderDialog/);
   assert.match(merchant, /pharmacyApproved/);
   assert.match(merchant, /موافقة الزبون/);
