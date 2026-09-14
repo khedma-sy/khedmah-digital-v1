@@ -22,6 +22,16 @@ export const evidenceViewports = Object.freeze([
 
 export const evidenceThemes = Object.freeze(['light', 'dark']);
 const expectedCaptures = evidenceRoutes.length * evidenceViewports.length * evidenceThemes.length;
+const expectedNavigationHrefs = Object.freeze([
+  '/search',
+  '/categories',
+  '/food',
+  '/mobility?type=delivery',
+  '/map',
+  '/taxi',
+  '/store',
+  '/classifieds'
+]);
 
 export function validateBaseUrl(value) {
   const url = new URL(value);
@@ -95,9 +105,9 @@ export function assessEvidence(snapshot, httpStatus, pathMatches, pageErrorCount
   if (!pathMatches) failures.push('UNEXPECTED_REDIRECT');
   if (snapshot.headerCount !== 1) failures.push('HEADER_MISSING_OR_DUPLICATED');
   if (snapshot.mainCount !== 1 || !snapshot.headingLength) failures.push('CONTENT_NOT_READY');
-  if (snapshot.navigationCount !== 7 || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
-  if (snapshot.navigationInteractiveCount !== 7) failures.push('NAVIGATION_NOT_INTERACTIVE');
-  if (snapshot.navigationHrefs?.join('|') !== '/search|/categories|/food|/map|/taxi|/store|/classifieds') failures.push('NAVIGATION_DESTINATIONS_CHANGED');
+  if (snapshot.navigationCount !== expectedNavigationHrefs.length || !snapshot.authReady) failures.push('NAVIGATION_NOT_READY');
+  if (snapshot.navigationInteractiveCount !== expectedNavigationHrefs.length) failures.push('NAVIGATION_NOT_INTERACTIVE');
+  if (snapshot.navigationHrefs?.join('|') !== expectedNavigationHrefs.join('|')) failures.push('NAVIGATION_DESTINATIONS_CHANGED');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
   if ((snapshot.incompleteImageCount ?? 0) !== 0) failures.push('IMAGES_NOT_READY');
