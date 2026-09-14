@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { BillingModule } from './billing/billing.module';
 import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
 import { CategoryModule } from './categories/category.module';
 import { AdModule } from './classifieds/ad.module';
@@ -26,6 +27,7 @@ import { TaxiModule } from './taxi/taxi.module';
 @Module({
   imports: [
     DatabaseModule,
+    BillingModule,
     CategoryModule,
     IdentityModule,
     OrganizationsModule,
