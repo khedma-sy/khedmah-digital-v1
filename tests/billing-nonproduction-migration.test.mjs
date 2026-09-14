@@ -3,12 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [runner, ensure, deploy, dockerfile, cloudbuild] = await Promise.all([
+const [runner, ensure, deploy, dockerfile, cloudbuild, migration] = await Promise.all([
   read('scripts/deployment/run-billing-nonproduction-migration.sh'),
   read('scripts/deployment/ensure-billing-nonproduction-schema.sh'),
   read('scripts/deployment/deploy-cloud-run-environment.sh'),
   read('Dockerfile.billing-migration'),
-  read('cloudbuild.billing-migration.yaml')
+  read('cloudbuild.billing-migration.yaml'),
+  read('backend/migrations/versions/030_billing_credits_subscriptions.sql')
 ]);
 
 test('Billing 030 is preview/staging only, checksum-bound and fails closed on partial state', () => {
@@ -23,6 +24,13 @@ test('Billing 030 is preview/staging only, checksum-bound and fails closed on pa
     'KHEDMA30'
   ]) assert.match(runner, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.doesNotMatch(runner, /DROP\s+TABLE|TRUNCATE|DELETE\s+FROM/i);
+});
+
+test('Billing 030 verification is pinned to the canonical text config seed', () => {
+  assert.match(migration, /id TEXT PRIMARY KEY CHECK \(id = 'default'\)/);
+  assert.match(migration, /VALUES\('default','SYP','SYP_NEW_2026',100,30\)/);
+  assert.match(runner, /FROM billing_program_config WHERE id='default'/);
+  assert.doesNotMatch(runner, /FROM billing_program_config WHERE id=1\b/);
 });
 
 test('Billing 030 deployment gate runs before backend build and retains production refusal', () => {
