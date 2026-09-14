@@ -65,6 +65,13 @@ FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION="APPLY_KHEDMAH_NONPROD_026_028_${env
 export FULFILLMENT_MIGRATIONS_026_028_MODE FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION
 scripts/deployment/ensure-fulfillment-nonproduction-schema.sh "$environment" "$identifier"
 
+# Taxi pricing history is governed separately from the candidate-only Taxi trip schema.
+# Apply the append-only pricing ledger before backend deployment; this does not enable trips.
+TAXI_PRICING_MIGRATION_029_MODE='apply'
+TAXI_PRICING_MIGRATION_029_CONFIRMATION="APPLY_KHEDMAH_NONPROD_029_${environment^^}"
+export TAXI_PRICING_MIGRATION_029_MODE TAXI_PRICING_MIGRATION_029_CONFIRMATION
+scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh "$environment" "$identifier"
+
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
 
