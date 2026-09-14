@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { api, type PublicBusinessProfile } from "../../lib/recovered-service-client";
 import {
   ActionLink,
@@ -22,7 +22,7 @@ const FOOD_CATEGORIES = [
   "sweets",
   "catering",
   "juice_icecream",
-];
+] as const;
 
 const FOOD_FILTERS = [
   { code: "", label: "الكل" },
@@ -33,18 +33,40 @@ const FOOD_FILTERS = [
   { code: "juice_icecream", label: "عصائر وبوظة" },
 ];
 
+function mergeBusinesses(current: PublicBusinessProfile[], incoming: PublicBusinessProfile[]) {
+  const unique = new Map<string, PublicBusinessProfile>();
+  for (const business of [...current, ...incoming]) unique.set(business.id, business);
+  return [...unique.values()].sort(
+    (a, b) => Number(b.isFeatured) - Number(a.isFeatured) || a.name.localeCompare(b.name, "ar"),
+  );
+}
+
 export default function RestaurantsPage() {
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query.trim());
   const [category, setCategory] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+  const [partialFailure, setPartialFailure] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
 
   useEffect(() => {
     let active = true;
+    const selectedCategories = category ? [category] : [...FOOD_CATEGORIES];
+    if (page === 1) setLoading(true); else setLoadingMore(true);
+    setError("");
+
     void Promise.allSettled(
-      FOOD_CATEGORIES.map((categoryCode) => api.businesses.search({ categoryCode })),
+      selectedCategories.map((categoryCode) => api.businesses.search({
+        q: deferredQuery || undefined,
+        categoryCode,
+        page,
+      })),
     ).then((responses) => {
       if (!active) return;
       const fulfilled = responses.filter((response): response is PromiseFulfilledResult<Awaited<ReturnType<typeof api.businesses.search>>> => response.status === "fulfilled");
@@ -52,46 +74,49 @@ export default function RestaurantsPage() {
       if (!fulfilled.length) {
         const firstFailure = rejected[0]?.reason;
         setError(firstFailure instanceof Error ? firstFailure.message : "تعذر تحميل المطاعم.");
-        setBusinesses([]);
+        setPartialFailure(true);
+        if (page === 1) { setBusinesses([]); setTotal(0); }
         return;
       }
-      const unique = new Map<string, PublicBusinessProfile>();
-      for (const response of fulfilled)
-        for (const business of response.value.businesses)
-          unique.set(business.id, business);
-      setBusinesses(
-        [...unique.values()].sort(
-          (a, b) =>
-            Number(b.isFeatured) - Number(a.isFeatured) ||
-            a.name.localeCompare(b.name, "ar"),
-        ),
-      );
-      setError("");
-      setWarning(rejected.length ? "تم تحميل المطاعم المتاحة، لكن تعذر تحديث بعض أنواع الطعام مؤقتًا." : "");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
-  const visible = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ar");
-    return businesses.filter((business) =>
-      (!category || business.categoryCode === category) &&
-      (!normalized || `${business.name} ${business.descriptionAr ?? ""} ${business.categoryNameAr ?? ""}`
-        .toLocaleLowerCase("ar")
-        .includes(normalized)),
-    );
-  }, [businesses, category, query]);
+      const incoming = fulfilled.flatMap((response) => response.value.businesses);
+      const fulfilledTotal = fulfilled.reduce((sum, response) => sum + response.value.total, 0);
+      setBusinesses((current) => page === 1 ? mergeBusinesses([], incoming) : mergeBusinesses(current, incoming));
+      if (!rejected.length) setTotal(fulfilledTotal);
+      else if (page === 1) setTotal(fulfilledTotal);
+      setPartialFailure(rejected.length > 0);
+      setError("");
+      setWarning(rejected.length ? "تم تحميل نتائج جزئية. أعد محاولة الصفحة الحالية قبل متابعة بقية المطاعم." : "");
+    }).finally(() => {
+      if (!active) return;
+      setLoading(false);
+      setLoadingMore(false);
+    });
+    return () => { active = false; };
+  }, [category, deferredQuery, page, retryToken]);
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setPage(1);
+    setPartialFailure(false);
+  }
+
+  function updateCategory(value: string) {
+    setCategory(value);
+    setPage(1);
+    setPartialFailure(false);
+  }
 
   function resetFilters() {
     setQuery("");
     setCategory("");
+    setPage(1);
+    setPartialFailure(false);
   }
 
-  if (loading)
+  const hasMore = !partialFailure && businesses.length < total;
+
+  if (loading && page === 1)
     return (
       <PageShell className={styles.page} label="المطاعم">
         <SkeletonGrid count={6} />
@@ -117,13 +142,13 @@ export default function RestaurantsPage() {
             <input
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => updateQuery(event.target.value)}
               placeholder="مثال: شاورما، حلويات، مخبز"
             />
           </span>
         </label>
         <div className={styles.filters} aria-label="أنواع الطعام">
-          {FOOD_FILTERS.map((filter) => <button key={filter.code || "all"} type="button" onClick={() => setCategory(filter.code)} aria-pressed={category === filter.code}>{filter.label}</button>)}
+          {FOOD_FILTERS.map((filter) => <button key={filter.code || "all"} type="button" onClick={() => updateCategory(filter.code)} aria-pressed={category === filter.code}>{filter.label}</button>)}
         </div>
         <ol className={styles.journeySteps} aria-label="مراحل طلب الطعام">
           <li><span>1</span><div><strong>اختر المطعم</strong><small>تصفح القائمة والأسعار</small></div></li>
@@ -132,40 +157,42 @@ export default function RestaurantsPage() {
         </ol>
       </Surface>
       <section className={styles.results} aria-labelledby="restaurant-results-title">
-        <div className={styles.resultsHeading}><div><span>أنشطة معتمدة</span><h2 id="restaurant-results-title">المطاعم المتاحة</h2></div><p role="status" aria-live="polite">{visible.length.toLocaleString("ar-SY-u-nu-latn")} مطعمًا ونشاطًا غذائيًا</p></div>
-      {!visible.length ? (
+        <div className={styles.resultsHeading}><div><span>أنشطة معتمدة</span><h2 id="restaurant-results-title">المطاعم المتاحة</h2></div><p role="status" aria-live="polite">{businesses.length.toLocaleString("ar-SY-u-nu-latn")} من {total.toLocaleString("ar-SY-u-nu-latn")} مطعمًا ونشاطًا غذائيًا</p></div>
+      {!businesses.length ? (
         <div className={styles.emptyWrap}>
         <EmptyState
           icon={<PlatformIcon name="search" size={32} />}
           title="لا توجد مطاعم مطابقة"
-          description={businesses.length ? "امسح المرشحات أو اختر نوعًا آخر من الطعام." : "لم تُنشر قوائم طعام معتمدة في منطقتك بعد. يمكنك استكشاف الأنشطة أو تسجيل مطعمك."}
+          description={(query || category) ? "امسح المرشحات أو اختر نوعًا آخر من الطعام." : "لم تُنشر قوائم طعام معتمدة في منطقتك بعد. يمكنك استكشاف الأنشطة أو تسجيل مطعمك."}
           actions={<>{(query || category) ? <ActionButton type="button" onClick={resetFilters}><PlatformIcon name="refresh" size={18}/>مسح المرشحات</ActionButton> : null}<ActionLink href="/search?categoryCode=restaurant" variant="secondary">استكشف أنشطة قريبة</ActionLink></>}
         /></div>
       ) : (
-        <div className={styles.grid}>
-          {visible.map((business) => (
-            <Surface as="article" className={styles.card} key={business.id}>
-              <h2>{business.name}</h2>
-              <div className={styles.meta}>
-                <span><PlatformIcon name="food" size={15}/>{business.categoryNameAr ?? "مطعم وأغذية"}</span>
-                <span><PlatformIcon name="pin" size={15}/>{business.cityCode}</span>
-                {business.isFeatured && <span><PlatformIcon name="sparkles" size={15}/>مميز</span>}
-              </div>
-              {business.descriptionAr && (
-                <p className={styles.description}>{business.descriptionAr}</p>
-              )}
-              {business.rating !== undefined && business.ratingCount !== 0 && (
-                <span className={styles.rating}>
-                  ★ {business.rating.toLocaleString("ar-SY-u-nu-latn")} (
-                  {(business.ratingCount ?? 0).toLocaleString("ar-SY-u-nu-latn")} تقييم)
-                </span>
-              )}
-              <ActionLink href={`/restaurants/${business.id}`}>
-                <PlatformIcon name="cart" size={18}/>ابدأ الطلب
-              </ActionLink>
-            </Surface>
-          ))}
-        </div>
+        <>
+          <div className={styles.grid}>
+            {businesses.map((business) => (
+              <Surface as="article" className={styles.card} key={business.id}>
+                <h2>{business.name}</h2>
+                <div className={styles.meta}>
+                  <span><PlatformIcon name="food" size={15}/>{business.categoryNameAr ?? "مطعم وأغذية"}</span>
+                  <span><PlatformIcon name="pin" size={15}/>{business.cityCode}</span>
+                  {business.isFeatured && <span><PlatformIcon name="sparkles" size={15}/>مميز</span>}
+                </div>
+                {business.descriptionAr && <p className={styles.description}>{business.descriptionAr}</p>}
+                {business.rating !== undefined && business.ratingCount !== 0 && (
+                  <span className={styles.rating}>★ {business.rating.toLocaleString("ar-SY-u-nu-latn")} ({(business.ratingCount ?? 0).toLocaleString("ar-SY-u-nu-latn")} تقييم)</span>
+                )}
+                <ActionLink href={`/restaurants/${business.id}`}><PlatformIcon name="cart" size={18}/>ابدأ الطلب</ActionLink>
+              </Surface>
+            ))}
+          </div>
+          <div className={styles.paginationActions}>
+            {partialFailure
+              ? <ActionButton type="button" variant="secondary" onClick={() => setRetryToken((token) => token + 1)} disabled={loadingMore}><PlatformIcon name="refresh" size={18}/>{loadingMore ? "جارٍ إعادة المحاولة…" : "إعادة تحميل الصفحة الحالية"}</ActionButton>
+              : hasMore
+                ? <ActionButton type="button" variant="secondary" onClick={() => setPage((current) => current + 1)} disabled={loadingMore}>{loadingMore ? "جارٍ تحميل المزيد…" : "تحميل المزيد من المطاعم"}</ActionButton>
+                : null}
+          </div>
+        </>
       )}
       </section>
       <div className={styles.professionalLink}><ActionLink href="/orders/courier" variant="quiet"><PlatformIcon name="delivery" size={17}/>هل تعمل مندوبًا؟ افتح بوابة التوصيل</ActionLink><ActionLink href="/business-profiles/new" variant="quiet"><PlatformIcon name="storefront" size={17}/>سجّل مطعمك</ActionLink></div>
