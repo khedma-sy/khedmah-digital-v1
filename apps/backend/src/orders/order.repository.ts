@@ -84,8 +84,15 @@ export class OrderRepository {
 
   async countApprovedMobilityDocuments(businessProfileId: string): Promise<number> {
     const [row] = await this.db.query<{ count: string } & Record<string, unknown>>(
-      `SELECT COUNT(*)::text AS count FROM mobility_document_reviews
-       WHERE business_profile_id=$1 AND status='approved'`,
+      `SELECT COUNT(*)::text AS count
+       FROM (
+         SELECT DISTINCT ON (document_type) document_type,status
+         FROM mobility_document_reviews
+         WHERE business_profile_id=$1
+           AND document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+         ORDER BY document_type,created_at DESC,media_asset_id DESC
+       ) latest
+       WHERE latest.status='approved'`,
       [businessProfileId],
     );
     return Number(row?.count ?? 0);
