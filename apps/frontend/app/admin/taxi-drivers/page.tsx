@@ -165,13 +165,17 @@ export default function TaxiDriversAdminPage() {
     setFeedback('');
   }
 
-  function closeOperationalDialog() {
-    if (saving) return;
+  function resetOperationalDialog() {
     setOperationalDialog(null);
     setZoneCode('');
     setVerificationReference('');
     setDecisionReason('');
     setExpiresAt('');
+  }
+
+  function closeOperationalDialog() {
+    if (saving) return;
+    resetOperationalDialog();
   }
 
   async function saveOperationalDecision() {
@@ -200,7 +204,7 @@ export default function TaxiDriversAdminPage() {
           reason
         });
       }
-      closeOperationalDialog();
+      resetOperationalDialog();
       await loadCandidates();
       setFeedback(action === 'approve'
         ? 'تم اعتماد السائق والسيارة والمنطقة تشغيليًا. تشغيل الرحلات يبقى منفصلًا عن هذا القرار.'
@@ -208,7 +212,7 @@ export default function TaxiDriversAdminPage() {
     } catch (cause) {
       const status = errorStatus(cause);
       if (status === 409) {
-        closeOperationalDialog();
+        resetOperationalDialog();
         await loadCandidates();
         setFeedback('تغيرت حالة الملف أثناء المراجعة. تم تحديث الطابور؛ راجع الحالة الحالية قبل قرار جديد.');
       } else setFeedback(errorMessage(cause, 'تعذر تسجيل القرار التشغيلي.'));
