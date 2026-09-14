@@ -17,6 +17,7 @@ const statusLabel: Record<FulfillmentOrder["status"], string> = {
 const days = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 type View = "overview" | "orders" | "menu" | "hours";
 type HoursDraft = { dayOfWeek:number; openTime:string; closeTime:string; isClosed:boolean };
+type OrderDialog = { order:FulfillmentOrder; action:"quote"|"reject" };
 const defaultHours = (): HoursDraft[] => days.map((_, dayOfWeek) => ({ dayOfWeek, openTime:"09:00", closeTime:"23:00", isClosed:false }));
 const money = (value:number, currency:string) => currency === "SYP" ? `${value.toLocaleString("ar-SY")} ل.س` : `${value.toLocaleString("en-US")} ${currency}`;
 const orderValue = (order:FulfillmentOrder) => order.total ?? order.subtotal + (order.deliveryFee ?? 0);
@@ -40,9 +41,15 @@ export default function MerchantOrders() {
   const [notice,setNotice] = useState("");
   const [loading,setLoading] = useState(true);
   const [savingHours,setSavingHours] = useState(false);
+  const [orderDialog,setOrderDialog] = useState<OrderDialog|null>(null);
+  const [deliveryFee,setDeliveryFee] = useState("");
+  const [pharmacyApproved,setPharmacyApproved] = useState(false);
+  const [rejectionReason,setRejectionReason] = useState("");
+  const [orderActionId,setOrderActionId] = useState("");
   const alertsEnabledRef = useRef(false);
   const loadedOnceRef = useRef(false);
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const orderActionInFlight = useRef(false);
 
   const selectedBusiness = businesses.find(b=>b.id===selected);
   const isRestaurant = !!selectedBusiness && restaurantCategories.has(selectedBusiness.categoryCode);
@@ -106,12 +113,42 @@ export default function MerchantOrders() {
   },[orders]);
 
   async function enableAlerts(){alertsEnabledRef.current=true;setAlertsEnabled(true);window.localStorage.setItem("khedmah-merchant-order-alerts","on");playOrderRing();await requestOrderNotifications();}
-  async function action(o:FulfillmentOrder,status:FulfillmentOrder["status"]){
-    let data:Record<string,unknown>={};
-    if(status==="quoted"){const raw=window.prompt("رسوم التوصيل");if(raw===null)return;data={deliveryFee:Number(raw),pharmacyApproved:o.vertical!=="pharmacy"||window.confirm("أؤكد أن الصيدلي راجع الطلب ووافق على صرفه")};}
-    if(status==="courier_assigned"){const id=courierChoice[o.id];if(!id){setError("اختر مندوباً معتمداً لهذا الطلب أولاً.");return;}data={courierBusinessId:id};}
-    if(status==="rejected"){const reason=window.prompt("سبب الرفض");if(!reason)return;data={reason};}
-    try{await api.orders.transition(o.id,status,data);await loadOrders(selected);}catch(c){setError(c instanceof Error?c.message:"تعذر تحديث الطلب.");}
+
+  async function transition(o:FulfillmentOrder,status:FulfillmentOrder["status"],data:Record<string,unknown>={}){
+    if(orderActionInFlight.current)return false;
+    orderActionInFlight.current=true;setOrderActionId(o.id);setError("");setNotice("");
+    try{await api.orders.transition(o.id,status,data);await loadOrders(selected);return true;}
+    catch(c){setError(c instanceof Error?c.message:"تعذر تحديث الطلب.");return false;}
+    finally{orderActionInFlight.current=false;setOrderActionId("");}
+  }
+
+  function openOrderDialog(o:FulfillmentOrder,action:"quote"|"reject"){
+    if(orderActionInFlight.current)return;
+    setOrderDialog({order:o,action});setDeliveryFee("");setPharmacyApproved(o.vertical!=="pharmacy");setRejectionReason("");setError("");
+  }
+
+  async function saveOrderDialog(){
+    if(!orderDialog||orderActionInFlight.current)return;
+    const {order,action}=orderDialog;
+    if(action==="quote"){
+      const fee=Number(deliveryFee);
+      if(!Number.isFinite(fee)||fee<0){setError("أدخل رسوم توصيل صالحة غير سالبة.");return;}
+      if(order.vertical==="pharmacy"&&!pharmacyApproved){setError("يجب تأكيد مراجعة الصيدلي قبل تسعير طلب الصيدلية.");return;}
+      if(await transition(order,"quoted",{deliveryFee:fee,pharmacyApproved})){
+        setOrderDialog(null);setNotice("تم إرسال المجموع ورسوم التوصيل للعميل للموافقة.");
+      }
+      return;
+    }
+    const reason=rejectionReason.trim();
+    if(!reason){setError("اكتب سبب رفض الطلب قبل المتابعة.");return;}
+    if(await transition(order,"rejected",{reason})){
+      setOrderDialog(null);setNotice("تم رفض الطلب وتسجيل السبب.");
+    }
+  }
+
+  async function assignCourier(o:FulfillmentOrder){
+    const id=courierChoice[o.id];if(!id){setError("اختر مندوباً معتمداً لهذا الطلب أولاً.");return;}
+    if(await transition(o,"courier_assigned",{courierBusinessId:id}))setNotice("تم إرسال مهمة التوصيل إلى المندوب المختار.");
   }
 
   async function toggleProduct(product:ProductListing){
@@ -159,10 +196,12 @@ export default function MerchantOrders() {
       </section>
     </>}
 
-    {view==="orders"&&<section className={styles.orderGrid}>{orders.length?orders.map(o=><Surface as="article" key={o.id} className={styles.orderCard}><div className={styles.orderTop}><strong>{statusLabel[o.status]}</strong><span>{money(orderValue(o),o.currency)}</span></div><h2>طلب نقدي</h2><div className={styles.items}>{o.items.map(i=><p key={i.productListingId}>{i.titleAr} × {i.quantity}</p>)}</div><p className={styles.customer}>{o.customerPhone} · {o.deliveryAddress}</p>{o.vertical==="pharmacy"&&<p>مراجعة الصيدلي: {o.pharmacyReviewStatus}</p>}<div className={styles.actions}>{o.status==="placed"&&<><ActionButton onClick={()=>void action(o,"quoted")}>مراجعة وعرض الإجمالي</ActionButton><ActionButton variant="secondary" onClick={()=>void action(o,"rejected")}>رفض</ActionButton></>}{o.status==="merchant_confirmed"&&<><label>المندوب<select value={courierChoice[o.id]??""} onChange={e=>setCourierChoice(c=>({...c,[o.id]:e.target.value}))}><option value="">اختر المندوب</option>{couriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><ActionButton onClick={()=>void action(o,"courier_assigned")}>تعيين المندوب</ActionButton></>}{o.status==="courier_accepted"&&<ActionButton onClick={()=>void action(o,"ready_for_pickup")}>الطلب جاهز للاستلام</ActionButton>}</div></Surface>):<EmptyState title="لا توجد طلبات" description="ستظهر هنا طلبات العملاء الحقيقية."/>}</section>}
+    {view==="orders"&&<section className={styles.orderGrid}>{orders.length?orders.map(o=><Surface as="article" key={o.id} className={styles.orderCard}><div className={styles.orderTop}><strong>{statusLabel[o.status]}</strong><span>{money(orderValue(o),o.currency)}</span></div><h2>طلب نقدي</h2><div className={styles.items}>{o.items.map(i=><p key={i.productListingId}>{i.titleAr} × {i.quantity}</p>)}</div><p className={styles.customer}>{o.customerPhone} · {o.deliveryAddress}</p>{o.vertical==="pharmacy"&&<p>مراجعة الصيدلي: {o.pharmacyReviewStatus}</p>}<div className={styles.actions}>{o.status==="placed"&&<><ActionButton disabled={orderActionId===o.id} onClick={()=>openOrderDialog(o,"quote")}>مراجعة وعرض الإجمالي</ActionButton><ActionButton disabled={orderActionId===o.id} variant="secondary" onClick={()=>openOrderDialog(o,"reject")}>رفض</ActionButton></>}{o.status==="merchant_confirmed"&&<><label>المندوب<select value={courierChoice[o.id]??""} disabled={orderActionId===o.id} onChange={e=>setCourierChoice(c=>({...c,[o.id]:e.target.value}))}><option value="">اختر المندوب</option>{couriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><ActionButton disabled={orderActionId===o.id} onClick={()=>void assignCourier(o)}>تعيين المندوب</ActionButton></>}{o.status==="courier_accepted"&&<ActionButton disabled={orderActionId===o.id} onClick={()=>void transition(o,"ready_for_pickup")}>الطلب جاهز للاستلام</ActionButton>}</div></Surface>):<EmptyState title="لا توجد طلبات" description="ستظهر هنا طلبات العملاء الحقيقية."/>}</section>}
 
     {view==="menu"&&<section className={styles.menuGrid}>{products.length?products.map(p=><Surface as="article" key={p.id} className={styles.menuCard}><div><span className={p.availability==="out_of_stock"?styles.offline:styles.online}>{p.availability==="out_of_stock"?"غير متاح":"متاح"}</span><h2>{p.titleAr}</h2><p>{money(p.price,p.currency)}</p></div><ActionButton type="button" variant={p.availability==="out_of_stock"?"primary":"secondary"} onClick={()=>void toggleProduct(p)}>{p.availability==="out_of_stock"?"إعادة التفعيل":"إيقاف مؤقت"}</ActionButton></Surface>):<EmptyState title="القائمة فارغة" description="أضف أصنافاً ثم أرسلها للمراجعة." actions={<ActionLink href="/store/sell">إضافة صنف</ActionLink>}/>}</section>}
 
     {view==="hours"&&<Surface className={styles.hoursPanel}><div className={styles.sectionHeading}><div><span>التشغيل الأسبوعي</span><h2>ساعات استقبال الطلبات</h2></div><ActionButton type="button" disabled={savingHours} onClick={()=>void saveHours()}>{savingHours?"جاري الحفظ…":"حفظ الساعات"}</ActionButton></div><div className={styles.hoursGrid}>{hours.map((h,index)=><div key={h.dayOfWeek} className={styles.hourRow}><strong>{days[h.dayOfWeek]}</strong><label><input type="checkbox" checked={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,isClosed:e.target.checked}:item))}/> مغلق</label><label>من<input type="time" value={h.openTime} disabled={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,openTime:e.target.value}:item))}/></label><label>إلى<input type="time" value={h.closeTime} disabled={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,closeTime:e.target.value}:item))}/></label></div>)}</div></Surface>}
+
+    {orderDialog&&<div className="moderation-dialog-backdrop" role="presentation" onMouseDown={event=>{if(event.currentTarget===event.target&&!orderActionInFlight.current)setOrderDialog(null)}}><section className="moderation-dialog" role="dialog" aria-modal="true" aria-labelledby="merchant-order-dialog-title"><h3 id="merchant-order-dialog-title">{orderDialog.action==="quote"?"مراجعة ورسوم التوصيل":"رفض الطلب"}</h3><p>{orderDialog.action==="quote"?"راجع الأصناف ثم أدخل رسوم التوصيل. لن يثبت الطلب أو يُعيّن المندوب حتى يوافق العميل على الإجمالي.":"سجّل سبب الرفض بوضوح ليظهر في سجل الطلب."}</p>{orderDialog.action==="quote"?<div className={styles.dialogForm}><label>رسوم التوصيل<input type="number" min="0" step="1" inputMode="decimal" value={deliveryFee} onChange={event=>setDeliveryFee(event.target.value)} autoFocus/></label>{orderDialog.order.vertical==="pharmacy"&&<label className={styles.confirmRow}><input type="checkbox" checked={pharmacyApproved} onChange={event=>setPharmacyApproved(event.target.checked)}/> أؤكد أن الصيدلي راجع الطلب ووافق على صرف الأصناف المسموح بها.</label>}</div>:<textarea className="moderation-reason" rows={5} autoFocus maxLength={500} value={rejectionReason} onChange={event=>setRejectionReason(event.target.value)} placeholder="سبب رفض الطلب…"/>}<div className="moderation-actions"><button type="button" disabled={!!orderActionId} onClick={()=>setOrderDialog(null)}>إلغاء</button><button type="button" className={orderDialog.action==="reject"?"moderation-reject":"moderation-approve"} disabled={!!orderActionId||(orderDialog.action==="quote"?deliveryFee.trim()===""||(orderDialog.order.vertical==="pharmacy"&&!pharmacyApproved):!rejectionReason.trim())} onClick={()=>void saveOrderDialog()}>{orderActionId?"جارٍ الحفظ…":orderDialog.action==="quote"?"إرسال الإجمالي للعميل":"تأكيد الرفض"}</button></div></section></div>}
   </PageShell>;
 }
