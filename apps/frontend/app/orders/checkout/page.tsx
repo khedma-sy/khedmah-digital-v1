@@ -7,6 +7,7 @@ import {
   clearRestaurantCart,
   readRestaurantCart,
 } from "../../../lib/restaurant-cart";
+import { DeliveryHelp } from "../../components/delivery-help";
 import {
   ActionButton,
   ActionLink,
@@ -164,10 +165,11 @@ export default function CheckoutPage() {
       <PageHeader
         eyebrow={businessId ? "خدمة فود · إتمام الطلب" : "طلب وتوصيل"}
         title={businessId ? "أين نوصّل طلبك؟" : "العنوان وتأكيد الطلب"}
-        description="أدخل بيانات التسليم وراجع الأصناف. سيراجع المطعم الطلب ورسوم التوصيل قبل تثبيته."
+        description="أدخل بيانات التسليم وراجع الأصناف. سيراجع مقدم الطلب ورسوم التوصيل قبل تثبيته."
         backHref={backHref}
       />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {!!items.length && <DeliveryHelp mode="order" />}
       {!!items.length && (
         <Surface as="form" className={`${styles.checkout} ui-form-stack`} onSubmit={submit}>
           <section className={styles.summary} aria-label="ملخص الأصناف">
@@ -228,7 +230,7 @@ export default function CheckoutPage() {
             </label>
           )}
           <p className={styles.payment}>
-            الدفع نقدًا عند التسليم. يراجع المطعم رسوم التوصيل، ولن يثبت الطلب
+            الدفع نقدًا عند التسليم. يراجع مقدم الطلب رسوم التوصيل، ولن يثبت الطلب
             أو يُعيّن المندوب قبل موافقتك على الإجمالي.
           </p>
           <div className="ui-page-actions">
