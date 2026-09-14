@@ -56,6 +56,7 @@ jobs:
             026_cash_fulfillment_orders
             027_mobility_document_reviews
             028_platform_notifications
+            029_taxi_pricing_revisions
           )
 
           for migration in "${migrations[@]}"; do
@@ -134,6 +135,8 @@ jobs:
             027_mobility_document_reviews_rollback.sql \
             028_platform_notifications.sql \
             028_platform_notifications_rollback.sql \
+            029_taxi_pricing_revisions.sql \
+            029_taxi_pricing_revisions_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
             -printf '%f\n' | sort > "$actual"
