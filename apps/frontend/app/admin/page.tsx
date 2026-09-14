@@ -53,7 +53,7 @@ export default function AdminPage() {
 
   return <main id="foundation-content" className="operations-shell" aria-label="لوحة إدارة منصة خدمة">
     <header className="operations-header">
-      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مراجعة المحتوى والتحقق والبلاغات، وعرض التصنيفات وملخص إعداد التشغيل حسب صلاحيات الحساب.</p></div>
+      <div><p className="eyebrow">خدمة · إدارة المنصة</p><h1>لوحة مالك المنصة</h1><p>مركز الإدارة العام للمراجعة والتحقق والتصنيفات والتشغيل وتسعير الخدمات.</p></div>
       <span className="status-badge">{overview.roles.map(roleLabel).join(' · ')}</span>
     </header>
 
@@ -61,7 +61,7 @@ export default function AdminPage() {
       <Link href="/">الرئيسية</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
-      <Link href="/categories">التصنيفات</Link>
+      <Link href="/admin/categories">إدارة التصنيفات</Link>
       <Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
 
@@ -72,13 +72,13 @@ export default function AdminPage() {
       <article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article>
     </section>
 
-    <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا ملخص إعداد معلن من الخادم، وليس فحصاً حياً لجاهزية الخدمات أو حركة الإنتاج.</p><p>سجلات الحوادث والتغييرات المعروضة مؤقتة في ذاكرة عملية الخادم؛ قد تفقد عند إعادة تشغيله، ولا تمثل سجل تشغيل دائماً.</p></section>
+    <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا مركز تحكم إداري، وكل وحدة فرعية تتحقق من صلاحيتها الخاصة على الخادم. عرض الرابط هنا لا يمنح صلاحية تنفيذ.</p></section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
-      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة محتوى ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
-      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية بعقد مرتبط بالطلب ونسخة الملف، منفصل عن اعتماد المحتوى.</p><Link href="/admin/verification">فتح مراجعة التحقق</Link></article> : null}
-      <article className="operations-panel"><div className="panel-heading"><h2>التصنيفات</h2><span>قيد إعادة البناء</span></div><p>مصدر التصنيفات المعتمد الذي يغذي البحث والملفات والخريطة.</p><Link href="/categories">عرض التصنيفات الحية</Link></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>ملخص إعداد</span></div><p>إعدادات الخدمات المعلنة وسجلات التغييرات والحوادث الحالية، دون ادعاء مراقبة حية.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
+      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
+      {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية بعقد مرتبط بالطلب ونسخة الملف.</p><Link href="/admin/verification">فتح مراجعة التحقق</Link></article> : null}
+      <article className="operations-panel"><div className="panel-heading"><h2>إدارة التصنيفات</h2><span>Product V2</span></div><p>إدارة الشجرة الهرمية، الترتيب، الإبراز والتفعيل دون حذف المراجع التاريخية.</p><Link href="/admin/categories">فتح لوحة التصنيفات</Link></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>ملخص إعداد</span></div><p>إعدادات الخدمات وسجلات التغييرات والحوادث الحالية.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>
   </main>;
 }
