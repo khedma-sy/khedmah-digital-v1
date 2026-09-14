@@ -85,7 +85,7 @@ export default function TaxiDriverSignupPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', cityCode: '' });
-  const createRequestId = useRef<string>();
+  const createRequestId = useRef<string | undefined>(undefined);
 
   const taxiBusinesses = useMemo(() => businesses.filter((item) => item.categoryCode === 'taxi'), [businesses]);
   const selected = taxiBusinesses.find((item) => item.id === selectedId);
