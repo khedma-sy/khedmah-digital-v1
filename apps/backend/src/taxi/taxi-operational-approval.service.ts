@@ -115,7 +115,7 @@ export class TaxiOperationalApprovalService {
       const business = await this.lockBusiness(client, businessProfileId);
       if (business.owner_user_id === actor.id) throw new ForbiddenException('A Taxi reviewer cannot approve their own driver profile.');
       this.assertProfileReady(business);
-      const documents = await this.latestDocuments(client, businessProfileId);
+      const documents = await this.latestDocumentsInTransaction(client, businessProfileId);
       const byType = new Map(documents.map((row) => [row.document_type, row.status]));
       if (REQUIRED_DOCUMENTS.some((type) => byType.get(type) !== 'approved')) {
         throw new ConflictException('All four latest Taxi documents must be approved before operational activation.');
@@ -243,7 +243,12 @@ export class TaxiOperationalApprovalService {
         driverRevision,
         vehicleRevision
       });
-      return { businessProfileId: business.id, status: decision, driverRevision: driverRevision.toString(), vehicleRevision: vehicleRevision.toString() };
+      return {
+        businessProfileId: business.id,
+        status: decision,
+        driverRevision: driverRevision.toString(),
+        vehicleRevision: vehicleRevision.toString()
+      };
     });
   }
 
@@ -263,8 +268,10 @@ export class TaxiOperationalApprovalService {
   }
 
   private async buildCandidate(business: BusinessRow): Promise<TaxiOperationalCandidate> {
-    const documents = await this.latestDocuments(this.db, business.id);
-    const documentState = Object.fromEntries(REQUIRED_DOCUMENTS.map((type) => [type, 'missing'])) as Record<RequiredDocument, 'missing' | 'pending' | 'approved' | 'rejected'>;
+    const documents = await this.latestDocumentsFromPool(business.id);
+    const documentState = Object.fromEntries(
+      REQUIRED_DOCUMENTS.map((type) => [type, 'missing'])
+    ) as Record<RequiredDocument, 'missing' | 'pending' | 'approved' | 'rejected'>;
     for (const row of documents) documentState[row.document_type] = row.status;
     const [driver] = await this.db.query<ApprovalRow>(
       `SELECT business_profile_id,user_id,vehicle_id,zone_code,status,revision,expires_at
@@ -296,9 +303,8 @@ export class TaxiOperationalApprovalService {
     };
   }
 
-  private async latestDocuments(queryable: Pick<DatabasePool, 'query'> | PoolClient, businessProfileId: string): Promise<LatestDocumentRow[]> {
-    const result = await queryable.query<LatestDocumentRow>(
-      `SELECT DISTINCT ON (r.document_type)
+  private latestDocumentsSql(): string {
+    return `SELECT DISTINCT ON (r.document_type)
          r.document_type,r.status,r.media_asset_id,m.created_at
        FROM mobility_document_reviews r
        JOIN media_assets m ON m.id=r.media_asset_id
@@ -306,10 +312,16 @@ export class TaxiOperationalApprovalService {
          AND m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private'
          AND m.asset_type=r.document_type
          AND r.document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
-       ORDER BY r.document_type,m.created_at DESC,m.id DESC`,
-      [businessProfileId]
-    );
-    return 'rows' in result ? result.rows : result;
+       ORDER BY r.document_type,m.created_at DESC,m.id DESC`;
+  }
+
+  private latestDocumentsFromPool(businessProfileId: string): Promise<LatestDocumentRow[]> {
+    return this.db.query<LatestDocumentRow>(this.latestDocumentsSql(), [businessProfileId]);
+  }
+
+  private async latestDocumentsInTransaction(client: PoolClient, businessProfileId: string): Promise<LatestDocumentRow[]> {
+    const result = await client.query<LatestDocumentRow>(this.latestDocumentsSql(), [businessProfileId]);
+    return result.rows;
   }
 
   private async lockBusiness(client: PoolClient, businessProfileId: string): Promise<BusinessRow> {
@@ -359,16 +371,25 @@ export class TaxiOperationalApprovalService {
     if (typeof value !== 'string') throw new BadRequestException('Taxi operational expiry is required.');
     const date = new Date(value);
     const now = Date.now();
-    if (!Number.isFinite(date.getTime()) || date.getTime() <= now + 60 * 60 * 1000 || date.getTime() > now + 2 * 365 * 24 * 60 * 60 * 1000) {
+    if (!Number.isFinite(date.getTime())
+      || date.getTime() <= now + 60 * 60 * 1000
+      || date.getTime() > now + 2 * 365 * 24 * 60 * 60 * 1000) {
       throw new BadRequestException('Taxi operational expiry must be between one hour and two years from now.');
     }
     return date;
   }
 
   private async insertEvent(client: PoolClient, input: {
-    businessProfileId: string; driverUserId: string; vehicleId: string; zoneCode: string;
-    decision: OperationalStatus; verificationReference: string; reason: string; actorUserId: string;
-    driverRevision: bigint; vehicleRevision: bigint;
+    businessProfileId: string;
+    driverUserId: string;
+    vehicleId: string;
+    zoneCode: string;
+    decision: OperationalStatus;
+    verificationReference: string;
+    reason: string;
+    actorUserId: string;
+    driverRevision: bigint;
+    vehicleRevision: bigint;
   }): Promise<void> {
     await client.query(
       `INSERT INTO khedmah_taxi.operational_approval_events
