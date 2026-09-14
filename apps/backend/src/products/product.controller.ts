@@ -8,13 +8,8 @@ export class ProductController {
     @Query('q') q?: string,
     @Query('categoryCode') categoryCode?: string,
     @Query('cityCode') cityCode?: string,
-    @Query('businessProfileId') businessProfileId?: string,
-    @Query('availability') availability?: string,
-    @Query('currency') currency?: string,
-    @Query('minPrice') minPrice?: string,
-    @Query('maxPrice') maxPrice?: string,
-    @Query('sort') sort?: string
-  ) { return { products: await this.products.listPublic({ q, categoryCode, cityCode, businessProfileId, availability, currency, minPrice, maxPrice, sort }) }; }
+    @Query('businessProfileId') businessProfileId?: string
+  ) { return { products: await this.products.listPublic({ q, categoryCode, cityCode, businessProfileId }) }; }
   @Get('mine') async mine(@Headers('cookie') cookie: string | undefined) { return { products: await this.products.listMine(cookie) }; }
   @Post() async create(@Headers('cookie') cookie: string | undefined, @Body() body: Record<string, unknown>) { return { product: await this.products.create(cookie, body) }; }
   @Patch(':id') async update(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: Record<string, unknown>) { return { product: await this.products.update(cookie, id, body) }; }

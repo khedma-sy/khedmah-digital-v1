@@ -4,37 +4,25 @@ import test from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('store journey includes governed discovery, selling, owner management and public detail', async () => {
-  const [store, storeClient, sell, manage, edit, detail, client] = await Promise.all([
+test('store journey includes discovery, selling, owner management and public detail', async () => {
+  const [store, sell, manage, edit, detail, client] = await Promise.all([
     read('app/store/page.tsx'),
-    read('lib/store-public-client.ts'),
     read('app/store/sell/page.tsx'),
     read('app/store/manage/page.tsx'),
     read('app/store/manage/[id]/edit/page.tsx'),
     read('app/store/products/[id]/page.tsx'),
     read('lib/api-client.ts')
   ]);
-  assert.match(store, /listStoreProducts/);
-  assert.match(storeClient, /\/api\/v1\/products/);
+  assert.match(store, /api\.products\.list/);
   // Applied URL state, not a once-only window query snapshot, owns results.
   assert.match(store, /const params = useSearchParams\(\)/);
-  assert.match(store, /readFilters\(params\)/);
-  assert.match(store, /query\.get\('q'\)/);
-  assert.match(store, /query\.get\('cityCode'\)/);
-  assert.match(store, /query\.get\('categoryCode'\)/);
-  assert.match(store, /query\.get\('availability'\)/);
-  assert.match(store, /query\.get\('currency'\)/);
-  assert.match(store, /query\.get\('minPrice'\)/);
-  assert.match(store, /query\.get\('maxPrice'\)/);
-  assert.match(store, /query\.get\('sort'\)/);
+  assert.match(store, /params\.get\('q'\)/);
+  assert.match(store, /params\.get\('cityCode'\)/);
+  assert.match(store, /params\.get\('categoryCode'\)/);
   assert.match(store, /const basePath = '\/store'/);
   assert.doesNotMatch(store, /classifieds|isClassifieds/);
-  assert.match(store, /HierarchicalCategoryFilter/);
-  assert.match(store, /خيارات إضافية/);
+  assert.match(store, /كل التصنيفات/);
   assert.match(store, /كل المدن/);
-  assert.match(store, /price_asc/);
-  assert.match(store, /price_desc/);
-  assert.match(store, /لا توجد مدفوعات أو طلبات شراء داخل متجر خدمة حاليًا/);
   assert.match(sell, /api\.businesses\.listMine/);
   assert.match(sell, /api\.products\.create/);
   assert.match(sell, /api\.media\.uploadProduct/);
@@ -59,8 +47,6 @@ test('store preserves complete product images and exposes navigation after login
     read('app/admin/moderation/page.tsx')
   ]);
   assert.match(styles, /object-fit:contain/);
-  assert.match(styles, /secondaryFilters/);
-  assert.match(styles, /categoryRail/);
   assert.match(navigation, /href: '\/classifieds'/);
   assert.match(account, /href="\/store\/sell"/);
   assert.match(account, /href="\/store\/manage"/);

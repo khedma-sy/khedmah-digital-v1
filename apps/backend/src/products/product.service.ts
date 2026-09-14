@@ -7,7 +7,7 @@ import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ProductRepository } from './product.repository';
 import type { ProductListing, PublicProductListing } from './product.types';
-import { validateProductPublicFilters, validateProductWrite } from './product.validation';
+import { validateProductWrite } from './product.validation';
 
 @Injectable()
 export class ProductService {
@@ -50,8 +50,8 @@ export class ProductService {
     return this.repository.listMine(actor.id);
   }
 
-  async listPublic(filters: Record<string, unknown>): Promise<PublicProductListing[]> {
-    return (await this.repository.listPublic(validateProductPublicFilters(filters))).map(toPublicProduct);
+  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<PublicProductListing[]> {
+    return (await this.repository.listPublic(filters)).map(toPublicProduct);
   }
 
   async getPublic(id: string) {
