@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -14,6 +16,19 @@ test('migration 029 emits a safe structural fingerprint and stays fail-closed', 
 
   // Diagnostics disclose only object-presence/count metadata, never row contents or credentials.
   assert.doesNotMatch(runner, /MIGRATION_029_FINGERPRINT:[^\n]*(DATABASE_URL|PGPASSWORD|session|token|user_id)/i);
+});
+
+test('Taxi 029 pre-schema failures have stable non-secret exit codes and valid POSIX shell syntax', () => {
+  const runnerPath = fileURLToPath(new URL('../scripts/deployment/run-taxi-pricing-nonproduction-migration.sh', import.meta.url));
+  const runner = read('scripts/deployment/run-taxi-pricing-nonproduction-migration.sh');
+  const syntax = spawnSync('/bin/sh', ['-n', runnerPath], { encoding: 'utf8' });
+
+  assert.equal(syntax.status, 0, syntax.stderr || 'Taxi 029 runner must parse as POSIX shell');
+  for (const code of [61, 62, 63, 64, 65, 66, 67, 68, 69]) {
+    assert.match(runner, new RegExp(`exit ${code}(?:;|\\s)`));
+  }
+  assert.match(runner, /sha256sum -c - >\/dev\/null 2>&1 \|\| exit 69/);
+  assert.doesNotMatch(runner, /DATABASE_URL[^\n]*echo|PGPASSWORD[^\n]*echo|printenv/i);
 });
 
 test('Taxi 029 deployment propagates bounded failed-execution diagnostics without weakening fail-closed behavior', () => {
