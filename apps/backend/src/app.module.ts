@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { IdentityModule } from './identity/identity.module';
+import { KoraAdminModule } from './kora-admin/kora-admin.module';
 import { LocationsModule } from './locations/locations.module';
 import { MediaModule } from './media/media.module';
 import { ModerationModule } from './moderation/moderation.module';
@@ -34,6 +35,7 @@ import { TaxiModule } from './taxi/taxi.module';
     ContactModule,
     AnalyticsModule,
     OperationsProductModule,
+    KoraAdminModule,
     BusinessProfilesModule,
     ProfessionalProfilesModule,
     ServiceCatalogModule,
