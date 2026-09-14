@@ -23,7 +23,7 @@ test('courier help is explicit and keeps order and independent delivery boundari
 });
 
 test('classifieds pagination is server owned from validation to URL navigation', () => {
-  const client = read('../../lib/classifieds-client.ts');
+  const client = read('../lib/classifieds-client.ts');
   const page = read('../app/classifieds/page.tsx');
 
   assert.match(client, /CLASSIFIEDS_PAGE_SIZE = 20/);
