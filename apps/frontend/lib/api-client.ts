@@ -1,3 +1,5 @@
+import { readApiError } from './api-errors';
+
 // Browser requests stay on the frontend origin. Next.js proxies /api/v1 to the
 // backend so the session cookie is first-party in production.
 const API_BASE = '';
@@ -307,15 +309,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message =
-      (data as { message?: string | string[] }).message ??
-      `خطأ في الخادم (${response.status})`;
-    const text = Array.isArray(message) ? message.join('. ') : (message as string);
-    throw Object.assign(new Error(text), {
+    const { message, code } = readApiError(data, response.status);
+    const businessId = (data as { businessId?: unknown } | null)?.businessId;
+    const productId = (data as { productId?: unknown } | null)?.productId;
+    throw Object.assign(new Error(message), {
       statusCode: response.status,
-      code: (data as { code?: string }).code,
-      businessId: typeof (data as { businessId?: unknown }).businessId === 'string' ? (data as { businessId: string }).businessId : undefined,
-      productId: typeof (data as { productId?: unknown }).productId === 'string' ? (data as { productId: string }).productId : undefined
+      code,
+      businessId: typeof businessId === 'string' ? businessId : undefined,
+      productId: typeof productId === 'string' ? productId : undefined
     });
   }
 

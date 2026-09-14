@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import type { Response } from 'express';
 import { getRequestContext } from '../context/request-context';
 import { PlatformLogger } from '../logging/platform-logger';
+import { EmailVerificationRequiredError, SafeAuthenticationError } from '../identity/identity.errors';
 
 interface ErrorResponseBody {
   readonly error: {
@@ -54,7 +55,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = context.getResponse<Response>();
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const requestContext = getRequestContext();
-    const code = errorCodeForStatus(status);
+    // Only typed, explicitly safe identity failures may carry a recovery code.
+    // Arbitrary HttpException messages and response objects remain private.
+    const identityError = exception instanceof EmailVerificationRequiredError
+      ? { code: 'EMAIL_VERIFICATION_REQUIRED', message: 'يجب تأكيد البريد الإلكتروني قبل تسجيل الدخول.' }
+      : exception instanceof SafeAuthenticationError
+        ? { code: 'INVALID_CREDENTIALS', message: 'تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.' }
+        : undefined;
+    const code = identityError?.code ?? errorCodeForStatus(status);
 
     this.logger.logErrorContext({
       requestId: requestContext?.requestId,
@@ -66,7 +74,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const body: ErrorResponseBody = {
       error: {
         code,
-        message: safeMessageForStatus(status),
+        message: identityError?.message ?? safeMessageForStatus(status),
         timestamp: new Date().toISOString(),
         requestId: requestContext?.requestId,
         correlationId: requestContext?.correlationId

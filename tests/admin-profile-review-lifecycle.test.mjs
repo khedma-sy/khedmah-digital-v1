@@ -31,7 +31,7 @@ for(const kind of ['business','professional']){
   });
 }
 test('profile API clients serialize revisions for approval and rejection',async()=>{
-  const calls=[];const {api}=loadSource(readSource('apps/frontend/lib/api-client.ts'),{}, {fetch:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({})};}});
+  const calls=[];const {api}=loadSource(readSource('apps/frontend/lib/api-client.ts'),{'./api-errors':loadSource(readSource('apps/frontend/lib/api-errors.ts'),{})}, {fetch:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({})};}});
   for(const kind of ['businesses','professionals']){
     await api[kind].approveModeration('id',revision);assert.deepEqual(JSON.parse(calls.at(-1).init.body),{expectedRevision:revision});
     await api[kind].rejectModeration('id','سبب واضح',revision);assert.deepEqual(JSON.parse(calls.at(-1).init.body),{reason:'سبب واضح',expectedRevision:revision});
