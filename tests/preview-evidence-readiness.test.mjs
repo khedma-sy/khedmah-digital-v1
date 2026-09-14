@@ -18,7 +18,7 @@ import {
 } from '../scripts/capture-preview-evidence.mjs';
 
 const expectedRoutes = ['/', '/categories', '/food', '/search', '/map', '/taxi', '/store', '/professional-profiles/search'];
-const expectedNavigationHrefs = ['/search', '/categories', '/food', '/map', '/taxi', '/store', '/classifieds'];
+const expectedNavigationHrefs = ['/search', '/categories', '/food', '/mobility?type=delivery', '/map', '/taxi', '/store', '/classifieds'];
 const expectedCaptureCount = expectedRoutes.length * 4 * 2;
 
 const ready = {
@@ -41,6 +41,20 @@ const ready = {
 test('evidence accepts a ready 2xx page but does not equate an image file with readiness', () => {
   assert.deepEqual(assessEvidence(ready, 200, true), []);
   assert.ok(assessEvidence({}, 200, true).includes('CONTENT_NOT_READY'));
+});
+
+test('visual evidence locks the canonical eight-link discovery navigation including Delivery', () => {
+  assert.deepEqual(assessEvidence(ready, 200, true), []);
+  const legacyWithoutDelivery = expectedNavigationHrefs.filter((href) => href !== '/mobility?type=delivery');
+  const failures = assessEvidence({
+    ...ready,
+    navigationCount: legacyWithoutDelivery.length,
+    navigationInteractiveCount: legacyWithoutDelivery.length,
+    navigationHrefs: legacyWithoutDelivery
+  }, 200, true);
+  assert.ok(failures.includes('NAVIGATION_NOT_READY'));
+  assert.ok(failures.includes('NAVIGATION_NOT_INTERACTIVE'));
+  assert.ok(failures.includes('NAVIGATION_DESTINATIONS_CHANGED'));
 });
 
 for (const [name, change, code] of [
