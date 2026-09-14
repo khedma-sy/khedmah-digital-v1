@@ -40,6 +40,28 @@ export async function lastApplicationControl(page) {
   return null;
 }
 
+// Focus can scroll the viewport while late map layout is settling. Require the
+// same hit-tested, focused control at stable coordinates for three frames.
+// A persistent overlay still fails, with geometry retained for diagnosis.
+export async function browserControlReachability(element) {
+  const deadline = performance.now() + 2000;
+  let previous, stableFrames = 0, sample;
+  do {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const rect = element.getBoundingClientRect();
+    const bounds = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    const focused = element === document.activeElement;
+    const hitMatches = !!hit && element.contains(hit);
+    const stationary = previous && Object.keys(bounds).every(key => Math.abs(bounds[key] - previous[key]) <= 0.5);
+    stableFrames = focused && hitMatches && stationary ? stableFrames + 1 : 0;
+    sample = { reachable: stableFrames >= 3, focused, hitMatches, bounds, hitTag: hit?.tagName?.toLowerCase() ?? null, stableFrames };
+    if (sample.reachable) return sample;
+    previous = bounds;
+  } while (performance.now() < deadline);
+  return sample;
+}
+
 export async function waitForInteractionReadiness(page, timeout) {
   await page.waitForFunction(() => {
     const assistant = document.querySelector('[data-khedmah-assistant]');
@@ -130,10 +152,8 @@ export async function main(env = process.env) {
             ariaLabel: element.getAttribute('aria-label'),
             text: (element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120)
           }));
-          record.lastControlReachable = await last.evaluate(element => {
-            const r = element.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-            return element === document.activeElement && !!hit && element.contains(hit);
-          });
+          record.lastControlHitTest = await last.evaluate(browserControlReachability);
+          record.lastControlReachable = record.lastControlHitTest.reachable;
           requireCondition(record.lastControlReachable, 'MAIN_CONTROL_OBSCURED');
         } else record.lastControlReachable = null;
         requireCondition(record.pageErrorCount === 0, 'BROWSER_RUNTIME_ERROR');
