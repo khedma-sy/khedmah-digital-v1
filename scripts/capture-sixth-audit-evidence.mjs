@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { measureClassifiedsActionContrast } from './classifieds-action-contrast.mjs';
+import { assessInlineLayout, browserInlineLayout } from './sixth-audit-layout.mjs';
 import {
   assessEvidence,
   browserPrepareFullPageCapture,
@@ -124,6 +125,11 @@ export async function main(env = process.env) {
               record.actionContrast = await measureClassifiedsActionContrast(page);
               record.failures.push(...record.actionContrast.failures);
             }
+            // Check after keyboard traversal, which can scroll hidden RTL overflow
+            // and clip unrelated headings even when document overflow is zero.
+            record.inlineLayout = await page.evaluate(browserInlineLayout);
+            record.inlineLayoutAssessment = assessInlineLayout(record.inlineLayout);
+            record.failures.push(...record.inlineLayoutAssessment.failures);
             record.status = record.failures.length ? 'failed' : 'passed';
           } catch (error) {
             record.failures.push(error?.name === 'TimeoutError' ? 'SIXTH_AUDIT_TIMEOUT' : 'SIXTH_AUDIT_CAPTURE_ERROR');
