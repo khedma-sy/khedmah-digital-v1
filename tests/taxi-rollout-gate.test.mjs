@@ -13,7 +13,7 @@ test('Taxi operational UI stays hidden unless the server explicitly enables trip
   assert.match(layout, /export const dynamic = 'force-dynamic'/);
   assert.match(layout, /process\.env\.TAXI_TRIPS_ENABLED === 'true'/);
   assert.match(layout, /\/mobility\?type=taxi/);
-  assert.match(layout, /الرحلات التشغيلية غير مفعلة/);
+  assert.match(layout, /حجز الرحلات داخل خدمة غير متاح حاليًا/);
   assert.match(service, /process\.env\.TAXI_TRIPS_ENABLED!=='true'/);
 });
 

@@ -22,7 +22,9 @@ export function browserInlineLayout() {
     ':scope > .ui-container', '.ui-page-header', 'h1', '.ui-page-heading p',
     'form[role="search"]', 'form[role="search"] input', 'form[role="search"] select',
     'form[role="search"] textarea', 'form[role="search"] button',
-    '.ui-page-actions .ui-action', '.ui-empty'
+    '.ui-page-actions .ui-action', '.ui-empty',
+    '.auth-panel', '.auth-field', '.auth-field input', '.auth-primary', '.auth-secondary', '.auth-tabs',
+    'ol[aria-label="مراحل اعتماد سائق التكسي"] > li'
   ];
   const elements = main ? [...main.querySelectorAll(selectors.join(','))].filter((element) => {
     const style = getComputedStyle(element);

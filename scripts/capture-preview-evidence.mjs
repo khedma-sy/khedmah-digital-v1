@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { measurePageDesign } from './page-design-evidence.mjs';
+import { assessInlineLayout, browserInlineLayout } from './sixth-audit-layout.mjs';
 
 export const evidenceRoutes = Object.freeze([
   { key: 'home', path: '/', formName: '' },
@@ -239,6 +241,13 @@ async function capture(browser, origin, target, route, viewport, directory, them
     record.failures.push(...assessEvidence(record.snapshot, record.httpStatus,
       new URL(page.url()).origin === origin && new URL(page.url()).pathname === route.path,
       record.pageErrorCount, theme, route.key === 'map' || route.key === 'taxi'));
+    if (target === 'after') {
+      record.pageDesign = await measurePageDesign(page, route.key);
+      record.failures.push(...record.pageDesign.failures);
+      record.inlineLayout = await page.evaluate(browserInlineLayout);
+      record.inlineLayoutAssessment = assessInlineLayout(record.inlineLayout);
+      record.failures.push(...record.inlineLayoutAssessment.failures);
+    }
     record.status = record.failures.length ? 'failed' : 'passed';
   } catch (error) {
     record.failures.push(error?.name === 'TimeoutError' ? 'NAVIGATION_TIMEOUT' : 'CAPTURE_ERROR');

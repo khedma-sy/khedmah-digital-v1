@@ -17,6 +17,10 @@ import {
   validateBaseUrl
 } from '../scripts/capture-preview-evidence.mjs';
 
+import { browserDesignLayout } from '../scripts/page-design-evidence.mjs';
+import { browserInlineLayout } from '../scripts/sixth-audit-layout.mjs';
+import { browserActionPaint } from '../scripts/classifieds-action-contrast.mjs';
+
 const expectedRoutes = ['/', '/categories', '/food', '/search', '/map', '/taxi', '/store', '/professional-profiles/search'];
 const expectedNavigationHrefs = ['/search', '/categories', '/food', '/mobility?type=delivery', '/map', '/taxi', '/store', '/classifieds'];
 const expectedCaptureCount = expectedRoutes.length * 4 * 2;
@@ -125,7 +129,15 @@ async function exerciseMain(t, overrides = {}, options = {}) {
             return { status: () => 200 };
           },
           waitForFunction: async () => undefined,
-          evaluate: async (fn) => {
+          mouse: { move: async () => {} },
+          keyboard: { press: async () => {} },
+          locator: () => ({ count: async () => 6, nth: () => ({
+            hover: async () => {}, focus: async () => {}, getAttribute: async () => 'navy',
+            evaluate: async (fn) => fn === browserActionPaint ? { label: 'fixture', visible: true, unsupportedPaint: false, renderedOpacity: 1, foregroundRgba: [255,255,255,255], backgroundRgba: [7,66,124,255] } : undefined
+          }) }),
+          evaluate: async (fn, key) => {
+            if (fn === browserDesignLayout) return { key, htmlDir: 'rtl', direction: 'rtl', missingTokens: [], samples: Array.from({ length: 6 }, () => ({ label: 'fixture', padding: options.missingSpacing && key === 'search' ? 0 : 16, minimumPadding: 16, gap: 16, minimumGap: 16 })) };
+            if (fn === browserInlineLayout) return { viewportWidth: 320, mainOverflowPx: 0, elements: [{ left: 16, right: 304, width: 288 }] };
             if (fn === browserReadyForCapture) return true;
             const pathname = new URL(currentUrl).pathname;
             const mapExpected = pathname === '/map' || pathname === '/taxi';
@@ -400,4 +412,11 @@ test('every route, viewport and theme capture has a unique evidence filename', a
   const { report } = await exerciseMain(t);
   assert.equal(new Set(report.after.map((item) => item.screenshot)).size, expectedCaptureCount);
   assert.equal(report.after.filter((item) => item.theme === 'dark').length, expectedCaptureCount / 2);
+});
+
+test('rendered spacing failures block Preview without changing a passing baseline', async (t) => {
+  const { report } = await exerciseMain(t, {}, { missingSpacing: true });
+  assert.equal(report.before.status, 'passed');
+  assert.equal(report.previewStatus, 'failed');
+  assert.equal(report.after.filter((item) => item.failures.includes('SURFACE_PADDING_MISSING')).length, 8);
 });

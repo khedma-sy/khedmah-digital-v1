@@ -18,9 +18,9 @@ export function TaxiPlanningPreview() {
   const [pickup, setPickup] = useState<TaxiAddress>(initialPickup);
   const [dropoff, setDropoff] = useState<TaxiAddress>(initialDropoff);
 
-  return <section className={styles.panel} data-taxi-planning-preview data-taxi-trip-execution="disabled">
+  return <section className={styles.planning} data-taxi-planning-preview data-taxi-trip-execution="disabled">
     <h2>تخطيط مسار الرحلة</h2>
-    <p className={styles.note}>اختر نقطة الانطلاق والوجهة على الخريطة لمراجعة تجربة التخطيط. تنفيذ الرحلات والتسعير والطلبات التشغيلية ما زالت معطلة في هذه البيئة.</p>
+    <p className={styles.note}>حدد نقطة الانطلاق ثم الوجهة على الخريطة. هذا تخطيط للمسار فقط؛ لا يحجز سيارة ولا يحسب أجرة.</p>
     <TaxiMapSelector pickup={pickup} dropoff={dropoff} onPickupChange={setPickup} onDropoffChange={setDropoff} />
     <div className={styles.summary} aria-label="إحداثيات مسار المعاينة">
       <dl>

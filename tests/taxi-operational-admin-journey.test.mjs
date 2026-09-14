@@ -41,7 +41,9 @@ test('Taxi operational authority remains distinct from trip execution', () => {
   assert.match(migration, /does NOT create trip\/dispatch tables/);
   assert.match(admin, /الاعتماد التشغيلي لا يفعّل رحلات التكسي تلقائيًا/);
   assert.match(admin, /استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة/);
-  assert.match(signup, /هذه الصفحة لا تمنح نفسها صلاحية القيادة ولا تفتح Trip engine/);
+  assert.match(signup, /يعتمد فريق خدمة السائق والسيارة بعد المراجعة/);
+  assert.match(signup, /استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية/);
+  assert.doesNotMatch(signup, /taxiOperationalReviewApi\.(approve|restrict)\s*\(/);
   assert.doesNotMatch(admin, /TAXI_TRIPS_ENABLED\s*=\s*true|تم تفعيل الرحلات/);
   assert.doesNotMatch(signup, /تم تفعيل الرحلات/);
 });

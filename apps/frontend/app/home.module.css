@@ -162,6 +162,8 @@
 .categoryCard { display:block; overflow:hidden; border:1px solid var(--k-glass-border); border-radius:var(--k-radius-lg); color:var(--home-ink); background:var(--k-glass-strong); box-shadow:var(--k-shadow-md); text-decoration:none; transition:box-shadow 180ms ease,transform 180ms ease; -webkit-backdrop-filter:blur(var(--k-glass-blur)); backdrop-filter:blur(var(--k-glass-blur)); }
 .categoryCard:hover { transform:translateY(-2px); box-shadow:var(--k-glass-shadow); }
 .categoryImage { position:relative; display:block; aspect-ratio:4/3; overflow:hidden; border-bottom:1px solid var(--k-glass-border); background:#fff; }
+.categoryIllustration { display:grid; place-items:center; color:var(--k-color-primary); background:radial-gradient(circle at center,var(--k-color-primary-soft),var(--k-color-canvas-soft)); }
+.categoryIllustration svg { padding:1.2rem; box-sizing:content-box; border:1px solid var(--k-color-border); border-radius:50%; background:var(--k-color-surface); }
 .categoryImage img { object-fit:contain; object-position:center; background:#fff; }
 .categoryBody { display:grid; gap:.25rem; padding:.9rem 1rem 1rem; }
 .categoryBody b { font-size:var(--k-type-card); }

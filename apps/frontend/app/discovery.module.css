@@ -75,6 +75,7 @@
 .page :global(.ui-surface){box-shadow:var(--k-shadow-sm);background:color-mix(in srgb,var(--k-color-surface) 94%,transparent)}
 .page :global(.ui-page-header){padding-block-end:.2rem;border-block-end:1px solid var(--k-color-border)}
 .form{border-radius:var(--k-radius-lg)}
+.field input,.field select{min-width:0}
 .tabs{width:100%;justify-content:center;border-radius:var(--k-radius-lg);background:var(--k-color-surface-muted);backdrop-filter:none;-webkit-backdrop-filter:none}
 .tab{flex:1 1 9rem;text-align:center}
 .card{padding:1.05rem;border-color:color-mix(in srgb,var(--discovery-accent) 14%,var(--k-color-border));box-shadow:var(--k-shadow-sm);transition:transform 160ms ease,box-shadow 160ms ease}

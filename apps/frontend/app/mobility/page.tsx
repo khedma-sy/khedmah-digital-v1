@@ -246,8 +246,8 @@ function MobilityContent() {
         <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => selectType('delivery')}><PlatformIcon name="cart"/> مندوب توصيل</ActionButton>
       </div>
       <div className={styles.fields}>
-        <label>موقع الانطلاق<input ref={pickupInput} value={pickup} onChange={(event) => editPickup(event.target.value)} placeholder="اختر عنوانًا من Google" autoComplete="off"/></label>
-        <label>الوجهة<input ref={destinationInput} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="إلى أين؟" autoComplete="off"/></label>
+        <label>{deliveryMode ? 'موقع الاستلام' : 'موقع الانطلاق'}<input ref={pickupInput} value={pickup} onChange={(event) => editPickup(event.target.value)} placeholder="اختر عنوانًا من Google" autoComplete="off"/></label>
+        <label>الوجهة (اختيارية للبحث)<input ref={destinationInput} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="أضف وجهة لفتح المسار" autoComplete="off"/></label>
       </div>
       <div className={styles.actions}>
         <ActionButton type="button" variant="secondary" onClick={useCurrentLocation} disabled={locating}><PlatformIcon name="pin"/> استخدم موقعي</ActionButton>

@@ -15,13 +15,13 @@ test('home hero follows launch priority food then delivery then taxi', () => {
 test('categories render all three canonical semantic brand tones', () => {
   const css = read('../app/categories/categories.module.css');
   for (const [tone, token, text] of [
-    ['navy', '--brand-navy', '--k-text-on-primary'],
-    ['green', '--brand-green', '--k-text-on-green'],
-    ['orange', '--brand-orange', '--k-text-on-orange'],
+    ['navy', '--brand-navy', '#fff'],
+    ['green', '--brand-green', 'var(--k-color-on-accent)'],
+    ['orange', '--brand-orange', 'var(--k-color-on-accent)'],
   ] as const) {
     assert.match(css, new RegExp(`data-category-tone='${tone}'`));
     assert.ok(css.includes(`background: var(${token})`));
-    assert.ok(css.includes(`color: var(${text})`));
+    assert.ok(css.includes(`color: ${text}`));
   }
   assert.match(read('../app/categories/page.tsx'), /styles\.toneScope/);
 });

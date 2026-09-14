@@ -23,10 +23,12 @@ function contrast(a, b) {
   return (bright + 0.05) / (dark + 0.05);
 }
 
-test('sixth audit adds exactly Restaurants, Delivery and Classifieds After-only visual coverage', () => {
+test('sixth audit includes Restaurants, Delivery, Classifieds and anonymous account journeys', () => {
   assert.match(capture, /key: 'restaurants', path: '\/restaurants', href: '\/restaurants'/);
   assert.match(capture, /key: 'delivery', path: '\/mobility', href: '\/mobility\?type=delivery'/);
   assert.match(capture, /key: 'classifieds', path: '\/classifieds', href: '\/classifieds'/);
+  for (const route of ['taxi-driver-signup', 'auth/login', 'auth/register']) assert.ok(capture.includes(`path: '/${route}'`));
+  assert.match(capture, /assessAuthEvidence/);
   assert.match(capture, /sixthAuditRoutes\.length \* evidenceViewports\.length \* evidenceThemes\.length/);
   assert.match(capture, /RTL_NOT_APPLIED/);
   assert.match(capture, /directionSnapshot/);

@@ -28,7 +28,7 @@ export default function FoodPage() {
 
       <section className={styles.hero} aria-labelledby="food-hero-title">
         <div>
-          <span className={styles.badge}><PlatformIcon name="food" size={18}/> القسم البرتقالي</span>
+          <span className={styles.badge}><PlatformIcon name="food" size={18}/> طلب الطعام واكتشاف المطاعم</span>
           <h2 id="food-hero-title">من المطعم إلى بابك… تحت مظلة واحدة</h2>
           <p>خدمة فود تربطك برحلة الطلب الفعلية: اختر المطعم والقائمة، راجع السلة والعنوان، ثم تابع الطلب والمندوب حتى التسليم. الدفع الحالي نقدًا عند الاستلام.</p>
           <div className={styles.actions}>
@@ -53,7 +53,7 @@ export default function FoodPage() {
       </section>
 
       <Surface className={styles.businessCta}>
-        <div><span>لأصحاب الأعمال</span><h2>لديك مطعم أو مقهى أو مخبز أو محل حلويات؟</h2><p>أنشئ ملف نشاطك وأضف منتجاتك ليظهر نشاطك ضمن خدمة فود ورحلة الطلب.</p></div>
+        <div><span>لأصحاب الأعمال</span><h2>لديك مطعم أو مقهى أو مخبز أو محل حلويات؟</h2><p>أنشئ ملف نشاطك، أكمل معلوماته والقائمة، ثم أرسله للمراجعة.</p></div>
         <Link href="/business-profiles/new">أضف نشاطك</Link>
       </Surface>
     </div>

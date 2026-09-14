@@ -29,6 +29,13 @@
   --k-radius-md: .8rem;
   --k-radius-lg: 1.1rem;
   --k-radius-xl: 1.35rem;
+  --k-radius-pill: 999px;
+  --k-space-2: .5rem;
+  --k-space-3: .75rem;
+  --k-space-4: 1rem;
+  --k-space-5: 1.5rem;
+  --k-space-6: 2rem;
+  --k-shadow-xl: var(--k-shadow-lg);
   --k-type-display: clamp(1.75rem, 2.6vw, 2.4rem);
   --k-type-page: clamp(1.3rem, 1.85vw, 1.75rem);
   --k-type-section: clamp(1.1rem, 1.45vw, 1.35rem);

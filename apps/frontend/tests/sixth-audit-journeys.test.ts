@@ -70,7 +70,8 @@ test('Taxi onboarding reports effective eligibility, not merely a stored approve
   assert.match(taxiSignup, /operationalStatus === 'approved'[\s\S]*profileReady[\s\S]*operationalExpiry > Date\.now\(\)/);
   assert.match(taxiSignup, /انتهت صلاحية الاعتماد/);
   assert.match(taxiSignup, /الاعتماد المسجل متوقف الأثر/);
-  assert.match(taxiSignup, /لا تفتح Trip engine/);
+  assert.match(taxiSignup, /استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية/);
+  assert.doesNotMatch(taxiSignup, /taxiOperationalReviewApi\.(approve|restrict)\s*\(/);
 });
 
 test('Taxi Ops counts only currently eligible approvals and exposes renewal blockers', () => {

@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { measureClassifiedsActionContrast } from './classifieds-action-contrast.mjs';
 import { assessInlineLayout, browserInlineLayout } from './sixth-audit-layout.mjs';
+import { assessAuthEvidence, browserAuthShell, measurePageDesign } from './page-design-evidence.mjs';
 import {
   assessEvidence,
   browserPrepareFullPageCapture,
@@ -17,7 +18,10 @@ import {
 export const sixthAuditRoutes = Object.freeze([
   { key: 'restaurants', path: '/restaurants', href: '/restaurants', formName: '' },
   { key: 'delivery', path: '/mobility', href: '/mobility?type=delivery', formName: 'البحث عن تكسي أو مندوب', search: 'type=delivery' },
-  { key: 'classifieds', path: '/classifieds', href: '/classifieds', formName: 'البحث في إعلانات خدمة' }
+  { key: 'classifieds', path: '/classifieds', href: '/classifieds', formName: 'البحث في إعلانات خدمة' },
+  { key: 'taxi-signup', path: '/taxi-driver-signup', href: '/taxi-driver-signup', formName: '' },
+  { key: 'login', path: '/auth/login', href: '/auth/login', formName: 'تسجيل الدخول', authShell: true },
+  { key: 'register', path: '/auth/register', href: '/auth/register', formName: 'إنشاء حساب', authShell: true }
 ]);
 
 const expectedScenarios = sixthAuditRoutes.length * evidenceViewports.length * evidenceThemes.length;
@@ -39,13 +43,13 @@ export async function main(env = process.env) {
   const directory = resolve(env.EVIDENCE_DIR || 'preview-evidence');
   await mkdir(directory, { recursive: true });
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     headSha: env.PREVIEW_HEAD_SHA || null,
     checkoutSha: env.GITHUB_SHA || null,
     status: 'failed',
     expectedScenarios,
-    scope: 'Sixth-audit anonymous After-only visual readiness for Restaurants, independent Delivery and Classifieds. Four governed viewports, light/dark, RTL, no authentication, location permission, form submission or server writes.',
+    scope: 'Anonymous After-only visual readiness for Restaurants, independent Delivery, Classifieds, guest Taxi signup, Login and Register. Four governed viewports, light/dark, RTL. Account pages use an explicit auth-shell gate. No credentials, authentication, location permission, form submission or server writes.',
     scenarios: []
   };
   let browser;
@@ -110,7 +114,11 @@ export async function main(env = process.env) {
             const current = new URL(page.url());
             record.snapshot = await page.evaluate(browserSnapshot, route.formName);
             record.direction = await page.evaluate(directionSnapshot);
-            record.failures.push(...assessEvidence(
+            if (route.authShell) {
+              record.authShell = await page.evaluate(browserAuthShell);
+              record.failures.push(...assessAuthEvidence(record.snapshot, record.authShell, record.httpStatus,
+                routeMatches(current, origin, route), record.pageErrorCount, theme));
+            } else record.failures.push(...assessEvidence(
               record.snapshot,
               record.httpStatus,
               routeMatches(current, origin, route),
@@ -125,6 +133,8 @@ export async function main(env = process.env) {
               record.actionContrast = await measureClassifiedsActionContrast(page);
               record.failures.push(...record.actionContrast.failures);
             }
+            record.pageDesign = await measurePageDesign(page, route.key);
+            record.failures.push(...record.pageDesign.failures);
             // Check after keyboard traversal, which can scroll hidden RTL overflow
             // and clip unrelated headings even when document overflow is zero.
             record.inlineLayout = await page.evaluate(browserInlineLayout);

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أ
 const launchServices = [
   { href: '/food', icon: 'food' as const, title: 'خدمة فود', copy: 'مطاعم، مقاهٍ، مخابز وحلويات.', tone: 'foodCard' as const },
   { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'مندوب التوصيل', copy: 'ابحث عن خدمات التوصيل القريبة.', tone: 'deliveryCard' as const },
-  { href: '/taxi', icon: 'car' as const, title: 'خدمة تكسي', copy: 'حدد الانطلاق والوجهة وابدأ رحلة التكسي.', tone: 'taxiCard' as const }
+  { href: '/taxi', icon: 'car' as const, title: 'خدمة تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
 ];
 
 const trustItems = [
@@ -27,7 +27,7 @@ export default function Home() {
       <div className={styles.heroCopy}>
         <p className={styles.eyebrow}><PlatformIcon name="check" /> تحت مظلة واحدة</p>
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
-        <p className={styles.lead}>خدمة تجمع البحث، الأعمال، المطاعم، المتجر، النقل والتوصيل تحت هوية واحدة واضحة.</p>
+        <p className={styles.lead}>ابحث عن خدمة، اكتشف مطعمًا، أو تواصل مع مقدم خدمة قريب منك.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
         <div className={styles.actions}><Link href="/food"><PlatformIcon name="food" />المطاعم</Link><Link href="/mobility?type=delivery"><PlatformIcon name="truck" />التوصيل</Link><Link href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
         <p className={styles.heroNote}>فترة تجريبية</p>
@@ -36,7 +36,7 @@ export default function Home() {
     </section>
 
     <section className={styles.launch} aria-labelledby="launch-title">
-      <div className={styles.launchHeading}><span>الخدمات الرئيسية</span><h2 id="launch-title">ابدأ من هنا</h2><p>المطاعم والتوصيل والتكسي هي مداخل الإطلاق الأساسية في خدمة.</p></div>
+      <div className={styles.launchHeading}><span>الخدمات الرئيسية</span><h2 id="launch-title">ماذا تحتاج اليوم؟</h2><p>اختر الخدمة المناسبة لتبدأ طلبك أو تصل إلى مقدم الخدمة.</p></div>
       <div className={styles.launchGrid}>{launchServices.map((service) => <Link className={`${styles.launchCard} ${styles[service.tone]}`} href={service.href} key={service.href}>
         <span className={styles.launchIcon}><PlatformIcon name={service.icon} size={30}/></span>
         <span><b>{service.title}</b><small>{service.copy}</small></span>
