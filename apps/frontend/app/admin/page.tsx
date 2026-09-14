@@ -72,7 +72,7 @@ export default function AdminPage() {
       <article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article>
     </section>
 
-    <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا مركز تحكم إداري، وكل وحدة فرعية تتحقق من صلاحيتها الخاصة على الخادم. عرض الرابط هنا لا يمنح صلاحية تنفيذ.</p></section>
+    <section className="operations-panel" aria-label="حدود بيانات التشغيل"><h2>ما الذي تثبته هذه اللوحة؟</h2><p>هذا مركز تحكم إداري وليس فحصاً حياً لجاهزية الخدمات أو حركة الإنتاج. كل وحدة فرعية تتحقق من صلاحيتها الخاصة على الخادم، وعرض الرابط هنا لا يمنح صلاحية تنفيذ.</p></section>
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل النشر أو اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
