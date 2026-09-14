@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { measureClassifiedsActionContrast } from './classifieds-action-contrast.mjs';
 import {
   assessEvidence,
   browserPrepareFullPageCapture,
@@ -118,6 +119,10 @@ export async function main(env = process.env) {
             ));
             if (record.direction.htmlDir !== 'rtl' || record.direction.bodyDirection !== 'rtl') {
               record.failures.push('RTL_NOT_APPLIED');
+            }
+            if (route.key === 'classifieds') {
+              record.actionContrast = await measureClassifiedsActionContrast(page);
+              record.failures.push(...record.actionContrast.failures);
             }
             record.status = record.failures.length ? 'failed' : 'passed';
           } catch (error) {
