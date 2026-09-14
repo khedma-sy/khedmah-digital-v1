@@ -72,6 +72,13 @@ TAXI_PRICING_MIGRATION_029_CONFIRMATION="APPLY_KHEDMAH_NONPROD_029_${environment
 export TAXI_PRICING_MIGRATION_029_MODE TAXI_PRICING_MIGRATION_029_CONFIRMATION
 scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh "$environment" "$identifier"
 
+# Product V2 Billing is active backend runtime. Its append-only ledger, subscriptions,
+# welcome grants and promo contract must exist before the backend can serve Billing APIs.
+BILLING_MIGRATION_030_MODE='apply'
+BILLING_MIGRATION_030_CONFIRMATION="APPLY_KHEDMAH_NONPROD_030_${environment^^}"
+export BILLING_MIGRATION_030_MODE BILLING_MIGRATION_030_CONFIRMATION
+scripts/deployment/ensure-billing-nonproduction-schema.sh "$environment" "$identifier"
+
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
 
