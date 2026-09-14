@@ -63,3 +63,15 @@ if [[ "$execution_status" -ne 0 ]]; then
 fi
 
 printf 'Taxi operational migration 031 %s completed and verified for %s.\n' "$mode" "$environment"
+
+# Migration 032 is the mandatory successor hardening for the 031 actor authority.
+# It does not enable trips; it only makes driver access fail closed when the Taxi
+# business profile loses publication, moderation, trust or active status.
+TAXI_OPERATIONAL_MIGRATION_032_MODE="$mode"
+if [[ "$mode" == 'apply' ]]; then
+  TAXI_OPERATIONAL_MIGRATION_032_CONFIRMATION="APPLY_KHEDMAH_NONPROD_032_${environment^^}"
+else
+  TAXI_OPERATIONAL_MIGRATION_032_CONFIRMATION=''
+fi
+export TAXI_OPERATIONAL_MIGRATION_032_MODE TAXI_OPERATIONAL_MIGRATION_032_CONFIRMATION
+bash scripts/deployment/ensure-taxi-operational-profile-gate-nonproduction-schema.sh "$environment" "$identifier"
