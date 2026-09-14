@@ -14,6 +14,8 @@ import {
   validateAdUpdate
 } from './ad.validation';
 
+const PUBLIC_PAGE_SIZE = 20;
+
 @Injectable()
 export class AdService {
   constructor(
@@ -82,9 +84,16 @@ export class AdService {
     return this.runRepository(() => this.repository.quota(actor.id));
   }
 
-  async listPublic(filters: { q?: unknown; categoryCode?: unknown; cityCode?: unknown }): Promise<PublicAdListing[]> {
+  async listPublic(filters: { q?: unknown; categoryCode?: unknown; cityCode?: unknown; page?: unknown }): Promise<{ ads: PublicAdListing[]; total: number; page: number }> {
     this.assertEnabled();
-    return (await this.runRepository(() => this.repository.listPublic(validateAdPublicFilters(filters)))).map(toPublicAd);
+    const input = validateAdPublicFilters(filters);
+    const query = { q: input.q, categoryCode: input.categoryCode, cityCode: input.cityCode };
+    const offset = (input.page - 1) * PUBLIC_PAGE_SIZE;
+    const [ads, total] = await Promise.all([
+      this.runRepository(() => this.repository.listPublic(query, PUBLIC_PAGE_SIZE, offset)),
+      this.runRepository(() => this.repository.countPublic(query))
+    ]);
+    return { ads: ads.map(toPublicAd), total, page: input.page };
   }
 
   async getPublic(id: string): Promise<PublicAdListing> {
