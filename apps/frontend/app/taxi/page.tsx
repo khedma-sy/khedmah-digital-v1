@@ -309,7 +309,7 @@ function DriverJourney() {
       </Surface>)}
       {trip && <><TripCard trip={trip} onRefresh={() => read(trip.id)} /><Surface className={styles.panel}>
         <h3>الخطوة التشغيلية</h3>
-        <p className={styles.note}>الوصول وإنهاء الرحلة يحتاجان إثباتات من كاتب موثوق/عداد؛ لا توجد أزرار لتزوير هذه البيانات من المتصفح.</p>
+        <p className={styles.note}>الوصول وإنهاء الرحلة يعتمدان على إثباتات تشغيلية موثوقة.</p>
         <div className={styles.actions}>
           {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void checkConsent()} disabled={busy}>تحقق من موافقة الراكب وابدأ</ActionButton>}
           {trip.phase === 'accepted' && !trip.rideStartedAt && <ActionButton type="button" variant="secondary" onClick={() => void release()} disabled={busy}>تحرير المهمة</ActionButton>}
