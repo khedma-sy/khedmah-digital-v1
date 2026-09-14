@@ -7,6 +7,10 @@ const requiredFiles = [
   'scripts/deployment/resolve-classifieds-staging-stage.sh', '.github/classifieds-staging-stage', 'scripts/check-classifieds-preview-acceptance.mjs', 'Dockerfile.classifieds-migration', 'cloudbuild.classifieds-migration.yaml',
   'scripts/deployment/ensure-fulfillment-nonproduction-schema.sh', 'scripts/deployment/run-fulfillment-nonproduction-migrations.sh',
   'Dockerfile.fulfillment-migration', 'cloudbuild.fulfillment-migration.yaml',
+  'scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh', 'scripts/deployment/run-taxi-pricing-nonproduction-migration.sh',
+  'Dockerfile.taxi-pricing-migration', 'cloudbuild.taxi-pricing-migration.yaml',
+  'scripts/deployment/ensure-billing-nonproduction-schema.sh', 'scripts/deployment/run-billing-nonproduction-migration.sh',
+  'Dockerfile.billing-migration', 'cloudbuild.billing-migration.yaml',
   'scripts/deployment/cleanup-preview.sh', 'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
   'docs/deployment/PREVIEW-STAGING-ARCHITECTURE.md', 'docs/deployment/OWNER-REVIEW-GUIDE.md'
 ];
@@ -80,62 +84,36 @@ for (const required of ['ARG NEXT_PUBLIC_CLASSIFIEDS_ENABLED=false', 'NEXT_PUBLI
 }
 for (const buildFile of ['cloudbuild.preview.yaml', 'cloudbuild.staging.yaml']) {
   const build = await readFile(buildFile, 'utf8');
-  if (!build.includes('NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"') || !build.includes('_NEXT_PUBLIC_CLASSIFIEDS_ENABLED: "false"')) {
-    throw new Error(`${buildFile} must compile Classifieds from an explicit default-false build substitution`);
-  }
+  if (!build.includes('NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"') || !build.includes('_NEXT_PUBLIC_CLASSIFIEDS_ENABLED: "false"')) throw new Error(`${buildFile} must compile Classifieds from an explicit default-false build substitution`);
 }
 for (const required of ['CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED}', 'ensure-classifieds-nonproduction-schema.sh', '_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}', 'Frontend Classifieds cannot be enabled before backend Classifieds', 'Backend Classifieds requires migration 025 verification before enablement']) {
   if (!deployment.includes(required)) throw new Error(`Classifieds deployment gate is missing: ${required}`);
 }
 const ensureClassifiedsSchema = await readFile('scripts/deployment/ensure-classifieds-nonproduction-schema.sh', 'utf8');
-for (const required of ['CLASSIFIEDS_025_FAILED_EXECUTION', 'CLASSIFIEDS_025_CONTAINER_LOGS_BEGIN', 'gcloud run jobs executions describe', 'gcloud logging read']) {
-  if (!ensureClassifiedsSchema.includes(required)) throw new Error(`Classifieds migration diagnostics are missing: ${required}`);
-}
+for (const required of ['CLASSIFIEDS_025_FAILED_EXECUTION', 'CLASSIFIEDS_025_CONTAINER_LOGS_BEGIN', 'gcloud run jobs executions describe', 'gcloud logging read']) if (!ensureClassifiedsSchema.includes(required)) throw new Error(`Classifieds migration diagnostics are missing: ${required}`);
 const classifiedsMigration = await readFile('scripts/deployment/run-classifieds-nonproduction-migration.sh', 'utf8');
-for (const required of ['025_classifieds', '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d', 'preview|staging', 'Refusing Classifieds migration 025 against the production project', 'MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE']) {
-  if (!classifiedsMigration.includes(required)) throw new Error(`Classifieds migration safety gate is missing: ${required}`);
-}
+for (const required of ['025_classifieds', '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d', 'preview|staging', 'Refusing Classifieds migration 025 against the production project', 'MIGRATION_025_PARTIAL_OR_UNVERIFIED_STATE']) if (!classifiedsMigration.includes(required)) throw new Error(`Classifieds migration safety gate is missing: ${required}`);
 
-for (const required of [
-  'ensure-fulfillment-nonproduction-schema.sh',
-  'FULFILLMENT_MIGRATIONS_026_028_MODE',
-  'APPLY_KHEDMAH_NONPROD_026_028_${environment^^}',
-  'Migration 025 schema is required as the predecessor of fulfillment 026-028'
-]) {
-  if (!deployment.includes(required)) throw new Error(`Fulfillment deployment gate is missing: ${required}`);
-}
+for (const required of ['ensure-fulfillment-nonproduction-schema.sh','FULFILLMENT_MIGRATIONS_026_028_MODE','APPLY_KHEDMAH_NONPROD_026_028_${environment^^}','Migration 025 schema is required as the predecessor of fulfillment 026-028']) if (!deployment.includes(required)) throw new Error(`Fulfillment deployment gate is missing: ${required}`);
 const ensureFulfillmentSchema = await readFile('scripts/deployment/ensure-fulfillment-nonproduction-schema.sh', 'utf8');
-for (const required of [
-  'Refusing fulfillment schema operation on the production project',
-  'FULFILLMENT_026_028_FAILED_EXECUTION',
-  'FULFILLMENT_026_028_CONTAINER_LOGS_BEGIN',
-  'gcloud run jobs executions describe',
-  'gcloud logging read',
-  '751262c11264815488136847e39e3dc162feab85',
-  'af18327bf03735f6ceaba5f5a60ab973822db355',
-  'a4dc42dac87226a3628d282d027164e33212c493'
-]) {
-  if (!ensureFulfillmentSchema.includes(required)) throw new Error(`Fulfillment migration diagnostics or reviewed blobs are missing: ${required}`);
-}
+for (const required of ['Refusing fulfillment schema operation on the production project','FULFILLMENT_026_028_FAILED_EXECUTION','FULFILLMENT_026_028_CONTAINER_LOGS_BEGIN','gcloud run jobs executions describe','gcloud logging read','751262c11264815488136847e39e3dc162feab85','af18327bf03735f6ceaba5f5a60ab973822db355','a4dc42dac87226a3628d282d027164e33212c493']) if (!ensureFulfillmentSchema.includes(required)) throw new Error(`Fulfillment migration diagnostics or reviewed blobs are missing: ${required}`);
 const fulfillmentMigration = await readFile('scripts/deployment/run-fulfillment-nonproduction-migrations.sh', 'utf8');
-for (const required of [
-  '026_cash_fulfillment_orders.sql',
-  '027_mobility_document_reviews.sql',
-  '028_platform_notifications.sql',
-  'Refusing fulfillment migrations 026-028 against the production project',
-  'FULFILLMENT_026_028_REQUIRES_MIGRATION_025',
-  'FULFILLMENT_026_028_PARTIAL_OR_UNVERIFIED_STATE',
-  "pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-fulfillment-026-028', 0))",
-  'ad_image',
-  'driver_photo'
-]) {
-  if (!fulfillmentMigration.includes(required)) throw new Error(`Fulfillment migration safety gate is missing: ${required}`);
-}
+for (const required of ['026_cash_fulfillment_orders.sql','027_mobility_document_reviews.sql','028_platform_notifications.sql','Refusing fulfillment migrations 026-028 against the production project','FULFILLMENT_026_028_REQUIRES_MIGRATION_025','FULFILLMENT_026_028_PARTIAL_OR_UNVERIFIED_STATE',"pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-fulfillment-026-028', 0))",'ad_image','driver_photo']) if (!fulfillmentMigration.includes(required)) throw new Error(`Fulfillment migration safety gate is missing: ${required}`);
+
+for (const required of ['ensure-taxi-pricing-nonproduction-schema.sh','TAXI_PRICING_MIGRATION_029_MODE','APPLY_KHEDMAH_NONPROD_029_${environment^^}']) if (!deployment.includes(required)) throw new Error(`Taxi pricing deployment gate is missing: ${required}`);
+const taxiEnsure = await readFile('scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh','utf8');
+for (const required of ['Refusing Taxi pricing schema operation on the production project','df9a7467f59f00e0167233901e6d7bb1e686994e8f97aec43696d53ac2d7870e','cloudbuild.taxi-pricing-migration.yaml']) if (!taxiEnsure.includes(required)) throw new Error(`Taxi pricing migration safety gate is missing: ${required}`);
+const taxiRunner = await readFile('scripts/deployment/run-taxi-pricing-nonproduction-migration.sh','utf8');
+for (const required of ['029_taxi_pricing_revisions','Refusing Taxi pricing migration 029 against the production project','partial_or_unverified',"pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-taxi-pricing-029',0))"]) if (!taxiRunner.includes(required)) throw new Error(`Taxi pricing migration runner is missing: ${required}`);
+
+for (const required of ['ensure-billing-nonproduction-schema.sh','BILLING_MIGRATION_030_MODE','APPLY_KHEDMAH_NONPROD_030_${environment^^}']) if (!deployment.includes(required)) throw new Error(`Billing deployment gate is missing: ${required}`);
+const billingEnsure = await readFile('scripts/deployment/ensure-billing-nonproduction-schema.sh','utf8');
+for (const required of ['Refusing Billing schema operation on the production project','BILLING_030_FAILED_EXECUTION','BILLING_030_CONTAINER_LOGS_BEGIN','d758036cbcf20fbcee176c9ea7ba097564142de839b609b22a5cb469d6335194','88795ee75d9948e5ecf85d8c2d53f6b77397b52b','cloudbuild.billing-migration.yaml']) if (!billingEnsure.includes(required)) throw new Error(`Billing migration diagnostics or reviewed identity is missing: ${required}`);
+const billingRunner = await readFile('scripts/deployment/run-billing-nonproduction-migration.sh','utf8');
+for (const required of ['030_billing_credits_subscriptions','Refusing Billing migration 030 against the production project','MIGRATION_030_PARTIAL_OR_UNVERIFIED_STATE',"pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-030',0))",'SYP_NEW_2026','KHEDMA30']) if (!billingRunner.includes(required)) throw new Error(`Billing migration safety gate is missing: ${required}`);
 
 const productionOperator = await readFile('.github/workflows/production-operator.yml', 'utf8');
 if (productionOperator.includes('APPLY_MIGRATION_025') || productionOperator.includes('025_classifieds')) throw new Error('Migration 025 must not be exposed through the Production operator');
-for (const forbidden of ['026_cash_fulfillment_orders', '027_mobility_document_reviews', '028_platform_notifications', 'APPLY_MIGRATION_026', 'APPLY_MIGRATION_027', 'APPLY_MIGRATION_028']) {
-  if (productionOperator.includes(forbidden)) throw new Error(`Fulfillment non-production migration must not be exposed through the Production operator: ${forbidden}`);
-}
+for (const forbidden of ['026_cash_fulfillment_orders','027_mobility_document_reviews','028_platform_notifications','APPLY_MIGRATION_026','APPLY_MIGRATION_027','APPLY_MIGRATION_028','029_taxi_pricing_revisions','030_billing_credits_subscriptions','APPLY_MIGRATION_029','APPLY_MIGRATION_030','billing-migration','taxi-pricing-migration']) if (productionOperator.includes(forbidden)) throw new Error(`Non-production migration must not be exposed through the Production operator: ${forbidden}`);
 
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);
