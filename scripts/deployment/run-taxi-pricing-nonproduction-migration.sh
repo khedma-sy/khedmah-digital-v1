@@ -95,6 +95,17 @@ schema_state() {
   printf '%s' 'partial_or_unverified'
 }
 
+schema_fingerprint() {
+  base="$(probe_count "SELECT (to_regclass(current_schema() || '.core_user_accounts') IS NOT NULL)::int")" || return $?
+  table_count="$(probe_count "SELECT (to_regclass(current_schema() || '.taxi_pricing_revisions') IS NOT NULL)::int")" || return $?
+  function_count="$(probe_count "SELECT (to_regprocedure(current_schema() || '.reject_taxi_pricing_revision_mutation()') IS NOT NULL)::int")" || return $?
+  trigger_count="$(probe_count "SELECT count(*)::int FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relname='taxi_pricing_revisions' AND NOT t.tgisinternal AND t.tgname='taxi_pricing_revisions_append_only'")" || return $?
+  index_count="$(probe_count "SELECT count(*)::int FROM pg_indexes WHERE schemaname=current_schema() AND indexname='taxi_pricing_revisions_zone_activated_idx'")" || return $?
+  unique_constraint="$(probe_count "SELECT (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_zone_revision_unique'))::int")" || return $?
+  ceiling_constraint="$(probe_count "SELECT (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_amount_ceiling_check'))::int")" || return $?
+  printf '%s\n' "MIGRATION_029_FINGERPRINT:identity=${base}:table=${table_count}:function=${function_count}:trigger=${trigger_count}:index=${index_count}:unique_constraint=${unique_constraint}:ceiling_constraint=${ceiling_constraint}"
+}
+
 exit_for_state() {
   case "$1" in
     missing_identity) exit 41 ;;
@@ -108,6 +119,9 @@ state="$(schema_state)" || exit $?
 if [ "$state" = 'verified' ]; then
   printf '%s\n' "MIGRATION_029_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
   exit 0
+fi
+if [ "$state" = 'partial_or_unverified' ]; then
+  schema_fingerprint >&2 || echo 'MIGRATION_029_FINGERPRINT:unavailable' >&2
 fi
 if [ "$mode" = 'verify' ]; then exit_for_state "$state"; fi
 [ "$state" = 'not_applied' ] || exit_for_state "$state"
@@ -131,5 +145,5 @@ COMMIT;
 SQL
 
 state="$(schema_state)" || exit $?
-[ "$state" = 'verified' ] || exit_for_state "$state"
+[ "$state" = 'verified' ] || { schema_fingerprint >&2 || true; exit_for_state "$state"; }
 printf '%s\n' "MIGRATION_029_APPLIED_AND_VERIFIED:${environment}:${project}"
