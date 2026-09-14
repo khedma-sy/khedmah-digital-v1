@@ -5,14 +5,20 @@ import { TaxiPlanningPreview } from './taxi-planning-preview';
 export const dynamic = 'force-dynamic';
 
 /**
- * Taxi trip execution is intentionally separate from route planning.
- * Environments without the reviewed Taxi trip capability keep every trip
- * mutation hidden while still exposing the real Khedmah map-selection surface
- * for product review and safe route-planning UX validation.
+ * Taxi trip execution is intentionally separate from driver onboarding.
+ * Driver registration/document review remains available even while trip
+ * mutations stay fail-closed behind the reviewed rollout gate.
  */
 export default function TaxiRolloutLayout({ children }: { children: ReactNode }) {
   if (process.env.TAXI_TRIPS_ENABLED === 'true') {
-    return <div className="khedmah-section-identity" data-khedmah-section="taxi">{children}</div>;
+    return <div className="khedmah-section-identity" data-khedmah-section="taxi">
+      {children}
+      <Surface>
+        <h2>هل لديك سيارة وتريد العمل مع خدمة؟</h2>
+        <p>أنشئ ملف السائق وارفع الوثائق المطلوبة للمراجعة. التسجيل لا يفعّل الرحلات قبل اعتماد السائق والمركبة تشغيلياً.</p>
+        <ActionLink href="/taxi-driver-signup">سجّل سيارتك مع خدمة</ActionLink>
+      </Surface>
+    </div>;
   }
 
   return <div className="khedmah-section-identity" data-khedmah-section="taxi">
@@ -25,6 +31,11 @@ export default function TaxiRolloutLayout({ children }: { children: ReactNode })
       />
       <Surface>
         <TaxiPlanningPreview />
+      </Surface>
+      <Surface>
+        <h2>لديك سيارة؟ انضم إلى خدمة تكسي</h2>
+        <p>يمكن تسجيل ملف السائق ورفع الوثائق للمراجعة حتى قبل تفعيل الرحلات التشغيلية في هذه البيئة.</p>
+        <ActionLink href="/taxi-driver-signup">سجّل سيارتك مع خدمة</ActionLink>
       </Surface>
       <Surface>
         <h2>ابحث عن مزود تكسي متاح</h2>
