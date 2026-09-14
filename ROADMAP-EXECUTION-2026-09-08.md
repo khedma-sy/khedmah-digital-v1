@@ -2,23 +2,24 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-آخر تحديث: **2026-09-14 — الفحص السادس / إصلاح Classifieds عند 320px**. هذا القسم هو نقطة الاستئناف الحالية؛ سجل RP34 أدناه تاريخي.
+آخر تحديث: **2026-09-14 — الفحص السادس / متابعة الدخول المصادق عليه**. هذا القسم هو نقطة الاستئناف الحالية؛ سجل RP34 أدناه تاريخي.
 
 | الحقل | الحالة المثبتة |
 |---|---|
 | المصدر | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft، غير مدموج، إلى `develop` |
-| تسلسل المصدر | الرأس المطلوب `1064e73...` فشل في frontend tests؛ الإصلاحات اللاحقة محفوظة. `22b3da2...` ثم دفعة التباين `cfbb541...` ثم التوثيق `a4eee2a41d373c97a776b7751ad56b55bdba5701`. لا رجوع إلى فرع قديم |
-| CI المثبت قبل إصلاح القص | `a4eee2a...`: Test & Verify `34890756935` نجح بـ1919 اختبارًا: root 1276، backend 517، frontend 126؛ 0 فشل/تخطي. Node `34890757012`، Identity `34890757036`، Database `34890756934` خضراء |
-| Preview المنشور | run `34890757028`، deploy job `104134374972` نجح. checkout `9f44d5b62168f2bb5dd707a73c8e2b33e2c11e0d`؛ frontend revision `khedmah-pr-175-frontend-00006-bz7`؛ backend `khedmah-pr-175-backend-00012-jcw`؛ health 200 وversion مطابق |
-| 032 في Cloud SQL | التنفيذ `khedmah-preview-taxi-operational-032-45059cc414-4wq4t` اكتمل، ورسالة `Taxi operational migration 032 apply completed and verified for preview.` في 20:19:28Z. SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe`. أول تطبيق في الجولة كان على `22b3da2...` |
-| الأدلة السابقة وحدودها | artifact `10367139375` على `a4eee2a...`: 64/64 أساسية، 24/24 للأسطح الثلاثة، mobile 32/32، Classifieds 200/200/200؛ 72/72 عينة تباين نص 5.670975–7.107906:1. كل الجديدة RTL وdocument overflow=0، لكن ذلك لم يمنع عيب القص التالي |
-| AUTOPSY بصري حقيقي | الصور `sixth-after-classifieds-small-mobile-light.png` وdark تكشف قص العنوان والنموذج عند 320px بعد التنقل بالتركيز. intrinsic input/select size وسلاسل Grid ذات الحد الأدنى auto تجاوزت المساحة؛ `ui-page overflow:hidden` أخفى ذلك عن document scrollWidth. لم يُعتمد هذا النجاح الآلي كقبول بصري |
-| الإصلاح الحالي | implementation commit `61d9fb6c74c5d472a45e4803579171cd6a2bb015`: حقول Classifieds bounded بـwidth 100% وmin-width 0 وGrid minmax(0,1fr). حارس جديد يقيس حدود العناوين والحقول والأزرار وoverflow داخل main بعد keyboard traversal |
-| التحقق المحلي للإصلاح | root 1280/1280؛ focused layout/contrast/evidence 16/16؛ diff --check نظيف. يلزم CI وPreview جديدان للدفعة؛ لا تنسب أدلة a4eee2a للرأس الجديد |
-| حدود الرحلات | التخطيط أُعيد على a4eee2a: نقطتان مستقلتان `33.51661,36.26380` و`33.50798,36.31375`؛ تسجيل السيارة يظهر مراحل الاعتماد الست. ستة GET بلا جلسة تعيد 401/503 كما هو متوقع. `TAXI_TRIPS_ENABLED=false`. لا جلسات عميل/مطعم/مندوب/مراجع متاحة، وقائمة المطاعم 0؛ الرحلات التشغيلية ذات الأدوار لم تنفذ |
-| Staging والدمج | `BEFORE_URL_MISSING` العائق الوحيد للمقارنة في run السابق؛ لا Production أو Preview كمرجع Before. لا Merge أو main أو Production. Owner review ورحلات الاختبار المصادق عليها ما زالت لازمة |
-| الخطوة التالية | ارفع هذه الدفعة fast-forward على PR نفسه؛ راقب CI وdeploy و032؛ افحص artifact الجديد: 88 حالة و24 inline-layout و72 contrast و32 interactions. افتح صور Classifieds عند 320px في الثيمين للتأكد من زوال القص. تحقق من live head قبل أي كتابة |
-| الملفات | `apps/frontend/app/classifieds/classifieds.module.css`؛ `scripts/sixth-audit-layout.mjs`؛ `scripts/capture-sixth-audit-evidence.mjs`؛ `tests/sixth-audit-layout.test.mjs`؛ قياسات التباين السابقة وملفات migration/ensure/runner 032 |
+| آخر رأس منشور ومثبت | `23dc00e0ffeeee55553122107a245968003b9658` بعد إصلاح تباين Classifieds وقص 320px؛ لا رجوع إلى `1064e73...` أو الفروع السابقة |
+| CI على 23dc00e | Test & Verify `34893885521` نجح: root 1280، backend 517، frontend 126؛ 1923/1923، صفر فشل/تخطٍّ. Node `34893885512` وIdentity `34893885579` وDatabase `34893885656` خضراء |
+| Preview على 23dc00e | run `34893885577`؛ deploy `104144333641` ناجح؛ checkout `845b9e5e458d63217d7ce84dfa0ffb7b62c146dd`؛ frontend `khedmah-pr-175-frontend-00007-72x`؛ backend `khedmah-pr-175-backend-00014-8m5` |
+| 032 في Preview Cloud SQL | آخر تنفيذ مثبت `khedmah-preview-taxi-operational-032-4a0616a48e-st2m2` اكتمل وتحقق في 20:47:52Z. SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe` |
+| الأدلة على 23dc00e | artifact `10368956836`، ZIP SHA-256 `3f7731cfbdb020418a5651756a5b32909faff1141e1cf1ee681acb9730d61703`؛ 88/88 screenshots ready، 24/24 layout bounds، 72/72 contrast samples (5.670975–7.107906:1)، mobile 32/32، Classifieds 200/200/200. فحصت الصور الـ24 للأسطح الجديدة؛ قص Classifieds عند 320px زال في الثيمين. المقارنة وحدها محجوبة بـBEFORE_URL_MISSING |
+| محاولة الدخول الحية | بعد تقديم المستخدم بياناته عبر الإدخال الآمن، أعادت واجهة Preview 401 ورسالة «خطأ في الخادم (401)». لا جلسة مؤكدة. لم تُقرأ أو تُحفظ بيانات الدخول؛ لم تُكرر المحاولة ولم يُبدل إلى Google تلقائيًا. سبب رفض الحساب غير مثبت |
+| AUTOPSY والإصلاح الحالي | implementation `75be949934bd9edd1c561aa8d9231bebb238fc91`: قارئ مشترك لـ`error.message/error.code` مع توافق الصيغة القديمة، بدل قراءة message المسطحة فقط. GlobalExceptionFilter يحتفظ بـINVALID_CREDENTIALS وEMAIL_VERIFICATION_REQUIRED فقط من صنفي Identity الآمنين؛ رسائل الاستثناءات العامة والتفاصيل الداخلية تبقى محجوبة. لا تغيير لقبول الهوية أو الصلاحيات |
+| التحقق المحلي الحالي | root 1280/1280، frontend 131/131، filter 5/5، backend build ناجح، diff --check نظيف. اختبارا محمل API رُبطا بالملف الجديد دون تخفيف assertions. npm test الكامل انتهى بفشل backend لأن حارس DESTRUCTIVE_DB_TESTS_DISABLED منع اختبارات PostgreSQL دون قاعدة محلية معزولة؛ يلزم CI بقاعدة الاختبار المعتمدة، ولا يُسجل الفحص المحلي الكامل ناجحًا |
+| حدود الرحلات | Taxi planning واختيار نقطتين ومراحل التسجيل الست فُحصت سابقًا؛ `TAXI_ACCESS_ENABLED=true` و`TAXI_TRIPS_ENABLED=false`. لا جلسات مؤكدة للعميل والمطعم والمندوب ومراجع security.manage؛ قائمة المطاعم العامة كانت 0. Taxi approval وRestaurant → quote → approval → courier → pickup → delivered → rating لم تُنفذ بأدوار حية |
+| Staging | أُعيد فحص آخر تشغيل develop `34615802535` بتاريخ 2026-09-11: deploy `103318536570` فشل قبل المصادقة بسبب 17 إعدادًا ناقصًا. لا يثبت السجل التاريخي قيم الإعدادات الحالية. أدوات الجلسة لا تتيح إدارة protected environments أو GCP؛ مراجع مشروع Staging في الخطة ليست إثباتًا لتطبيقها |
+| الحدود | لا Merge أو main أو Production أو Terraform apply. لا Production أو Preview كـBefore. لا اعتماد وهمي أو تجاوز حارس وثائق/ثقة أو تفعيل رحلات Taxi. Owner review والمقارنة ورحلات الأدوار ما زالت مفتوحة |
+| الخطوة التالية | رفع الإصلاح والتوثيق fast-forward على PR نفسه؛ انتظار CI وPreview على الرأس الجديد، ثم التحقق من artifact و032. إعادة الدخول تتطلب اختيار المستخدم بعد الفشل الأول؛ لا إعادة تلقائية لبياناته. بعد جلسات Preview الصحيحة، تنفيذ رحلات الأدوار المطلوبة؛ تهيئة Staging تحتاج وصول الإدارة الفعلي |
+| الملفات الحالية | backend global-exception.filter + tests؛ frontend api-errors/api-client/identity-api + identity-error-contract tests؛ محملا admin product/profile lifecycle tests. لا migrations جديدة في هذه الدفعة |
 
 ### سجل تاريخي — RP34 بتاريخ 2026-09-10
 
