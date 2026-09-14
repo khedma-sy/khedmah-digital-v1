@@ -59,6 +59,7 @@ jobs:
             029_taxi_pricing_revisions
             030_billing_credits_subscriptions
             031_taxi_operational_approvals
+            032_taxi_operational_profile_gate
           )
 
           for migration in "${migrations[@]}"; do
@@ -69,6 +70,9 @@ jobs:
             if [[ "$migration" == "019_remove_out_of_scope_subscription_schema" ]]; then
               grep -Eq '\bDROP[[:space:]]+TABLE\b' "$forward"
               grep -Eq '\bCREATE[[:space:]]+TABLE\b' "$rollback"
+            elif [[ "$migration" == "032_taxi_operational_profile_gate" ]]; then
+              grep -Eq 'CREATE[[:space:]]+OR[[:space:]]+REPLACE[[:space:]]+FUNCTION[[:space:]]+khedmah_taxi\.resolve_actor_locked' "$forward"
+              grep -Eq 'CREATE[[:space:]]+OR[[:space:]]+REPLACE[[:space:]]+FUNCTION[[:space:]]+khedmah_taxi\.resolve_actor_locked' "$rollback"
             else
               grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             fi
@@ -143,6 +147,8 @@ jobs:
             030_billing_credits_subscriptions_rollback.sql \
             031_taxi_operational_approvals.sql \
             031_taxi_operational_approvals_rollback.sql \
+            032_taxi_operational_profile_gate.sql \
+            032_taxi_operational_profile_gate_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"
@@ -151,7 +157,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Product V2 billing credits/subscriptions and Taxi operational approvals are approved scope.
+          # Product V2 billing credits/subscriptions and Taxi operational approvals/profile authority are approved scope.
           # Generic payment processor, marketplace, inventory, commissions, social-profile and tracking schemas remain forbidden.
           forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn --include='*.sql' "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" backend/migrations/versions; then
@@ -168,6 +174,15 @@ jobs:
             if [[ "$file" == *019_remove_out_of_scope_subscription_schema.sql ]]; then
               grep -Eq '\bDROP[[:space:]]+TABLE\b' "$file"
               echo "Verified teardown migration: $file"
+              continue
+            fi
+            if [[ "$file" == *032_taxi_operational_profile_gate.sql ]]; then
+              grep -Fq "FROM public.business_profiles bb" "$file"
+              grep -Fq "b.visibility <> 'public'" "$file"
+              grep -Fq "b.moderation_status <> 'approved'" "$file"
+              grep -Fq "b.trust_status <> 'approved'" "$file"
+              grep -Fq "b.status <> 'active'" "$file"
+              echo "Verified Taxi authority hardening: $file"
               continue
             fi
             grep -Eq 'CONSTRAINT|PRIMARY KEY|FOREIGN KEY' "$file"
