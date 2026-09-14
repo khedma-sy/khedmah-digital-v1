@@ -11,14 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export default function TaxiRolloutLayout({ children }: { children: ReactNode }) {
   if (process.env.TAXI_TRIPS_ENABLED === 'true') {
-    return <div className="khedmah-section-identity" data-khedmah-section="taxi">
-      {children}
-      <Surface>
-        <h2>هل لديك سيارة وتريد العمل مع خدمة؟</h2>
-        <p>أنشئ ملف السائق وارفع الوثائق المطلوبة للمراجعة. التسجيل لا يفعّل الرحلات قبل اعتماد السائق والمركبة تشغيلياً.</p>
-        <ActionLink href="/taxi-driver-signup">سجّل سيارتك مع خدمة</ActionLink>
-      </Surface>
-    </div>;
+    return <div className="khedmah-section-identity" data-khedmah-section="taxi">{children}</div>;
   }
 
   return <div className="khedmah-section-identity" data-khedmah-section="taxi">
