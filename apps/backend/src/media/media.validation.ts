@@ -15,6 +15,7 @@ const clean = (value: unknown, field: string, max: number) => {
 };
 
 export function validateUploadMediaRequest(request: UploadMediaRequest): Required<Omit<UploadMediaRequest, 'assetType'>> & Pick<UploadMediaRequest, 'assetType'> {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) throw new BadRequestException('Request body must be an object.');
   const ownerType = clean(request.ownerType, 'ownerType', 40);
   const ownerId = clean(request.ownerId, 'ownerId', 120);
   const filename = clean(request.filename, 'filename', 200).replace(/[\\/]/g, '_');
@@ -30,7 +31,6 @@ export function validateUploadMediaRequest(request: UploadMediaRequest): Require
   if (ownerType === 'business_profile' && assetType && !businessAssetTypes.has(assetType)) throw new BadRequestException('Business media requires logo, cover, or gallery, or a governed private driver document.');
   if (ownerType === 'professional_profile' && assetType && !professionalAssetTypes.has(assetType)) throw new BadRequestException('Professional media assetType is invalid.');
   if (ownerType === 'product_listing' && assetType !== 'product_image') throw new BadRequestException('Product media requires product_image assetType.');
-  if (ownerType === 'user' && assetType !== undefined) throw new BadRequestException('User media does not accept assetType.');
   if (assetType && DRIVER_DOCUMENT_TYPES.has(assetType) && (ownerType !== 'business_profile' || visibility !== 'private')) {
     throw new BadRequestException('Driver documents must be private business media.');
   }

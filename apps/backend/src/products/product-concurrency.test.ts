@@ -19,6 +19,7 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
   try {
     await resetCanonicalTestSchema(rawPool);
     await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/024_product_store.sql'), 'utf8'));
+    await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/026_cash_fulfillment_orders.sql'), 'utf8'));
     await db.query(`INSERT INTO core_user_accounts (user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification)
       VALUES ('product_owner','identity_product_owner','individual_user','active','active','private')`);
     const [category] = await db.query<{ code: string }>(`SELECT code FROM categories WHERE status='active' AND parent_code IS NOT NULL LIMIT 1`);
