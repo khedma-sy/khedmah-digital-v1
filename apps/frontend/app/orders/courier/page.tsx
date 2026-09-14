@@ -23,6 +23,7 @@ import {
   requestOrderNotifications,
   showOrderNotification,
 } from "../order-alerts";
+import { CourierEvidenceDialog } from "./courier-evidence-dialog";
 import styles from "./courier.module.css";
 
 const statusLabel: Record<FulfillmentOrder["status"], string> = {
@@ -38,6 +39,11 @@ const statusLabel: Record<FulfillmentOrder["status"], string> = {
   cancelled: "ملغي",
 };
 
+type CourierConfirmation = {
+  order: FulfillmentOrder;
+  status: "picked_up" | "delivered";
+};
+
 export default function CourierOrders() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
@@ -45,10 +51,12 @@ export default function CourierOrders() {
   const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState("");
+  const [confirmation, setConfirmation] = useState<CourierConfirmation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const alertsEnabledRef = useRef(false);
   const loadedOnceRef = useRef(false);
+  const actionInFlight = useRef(false);
   const knownOrderStatusesRef = useRef<Map<string, FulfillmentOrder["status"]>>(new Map());
 
   useEffect(() => {
@@ -129,10 +137,11 @@ export default function CourierOrders() {
     playOrderRing();
     await requestOrderNotifications();
   }
-  async function move(o: FulfillmentOrder, status: FulfillmentOrder["status"]) {
-    if (status === "picked_up" && !window.confirm("هل استلمت الطلب كاملًا فعليًا من المنشأة؟")) return;
-    if (status === "delivered" && !window.confirm("هل سلّمت الطلب للعميل وحصّلت كامل المبلغ الظاهر؟")) return;
+  async function move(o: FulfillmentOrder, status: FulfillmentOrder["status"]): Promise<boolean> {
+    if (actionInFlight.current) return false;
+    actionInFlight.current = true;
     setActionLoadingId(o.id);
+    setError("");
     try {
       await api.orders.transition(
         o.id,
@@ -140,11 +149,19 @@ export default function CourierOrders() {
         status === "merchant_confirmed" ? { reason: "المندوب غير متاح" } : {},
       );
       await load(selected);
+      return true;
     } catch (c) {
       setError(c instanceof Error ? c.message : "تعذر تحديث المهمة.");
+      return false;
     } finally {
+      actionInFlight.current = false;
       setActionLoadingId("");
     }
+  }
+  async function confirmEvidence() {
+    if (!confirmation || actionInFlight.current) return;
+    const current = confirmation;
+    if (await move(current.order, current.status)) setConfirmation(null);
   }
   const activeOrders = orders.filter((o) => !["delivered", "rejected", "cancelled"].includes(o.status));
   const closedOrders = orders.filter((o) => ["delivered", "rejected", "cancelled"].includes(o.status));
@@ -166,15 +183,15 @@ export default function CourierOrders() {
           {o.merchantPhone && <div><dt><PlatformIcon name="phone" size={17}/>رقم المنشأة</dt><dd><a href={`tel:${o.merchantPhone}`} dir="ltr">{o.merchantPhone}</a></dd></div>}
           <div><dt><PlatformIcon name="pin" size={17}/>عنوان التسليم</dt><dd>{o.deliveryAddress}</dd></div>
           <div><dt><PlatformIcon name="phone" size={17}/>رقم العميل</dt><dd>{o.customerPhone ? <a href={`tel:${o.customerPhone}`} dir="ltr">{o.customerPhone}</a> : "يظهر بعد قبول المهمة"}</dd></div>
-          <div><dt><PlatformIcon name="cart" size={17}/>محتوى الطلب</dt><dd><ul className={styles.itemList}>{o.items.map((item) => <li key={item.productListingId}>{item.quantity.toLocaleString("ar-SY-u-nu-latn")} × {item.titleAr}</li>)}</ul></dd></div>
+          <div><dt><PlatformIcon name="cart" size={17}/>محتوى الطلب</dt><dd><ul className={styles.itemList}>{o.items.map((item) => <li key={item.productListingId}>{o.items.length > 0 ? item.quantity.toLocaleString("ar-SY-u-nu-latn") : "0"} × {item.titleAr}</li>)}</ul></dd></div>
           {o.customerNote && <div><dt><PlatformIcon name="info" size={17}/>ملاحظة العميل</dt><dd>{o.customerNote}</dd></div>}
           {o.total !== undefined && <div><dt><PlatformIcon name="check" size={17}/>التحصيل النقدي</dt><dd>{o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}</dd></div>}
         </dl>
         <div className={styles.orderActions}>
           {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && <CourierLocationButton orderId={o.id} status={o.status} />}
-          {o.status === "courier_assigned" && <><ActionButton disabled={busy} onClick={() => void move(o, "courier_accepted")}>{busy ? "جارٍ الحفظ…" : "قبول المهمة"}</ActionButton><ActionButton disabled={busy} variant="secondary" onClick={() => void move(o, "merchant_confirmed")}>غير متاح</ActionButton></>}
-          {o.status === "ready_for_pickup" && <ActionButton disabled={busy} onClick={() => void move(o, "picked_up")}>{busy ? "جارٍ الحفظ…" : "استلمت الطلب"}</ActionButton>}
-          {o.status === "picked_up" && <ActionButton disabled={busy} onClick={() => void move(o, "delivered")}>{busy ? "جارٍ الحفظ…" : "تم التسليم وتحصيل النقد"}</ActionButton>}
+          {o.status === "courier_assigned" && <><ActionButton disabled={busy || actionInFlight.current} onClick={() => void move(o, "courier_accepted")}>{busy ? "جارٍ الحفظ…" : "قبول المهمة"}</ActionButton><ActionButton disabled={busy || actionInFlight.current} variant="secondary" onClick={() => void move(o, "merchant_confirmed")}>غير متاح</ActionButton></>}
+          {o.status === "ready_for_pickup" && <ActionButton disabled={busy || actionInFlight.current} onClick={() => setConfirmation({ order: o, status: "picked_up" })}>{busy ? "جارٍ الحفظ…" : "استلمت الطلب"}</ActionButton>}
+          {o.status === "picked_up" && <ActionButton disabled={busy || actionInFlight.current} onClick={() => setConfirmation({ order: o, status: "delivered" })}>{busy ? "جارٍ الحفظ…" : "تم التسليم وتحصيل النقد"}</ActionButton>}
         </div>
       </Surface>
     );
@@ -262,6 +279,13 @@ export default function CourierOrders() {
           {closedOrders.length ? <details className={styles.history}><summary>سجل المهام المنتهية ({closedOrders.length.toLocaleString("ar-SY-u-nu-latn")})</summary><section className={styles.orderGrid}>{closedOrders.map(renderOrder)}</section></details> : null}
         </>
       )}
+      {confirmation && <CourierEvidenceDialog
+        order={confirmation.order}
+        status={confirmation.status}
+        saving={actionLoadingId === confirmation.order.id}
+        onCancel={() => { if (!actionInFlight.current) setConfirmation(null); }}
+        onConfirm={() => void confirmEvidence()}
+      />}
     </PageShell>
   );
 }
