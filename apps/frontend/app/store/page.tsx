@@ -150,7 +150,7 @@ function StoreContent() {
         </div>
         <nav className={styles.heroActions} aria-label="إجراءات متجر خدمة">
           <ActionLink href="/store/manage" variant="secondary"><PlatformIcon name="storefront" size={17}/>منتجاتي</ActionLink>
-          <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف منتجًا</ActionLink>
+          <ActionLink href="/store/sell"><PlatformIcon name="cart" size={17}/>أضف منتجًا</ActionLink>
         </nav>
       </header>
 
@@ -206,7 +206,7 @@ function StoreContent() {
         <p className={styles.seller}>{product.businessName ?? 'نشاط على خدمة'}</p>
         <div className={styles.meta}><span><PlatformIcon name="pin" size={14}/>{cityLabel(product.cityCode ?? '', cities)}</span><time dateTime={product.createdAt}>نُشر {publishedAt(product.createdAt)}</time></div>
         <ActionLink href={`/store/products/${encodeURIComponent(product.id)}`}>التفاصيل والتواصل <PlatformIcon name="arrow" size={16}/></ActionLink>
-      </Surface>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="storefront" size={30}/>} title={hasFilters ? 'لا توجد منتجات مطابقة' : 'كن أول من يعرض منتجًا في متجر خدمة'} description={hasFilters ? 'وسّع نطاق البحث أو امسح الاختيارات لعرض نتائج أكثر.' : 'ستظهر هنا المنتجات بعد اعتماد النشاط والمحتوى.'} actions={hasFilters ? <ActionButton type="button" variant="secondary" onClick={clearFilters}><PlatformIcon name="refresh" size={17}/>عرض كل المنتجات</ActionButton> : <ActionLink href="/store/sell"><PlatformIcon name="tag" size={17}/>أضف منتجًا</ActionLink>}/></div>}
+      </Surface>)}</section> : <div className={styles.emptyWrap}><EmptyState icon={<PlatformIcon name="storefront" size={30}/>} title={hasFilters ? 'لا توجد منتجات مطابقة' : 'كن أول من يعرض منتجًا في متجر خدمة'} description={hasFilters ? 'وسّع نطاق البحث أو امسح الاختيارات لعرض نتائج أكثر.' : 'ستظهر هنا المنتجات بعد اعتماد النشاط والمحتوى.'} actions={hasFilters ? <ActionButton type="button" variant="secondary" onClick={clearFilters}><PlatformIcon name="refresh" size={17}/>عرض كل المنتجات</ActionButton> : <ActionLink href="/store/sell"><PlatformIcon name="cart" size={17}/>أضف منتجًا</ActionLink>}/></div>}
       <p className={styles.safety}><PlatformIcon name="info" size={15}/>تحقق من المنتج وتفاصيله قبل الدفع أو الاستلام. لا توجد مدفوعات أو طلبات شراء داخل متجر خدمة حاليًا.</p>
     </section>
   </PageShell>;
@@ -246,7 +246,7 @@ function readCurrency(value: string | null): StoreCurrency { return value === 'S
 function readAvailability(value: string | null): StoreAvailability { return value === 'in_stock' || value === 'out_of_stock' || value === 'made_to_order' ? value : ''; }
 function readSort(value: string | null): StoreProductSort { return value === 'price_asc' || value === 'price_desc' ? value : 'newest'; }
 function readPrice(value: string | null): string { return value && /^\d{1,12}(?:\.\d{1,2})?$/.test(value) ? value : ''; }
-function categoryIcon(index: number): PlatformIconName { return (['car', 'home', 'technology', 'storefront', 'briefcase', 'building', 'leaf', 'tag'] as PlatformIconName[])[index % 8] ?? 'tag'; }
+function categoryIcon(index: number): PlatformIconName { return (['car', 'home', 'technology', 'storefront', 'briefcase', 'building', 'leaf', 'travel'] as PlatformIconName[])[index % 8] ?? 'briefcase'; }
 
 export default function StorePage() {
   return <Suspense fallback={<PageShell className={styles.page}><SkeletonGrid count={6} label="جاري تحميل المنتجات"/></PageShell>}><StoreContent /></Suspense>;
