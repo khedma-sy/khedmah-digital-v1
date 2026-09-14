@@ -28,17 +28,23 @@ const guardedRequire = (id: string) => {
   return requireFromSource(id);
 };
 compileFunction(compiled.outputText, ['exports', 'require', 'module'], { filename: fileURLToPath(sourceUrl) })(loaded.exports, guardedRequire, loaded);
-const expectedLinks = ['/search', '/categories', '/food', '/map', '/taxi', '/store', '/classifieds'];
+const expectedLinks = ['/search', '/categories', '/food', '/mobility?type=delivery', '/map', '/taxi', '/store', '/classifieds'];
 const render = (path: string) => { pathname = path; return renderToStaticMarkup(createElement(loaded.exports.DiscoveryNavigation)); };
 
-for (const path of ['/', ...expectedLinks, '/mobility', '/users/me']) {
-  test(`discovery renders all seven named links exactly once on ${path} without account state`, () => {
+for (const path of ['/', '/search', '/categories', '/food', '/restaurants', '/mobility', '/map', '/taxi', '/store', '/classifieds', '/users/me']) {
+  test(`discovery renders all eight named links exactly once on ${path} without account state`, () => {
     const html = render(path);
     assert.match(html, /^<nav class="nav-discovery-group" aria-label="أقسام خدمة">/);
     assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), expectedLinks);
-    for (const label of ['اكتشف', 'التصنيفات', 'المطاعم', 'بالقرب مني', 'تكسي', 'المتجر', 'الإعلانات']) assert.ok(html.includes(label));
+    for (const label of ['اكتشف', 'التصنيفات', 'المطاعم', 'توصيل', 'بالقرب مني', 'تكسي', 'المتجر', 'الإعلانات']) assert.ok(html.includes(label));
     const active = [...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*aria-current="page"/g)].map((match) => match[1]);
-    const expectedActive = path === '/mobility' ? ['/taxi'] : expectedLinks.includes(path) ? [path] : [];
+    const expectedActive = path === '/restaurants'
+      ? ['/food']
+      : path === '/mobility'
+        ? ['/mobility?type=delivery']
+        : expectedLinks.includes(path)
+          ? [path]
+          : [];
     assert.deepEqual(active, expectedActive);
     assert.doesNotMatch(html, /aria-hidden|tabindex="-1"|role="menu"/);
   });
@@ -63,4 +69,5 @@ test('responsive shell wraps the shared navigation instead of hiding it or creat
   assert.match(shell, /\.nav-discovery-group\{[^}]*grid-column:1\/-1/);
   assert.match(shell, /\.nav-discovery-group a\{[^}]*min-height:2\.75rem/);
   assert.match(shell, /\.nav-discovery-group a:focus-visible\{/);
+  assert.match(shell, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 });

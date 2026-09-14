@@ -11,9 +11,10 @@ export function DiscoveryNavigation() {
   const links = [
     { href: '/search', label: 'اكتشف', active: pathname === '/search' },
     { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
-    { href: '/food', label: 'المطاعم', active: pathname === '/food' || pathname.startsWith('/food/') },
+    { href: '/food', label: 'المطاعم', active: pathname === '/food' || pathname.startsWith('/food/') || pathname.startsWith('/restaurants') },
+    { href: '/mobility?type=delivery', label: 'توصيل', active: pathname === '/mobility' },
     { href: '/map', label: 'بالقرب مني', active: pathname === '/map' },
-    { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' || pathname === '/mobility' },
+    { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' },
     { href: '/store', label: 'المتجر', active: pathname === '/store' || pathname.startsWith('/store/') },
     { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/classifieds') }
   ];
