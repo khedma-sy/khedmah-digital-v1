@@ -26,7 +26,8 @@ test('route families own identity at layout level instead of landing-page-only s
   assert.match(themes, /\[data-khedmah-section='classifieds'\]/);
   assert.match(themes, /\[data-khedmah-section='taxi'\]/);
   assert.match(themes, /\[data-khedmah-section='mobility'\]\s*\{[^}]*--section-accent:\s*var\(--brand-green\)/s);
-  assert.match(themes, /\[data-khedmah-section='taxi'\][\s\S]*?--section-accent:\s*var\(--brand-navy\)/);
+  assert.match(themes, /\[data-khedmah-section='taxi'\][\s\S]*?--section-accent:\s*#07427c;[^}]*--section-on-accent:\s*#fff;/);
+  assert.doesNotMatch(themes, /--section-accent:\s*var\(--brand-navy\)/);
 });
 
 test('existing nested Store and Classifieds routes remain covered by their parent layout', async () => {

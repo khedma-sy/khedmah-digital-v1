@@ -4,7 +4,8 @@
   --brand-green: #81be49;
   --brand-orange: #fd9603;
   --brand-warm: #f8faf9;
-  --section-accent: var(--brand-navy);
+  --section-accent: #07427c;
+  --section-label: var(--k-color-primary);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -12,7 +13,8 @@
 /* Route-family identity is owned by layouts, not by one landing page. */
 .khedmah-section-identity {
   min-height: 100%;
-  --section-accent: var(--brand-navy);
+  --section-accent: #07427c;
+  --section-label: var(--k-color-primary);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -22,18 +24,20 @@
 [data-khedmah-section='store'],
 [data-khedmah-section='classifieds'] {
   --section-accent: var(--brand-orange);
+  --section-label: var(--k-color-warning);
   --section-on-accent: #143653;
 }
 
 /* Delivery / road discovery owns the green section identity. Taxi stays navy in /taxi. */
 [data-khedmah-section='mobility'] {
   --section-accent: var(--brand-green);
+  --section-label: var(--k-color-success);
   --section-on-accent: #143653;
 }
 
 [data-khedmah-section='taxi'],
 [data-khedmah-section='auth'] {
-  --section-accent: var(--brand-navy);
+  --section-accent: #07427c;
   --section-on-accent: #fff;
 }
 
@@ -49,7 +53,7 @@
   padding-block-end: .75rem;
 }
 
-.khedmah-section-identity .ui-eyebrow { color: var(--section-accent); }
+.khedmah-section-identity .ui-eyebrow { color: var(--section-label); }
 .khedmah-section-identity .ui-action-primary {
   color: var(--section-on-accent);
   background: var(--section-accent);
@@ -67,7 +71,7 @@
 }
 .khedmah-section-identity .ui-action:focus-visible,
 .khedmah-section-identity .ui-back:focus-visible {
-  outline-color: var(--section-accent);
+  outline-color: var(--k-color-text);
 }
 
 /* Categories / service directory: green sector identity with category-specific brand tones. */
@@ -109,13 +113,13 @@
 .catalog-experience .catalog-service-icon[data-category-tone='navy'] { color: var(--brand-navy); }
 
 .catalog-experience .catalog-service small {
-  color: var(--section-accent);
+  color: var(--k-color-text-muted);
 }
 
 .catalog-experience .catalog-state-actions a,
 .catalog-experience .catalog-state-actions button {
   border-color: var(--section-accent);
-  color: var(--section-accent);
+  color: var(--k-color-text);
 }
 
 .catalog-experience .catalog-state-actions a:first-of-type {
@@ -130,5 +134,5 @@
 
 /* General nearby-map discovery stays on the umbrella navy identity. */
 .map-welcome {
-  --section-accent: var(--brand-navy);
+  --section-accent: #07427c;
 }

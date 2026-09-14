@@ -24,7 +24,7 @@ export function browserInlineLayout() {
     'form[role="search"] textarea', 'form[role="search"] button',
     '.ui-page-actions .ui-action', '.ui-empty',
     '.auth-panel', '.auth-field', '.auth-field input', '.auth-primary', '.auth-secondary', '.auth-tabs',
-    'ol[aria-label="مراحل اعتماد سائق التكسي"] > li'
+    'ol[aria-label="مراحل اعتماد سائق التكسي"] > li', 'ol[aria-label="مراحل طلب الطعام"] > li'
   ];
   const elements = main ? [...main.querySelectorAll(selectors.join(','))].filter((element) => {
     const style = getComputedStyle(element);

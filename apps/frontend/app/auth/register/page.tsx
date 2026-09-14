@@ -76,7 +76,6 @@ export default function RegisterPage() {
   return (
     <main id="foundation-content" className="auth-experience" aria-label="إنشاء حساب جديد">
       <div className="auth-phone auth-phone-register">
-        <Link className="auth-back" href="/" aria-label="العودة"><PlatformIcon name="arrow" /></Link>
         <IdentityVisual />
         <section className="register-heading"><h1>إنشاء حساب</h1><p>انضم إلى <strong>خدمة</strong> واكتشف الخدمات والأعمال والمهنيين الموثوقين.</p></section>
         <form className="auth-panel register-panel" aria-label="إنشاء حساب" onSubmit={submitRegistration} noValidate>
@@ -97,6 +96,7 @@ export default function RegisterPage() {
             <button className={`auth-secondary auth-facebook${FACEBOOK_AUTH_ENABLED ? '' : ' auth-facebook-deferred'}`} type="button" onClick={FACEBOOK_AUTH_ENABLED ? continueWithFacebook : undefined} aria-busy={FACEBOOK_AUTH_ENABLED && isFacebookLoading} aria-label={FACEBOOK_AUTH_ENABLED ? 'المتابعة عبر Facebook' : 'المتابعة عبر Facebook — قريبًا'} title={FACEBOOK_AUTH_ENABLED ? undefined : 'سيتم تفعيل التسجيل عبر Facebook لاحقًا'} disabled={!FACEBOOK_AUTH_ENABLED || isLoading || isGoogleLoading || isFacebookLoading}><SocialProviderIcon provider="facebook" />{FACEBOOK_AUTH_ENABLED ? (isFacebookLoading ? 'جاري الاتصال...' : 'المتابعة عبر Facebook') : 'Facebook — قريبًا'}</button>
           </div>
         </form>
+        <p className="auth-help"><Link href="/">العودة إلى الرئيسية</Link></p>
       </div>
     </main>
   );

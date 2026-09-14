@@ -8,7 +8,9 @@ export function assessAuthEvidence(snapshot, shell, httpStatus, pathMatches, pag
   if (!(httpStatus >= 200 && httpStatus < 300)) failures.push('HTTP_NOT_SUCCESS');
   if (!pathMatches) failures.push('UNEXPECTED_REDIRECT');
   if (snapshot.mainCount !== 1 || !snapshot.headingLength) failures.push('CONTENT_NOT_READY');
-  if (!snapshot.authReady || snapshot.headerCount !== 0) failures.push('AUTH_SHELL_NOT_READY');
+  if (!snapshot.authReady || snapshot.headerCount !== 1 || snapshot.navigationCount !== 0
+      || !Number.isFinite(shell.headerHeight) || shell.headerHeight > 1 || shell.headerHeight < 0
+      || shell.headerBrandCount !== 0 || shell.assistantCount !== 1) failures.push('AUTH_SHELL_NOT_READY');
   if (shell.brandCount !== 1 || shell.tabCount !== 2 || shell.currentTabCount !== 1 || !shell.switchHrefValid) failures.push('AUTH_NAVIGATION_NOT_READY');
   if (snapshot.busyCount !== 0) failures.push('LOADING_NOT_FINISHED');
   if (snapshot.alertCount !== 0) failures.push('VISIBLE_ERROR_OR_WARNING');
@@ -25,7 +27,11 @@ export function browserAuthShell() {
   const visible = (element) => !!element && element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible';
   const elements = (selector) => [...main.querySelectorAll(selector)].filter(visible);
   const switchHref = elements('.auth-tabs a')[0]?.getAttribute('href');
+  const header = document.querySelector('.khedma-header');
   return { brandCount: elements('.khedma-brand').length,
+    headerHeight: header?.getBoundingClientRect().height ?? null,
+    headerBrandCount: [...document.querySelectorAll('.khedma-header > a')].filter(visible).length,
+    assistantCount: [...document.querySelectorAll('.khedma-header [data-khedmah-assistant]')].filter(visible).length,
     tabCount: elements('.auth-tabs > *').length,
     currentTabCount: elements('.auth-tabs [aria-current="page"]').length,
     switchHrefValid: switchHref === (location.pathname === '/auth/login' ? '/auth/register' : '/auth/login') };
@@ -78,12 +84,12 @@ export async function measurePageDesign(page, key) {
   const layout = await page.evaluate(browserDesignLayout, key);
   const assessment = assessDesignLayout(layout);
   const samples = [];
-  if (key === 'categories' || key === 'food') {
+  if (['categories', 'food', 'store', 'map', 'taxi', 'restaurants'].includes(key)) {
     const icons = key === 'categories';
-    const selector = icons ? 'main .catalog-category-icon' : 'main [aria-labelledby="food-categories-title"] article a, main a[href="/business-profiles/new"], main a[href="/restaurants"]';
+    const selector = icons ? 'main .catalog-category-icon' : key === 'restaurants' ? 'main .ui-action-primary, main .ui-action-secondary' : key !== 'food' ? 'main .ui-action-primary' : 'main [aria-labelledby="food-categories-title"] article a, main a[href="/business-profiles/new"], main a[href="/restaurants"]';
     const elements = page.locator(selector);
     const count = await elements.count();
-    if (count < (icons ? 1 : 6)) assessment.failures.push('DESIGN_CONTRAST_TARGETS_MISSING');
+    if (count < (key === 'food' ? 6 : 1)) assessment.failures.push('DESIGN_CONTRAST_TARGETS_MISSING');
     for (let index = 0; index < count; index++) {
       const element = elements.nth(index);
       for (const state of icons ? ['normal'] : ['normal', 'hover', 'keyboard-focus']) {
@@ -97,7 +103,7 @@ export async function measurePageDesign(page, key) {
         if (icons) paint.label = await element.getAttribute('data-category-tone');
         const result = assessActionContrast(paint, icons ? 3 : 4.5);
         samples.push({ index, state, ...paint, ...result });
-        if (result.status !== 'passed') assessment.failures.push(icons ? 'CATEGORY_ICON_CONTRAST_FAILED' : 'FOOD_ACTION_CONTRAST_FAILED');
+        if (result.status !== 'passed') assessment.failures.push(icons ? 'CATEGORY_ICON_CONTRAST_FAILED' : `${key.toUpperCase()}_ACTION_CONTRAST_FAILED`);
         if (!icons) await element.evaluate((node) => node.blur());
       }
     }
@@ -107,5 +113,5 @@ export async function measurePageDesign(page, key) {
   assessment.failures = [...new Set(assessment.failures)];
   assessment.status = assessment.failures.length ? 'failed' : 'passed';
   return { ...assessment, layout, contrastSamples: samples,
-    scope: 'Rendered spacing and RTL; category icon contrast >=3; solid Food action text >=4.5 in three states. No whole-page accessibility or background-gradient certification.' };
+    scope: 'Rendered spacing and RTL; category icon contrast >=3; solid Food, Store, Map, Taxi and Restaurant action text >=4.5 in three states. No whole-page accessibility or background-gradient certification.' };
 }

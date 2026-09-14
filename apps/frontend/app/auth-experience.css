@@ -181,7 +181,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 @media(max-width:42rem) {
   .auth-experience { padding:.65rem .7rem 1rem; }
   .auth-experience::before { background-position:center 30%; background-size:100% auto; }
-  .identity-language { position:static; justify-self:start; margin-bottom:-1.2rem; font-size:.74rem; }
+  .identity-language { position:static; justify-self:end; margin-bottom:.2rem; font-size:.74rem; }
   .identity-approved-brand .khedma-brand>svg { width:4rem; }
   .identity-approved-brand .khedma-brand b { font-size:1.5rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1rem; border-radius:1rem; }

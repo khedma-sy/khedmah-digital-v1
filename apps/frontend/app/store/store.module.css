@@ -3,9 +3,9 @@
   --store-accent:var(--brand-orange,#fd9603);
   --store-accent-soft:color-mix(in srgb,var(--store-accent) 10%,var(--k-color-surface));
 }
-.page :global(.ui-action-primary){background:var(--store-accent)}
-.page :global(.ui-action-primary:hover){background:color-mix(in srgb,var(--store-accent) 84%,#000)}
-.page :global(.ui-eyebrow){color:var(--store-accent)}
+.page :global(.ui-action-primary){color:var(--k-color-on-accent);background:var(--store-accent)}
+.page :global(.ui-action-primary:hover){color:var(--k-color-on-accent);background:color-mix(in srgb,var(--store-accent) 90%,#fff)}
+.page :global(.ui-eyebrow){color:var(--k-color-warning)}
 .page :global(.ui-empty-icon){color:var(--store-accent);background:var(--store-accent-soft)}
 .toolbar{
   display:grid;
@@ -15,8 +15,11 @@
   padding:clamp(1rem,2.2vw,1.35rem);
   border-color:color-mix(in srgb,var(--store-accent) 18%,var(--k-color-border));
 }
-.field{display:grid;gap:.45rem;color:var(--k-color-text);font-size:.84rem;font-weight:800}
+.field{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:.45rem;color:var(--k-color-text);font-size:.84rem;font-weight:800}
 .field input,.field select,.form input,.form select,.form textarea{
+  width:100%;
+  min-width:0;
+  max-width:100%;
   min-height:3rem;
   border:1px solid color-mix(in srgb,var(--store-accent) 18%,var(--k-color-border));
   border-radius:var(--k-radius-md);
@@ -26,7 +29,7 @@
   font:inherit;
 }
 .field input:focus,.field select:focus,.form input:focus,.form select:focus,.form textarea:focus{
-  outline:3px solid color-mix(in srgb,var(--store-accent) 16%,transparent);
+  outline:3px solid var(--k-color-text);
   border-color:var(--store-accent);
 }
 .grid{
@@ -82,7 +85,7 @@
 .editorImages figcaption{display:grid;gap:.4rem;overflow-wrap:anywhere}
 .editorImages button{min-height:40px;border:1px solid var(--k-color-border);border-radius:.65rem;background:var(--k-color-surface);color:var(--k-color-text);font:inherit;font-weight:800;cursor:pointer}
 @media(max-width:50rem){
-  .toolbar{grid-template-columns:1fr}
+  .toolbar{grid-template-columns:minmax(0,1fr)}
   .detail{grid-template-columns:1fr}
   .formGrid{grid-template-columns:1fr}
   .gallery .image:first-child{min-height:18rem}

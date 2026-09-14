@@ -55,3 +55,4 @@
 
 @media(max-width:52rem){.grid{grid-template-columns:1fr}.fields,.compactFields{grid-template-columns:1fr 1fr}}
 @media(max-width:38rem){.fields,.compactFields,.journey{grid-template-columns:1fr}.summary dl{grid-template-columns:1fr}.actions>*{width:100%}.mapToolbar{display:grid;grid-template-columns:1fr 1fr}.mapToolbar button{justify-content:center}.mapCanvas{height:20rem}}
+@media(max-width:38rem){.guestIntro .actions{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}.guestIntro .actions>a{width:100%}}

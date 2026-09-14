@@ -44,15 +44,15 @@ test('guest driver evidence rejects editable forms and incomplete journey steps'
 });
 
 test('auth shell has an explicit gate and cannot satisfy the public navigation gate', () => {
-  const snapshot = { theme: 'light', mainCount: 1, headingLength: 12, authReady: true, headerCount: 0,
+  const snapshot = { theme: 'light', mainCount: 1, headingLength: 12, authReady: true, headerCount: 1,
     navigationCount: 0, navigationInteractiveCount: 0, navigationHrefs: [], busyCount: 0, alertCount: 0,
     incompleteImageCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
-  const shell = { brandCount: 1, tabCount: 2, currentTabCount: 1, switchHrefValid: true };
+  const shell = { brandCount: 1, tabCount: 2, currentTabCount: 1, switchHrefValid: true, headerHeight: 0, headerBrandCount: 0, assistantCount: 1 };
   const assess = (value, frame = shell) => assessAuthEvidence(value, frame, 200, true, 0, 'light');
   assert.deepEqual(assess(snapshot), []);
   assert.ok(assessEvidence(snapshot, 200, true).includes('NAVIGATION_DESTINATIONS_CHANGED'));
-  for (const mutation of [{ headingLength: 0 }, { formNamed: false }, { alertCount: 1 }, { overflowPx: 2 }, { authReady: false }, { headerCount: 1 }]) assert.ok(assess({ ...snapshot, ...mutation }).length);
-  for (const mutation of [{ brandCount: 0 }, { currentTabCount: 0 }, { switchHrefValid: false }]) assert.ok(assess(snapshot, { ...shell, ...mutation }).length);
+  for (const mutation of [{ headingLength: 0 }, { formNamed: false }, { alertCount: 1 }, { overflowPx: 2 }, { authReady: false }, { headerCount: 0 }, { navigationCount: 8 }]) assert.ok(assess({ ...snapshot, ...mutation }).length);
+  for (const mutation of [{ brandCount: 0 }, { currentTabCount: 0 }, { switchHrefValid: false }, { headerHeight: 80 }, { headerHeight: null }, { headerBrandCount: 1 }, { assistantCount: 0 }]) assert.ok(assess(snapshot, { ...shell, ...mutation }).length);
   assert.ok(assessAuthEvidence(snapshot, shell, 500, true, 0, 'light').includes('HTTP_NOT_SUCCESS'));
   assert.ok(assessAuthEvidence(snapshot, shell, 200, false, 0, 'light').includes('UNEXPECTED_REDIRECT'));
   assert.ok(assessAuthEvidence(snapshot, shell, 200, true, 1, 'light').includes('BROWSER_RUNTIME_ERROR'));
