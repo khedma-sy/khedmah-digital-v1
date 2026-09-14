@@ -106,7 +106,11 @@ export default function TaxiDriverSignupPage() {
       && selected.trustStatus === 'approved'
       && selected.status === 'active'
   );
-  const operationalApproved = operational?.operationalStatus === 'approved';
+  const operationalExpiry = operational?.expiresAt ? Date.parse(operational.expiresAt) : Number.NaN;
+  const operationalExpired = operational?.operationalStatus === 'approved'
+    && Number.isFinite(operationalExpiry) && operationalExpiry <= Date.now();
+  const operationalApproved = operational?.operationalStatus === 'approved'
+    && profileReady && Number.isFinite(operationalExpiry) && operationalExpiry > Date.now();
 
   async function loadOperationalStatus(businessId: string) {
     setOperational(null);
@@ -211,8 +215,8 @@ export default function TaxiDriverSignupPage() {
     { title: 'رفع الوثائق الأربع', complete: uploadedCount === DOCUMENTS.length, detail: `${uploadedCount.toLocaleString('ar-SY')} من ${DOCUMENTS.length.toLocaleString('ar-SY')} مرفوع` },
     { title: 'مراجعة المستندات', complete: allDocumentsApproved, detail: `${approvedCount.toLocaleString('ar-SY')} من ${DOCUMENTS.length.toLocaleString('ar-SY')} معتمد` },
     { title: 'مراجعة النشاط والثقة', complete: profileReady, detail: profileReady ? 'الملف منشور ومعتمد وموثوق ونشط.' : 'يلزم اعتماد النشر والمراجعة والثقة.' },
-    { title: 'اعتماد السائق والسيارة والمنطقة', complete: operationalApproved, detail: operationalApproved ? `معتمد${operational?.zoneCode ? ` · ${operational.zoneCode}` : ''}` : operational?.operationalStatus === 'suspended' ? 'الاعتماد معلّق.' : operational?.operationalStatus === 'revoked' ? 'الاعتماد ملغى.' : 'بانتظار قرار خدمة التشغيلي.' },
-    { title: 'الأهلية للربط بالعملاء', complete: operationalApproved, detail: operationalApproved ? 'أصبحت مؤهلًا للربط. استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية.' : 'لا يمكن ربطك بطلبات الرحلات قبل الاعتماد التشغيلي.' }
+    { title: 'اعتماد السائق والسيارة والمنطقة', complete: operationalApproved, detail: operationalApproved ? `معتمد${operational?.zoneCode ? ` · ${operational.zoneCode}` : ''}` : operationalExpired ? 'انتهت صلاحية الاعتماد؛ يلزم التجديد.' : operational?.operationalStatus === 'approved' && !profileReady ? 'الاعتماد المسجل متوقف الأثر حتى تعود حالة الملف منشورة ومعتمدة وموثوقة ونشطة.' : operational?.operationalStatus === 'suspended' ? 'الاعتماد معلّق.' : operational?.operationalStatus === 'revoked' ? 'الاعتماد ملغى.' : 'بانتظار قرار خدمة التشغيلي.' },
+    { title: 'الأهلية للربط بالعملاء', complete: operationalApproved, detail: operationalApproved ? 'أصبحت مؤهلًا للربط. استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية.' : operationalExpired ? 'انتهت صلاحية الاعتماد؛ لا يمكن الربط قبل التجديد.' : 'لا يمكن ربطك بطلبات الرحلات قبل اعتماد تشغيلي صالح وحالة ملف جاهزة.' }
   ];
 
   return <PageShell className={styles.page} label="الانضمام إلى خدمة تكسي">
@@ -283,12 +287,16 @@ export default function TaxiDriverSignupPage() {
     <Surface className={styles.panel}>
       <h2>٣. المراجعة والاعتماد التشغيلي</h2>
       {operationalApproved
-        ? <StatusMessage tone="success">اكتمل اعتماد السائق والسيارة والمنطقة. أنت مؤهل للربط مع العملاء عند تفعيل خدمة الرحلات التشغيلية.</StatusMessage>
-        : allDocumentsApproved && profileReady
-          ? <StatusMessage tone="info">اكتملت الوثائق والمراجعة والثقة. طلبك جاهز الآن لقرار الاعتماد التشغيلي من خدمة.</StatusMessage>
-          : allDocumentsApproved
-            ? <StatusMessage tone="info">اكتملت الوثائق، لكن اعتماد النشاط والثقة والنشر يجب أن يكتمل قبل القرار التشغيلي.</StatusMessage>
-            : <StatusMessage tone="info">لن تصل طلبات العملاء إلى هذا الحساب قبل اكتمال الوثائق والمراجعة واعتماد السائق والمركبة والمنطقة تشغيلياً.</StatusMessage>}
+        ? <StatusMessage tone="success">اكتمل اعتماد السائق والسيارة والمنطقة، والاعتماد ما زال صالحًا والملف جاهز. أنت مؤهل للربط مع العملاء عند تفعيل خدمة الرحلات التشغيلية.</StatusMessage>
+        : operationalExpired
+          ? <StatusMessage tone="warning">انتهت صلاحية الاعتماد التشغيلي. يلزم التجديد قبل استعادة أهلية الربط بالعملاء.</StatusMessage>
+          : operational?.operationalStatus === 'approved' && !profileReady
+            ? <StatusMessage tone="warning">يوجد اعتماد تشغيلي مسجل، لكن حالة ملف التكسي لم تعد public + approved moderation + approved trust + active؛ لذلك أهلية الربط متوقفة حتى إعادة اعتماد الملف.</StatusMessage>
+            : allDocumentsApproved && profileReady
+              ? <StatusMessage tone="info">اكتملت الوثائق والمراجعة والثقة. طلبك جاهز الآن لقرار الاعتماد التشغيلي من خدمة.</StatusMessage>
+              : allDocumentsApproved
+                ? <StatusMessage tone="info">اكتملت الوثائق، لكن اعتماد النشاط والثقة والنشر يجب أن يكتمل قبل القرار التشغيلي.</StatusMessage>
+                : <StatusMessage tone="info">لن تصل طلبات العملاء إلى هذا الحساب قبل اكتمال الوثائق والمراجعة واعتماد السائق والمركبة والمنطقة تشغيلياً.</StatusMessage>}
       {operational?.operationalStatus === 'suspended' && <StatusMessage tone="warning">اعتمادك التشغيلي معلّق حاليًا. راجع الملف والمستندات أو تواصل مع خدمة قبل استئناف الأهلية.</StatusMessage>}
       {operational?.operationalStatus === 'revoked' && <StatusMessage tone="danger">تم إلغاء الاعتماد التشغيلي. لا توجد أهلية للربط بالعملاء حتى قرار اعتماد جديد.</StatusMessage>}
       <p className={styles.note}>هذه الصفحة لا تمنح نفسها صلاحية القيادة ولا تفتح Trip engine. قرار الاعتماد البشري وتشغيل الرحلات مرحلتان منفصلتان.</p>
