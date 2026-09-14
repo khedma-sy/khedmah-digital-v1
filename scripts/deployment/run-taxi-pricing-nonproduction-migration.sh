@@ -11,24 +11,28 @@ mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
 production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
 
+# Cloud Run execution metadata exposes only the process exit code when the deployer
+# cannot read container logs. Keep pre-schema failures distinct so an operator can
+# diagnose the isolated non-production job without granting broader logging access.
+# These codes disclose only which contract check failed; they never encode secret data.
 case "$environment" in
   preview|staging) ;;
-  *) echo 'ERROR: Taxi pricing migration 029 is allowed only in preview or staging.' >&2; exit 2 ;;
+  *) echo 'ERROR: Taxi pricing migration 029 is allowed only in preview or staging.' >&2; exit 61 ;;
 esac
 case "$mode" in
   verify|apply) ;;
-  *) echo 'ERROR: MIGRATION_MODE must be verify or apply.' >&2; exit 2 ;;
+  *) echo 'ERROR: MIGRATION_MODE must be verify or apply.' >&2; exit 62 ;;
 esac
-test -n "$project" || { echo 'ERROR: GOOGLE_CLOUD_PROJECT is required.' >&2; exit 2; }
-test -n "$production_project" || { echo 'ERROR: PRODUCTION_GOOGLE_CLOUD_PROJECT is required.' >&2; exit 2; }
-[ "$project" != "$production_project" ] || { echo 'ERROR: Refusing Taxi pricing migration 029 against the production project.' >&2; exit 3; }
-test -n "${DATABASE_URL:-}" || { echo 'ERROR: DATABASE_URL is required.' >&2; exit 2; }
-[ "${MIGRATION_SHA256:-}" = "$APPROVED_SHA256" ] || { echo 'ERROR: Migration 029 approval checksum does not match.' >&2; exit 3; }
+test -n "$project" || { echo 'ERROR: GOOGLE_CLOUD_PROJECT is required.' >&2; exit 63; }
+test -n "$production_project" || { echo 'ERROR: PRODUCTION_GOOGLE_CLOUD_PROJECT is required.' >&2; exit 64; }
+[ "$project" != "$production_project" ] || { echo 'ERROR: Refusing Taxi pricing migration 029 against the production project.' >&2; exit 65; }
+test -n "${DATABASE_URL:-}" || { echo 'ERROR: DATABASE_URL is required.' >&2; exit 66; }
+[ "${MIGRATION_SHA256:-}" = "$APPROVED_SHA256" ] || { echo 'ERROR: Migration 029 approval checksum does not match.' >&2; exit 67; }
 if [ "$mode" = 'apply' ]; then
   expected_confirmation="APPLY_KHEDMAH_NONPROD_029_$(printf '%s' "$environment" | tr '[:lower:]' '[:upper:]')"
-  [ "${MIGRATION_CONFIRMATION:-}" = "$expected_confirmation" ] || { echo 'ERROR: Explicit Taxi pricing migration confirmation is required.' >&2; exit 3; }
+  [ "${MIGRATION_CONFIRMATION:-}" = "$expected_confirmation" ] || { echo 'ERROR: Explicit Taxi pricing migration confirmation is required.' >&2; exit 68; }
 fi
-printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null
+printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null 2>&1 || exit 69
 
 if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
   command -v python3 >/dev/null 2>&1 || exit 52
