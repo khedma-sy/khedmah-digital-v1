@@ -58,6 +58,7 @@ jobs:
             028_platform_notifications
             029_taxi_pricing_revisions
             030_billing_credits_subscriptions
+            031_taxi_operational_approvals
           )
 
           for migration in "${migrations[@]}"; do
@@ -140,6 +141,8 @@ jobs:
             029_taxi_pricing_revisions_rollback.sql \
             030_billing_credits_subscriptions.sql \
             030_billing_credits_subscriptions_rollback.sql \
+            031_taxi_operational_approvals.sql \
+            031_taxi_operational_approvals_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"
@@ -148,8 +151,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Product V2 billing credits/subscriptions are approved scope. Generic payment processor,
-          # marketplace, inventory, commissions, social-profile and tracking schemas remain forbidden.
+          # Product V2 billing credits/subscriptions and Taxi operational approvals are approved scope.
+          # Generic payment processor, marketplace, inventory, commissions, social-profile and tracking schemas remain forbidden.
           forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn --include='*.sql' "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" backend/migrations/versions; then
             echo 'Forbidden product table definition detected.' >&2
