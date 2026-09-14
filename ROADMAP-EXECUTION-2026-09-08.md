@@ -2,22 +2,23 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-آخر تحديث: **2026-09-14 — استكمال الفحص السادس / PR #175**. هذا القسم هو نقطة الاستئناف الحالية؛ سجل RP34 وما بعده أدناه تاريخي.
+آخر تحديث: **2026-09-14 — الفحص السادس / إصلاح Classifieds عند 320px**. هذا القسم هو نقطة الاستئناف الحالية؛ سجل RP34 أدناه تاريخي.
 
 | الحقل | الحالة المثبتة |
 |---|---|
-| المصدر الحالي | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft، غير مدموج، إلى `develop` |
-| رأس طلب الاستكمال | `1064e73b23dba4debac87906896f5d62db1765a1`؛ CI عليه فشل في اختبارات الواجهة. الفرع تقدم بستة commits قبل استئناف الكتابة؛ لم يرجع العمل إلى ذلك الرأس أو فرع آخر |
-| آخر تطبيق اجتاز CI الأساسي | `22b3da2510e321fe5d6553629d60604d32df01ad`: Database Migration Validation `34888824354`، Identity `34888824253`، Node CI `34888824268`، Test & Verify `34888824317` نجحت؛ Preview `34888824365` اجتاز quality-gates وكان deploy-preview جاريًا عند هذا التحديث |
-| إصلاح التباين التالي | implementation commit `cfbb541bb42a43cff580148eee0564039b5f2b54`: قياس ألوان أزرار Classifieds المطبقة في المتصفح في normal/hover/keyboard-focus، وحارس 4.5:1 للنص؛ إصلاح إطار التركيز باستعمال `--k-color-text` بدل البرتقالي الضعيف على الخلفية الفاتحة. هذا السطر لا يدعي نشر الدفعة بعد |
-| التحقق المحلي للدفعة | 1276/1276 اختبارات الجذر ناجحة بعد آخر تغيير؛ 126/126 اختبارات الواجهة ناجحة على `22b3da2`؛ 12/12 لاختبارات قياس التباين وعقود الأدلة؛ 12/12 لعقد Migration 032 وتسلسل النشر المعزول. لا تخلط هذه الأرقام مع رحلات Preview |
-| 032 | SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe` مطابقان. ensure-031 يستدعي ensure-032 إلزاميًا قبل backend build. يلزم استخراج نجاح التنفيذ من سجل deploy، وليس اعتبار unit tests دليل تطبيق Cloud SQL |
-| التغطية البصرية | 64 حالة قديمة + 24 حالة جديدة: `/restaurants` و`/mobility?type=delivery` و`/classifieds` × 320/390/768/1280 × light/dark؛ مع فحص RTL. الدليل الجديد في `sixth-audit-visual-manifest.json` ويحتوي قياسات النص والتركيز. مرجع التركيز هو canvas/surface للثيم؛ ليس تدقيق بكسلات لكل gradient |
-| حدود الرحلات الفعلية | `TAXI_TRIPS_ENABLED=false`؛ التخطيط والتسجيل والاعتماد منفصلة عن تنفيذ رحلة. فحص المتصفح في هذه الجلسة شاهد 0 مطاعم منشورة وتحويل `/orders` إلى تسجيل الدخول؛ لا توجد جلسات اختبار عميل/مطعم/مندوب/مراجع متاحة. لا تدّعِ تنفيذ quote→approval→courier→pickup→delivered→rating على Preview |
-| عائق Staging | `BEFORE_URL_MISSING` مشكلة بنية مستقلة. لا تستخدم Production أو Preview نفسه كمرجع Before؛ لا تضعف بوابة المقارنة |
-| الخطوة التالية | بعد انتهاء نشر الرأس السابق لتجنب إلغاء migration جارية: ارفع دفعة التباين على نفس PR بتحديث fast-forward، راقب CI الكامل، تحقق من 032 وversion المنشور، ثم اقرأ artifacts وافحص الصور والرحلات المتاحة. إن تغير الرأس، اقرأ التغييرات اللاحقة قبل أي كتابة |
-| ملفات الاستكمال | `scripts/classifieds-action-contrast.mjs`، `scripts/capture-sixth-audit-evidence.mjs`، `scripts/check-classifieds-preview-acceptance.mjs`، `tests/classifieds-action-contrast.test.mjs`، `apps/frontend/app/classifieds/classifieds.module.css`، migration/ensure/runner الخاصة بـ032 |
-| حد التسليم | لا Merge أو main أو Production. يلزم نجاح بوابات الرأس المنشور ومراجعة Preview، وتبقى الرحلات ذات الأدوار معلقة حتى بيانات وحسابات الاختبار المعتمدة |
+| المصدر | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft، غير مدموج، إلى `develop` |
+| تسلسل المصدر | الرأس المطلوب `1064e73...` فشل في frontend tests؛ الإصلاحات اللاحقة محفوظة. `22b3da2...` ثم دفعة التباين `cfbb541...` ثم التوثيق `a4eee2a41d373c97a776b7751ad56b55bdba5701`. لا رجوع إلى فرع قديم |
+| CI المثبت قبل إصلاح القص | `a4eee2a...`: Test & Verify `34890756935` نجح بـ1919 اختبارًا: root 1276، backend 517، frontend 126؛ 0 فشل/تخطي. Node `34890757012`، Identity `34890757036`، Database `34890756934` خضراء |
+| Preview المنشور | run `34890757028`، deploy job `104134374972` نجح. checkout `9f44d5b62168f2bb5dd707a73c8e2b33e2c11e0d`؛ frontend revision `khedmah-pr-175-frontend-00006-bz7`؛ backend `khedmah-pr-175-backend-00012-jcw`؛ health 200 وversion مطابق |
+| 032 في Cloud SQL | التنفيذ `khedmah-preview-taxi-operational-032-45059cc414-4wq4t` اكتمل، ورسالة `Taxi operational migration 032 apply completed and verified for preview.` في 20:19:28Z. SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe`. أول تطبيق في الجولة كان على `22b3da2...` |
+| الأدلة السابقة وحدودها | artifact `10367139375` على `a4eee2a...`: 64/64 أساسية، 24/24 للأسطح الثلاثة، mobile 32/32، Classifieds 200/200/200؛ 72/72 عينة تباين نص 5.670975–7.107906:1. كل الجديدة RTL وdocument overflow=0، لكن ذلك لم يمنع عيب القص التالي |
+| AUTOPSY بصري حقيقي | الصور `sixth-after-classifieds-small-mobile-light.png` وdark تكشف قص العنوان والنموذج عند 320px بعد التنقل بالتركيز. intrinsic input/select size وسلاسل Grid ذات الحد الأدنى auto تجاوزت المساحة؛ `ui-page overflow:hidden` أخفى ذلك عن document scrollWidth. لم يُعتمد هذا النجاح الآلي كقبول بصري |
+| الإصلاح الحالي | implementation commit `61d9fb6c74c5d472a45e4803579171cd6a2bb015`: حقول Classifieds bounded بـwidth 100% وmin-width 0 وGrid minmax(0,1fr). حارس جديد يقيس حدود العناوين والحقول والأزرار وoverflow داخل main بعد keyboard traversal |
+| التحقق المحلي للإصلاح | root 1280/1280؛ focused layout/contrast/evidence 16/16؛ diff --check نظيف. يلزم CI وPreview جديدان للدفعة؛ لا تنسب أدلة a4eee2a للرأس الجديد |
+| حدود الرحلات | التخطيط أُعيد على a4eee2a: نقطتان مستقلتان `33.51661,36.26380` و`33.50798,36.31375`؛ تسجيل السيارة يظهر مراحل الاعتماد الست. ستة GET بلا جلسة تعيد 401/503 كما هو متوقع. `TAXI_TRIPS_ENABLED=false`. لا جلسات عميل/مطعم/مندوب/مراجع متاحة، وقائمة المطاعم 0؛ الرحلات التشغيلية ذات الأدوار لم تنفذ |
+| Staging والدمج | `BEFORE_URL_MISSING` العائق الوحيد للمقارنة في run السابق؛ لا Production أو Preview كمرجع Before. لا Merge أو main أو Production. Owner review ورحلات الاختبار المصادق عليها ما زالت لازمة |
+| الخطوة التالية | ارفع هذه الدفعة fast-forward على PR نفسه؛ راقب CI وdeploy و032؛ افحص artifact الجديد: 88 حالة و24 inline-layout و72 contrast و32 interactions. افتح صور Classifieds عند 320px في الثيمين للتأكد من زوال القص. تحقق من live head قبل أي كتابة |
+| الملفات | `apps/frontend/app/classifieds/classifieds.module.css`؛ `scripts/sixth-audit-layout.mjs`؛ `scripts/capture-sixth-audit-evidence.mjs`؛ `tests/sixth-audit-layout.test.mjs`؛ قياسات التباين السابقة وملفات migration/ensure/runner 032 |
 
 ### سجل تاريخي — RP34 بتاريخ 2026-09-10
 
