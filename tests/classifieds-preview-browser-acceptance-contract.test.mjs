@@ -26,11 +26,13 @@ test('browser acceptance proves the feature is enabled and the Classifieds surfa
   assert.match(page, /if \(!CLASSIFIEDS_ENABLED\) return <DisabledClassifieds\/>/);
 });
 
-test('browser acceptance observes the same-origin Ads API path and validates its envelope', () => {
+test('browser acceptance observes the same-origin Ads API path and validates its paged envelope', () => {
   assert.match(acceptance, /url\.origin === frontendOrigin && url\.pathname === '\/api\/v1\/classifieds'/);
   assert.match(acceptance, /CLASSIFIEDS_PROXY_API_NOT_200/);
   assert.match(acceptance, /isAdsEnvelope\(envelope\)/);
-  assert.match(client, /return request<\{ ads: PublicAdListing\[\] \}>\(`\/classifieds/);
+  assert.match(acceptance, /Number\.isSafeInteger\(value\.total\)/);
+  assert.match(acceptance, /Number\.isSafeInteger\(value\.page\)/);
+  assert.match(client, /return request<\{ ads: PublicAdListing\[\]; total: number; page: number \}>\(`\/classifieds/);
   assert.match(client, /fetch\(`\$\{API_BASE\}\/api\/v1\$\{path\}`/);
 });
 
