@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { TaxiOperationalApprovalService } from './taxi-operational-approval.service';
 
-@Controller('api/v1/taxi-operational-approvals')
+@Controller('taxi-operational-approvals')
 export class TaxiOperationalApprovalController {
   constructor(private readonly approvals: TaxiOperationalApprovalService) {}
 
