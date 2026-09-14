@@ -60,8 +60,8 @@ export default function AdminPage() {
       <article className="operations-panel"><div className="panel-heading"><h2>إدارة التصنيفات</h2><span>Product V2</span></div><p>إدارة الشجرة الهرمية، الترتيب، الإبراز والتفعيل دون حذف المراجع التاريخية.</p><Link href="/admin/categories">فتح لوحة التصنيفات</Link></article>
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية والمستندات المرتبطة بها.</p><Link href="/admin/verification">فتح التحقق</Link></article> : null}
-      <article className="operations-panel"><div className="panel-heading"><h2>Taxi Pricing</h2><span>API جاهز</span></div><p>محرك التسعير وMigration 029 وسجل revisions جاهزة؛ واجهة الإدارة المرئية ما زالت قيد الربط.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>Billing & Points</h2><span>API جاهز</span></div><p>Migration 030 والباقات والنقاط وKHEDMA30 موجودة؛ واجهة Billing المرئية لم تُثبت بعد.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>Taxi Pricing</h2><span>Backend/API موجود</span></div><p>محرك التسعير وMigration 029 وسجل revisions موجودة في هذا الفرع؛ واجهة الإدارة المرئية ما زالت قيد الربط.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>Billing & Points</h2><span>Backend/API موجود</span></div><p>Migration 030 والباقات والنقاط وKHEDMA30 موجودة في هذا الفرع؛ واجهة Billing المرئية لم تُثبت بعد.</p></article>
       <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>ملخص إعداد</span></div><p>إعدادات الخدمات وسجلات التغييرات والحوادث الحالية.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>
   </main>;
