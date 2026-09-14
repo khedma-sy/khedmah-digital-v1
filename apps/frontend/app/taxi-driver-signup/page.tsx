@@ -100,8 +100,12 @@ export default function TaxiDriverSignupPage() {
   const uploadedCount = DOCUMENTS.filter((item) => latestByType.has(item.type)).length;
   const approvedCount = DOCUMENTS.filter((item) => latestByType.get(item.type)?.reviewStatus === 'approved').length;
   const allDocumentsApproved = approvedCount === DOCUMENTS.length;
-  const profileReady = operational?.profileReady ?? !!selected && selected.visibility === 'public'
-    && selected.moderationStatus === 'approved' && selected.trustStatus === 'approved' && selected.status === 'active';
+  const profileReady = operational?.profileReady ?? (
+    !!selected && selected.visibility === 'public'
+      && selected.moderationStatus === 'approved'
+      && selected.trustStatus === 'approved'
+      && selected.status === 'active'
+  );
   const operationalApproved = operational?.operationalStatus === 'approved';
 
   async function loadOperationalStatus(businessId: string) {
