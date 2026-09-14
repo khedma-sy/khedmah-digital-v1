@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type PublicBusinessProfile } from '../../lib/api-client';
+import { taxiOperationalReviewApi, type TaxiOperationalCandidate } from '../../lib/taxi-operational-review-client';
 import { useSyrianCities } from '../../lib/use-syrian-cities';
 import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../components/ui-primitives';
 import styles from '../taxi/taxi.module.css';
@@ -80,6 +81,8 @@ export default function TaxiDriverSignupPage() {
   const [businesses, setBusinesses] = useState<PublicBusinessProfile[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [documents, setDocuments] = useState<DriverDocumentReview[]>([]);
+  const [operational, setOperational] = useState<TaxiOperationalCandidate | null>(null);
+  const [operationalNotice, setOperationalNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -94,8 +97,24 @@ export default function TaxiDriverSignupPage() {
     for (const document of documents) if (!latest.has(document.documentType)) latest.set(document.documentType, document);
     return latest;
   }, [documents]);
+  const uploadedCount = DOCUMENTS.filter((item) => latestByType.has(item.type)).length;
   const approvedCount = DOCUMENTS.filter((item) => latestByType.get(item.type)?.reviewStatus === 'approved').length;
   const allDocumentsApproved = approvedCount === DOCUMENTS.length;
+  const profileReady = operational?.profileReady ?? !!selected && selected.visibility === 'public'
+    && selected.moderationStatus === 'approved' && selected.trustStatus === 'approved' && selected.status === 'active';
+  const operationalApproved = operational?.operationalStatus === 'approved';
+
+  async function loadOperationalStatus(businessId: string) {
+    setOperational(null);
+    setOperationalNotice('');
+    try {
+      setOperational(await taxiOperationalReviewApi.status(businessId));
+    } catch (cause) {
+      const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+      if (status === 503) setOperationalNotice('سلطة اعتماد التكسي التشغيلية غير متاحة مؤقتًا في هذه البيئة؛ حالة المستندات تبقى محفوظة ولا يعني ذلك رفض الطلب.');
+      else if (status !== 401) setOperationalNotice(cause instanceof Error ? cause.message : 'تعذر قراءة حالة الاعتماد التشغيلي.');
+    }
+  }
 
   async function loadProfiles(preferredId?: string) {
     setLoading(true); setError('');
@@ -112,7 +131,12 @@ export default function TaxiDriverSignupPage() {
       if (next) {
         const result = await listDocuments(next);
         setDocuments(result.documents);
-      } else setDocuments([]);
+        await loadOperationalStatus(next);
+      } else {
+        setDocuments([]);
+        setOperational(null);
+        setOperationalNotice('');
+      }
     } catch (cause) {
       const status = (cause as Error & { statusCode?: number })?.statusCode;
       setError(status === 401 ? 'يلزم تسجيل الدخول قبل الانضمام كسائق.' : cause instanceof Error ? cause.message : 'تعذر تحميل طلب الانضمام.');
@@ -122,11 +146,13 @@ export default function TaxiDriverSignupPage() {
   useEffect(() => { void loadProfiles(); }, []);
 
   async function changeBusiness(id: string) {
-    setSelectedId(id); setDocuments([]); setError(''); setNotice('');
+    setSelectedId(id); setDocuments([]); setOperational(null); setOperationalNotice(''); setError(''); setNotice('');
     if (!id) return;
     setBusy('documents');
-    try { setDocuments((await listDocuments(id)).documents); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل وثائق السائق.'); }
+    try {
+      setDocuments((await listDocuments(id)).documents);
+      await loadOperationalStatus(id);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل وثائق السائق.'); }
     finally { setBusy(''); }
   }
 
@@ -167,6 +193,7 @@ export default function TaxiDriverSignupPage() {
       await uploadDocument(selectedId, documentType, file);
       input.value = '';
       setDocuments((await listDocuments(selectedId)).documents);
+      await loadOperationalStatus(selectedId);
       setNotice('تم رفع الوثيقة بشكل خاص وإرسالها لمسار المراجعة.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'تعذر رفع الوثيقة.');
@@ -175,16 +202,35 @@ export default function TaxiDriverSignupPage() {
 
   if (loading) return <PageShell className={styles.page} label="الانضمام إلى خدمة تكسي"><StatusMessage>جاري تحميل طلب الانضمام…</StatusMessage></PageShell>;
 
+  const journey = [
+    { title: 'إنشاء ملف تكسي', complete: !!selectedId, detail: selectedId ? 'تم إنشاء ملف Taxi مملوك لك.' : 'ابدأ بإنشاء ملف Taxi خاص.' },
+    { title: 'رفع الوثائق الأربع', complete: uploadedCount === DOCUMENTS.length, detail: `${uploadedCount.toLocaleString('ar-SY')} من ${DOCUMENTS.length.toLocaleString('ar-SY')} مرفوع` },
+    { title: 'مراجعة المستندات', complete: allDocumentsApproved, detail: `${approvedCount.toLocaleString('ar-SY')} من ${DOCUMENTS.length.toLocaleString('ar-SY')} معتمد` },
+    { title: 'مراجعة النشاط والثقة', complete: profileReady, detail: profileReady ? 'الملف منشور ومعتمد وموثوق ونشط.' : 'يلزم اعتماد النشر والمراجعة والثقة.' },
+    { title: 'اعتماد السائق والسيارة والمنطقة', complete: operationalApproved, detail: operationalApproved ? `معتمد${operational?.zoneCode ? ` · ${operational.zoneCode}` : ''}` : operational?.operationalStatus === 'suspended' ? 'الاعتماد معلّق.' : operational?.operationalStatus === 'revoked' ? 'الاعتماد ملغى.' : 'بانتظار قرار خدمة التشغيلي.' },
+    { title: 'الأهلية للربط بالعملاء', complete: operationalApproved, detail: operationalApproved ? 'أصبحت مؤهلًا للربط. استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية.' : 'لا يمكن ربطك بطلبات الرحلات قبل الاعتماد التشغيلي.' }
+  ];
+
   return <PageShell className={styles.page} label="الانضمام إلى خدمة تكسي">
     <PageHeader
       eyebrow="خدمة — تكسي"
       title="سجّل سيارتك مع خدمة"
-      description="خدمة تربط السائقين المعتمدين بالعملاء. إنشاء الحساب أو امتلاك السيارة لا يفعّل السائق تلقائياً؛ يلزم اكتمال الوثائق والمراجعة ثم اعتماد السائق والمركبة تشغيلياً."
+      description="خدمة تربط السائقين المعتمدين بالعملاء. إنشاء الحساب أو امتلاك السيارة لا يفعّل السائق تلقائياً؛ يلزم اكتمال الوثائق والمراجعة ثم اعتماد السائق والمركبة والمنطقة تشغيلياً."
       backHref="/taxi?mode=driver"
     />
 
     {error && <StatusMessage tone="danger">{error}{error.includes('تسجيل الدخول') && <div className={styles.actions}><ActionLink href="/auth/login?next=%2Ftaxi-driver-signup">تسجيل الدخول</ActionLink></div>}</StatusMessage>}
     {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
+    {operationalNotice && <StatusMessage tone="warning">{operationalNotice}</StatusMessage>}
+
+    <Surface className={styles.panel}>
+      <h2>رحلة الانضمام إلى خدمة تكسي</h2>
+      <div className={styles.offerList} aria-label="مراحل اعتماد سائق التكسي">
+        {journey.map((step, index) => <Surface key={step.title} className={styles.offer}>
+          <div className={styles.offerHeader}><div><strong>{index + 1}. {step.title}</strong><p className={styles.note}>{step.detail}</p></div><span className={styles.phase}>{step.complete ? 'مكتمل' : 'بانتظار الإكمال'}</span></div>
+        </Surface>)}
+      </div>
+    </Surface>
 
     <div className={styles.grid}>
       <Surface className={styles.panel}>
@@ -195,8 +241,8 @@ export default function TaxiDriverSignupPage() {
               {taxiBusinesses.map((business) => <option key={business.id} value={business.id}>{business.name} · {business.cityCode}</option>)}
             </select>
           </label>
-          {selected && <p className={styles.note}>الحالة: {selected.moderationStatus === 'approved' ? 'معتمد' : selected.moderationStatus === 'rejected' ? 'مطلوب تعديل' : 'قيد المراجعة'} · الملف {selected.visibility === 'public' ? 'منشور' : 'خاص'}.</p>}
-          <div className={styles.actions}><ActionLink href={`/business-profiles/${encodeURIComponent(selectedId)}/manage`} variant="secondary">إدارة الملف</ActionLink></div>
+          {selected && <p className={styles.note}>المراجعة: {selected.moderationStatus === 'approved' ? 'معتمد' : selected.moderationStatus === 'rejected' ? 'مطلوب تعديل' : 'قيد المراجعة'} · الثقة: {selected.trustStatus} · الملف {selected.visibility === 'public' ? 'منشور' : 'خاص'}.</p>}
+          <div className={styles.actions}><ActionLink href={`/business-profiles/${encodeURIComponent(selectedId)}/manage`} variant="secondary">إدارة الملف وإرساله للمراجعة</ActionLink></div>
         </> : <form onSubmit={createTaxiProfile}>
           <p className={styles.note}>أنشئ ملف Taxi خاصاً أولاً. لن يظهر للعامة قبل المراجعة.</p>
           <div className={styles.fields}>
@@ -231,11 +277,17 @@ export default function TaxiDriverSignupPage() {
     </div>
 
     <Surface className={styles.panel}>
-      <h2>٣. المراجعة ثم التفعيل التشغيلي</h2>
-      {allDocumentsApproved
-        ? <StatusMessage tone="success">اكتملت موافقة المستندات الأربعة. الخطوة التالية هي اعتماد السائق والمركبة والمنطقة داخل محرك Taxi قبل استقبال أي طلب رحلة.</StatusMessage>
-        : <StatusMessage tone="info">لن تصل طلبات العملاء إلى هذا الحساب قبل اكتمال المستندات واعتماد السائق والمركبة تشغيلياً.</StatusMessage>}
-      <p className={styles.note}>هذه الصفحة لا تمنح نفسها صلاحية القيادة، ولا تنشئ موافقة تشغيلية تلقائياً. التفعيل النهائي يبقى صلاحية مستقلة لخدمة.</p>
+      <h2>٣. المراجعة والاعتماد التشغيلي</h2>
+      {operationalApproved
+        ? <StatusMessage tone="success">اكتمل اعتماد السائق والسيارة والمنطقة. أنت مؤهل للربط مع العملاء عند تفعيل خدمة الرحلات التشغيلية.</StatusMessage>
+        : allDocumentsApproved && profileReady
+          ? <StatusMessage tone="info">اكتملت الوثائق والمراجعة والثقة. طلبك جاهز الآن لقرار الاعتماد التشغيلي من خدمة.</StatusMessage>
+          : allDocumentsApproved
+            ? <StatusMessage tone="info">اكتملت الوثائق، لكن اعتماد النشاط والثقة والنشر يجب أن يكتمل قبل القرار التشغيلي.</StatusMessage>
+            : <StatusMessage tone="info">لن تصل طلبات العملاء إلى هذا الحساب قبل اكتمال الوثائق والمراجعة واعتماد السائق والمركبة والمنطقة تشغيلياً.</StatusMessage>}
+      {operational?.operationalStatus === 'suspended' && <StatusMessage tone="warning">اعتمادك التشغيلي معلّق حاليًا. راجع الملف والمستندات أو تواصل مع خدمة قبل استئناف الأهلية.</StatusMessage>}
+      {operational?.operationalStatus === 'revoked' && <StatusMessage tone="danger">تم إلغاء الاعتماد التشغيلي. لا توجد أهلية للربط بالعملاء حتى قرار اعتماد جديد.</StatusMessage>}
+      <p className={styles.note}>هذه الصفحة لا تمنح نفسها صلاحية القيادة ولا تفتح Trip engine. قرار الاعتماد البشري وتشغيل الرحلات مرحلتان منفصلتان.</p>
       <div className={styles.actions}><ActionLink href="/taxi?mode=driver">العودة لمساحة السائق</ActionLink><ActionLink href="/taxi" variant="secondary">واجهة العميل</ActionLink></div>
     </Surface>
   </PageShell>;
