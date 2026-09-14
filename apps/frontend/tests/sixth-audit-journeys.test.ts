@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, orders, merchant, courier, classifieds] = [
+const [tokens, home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, orders, merchant, courier, classifieds] = [
+  read('app/design-tokens.css'),
   read('app/page.tsx'),
   read('app/components/category-directory.tsx'),
   read('app/map/page.tsx'),
@@ -24,24 +25,29 @@ test('sixth audit keeps launch hierarchy and canonical brand section colors', ()
   const delivery = home.indexOf('href="/mobility?type=delivery"');
   const taxiIndex = home.indexOf('href="/taxi"');
   assert.ok(food >= 0 && delivery > food && taxiIndex > delivery, 'Food → Delivery → Taxi must remain the launch order');
-  assert.match(home, /#07427c/);
-  assert.match(home, /#81be49/);
-  assert.match(home, /#fd9603/);
+  assert.match(tokens, /--k-color-primary:\s*#07427c/);
+  assert.match(tokens, /--brand-green:\s*#81be49/);
+  assert.match(tokens, /--k-color-accent:\s*#fd9603/);
   assert.match(home, /فترة تجريبية/);
   assert.doesNotMatch(home, /سجّل الآن|مجاني/);
 });
 
 test('categories, Near Me and Discover remain URL-owned and fail closed on invalid metadata', () => {
   assert.match(categories, /useSearchParams/);
-  assert.match(categories, /canonicalCategoryCode/);
-  assert.match(categories, /canonicalCityCode/);
+  assert.match(categories, /readDiscoveryContext\(params\)/);
+  assert.match(categories, /categoryDirectoryHref/);
+  assert.match(categories, /discoveryContextKey/);
+  assert.match(categories, /invalidCategory/);
+  assert.match(categories, /cityCode/);
   assert.match(categories, /mapHref/);
-  assert.match(categories, /requestId === sequence\.current/);
+  assert.match(categories, /requestId === requestSequence\.current/);
   assert.match(map, /useSearchParams/);
+  assert.match(map, /canonicalCityCode/);
   assert.match(map, /navigator\.geolocation/);
   assert.match(map, /#81be49/);
-  assert.match(map, /tileReady/);
+  assert.match(map, /mapTilesLoaded/);
   assert.match(search, /Draft fields never change the filters belonging to already displayed results/);
+  assert.match(search, /canonicalCityCode/);
   assert.match(search, /requestId === sequence\.current/);
   assert.match(search, /invalidCategory/);
   assert.match(search, /invalidCity/);
@@ -90,7 +96,7 @@ test('customer, restaurant and courier decisions use in-app evidence forms, neve
   assert.match(orders, /ratingDialog/);
   assert.match(orders, /ratingScore/);
   assert.match(orders, /ratingComment/);
-  assert.match(orders, /التقييم متاح فقط بعد التسليم/);
+  assert.match(orders, /order\.status === "delivered"[\s\S]*openRating\(order, "merchant"\)/);
   assert.match(orders, /maxLength=\{500\}/);
   assert.doesNotMatch(orders, /window\.(prompt|confirm)\s*\(/);
   assert.match(merchant, /orderDialog/);
