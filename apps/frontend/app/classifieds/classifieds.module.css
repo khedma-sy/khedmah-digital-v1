@@ -3,8 +3,8 @@
   --ads-accent:var(--brand-orange,#fd9603);
   --ads-accent-soft:color-mix(in srgb,var(--ads-accent) 10%,var(--k-color-surface));
 }
-.page :global(.ui-action-primary){background:var(--ads-accent)}
-.page :global(.ui-action-primary:hover){background:color-mix(in srgb,var(--ads-accent) 84%,#000)}
+.page :global(.ui-action-primary){color:var(--k-color-on-accent);background:var(--ads-accent)}
+.page :global(.ui-action-primary:hover){color:var(--k-color-on-accent);background:color-mix(in srgb,var(--ads-accent) 90%,#fff)}
 .page :global(.ui-eyebrow){color:var(--ads-accent)}
 .page :global(.ui-empty-icon){color:var(--ads-accent);background:var(--ads-accent-soft)}
 .toolbar{display:grid;grid-template-columns:minmax(12rem,2fr) repeat(2,minmax(10rem,1fr)) auto;gap:.8rem;align-items:end;padding:clamp(1rem,2.2vw,1.35rem);border-color:color-mix(in srgb,var(--ads-accent) 18%,var(--k-color-border))}
