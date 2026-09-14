@@ -93,8 +93,12 @@ schema_state() {
   total=$((table_count + function_count + trigger_count + index_count))
   if [ "$total" -eq 0 ]; then printf '%s' 'not_applied'; return 0; fi
   if [ "$table_count" -eq 1 ] && [ "$function_count" -eq 1 ] && [ "$trigger_count" -eq 1 ] && [ "$index_count" -eq 1 ]; then
-    contract="$(probe_count "SELECT ((EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_zone_revision_unique'))::int + (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_amount_ceiling_check'))::int)" || return $?
-    [ "$contract" -eq 2 ] && { printf '%s' 'verified'; return 0; }
+    unique_constraint="$(probe_count "SELECT (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_zone_revision_unique'))::int")" || return $?
+    ceiling_constraint="$(probe_count "SELECT (EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='taxi_pricing_revisions' AND c.conname='taxi_pricing_revisions_amount_ceiling_check'))::int")" || return $?
+    if [ "$unique_constraint" -eq 1 ] && [ "$ceiling_constraint" -eq 1 ]; then
+      printf '%s' 'verified'
+      return 0
+    fi
   fi
   printf '%s' 'partial_or_unverified'
 }
