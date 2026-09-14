@@ -26,6 +26,13 @@ test('categories render all three canonical semantic brand tones', () => {
   assert.match(read('../app/categories/page.tsx'), /styles\.toneScope/);
 });
 
+test('near-me map uses the canonical Khedmah green for service radii', () => {
+  const map = read('../app/map/page.tsx');
+  assert.match(map, /fillColor: '#81be49'/);
+  assert.match(map, /strokeColor: '#81be49'/);
+  assert.doesNotMatch(map, /#7fc63b/i);
+});
+
 test('classifieds and taxi inherit canonical brand/theme tokens', () => {
   const classifieds = read('../app/classifieds/classifieds.module.css');
   const taxi = read('../app/taxi/taxi.module.css');
