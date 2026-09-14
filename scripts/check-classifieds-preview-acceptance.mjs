@@ -8,7 +8,13 @@ const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const requireCondition = (value, code) => { if (!value) fail(code); };
 
 function isAdsEnvelope(value) {
-  return !!value && typeof value === 'object' && Array.isArray(value.ads);
+  return !!value
+    && typeof value === 'object'
+    && Array.isArray(value.ads)
+    && Number.isSafeInteger(value.total)
+    && value.total >= 0
+    && Number.isSafeInteger(value.page)
+    && value.page >= 1;
 }
 
 export async function main(env = process.env) {
@@ -27,6 +33,8 @@ export async function main(env = process.env) {
     proxiedApiStatus: null,
     directBackendStatus: null,
     adCount: null,
+    total: null,
+    page: null,
     disabledMessagePresent: null,
     searchVisible: null,
     createLinkVisible: null,
@@ -84,6 +92,8 @@ export async function main(env = process.env) {
     const envelope = await apiResponse.json();
     requireCondition(isAdsEnvelope(envelope), 'CLASSIFIEDS_PROXY_API_INVALID');
     report.adCount = envelope.ads.length;
+    report.total = envelope.total;
+    report.page = envelope.page;
 
     await page.waitForFunction((expectedCount) => {
       if (expectedCount > 0) return !!document.querySelector('[aria-label="الإعلانات المنشورة"]');
@@ -109,7 +119,7 @@ export async function main(env = process.env) {
     if (browser) { try { await browser.close(); } catch { report.failures.push('CLASSIFIEDS_BROWSER_CLOSE_FAILED'); report.status = 'failed'; } }
     await writeFile(resolve(directory, 'classifieds-acceptance-manifest.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
-  console.log(`Classifieds Preview acceptance: ${report.status}; page=${report.pageStatus}; proxy=${report.proxiedApiStatus}; backend=${report.directBackendStatus}; ads=${report.adCount ?? 'unknown'}.`);
+  console.log(`Classifieds Preview acceptance: ${report.status}; page=${report.pageStatus}; proxy=${report.proxiedApiStatus}; backend=${report.directBackendStatus}; ads=${report.adCount ?? 'unknown'}; total=${report.total ?? 'unknown'}; apiPage=${report.page ?? 'unknown'}.`);
   return report;
 }
 
