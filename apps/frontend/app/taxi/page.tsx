@@ -192,6 +192,16 @@ function RiderJourney() {
     finally { if (mounted.current) setBusy(false); }
   }
 
+  async function rate(rating: number) {
+    if (!trip || busy || trip.phase !== 'completed' || trip.rating !== undefined || !Number.isInteger(rating) || rating < 1 || rating > 5) return;
+    setBusy(true);
+    try {
+      const updated = await taxiApi.rider.command(trip.id, 'rate', trip.version, { rating });
+      if (mounted.current) { setTrip(updated); setMessage(`تم تسجيل تقييمك ${rating} من 5.`); }
+    } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
+    finally { if (mounted.current) setBusy(false); }
+  }
+
   return <div className={styles.grid}>
     <Surface as="form" className={styles.panel} onSubmit={price} aria-busy={busy}>
       <h2>طلب تكسي</h2>
@@ -216,7 +226,14 @@ function RiderJourney() {
       {trip && <><TripCard trip={trip} onRefresh={() => restore(trip.id)} /><div className={styles.actions}>
         {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void consent()} disabled={busy}>أوافق على بدء الرحلة</ActionButton>}
         {!['in_progress', 'completed', 'cancelled', 'rejected'].includes(trip.phase) && <ActionButton type="button" variant="secondary" onClick={() => void cancel()} disabled={busy}>إلغاء الطلب</ActionButton>}
-      </div></>}
+      </div>
+      {trip.phase === 'completed' && <Surface className={styles.panel}>
+        <h3>قيّم رحلتك</h3>
+        {trip.rating !== undefined
+          ? <StatusMessage tone="success">تم تسجيل تقييمك: {trip.rating} من 5.</StatusMessage>
+          : <><p className={styles.note}>اختر تقييمًا واحدًا بعد اكتمال الرحلة. لا يمكن إرسال تقييم ثانٍ للرحلة نفسها.</p><div className={styles.actions} aria-label="تقييم رحلة التكسي">{[1, 2, 3, 4, 5].map((rating) => <ActionButton key={rating} type="button" variant="secondary" disabled={busy} onClick={() => void rate(rating)}>{rating} ★</ActionButton>)}</div></>}
+      </Surface>}
+      </>}
     </div>
   </div>;
 }
@@ -323,7 +340,7 @@ function TaxiContent() {
   const params = useSearchParams(); const driver = params.get('mode') === 'driver';
   return <PageShell className={styles.page} label="خدمة تكسي">
     <PageHeader eyebrow="خدمة — التنقل" title="تكسي" description="حدد الانطلاق والوجهة على الخريطة داخل صفحة التكسي. الرحلة تبقى مرتبطة بالحساب والتعرفة واعتماد السائق، ولا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
-    <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
+    <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/taxi-driver-signup" variant="secondary">سجّل سيارتك</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
     {driver ? <DriverJourney /> : <RiderJourney />}
   </PageShell>;
 }
