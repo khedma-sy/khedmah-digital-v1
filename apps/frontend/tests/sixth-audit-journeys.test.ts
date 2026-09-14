@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, orders, merchant, courier, classifieds] = await Promise.all([
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp, restaurant, orders, merchant, courier, classifieds] = [
   read('app/page.tsx'),
   read('app/components/category-directory.tsx'),
   read('app/map/page.tsx'),
@@ -17,7 +17,7 @@ const [home, categories, map, search, taxi, taxiSignup, taxiAdmin, deliveryHelp,
   read('app/orders/merchant/page.tsx'),
   read('app/orders/courier/page.tsx'),
   read('app/classifieds/[id]/page.tsx')
-]);
+];
 
 test('sixth audit keeps launch hierarchy and canonical brand section colors', () => {
   const food = home.indexOf('href="/food"');
