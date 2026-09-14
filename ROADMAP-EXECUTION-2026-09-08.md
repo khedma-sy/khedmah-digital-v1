@@ -2,6 +2,25 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
+آخر تحديث: **2026-09-14 — استكمال الفحص السادس / PR #175**. هذا القسم هو نقطة الاستئناف الحالية؛ سجل RP34 وما بعده أدناه تاريخي.
+
+| الحقل | الحالة المثبتة |
+|---|---|
+| المصدر الحالي | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft، غير مدموج، إلى `develop` |
+| رأس طلب الاستكمال | `1064e73b23dba4debac87906896f5d62db1765a1`؛ CI عليه فشل في اختبارات الواجهة. الفرع تقدم بستة commits قبل استئناف الكتابة؛ لم يرجع العمل إلى ذلك الرأس أو فرع آخر |
+| آخر تطبيق اجتاز CI الأساسي | `22b3da2510e321fe5d6553629d60604d32df01ad`: Database Migration Validation `34888824354`، Identity `34888824253`، Node CI `34888824268`، Test & Verify `34888824317` نجحت؛ Preview `34888824365` اجتاز quality-gates وكان deploy-preview جاريًا عند هذا التحديث |
+| إصلاح التباين التالي | implementation commit `cfbb541bb42a43cff580148eee0564039b5f2b54`: قياس ألوان أزرار Classifieds المطبقة في المتصفح في normal/hover/keyboard-focus، وحارس 4.5:1 للنص؛ إصلاح إطار التركيز باستعمال `--k-color-text` بدل البرتقالي الضعيف على الخلفية الفاتحة. هذا السطر لا يدعي نشر الدفعة بعد |
+| التحقق المحلي للدفعة | 1276/1276 اختبارات الجذر ناجحة بعد آخر تغيير؛ 126/126 اختبارات الواجهة ناجحة على `22b3da2`؛ 12/12 لاختبارات قياس التباين وعقود الأدلة؛ 12/12 لعقد Migration 032 وتسلسل النشر المعزول. لا تخلط هذه الأرقام مع رحلات Preview |
+| 032 | SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe` مطابقان. ensure-031 يستدعي ensure-032 إلزاميًا قبل backend build. يلزم استخراج نجاح التنفيذ من سجل deploy، وليس اعتبار unit tests دليل تطبيق Cloud SQL |
+| التغطية البصرية | 64 حالة قديمة + 24 حالة جديدة: `/restaurants` و`/mobility?type=delivery` و`/classifieds` × 320/390/768/1280 × light/dark؛ مع فحص RTL. الدليل الجديد في `sixth-audit-visual-manifest.json` ويحتوي قياسات النص والتركيز. مرجع التركيز هو canvas/surface للثيم؛ ليس تدقيق بكسلات لكل gradient |
+| حدود الرحلات الفعلية | `TAXI_TRIPS_ENABLED=false`؛ التخطيط والتسجيل والاعتماد منفصلة عن تنفيذ رحلة. فحص المتصفح في هذه الجلسة شاهد 0 مطاعم منشورة وتحويل `/orders` إلى تسجيل الدخول؛ لا توجد جلسات اختبار عميل/مطعم/مندوب/مراجع متاحة. لا تدّعِ تنفيذ quote→approval→courier→pickup→delivered→rating على Preview |
+| عائق Staging | `BEFORE_URL_MISSING` مشكلة بنية مستقلة. لا تستخدم Production أو Preview نفسه كمرجع Before؛ لا تضعف بوابة المقارنة |
+| الخطوة التالية | بعد انتهاء نشر الرأس السابق لتجنب إلغاء migration جارية: ارفع دفعة التباين على نفس PR بتحديث fast-forward، راقب CI الكامل، تحقق من 032 وversion المنشور، ثم اقرأ artifacts وافحص الصور والرحلات المتاحة. إن تغير الرأس، اقرأ التغييرات اللاحقة قبل أي كتابة |
+| ملفات الاستكمال | `scripts/classifieds-action-contrast.mjs`، `scripts/capture-sixth-audit-evidence.mjs`، `scripts/check-classifieds-preview-acceptance.mjs`، `tests/classifieds-action-contrast.test.mjs`، `apps/frontend/app/classifieds/classifieds.module.css`، migration/ensure/runner الخاصة بـ032 |
+| حد التسليم | لا Merge أو main أو Production. يلزم نجاح بوابات الرأس المنشور ومراجعة Preview، وتبقى الرحلات ذات الأدوار معلقة حتى بيانات وحسابات الاختبار المعتمدة |
+
+### سجل تاريخي — RP34 بتاريخ 2026-09-10
+
 آخر تحديث: **2026-09-10**. الحالة الحالية هي قبول دمج RP34 الأصلي أدناه؛ سجلات RP32 وما قبلها تاريخية. لا تعاد كتابة المحرك أو إصلاحات RP31–RP34 من الصفر عند انتقال المحادثة.
 
 | الحقل | الحالة المثبتة |
