@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type FulfillmentOrder } from "../../lib/recovered-service-client";
 import {
@@ -14,6 +14,7 @@ import {
 } from "../components/ui-primitives";
 import { OrderTracking } from "./order-tracking";
 import { showOrderNotification } from "./order-alerts";
+
 const label: Record<FulfillmentOrder["status"], string> = {
   placed: "بانتظار مراجعة المنشأة",
   quoted: "بانتظار موافقتك على الإجمالي",
@@ -35,72 +36,118 @@ const customerNotice: Partial<Record<FulfillmentOrder["status"], string>> = {
   delivered: "وصل طلبك وتم تسجيل التسليم.",
   rejected: "تعذر على المطعم قبول الطلب.",
 };
+type RatingDialog = { order: FulfillmentOrder; target: "merchant" | "courier" };
+
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState("");
+  const [ratingDialog, setRatingDialog] = useState<RatingDialog | null>(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingSaving, setRatingSaving] = useState(false);
   const loadedOnceRef = useRef(false);
   const priorStatusesRef = useRef<Map<string, FulfillmentOrder["status"]>>(new Map());
+  const requestSequence = useRef(0);
+  const actionInFlight = useRef(false);
+
   const load = useCallback(async () => {
+    const request = ++requestSequence.current;
     try {
       const response = await api.orders.mine();
+      if (request !== requestSequence.current) return;
       if (loadedOnceRef.current) {
         response.orders.forEach((order) => {
           const prior = priorStatusesRef.current.get(order.id);
-          const notice = customerNotice[order.status];
-          if (prior && prior !== order.status && notice)
+          const message = customerNotice[order.status];
+          if (prior && prior !== order.status && message)
             showOrderNotification(
               label[order.status],
-              `${order.merchantName}: ${notice}`,
+              `${order.merchantName}: ${message}`,
               `customer-order-${order.id}-${order.status}`,
             );
         });
       }
-      priorStatusesRef.current = new Map(
-        response.orders.map((order) => [order.id, order.status]),
-      );
+      priorStatusesRef.current = new Map(response.orders.map((order) => [order.id, order.status]));
       loadedOnceRef.current = true;
       setOrders(response.orders);
       setError("");
-    } catch (c) {
-        if (
-          c instanceof Error &&
-          (c as Error & { statusCode?: number }).statusCode === 401
-        )
-          router.replace("/auth/login?next=%2Forders");
-        else setError(c instanceof Error ? c.message : "تعذر تحميل الطلبات.");
+    } catch (cause) {
+      if (request !== requestSequence.current) return;
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401)
+        router.replace("/auth/login?next=%2Forders");
+      else setError(cause instanceof Error ? cause.message : "تعذر تحميل الطلبات.");
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
   }, [router]);
+
   useEffect(() => {
     void load();
     const interval = window.setInterval(() => void load(), 8000);
-    return () => window.clearInterval(interval);
+    return () => {
+      requestSequence.current += 1;
+      window.clearInterval(interval);
+    };
   }, [load]);
-  async function move(o: FulfillmentOrder, status: FulfillmentOrder["status"]) {
+
+  async function move(order: FulfillmentOrder, status: FulfillmentOrder["status"]) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActionLoadingId(order.id);
+    setError("");
+    setNotice("");
     try {
-      await api.orders.transition(o.id, status);
+      await api.orders.transition(order.id, status);
       await load();
-    } catch (c) {
-      setError(c instanceof Error ? c.message : "تعذر تحديث الطلب.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر تحديث الطلب.");
+    } finally {
+      actionInFlight.current = false;
+      setActionLoadingId("");
     }
   }
-  async function rate(o: FulfillmentOrder, target: "merchant" | "courier") {
-    const raw = window.prompt(
-      `قيّم ${target === "merchant" ? "المنشأة" : "المندوب"} من 1 إلى 5`,
-    );
-    if (!raw) return;
-    const score = Number(raw);
-    const comment = window.prompt("تعليق اختياري") ?? undefined;
+
+  function openRating(order: FulfillmentOrder, target: "merchant" | "courier") {
+    if (ratingSaving || actionInFlight.current) return;
+    setRatingDialog({ order, target });
+    setRatingScore(5);
+    setRatingComment("");
+    setError("");
+    setNotice("");
+  }
+
+  async function submitRating(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ratingDialog || ratingSaving || actionInFlight.current) return;
+    if (!Number.isInteger(ratingScore) || ratingScore < 1 || ratingScore > 5) {
+      setError("اختر تقييمًا من 1 إلى 5.");
+      return;
+    }
+    const comment = ratingComment.trim();
+    if (comment.length > 500) {
+      setError("التعليق طويل جدًا.");
+      return;
+    }
+    setRatingSaving(true);
+    setError("");
     try {
-      await api.orders.rate(o.id, target, score, comment);
-      setError("تم حفظ التقييم بنجاح.");
-    } catch (c) {
-      setError(c instanceof Error ? c.message : "تعذر حفظ التقييم.");
+      await api.orders.rate(ratingDialog.order.id, ratingDialog.target, ratingScore, comment || undefined);
+      const targetLabel = ratingDialog.target === "merchant" ? "المنشأة" : "المندوب";
+      setRatingDialog(null);
+      setRatingComment("");
+      setNotice(`تم حفظ تقييم ${targetLabel} بنجاح.`);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر حفظ التقييم.");
+    } finally {
+      setRatingSaving(false);
     }
   }
+
   if (loading)
     return (
       <PageShell label="طلباتي">
@@ -119,80 +166,95 @@ export default function OrdersPage() {
         <ActionLink href="/restaurants">تصفح المطاعم</ActionLink>
         <ActionLink href="/store" variant="secondary">تصفح المتجر</ActionLink>
       </div>
-      {error && (
-        <StatusMessage tone={error.startsWith("تم ") ? "success" : "danger"}>
-          {error}
-        </StatusMessage>
+      {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
+
+      {ratingDialog && (
+        <Surface as="section" role="dialog" aria-labelledby="order-rating-title" className="ui-form-stack">
+          <h2 id="order-rating-title">تقييم {ratingDialog.target === "merchant" ? "المنشأة" : "المندوب"}</h2>
+          <p>الطلب من {ratingDialog.order.merchantName}. التقييم متاح فقط بعد التسليم ويمكن تسجيله مرة واحدة لكل جهة.</p>
+          <form className="ui-form-stack" onSubmit={submitRating}>
+            <label>
+              التقييم من 1 إلى 5
+              <select value={ratingScore} onChange={(event) => setRatingScore(Number(event.target.value))} disabled={ratingSaving}>
+                <option value={5}>5 — ممتاز</option>
+                <option value={4}>4 — جيد جدًا</option>
+                <option value={3}>3 — جيد</option>
+                <option value={2}>2 — يحتاج تحسين</option>
+                <option value={1}>1 — غير مرضٍ</option>
+              </select>
+            </label>
+            <label>
+              تعليق اختياري
+              <textarea value={ratingComment} maxLength={500} rows={4} onChange={(event) => setRatingComment(event.target.value)} disabled={ratingSaving} placeholder="اكتب ملاحظة مفيدة عن التجربة…" />
+            </label>
+            <div className="ui-page-actions">
+              <ActionButton type="submit" disabled={ratingSaving}>{ratingSaving ? "جارٍ حفظ التقييم…" : "حفظ التقييم"}</ActionButton>
+              <ActionButton type="button" variant="secondary" disabled={ratingSaving} onClick={() => setRatingDialog(null)}>إلغاء</ActionButton>
+            </div>
+          </form>
+        </Surface>
       )}
+
       {orders.length ? (
         <section className="ui-card-grid">
-          {orders.map((o) => (
-            <Surface as="article" key={o.id}>
-              <strong>{label[o.status]}</strong>
-              <h2>{o.merchantName}</h2>
-              {o.items.map((i) => (
-                <p key={i.productListingId}>
-                  {i.titleAr} × {i.quantity}
+          {orders.map((order) => {
+            const busy = actionLoadingId === order.id;
+            return <Surface as="article" key={order.id} aria-busy={busy}>
+              <strong>{label[order.status]}</strong>
+              <h2>{order.merchantName}</h2>
+              {order.items.map((item) => (
+                <p key={item.productListingId}>
+                  {item.titleAr} × {item.quantity}
                 </p>
               ))}
               <p>
-                الأصناف: {o.subtotal.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
+                الأصناف: {order.subtotal.toLocaleString("ar-SY-u-nu-latn")} {order.currency}
               </p>
-              {o.total !== undefined && (
+              {order.total !== undefined && (
                 <p>
                   الإجمالي النقدي:{" "}
                   <strong>
-                    {o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}
+                    {order.total.toLocaleString("ar-SY-u-nu-latn")} {order.currency}
                   </strong>
                 </p>
               )}
-              {o.courierName && <p>المندوب: {o.courierName}</p>}
-              {o.courierPhone && <p>رقم المندوب: <a href={`tel:${o.courierPhone}`} dir="ltr">{o.courierPhone}</a></p>}
-              {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && (
-                <OrderTracking orderId={o.id} status={o.status} />
+              {order.courierName && <p>المندوب: {order.courierName}</p>}
+              {order.courierPhone && <p>رقم المندوب: <a href={`tel:${order.courierPhone}`} dir="ltr">{order.courierPhone}</a></p>}
+              {["courier_accepted", "ready_for_pickup", "picked_up"].includes(order.status) && (
+                <OrderTracking orderId={order.id} status={order.status} />
               )}
               <div className="ui-page-actions">
-                {o.courierBusinessId && (
-                  <ActionLink href={`/business-profiles/${encodeURIComponent(o.courierBusinessId)}?source=order`} variant="secondary">
+                {order.courierBusinessId && (
+                  <ActionLink href={`/business-profiles/${encodeURIComponent(order.courierBusinessId)}?source=order`} variant="secondary">
                     التواصل مع المندوب
                   </ActionLink>
                 )}
-                {o.status === "quoted" && (
-                  <ActionButton
-                    onClick={() => void move(o, "merchant_confirmed")}
-                  >
-                    أوافق على الإجمالي
+                {order.status === "quoted" && (
+                  <ActionButton disabled={busy || actionInFlight.current} onClick={() => void move(order, "merchant_confirmed")}>
+                    {busy ? "جارٍ الحفظ…" : "أوافق على الإجمالي"}
                   </ActionButton>
                 )}
-                {["placed", "quoted"].includes(o.status) && (
-                  <ActionButton
-                    variant="secondary"
-                    onClick={() => void move(o, "cancelled")}
-                  >
-                    إلغاء الطلب
+                {["placed", "quoted"].includes(order.status) && (
+                  <ActionButton variant="secondary" disabled={busy || actionInFlight.current} onClick={() => void move(order, "cancelled")}>
+                    {busy ? "جارٍ الحفظ…" : "إلغاء الطلب"}
                   </ActionButton>
                 )}
-                {o.status === "delivered" && (
+                {order.status === "delivered" && (
                   <>
-                    <ActionButton
-                      variant="secondary"
-                      onClick={() => void rate(o, "merchant")}
-                    >
+                    <ActionButton variant="secondary" disabled={ratingSaving || actionInFlight.current} onClick={() => openRating(order, "merchant")}>
                       تقييم المنشأة
                     </ActionButton>
-                    {o.courierBusinessId && (
-                      <ActionButton
-                        variant="secondary"
-                        onClick={() => void rate(o, "courier")}
-                      >
+                    {order.courierBusinessId && (
+                      <ActionButton variant="secondary" disabled={ratingSaving || actionInFlight.current} onClick={() => openRating(order, "courier")}>
                         تقييم المندوب
                       </ActionButton>
                     )}
                   </>
                 )}
               </div>
-            </Surface>
-          ))}
+            </Surface>;
+          })}
         </section>
       ) : (
         <EmptyState
