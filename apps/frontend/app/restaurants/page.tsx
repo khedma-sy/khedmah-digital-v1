@@ -39,37 +39,38 @@ export default function RestaurantsPage() {
   const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
 
   useEffect(() => {
     let active = true;
-    void Promise.all(
-      FOOD_CATEGORIES.map((categoryCode) =>
-        api.businesses.search({ categoryCode }),
-      ),
-    )
-      .then((responses) => {
-        if (!active) return;
-        const unique = new Map<string, PublicBusinessProfile>();
-        for (const response of responses)
-          for (const business of response.businesses)
-            unique.set(business.id, business);
-        setBusinesses(
-          [...unique.values()].sort(
-            (a, b) =>
-              Number(b.isFeatured) - Number(a.isFeatured) ||
-              a.name.localeCompare(b.name, "ar"),
-          ),
-        );
-      })
-      .catch((cause) => {
-        if (active)
-          setError(
-            cause instanceof Error ? cause.message : "تعذر تحميل المطاعم.",
-          );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    void Promise.allSettled(
+      FOOD_CATEGORIES.map((categoryCode) => api.businesses.search({ categoryCode })),
+    ).then((responses) => {
+      if (!active) return;
+      const fulfilled = responses.filter((response): response is PromiseFulfilledResult<Awaited<ReturnType<typeof api.businesses.search>>> => response.status === "fulfilled");
+      const rejected = responses.filter((response) => response.status === "rejected");
+      if (!fulfilled.length) {
+        const firstFailure = rejected[0]?.reason;
+        setError(firstFailure instanceof Error ? firstFailure.message : "تعذر تحميل المطاعم.");
+        setBusinesses([]);
+        return;
+      }
+      const unique = new Map<string, PublicBusinessProfile>();
+      for (const response of fulfilled)
+        for (const business of response.value.businesses)
+          unique.set(business.id, business);
+      setBusinesses(
+        [...unique.values()].sort(
+          (a, b) =>
+            Number(b.isFeatured) - Number(a.isFeatured) ||
+            a.name.localeCompare(b.name, "ar"),
+        ),
+      );
+      setError("");
+      setWarning(rejected.length ? "تم تحميل المطاعم المتاحة، لكن تعذر تحديث بعض أنواع الطعام مؤقتًا." : "");
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
     return () => {
       active = false;
     };
@@ -106,6 +107,7 @@ export default function RestaurantsPage() {
         actions={<ActionLink href="/orders" variant="secondary"><PlatformIcon name="cart" size={17}/>طلباتي</ActionLink>}
       />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {warning && <StatusMessage tone="warning">{warning}</StatusMessage>}
       <Surface className={styles.foodCommand}>
         <div className={styles.toolbarHeading}><span className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>كل المطاعم والأصناف المتاحة في مكان واحد.</p></div></div>
         <label className={styles.field}>
