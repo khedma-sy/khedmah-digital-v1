@@ -19,8 +19,8 @@ const taxiPlanningPreview = await readFile('apps/frontend/app/taxi/taxi-planning
 const taxiMap = await readFile('apps/frontend/app/taxi/taxi-map-selector.tsx', 'utf8');
 const previewEvidence = await readFile('scripts/capture-preview-evidence.mjs', 'utf8');
 
-test('primary navigation exposes Food and Store without removing discovery', () => {
-  for (const route of ['/search', '/categories', '/food', '/map', '/taxi', '/store', '/classifieds']) {
+test('primary navigation exposes Food Delivery and Store without removing discovery', () => {
+  for (const route of ['/search', '/categories', '/food', '/mobility?type=delivery', '/map', '/taxi', '/store', '/classifieds']) {
     assert.match(navigation, new RegExp(`href: '${route.replace(/[?]/g, '\\?')}'`));
   }
 });
@@ -120,12 +120,13 @@ test('Taxi rollout keeps execution fail-closed while map planning remains review
   assert.doesNotMatch(taxiPlanningPreview, /taxiApi|rider\.quote|rider\.place|driver\./);
 });
 
-test('Preview evidence cannot skip Food Store or Taxi again', () => {
+test('Preview evidence cannot skip Food Delivery Store or Taxi again', () => {
   assert.match(previewEvidence, /key: 'food', path: '\/food'/);
   assert.match(previewEvidence, /key: 'taxi', path: '\/taxi'/);
   assert.match(previewEvidence, /key: 'store', path: '\/store'/);
-  assert.match(previewEvidence, /snapshot\.navigationCount !== 7/);
-  assert.match(previewEvidence, /\/search\|\/categories\|\/food\|\/map\|\/taxi\|\/store\|\/classifieds/);
+  assert.match(previewEvidence, /'\/mobility\?type=delivery'/);
+  assert.match(previewEvidence, /navigationCount !== expectedNavigationHrefs\.length/);
+  assert.match(previewEvidence, /expectedNavigationHrefs/);
   assert.match(previewEvidence, /data-taxi-map-status/);
   assert.match(previewEvidence, /MAP_SURFACE_MISSING/);
   assert.match(previewEvidence, /route\.key === 'map' \|\| route\.key === 'taxi'/);
