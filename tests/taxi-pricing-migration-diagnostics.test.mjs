@@ -15,3 +15,17 @@ test('migration 029 emits a safe structural fingerprint and stays fail-closed', 
   // Diagnostics disclose only object-presence/count metadata, never row contents or credentials.
   assert.doesNotMatch(runner, /MIGRATION_029_FINGERPRINT:[^\n]*(DATABASE_URL|PGPASSWORD|session|token|user_id)/i);
 });
+
+test('Taxi 029 deployment propagates bounded failed-execution diagnostics without weakening fail-closed behavior', () => {
+  const ensure = read('scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh');
+
+  assert.match(ensure, /set \+e\s+execution_output="\$\(gcloud run jobs execute/);
+  assert.match(ensure, /execution_status=\$\?/);
+  assert.match(ensure, /TAXI_029_FAILED_EXECUTION=\$\{execution_name\}/);
+  assert.match(ensure, /TAXI_029_CONTAINER_LOGS_BEGIN/);
+  assert.match(ensure, /resource\.type=\\"cloud_run_job\\" AND resource\.labels\.job_name=\\"\$\{job\}\\"/);
+  assert.match(ensure, /--freshness=30m/);
+  assert.match(ensure, /--limit=200/);
+  assert.match(ensure, /exit "\$execution_status"/);
+  assert.doesNotMatch(ensure, /DATABASE_URL=.*echo|PGPASSWORD|printenv|env\s*$/m);
+});
