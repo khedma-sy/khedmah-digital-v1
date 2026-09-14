@@ -44,14 +44,17 @@ test('business auxiliary writes retain current parent ownership through commit',
     repo, { getCurrentUser: async () => ({ id: owner }) } as any, {} as any, {} as any
   );
   async function snapshot(client?: PoolClient) {
-    const read = async (sql: string) => client
-      ? (await client.query(sql, [business, otherBusiness])).rows
-      : db.query(sql, [business, otherBusiness]);
-    return Promise.all([
-      read(`SELECT * FROM business_opening_hours WHERE business_profile_id IN ($1,$2) ORDER BY id`),
-      read(`SELECT * FROM business_branches WHERE business_profile_id IN ($1,$2) ORDER BY id`),
-      read(`SELECT * FROM business_social_links WHERE business_profile_id IN ($1,$2) ORDER BY id`)
-    ]);
+    const queries = [
+      `SELECT * FROM business_opening_hours WHERE business_profile_id IN ($1,$2) ORDER BY id`,
+      `SELECT * FROM business_branches WHERE business_profile_id IN ($1,$2) ORDER BY id`,
+      `SELECT * FROM business_social_links WHERE business_profile_id IN ($1,$2) ORDER BY id`
+    ];
+    if (client) {
+      const rows: unknown[][] = [];
+      for (const sql of queries) rows.push((await client.query(sql, [business, otherBusiness])).rows);
+      return rows;
+    }
+    return Promise.all(queries.map(sql => db.query(sql, [business, otherBusiness])));
   }
   // Poll a PostgreSQL-observed lock, not a guessed sleep duration or a mocked SQL result.
   async function until(check: () => Promise<boolean>, message: string): Promise<void> {
