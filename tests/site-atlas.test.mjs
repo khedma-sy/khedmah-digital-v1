@@ -21,6 +21,7 @@ const fulfillmentPages = [
 ];
 const categoryAdminPage = 'apps/frontend/app/admin/categories/page.tsx';
 const koraAdminPage = 'apps/frontend/app/admin/kora/page.tsx';
+const taxiPages = ['apps/frontend/app/taxi/page.tsx', 'apps/frontend/app/taxi-driver-signup/page.tsx'];
 async function pages(directory) {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -38,8 +39,8 @@ test('site atlas names every Web page owner; newly bound launch pages require ex
   const entries = await pages(join(root, 'apps/frontend/app'));
   assert.ok(entries.length > 0);
   const missingFromAtlas = entries.filter(path => !atlas.includes(`](../../${path})`)).sort();
-  assert.deepEqual(missingFromAtlas,[categoryAdminPage,koraAdminPage,'apps/frontend/app/food/page.tsx',...fulfillmentPages,'apps/frontend/app/taxi/page.tsx'].sort(),'no page other than explicitly supplemented launch, fulfillment and Product V2 admin pages may bypass the primary atlas');
-  assert.ok(taxiSupplement.includes('](../../apps/frontend/app/taxi/page.tsx)'));
+  assert.deepEqual(missingFromAtlas,[categoryAdminPage,koraAdminPage,'apps/frontend/app/food/page.tsx',...fulfillmentPages,...taxiPages].sort(),'no page other than explicitly supplemented launch, fulfillment and Product V2 admin pages may bypass the primary atlas');
+  for (const page of taxiPages) assert.ok(taxiSupplement.includes(`](../../${page})`), `Taxi supplement must name exact page owner: ${page}`);
   assert.ok(foodSupplement.includes('](../../apps/frontend/app/food/page.tsx)'));
   for (const page of fulfillmentPages) assert.ok(fulfillmentSupplement.includes(`](../../${page})`), `Fulfillment supplement must name exact page owner: ${page}`);
   assert.ok(categoryAdminSupplement.includes(`](../../${categoryAdminPage})`));
