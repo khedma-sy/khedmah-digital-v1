@@ -28,7 +28,9 @@ test('Taxi 029 pre-schema failures have stable non-secret exit codes and valid P
     assert.match(runner, new RegExp(`exit ${code}(?:;|\\s)`));
   }
   assert.match(runner, /sha256sum -c - >\/dev\/null 2>&1 \|\| exit 69/);
-  assert.doesNotMatch(runner, /DATABASE_URL[^\n]*echo|PGPASSWORD[^\n]*echo|printenv/i);
+  // Naming a required configuration key in a fixed error is safe; interpolating its secret value is not.
+  assert.doesNotMatch(runner, /(?:echo|printf)[^\n]*\$(?:\{)?(?:DATABASE_URL|PGPASSWORD)/i);
+  assert.doesNotMatch(runner, /printenv/i);
 });
 
 test('Taxi 029 deployment propagates bounded failed-execution diagnostics without weakening fail-closed behavior', () => {
