@@ -47,7 +47,7 @@ export default function AdminPage() {
       <Link href="/">الرئيسية</Link><Link href="/admin/kora">KORA Executive</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
-      <Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">إدارة المطاعم</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
+      <Link href="/categories">دليل التصنيفات</Link><Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">إدارة المطاعم</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
 
     <section className="operations-summary" aria-label="ملخص الإدارة"><article><strong>{user.profile.displayName}</strong><span>الحساب الإداري</span></article><article><strong>{overview.roles.length}</strong><span>الأدوار المعتمدة</span></article><article><strong>{overview.openIncidents}</strong><span>حوادث في العملية الحالية</span></article><article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article></section>
