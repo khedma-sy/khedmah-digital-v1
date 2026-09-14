@@ -6,7 +6,7 @@ import styles from './food.module.css';
 
 export const metadata: Metadata = {
   title: 'خدمة فود - مطاعم وحلويات',
-  description: 'اكتشف المطاعم والمقاهي والمخابز والحلويات عبر خدمة.'
+  description: 'اطلب الطعام واكتشف المطاعم والمقاهي والمخابز والحلويات عبر خدمة.'
 };
 
 const foodCategories = [
@@ -22,17 +22,18 @@ export default function FoodPage() {
       <PageHeader
         eyebrow="خدمة فود"
         title="مطاعم وحلويات"
-        description="اختر ما تبحث عنه وانتقل إلى نتائج حقيقية من ملفات الأعمال المنشورة في خدمة."
+        description="ابدأ طلب الطعام من المطاعم المنشورة، أو استكشف الأنشطة الغذائية القريبة منك."
         backHref="/"
       />
 
       <section className={styles.hero} aria-labelledby="food-hero-title">
         <div>
           <span className={styles.badge}><PlatformIcon name="food" size={18}/> القسم البرتقالي</span>
-          <h2 id="food-hero-title">من المطعم إلى الحلو… تحت مظلة واحدة</h2>
-          <p>هذه الصفحة هي بوابة خدمة فود الرسمية. نعرض الأعمال المنشورة فعليًا، ولا ندّعي وجود طلب أو دفع إلكتروني قبل تفعيل نظام الطلبات.</p>
+          <h2 id="food-hero-title">من المطعم إلى بابك… تحت مظلة واحدة</h2>
+          <p>خدمة فود تربطك برحلة الطلب الفعلية: اختر المطعم والقائمة، راجع السلة والعنوان، ثم تابع الطلب والمندوب حتى التسليم. الدفع الحالي نقدًا عند الاستلام.</p>
           <div className={styles.actions}>
-            <Link className={styles.primaryAction} href="/search?type=business&categoryCode=restaurant">اكتشف المطاعم</Link>
+            <Link className={styles.primaryAction} href="/restaurants">ابدأ طلب الطعام</Link>
+            <Link className={styles.secondaryAction} href="/search?type=business&categoryCode=restaurant">استكشف المطاعم</Link>
             <Link className={styles.secondaryAction} href="/map">بالقرب مني</Link>
           </div>
         </div>
@@ -40,19 +41,19 @@ export default function FoodPage() {
       </section>
 
       <section className={styles.categories} aria-labelledby="food-categories-title">
-        <div className={styles.sectionHeading}><span>اختر القسم</span><h2 id="food-categories-title">ماذا تريد اليوم؟</h2></div>
+        <div className={styles.sectionHeading}><span>استكشف حسب القسم</span><h2 id="food-categories-title">ماذا تريد اليوم؟</h2></div>
         <div className={styles.grid}>
           {foodCategories.map((category) => <Surface as="article" className={styles.card} key={category.code}>
             <span className={styles.icon}><PlatformIcon name={category.icon} size={28}/></span>
             <h3>{category.title}</h3>
             <p>{category.description}</p>
-            <Link href={`/search?type=business&categoryCode=${encodeURIComponent(category.code)}`}>عرض النتائج</Link>
+            <Link href={`/search?type=business&categoryCode=${encodeURIComponent(category.code)}`}>استكشف الأنشطة</Link>
           </Surface>)}
         </div>
       </section>
 
       <Surface className={styles.businessCta}>
-        <div><span>لأصحاب الأعمال</span><h2>لديك مطعم أو مقهى أو مخبز أو محل حلويات؟</h2><p>أنشئ ملف نشاطك ليظهر ضمن نتائج خدمة فود.</p></div>
+        <div><span>لأصحاب الأعمال</span><h2>لديك مطعم أو مقهى أو مخبز أو محل حلويات؟</h2><p>أنشئ ملف نشاطك وأضف منتجاتك ليظهر نشاطك ضمن خدمة فود ورحلة الطلب.</p></div>
         <Link href="/business-profiles/new">أضف نشاطك</Link>
       </Surface>
     </div>
