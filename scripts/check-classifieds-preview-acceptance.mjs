@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateBaseUrl } from './capture-preview-evidence.mjs';
+import { main as captureSixthAuditEvidence } from './capture-sixth-audit-evidence.mjs';
 
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const requireCondition = (value, code) => { if (!value) fail(code); };
@@ -124,5 +125,7 @@ export async function main(env = process.env) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  if ((await main()).status !== 'passed') process.exitCode = 1;
+  const classifiedsReport = await main();
+  const sixthAuditVisualReport = await captureSixthAuditEvidence();
+  if (classifiedsReport.status !== 'passed' || sixthAuditVisualReport.status !== 'passed') process.exitCode = 1;
 }
