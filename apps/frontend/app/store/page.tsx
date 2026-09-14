@@ -228,7 +228,7 @@ function countAdvancedFilters(filters: StoreFilters): number {
   return Number(Boolean(filters.availability)) + Number(Boolean(filters.currency)) + Number(filters.minPrice !== '') + Number(filters.maxPrice !== '') + Number(filters.sort !== 'newest');
 }
 function hasAdvancedFilters(filters: StoreFilters): boolean { return countAdvancedFilters(filters) > 0; }
-function readFilters(query: URLSearchParams): StoreFilters {
+function readFilters(query: Pick<URLSearchParams, 'get'>): StoreFilters {
   const currency = readCurrency(query.get('currency'));
   const requestedSort = readSort(query.get('sort'));
   return {
