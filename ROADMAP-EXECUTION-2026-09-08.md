@@ -6,23 +6,23 @@
 
 | الحقل | الحالة المثبتة |
 |---|---|
-| المصدر | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft، غير مدموج، إلى `develop` |
-| آخر رأس منشور ومثبت قبل هذه الدفعة | `133c801973757e35db78574d223042be57622e02`؛ CI الأساسية والنشر ناجحان؛ فحص After 107/112. التصحيح المحدود التالي يعالج تباين المطعم ويشخّص استقرار الوصول للزر |
-| CI على 133c801 | Test & Verify `34906962315` / job `104185773325`: root 1285، backend 521، frontend 134؛ 1940/1940، صفر فشل/تخطٍّ. Node `34906962302` وIdentity `34906962333` وDatabase `34906962306` ناجحة |
-| Preview على 133c801 | run `34906962310`، deploy `104186726918` ناجح؛ checkout `0d4df4efa6a9e7ea10532766d0549a3239fc5003`؛ frontend `khedmah-pr-175-frontend-00010-stn`؛ backend النهائي `khedmah-pr-175-backend-00020-zb7` |
-| 032 في Preview Cloud SQL | تنفيذ `khedmah-preview-taxi-operational-032-1a737c15a8-4sqp7` تحقق في 23:14:27Z. SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe` |
-| أدلة 133c801 | artifact `10374085215`؛ ZIP 54,827,651 bytes، SHA-256 `84621b06bc0b5b16ff4f57d65d627f784af9e4758e77f5e10ce268acb0ff7f27`. الأولية 63/64 والإضافية 44/48، أي107/112؛ mobile31/32 وClassifieds200/200/200. عيوب Dark/Store/auth السابقة أغلقت. ليست الموافقة النهائية؛ BEFORE_URL_MISSING مستقل |
+| المصدر | `khedma-sy/khedmah-digital-v1`؛ `recovery/restore-complete-services-2026-09-14`؛ PR #175 مفتوح، Draft ، غير مدموج، إلى `develop` |
+| آخر رأس منشور ومثبت قبل هذه الدفعة | `371cd25fcf8fd2ed195c3fd6c249b6884b0d5f3e`؛ التطبيق ناجح في 112/112 حالة After ؛ تصحيح أداة التفاعل التالي فقط قيد الرفع |
+| CI على 371cd25 | Test & Verify34909120692 / job104192442542: root1288 ، backend521 ، frontend134 ؛ 1943/1943 ، صفر فشل/تخطٍّ. Node34909120699 و Identity34909120703 و Database34909120725 ناجحة |
+| Preview على 371cd25 | run34909120697 ، deploy104193462787 ناجح؛ checkout `d2088b010d8d0e2cb3b99779a9ff80968e5b58f9`؛ frontend `khedmah-pr-175-frontend-00011-scp`؛ backend النهائي `khedmah-pr-175-backend-00022-zll` |
+|032 في Preview Cloud SQL | تنفيذ `khedmah-preview-taxi-operational-032-f3ee485cd9-xf9wc` تحقق 23:41:58Z. SHA-256 `fd99e0cd9b3c7763ed938080f8526d7d7a38335343c6b2ec379bd2a35f3ad588`؛ Git blob `61b0a781714d4706b8edef1a6a711815e4720cbe` |
+| أدلة 371cd25 | artifact10374566789 ؛ ZIP55,190,860 bytes ؛ SHA-256 `6f35f7a188de586565624f5a7b2d9740ca746dab6a8293617191334deb58cf1f`. After64/64+48/48=112/112 ؛ Classifieds200/200/200 ؛ Mobile31/32. BEFORE_URL_MISSING مستقل |
 | تفويض الدفعة الحالية | طلب المالك معالجة الهوية والتصميم اللوجستي صفحةً صفحةً؛ فُحصت صوره الاثنتا عشرة. تعديلات UI الحالية مرحلة تصميم مصرح بها، مع المحافظة على المظلة والألوان الكحلية والخضراء والبرتقالية وترتيب Food → Delivery → Taxi |
-| EXPOSE / AUTOPSY | أدلة 638d867 كشفت ضعف Dark وقص Store و16 فشل auth وهمياً؛ أصلحها 426be019 ثم أثبتها 133c801. بقي في133c: مرور زري المطعم الفاتح4.4674:1، مهلة Google Map واحدة390/light، وMAIN_CONTROL_OBSCURED واحد Taxi320/light بلا هندسة مسجلة لحظة hit-test |
-| implementation الحالي | أساس0164c713 ثم426be019. التصحيح الجاري المحدود: Restaurant --food-orange-text يأخذ اللون الأغمق --food-orange-hover مع حفظ Dark؛ فحص وصول آخر عنصر ينتظر3إطارات مستقرة، بحد2ثانية، ويسجل هندسة/العنصر الحاجب. لا تعطيل للـhit-test أو إخفاء المهلة ولا تجاوز لجاهزية Google Maps |
-| تحقق محلي على التصحيح الجاري | 7/7 اختبارات targeted: انتظار الاستقرار، رفض الحجب المستمر، رفض الحركة المستمرة أو فقدان التركيز، مع تصميم/ضيف/حساب. frontend134/134. الاختبارات الثلاث الجديدة ترفع الحزمة المتوقعة إلى1943؛ CI التالية يجب أن تثبت العدد على الرأس الجديد، لا نسبة1940 السابقة إليه |
-| دليل Preview المطلوب | إعادة112حالة=64+48؛ RTL وفاتح/داكن وعروض320/390/768/1280. الهدف إغلاق4حالات مرور المطاعم وإعادة تحقق الخريطة، ثم32تفاعل مع هندسة مستقرة. تباينClassifieds ناجح في133c؛ لا قبول107/112 كنجاح كامل |
-| محاولة الدخول الحية السابقة | الإدخال الآمن السابق أعاد 401، ولا جلسة مؤكدة. إصلاح رسالة الرفض لا يثبت صلاحية الحساب. لم تُكرر محاولة الدخول ولم يُبدل إلى Google تلقائيًا. هذه الدفعة تفحص صفحات الحساب دون إدخال بيانات أو إرسال نماذج |
-| حدود الرحلات | `TAXI_ACCESS_ENABLED=true` و`TAXI_TRIPS_ENABLED=false`. لا جلسات مؤكدة للعميل والمطعم والمندوب ومراجع security.manage؛ المطاعم العامة كانت 0. Taxi approval وRestaurant → quote → approval → courier → pickup → delivered → rating لم تُنفذ بأدوار حية |
-| Staging | آخر تشغيل develop المفحوص `34615802535` بتاريخ 2026-09-11 فشل قبل المصادقة بسبب 17 إعدادًا ناقصًا. لا يثبت السجل التاريخي قيم الإعدادات الحالية. لا وصول لإدارة protected environments أو GCP؛ مراجع مشروع Staging ليست إثبات تطبيق |
-| الحدود | لا Merge أو main أو Production أو Terraform apply. لا Production أو Preview كـBefore. لا اعتماد وهمي أو تجاوز الوثائق والثقة أو تفعيل رحلات Taxi. مراجعة المالك والمقارنة ورحلات الأدوار مفتوحة |
-| الخطوة التالية | رفع التصحيح المحدود على PR نفسه fast-forward، ثمCI/Preview/artifact جديد. سجلCI والتقرير التلقائي للـPR مرجع تشغيل ما بعدcheckpoint. الرحلات الحية بالأدوار ومقارنةStaging ومراجعة المالك مفتوحة؛ لا Merge |
-| الملفات الحالية | الدفعة الأولى في Home/Food/Taxi/الحساب والمتغيرات. التصحيح اللاحق: categories/classifieds/store/restaurants CSS؛ section-themes/ui-primitives؛ auth styles/register؛ Taxi guest actions؛ page-design-evidence/sixth-audit-layout؛ page-design وsection-identity tests. لا backend أو migration جديدة |
+| EXPOSE / AUTOPSY | عيوب Dark/Store/auth وتباين مرور المطاعم مغلقة. مهلة Map390/light لم تتكرر في 371cd25 وجميع 8 خرائط نجحت. Mobile Taxi390/dark اختار زر Google «عناصر التحكّم بطريقة عرض الخريطة» بدلاً من زرخدمة؛ live nth() أعيد توجيهه بعد حقن Provider controls. الهندسة الجديدة كشفت ذلك بدلاً من تخمين حجب التطبيق |
+| التصحيح الجاري | أداة الأدلة فقط: تحويل candidate إلى DOM ElementHandle ثابت قبل فحص closest ؛ العنصر الذي فُحصت ملكيته هو نفسه الذي يتم التركيز عليه و hit-test. شرط استبعاد Maps باقٍ، وكذلك 3 إطارات مستقرة وحد 2 ثانية وفحص الحجب. لا TSX أو CSS أو Backend جديدة |
+| التحقق المحلي | 4/4 اختبارات Reachability بينها سباق إدراج Provider يعيد ترتيب collection بعد ownership-check ؛ و 5/5mobile-journey contracts. الحالة الجديدة تفشل مع live nth القديم وتنجح بمرجع العنصر الثابت. الحزمة المتوقعة 1944 ، ويلزم إثبات CI على الرأس التالي |
+| دليل Preview المطلوب | إعادة 112 حالة After و 32 تفاعل على الرأس التالي. لا يُنسب 112/112 المثبت 371cd25 إلىالرأسالجديد حتى دورته. StagingBefore والأدوار الحية ومراجعة المالك مفتوحة |
+| محاولة الدخول الحية السابقة | الإدخال الآمن السابق أعاد 401 ، ولا جلسة مؤكدة. إصلاح رسالة الرفض لا يثبت صلاحية الحساب. لم تُكرر محاولة الدخول ولم يُبدل إلى Google تلقائيًا. هذه الدفعة تفحص صفحات الحساب دون إدخال بيانات أو إرسال نماذج |
+| حدود الرحلات | `TAXI_ACCESS_ENABLED=true` و`TAXI_TRIPS_ENABLED=false`. لا جلسات مؤكدة للعميل والمطعم والمندوب ومراجع security.manage ؛ المطاعم العامة كانت 0. Taxi approval و Restaurant → quote → approval → courier → pickup → delivered → rating لم تُنفذ بأدوار حية |
+| Staging | آخر تشغيل develop المفحوص `34615802535` بتاريخ 2026-09-11 فشل قبل المصادقة بسبب 17 إعدادًا ناقصًا. لا يثبت السجل التاريخي قيم الإعدادات الحالية. لا وصول لإدارة protected environments أو GCP ؛ مراجع مشروع Staging ليست إثبات تطبيق |
+| الحدود | لا Merge أو main أو Production أو Terraform apply. لا Production أو Preview كـ Before. لا اعتماد وهمي أو تجاوز الوثائق والثقة أو تفعيل رحلات Taxi. مراجعة المالك والمقارنة ورحلات الأدوار مفتوحة |
+| الخطوة التالية | رفع التصحيح المحدود على PR نفسه fast-forward ، ثم CI/Preview/artifact جديد. سجل CI والتقرير التلقائي للـ PR مرجع تشغيل ما بعد checkpoint. الرحلات الحية بالأدوار ومقارنة Staging ومراجعة المالك مفتوحة؛ لا Merge |
+| الملفات الحالية | الدفعة الأولى في Home/Food/Taxi/الحساب والمتغيرات. التصحيح اللاحق: categories/classifieds/store/restaurants CSS ؛ section-themes/ui-primitives ؛ auth styles/register ؛ Taxi guest actions ؛ page-design-evidence/sixth-audit-layout ؛ page-design و section-identity tests. لا backend أو migration جديدة |
 
 
 ### سجل تاريخي — RP34 بتاريخ 2026-09-10

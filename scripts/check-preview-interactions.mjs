@@ -32,10 +32,12 @@ export function assistantGeometry() {
 export async function lastApplicationControl(page) {
   const controls = page.locator('main#foundation-content a[href]:visible, main#foundation-content button:not([disabled]):visible, main#foundation-content input:visible');
   for (let index = (await controls.count()) - 1; index >= 0; index -= 1) {
-    const candidate = controls.nth(index);
+    // Pin the DOM node before checking its owner. A live nth() locator can point
+    // at an injected Google control after the provider changes the collection.
+    const candidate = await controls.nth(index).elementHandle();
     // Google Maps injects its own anchors/buttons into the map surface. They are
     // provider UI, not Khedmah controls, and their DOM order is provider-owned.
-    if (await candidate.evaluate(element => !element.closest('[data-map-surface="true"]'))) return candidate;
+    if (candidate && await candidate.evaluate(element => !element.closest('[data-map-surface="true"]'))) return candidate;
   }
   return null;
 }

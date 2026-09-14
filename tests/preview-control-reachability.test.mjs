@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { browserControlReachability } from '../scripts/check-preview-interactions.mjs';
+import { browserControlReachability, lastApplicationControl } from '../scripts/check-preview-interactions.mjs';
 
 async function scenario({ movingUntil = 0, overlay = false, focus = true }) {
   const originals = Object.fromEntries(['document', 'performance', 'requestAnimationFrame'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
@@ -40,4 +40,21 @@ test('a persistent overlay remains a failure and records the blocking element', 
 test('moving or unfocused controls cannot pass the bounded reachability check', async () => {
   assert.equal((await scenario({ movingUntil: 3000 })).reachable, false);
   assert.equal((await scenario({ focus: false })).reachable, false);
+});
+
+test('provider insertion cannot replace the application node after its ownership check', async () => {
+  const provider = { name: 'Google control', closest: () => ({}) };
+  const items = [];
+  const application = { name: 'Khedmah signup', closest: () => {
+    items.unshift(provider);
+    return null;
+  } };
+  items.push(application, provider);
+  const handle = node => ({ evaluate: async callback => callback(node) });
+  const page = { locator: () => ({ count: async () => items.length, nth: index => ({
+    evaluate: async callback => callback(items[index]),
+    elementHandle: async () => handle(items[index])
+  }) }) };
+  const selected = await lastApplicationControl(page);
+  assert.equal(await selected.evaluate(node => node.name), 'Khedmah signup');
 });
