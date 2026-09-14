@@ -4,13 +4,16 @@ set -eu
 readonly DEFAULT_026='/migrations/026_cash_fulfillment_orders.sql'
 readonly DEFAULT_027='/migrations/027_mobility_document_reviews.sql'
 readonly DEFAULT_028='/migrations/028_platform_notifications.sql'
+readonly DEFAULT_LEGACY_165_RECONCILE='/migrations/reconcile_legacy_165_mobility_documents.sql'
 readonly APPROVED_026_BLOB='751262c11264815488136847e39e3dc162feab85'
 readonly APPROVED_027_BLOB='af18327bf03735f6ceaba5f5a60ab973822db355'
 readonly APPROVED_028_BLOB='a4dc42dac87226a3628d282d027164e33212c493'
+readonly APPROVED_LEGACY_165_RECONCILE_BLOB='69847edcb060f4a621eab813f967d133d93cda31'
 
 migration_026="${FULFILLMENT_MIGRATION_026_FILE:-$DEFAULT_026}"
 migration_027="${FULFILLMENT_MIGRATION_027_FILE:-$DEFAULT_027}"
 migration_028="${FULFILLMENT_MIGRATION_028_FILE:-$DEFAULT_028}"
+legacy_165_reconcile="${FULFILLMENT_LEGACY_165_RECONCILE_FILE:-$DEFAULT_LEGACY_165_RECONCILE}"
 environment="${DEPLOYMENT_ENVIRONMENT:-}"
 mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
@@ -51,6 +54,7 @@ PY
 verify_blob "$migration_026" "$APPROVED_026_BLOB"
 verify_blob "$migration_027" "$APPROVED_027_BLOB"
 verify_blob "$migration_028" "$APPROVED_028_BLOB"
+verify_blob "$legacy_165_reconcile" "$APPROVED_LEGACY_165_RECONCILE_BLOB"
 
 # Cloud Run attaches Cloud SQL at /cloudsql/<connection-name>. DATABASE_URL
 # supplies credentials/database only; its TCP host is intentionally ignored.
@@ -127,6 +131,19 @@ schema_state() {
   if [ "$table_count" -eq 8 ] && [ "$column_count" -eq 2 ] && [ "$index_count" -eq 9 ] && [ "$function_count" -eq 1 ] && [ "$trigger_count" -eq 1 ] && [ "$media_count" -eq 2 ]; then
     printf '%s' 'verified'; return 0
   fi
+
+  # PR #165 used the same 026 and notification blobs but an older mobility
+  # document-review schema numbered 033. Accept only that exact historical
+  # shape; every other partial state remains fail-closed.
+  legacy_index_count="$(probe_count "SELECT count(*)::int FROM pg_indexes WHERE schemaname=current_schema() AND indexname IN ('mobility_document_reviews_business_status_idx','mobility_document_review_events_business_created_idx')")" || return $?
+  legacy_constraint_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND ((t.relname='mobility_document_reviews' AND c.conname='mobility_document_reviews_business_type_unique' AND c.contype='u') OR (t.relname='mobility_document_review_events' AND c.conname='mobility_document_review_events_reason_check' AND c.contype='c'))")" || return $?
+  legacy_shape_count="$(probe_count "SELECT ((EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='mobility_document_review_events' AND c.conname='mobility_document_review_events_actor_user_id_fkey' AND c.contype='f' AND c.confdeltype='n'))::int + (NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='mobility_document_review_events' AND c.conname='mobility_document_review_events_media_asset_id_fkey'))::int + (EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_class t ON t.oid=a.attrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='mobility_document_review_events' AND a.attname='actor_user_id' AND a.attnum>0 AND NOT a.attisdropped AND NOT a.attnotnull))::int + (NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname=current_schema() AND t.relname='mobility_document_reviews' AND c.conname='mobility_document_reviews_review_reason_check'))::int)")" || return $?
+  legacy_column_count="$(probe_count "SELECT ((SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mobility_document_reviews') + (SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mobility_document_review_events'))::int")" || return $?
+
+  if [ "$table_count" -eq 8 ] && [ "$column_count" -eq 2 ] && [ "$index_count" -eq 7 ] && [ "$function_count" -eq 0 ] && [ "$trigger_count" -eq 0 ] && [ "$media_count" -eq 0 ] && [ "$legacy_index_count" -eq 2 ] && [ "$legacy_constraint_count" -eq 2 ] && [ "$legacy_shape_count" -eq 4 ] && [ "$legacy_column_count" -eq 17 ]; then
+    printf '%s' 'legacy_165_reconcilable'; return 0
+  fi
+
   printf '%s' 'partial_or_unverified'
 }
 
@@ -135,6 +152,7 @@ exit_for_schema_state() {
     missing_base) exit 41 ;;
     requires_025) exit 42 ;;
     not_applied) exit 43 ;;
+    legacy_165_reconcilable) exit 44 ;;
     partial_or_unverified) exit 44 ;;
     *) exit 48 ;;
   esac
@@ -152,9 +170,13 @@ fi
 if [ "$mode" = 'verify' ]; then
   exit_for_schema_state "$state"
 fi
-[ "$state" = 'not_applied' ] || exit_for_schema_state "$state"
 
-psql_exec -X -v ON_ERROR_STOP=1 <<SQL
+if [ "$state" = 'legacy_165_reconcilable' ]; then
+  psql_exec -X -v ON_ERROR_STOP=1 -f "$legacy_165_reconcile"
+else
+  [ "$state" = 'not_applied' ] || exit_for_schema_state "$state"
+
+  psql_exec -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-fulfillment-026-028', 0));
 DO \$guard\$
@@ -200,6 +222,7 @@ END
 \ir ${migration_028}
 COMMIT;
 SQL
+fi
 
 set +e
 state="$(schema_state)"
