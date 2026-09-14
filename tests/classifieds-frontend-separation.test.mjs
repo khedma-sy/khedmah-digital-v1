@@ -45,7 +45,7 @@ test('public and owner ad DTOs keep moderation authority out of public discovery
   assert.match(client, /export interface OwnerAdListing extends AdListingBase/);
   assert.match(client, /readonly rejectionReason\?: string/);
   assert.match(client, /readonly reviewRevision: number/);
-  assert.match(client, /request<\{ ads: PublicAdListing\[\] \}>/);
+  assert.match(client, /request<\{ ads: PublicAdListing\[\]; total: number; page: number \}>/);
   assert.match(client, /request<\{ ads: OwnerAdListing\[\] \}>\('\/classifieds\/mine'\)/);
 });
 
