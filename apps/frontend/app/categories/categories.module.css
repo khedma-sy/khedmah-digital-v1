@@ -1,0 +1,17 @@
+.toneScope :global(.catalog-category-icon[data-category-tone='navy']),
+.toneScope :global(.catalog-service-icon[data-category-tone='navy']) {
+  background: var(--brand-navy);
+  color: var(--k-text-on-primary);
+}
+
+.toneScope :global(.catalog-category-icon[data-category-tone='green']),
+.toneScope :global(.catalog-service-icon[data-category-tone='green']) {
+  background: var(--brand-green);
+  color: var(--k-text-on-green);
+}
+
+.toneScope :global(.catalog-category-icon[data-category-tone='orange']),
+.toneScope :global(.catalog-service-icon[data-category-tone='orange']) {
+  background: var(--brand-orange);
+  color: var(--k-text-on-orange);
+}
