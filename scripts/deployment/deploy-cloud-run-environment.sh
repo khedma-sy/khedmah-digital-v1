@@ -14,7 +14,7 @@ for value in "$CLASSIFIEDS_ENABLED" "$NEXT_PUBLIC_CLASSIFIEDS_ENABLED"; do
   [[ "$value" == 'true' || "$value" == 'false' ]] || { echo 'Classifieds feature flags must be literal true or false.' >&2; exit 2; }
 done
 [[ "$TAXI_TRIPS_ENABLED" == 'true' || "$TAXI_TRIPS_ENABLED" == 'false' ]] || { echo 'TAXI_TRIPS_ENABLED must be literal true or false.' >&2; exit 2; }
-[[ "$TAXI_TRIPS_ENABLED" != 'true' ]] || { echo 'Taxi trips cannot be enabled by this deployment path while the Taxi trip SQL remains candidate-only.' >&2; exit 4; }
+[[ "$TAXI_TRIPS_ENABLED" != 'true' ]] || { echo 'Taxi trips cannot be enabled by this deployment path while the Taxi SQL remains candidate-only.' >&2; exit 4; }
 [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' || "$CLASSIFIEDS_MIGRATION_025_MODE" == 'verify' || "$CLASSIFIEDS_MIGRATION_025_MODE" == 'apply' ]] || { echo 'CLASSIFIEDS_MIGRATION_025_MODE must be off, verify, or apply.' >&2; exit 2; }
 [[ "$NEXT_PUBLIC_CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_ENABLED" == 'true' ]] || { echo 'Frontend Classifieds cannot be enabled before backend Classifieds.' >&2; exit 4; }
 [[ "$CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_MIGRATION_025_MODE" != 'off' ]] || { echo 'Backend Classifieds requires migration 025 verification before enablement.' >&2; exit 4; }
@@ -85,7 +85,7 @@ scripts/deployment/ensure-billing-nonproduction-schema.sh "$environment" "$ident
 TAXI_OPERATIONAL_MIGRATION_031_MODE='apply'
 TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environment^^}"
 export TAXI_OPERATIONAL_MIGRATION_031_MODE TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION
-scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
+bash scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
 
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
