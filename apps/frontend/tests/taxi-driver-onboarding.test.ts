@@ -29,8 +29,10 @@ test('onboarding never self-authorizes Taxi execution', async () => {
   const page = await read('app/taxi-driver-signup/page.tsx');
   const client = await read('lib/taxi-client.ts');
 
-  assert.match(page, /لا تنشئ موافقة تشغيلية تلقائياً/);
-  assert.match(page, /اعتماد السائق والمركبة والمنطقة داخل محرك Taxi/);
+  assert.match(page, /taxiOperationalReviewApi\.status\(businessId\)/);
+  assert.doesNotMatch(page, /taxiOperationalReviewApi\.(approve|restrict)\s*\(/);
+  assert.match(page, /بانتظار قرار خدمة التشغيلي/);
+  assert.match(page, /استقبال الرحلات يظهر فقط عند تفعيل خدمة الرحلات التشغيلية/);
   assert.doesNotMatch(page, /driver_approvals|vehicle_approvals|approved_at|verification_reference/);
   assert.doesNotMatch(client, /registerDriver|approveDriver|approveVehicle|vehicle_approvals|driver_approvals/);
 });
