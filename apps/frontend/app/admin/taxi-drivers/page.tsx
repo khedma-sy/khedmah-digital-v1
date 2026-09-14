@@ -44,6 +44,11 @@ const errorStatus = (value: unknown) => value instanceof Error
   ? (value as Error & { statusCode?: number }).statusCode
   : undefined;
 const errorMessage = (value: unknown, fallback: string) => value instanceof Error ? value.message : fallback;
+const operationalExpiry = (candidate: TaxiOperationalCandidate) => candidate.expiresAt ? Date.parse(candidate.expiresAt) : Number.NaN;
+const isOperationalExpired = (candidate: TaxiOperationalCandidate) => candidate.operationalStatus === 'approved'
+  && Number.isFinite(operationalExpiry(candidate)) && operationalExpiry(candidate) <= Date.now();
+const isOperationalEligible = (candidate: TaxiOperationalCandidate) => candidate.operationalStatus === 'approved'
+  && candidate.profileReady && Number.isFinite(operationalExpiry(candidate)) && operationalExpiry(candidate) > Date.now();
 
 export default function TaxiDriversAdminPage() {
   const router = useRouter();
@@ -95,8 +100,8 @@ export default function TaxiDriversAdminPage() {
   const metrics = useMemo(() => ({
     total: candidates.length,
     documentsReady: candidates.filter((candidate) => candidate.documentsApproved).length,
-    readyForApproval: candidates.filter((candidate) => candidate.documentsApproved && candidate.profileReady && candidate.operationalStatus !== 'approved').length,
-    operational: candidates.filter((candidate) => candidate.operationalStatus === 'approved').length
+    readyForApproval: candidates.filter((candidate) => candidate.documentsApproved && candidate.profileReady && !isOperationalEligible(candidate)).length,
+    operational: candidates.filter(isOperationalEligible).length
   }), [candidates]);
 
   const latestDocuments = useMemo(() => documentTypes.flatMap((type) => {
@@ -222,17 +227,21 @@ export default function TaxiDriversAdminPage() {
     }
   }
 
+  const approvalExpiry = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+  const approvalExpiryValid = Number.isFinite(approvalExpiry)
+    && approvalExpiry > Date.now() + 60 * 60 * 1000
+    && approvalExpiry <= Date.now() + 2 * 365 * 24 * 60 * 60 * 1000;
   const approvalValid = operationalDialog?.action !== 'approve'
     ? verificationReference.trim().length >= 5 && decisionReason.trim().length >= 10
     : !!operationalDialog.candidate.profileReady && !!operationalDialog.candidate.documentsApproved
-      && !!zoneCode.trim() && !!expiresAt && verificationReference.trim().length >= 5 && decisionReason.trim().length >= 10;
+      && !!zoneCode.trim() && approvalExpiryValid && verificationReference.trim().length >= 5 && decisionReason.trim().length >= 10;
 
   if (loading) return <main id="foundation-content" className="operations-shell" aria-busy="true"><section className="operations-panel"><p>جاري تحميل طابور سائقي التكسي…</p></section></main>;
 
   return <main id="foundation-content" className={`operations-shell ${styles.page}`} dir="rtl" aria-label="إدارة سائقي التكسي">
     <header className="operations-header">
       <div><p className="eyebrow">خدمة · Taxi Operations</p><h1>اعتماد سائقي خدمة تكسي</h1><p>مراجعة المستندات ثم اعتماد السائق والسيارة والمنطقة. الاعتماد التشغيلي لا يفعّل رحلات التكسي تلقائيًا.</p></div>
-      <span className="status-badge">{metrics.readyForApproval} جاهز للاعتماد</span>
+      <span className="status-badge">{metrics.readyForApproval} جاهز للاعتماد أو التجديد</span>
     </header>
 
     <nav className="admin-navigation" aria-label="التنقل الإداري">
@@ -245,13 +254,13 @@ export default function TaxiDriversAdminPage() {
     <section className={styles.summary} aria-label="ملخص سائقي التكسي">
       <article className={styles.metric}><strong>{metrics.total}</strong><span>ملفات تكسي</span></article>
       <article className={styles.metric}><strong>{metrics.documentsReady}</strong><span>وثائق 4/4 معتمدة</span></article>
-      <article className={styles.metric}><strong>{metrics.readyForApproval}</strong><span>جاهز لقرار التشغيل</span></article>
-      <article className={styles.metric}><strong>{metrics.operational}</strong><span>معتمد تشغيليًا</span></article>
+      <article className={styles.metric}><strong>{metrics.readyForApproval}</strong><span>جاهز للاعتماد/التجديد</span></article>
+      <article className={styles.metric}><strong>{metrics.operational}</strong><span>اعتماد فعّال الآن</span></article>
     </section>
 
     <section className="operations-panel">
       <h2>حدود التشغيل الحالية</h2>
-      <p>هذه الشاشة تمنح أو تعلق أو تلغي سلطة السائق والسيارة والمنطقة فقط. استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة حتى اعتماد طبقة الرحلات والإثباتات الموثوقة.</p>
+      <p>هذه الشاشة تمنح أو تعلق أو تلغي سلطة السائق والسيارة والمنطقة فقط. أهلية الربط تتطلب أيضًا ملف Taxi منشورًا ومعتمدًا وموثوقًا ونشطًا واعتمادًا غير منتهي. استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة حتى اعتماد طبقة الرحلات والإثباتات الموثوقة.</p>
     </section>
 
     {error && <p className="moderation-feedback error" role="alert">{error} <button type="button" onClick={() => void loadCandidates()}>إعادة المحاولة</button></p>}
@@ -262,6 +271,13 @@ export default function TaxiDriversAdminPage() {
       {candidates.length === 0 ? <p className={styles.empty}>لا توجد ملفات تكسي بانتظار أو تحت الاعتماد حاليًا.</p> : <div className="moderation-list">
         {candidates.map((candidate) => {
           const canApprove = candidate.profileReady && candidate.documentsApproved;
+          const eligible = isOperationalEligible(candidate);
+          const expired = isOperationalExpired(candidate);
+          const profileBlocked = candidate.operationalStatus === 'approved' && !candidate.profileReady;
+          const operationalStatus = eligible ? 'معتمد وفعّال الآن'
+            : expired ? 'منتهي الصلاحية'
+              : profileBlocked ? 'متوقف بسبب حالة الملف'
+                : candidate.operationalStatus ? operationalLabels[candidate.operationalStatus] : 'غير معتمد بعد';
           return <article className="moderation-card" key={candidate.businessProfileId}>
             <div>
               <h3>{candidate.name}</h3>
@@ -277,8 +293,10 @@ export default function TaxiDriversAdminPage() {
                   <strong>{documentLabels[type]}</strong><span>{documentStatusLabels[candidate.documents[type]]}</span>
                 </div>)}
               </div>
-              <p className={styles.opsStatus}>الحالة التشغيلية: {candidate.operationalStatus ? operationalLabels[candidate.operationalStatus] : 'غير معتمد بعد'}{candidate.zoneCode ? ` · ${candidate.zoneCode}` : ''}</p>
+              <p className={styles.opsStatus}>الحالة التشغيلية: {operationalStatus}{candidate.zoneCode ? ` · ${candidate.zoneCode}` : ''}</p>
               {candidate.expiresAt && <p><small>انتهاء الاعتماد: {new Date(candidate.expiresAt).toLocaleString('ar-SY')}</small></p>}
+              {expired && <p className={styles.blocker}>انتهت صلاحية الاعتماد. لا توجد أهلية ربط حتى تسجيل قرار تجديد صالح.</p>}
+              {profileBlocked && <p className={styles.blocker}>الاعتماد المسجل لا يكفي: ملف Taxi لم يعد public + approved moderation + approved trust + active، لذلك بوابة السائق مغلقة.</p>}
               {!canApprove && <p className={styles.blocker}>لا يمكن الاعتماد حتى تصبح أحدث الوثائق الأربع معتمدة ويصبح ملف النشاط public + approved moderation + approved trust + active.</p>}
             </div>
             <div className="moderation-actions">
@@ -329,7 +347,7 @@ export default function TaxiDriversAdminPage() {
         <h3 id="taxi-operational-dialog-title">{operationalDialog.action === 'approve' ? 'اعتماد السائق والسيارة' : operationalDialog.action === 'suspend' ? 'تعليق الاعتماد' : 'إلغاء الاعتماد'}</h3>
         <p>القرار مرتبط بملف {operationalDialog.candidate.name} ويُسجل في سجل تشغيل append-only.</p>
         <div className={styles.dialogForm}>
-          {operationalDialog.action === 'approve' && <><label>رمز منطقة التشغيل<input value={zoneCode} maxLength={80} onChange={(event) => setZoneCode(event.target.value)} placeholder="damascus-central" /></label><label>انتهاء الاعتماد<input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label></>}
+          {operationalDialog.action === 'approve' && <><label>رمز منطقة التشغيل<input value={zoneCode} maxLength={80} onChange={(event) => setZoneCode(event.target.value)} placeholder="damascus-central" /></label><label>انتهاء الاعتماد<input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>{expiresAt && !approvalExpiryValid && <p className={styles.blocker}>يجب أن يكون انتهاء الاعتماد بعد أكثر من ساعة وبحد أقصى سنتين من الآن.</p>}</>}
           <label>مرجع التحقق<input value={verificationReference} minLength={5} maxLength={200} onChange={(event) => setVerificationReference(event.target.value)} placeholder="رقم قضية أو مرجع مراجعة" /></label>
           <label>سبب القرار<textarea value={decisionReason} minLength={10} maxLength={500} onChange={(event) => setDecisionReason(event.target.value)} placeholder="ما الذي تمت مراجعته ولماذا اتُخذ هذا القرار؟" /></label>
         </div>
