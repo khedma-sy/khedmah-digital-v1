@@ -49,6 +49,8 @@ test('restaurant discovery survives partial category failures', () => {
   assert.match(source, /Promise\.allSettled\(/);
   assert.match(source, /fulfilled\.length/);
   assert.match(source, /rejected\.length/);
-  assert.match(source, /تم تحميل المطاعم المتاحة/);
+  assert.match(source, /setPartialFailure\(rejected\.length > 0\)/);
+  assert.match(source, /تم تحميل نتائج جزئية\. أعد محاولة الصفحة الحالية قبل متابعة بقية المطاعم\./);
+  assert.match(source, /إعادة تحميل الصفحة الحالية/);
   assert.doesNotMatch(source, /Promise\.all\(\s*FOOD_CATEGORIES/);
 });
