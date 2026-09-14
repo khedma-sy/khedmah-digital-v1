@@ -1,6 +1,7 @@
 export type ProductAvailability = 'in_stock' | 'out_of_stock' | 'made_to_order';
 export type ProductStatus = 'draft' | 'active' | 'inactive';
 export type ProductModerationStatus = 'pending' | 'approved' | 'rejected';
+export type ProductSort = 'newest' | 'price_asc' | 'price_desc';
 
 export interface ProductListing {
   readonly id: string;
@@ -27,6 +28,18 @@ export interface ProductListing {
   readonly revision: string;
   /** Fingerprint of editable content; media and moderation do not advance it. */
   readonly contentRevision: string;
+}
+
+export interface PublicProductFilters {
+  readonly q?: string;
+  readonly categoryCode?: string;
+  readonly cityCode?: string;
+  readonly businessProfileId?: string;
+  readonly availability?: ProductAvailability;
+  readonly currency?: 'SYP' | 'USD';
+  readonly minPrice?: number;
+  readonly maxPrice?: number;
+  readonly sort?: ProductSort;
 }
 
 export type PublicProductListing = Omit<ProductListing, 'ownerUserId' | 'rejectionReason'>;
