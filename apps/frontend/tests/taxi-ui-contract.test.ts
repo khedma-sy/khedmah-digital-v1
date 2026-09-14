@@ -50,7 +50,8 @@ test('taxi page keeps uncertain placement replayable and URL mode behind Suspens
   assert.match(page, /taxiApi\.rider\.place\(attempt\.quoteId, attempt\.requestId\)/);
   assert.match(page, /setHasPendingPlace\(!!sessionStorage\.getItem\(PLACE_KEY\)\)/);
   assert.match(page, /<Suspense[\s\S]*<TaxiContent\s*\/>/);
-  assert.match(page, /لا توجد أزرار لتزوير هذه البيانات من المتصفح/);
+  assert.match(page, /الوصول وإنهاء الرحلة يعتمدان على إثباتات تشغيلية موثوقة/);
+  assert.doesNotMatch(page, /تزوير هذه البيانات/);
 });
 
 test('rider and driver can recover the active trip from their authenticated account', async () => {
