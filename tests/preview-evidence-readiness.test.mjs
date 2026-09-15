@@ -5,14 +5,60 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { main, assessEvidence, browserReadyForCapture, browserContentReadyForCapture, waitForCaptureReadiness, evidenceRoutes, evidenceViewports, evidenceThemes, validateBaseUrl } from '../scripts/capture-preview-evidence.mjs';
+import {
+  main,
+  assessEvidence,
+  browserReadyForCapture,
+  browserContentReadyForCapture,
+  waitForCaptureReadiness,
+  evidenceRoutes,
+  evidenceViewports,
+  evidenceThemes,
+  validateBaseUrl
+} from '../scripts/capture-preview-evidence.mjs';
 
-const ready = { theme: 'light', mapStatus: null, headerCount: 1, mainCount: 1, headingLength: 18, navigationCount: 5, navigationInteractiveCount: 5, navigationHrefs: ['/search', '/categories', '/map', '/taxi', '/classifieds'], authReady: true,
-  busyCount: 0, alertCount: 0, fontStatus: 'loaded', overflowPx: 0, formNamed: true };
+import { browserDesignLayout } from '../scripts/page-design-evidence.mjs';
+import { browserInlineLayout } from '../scripts/sixth-audit-layout.mjs';
+import { browserActionPaint } from '../scripts/classifieds-action-contrast.mjs';
+
+const expectedRoutes = ['/', '/categories', '/food', '/search', '/map', '/taxi', '/store', '/professional-profiles/search'];
+const expectedNavigationHrefs = ['/search', '/categories', '/food', '/mobility?type=delivery', '/map', '/taxi', '/store', '/classifieds'];
+const expectedCaptureCount = expectedRoutes.length * 4 * 2;
+
+const ready = {
+  theme: 'light',
+  mapStatus: null,
+  headerCount: 1,
+  mainCount: 1,
+  headingLength: 18,
+  navigationCount: expectedNavigationHrefs.length,
+  navigationInteractiveCount: expectedNavigationHrefs.length,
+  navigationHrefs: expectedNavigationHrefs,
+  authReady: true,
+  busyCount: 0,
+  alertCount: 0,
+  fontStatus: 'loaded',
+  overflowPx: 0,
+  formNamed: true
+};
 
 test('evidence accepts a ready 2xx page but does not equate an image file with readiness', () => {
   assert.deepEqual(assessEvidence(ready, 200, true), []);
   assert.ok(assessEvidence({}, 200, true).includes('CONTENT_NOT_READY'));
+});
+
+test('visual evidence locks the canonical eight-link discovery navigation including Delivery', () => {
+  assert.deepEqual(assessEvidence(ready, 200, true), []);
+  const legacyWithoutDelivery = expectedNavigationHrefs.filter((href) => href !== '/mobility?type=delivery');
+  const failures = assessEvidence({
+    ...ready,
+    navigationCount: legacyWithoutDelivery.length,
+    navigationInteractiveCount: legacyWithoutDelivery.length,
+    navigationHrefs: legacyWithoutDelivery
+  }, 200, true);
+  assert.ok(failures.includes('NAVIGATION_NOT_READY'));
+  assert.ok(failures.includes('NAVIGATION_NOT_INTERACTIVE'));
+  assert.ok(failures.includes('NAVIGATION_DESTINATIONS_CHANGED'));
 });
 
 for (const [name, change, code] of [
@@ -20,8 +66,8 @@ for (const [name, change, code] of [
   ['missing header', { headerCount: 0 }, 'HEADER_MISSING_OR_DUPLICATED'],
   ['duplicated header', { headerCount: 2 }, 'HEADER_MISSING_OR_DUPLICATED'],
   ['unresolved navigation', { authReady: false }, 'NAVIGATION_NOT_READY'],
-  ['missing discovery links', { navigationCount: 4 }, 'NAVIGATION_NOT_READY'],
-  ['clipped or covered navigation', { navigationInteractiveCount: 4 }, 'NAVIGATION_NOT_INTERACTIVE'],
+  ['missing discovery links', { navigationCount: expectedNavigationHrefs.length - 1 }, 'NAVIGATION_NOT_READY'],
+  ['clipped or covered navigation', { navigationInteractiveCount: expectedNavigationHrefs.length - 1 }, 'NAVIGATION_NOT_INTERACTIVE'],
   ['changed link destinations', { navigationHrefs: ['/search'] }, 'NAVIGATION_DESTINATIONS_CHANGED'],
   ['unfinished skeleton', { busyCount: 1 }, 'LOADING_NOT_FINISHED'],
   ['visible error', { alertCount: 1 }, 'VISIBLE_ERROR_OR_WARNING'],
@@ -40,20 +86,26 @@ test('evidence rejects HTTP errors, redirects and browser exceptions independent
 
 test('evidence origins reject insecure URLs, embedded credentials and query values', () => {
   assert.equal(validateBaseUrl('https://preview.example.test/'), 'https://preview.example.test');
-  for (const url of ['http://preview.example.test', 'https://name:password@example.test', 'https://example.test/path', 'https://example.test/?token=value', 'https://example.test/#fragment', '']) {
+  for (const url of [
+    'http://preview.example.test',
+    'https://name:password@example.test',
+    'https://example.test/path',
+    'https://example.test/?token=value',
+    'https://example.test/#fragment',
+    ''
+  ]) {
     assert.throws(() => validateBaseUrl(url));
   }
 });
 
-test('evidence coverage is bounded to anonymous read-only routes at four screen sizes and both themes', () => {
-  assert.deepEqual(evidenceRoutes.map(({ path }) => path), ['/', '/categories', '/search', '/map', '/professional-profiles/search']);
+test('evidence coverage locks the eight anonymous launch routes at four screen sizes and both themes', () => {
+  assert.deepEqual(evidenceRoutes.map(({ path }) => path), expectedRoutes);
   assert.deepEqual(evidenceViewports.map(({ width }) => width), [1280, 390, 320, 768]);
   assert.deepEqual(evidenceThemes, ['light', 'dark']);
-  assert.equal(evidenceRoutes[4].formName, 'بحث عن مهنيين');
+  assert.equal(evidenceRoutes[7].formName, 'بحث عن مهنيين');
+  assert.equal(expectedCaptureCount, 64);
 });
 
-// Orchestration tests use a browser double: they verify control flow and reporting,
-// not page layout or real network readiness. Live captures remain the CI job's duty.
 async function exerciseMain(t, overrides = {}, options = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'khedmah-evidence-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -77,15 +129,42 @@ async function exerciseMain(t, overrides = {}, options = {}) {
             return { status: () => 200 };
           },
           waitForFunction: async () => undefined,
-          evaluate: async (fn) => fn === browserReadyForCapture ? true : ({ ...ready, theme: colorScheme }),
+          mouse: { move: async () => {} },
+          keyboard: { press: async () => {} },
+          locator: () => ({ count: async () => 6, nth: () => ({
+            hover: async () => {}, focus: async () => {}, getAttribute: async () => 'navy',
+            evaluate: async (fn) => fn === browserActionPaint ? { label: 'fixture', visible: true, unsupportedPaint: false, renderedOpacity: 1, reducedMotion: true, transform: options.motionRegression ? 'matrix(1, 0, 0, 1, 0, -1)' : 'none', foregroundRgba: [255,255,255,255], backgroundRgba: [7,66,124,255] } : undefined
+          }) }),
+          evaluate: async (fn, key) => {
+            if (fn === browserDesignLayout) return { key, htmlDir: 'rtl', direction: 'rtl', missingTokens: [], samples: Array.from({ length: 6 }, () => ({ label: 'fixture', padding: options.missingSpacing && key === 'search' ? 0 : 16, minimumPadding: 16, gap: 16, minimumGap: 16 })) };
+            if (fn === browserInlineLayout) return { viewportWidth: 320, mainOverflowPx: 0, elements: [{ left: 16, right: 304, width: 288 }] };
+            if (fn === browserReadyForCapture) return true;
+            const pathname = new URL(currentUrl).pathname;
+            const mapExpected = pathname === '/map' || pathname === '/taxi';
+            return mapExpected ? {
+              ...ready,
+              theme: colorScheme,
+              mapStatus: 'ready',
+              mapRuntimeStatus: 'ready',
+              mapRenderStatus: 'ready',
+              mapSurfaceVisible: true,
+              mapSurfaceSize: { width: 320, height: 320 }
+            } : { ...ready, theme: colorScheme };
+          },
           url: () => currentUrl,
           screenshot: async () => undefined
         })
       };
     }
   };
-  const env = { BEFORE_URL: 'https://staging.example.test', AFTER_URL: 'https://preview.example.test',
-    PREVIEW_HEAD_SHA: 'test-head', GITHUB_SHA: 'test-merge', EVIDENCE_DIR: directory, ...overrides };
+  const env = {
+    BEFORE_URL: 'https://staging.example.test',
+    AFTER_URL: 'https://preview.example.test',
+    PREVIEW_HEAD_SHA: 'test-head',
+    GITHUB_SHA: 'test-merge',
+    EVIDENCE_DIR: directory,
+    ...overrides
+  };
   const launchBrowser = async () => {
     launches += 1;
     if (options.launchFails) throw new Error('sensitive launch details');
@@ -98,14 +177,14 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   return { report, visits, launches, directory };
 }
 
-test('orchestration captures all forty Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
+test('orchestration captures all sixty-four Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
   const { report, visits } = await exerciseMain(t, { BEFORE_URL: '' });
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
   assert.equal(report.before.status, 'blocked');
   assert.deepEqual(report.before.failures, ['BEFORE_URL_MISSING']);
-  assert.equal(report.after.length, 40);
-  assert.equal(visits.length, 40);
+  assert.equal(report.after.length, expectedCaptureCount);
+  assert.equal(visits.length, expectedCaptureCount);
   assert.ok(visits.every((url) => url.startsWith('https://preview.example.test/')));
   assert.equal(report.setupFailure, undefined);
 });
@@ -115,7 +194,7 @@ test('orchestration rejects an unsafe baseline without exposing it or substituti
   assert.deepEqual(report.before.failures, ['BEFORE_URL_INVALID']);
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
-  assert.equal(visits.length, 40);
+  assert.equal(visits.length, expectedCaptureCount);
   assert.ok(!JSON.stringify(report).includes('private-value'));
 });
 
@@ -123,16 +202,16 @@ test('orchestration refuses using the same origin as before and after evidence',
   const { report, visits } = await exerciseMain(t, { BEFORE_URL: 'https://preview.example.test/' });
   assert.deepEqual(report.before.failures, ['BASELINE_EQUALS_PREVIEW']);
   assert.equal(report.status, 'failed');
-  assert.equal(visits.length, 40);
+  assert.equal(visits.length, expectedCaptureCount);
 });
 
-test('orchestration accepts only a passing baseline AND forty passing Preview scenarios', async (t) => {
+test('orchestration accepts only a passing baseline AND sixty-four passing Preview scenarios', async (t) => {
   const { report, visits } = await exerciseMain(t);
   assert.equal(report.status, 'passed');
   assert.equal(report.previewStatus, 'passed');
   assert.equal(report.before.status, 'passed');
-  assert.equal(report.after.length, 40);
-  assert.equal(visits.length, 41);
+  assert.equal(report.after.length, expectedCaptureCount);
+  assert.equal(visits.length, expectedCaptureCount + 1);
   assert.equal(report.headSha, 'test-head');
   assert.equal(report.checkoutSha, 'test-merge');
 });
@@ -142,7 +221,7 @@ test('orchestration still captures Preview after a baseline navigation failure',
   assert.equal(report.status, 'failed');
   assert.equal(report.before.status, 'failed');
   assert.equal(report.previewStatus, 'passed');
-  assert.equal(report.after.length, 40);
+  assert.equal(report.after.length, expectedCaptureCount);
 });
 
 for (const [value, code] of [[undefined, 'AFTER_URL_MISSING'], ['', 'AFTER_URL_MISSING'], ['not a URL', 'AFTER_URL_INVALID']]) {
@@ -172,8 +251,8 @@ test('one failed Preview context does not discard sibling captures or later rout
   const { report } = await exerciseMain(t, { BEFORE_URL: '' }, { contextFailures: 1 });
   assert.equal(report.status, 'failed');
   assert.equal(report.previewStatus, 'failed');
-  assert.equal(report.after.length, 40);
-  assert.equal(report.after.filter((item) => item.status === 'passed').length, 39);
+  assert.equal(report.after.length, expectedCaptureCount);
+  assert.equal(report.after.filter((item) => item.status === 'passed').length, expectedCaptureCount - 1);
   assert.deepEqual(report.after[0].failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
 });
 
@@ -181,14 +260,16 @@ test('browser teardown failure still writes the manifest and fails the gate', as
   const { report } = await exerciseMain(t, {}, { closeFails: true });
   assert.equal(report.status, 'failed');
   assert.equal(report.setupFailure, 'BROWSER_CLOSE_FAILED');
-  assert.equal(report.after.length, 40);
+  assert.equal(report.after.length, expectedCaptureCount);
 });
 
 test('CLI exits nonzero and saves an actionable report on missing Preview configuration', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'khedmah-evidence-cli-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const result = spawnSync(process.execPath, [fileURLToPath(new URL('../scripts/capture-preview-evidence.mjs', import.meta.url))], {
-    encoding: 'utf8', env: { ...process.env, BEFORE_URL: '', AFTER_URL: '', EVIDENCE_DIR: directory }, timeout: 10000
+    encoding: 'utf8',
+    env: { ...process.env, BEFORE_URL: '', AFTER_URL: '', EVIDENCE_DIR: directory },
+    timeout: 10000
   });
   assert.equal(result.status, 1);
   const report = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
@@ -209,30 +290,39 @@ test('review-evidence binds protected Preview variables while retaining least pr
   assert.match(reviewJob, /evidence\.setupFailure/);
 });
 
-
 test('a failed baseline browser context cannot suppress all Preview diagnostics', async (t) => {
   const { report } = await exerciseMain(t, {}, { contextFailures: 1 });
   assert.equal(report.status, 'failed');
   assert.deepEqual(report.before.failures, ['CAPTURE_SETUP_OR_CLEANUP_FAILED']);
-  assert.equal(report.after.length, 40);
+  assert.equal(report.after.length, expectedCaptureCount);
   assert.equal(report.previewStatus, 'passed');
 });
 
-// Exercise the actual browser-side readiness function against a deterministic DOM double.
-// These tests complement, not replace, live Chromium captures.
 async function readinessWithFonts({ fontStatus = 'loaded', afterFrame = () => undefined, busy = false } = {}) {
   const fonts = { status: fontStatus, ready: Promise.resolve() };
   let frames = 0;
   let layouts = 0;
+  const main = {
+    querySelector: () => ({ textContent: 'خدمة' }),
+    hasAttribute: () => false,
+    getAttribute: () => null
+  };
   const document = {
     fonts,
     body: { getBoundingClientRect() { layouts += 1; return {}; } },
     querySelector(selector) {
-      return selector.startsWith('main') ? { querySelector: () => ({ textContent: 'خدمة' }), hasAttribute: () => false } : {};
+      if (selector.startsWith('main')) return main;
+      if (selector === '[data-taxi-map-status]') return null;
+      if (selector.includes('.nav-session[data-auth-state=')) return {};
+      return null;
     },
     querySelectorAll() { return busy ? [{ getClientRects: () => [1] }] : []; }
   };
-  const requestAnimationFrame = (done) => { frames += 1; afterFrame(fonts, frames); queueMicrotask(() => done(frames)); };
+  const requestAnimationFrame = (done) => {
+    frames += 1;
+    afterFrame(fonts, frames);
+    queueMicrotask(() => done(frames));
+  };
   const execute = new Function('document', 'requestAnimationFrame', `return (${browserReadyForCapture.toString()})();`);
   const result = await execute(document, requestAnimationFrame);
   return { result, frames, layouts };
@@ -252,7 +342,6 @@ test('capture readiness never accepts an unfinished font load or visible skeleto
   assert.deepEqual(await readinessWithFonts({ fontStatus: 'loading' }), { result: false, frames: 0, layouts: 0 });
   assert.deepEqual(await readinessWithFonts({ busy: true }), { result: false, frames: 0, layouts: 0 });
 });
-
 
 test('the polling predicate is synchronous and never returns a truthy Promise for an unready page', () => {
   const execute = new Function('document', `return (${browserContentReadyForCapture.toString()})();`);
@@ -301,13 +390,41 @@ test('capture readiness has a bounded deadline rather than an unlimited polling 
   assert.equal(called, false);
 });
 
-
 test('evidence rejects an unapplied theme and an unready map independently', () => {
   assert.deepEqual(assessEvidence({ ...ready, mapStatus: 'loading' }, 200, true, 0, 'dark'), ['THEME_NOT_APPLIED', 'MAP_NOT_READY']);
   assert.deepEqual(assessEvidence({ ...ready, theme: 'dark', mapStatus: 'ready' }, 200, true, 0, 'dark'), []);
 });
+
+test('expected map routes fail closed on a missing surface and accept only a visible ready surface', () => {
+  assert.ok(assessEvidence(ready, 200, true, 0, 'light', true).includes('MAP_SURFACE_MISSING'));
+  const readyMap = {
+    ...ready,
+    mapStatus: 'ready',
+    mapRuntimeStatus: 'ready',
+    mapRenderStatus: 'ready',
+    mapSurfaceVisible: true,
+    mapSurfaceSize: { width: 320, height: 320 }
+  };
+  assert.deepEqual(assessEvidence(readyMap, 200, true, 0, 'light', true), []);
+});
+
 test('every route, viewport and theme capture has a unique evidence filename', async (t) => {
   const { report } = await exerciseMain(t);
-  assert.equal(new Set(report.after.map(item => item.screenshot)).size, 40);
-  assert.equal(report.after.filter(item => item.theme === 'dark').length, 20);
+  assert.equal(new Set(report.after.map((item) => item.screenshot)).size, expectedCaptureCount);
+  assert.equal(report.after.filter((item) => item.theme === 'dark').length, expectedCaptureCount / 2);
+});
+
+test('rendered spacing failures block Preview without changing a passing baseline', async (t) => {
+  const { report } = await exerciseMain(t, {}, { missingSpacing: true });
+  assert.equal(report.before.status, 'passed');
+  assert.equal(report.previewStatus, 'failed');
+  assert.equal(report.after.filter((item) => item.failures.includes('SURFACE_PADDING_MISSING')).length, 8);
+});
+
+test('computed control movement blocks Preview when reduced motion is requested', async (t) => {
+  const { report } = await exerciseMain(t, {}, { motionRegression: true });
+  assert.equal(report.previewStatus, 'failed');
+  const failures = report.after.filter((item) => item.failures.includes('CONTROL_MOVES_WITH_REDUCED_MOTION'));
+  assert.equal(failures.length, 32); // Food, Store, Map and Taxi across eight variants.
+  assert.ok(failures.every((item) => item.status === 'failed'));
 });

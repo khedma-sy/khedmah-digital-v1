@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import { CLASSIFIEDS_SMART_ADMIN_VERSION } from './ad-moderation-assessment';
-import { validateAdCreate, validateAdModeration, validateAdRevisionAction, validateAdSubmit, validateAdUpdate } from './ad.validation';
+import { validateAdCreate, validateAdModeration, validateAdPublicFilters, validateAdRevisionAction, validateAdSubmit, validateAdUpdate } from './ad.validation';
 
 const base = () => ({
   clientRequestId: 'classifieds-request-0001',
@@ -40,6 +40,15 @@ test('write request keys and optimistic revisions are mandatory', () => {
   assert.equal(update.expectedContentRevision, 3);
   const action = validateAdRevisionAction({ clientRequestId: 'classifieds-action-0001', expectedRevision: 5 });
   assert.equal(action.expectedRevision, 5);
+});
+
+test('public classifieds pagination defaults to one and rejects unsafe pages', () => {
+  assert.equal(validateAdPublicFilters({}).page, 1);
+  assert.equal(validateAdPublicFilters({ page: '2' }).page, 2);
+  assert.equal(validateAdPublicFilters({ page: 3 }).page, 3);
+  for (const page of ['0', '-1', '1.5', 'abc', '100001', Number.POSITIVE_INFINITY]) {
+    assert.throws(() => validateAdPublicFilters({ page }), BadRequestException);
+  }
 });
 
 test('moderation requires exact review revision, Smart Admin version, and rejection reason semantics', () => {

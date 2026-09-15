@@ -26,6 +26,7 @@ function MobilityContent() {
   const router = useRouter();
   const params = useSearchParams();
   const type = params.get('type') === 'delivery' ? 'delivery' : 'taxi';
+  const deliveryMode = type === 'delivery';
   const pickupInput = useRef<HTMLInputElement>(null);
   const destinationInput = useRef<HTMLInputElement>(null);
   const [pendingType, setPendingType] = useState<'taxi' | 'delivery' | null>(null);
@@ -50,7 +51,6 @@ function MobilityContent() {
   const validCoordinates = (point: Coordinates) => Number.isFinite(point.latitude) && Math.abs(point.latitude) <= 90
     && Number.isFinite(point.longitude) && Math.abs(point.longitude) <= 180;
 
-  // Request authority is revoked immediately, not only when a future render runs.
   function invalidateSearch() {
     searchSequence.current += 1;
     searchInFlight.current = false;
@@ -150,7 +150,6 @@ function MobilityContent() {
       pickupAutocomplete?.unbindAll(); destinationAutocomplete?.unbindAll();
       script?.removeEventListener('load', initialize);
       script?.removeEventListener('error', fail);
-      // Another mounted route may have become the owner of this shared callback.
       if (runtime.initKhedmahMobility === initialize) {
         if (previousInitializer) runtime.initKhedmahMobility = previousInitializer;
         else delete runtime.initKhedmahMobility;
@@ -186,7 +185,7 @@ function MobilityContent() {
             const address = status === 'OK' ? results?.[0]?.formatted_address : undefined;
             setPickup(address ?? fallback);
           });
-        } catch { /* A reverse-geocoding failure must not discard valid coordinates. */ }
+        } catch { }
       }, fail, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
     } catch { fail(); }
   }
@@ -232,16 +231,23 @@ function MobilityContent() {
     window.open(route.toString(), '_blank', 'noopener,noreferrer');
   }
 
-  return <PageShell className={styles.page} label="خدمة على الطريق">
-    <PageHeader eyebrow="بحث حسب الموقع" title="خدمة على الطريق" description="حدد نقطة الانطلاق لتجد الأنشطة المعتمدة الأقرب، ثم تواصل معها مباشرة. لا توجد رحلة مؤكدة قبل قبول المزود." backHref="/"/>
+  return <PageShell className={styles.page} label={deliveryMode ? 'مندوب التوصيل' : 'خدمة على الطريق'}>
+    <PageHeader
+      eyebrow={deliveryMode ? 'خدمة · توصيل مستقل' : 'بحث حسب الموقع'}
+      title={deliveryMode ? 'هل تحتاج مندوب توصيل؟' : 'خدمة على الطريق'}
+      description={deliveryMode
+        ? 'حدد موقع الاستلام لتجد مندوبي التوصيل المعتمدين الأقرب، ثم تواصل مع المندوب لتأكيد التوفر والتفاصيل.'
+        : 'حدد نقطة الانطلاق لتجد الأنشطة المعتمدة الأقرب، ثم تواصل معها مباشرة. لا توجد رحلة مؤكدة قبل قبول المزود.'}
+      backHref="/"
+    />
     <Surface as="form" className={styles.planner} onSubmit={findProviders} role="search" aria-label="البحث عن تكسي أو مندوب" aria-busy={loading || changingType}>
       <div className={styles.typeSwitch} aria-label="نوع الخدمة">
         <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => selectType('taxi')}><PlatformIcon name="car"/> تاكسي</ActionButton>
         <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => selectType('delivery')}><PlatformIcon name="cart"/> مندوب توصيل</ActionButton>
       </div>
       <div className={styles.fields}>
-        <label>موقع الانطلاق<input ref={pickupInput} value={pickup} onChange={(event) => editPickup(event.target.value)} placeholder="اختر عنوانًا من Google" autoComplete="off"/></label>
-        <label>الوجهة<input ref={destinationInput} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="إلى أين؟" autoComplete="off"/></label>
+        <label>{deliveryMode ? 'موقع الاستلام' : 'موقع الانطلاق'}<input ref={pickupInput} value={pickup} onChange={(event) => editPickup(event.target.value)} placeholder="اختر عنوانًا من Google" autoComplete="off"/></label>
+        <label>الوجهة (اختيارية للبحث)<input ref={destinationInput} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="أضف وجهة لفتح المسار" autoComplete="off"/></label>
       </div>
       <div className={styles.actions}>
         <ActionButton type="button" variant="secondary" onClick={useCurrentLocation} disabled={locating}><PlatformIcon name="pin"/> استخدم موقعي</ActionButton>
@@ -258,8 +264,8 @@ function MobilityContent() {
         <div><span className={styles.badge}>{type === 'taxi' ? 'تاكسي' : 'توصيل'}</span><h2>{provider.name}</h2><p>{provider.addressAr ?? provider.cityCode}{typeof provider.distanceKm === 'number' && Number.isFinite(provider.distanceKm) && provider.distanceKm >= 0 ? ` · ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
         <div className={styles.providerActions}><ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=mobility`}>عرض النشاط والتواصل</ActionLink>{provider.phone && <a href={`tel:${provider.phone}`}>اتصال</a>}</div>
       </Surface>)}
-    </section> : searched && <EmptyState icon={<PlatformIcon name={type === 'taxi' ? 'car' : 'cart'} size={34}/>} title="لا يوجد مزود معتمد قريب حاليًا" description="يمكنك توسيع البحث عبر الخريطة أو العودة لاحقًا بعد انضمام مزودين جدد." actions={<><ActionLink href={`/map?categoryCode=${categoryFor(type)}`}>البحث على الخريطة</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">سجّل نشاط نقل أو توصيل</ActionLink></>}/>} 
-    <p className={styles.disclaimer}>خدمة تعرض مزودي الخدمة وتسهّل الاتصال فقط؛ الاتفاق والسعر والقبول يتم مباشرة مع المزود. <Link href="/search">عرض كل الخدمات</Link></p>
+    </section> : searched && <EmptyState icon={<PlatformIcon name={type === 'taxi' ? 'car' : 'cart'} size={34}/>} title={deliveryMode ? 'لا يوجد مندوب معتمد قريب حاليًا' : 'لا يوجد مزود معتمد قريب حاليًا'} description={deliveryMode ? 'يمكنك توسيع البحث على الخريطة أو العودة لاحقًا بعد انضمام مندوبي توصيل جدد.' : 'يمكنك توسيع البحث عبر الخريطة أو العودة لاحقًا بعد انضمام مزودين جدد.'} actions={<><ActionLink href={`/map?categoryCode=${categoryFor(type)}`}>البحث على الخريطة</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">{deliveryMode ? 'سجّل نشاط توصيل' : 'سجّل نشاط نقل أو توصيل'}</ActionLink></>}/>} 
+    <p className={styles.disclaimer}>{deliveryMode ? 'خدمة تربطك بمندوبي التوصيل المعتمدين وتسهّل الاتصال؛ الاتفاق على التوصيل المستقل يتم مباشرة مع المندوب.' : 'خدمة تعرض مزودي الخدمة وتسهّل الاتصال فقط؛ الاتفاق والسعر والقبول يتم مباشرة مع المزود.'} <Link href="/search">عرض كل الخدمات</Link></p>
   </PageShell>;
 }
 

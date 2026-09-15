@@ -1,3 +1,5 @@
+import { OfficialSocialLinks } from './components/official-social-links';
+import { KHEDMAH_WHATSAPP_CONTACT_URL } from '../lib/official-links';
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_Arabic } from 'next/font/google';
 import Link from 'next/link';
@@ -5,20 +7,11 @@ import { AuthNavigation, DiscoveryNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
-import './globals.css';
-import './brand-system.css';
-import './design-tokens.css';
-import './section-themes.css';
-import './shell-system.css';
-import './ui-primitives.css';
-import './home-system.css';
-import './admin-system.css';
-import './moderation-system.css';
-import './auth-experience.css';
-import './accessibility-system.css';
+import { DeliveryEntry } from './components/delivery-entry';
+import './platform.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
-const SITE_NAME = 'خدمة ديجتل';
+const SITE_NAME = 'خدمة';
 
 const arabicFont = Noto_Sans_Arabic({
   subsets: ['arabic'],
@@ -82,14 +75,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="khedma-header">
           <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
-          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /></div>
+          <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>
-        <SmartAssistant />
+        <DeliveryEntry />
         {children}
-        <footer className="khedma-footer" aria-label="روابط قانونية">
+        <footer className="khedma-footer" aria-label="تواصل مع خدمة وروابط قانونية">
+          <div className="khedma-footer-social"><strong>خدمة تجمعنا — تحت مظلة واحدة</strong><OfficialSocialLinks /><a href={KHEDMAH_WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer">تواصل معنا على واتساب</a></div>
+          <nav className="khedma-footer-legal" aria-label="روابط قانونية">
           <Link href="/privacy">سياسة الخصوصية</Link>
           <Link href="/terms">شروط الاستخدام</Link>
           <Link href="/delete-account">حذف الحساب</Link>
+          </nav>
         </footer>
       </body>
     </html>

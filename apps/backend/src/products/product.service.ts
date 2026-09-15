@@ -39,7 +39,8 @@ export class ProductService {
     const now = new Date().toISOString();
     const product: Omit<ProductListing, 'revision' | 'contentRevision'> = { id, businessProfileId: business.id, ownerUserId: actor.id, titleAr: input.titleAr!,
       descriptionAr: input.descriptionAr ?? undefined, price: input.price!, currency: input.currency!, categoryCode: input.categoryCode!,
-      availability: input.availability!, status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
+      availability: input.availability!, requiresPrescription: false, controlledItem: false,
+      status: 'draft', moderationStatus: 'pending', createdAt: now, updatedAt: now };
     const saved = await this.repository.insert(product);
     return this.assertCreateReplay(saved, actor.id, input);
   }
@@ -49,7 +50,7 @@ export class ProductService {
     return this.repository.listMine(actor.id);
   }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<PublicProductListing[]> {
+  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string; businessProfileId?: string }): Promise<PublicProductListing[]> {
     return (await this.repository.listPublic(filters)).map(toPublicProduct);
   }
 

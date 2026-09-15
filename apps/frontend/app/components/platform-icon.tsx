@@ -1,4 +1,4 @@
-export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'truck' | 'technology' | 'building' | 'events' | 'leaf' | 'factory' | 'travel';
+export type PlatformIconName = 'user' | 'userPlus' | 'lock' | 'search' | 'grid' | 'pin' | 'arrow' | 'logout' | 'check' | 'close' | 'mail' | 'phone' | 'eye' | 'home' | 'car' | 'cart' | 'tools' | 'briefcase' | 'bell' | 'menu' | 'filter' | 'refresh' | 'food' | 'health' | 'education' | 'beauty' | 'truck' | 'delivery' | 'storefront' | 'sparkles' | 'info' | 'technology' | 'building' | 'events' | 'leaf' | 'factory' | 'travel';
 
 const paths: Record<PlatformIconName, React.ReactNode> = {
   user: <><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></>,
@@ -27,6 +27,10 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
   education: <><path d="m2 8 10-5 10 5-10 5-10-5Zm4 2v7c4 3 8 3 12 0v-7M22 8v9"/></>,
   beauty: <><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></>,
   truck: <><path d="M3 5h11v12H3V5Zm11 5h4l3 4v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
+  delivery: <><path d="M3 5h11v12H3V5Zm11 5h4l3 4v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
+  storefront: <><path d="M4 10v10h16V10M3 10l2-6h14l2 6M8 20v-6h8v6"/><path d="M3 10c0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0"/></>,
+  sparkles: <><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z"/><path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z"/></>,
+  info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>,
   technology: <><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4m-2-14-3 3 3 3m4-6 3 3-3 3"/></>,
   building: <><path d="M4 21V8h7v13m0-18h9v18M2 21h20M7 11v2m0 3v2m7-11h3m-3 4h3m-3 4h3"/></>,
   events: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-14 5 3 3 6-5"/></>,
@@ -37,5 +41,5 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {
-  return <svg className="platform-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
+  return <svg className="platform-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }

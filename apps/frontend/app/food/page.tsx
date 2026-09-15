@@ -1,0 +1,61 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { PageHeader, PageShell, Surface } from '../components/ui-primitives';
+import { PlatformIcon } from '../components/platform-icon';
+import styles from './food.module.css';
+
+export const metadata: Metadata = {
+  title: 'خدمة فود - مطاعم وحلويات',
+  description: 'اطلب الطعام واكتشف المطاعم والمقاهي والمخابز والحلويات عبر خدمة.'
+};
+
+const foodCategories = [
+  { code: 'restaurant', title: 'مطاعم', description: 'وجبات ومطابخ ومطاعم قريبة منك.', icon: 'food' as const },
+  { code: 'cafe', title: 'مقاهي', description: 'قهوة ومشروبات وأماكن للقاء.', icon: 'food' as const },
+  { code: 'bakery', title: 'مخابز', description: 'خبز ومعجنات ومنتجات مخابز.', icon: 'food' as const },
+  { code: 'sweets', title: 'حلويات', description: 'حلويات شرقية وغربية ومحال متخصصة.', icon: 'food' as const }
+];
+
+export default function FoodPage() {
+  return <PageShell className={styles.page} label="خدمة فود">
+    <div data-khedmah-section="commerce">
+      <PageHeader
+        eyebrow="خدمة فود"
+        title="مطاعم وحلويات"
+        description="ابدأ طلب الطعام من المطاعم المنشورة، أو استكشف الأنشطة الغذائية القريبة منك."
+        backHref="/"
+      />
+
+      <section className={styles.hero} aria-labelledby="food-hero-title">
+        <div>
+          <span className={styles.badge}><PlatformIcon name="food" size={18}/> طلب الطعام واكتشاف المطاعم</span>
+          <h2 id="food-hero-title">من المطعم إلى بابك… تحت مظلة واحدة</h2>
+          <p>خدمة فود تربطك برحلة الطلب الفعلية: اختر المطعم والقائمة، راجع السلة والعنوان، ثم تابع الطلب والمندوب حتى التسليم. الدفع الحالي نقدًا عند الاستلام.</p>
+          <div className={styles.actions}>
+            <Link data-khedma-control className={styles.primaryAction} href="/restaurants">ابدأ طلب الطعام</Link>
+            <Link data-khedma-control className={styles.secondaryAction} href="/search?type=business&categoryCode=restaurant">استكشف المطاعم</Link>
+            <Link data-khedma-control className={styles.secondaryAction} href="/map">بالقرب مني</Link>
+          </div>
+        </div>
+        <div data-khedma-icon-surface className={styles.heroMark} aria-hidden="true"><PlatformIcon name="food" size={64}/><strong>خدمة فود</strong></div>
+      </section>
+
+      <section className={styles.categories} aria-labelledby="food-categories-title">
+        <div className={styles.sectionHeading}><span>استكشف حسب القسم</span><h2 id="food-categories-title">ماذا تريد اليوم؟</h2></div>
+        <div className={styles.grid}>
+          {foodCategories.map((category) => <Surface as="article" className={styles.card} key={category.code}>
+            <span data-khedma-icon-surface className={styles.icon}><PlatformIcon name={category.icon} size={28}/></span>
+            <h3>{category.title}</h3>
+            <p>{category.description}</p>
+            <Link href={`/search?type=business&categoryCode=${encodeURIComponent(category.code)}`}>استكشف الأنشطة</Link>
+          </Surface>)}
+        </div>
+      </section>
+
+      <Surface className={styles.businessCta}>
+        <div><span>لأصحاب الأعمال</span><h2>لديك مطعم أو مقهى أو مخبز أو محل حلويات؟</h2><p>أنشئ ملف نشاطك، أكمل معلوماته والقائمة، ثم أرسله للمراجعة.</p></div>
+        <Link href="/business-profiles/new">أضف نشاطك</Link>
+      </Surface>
+    </div>
+  </PageShell>;
+}

@@ -13,7 +13,7 @@ const APPROVED_UMBRELLA_PATHS = [
   'M60 72v24c0 11 16 11 16 0'
 ] as const;
 
-const APPROVED_UMBRELLA_COLORS = ['#07427c', '#81be49', '#fd9603', '#fafafa'] as const;
+const APPROVED_UMBRELLA_COLORS = ['#07427c', '#81be49', '#fd9603'] as const;
 
 test('approved umbrella geometry remains unchanged', async () => {
   const source = await readFile(sourcePath, 'utf8');
@@ -23,11 +23,12 @@ test('approved umbrella geometry remains unchanged', async () => {
   assert.match(source, /viewBox="0 0 120 126"/);
 });
 
-test('approved umbrella palette remains unchanged', async () => {
+test('owner-approved umbrella uses exactly three canonical colors', async () => {
   const source = await readFile(sourcePath, 'utf8');
   for (const color of APPROVED_UMBRELLA_COLORS) {
     assert.ok(source.includes(color), `Missing approved umbrella color ${color}`);
   }
+  assert.deepEqual([...new Set(source.match(/#[0-9a-fA-F]{6}\b/g))].sort(), [...APPROVED_UMBRELLA_COLORS].sort());
 });
 
 test('brand lock does not constrain product copy outside the umbrella drawing', async () => {

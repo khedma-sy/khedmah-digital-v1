@@ -100,16 +100,17 @@ export default function LoginPage() {
       <div className="auth-phone auth-phone-login">
         <IdentityVisual />
         <section className="register-heading auth-login-heading">
+          <h1>تسجيل الدخول</h1>
           <p>اكتشف الخدمات والأعمال والمهنيين الموثوقين بالقرب منك.</p>
         </section>
-        <form className="auth-panel" onSubmit={submitLogin} noValidate>
+        <form className="auth-panel" aria-label="تسجيل الدخول" onSubmit={submitLogin} noValidate>
           <nav className="auth-tabs" aria-label="الدخول وإنشاء الحساب">
-            <Link href="/auth/register">سجل الآن</Link>
+            <Link href="/auth/register">إنشاء حساب</Link>
             <span aria-current="page">تسجيل الدخول</span>
           </nav>
           <label className="auth-field"><PlatformIcon name="mail" /><span>البريد الإلكتروني</span><input aria-label="البريد الإلكتروني" name="email" type="email" autoComplete="email" required /></label>
           <label className="auth-field"><PlatformIcon name="lock" /><span>كلمة المرور</span><input aria-label="كلمة المرور" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required minLength={8} /><button type="button" className="password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={showPassword}><PlatformIcon name="eye" /></button></label>
-          <div className="auth-options"><label><input name="remember" type="checkbox" /> تذكرني</label><Link href="/auth/forgot-password">نسيت كلمة المرور؟</Link></div>
+          <div className="auth-options"><Link href="/auth/forgot-password">نسيت كلمة المرور؟</Link></div>
           {error ? <p className={verificationEmail ? 'auth-notice' : 'auth-error'} role="alert">{error}</p> : null}
           {verificationEmail ? <button className="auth-resend" type="button" onClick={resendVerification} disabled={isResending}>{isResending ? 'جاري الإرسال...' : 'إعادة إرسال رابط التحقق'}</button> : null}
           <button className="auth-primary" type="submit" aria-busy={isLoading} disabled={isLoading || isGoogleLoading || isFacebookLoading}>{isLoading ? 'جاري الدخول...' : 'تسجيل الدخول'}<PlatformIcon name="arrow" /></button>

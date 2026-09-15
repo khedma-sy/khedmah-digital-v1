@@ -15,7 +15,7 @@ test('moderation decisions use internal dialogs instead of browser prompts', asy
 });
 
 test('moderation styles are isolated and loaded after admin system styles', async () => {
-  const layout = await read('apps/frontend/app/layout.tsx');
+  const layout = await read('apps/frontend/app/platform.css');
   const admin = layout.indexOf("./admin-system.css");
   const moderation = layout.indexOf("./moderation-system.css");
   assert.ok(admin >= 0);

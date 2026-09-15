@@ -25,14 +25,10 @@ export async function createBackendApp() {
   app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
-  app.enableCors({
-    origin: configuredOrigins(),
-    credentials: true
-  });
+  app.enableCors({ origin: configuredOrigins(), credentials: true });
   app.setGlobalPrefix('api/v1');
 
-  // Global rate limiting on sensitive public endpoints
-  const authWindowMs = parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? '900000', 10); // 15 min
+  const authWindowMs = parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? '900000', 10);
   const authMax = parseInt(process.env.RATE_LIMIT_AUTH_MAX ?? '20', 10);
   const searchWindowMs = parseInt(process.env.RATE_LIMIT_SEARCH_WINDOW_MS ?? '60000', 10);
   const searchMax = parseInt(process.env.RATE_LIMIT_SEARCH_MAX ?? '30', 10);
@@ -48,6 +44,8 @@ export async function createBackendApp() {
   app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify.request', authWindowMs, authMax));
   app.use('/api/v1/auth/email-verification/confirm', createRateLimitMiddleware(rateLimitRepository, 'email.verify.confirm', authWindowMs, authMax));
   app.use('/api/v1/admin/bootstrap', createRateLimitMiddleware(rateLimitRepository, 'admin.bootstrap', authWindowMs, authMax));
+  app.use('/api/v1/admin/kora', createRateLimitMiddleware(rateLimitRepository, 'kora.admin', authWindowMs, authMax));
+  app.use('/api/v1/taxi-operational-approvals', createRateLimitMiddleware(rateLimitRepository, 'taxi.operational-admin', authWindowMs, authMax));
   app.use('/api/v1/taxi', createRateLimitMiddleware(rateLimitRepository, 'taxi', publicWindowMs, publicMax));
   app.use('/api/v1/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds', publicWindowMs, publicMax));
   app.use('/api/v1/admin/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds.admin', authWindowMs, authMax));
@@ -56,18 +54,7 @@ export async function createBackendApp() {
   app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));
   app.use('/api/v1/professional-profiles', createRateLimitMiddleware(rateLimitRepository, 'professional-profiles', publicWindowMs, publicMax));
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      forbidNonWhitelisted: true,
-      transform: false,
-      validationError: {
-        target: false,
-        value: false
-      },
-      whitelist: true
-    })
-  );
+  app.useGlobalPipes(new ValidationPipe({ forbidNonWhitelisted: true, transform: false, validationError: { target: false, value: false }, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
-
   return app;
 }

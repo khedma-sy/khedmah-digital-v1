@@ -1,27 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+const read=(path)=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 
-const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-
-test('database migration workflow governs every canonical pair through 025', async () => {
-  const workflow = await read('.github/workflows/database-migration-check.yml');
-
-  const names = [
-    '001_core_identity_accounts', '002_create_profiles', '003_create_professional_profiles',
-    '004_analytics_and_contact', '005_email_verifications_and_admin_roles', '006_media_assets',
-    '007_v2_marketplace', '008_provider_service_radius', '009_canonical_identity_runtime',
-    '010_canonical_runtime_domains', '011_canonical_media_contract', '012_nearby_preferences',
-    '013_nearby_notifications_read_state', '014_supplier_discovery', '015_contact_target_contract',
-    '016_contact_submission_idempotency', '017_category_taxonomy_contract',
-    '018_persistent_rate_limit_buckets',
-    '019_remove_out_of_scope_subscription_schema',
-    '020_identity_recovery_oauth', '021_provider_reports',
-    '022_expand_category_taxonomy', '024_product_store', '025_classifieds'
-  ];
-  for (const name of names) {
-    assert.match(workflow, new RegExp(`^\\s+${name}$`, 'm'));
-    assert.match(workflow, new RegExp(`^\\s+${name}\\.sql \\\\$`, 'm'));
-    assert.match(workflow, new RegExp(`^\\s+${name}_rollback\\.sql \\\\$`, 'm'));
-  }
+test('database migration workflow governs every canonical pair through 033',async()=>{
+  const workflow=await read('.github/workflows/database-migration-check.yml');
+  const names=['001_core_identity_accounts','002_create_profiles','003_create_professional_profiles','004_analytics_and_contact','005_email_verifications_and_admin_roles','006_media_assets','007_v2_marketplace','008_provider_service_radius','009_canonical_identity_runtime','010_canonical_runtime_domains','011_canonical_media_contract','012_nearby_preferences','013_nearby_notifications_read_state','014_supplier_discovery','015_contact_target_contract','016_contact_submission_idempotency','017_category_taxonomy_contract','018_persistent_rate_limit_buckets','019_remove_out_of_scope_subscription_schema','020_identity_recovery_oauth','021_provider_reports','022_expand_category_taxonomy','024_product_store','025_classifieds','026_cash_fulfillment_orders','027_mobility_document_reviews','028_platform_notifications','029_taxi_pricing_revisions','030_billing_credits_subscriptions','031_taxi_operational_approvals','032_taxi_operational_profile_gate','033_billing_admin_role'];
+  for(const name of names){assert.match(workflow,new RegExp(`^\\s+${name}$`,'m'));assert.match(workflow,new RegExp(`^\\s+${name}\\.sql \\\\$`,'m'));assert.match(workflow,new RegExp(`^\\s+${name}_rollback\\.sql \\\\$`,'m'));}
+  assert.match(workflow,/Product V2 billing credits\/subscriptions and Taxi operational approvals\/profile authority are approved scope/);
+  assert.match(workflow,/032_taxi_operational_profile_gate/);
+  assert.match(workflow,/CREATE\[\[:space:\]\]\+OR\[\[:space:\]\]\+REPLACE\[\[:space:\]\]\+FUNCTION/);
+  assert.match(workflow,/FROM public\.business_profiles bb/);
+  assert.match(workflow,/b\.trust_status <> 'approved'/);
+  assert.match(workflow,/forbidden='marketplace\|payments\?\|commissions\?\|inventory\|tracking\|social_profiles\?'/);
 });

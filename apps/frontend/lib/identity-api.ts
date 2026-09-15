@@ -1,4 +1,5 @@
 import type { PublicUserProfile } from './api-client';
+import { readApiError } from './api-errors';
 
 const API_BASE = '';
 
@@ -19,12 +20,11 @@ async function identityRequest<T>(path: string, init?: RequestInit): Promise<T> 
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const raw = (data as { message?: string | string[] }).message ?? `خطأ في الخادم (${response.status})`;
-    const sourceMessage = Array.isArray(raw) ? raw.join('. ') : raw;
+    const { message: sourceMessage, code } = readApiError(data, response.status);
     const message = identityErrors[sourceMessage] ?? sourceMessage;
     throw Object.assign(new Error(message), {
       statusCode: response.status,
-      code: (data as { code?: string }).code
+      code
     });
   }
   return data as T;

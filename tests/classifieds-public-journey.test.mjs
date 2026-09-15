@@ -36,7 +36,11 @@ function fixture({ query = '', categoryError = '', cityError = '', cityLoading =
     h, requests, navigations, navigate,
     edit(field, value) { const input = field === 'q' ? h.find((n) => n.props?.name === 'q') : h.find((n) => n.props?.name === field); input.props.onChange({ target: { value } }); h.render(); },
     submit() { const before = navigations.length; h.submit(); if (navigations.length > before) navigate(navigations.at(-1)); },
-    async resolve(index, ads = [ad()]) { requests[index].resolve({ ads }); await h.flush(); },
+    async resolve(index, ads = [ad()]) {
+      const requestPage = requests[index].body?.page;
+      requests[index].resolve({ ads, total: ads.length, page: Number.isSafeInteger(requestPage) && requestPage > 0 ? requestPage : 1 });
+      await h.flush();
+    },
     async reject(index) { requests[index].reject(new Error('offline')); await h.flush(); },
     metadata(type, patch) { if (type === 'city') cities = { ...cities, ...patch }; else categories = { ...categories, ...patch }; h.render(); },
     get categoryRetries() { return categoryRetries; }, get cityRetries() { return cityRetries; }

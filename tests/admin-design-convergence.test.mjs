@@ -5,7 +5,7 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('administration uses a dedicated convergence layer after shared primitives', async () => {
-  const layout = await read('apps/frontend/app/layout.tsx');
+  const layout = await read('apps/frontend/app/platform.css');
   const admin = await read('apps/frontend/app/admin-system.css');
   assert.ok(layout.indexOf("./admin-system.css") > layout.indexOf("./ui-primitives.css"));
   assert.match(admin, /\.operations-shell\{/);

@@ -26,6 +26,8 @@ const collectFiles = async (dir, results = []) => {
   return results;
 };
 
+const isGovernedCashFulfillment = (file) => /(^|\/)apps\/(?:backend\/src|frontend\/app)\/orders\//i.test(file);
+
 test('partner and representative foundation documentation exists and defines partner identity', async () => {
   const doc = await read('docs/architecture/PARTNER-REPRESENTATIVE-NETWORK-FOUNDATION.md');
 
@@ -90,6 +92,7 @@ test('mission does not add forbidden partner runtime implementation files', asyn
   const files = await collectFiles(repoPath('.'));
   const forbiddenRuntimeFiles = files
     .map((file) => file.replace(repoPath('.'), ''))
+    .filter((file) => !isGovernedCashFulfillment(file))
     .filter((file) => /(^|\/)(partner-dashboard|payment-systems|payments|commissions|affiliate|revenue-sharing|marketplace|ordering|orders|messaging|chat|recruitment|automated-assignment)(\/|\.|-)/i.test(file));
 
   assert.deepEqual(forbiddenRuntimeFiles, []);

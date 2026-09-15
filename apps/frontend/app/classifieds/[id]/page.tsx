@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { classifiedsApi, type PublicAdListing } from '../../../lib/classifieds-client';
 import { AD_KIND_LABELS, CLASSIFIEDS_ENABLED, formatAdPrice } from '../../../lib/classifieds';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { DeliveryHelp } from '../../components/delivery-help';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
 import styles from '../classifieds.module.css';
@@ -40,6 +41,7 @@ export default function ClassifiedDetailPage() {
   };
   const phone = ad.contactMode === 'phone' && ad.contactValue ? `tel:${ad.contactValue}` : undefined;
   const whatsappDigits = ad.contactMode === 'whatsapp' && ad.contactValue ? ad.contactValue.replace(/\D/g, '') : '';
+  const mayNeedDelivery = ad.kind === 'sale' || ad.kind === 'rent';
 
   return <PageShell className={styles.page} label={ad.titleAr}>
     <PageHeader eyebrow={`إعلانات خدمة · ${AD_KIND_LABELS[ad.kind]}`} title={ad.titleAr} description={ad.cityCode ? `${cityLabel(ad.cityCode, cities)}${ad.areaText ? ` · ${ad.areaText}` : ''}` : ad.areaText} backHref="/classifieds"/>
@@ -60,5 +62,6 @@ export default function ClassifiedDetailPage() {
         <p className={styles.notice}>التواصل والاتفاق يتمان مباشرة مع المعلن. لا تعالج خدمة المدفوعات أو عمليات الشراء داخل الإعلانات.</p>
       </Surface>
     </div>
+    {mayNeedDelivery && <DeliveryHelp mode="independent" />}
   </PageShell>;
 }

@@ -12,6 +12,8 @@ export interface ProductListing {
   readonly currency: 'SYP' | 'USD';
   readonly categoryCode: string;
   readonly availability: ProductAvailability;
+  readonly requiresPrescription: boolean;
+  readonly controlledItem: boolean;
   readonly status: ProductStatus;
   readonly moderationStatus: ProductModerationStatus;
   readonly rejectionReason?: string;

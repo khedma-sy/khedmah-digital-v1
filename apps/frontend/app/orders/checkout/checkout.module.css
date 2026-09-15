@@ -1,0 +1,13 @@
+.page {
+  --food-orange: #fd9603;
+  --food-deep: color-mix(in srgb, var(--food-orange) 62%, #071833);
+  min-height: 100svh;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--food-orange) 19%, var(--k-color-canvas)) 0 24rem, var(--k-color-canvas) 40rem);
+}
+.page :global(.ui-eyebrow) { color: var(--food-deep); }
+.page :global(.ui-action-primary) { color: #fff; background: var(--food-deep); }
+.page :global(.ui-action-secondary), .page :global(.ui-back) { border-color: color-mix(in srgb, var(--food-orange) 38%, var(--k-color-border)); color: var(--food-deep); }
+.checkout { max-width: 52rem; margin-inline: auto; border-color: color-mix(in srgb, var(--food-orange) 34%, var(--k-color-border)); box-shadow: 0 1.2rem 3rem color-mix(in srgb, var(--food-orange) 11%, transparent); }
+.summary { border-radius: var(--k-radius-lg); padding: 1rem; background: color-mix(in srgb, var(--food-orange) 10%, var(--k-color-surface)); }
+.summary h2 { margin-block-start: 0; }
+.payment { border-inline-start: .25rem solid var(--food-orange); border-radius: .75rem; padding: .8rem 1rem; background: color-mix(in srgb, var(--food-orange) 9%, var(--k-color-surface)); font-weight: 700; line-height: 1.8; }

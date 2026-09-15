@@ -3,12 +3,19 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateBaseUrl } from './capture-preview-evidence.mjs';
+import { main as captureSixthAuditEvidence } from './capture-sixth-audit-evidence.mjs';
 
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const requireCondition = (value, code) => { if (!value) fail(code); };
 
 function isAdsEnvelope(value) {
-  return !!value && typeof value === 'object' && Array.isArray(value.ads);
+  return !!value
+    && typeof value === 'object'
+    && Array.isArray(value.ads)
+    && Number.isSafeInteger(value.total)
+    && value.total >= 0
+    && Number.isSafeInteger(value.page)
+    && value.page >= 1;
 }
 
 export async function main(env = process.env) {
@@ -27,6 +34,8 @@ export async function main(env = process.env) {
     proxiedApiStatus: null,
     directBackendStatus: null,
     adCount: null,
+    total: null,
+    page: null,
     disabledMessagePresent: null,
     searchVisible: null,
     createLinkVisible: null,
@@ -84,10 +93,13 @@ export async function main(env = process.env) {
     const envelope = await apiResponse.json();
     requireCondition(isAdsEnvelope(envelope), 'CLASSIFIEDS_PROXY_API_INVALID');
     report.adCount = envelope.ads.length;
+    report.total = envelope.total;
+    report.page = envelope.page;
 
-    await page.waitForFunction(() => {
-      return !!document.querySelector('[aria-label="الإعلانات المنشورة"]') || document.body.innerText.includes('لا توجد إعلانات مطابقة');
-    }, null, { timeout: 15000 });
+    await page.waitForFunction((expectedCount) => {
+      if (expectedCount > 0) return !!document.querySelector('[aria-label="الإعلانات المنشورة"]');
+      return document.body.innerText.includes('لا توجد إعلانات منشورة بعد');
+    }, report.adCount, { timeout: 15000 });
     requireCondition(pageErrors === 0, 'CLASSIFIEDS_BROWSER_RUNTIME_ERROR');
 
     report.screenshot = 'classifieds-preview-acceptance.png';
@@ -108,10 +120,12 @@ export async function main(env = process.env) {
     if (browser) { try { await browser.close(); } catch { report.failures.push('CLASSIFIEDS_BROWSER_CLOSE_FAILED'); report.status = 'failed'; } }
     await writeFile(resolve(directory, 'classifieds-acceptance-manifest.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
-  console.log(`Classifieds Preview acceptance: ${report.status}; page=${report.pageStatus}; proxy=${report.proxiedApiStatus}; backend=${report.directBackendStatus}; ads=${report.adCount ?? 'unknown'}.`);
+  console.log(`Classifieds Preview acceptance: ${report.status}; page=${report.pageStatus}; proxy=${report.proxiedApiStatus}; backend=${report.directBackendStatus}; ads=${report.adCount ?? 'unknown'}; total=${report.total ?? 'unknown'}; apiPage=${report.page ?? 'unknown'}.`);
   return report;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  if ((await main()).status !== 'passed') process.exitCode = 1;
+  const classifiedsReport = await main();
+  const sixthAuditVisualReport = await captureSixthAuditEvidence();
+  if (classifiedsReport.status !== 'passed' || sixthAuditVisualReport.status !== 'passed') process.exitCode = 1;
 }

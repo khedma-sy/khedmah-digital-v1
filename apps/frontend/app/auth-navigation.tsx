@@ -11,8 +11,11 @@ export function DiscoveryNavigation() {
   const links = [
     { href: '/search', label: 'اكتشف', active: pathname === '/search' },
     { href: '/categories', label: 'التصنيفات', active: pathname === '/categories' },
+    { href: '/food', label: 'المطاعم', active: pathname === '/food' || pathname.startsWith('/food/') || pathname.startsWith('/restaurants') },
+    { href: '/mobility?type=delivery', label: 'توصيل', active: pathname === '/mobility' },
     { href: '/map', label: 'بالقرب مني', active: pathname === '/map' },
-    { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' || pathname === '/mobility' },
+    { href: '/taxi', label: 'تكسي', active: pathname === '/taxi' || pathname === '/taxi-driver-signup' },
+    { href: '/store', label: 'المتجر', active: pathname === '/store' || pathname.startsWith('/store/') },
     { href: '/classifieds', label: 'الإعلانات', active: pathname.startsWith('/classifieds') }
   ];
   return <nav className="nav-discovery-group" aria-label="أقسام خدمة">{links.map((link) => <Link key={link.href} href={link.href} className="nav-discovery" aria-current={link.active ? 'page' : undefined}>{link.label}</Link>)}</nav>;

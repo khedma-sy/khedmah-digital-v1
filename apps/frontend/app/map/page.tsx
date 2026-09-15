@@ -174,7 +174,7 @@ function MapDiscovery() {
     overlays.current = providers.flatMap((provider) => {
       if (!providerBounds([provider])) return [];
       const position = { lat: provider.lat, lng: provider.lng };
-      const circle = new window.google!.maps.Circle({ map: map.current, center: position, radius: (provider.serviceRadius ?? 25) * 1000, fillColor: '#7fc63b', fillOpacity: 0.08, strokeColor: '#7fc63b', strokeOpacity: 0.4 });
+      const circle = new window.google!.maps.Circle({ map: map.current, center: position, radius: (provider.serviceRadius ?? 25) * 1000, fillColor: '#81be49', fillOpacity: 0.08, strokeColor: '#81be49', strokeOpacity: 0.4 });
       const marker = new window.google!.maps.Marker({ map: map.current, position, title: provider.name });
       const clickListener = marker.addListener('click', () => {
         if (map.current !== handle || generation !== markerGeneration.current) return;
@@ -239,10 +239,13 @@ function MapDiscovery() {
         programmaticView.current = false; markViewportIntent();
       }),
       handle.addListener('zoom_changed', markViewportIntent),
+      // Keyboard panning changes the camera center without dragstart. Bounds
+      // alone also change when the container is resized/repainted; that must
+      // not turn an untouched map into a geographic search or invalidate data.
+      handle.addListener('center_changed', markViewportIntent),
       handle.addListener('bounds_changed', () => {
         if (map.current !== handle) return;
         setMapTilesLoaded(false);
-        markViewportIntent();
       }),
       handle.addListener('idle', () => {
         if (map.current !== handle) return;

@@ -5,6 +5,7 @@ export type AdPriceMode = 'fixed' | 'negotiable' | 'contact' | 'none';
 export type AdContactMode = 'profile' | 'phone' | 'whatsapp';
 export type AdStatus = 'draft' | 'pending_review' | 'active' | 'inactive' | 'expired' | 'rejected';
 export const CLASSIFIEDS_SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1' as const;
+export const CLASSIFIEDS_PAGE_SIZE = 20 as const;
 
 export interface AdModerationSignal {
   readonly code: 'NO_DESCRIPTION' | 'NO_IMAGE' | 'UNLINKED_BUSINESS' | 'DIRECT_CONTACT' | 'PROFILE_WITHOUT_BUSINESS' | 'PRICE_CONTRACT_MISMATCH' | 'REVIEW_REVISION_INVALID';
@@ -87,12 +88,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const classifiedsApi = {
-  list(filters: { q?: string; categoryCode?: string; cityCode?: string } = {}) {
+  list(filters: { q?: string; categoryCode?: string; cityCode?: string; page?: number } = {}) {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
     if (filters.categoryCode) params.set('categoryCode', filters.categoryCode);
     if (filters.cityCode) params.set('cityCode', filters.cityCode);
-    return request<{ ads: PublicAdListing[] }>(`/classifieds${params.size ? `?${params}` : ''}`);
+    if (filters.page && filters.page > 1) params.set('page', String(filters.page));
+    return request<{ ads: PublicAdListing[]; total: number; page: number }>(`/classifieds${params.size ? `?${params}` : ''}`);
   },
   get(id: string) { return request<{ ad: PublicAdListing }>(`/classifieds/${encodeURIComponent(id)}`); },
   listMine() { return request<{ ads: OwnerAdListing[] }>('/classifieds/mine'); },

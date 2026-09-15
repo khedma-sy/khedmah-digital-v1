@@ -1,0 +1,24 @@
+steps:
+  - id: build-billing-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.billing-migration
+      - -t
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/billing-migration:${_IMAGE_TAG}'
+      - .
+  - id: push-billing-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/billing-migration:${_IMAGE_TAG}'
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: khedmah-preview
+  _IMAGE_TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: MUST_MATCH
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/billing-migration:${_IMAGE_TAG}'
