@@ -19,6 +19,9 @@ export const sixthAuditRoutes = Object.freeze([
   { key: 'restaurants', path: '/restaurants', href: '/restaurants', formName: '' },
   { key: 'delivery', path: '/mobility', href: '/mobility?type=delivery', formName: 'البحث عن تكسي أو مندوب', search: 'type=delivery' },
   { key: 'classifieds', path: '/classifieds', href: '/classifieds', formName: 'البحث في إعلانات خدمة' },
+  { key: 'courier-signup', path: '/courier-signup', href: '/courier-signup', formName: '' },
+  { key: 'billing', path: '/billing', href: '/billing', formName: '' },
+  { key: 'taxi-pricing', path: '/admin/taxi-pricing', href: '/admin/taxi-pricing', formName: '' },
   { key: 'taxi-signup', path: '/taxi-driver-signup', href: '/taxi-driver-signup', formName: '' },
   { key: 'login', path: '/auth/login', href: '/auth/login', formName: 'تسجيل الدخول', authShell: true },
   { key: 'register', path: '/auth/register', href: '/auth/register', formName: 'إنشاء حساب', authShell: true }
@@ -49,7 +52,7 @@ export async function main(env = process.env) {
     checkoutSha: env.GITHUB_SHA || null,
     status: 'failed',
     expectedScenarios,
-    scope: 'Anonymous After-only visual readiness for Restaurants, independent Delivery, Classifieds, guest Taxi signup, Login and Register. Four governed viewports, light/dark, RTL. Account pages use an explicit auth-shell gate. No credentials, authentication, location permission, form submission or server writes.',
+    scope: 'Anonymous After-only visual readiness for Restaurants, independent Delivery, Classifieds, courier signup, Billing catalog, Taxi pricing entry, guest Taxi signup, Login and Register. Four governed viewports, light/dark, RTL. Account pages use an explicit auth-shell gate. No credentials, authentication, location permission, form submission or server writes.',
     scenarios: []
   };
   let browser;

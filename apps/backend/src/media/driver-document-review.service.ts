@@ -48,7 +48,7 @@ export class DriverDocumentReviewService {
        LEFT JOIN mobility_document_reviews r ON r.media_asset_id=m.id
        WHERE m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private'
          AND m.asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
-       ORDER BY m.created_at DESC,m.id`,
+       ORDER BY COALESCE(r.created_at,m.created_at) DESC,m.id DESC`,
       [businessProfileId]
     );
     return rows.map(row => ({
@@ -64,6 +64,24 @@ export class DriverDocumentReviewService {
       createdAt: row.created_at.toISOString(),
       secureUrl: `/api/v1/driver-documents/${encodeURIComponent(row.id)}/content`
     }));
+  }
+
+  async reviewQueue(cookieHeader: string | undefined) {
+    const actor=await this.identity.getCurrentUser(readSessionToken(cookieHeader));
+    this.rbac.assert(actor.email,'security.manage');
+    const rows=await this.db.query<{business_profile_id:string;name:string;category_code:string;city_code:string;pending:string}>(`
+      WITH latest AS (
+        SELECT DISTINCT ON (business_profile_id,document_type) business_profile_id,document_type,status,created_at
+        FROM mobility_document_reviews
+        WHERE document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+        ORDER BY business_profile_id,document_type,created_at DESC,media_asset_id DESC
+      )
+      SELECT b.id AS business_profile_id,b.name,b.category_code,b.city_code,COUNT(*)::text AS pending
+      FROM latest r JOIN business_profiles b ON b.id=r.business_profile_id
+      WHERE r.status='pending' AND b.category_code IN ('taxi','delivery_courier')
+      GROUP BY b.id,b.name,b.category_code,b.city_code
+      ORDER BY MIN(r.created_at),b.id LIMIT 200`);
+    return {businesses:rows.map(row=>({businessProfileId:row.business_profile_id,name:row.name,categoryCode:row.category_code,cityCode:row.city_code,pendingDocuments:Number(row.pending)}))};
   }
 
   async read(cookieHeader: string | undefined, id: string): Promise<{ data: Buffer; mimeType: string }> {

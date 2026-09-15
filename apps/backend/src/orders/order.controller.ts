@@ -36,6 +36,13 @@ export class OrderController {
   ) {
     return this.orders.courier(cookie, id).then((orders) => ({ orders }));
   }
+  @Get('eligible-couriers') eligibleCouriers(
+    @Headers('cookie') cookie: string | undefined,
+    @Query('businessId') businessId: string,
+    @Query('page') page: string | undefined,
+  ) {
+    return this.orders.eligibleCouriers(cookie, businessId, page);
+  }
   @Patch(":id/status") transition(
     @Headers("cookie") cookie: string | undefined,
     @Param("id") id: string,

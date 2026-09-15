@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, type FulfillmentOrder, type ProductListing, type PublicBusinessProfile } from "../../../lib/recovered-service-client";
+import { api, type FulfillmentOrder, type ProductListing, type PublicBusinessProfile, type EligibleCourier } from "../../../lib/recovered-service-client";
 import type { OpeningHours } from "../../../lib/api-client";
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from "../../components/ui-primitives";
 import { playOrderRing, requestOrderNotifications, showOrderNotification } from "../order-alerts";
@@ -33,7 +33,13 @@ export default function MerchantOrders() {
   const [orders,setOrders] = useState<FulfillmentOrder[]>([]);
   const [products,setProducts] = useState<ProductListing[]>([]);
   const [hours,setHours] = useState<HoursDraft[]>(defaultHours);
-  const [couriers,setCouriers] = useState<PublicBusinessProfile[]>([]);
+  const [couriers,setCouriers] = useState<EligibleCourier[]>([]);
+  const [courierPage,setCourierPage] = useState(1);
+  const [courierTotal,setCourierTotal] = useState(0);
+  const [courierLoading,setCourierLoading] = useState(false);
+  const [courierError,setCourierError] = useState("");
+  const [courierRetry,setCourierRetry] = useState(0);
+  const selectedRef = useRef("");
   const [courierChoice,setCourierChoice] = useState<Record<string,string>>({});
   const [alertsEnabled,setAlertsEnabled] = useState(false);
   const [view,setView] = useState<View>("overview");
@@ -60,10 +66,10 @@ export default function MerchantOrders() {
   },[]);
 
   useEffect(()=>{
-    void Promise.all([api.businesses.listMine(), api.businesses.search({categoryCode:"delivery_courier"})])
-      .then(([mine,available])=>{
+    void api.businesses.listMine()
+      .then((mine)=>{
         const list=mine.businesses.filter(b=>orderEligible.has(b.categoryCode));
-        setBusinesses(list); setSelected(list[0]?.id ?? ""); setCouriers(available.businesses);
+        setBusinesses(list); setSelected(list[0]?.id ?? "");
       })
       .catch(c=>{
         if(c instanceof Error && (c as Error & {statusCode?:number}).statusCode===401) router.replace("/auth/login?next=%2Forders%2Fmerchant");
@@ -82,12 +88,14 @@ export default function MerchantOrders() {
   const loadOrders = useCallback(async(id:string)=>{
     if(!id) return;
     const next=(await api.orders.merchant(id)).orders;
-    announceNewOrders(next); setOrders(next); setError(""); loadedOnceRef.current=true;
+    if(selectedRef.current!==id)return;
+    announceNewOrders(next); setOrders(next); loadedOnceRef.current=true;
   },[announceNewOrders]);
 
   const loadOperations = useCallback(async(id:string)=>{
     if(!id) return;
     const [productResult,hoursResult]=await Promise.all([api.products.listMine(),api.businesses.getOpeningHours(id)]);
+    if(selectedRef.current!==id)return;
     setProducts(productResult.products.filter(p=>p.businessProfileId===id));
     const normalized=defaultHours();
     for(const h of hoursResult.hours as OpeningHours[]) normalized[h.dayOfWeek]={dayOfWeek:h.dayOfWeek,openTime:h.openTime.slice(0,5),closeTime:h.closeTime.slice(0,5),isClosed:h.isClosed};
@@ -95,11 +103,23 @@ export default function MerchantOrders() {
   },[]);
 
   useEffect(()=>{
+    selectedRef.current=selected;setOrders([]);setProducts([]);setCourierChoice({});setCourierPage(1);setOrderDialog(null);
     loadedOnceRef.current=false; knownOrderIdsRef.current=new Set(); if(!selected) return;
-    void Promise.all([loadOrders(selected),loadOperations(selected)]).catch(c=>setError(c instanceof Error?c.message:"تعذر تحميل بيانات التشغيل."));
+    void Promise.all([loadOrders(selected),loadOperations(selected)]).catch(c=>{if(selectedRef.current===selected)setError(c instanceof Error?c.message:"تعذر تحميل بيانات التشغيل.");});
     const interval=window.setInterval(()=>void loadOrders(selected).catch(()=>undefined),8000);
-    return ()=>window.clearInterval(interval);
+    return ()=>{selectedRef.current="";window.clearInterval(interval);};
   },[loadOrders,loadOperations,selected]);
+
+  useEffect(()=>{
+    let active=true;setCouriers([]);setCourierTotal(0);setCourierError("");
+    if(!selected)return;
+    setCourierLoading(true);
+    void api.orders.eligibleCouriers(selected,courierPage).then(result=>{
+      if(active){setCouriers(result.couriers);setCourierTotal(result.total);}
+    }).catch(()=>{if(active)setCourierError("تعذر تحميل المندوبين المؤهلين. أعد المحاولة.");})
+      .finally(()=>{if(active)setCourierLoading(false);});
+    return()=>{active=false;};
+  },[selected,courierPage,courierRetry]);
 
   const metrics=useMemo(()=>{
     const today=orders.filter(o=>sameDay(o.createdAt));
@@ -173,7 +193,7 @@ export default function MerchantOrders() {
     <PageHeader eyebrow="خدمة فود · Restaurant Command Center" title={isRestaurant?"لوحة إدارة المطعم":"لوحة إدارة المنشأة"} description="الطلبات الحية، مؤشرات الأداء، القائمة وساعات التشغيل في شاشة واحدة." backHref="/restaurants" actions={<><ActionLink href="/store/sell">إضافة صنف</ActionLink><ActionLink href={`/restaurants/${encodeURIComponent(selected)}`}>عرض واجهة الزبون</ActionLink></>}/>
     {error&&<StatusMessage tone="danger">{error}</StatusMessage>}{notice&&<StatusMessage tone="success">{notice}</StatusMessage>}
     <Surface className={styles.controlBar}>
-      <label><span>النشاط</span><select value={selected} onChange={e=>setSelected(e.target.value)}>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      <label><span>النشاط</span><select value={selected} disabled={!!orderActionId||savingHours} onChange={e=>{selectedRef.current=e.target.value;setSelected(e.target.value);}}>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       <div className={styles.liveState}><span className={alertsEnabled?styles.dotLive:styles.dotIdle}/><strong>{alertsEnabled?"تنبيهات الطلبات مفعّلة":"تنبيهات الطلبات غير مفعّلة"}</strong></div>
       <ActionButton type="button" variant="secondary" disabled={alertsEnabled} onClick={()=>void enableAlerts()}>{alertsEnabled?"الرنة مفعّلة":"تفعيل الرنة والتنبيهات"}</ActionButton>
     </Surface>
@@ -196,7 +216,11 @@ export default function MerchantOrders() {
       </section>
     </>}
 
-    {view==="orders"&&<section className={styles.orderGrid}>{orders.length?orders.map(o=><Surface as="article" key={o.id} className={styles.orderCard}><div className={styles.orderTop}><strong>{statusLabel[o.status]}</strong><span>{money(orderValue(o),o.currency)}</span></div><h2>طلب نقدي</h2><div className={styles.items}>{o.items.map(i=><p key={i.productListingId}>{i.titleAr} × {i.quantity}</p>)}</div><p className={styles.customer}>{o.customerPhone} · {o.deliveryAddress}</p>{o.vertical==="pharmacy"&&<p>مراجعة الصيدلي: {o.pharmacyReviewStatus}</p>}<div className={styles.actions}>{o.status==="placed"&&<><ActionButton disabled={orderActionId===o.id} onClick={()=>openOrderDialog(o,"quote")}>مراجعة وعرض الإجمالي</ActionButton><ActionButton disabled={orderActionId===o.id} variant="secondary" onClick={()=>openOrderDialog(o,"reject")}>رفض</ActionButton></>}{o.status==="merchant_confirmed"&&<><label>المندوب<select value={courierChoice[o.id]??""} disabled={orderActionId===o.id} onChange={e=>setCourierChoice(c=>({...c,[o.id]:e.target.value}))}><option value="">اختر المندوب</option>{couriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><ActionButton disabled={orderActionId===o.id} onClick={()=>void assignCourier(o)}>تعيين المندوب</ActionButton></>}{o.status==="courier_accepted"&&<ActionButton disabled={orderActionId===o.id} onClick={()=>void transition(o,"ready_for_pickup")}>الطلب جاهز للاستلام</ActionButton>}</div></Surface>):<EmptyState title="لا توجد طلبات" description="ستظهر هنا طلبات العملاء الحقيقية."/>}</section>}
+    {view==="orders"&&<Surface><h2>مندوبي التوصيل في مدينة المنشأة</h2><p>تعرض القائمة أنشطة التوصيل النشطة والمعتمدة مع الموافقة على أحدث الوثائق الأربع. يعيد الخادم فحص الأهلية عند التعيين والقبول والاستلام.</p>
+      {courierLoading?<p role="status">جارٍ تحميل المندوبين…</p>:courierError?<StatusMessage tone="danger">{courierError}</StatusMessage>:<p role="status">{courierTotal?`المندوبون المؤهلون: ${courierTotal} · الصفحة ${courierPage}`:'لا يوجد مندوب مؤهل في هذه المدينة حاليًا. يبقى الطلب مؤكدًا دون تعيين حتى يتوفر مندوب.'}</p>}
+      <div className="ui-page-actions"><ActionButton variant="secondary" disabled={courierLoading||!!orderActionId} onClick={()=>setCourierRetry(n=>n+1)}>تحديث المندوبين</ActionButton><ActionButton variant="secondary" disabled={courierLoading||courierPage<=1||!!orderActionId} onClick={()=>{setCourierChoice({});setCourierPage(n=>n-1);}}>السابق</ActionButton><ActionButton variant="secondary" disabled={courierLoading||courierPage*20>=courierTotal||!!orderActionId} onClick={()=>{setCourierChoice({});setCourierPage(n=>n+1);}}>التالي</ActionButton><ActionLink href="/orders/courier" variant="quiet">مساحة المندوب</ActionLink></div>
+    </Surface>}
+    {view==="orders"&&<section className={styles.orderGrid}>{orders.length?orders.map(o=><Surface as="article" key={o.id} className={styles.orderCard}><div className={styles.orderTop}><strong>{statusLabel[o.status]}</strong><span>{money(orderValue(o),o.currency)}</span></div><h2>طلب نقدي</h2><div className={styles.items}>{o.items.map(i=><p key={i.productListingId}>{i.titleAr} × {i.quantity}</p>)}</div><p className={styles.customer}>{o.customerPhone} · {o.deliveryAddress}</p>{o.vertical==="pharmacy"&&<p>مراجعة الصيدلي: {o.pharmacyReviewStatus}</p>}<div className={styles.actions}>{o.status==="placed"&&<><ActionButton disabled={orderActionId===o.id} onClick={()=>openOrderDialog(o,"quote")}>مراجعة وعرض الإجمالي</ActionButton><ActionButton disabled={orderActionId===o.id} variant="secondary" onClick={()=>openOrderDialog(o,"reject")}>رفض</ActionButton></>}{o.status==="merchant_confirmed"&&<><label>المندوب<select value={courierChoice[o.id]??""} disabled={orderActionId===o.id} onChange={e=>setCourierChoice(c=>({...c,[o.id]:e.target.value}))}><option value="">اختر المندوب</option>{couriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><ActionButton disabled={!!orderActionId||courierLoading||!couriers.some(c=>c.id===courierChoice[o.id])} onClick={()=>void assignCourier(o)}>تعيين المندوب</ActionButton></>}{o.status==="courier_accepted"&&<ActionButton disabled={orderActionId===o.id} onClick={()=>void transition(o,"ready_for_pickup")}>الطلب جاهز للاستلام</ActionButton>}</div></Surface>):<EmptyState title="لا توجد طلبات" description="ستظهر هنا طلبات العملاء الحقيقية."/>}</section>}
 
     {view==="menu"&&<section className={styles.menuGrid}>{products.length?products.map(p=><Surface as="article" key={p.id} className={styles.menuCard}><div><span className={p.availability==="out_of_stock"?styles.offline:styles.online}>{p.availability==="out_of_stock"?"غير متاح":"متاح"}</span><h2>{p.titleAr}</h2><p>{money(p.price,p.currency)}</p></div><ActionButton type="button" variant={p.availability==="out_of_stock"?"primary":"secondary"} onClick={()=>void toggleProduct(p)}>{p.availability==="out_of_stock"?"إعادة التفعيل":"إيقاف مؤقت"}</ActionButton></Surface>):<EmptyState title="القائمة فارغة" description="أضف أصنافاً ثم أرسلها للمراجعة." actions={<ActionLink href="/store/sell">إضافة صنف</ActionLink>}/>}</section>}
 

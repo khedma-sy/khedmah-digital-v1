@@ -6,7 +6,7 @@
   --k-color-surface-raised: #ffffff;
   --k-color-surface-muted: #f2f6f4;
   --k-color-text: #143653;
-  --k-color-text-muted: #455b6b;
+  --k-color-text-muted: #263f52;
   --k-color-border: #dce6e1;
   --k-color-primary: #07427c;
   --k-color-on-primary: #ffffff;
@@ -15,16 +15,17 @@
   --k-color-primary-soft: #e8f1f8;
   --k-color-brand: #07427c;
   --k-color-accent: #fd9603;
-  /* Lighter service surfaces fade into white; brand marks retain their source colors. */
-  --k-color-blue-tint: #b8d8f2;
+  /* Owner revision: stronger service colors, restrained white blending; canonical marks stay intact. */
+  --k-color-blue-tint: #86b4d8;
   --k-color-blue-fade: #e7f2fb;
   --k-color-blue-text: #07427c;
-  --k-color-green-tint: #cbe5ac;
+  --k-color-green-tint: #a0ce77;
   --k-color-green-fade: #eff7e5;
-  --k-color-green-text: #365d1d;
-  --k-color-orange-tint: #ffd39c;
+  --k-color-green-text: #24430f;
+  --k-color-orange-tint: #fdb853;
   --k-color-orange-fade: #fff2df;
-  --k-color-orange-text: #8c430e;
+  --k-color-orange-text: #743305;
+  --k-gradient-brand-blue: linear-gradient(135deg,#07427c 0%,#1b5186 100%);
   --k-gradient-blue: linear-gradient(135deg,var(--k-color-blue-tint) 0%,var(--k-color-blue-fade) 52%,var(--k-color-surface) 100%);
   --k-gradient-green: linear-gradient(135deg,var(--k-color-green-tint) 0%,var(--k-color-green-fade) 52%,var(--k-color-surface) 100%);
   --k-gradient-orange: linear-gradient(135deg,var(--k-color-orange-tint) 0%,var(--k-color-orange-fade) 52%,var(--k-color-surface) 100%);

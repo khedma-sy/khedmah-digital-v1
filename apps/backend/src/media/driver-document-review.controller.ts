@@ -5,7 +5,14 @@ import { DriverDocumentReviewService } from './driver-document-review.service';
 export class DriverDocumentReviewController {
   constructor(@Inject(DriverDocumentReviewService) private readonly documents: DriverDocumentReviewService) {}
 
+  @Get('review-queue')
+  @Header('Cache-Control', 'private, no-store')
+  queue(@Headers('cookie') cookie: string | undefined) {
+    return this.documents.reviewQueue(cookie);
+  }
+
   @Get('business/:businessId')
+  @Header('Cache-Control', 'private, no-store')
   list(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('businessId') businessId: string

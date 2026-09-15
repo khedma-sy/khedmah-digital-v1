@@ -8,7 +8,9 @@ KORA is the existing operational administration layer for Khedmah. KORA is separ
 
 KORA may read only metrics backed by an explicit source. The first slice exposes the canonical user count, 24-hour `search_action` count, current-process incident count, and current-process pending-change count. Metrics without a trustworthy source are returned as `not_instrumented`; they are never silently reported as zero.
 
-Planned metric families include zero-result searches, orders, cancellations, Taxi, Food, Delivery, Store, and Ads. They become available only after a canonical privacy-safe source is wired and tested.
+The 2026-09-15 extension connects fixed aggregate reads for fulfillment orders created in the last 24 hours, the Food subset, cancellations within that created-order cohort, current confirmed orders waiting for courier assignment, the subset waiting more than 15 minutes, pending subscription purchase orders, and subscriptions whose payment was confirmed in the last 24 hours. Counts do not combine currencies or claim revenue, delivery duration, restaurant quality, or cross-product coverage. Database read failures remain failures, never fabricated zeroes.
+
+Zero-result searches, cross-product counts, Taxi trip metrics, Food preparation time, Delivery travel time, Store and Ads aggregates remain uninstrumented.
 
 ### `detect_ui_failures`
 
@@ -16,7 +18,7 @@ KORA owns a governed UI check registry for Taxi map embedding/navigation, Store 
 
 ### `review_operational_anomalies`
 
-The first slice evaluates confirmed high/critical Operations Product incidents from the current backend process. Cancellation rates, abnormal user activity, duplicate-ad aggregates, driver/restaurant issue rates, API failure rates, and error-rate baselines remain explicit coverage gaps until their sources exist.
+The anomaly review evaluates confirmed high/critical Operations Product incidents from the current backend process and canonical fulfillment orders waiting for courier assignment for more than 15 minutes. The threshold is a review signal, not a customer delivery promise. It can produce an advisory task; it cannot assign a courier, confirm payment, or modify a tariff. Cancellation rates, abnormal user activity, duplicate-ad aggregates, driver/restaurant issue rates, API failure rates, and error-rate baselines remain explicit coverage gaps until their sources exist.
 
 ### `draft_admin_tasks`
 

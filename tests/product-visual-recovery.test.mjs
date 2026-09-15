@@ -62,7 +62,7 @@ test('homepage blends lighter brand tones and prioritizes launch services', () =
   assert.match(home, /href: '\/mobility\?type=delivery'/);
   assert.match(home, /href: '\/taxi'/);
   assert.match(home, /href="\/store"/);
-  assert.match(homeStyles, /\.hero\s*\{[^}]*var\(--k-gradient-blue\)/i);
+  assert.match(homeStyles, /\.hero\s*\{[^}]*var\(--k-gradient-brand-blue\)/i);
   assert.match(homeStyles, /\.foodCard/);
   assert.match(homeStyles, /\.deliveryCard/);
   assert.match(homeStyles, /\.taxiCard/);

@@ -24,6 +24,7 @@ const text = (value: unknown, field: string, min: number, max: number) => {
 };
 
 export function validateCreateOrder(value: Record<string, unknown>) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Order payload is invalid.');
   if (
     !Array.isArray(value.items) ||
     value.items.length < 1 ||
@@ -55,7 +56,7 @@ export function validateCreateOrder(value: Record<string, unknown>) {
   if (
     (latitude === undefined) !== (longitude === undefined) ||
     (latitude !== undefined &&
-      (latitude < -90 ||
+      (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 ||
         latitude > 90 ||
         longitude! < -180 ||
         longitude! > 180))
@@ -76,6 +77,7 @@ export function validateCreateOrder(value: Record<string, unknown>) {
 }
 
 export function validateOrderAction(value: Record<string, unknown>) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Order action is invalid.');
   if (
     typeof value.status !== "string" ||
     !statuses.includes(value.status as OrderStatus)

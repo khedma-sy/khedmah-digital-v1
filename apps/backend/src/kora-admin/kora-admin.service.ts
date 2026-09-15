@@ -169,14 +169,16 @@ export class KoraAdminService {
     // Authorize before any aggregate database read so an unauthenticated caller
     // cannot cause Kora to inspect administrative metrics as a side effect.
     const history = await this.operations.histories(cookie);
-    const [users, searches] = await Promise.all([
+    const [users, searches, serviceMetrics] = await Promise.all([
       this.repository.countUsers(),
-      this.repository.countSearchActionsSince(since)
+      this.repository.countSearchActionsSince(since),
+      this.repository.serviceMetrics(since)
     ]);
 
     const metrics: KoraMetric[] = [
       this.availableMetric('users_total', 'Users', users, 'canonical_database.core_user_accounts', 'all_time', measuredAt),
       this.availableMetric('searches_24h', 'Search actions', searches, 'analytics_events.search_action', '24h', measuredAt),
+      ...this.fulfillmentMetrics(serviceMetrics, measuredAt),
       this.processMetric('open_operational_issues', 'Open operational issues', history.incidents.length, 'operations_product.current_process', measuredAt,
         'Process-local only; it is not a durable incident total across Cloud Run instances.'),
       this.processMetric('pending_changes', 'Pending operational changes', history.changes.length, 'operations_product.current_process', measuredAt,
@@ -185,8 +187,8 @@ export class KoraAdminService {
       this.unavailableMetric('orders_24h', 'Orders', measuredAt, 'No canonical cross-product order metric is instrumented.'),
       this.unavailableMetric('cancellations_24h', 'Cancellations', measuredAt, 'No canonical cross-product cancellation metric is instrumented.'),
       this.unavailableMetric('taxi_metrics', 'Taxi metrics', measuredAt, 'Taxi operational metrics are not connected to Kora yet.'),
-      this.unavailableMetric('food_metrics', 'Food metrics', measuredAt, 'Food runtime metrics are not instrumented yet.'),
-      this.unavailableMetric('delivery_metrics', 'Delivery metrics', measuredAt, 'Delivery runtime metrics are not instrumented yet.'),
+      this.unavailableMetric('food_metrics', 'جودة المطاعم وزمن التحضير', measuredAt, 'Order counts are measured separately; preparation-time and complaint metrics are not instrumented.'),
+      this.unavailableMetric('delivery_metrics', 'جودة التوصيل ومدة الرحلة', measuredAt, 'Assignment backlog is measured separately; delivery-time and driver-issue metrics are not instrumented.'),
       this.unavailableMetric('store_metrics', 'Store metrics', measuredAt, 'Store operational metrics are not connected to Kora yet.'),
       this.unavailableMetric('ads_metrics', 'Ads metrics', measuredAt, 'Classifieds Smart Admin remains separate; aggregate Ads metrics are not connected yet.')
     ];
@@ -219,6 +221,7 @@ export class KoraAdminService {
   private async reviewOperationalAnomaliesInternal(cookie: string | undefined) {
     const history = await this.operations.histories(cookie);
     const detectedAt = new Date().toISOString();
+    const serviceMetrics = await this.repository.serviceMetrics(new Date(Date.now()-24*60*60*1000).toISOString());
     const findings: KoraFinding[] = history.incidents
       .filter((incident) => incident.severity === 'high' || incident.severity === 'critical')
       .map((incident) => ({
@@ -233,6 +236,14 @@ export class KoraAdminService {
         detectedAt
       }));
 
+    if (serviceMetrics.delivery_assignment_overdue > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'fulfillment:delivery-assignment',
+      title: 'طلبات مؤكدة تنتظر تعيين مندوب',
+      summary: `${serviceMetrics.delivery_assignment_overdue} طلبًا تجاوزت 15 دقيقة منذ تأكيدها دون تعيين مندوب. راجع توفر المندوبين مع أصحاب المنشآت.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.delivery_assignment_overdue};status=merchant_confirmed;updated_at_older_than=15m;measured_at=${detectedAt}`,
+      source: 'canonical_database.fulfillment_orders', detectedAt
+    });
+
     return {
       tool: 'review_operational_anomalies' as const,
       operatingMode: 'supervised' as const,
@@ -246,9 +257,26 @@ export class KoraAdminService {
         'api_failure_rate',
         'error_rate_baseline'
       ],
-      sourceBoundary: 'Only current-process Operations incidents are evaluated in this first slice; missing telemetry is never interpreted as zero.',
+      sourceBoundary: 'Current-process Operations incidents and canonical fulfillment assignment backlog are evaluated. The 15-minute threshold is an operational review signal, not a delivery promise; missing telemetry is never interpreted as zero.',
       automaticDecisionAuthorized: false
     };
+  }
+
+  private fulfillmentMetrics(values: Record<string,number>, measuredAt: string): KoraMetric[] {
+    const definitions: Array<[string,string,string,KoraMetric['window']]> = [
+      ['fulfillment_orders_24h','طلبات التنفيذ خلال 24 ساعة','fulfillment_orders','created_last_24h'],
+      ['food_orders_24h','طلبات الطعام خلال 24 ساعة','fulfillment_orders.vertical=food','created_last_24h'],
+      ['fulfillment_cancellations_24h','الملغى من طلبات آخر 24 ساعة','fulfillment_orders.status=cancelled','created_last_24h'],
+      ['delivery_waiting_assignment','طلبات مؤكدة تنتظر مندوبًا','fulfillment_orders.status=merchant_confirmed','current'],
+      ['delivery_assignment_overdue','طلبات تنتظر مندوبًا أكثر من 15 دقيقة','fulfillment_orders.updated_at','current'],
+      ['billing_pending_orders','طلبات اشتراك بانتظار السداد','billing_purchase_orders.status=pending','current'],
+      ['billing_paid_orders_24h','اشتراكات أُكد سدادها خلال 24 ساعة','billing_purchase_orders.paid_at','paid_last_24h']
+    ];
+    return definitions.map(([key,label,source,window])=>{
+      const value=values[key];
+      if(!Number.isSafeInteger(value)||value<0)throw new Error('KORA_SERVICE_METRIC_INVALID');
+      return this.availableMetric(key,label,value,`canonical_database.${source}`,window,measuredAt);
+    });
   }
 
   private async authorize(cookie: string | undefined): Promise<void> {
@@ -259,7 +287,7 @@ export class KoraAdminService {
     await this.operations.recordSupervisedAdminAudit(cookie, eventType, resource);
   }
 
-  private availableMetric(key: string, label: string, value: number, source: string, window: 'all_time' | '24h', measuredAt: string): KoraMetric {
+  private availableMetric(key: string, label: string, value: number, source: string, window: KoraMetric['window'], measuredAt: string): KoraMetric {
     return { key, label, value, status: 'available', source, window, measuredAt };
   }
 

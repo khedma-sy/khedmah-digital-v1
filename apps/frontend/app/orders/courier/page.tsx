@@ -209,6 +209,7 @@ export default function CourierOrders() {
         title="مهام التوصيل"
         description="اقبل المهمة، استلم الطلب الجاهز، ثم أكد التسليم والتحصيل النقدي."
         backHref="/users/me"
+        actions={<ActionLink href="/courier-signup" variant="secondary">ملفي ووثائق المندوب</ActionLink>}
       />
       <details className={styles.guide} id="courier-guide">
         <summary>

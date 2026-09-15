@@ -8,6 +8,7 @@ import {
   simulateNewSyrianTaxiFare,
   validateTaxiPricingConfig
 } from './taxi-pricing.service';
+import { TaxiPricingAdminService } from './taxi-pricing.service';
 
 const config = {
   openingFareMinor: 1000,
@@ -46,4 +47,18 @@ test('Taxi pricing validation rejects non-integer money, unsafe demand multiplie
   assert.throws(() => validateTaxiPricingConfig({ ...config, openingFareMinor: 1.5 }), BadRequestException);
   assert.throws(() => validateTaxiPricingConfig({ ...config, demandMultiplierBps: 20001 }), BadRequestException);
   assert.throws(() => validateTaxiPricingConfig({ ...config, maxAmountMinor: 1000 }), BadRequestException);
+});
+
+test('Taxi pricing refuses stale administrator edits before writing a revision or changing a tariff',async()=>{
+  let writes=0;
+  const client={query:async(sql:string)=>{
+    if(sql.includes('to_regclass'))return {rows:[{exists:true}]};
+    if(sql.includes('FROM khedmah_taxi.tariffs')||sql.includes('FROM taxi_pricing_revisions'))return {rows:[{revision:'5'}]};
+    if(/INSERT|UPDATE SET/.test(sql))writes++;
+    return {rows:[]};
+  }};
+  const service=new TaxiPricingAdminService({transaction:async(work:Function)=>work(client)} as never,{getCurrentUser:async()=>({id:'admin'})} as never,{findAdminRoles:async()=>['bootstrap_admin']} as never);
+  await assert.rejects(service.replaceActive('fixture',{...config,zoneCode:'test-zone',reason:'Reviewed price revision',expectedRevision:4}),/pricing changed/);
+  assert.equal(writes,0);
+  await assert.rejects(service.replaceActive('fixture',{...config,zoneCode:'test-zone',reason:'Reviewed price revision'}),/expectedRevision is invalid/);
 });

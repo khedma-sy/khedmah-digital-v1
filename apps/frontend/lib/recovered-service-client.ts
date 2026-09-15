@@ -9,6 +9,7 @@ import {
 export type PublicBusinessProfile = CorePublicBusinessProfile & { readonly ratingCount?: number };
 export type ProductListing = CoreProductListing & { readonly requiresPrescription: boolean; readonly controlledItem: boolean };
 export type FulfillmentOrderStatus = 'placed'|'quoted'|'merchant_confirmed'|'courier_assigned'|'courier_accepted'|'ready_for_pickup'|'picked_up'|'delivered'|'rejected'|'cancelled';
+export type EligibleCourier = {id:string;name:string;cityCode:string};
 export interface FulfillmentOrderItem { readonly productListingId:string;readonly titleAr:string;readonly unitPrice:number;readonly quantity:number;readonly requiresPrescription:boolean; }
 export interface FulfillmentOrder {
   readonly id:string;readonly merchantBusinessId:string;readonly merchantName:string;readonly pickupAddress?:string;readonly merchantPhone?:string;readonly courierBusinessId?:string;readonly courierName?:string;readonly courierPhone?:string;
@@ -35,6 +36,7 @@ export const api={
     create(data:{items:Array<{productListingId:string;quantity:number}>;deliveryAddress:string;customerPhone:string;customerNote?:string;prescriptionAttested:boolean;deliveryLatitude?:number;deliveryLongitude?:number},idempotencyKey:string){return request<{order:FulfillmentOrder}>('/orders',{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify(data)});},
     mine(){return request<{orders:FulfillmentOrder[]}>('/orders/mine');},
     merchant(businessId:string){return request<{orders:FulfillmentOrder[]}>(`/orders/merchant?businessId=${encodeURIComponent(businessId)}`);},
+    eligibleCouriers(businessId:string,page=1){return request<{couriers:EligibleCourier[];total:number;page:number;limit:number}>(`/orders/eligible-couriers?businessId=${encodeURIComponent(businessId)}&page=${page}`);},
     courier(businessId:string){return request<{orders:FulfillmentOrder[]}>(`/orders/courier?businessId=${encodeURIComponent(businessId)}`);},
     transition(id:string,status:FulfillmentOrderStatus,data:Record<string,unknown>={}){return request<{order:FulfillmentOrder}>(`/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({status,...data})});},
     rate(id:string,targetType:'merchant'|'courier',score:number,comment?:string){return request<{rated:true}>(`/orders/${encodeURIComponent(id)}/ratings`,{method:'POST',body:JSON.stringify({targetType,score,comment})});},

@@ -99,6 +99,14 @@ export class OrderService {
     if (!b || b.ownerUserId !== actor.id) throw new ForbiddenException("Access denied.");
     return (await this.repo.listForMerchant(businessId)).map((order) => expose(order, "merchant"));
   }
+  async eligibleCouriers(cookie: string | undefined, businessId: string, pageValue?: string) {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const b = await this.businesses.findById(businessId);
+    if (!b || b.ownerUserId !== actor.id || !(food.has(b.categoryCode) || grocery.has(b.categoryCode) || b.categoryCode === 'pharmacy')) throw new ForbiddenException('Access denied.');
+    const page = pageValue === undefined ? 1 : Number(pageValue);
+    if (!Number.isInteger(page) || page < 1 || page > 10000) throw new BadRequestException('page is invalid.');
+    return this.repo.eligibleCouriers(b.cityCode, page);
+  }
   async courier(cookie: string | undefined, businessId: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const b = await this.businesses.findById(businessId);

@@ -60,7 +60,8 @@ test('assistant trigger is part of the single global header and creates no stand
   const layout = readSource('apps/frontend/app/layout.tsx');
   assert.equal((layout.match(/<header className="khedma-header">/g) ?? []).length, 1);
   assert.equal((layout.match(/<SmartAssistant \/>/g) ?? []).length, 1);
-  assert.match(layout, /<div className="khedma-header-actions">[\s\S]*<SmartAssistant \/>[\s\S]*<\/div>\s*<\/header>\s*\{children\}/);
+  assert.match(layout, /<div className="khedma-header-actions">[\s\S]*<SmartAssistant \/>[\s\S]*<\/div>\s*<\/header>\s*<DeliveryEntry \/>\s*\{children\}/);
+  assert.equal((layout.match(/<DeliveryEntry \/>/g) ?? []).length, 1);
   const styles = readSource('apps/frontend/app/components/smart-assistant.module.css');
   const root = styles.match(/\.root\{([^}]*)\}/)?.[1] ?? '';
   const panel = styles.match(/\.panel\{([^}]*)\}/)?.[1] ?? '';

@@ -98,6 +98,23 @@ export class OrderRepository {
     return Number(row?.count ?? 0);
   }
 
+  async eligibleCouriers(cityCode: string, page: number) {
+    const eligibility = `FROM business_profiles b
+      WHERE b.category_code='delivery_courier' AND b.city_code=$1
+        AND b.visibility='public' AND b.status='active'
+        AND b.trust_status='approved' AND b.moderation_status='approved'
+        AND (SELECT COUNT(*) FROM (
+          SELECT DISTINCT ON (document_type) document_type,status
+          FROM mobility_document_reviews WHERE business_profile_id=b.id
+            AND document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+          ORDER BY document_type,created_at DESC,media_asset_id DESC
+        ) latest WHERE latest.status='approved')=4`;
+    const [count] = await this.db.query<{total:string}>(`SELECT COUNT(*)::text AS total ${eligibility}`, [cityCode]);
+    const rows = await this.db.query<{id:string;name:string;city_code:string}>(
+      `SELECT b.id,b.name,b.city_code ${eligibility} ORDER BY b.name,b.id LIMIT 20 OFFSET $2`, [cityCode,(page-1)*20]);
+    return {couriers:rows.map(b=>({id:b.id,name:b.name,cityCode:b.city_code})),total:Number(count?.total??0),page,limit:20};
+  }
+
   async create(
     order: FulfillmentOrder,
     idempotencyKey: string,

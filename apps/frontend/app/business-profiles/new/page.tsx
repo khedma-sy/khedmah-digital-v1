@@ -9,6 +9,8 @@ import { CategorySelectOptions } from '../../components/category-select-options'
 import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import styles from '../../../components/owner-workspace.module.css';
 
+const deliveryEntry = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('categoryCode') === 'delivery_courier';
+
 export default function NewBusinessProfilePage() {
   const router = useRouter();
   const { cities, isLoading: citiesLoading, error: citiesError, retry: retryCities } = useSyrianCities();
@@ -24,12 +26,22 @@ export default function NewBusinessProfilePage() {
   const [retryCount, setRetryCount] = useState(0);
   const lifecycle = useRef(0);
   const submissionInProgress = useRef(false);
+  const categoryPrefilled = useRef(false);
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
   useEffect(() => {
     lifecycle.current += 1;
     return () => { lifecycle.current += 1; };
   }, []);
+
+  useEffect(() => {
+    if (categoriesLoading || categoryPrefilled.current) return;
+    const requested = deliveryEntry() ? 'delivery_courier' : undefined;
+    if (requested === 'delivery_courier' && categories.some(category => category.code === requested)) {
+      setForm(current => current.categoryCode ? current : {...current, categoryCode: requested});
+    }
+    categoryPrefilled.current = true;
+  }, [categories, categoriesLoading]);
 
   useEffect(() => {
     let active = true;
@@ -39,7 +51,10 @@ export default function NewBusinessProfilePage() {
       .catch((cause) => {
         if (!active) return;
         const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
-        if (status === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles%2Fnew'); return; }
+        if (status === 401) {
+          const delivery = deliveryEntry();
+          router.replace(delivery ? '/auth/login?next=%2Fbusiness-profiles%2Fnew%3FcategoryCode%3Ddelivery_courier' : '/auth/login?next=%2Fbusiness-profiles%2Fnew'); return;
+        }
         setSessionError(cause instanceof Error ? cause.message : 'تعذر التحقق من جلسة الدخول. حاول مجدداً.');
         setIsCheckingSession(false);
       });

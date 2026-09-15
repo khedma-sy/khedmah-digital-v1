@@ -245,6 +245,7 @@ export class TaxiPricingAdminService {
     const body = object(value);
     const zone = this.zone(body.zoneCode);
     const reason = text(body.reason, 'reason', 5, 300);
+    const expectedRevision = integer(body.expectedRevision, 'expectedRevision', 0, Number.MAX_SAFE_INTEGER);
     if (body.currency !== undefined && body.currency !== NEW_SYRIAN_POUND_CODE) {
       throw new BadRequestException('Taxi pricing currency is fixed to the new Syrian pound (SYP).');
     }
@@ -268,6 +269,9 @@ export class TaxiPricingAdminService {
       const historyRevision = Number(latest.rows[0]?.revision ?? 0);
       if (!Number.isSafeInteger(activeRevision) || !Number.isSafeInteger(historyRevision)) {
         throw new ServiceUnavailableException('Taxi pricing revision state is invalid.');
+      }
+      if (Math.max(activeRevision, historyRevision) !== expectedRevision) {
+        throw new ConflictException('Taxi pricing changed. Refresh the current revision before saving.');
       }
       const revision = Math.max(activeRevision, historyRevision) + 1;
       if (!Number.isSafeInteger(revision) || revision < 1) throw new ConflictException('Taxi pricing revision overflow.');

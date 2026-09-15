@@ -7,8 +7,9 @@
   --section-accent: #07427c;
   --section-label: var(--k-color-blue-text);
   --section-gradient: var(--k-gradient-blue);
-  --section-action: var(--k-color-blue-tint);
-  --section-action-hover: var(--k-color-blue-fade);
+  --section-action: var(--k-color-primary);
+  --section-on-action: var(--k-color-on-primary);
+  --section-action-hover: var(--k-color-primary-hover);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -19,8 +20,9 @@
   --section-accent: #07427c;
   --section-label: var(--k-color-blue-text);
   --section-gradient: var(--k-gradient-blue);
-  --section-action: var(--k-color-blue-tint);
-  --section-action-hover: var(--k-color-blue-fade);
+  --section-action: var(--k-color-primary);
+  --section-on-action: var(--k-color-on-primary);
+  --section-action-hover: var(--k-color-primary-hover);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -33,6 +35,7 @@
   --section-label: var(--k-color-orange-text);
   --section-gradient: var(--k-gradient-orange);
   --section-action: var(--k-color-orange-tint);
+  --section-on-action: var(--k-color-text);
   --section-action-hover: var(--k-color-orange-fade);
   --section-on-accent: #143653;
 }
@@ -43,6 +46,7 @@
   --section-label: var(--k-color-green-text);
   --section-gradient: var(--k-gradient-green);
   --section-action: var(--k-color-green-tint);
+  --section-on-action: var(--k-color-text);
   --section-action-hover: var(--k-color-green-fade);
   --section-on-accent: #143653;
 }
@@ -65,7 +69,7 @@
 .khedmah-section-identity .ui-eyebrow { color: var(--section-label); }
 .khedmah-section-identity .ui-action-primary {
   border-color: var(--section-label);
-  color: var(--k-color-text);
+  color: var(--section-on-action);
   background: var(--section-action);
 }
 .khedmah-section-identity .ui-action-primary:hover {

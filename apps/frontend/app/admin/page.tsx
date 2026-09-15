@@ -47,8 +47,9 @@ export default function AdminPage() {
       <Link href="/">الرئيسية</Link><Link href="/admin/kora">KORA Executive</Link>
       {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
       {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
+      {canManageModeration ? <Link href="/admin/driver-documents">وثائق السائقين والمندوبين</Link> : null}
       {canManageModeration ? <Link href="/admin/taxi-drivers">سائقو التكسي</Link> : null}
-      <Link href="/categories">دليل التصنيفات</Link><Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">إدارة المطاعم</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
+      <Link href="/admin/billing">مراجعة السداد</Link><Link href="/admin/taxi-pricing">تسعيرة التكسي</Link><Link href="/categories">دليل التصنيفات</Link><Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">إدارة المطاعم</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
 
     <section className="operations-summary" aria-label="ملخص الإدارة"><article><strong>{user.profile.displayName}</strong><span>الحساب الإداري</span></article><article><strong>{overview.roles.length}</strong><span>الأدوار المعتمدة</span></article><article><strong>{overview.openIncidents}</strong><span>حوادث في العملية الحالية</span></article><article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article></section>
@@ -62,8 +63,8 @@ export default function AdminPage() {
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية والمستندات المرتبطة بها.</p><Link href="/admin/verification">فتح التحقق</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>Taxi Driver Ops</h2><span>Governed</span></div><p>مراجعة أحدث وثائق السائق والمركبة ثم اعتماد أو تعليق أو إلغاء سلطة السائق والمنطقة. هذا لا يفتح الرحلات تلقائيًا.</p><Link href="/admin/taxi-drivers">فتح إدارة سائقي التكسي</Link></article> : null}
-      <article className="operations-panel"><div className="panel-heading"><h2>Taxi Pricing</h2><span>Backend/API موجود</span></div><p>محرك التسعير وMigration 029 وسجل revisions موجودة في هذا الفرع؛ واجهة إدارة التسعير المرئية ما زالت قيد الربط.</p></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>Billing & Points</h2><span>Backend/API موجود</span></div><p>Migration 030 والباقات والنقاط وKHEDMA30 موجودة في هذا الفرع؛ واجهة Billing المرئية لم تُثبت بعد.</p></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>تسعيرة التكسي</h2><span>سجل ومحاكاة</span></div><p>مراجعة تسعيرة المنطقة، محاكاة الأجرة، واعتماد إصدار موثق مع حماية من الكتابة فوق تعديل أحدث.</p><Link href="/admin/taxi-pricing">فتح إدارة التسعيرة</Link></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>الباقات والسداد والنقاط</h2><span>مراجعة يدوية</span></div><p>طلبات الاشتراك والخصم وسجل السداد متاحة للمستخدم. يراجع مسؤول الفوترة المبلغ ومرجعه قبل تفعيل الاشتراك ومنح النقاط.</p><Link href="/admin/billing">مراجعة طلبات السداد</Link></article>
       <article className="operations-panel"><div className="panel-heading"><h2>التشغيل</h2><span>ملخص إعداد</span></div><p>إعدادات الخدمات وسجلات التغييرات والحوادث الحالية.</p><Link href="/admin/operations-product">فتح مركز التشغيل</Link></article>
     </section>
   </main>;

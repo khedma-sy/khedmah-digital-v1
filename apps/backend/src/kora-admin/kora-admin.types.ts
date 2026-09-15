@@ -7,7 +7,7 @@ export interface KoraMetric {
   readonly label: string;
   readonly status: KoraMetricStatus;
   readonly source: string;
-  readonly window: 'all_time' | '24h' | 'current_process';
+  readonly window: 'all_time' | '24h' | 'current_process' | 'current' | 'created_last_24h' | 'paid_last_24h';
   readonly measuredAt: string;
   readonly value?: number;
   readonly note?: string;

@@ -7,6 +7,7 @@ import { AuthNavigation, DiscoveryNavigation } from './auth-navigation';
 import { BrandMark } from './components/brand-mark';
 import { ThemeToggle } from './components/theme-toggle';
 import { SmartAssistant } from './components/smart-assistant';
+import { DeliveryEntry } from './components/delivery-entry';
 import './globals.css';
 import './brand-system.css';
 import './design-tokens.css';
@@ -88,6 +89,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>
+        <DeliveryEntry />
         {children}
         <footer className="khedma-footer" aria-label="تواصل مع خدمة وروابط قانونية">
           <div className="khedma-footer-social"><strong>خدمة تجمعنا — تحت مظلة واحدة</strong><OfficialSocialLinks /><a href={KHEDMAH_WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer">تواصل معنا على واتساب</a></div>

@@ -15,11 +15,13 @@ function createService(overrides: {
   overview?: () => Promise<unknown>;
   countUsers?: () => Promise<number>;
   countSearchActionsSince?: (since: string) => Promise<number>;
+  serviceMetrics?: () => Promise<Record<string,number>>;
   audits?: KoraAuditCall[];
 } = {}) {
   const repository = {
     countUsers: overrides.countUsers ?? (async () => 12),
-    countSearchActionsSince: overrides.countSearchActionsSince ?? (async () => 4)
+    countSearchActionsSince: overrides.countSearchActionsSince ?? (async () => 4),
+    serviceMetrics: overrides.serviceMetrics ?? (async () => ({fulfillment_orders_24h:8,food_orders_24h:5,fulfillment_cancellations_24h:1,delivery_waiting_assignment:2,delivery_assignment_overdue:0,billing_pending_orders:3,billing_paid_orders_24h:1}))
   } as unknown as KoraAdminRepository;
   const operations = {
     histories: overrides.histories ?? (async () => ({ incidents: [], changes: [] })),
@@ -75,6 +77,24 @@ test('Kora UI checklist stays unobserved until structured evidence is supplied a
   assert.ok(checklist.checks.length > 0);
   assert.ok(checklist.checks.every((check) => check.status === 'not_observed'));
   assert.deepEqual(audits, [{ cookie: 'session=operator', eventType: 'kora.ui_checklist.read', resource: 'ui-readiness-checklist' }]);
+});
+
+test('Kora exposes scoped fulfillment and billing counts and an evidence-backed courier backlog finding',async()=>{
+  const values={fulfillment_orders_24h:8,food_orders_24h:5,fulfillment_cancellations_24h:1,delivery_waiting_assignment:4,delivery_assignment_overdue:2,billing_pending_orders:3,billing_paid_orders_24h:1};
+  const service=createService({serviceMetrics:async()=>values});
+  const result=await service.readMetrics('operator');
+  for(const [key,value] of Object.entries(values))assert.equal(result.metrics.find(m=>m.key===key)?.value,value);
+  assert.equal(result.metrics.find(m=>m.key==='fulfillment_cancellations_24h')?.window,'created_last_24h');
+  const anomalies=await service.reviewOperationalAnomalies('operator');
+  const finding=anomalies.findings.find(f=>f.resource==='fulfillment:delivery-assignment');
+  assert.equal(finding?.source,'canonical_database.fulfillment_orders');assert.match(finding!.evidence,/count=2;/);
+  assert.equal(anomalies.automaticDecisionAuthorized,false);
+});
+
+test('Kora does not turn a failed service aggregate into zero or a fabricated healthy state',async()=>{
+  const service=createService({serviceMetrics:async()=>{throw new Error('DB_UNAVAILABLE');}});
+  await assert.rejects(service.readMetrics('operator'),/DB_UNAVAILABLE/);
+  await assert.rejects(service.reviewOperationalAnomalies('operator'),/DB_UNAVAILABLE/);
 });
 
 test('Kora direct anomaly review remains supervised and records actor-bound audit', async () => {
