@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type FulfillmentOrder, type ProductListing, type PublicBusinessProfile, type EligibleCourier } from "../../../lib/recovered-service-client";
+import { merchantOrderMetrics } from "../../../lib/merchant-order-metrics";
 import type { OpeningHours } from "../../../lib/api-client";
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from "../../components/ui-primitives";
 import { playOrderRing, requestOrderNotifications, showOrderNotification } from "../order-alerts";
@@ -21,10 +22,7 @@ type OrderDialog = { order:FulfillmentOrder; action:"quote"|"reject" };
 const defaultHours = (): HoursDraft[] => days.map((_, dayOfWeek) => ({ dayOfWeek, openTime:"09:00", closeTime:"23:00", isClosed:false }));
 const money = (value:number, currency:string) => currency === "SYP" ? `${value.toLocaleString("ar-SY")} ل.س` : `${value.toLocaleString("en-US")} ${currency}`;
 const orderValue = (order:FulfillmentOrder) => order.total ?? order.subtotal + (order.deliveryFee ?? 0);
-const sameDay = (iso:string) => {
-  const d = new Date(iso), now = new Date();
-  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
-};
+
 
 export default function MerchantOrders() {
   const router = useRouter();
@@ -121,16 +119,7 @@ export default function MerchantOrders() {
     return()=>{active=false;};
   },[selected,courierPage,courierRetry]);
 
-  const metrics=useMemo(()=>{
-    const today=orders.filter(o=>sameDay(o.createdAt));
-    const delivered=today.filter(o=>o.status==="delivered");
-    const gross=delivered.reduce((sum,o)=>sum+orderValue(o),0);
-    const avg=delivered.length?Math.round(gross/delivered.length):0;
-    const closed=today.filter(o=>terminal.has(o.status));
-    const completion=closed.length?Math.round(delivered.length/closed.length*100):0;
-    const open=orders.filter(o=>!terminal.has(o.status)).length;
-    return {today:today.length,delivered:delivered.length,gross,avg,completion,open};
-  },[orders]);
+  const metrics=useMemo(()=>merchantOrderMetrics(orders),[orders]);
 
   async function enableAlerts(){alertsEnabledRef.current=true;setAlertsEnabled(true);window.localStorage.setItem("khedmah-merchant-order-alerts","on");playOrderRing();await requestOrderNotifications();}
 
@@ -203,11 +192,12 @@ export default function MerchantOrders() {
     </nav>
 
     {view==="overview"&&<>
+      <p className={styles.muted}>المؤشرات مبنية على آخر 100 طلب متاح في هذه القائمة، بحسب اليوم على جهازك. تُعرض المبالغ لكل عملة على حدة وتشمل رسوم التوصيل.</p>
       <section className={styles.kpis} aria-label="مؤشرات المطعم">
         <Surface><span>طلبات اليوم</span><strong>{metrics.today}</strong></Surface>
         <Surface><span>طلبات مفتوحة</span><strong>{metrics.open}</strong></Surface>
-        <Surface><span>المبيعات المسلمة اليوم</span><strong>{money(metrics.gross,orders.find(o=>o.status==='delivered')?.currency??'SYP')}</strong></Surface>
-        <Surface><span>متوسط قيمة الطلب</span><strong>{money(metrics.avg,orders.find(o=>o.status==='delivered')?.currency??'SYP')}</strong></Surface>
+        <Surface><span>إجمالي الطلبات المسلمة اليوم</span>{metrics.amounts.length?metrics.amounts.map(item=><strong key={item.currency}>{money(item.gross,item.currency)}</strong>):<strong>لا توجد طلبات مسلمة</strong>}</Surface>
+        <Surface><span>متوسط قيمة الطلب لكل عملة</span>{metrics.amounts.length?metrics.amounts.map(item=><strong key={item.currency}>{money(item.average,item.currency)}</strong>):<strong>—</strong>}</Surface>
         <Surface><span>نسبة الإكمال اليوم</span><strong>{metrics.completion}%</strong></Surface>
       </section>
       <section className={styles.overviewGrid}>

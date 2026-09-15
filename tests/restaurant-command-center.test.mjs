@@ -13,7 +13,7 @@ test('merchant route is a real restaurant command center backed by existing owne
   assert.match(page, /api\.businesses\.setOpeningHours/);
   assert.match(page, /toggleProduct/);
   assert.match(page, /طلبات اليوم/);
-  assert.match(page, /المبيعات المسلمة اليوم/);
+  assert.match(page, /إجمالي الطلبات المسلمة اليوم/);
   assert.doesNotMatch(page, /Math\.random|fakeViews|syntheticViews|simulatedOrders/);
 });
 
