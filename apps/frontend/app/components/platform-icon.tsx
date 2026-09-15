@@ -41,5 +41,5 @@ const paths: Record<PlatformIconName, React.ReactNode> = {
 };
 
 export function PlatformIcon({ name, size = 20 }: { name: PlatformIconName; size?: number }) {
-  return <svg className="platform-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
+  return <svg className="platform-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }

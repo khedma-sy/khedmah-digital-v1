@@ -29,7 +29,7 @@ export default function Home() {
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
         <p className={styles.lead}>ابحث عن خدمة، اكتشف مطعمًا، أو تواصل مع مقدم خدمة قريب منك.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
-        <div className={styles.actions}><Link href="/food"><PlatformIcon name="food" />المطاعم</Link><Link href="/mobility?type=delivery"><PlatformIcon name="truck" />التوصيل</Link><Link href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
+        <div className={styles.actions}><Link data-khedma-control href="/food"><PlatformIcon name="food" />المطاعم</Link><Link data-khedma-control href="/mobility?type=delivery"><PlatformIcon name="truck" />التوصيل</Link><Link data-khedma-control href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
         <p className={styles.heroNote}>فترة تجريبية</p>
       </div>
       <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
@@ -53,7 +53,7 @@ export default function Home() {
     <section className={styles.trust} aria-labelledby="trust-title">
       <div className={styles.sectionHeading}><span>لماذا خدمة؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
       <div className={styles.trustGrid}>{trustItems.map(item => <article key={item.title}><PlatformIcon name={item.icon} /><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
-      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة</Link></div>
+      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link data-khedma-control href="/auth/register">انضم إلى خدمة</Link></div>
     </section>
   </main>;
 }

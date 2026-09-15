@@ -134,7 +134,7 @@ export default function RestaurantsPage() {
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
       {warning && <StatusMessage tone="warning">{warning}</StatusMessage>}
       <Surface className={styles.foodCommand}>
-        <div className={styles.toolbarHeading}><span className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>كل المطاعم والأصناف المتاحة في مكان واحد.</p></div></div>
+        <div className={styles.toolbarHeading}><span data-khedma-icon-surface className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>كل المطاعم والأصناف المتاحة في مكان واحد.</p></div></div>
         <label className={styles.field}>
           <span className={styles.visuallyHidden}>اسم المطعم أو الطبق</span>
           <span className={styles.searchControl}>

@@ -32,19 +32,19 @@ export default function FoodPage() {
           <h2 id="food-hero-title">من المطعم إلى بابك… تحت مظلة واحدة</h2>
           <p>خدمة فود تربطك برحلة الطلب الفعلية: اختر المطعم والقائمة، راجع السلة والعنوان، ثم تابع الطلب والمندوب حتى التسليم. الدفع الحالي نقدًا عند الاستلام.</p>
           <div className={styles.actions}>
-            <Link className={styles.primaryAction} href="/restaurants">ابدأ طلب الطعام</Link>
-            <Link className={styles.secondaryAction} href="/search?type=business&categoryCode=restaurant">استكشف المطاعم</Link>
-            <Link className={styles.secondaryAction} href="/map">بالقرب مني</Link>
+            <Link data-khedma-control className={styles.primaryAction} href="/restaurants">ابدأ طلب الطعام</Link>
+            <Link data-khedma-control className={styles.secondaryAction} href="/search?type=business&categoryCode=restaurant">استكشف المطاعم</Link>
+            <Link data-khedma-control className={styles.secondaryAction} href="/map">بالقرب مني</Link>
           </div>
         </div>
-        <div className={styles.heroMark} aria-hidden="true"><PlatformIcon name="food" size={64}/><strong>خدمة فود</strong></div>
+        <div data-khedma-icon-surface className={styles.heroMark} aria-hidden="true"><PlatformIcon name="food" size={64}/><strong>خدمة فود</strong></div>
       </section>
 
       <section className={styles.categories} aria-labelledby="food-categories-title">
         <div className={styles.sectionHeading}><span>استكشف حسب القسم</span><h2 id="food-categories-title">ماذا تريد اليوم؟</h2></div>
         <div className={styles.grid}>
           {foodCategories.map((category) => <Surface as="article" className={styles.card} key={category.code}>
-            <span className={styles.icon}><PlatformIcon name={category.icon} size={28}/></span>
+            <span data-khedma-icon-surface className={styles.icon}><PlatformIcon name={category.icon} size={28}/></span>
             <h3>{category.title}</h3>
             <p>{category.description}</p>
             <Link href={`/search?type=business&categoryCode=${encodeURIComponent(category.code)}`}>استكشف الأنشطة</Link>

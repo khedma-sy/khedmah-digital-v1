@@ -16,7 +16,7 @@ test('official social destinations are restored once through the global footer',
 test('auth restores the historical pair of decorative umbrellas using the canonical palette', async () => {
   const svg = await read('apps/frontend/public/brand/auth-umbrella-pattern.svg');
   assert.equal((svg.match(/<use href="#umbrella"/g) || []).length, 2);
-  for (const color of ['#07427c', '#81be49', '#fd9603']) assert.ok(svg.includes(color));
+  assert.deepEqual([...new Set(svg.match(/#[0-9a-fA-F]{6}\b/g))].sort(), ['#07427c', '#81be49', '#fd9603'].sort());
   const css = await read('apps/frontend/app/auth-experience.css');
   assert.match(css, /auth-experience::before[^}]*pointer-events:none/s);
   assert.match(css, /auth-umbrella-pattern\.svg/);
