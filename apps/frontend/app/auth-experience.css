@@ -185,11 +185,16 @@ body:has(.auth-experience) .khedma-header { display:none; }
 
 @media(max-width:42rem) {
   .auth-experience { padding:.65rem .7rem 1rem; }
-  .auth-experience::before { background-position:center 8rem; background-size:100% auto; }
+  .auth-experience { padding-bottom:11rem; }
+  .auth-experience::before { top:auto; height:10rem; background-position:center bottom; background-size:contain; }
   .identity-language { position:static; justify-self:end; margin-bottom:.2rem; font-size:.74rem; }
   .identity-approved-brand .khedma-brand>svg { width:4rem; }
   .identity-approved-brand .khedma-brand b { font-size:1.5rem; }
   .auth-panel,.auth-phone-register .auth-panel,.auth-phone-login .auth-panel { padding:1rem; border-radius:1rem; }
   .auth-social-grid { grid-template-columns:1fr; }
   .auth-back { position:absolute; }
+}
+
+@media (min-width:42.01rem) and (max-width:64rem) {
+  .auth-experience::before { background-size:100% auto; }
 }

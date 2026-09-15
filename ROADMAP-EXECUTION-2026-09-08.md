@@ -5,7 +5,10 @@
 آخر تحديث: **2026-09-15 — استعادة التواصل والمظلتين بطلب المالك**.
 
 - PR #175 على الفرع نفسه، Draft / Open / Unmerged إلى develop. لا Merge أو Production.
-- رأس البداية `277ed7b381ba657fe1b020b6c2a8b4ba8edf1983`: CI 1944/1944؛ Preview34911109219 quality/deploy ناجحان، Mobile interactions ناجح؛ screenshots comparative gate فاشل ويتطلب قراءة manifest للفصل عن Staging Before الناقص.
+- آخر رأس مختبر `1a13bf3837f91c99227b3b5e7ff26236b12d6f89`: CI1946/1946؛ Preview34914439272 quality/deploy ناجحان؛ After112/112، Mobile32/32، Classifieds200/200/200. المقارنة وحدها BEFORE_URL_MISSING.
+- deploy104209740214: frontend00013-6n9، backend00026-gxh؛ 032 `khedmah-preview-taxi-operational-032-6e65f20f14-25ph7` verified00:56:28Z. artifact10376320670 SHA256 `3d2a0b5104d6f53b02e015f3024409caaa1f6d694ba9a1f530da56cfbc8b1215`.
+- مراجعة الصور البشرية كشفت زخرفة هاتف خلف الوصف والتفاف الأيقونات5+1 عند320 رغم نجاح الحواف. التصحيح الجاري: مساحة زخرفية منفصلة أسفل النموذج في الهاتف، شبكة3×2 للأيقونات الضيقة، وتصغير خلفيةTablet لتظهر المظلتان داخل الحدود. Desktop محفوظ. يلزم CI/Preview للرأس التالي.
+- توجيه المالك الإضافي: إزالة بهتان المظلة وإضافة ملمس زجاجي حيوي في الشعار المشترك عبر الموقع. أعيدت كثافة ألوان الزخرفة وأضيف انعكاس SVG وظل؛ BrandMark يستخدم gradient بمعرف useId فريد لكل نسخة مع حفظ المسارات والألوان المرجعية. لا تأثيرات حركة مستمرة.
 - المصدر المستعاد: `0c0498b5b11ffbd664226716bfc231b386e92f84` من `codex/ux-polish-linked-pages`: الروابط الأصلية الست وأيقوناتها، مع تمييز قناة واتساب عن التواصل المباشر. السجل الكامل للفروع قُرئ للبحث عن هذه الأصول؛ لم يُدمج فرع تاريخي.
 - المظلتان: أصل `17c7966^:apps/frontend/public/brand/auth-umbrella-pattern.svg`؛ استعيدت هندسته الزخرفية مع الكحلي #07427c والأخضر #81be49 والبرتقالي #fd9603. شعار BrandMark الرئيسي لم يُعدل. الزخرفة لا تتلقى المؤشر وتتكيف مع الهاتف.
 - التغييرات: OfficialSocialLinks/SocialBrandIcon/WhatsappIcon، official-links، footer، auth background. لا backend أو migration جديدة. اختبارا منع الخلفية التاريخيان حُدثا بناءً على طلب المالك الصريح باستعادتها.

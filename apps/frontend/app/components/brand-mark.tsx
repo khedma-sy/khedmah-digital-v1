@@ -1,12 +1,23 @@
+import { useId } from 'react';
+
 type BrandMarkProps = { compact?: boolean };
 
 export function BrandMark({ compact = false }: BrandMarkProps) {
+  const glassId = useId();
   return (
     <span className={`khedma-brand${compact ? ' khedma-brand-compact' : ''}`} aria-label="خدمة - تحت مظلة واحدة">
-      <svg viewBox="0 0 120 126" role="img" aria-hidden="true">
+      <svg viewBox="0 0 120 126" role="img" aria-hidden="true" className="khedma-umbrella-glass">
+        <defs>
+          <linearGradient id={glassId} x1="0" y1="0" x2=".3" y2="1">
+            <stop offset="0" stopColor="#ffffff" stopOpacity=".65" />
+            <stop offset=".45" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity=".16" />
+          </linearGradient>
+        </defs>
         <path d="M14 53C18 27 36 10 60 10s42 17 46 43c-11-8-23-10-34-3-7-9-17-9-24 0-11-7-23-5-34 3Z" fill="#07427c" stroke="#fafafa" strokeWidth="3" strokeLinejoin="round" />
         <path d="M48 50c3-22 7-34 12-40 6 7 10 19 12 40-8-8-16-8-24 0Z" fill="#81be49" stroke="#fafafa" strokeWidth="3" strokeLinejoin="round" />
         <path d="M72 50c11-7 23-5 34 3-4-20-14-33-28-39 4 9 7 21 8 36-5-2-9-2-14 0Z" fill="#fd9603" stroke="#fafafa" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M14 53C18 27 36 10 60 10s42 17 46 43c-11-8-23-10-34-3-7-9-17-9-24 0-11-7-23-5-34 3Z" fill={`url(#${glassId})`} />
         <path d="M60 10v62" fill="none" stroke="#fafafa" strokeWidth="5" strokeLinecap="round" />
         <path d="M60 72v24c0 11 16 11 16 0" fill="none" stroke="#81be49" strokeWidth="6" strokeLinecap="round" />
       </svg>
