@@ -1,3 +1,5 @@
+import { OfficialSocialLinks } from './components/official-social-links';
+import { KHEDMAH_WHATSAPP_CONTACT_URL } from '../lib/official-links';
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_Arabic } from 'next/font/google';
 import Link from 'next/link';
@@ -86,10 +88,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>
         {children}
-        <footer className="khedma-footer" aria-label="روابط قانونية">
+        <footer className="khedma-footer" aria-label="تواصل مع خدمة وروابط قانونية">
+          <div className="khedma-footer-social"><strong>خدمة تجمعنا — تحت مظلة واحدة</strong><OfficialSocialLinks /><a href={KHEDMAH_WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer">تواصل معنا على واتساب</a></div>
+          <nav className="khedma-footer-legal" aria-label="روابط قانونية">
           <Link href="/privacy">سياسة الخصوصية</Link>
           <Link href="/terms">شروط الاستخدام</Link>
           <Link href="/delete-account">حذف الحساب</Link>
+          </nav>
         </footer>
       </body>
     </html>

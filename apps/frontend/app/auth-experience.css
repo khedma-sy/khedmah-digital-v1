@@ -18,7 +18,12 @@ body:has(.auth-experience) .khedma-header { display:none; }
 }
 
 .auth-experience::before {
-  content:none;
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:0;
+  pointer-events:none;
+  background:url('/brand/auth-umbrella-pattern.svg') center top / max(100%, 75rem) auto no-repeat;
 }
 
 .auth-phone,
@@ -180,7 +185,7 @@ body:has(.auth-experience) .khedma-header { display:none; }
 
 @media(max-width:42rem) {
   .auth-experience { padding:.65rem .7rem 1rem; }
-  .auth-experience::before { background-position:center 30%; background-size:100% auto; }
+  .auth-experience::before { background-position:center 8rem; background-size:100% auto; }
   .identity-language { position:static; justify-self:end; margin-bottom:.2rem; font-size:.74rem; }
   .identity-approved-brand .khedma-brand>svg { width:4rem; }
   .identity-approved-brand .khedma-brand b { font-size:1.5rem; }

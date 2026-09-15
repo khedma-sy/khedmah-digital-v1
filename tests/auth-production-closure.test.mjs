@@ -63,7 +63,7 @@ test('production email actions use one validated HTTPS site URL builder', async 
   assert.doesNotMatch(recovery, /\?token=\$\{encodeURIComponent/);
 });
 
-test('login uses real vector provider marks without decorative umbrella backgrounds', async () => {
+test('login uses real vector provider marks with the restored decorative umbrella background', async () => {
   const [login, icons, styles] = await Promise.all([
     read('apps/frontend/app/auth/login/page.tsx'),
     read('apps/frontend/app/auth/social-provider-icon.tsx'),
@@ -74,7 +74,7 @@ test('login uses real vector provider marks without decorative umbrella backgrou
   assert.match(login, /SocialProviderIcon provider="facebook"/);
   assert.match(icons, /fill="#4285f4"/);
   assert.match(icons, /fill="#1877f2"/);
-  assert.doesNotMatch(styles, /umbrella-pattern\.svg/);
+  assert.match(styles, /auth-umbrella-pattern\.svg/);
 });
 
 test('the complete authentication journey uses the approved reference system', async () => {
@@ -89,7 +89,7 @@ test('the complete authentication journey uses the approved reference system', a
   ]);
 
   assert.match(layout, /import '\.\/auth-experience\.css'/);
-  assert.doesNotMatch(styles, /umbrella-pattern\.svg/);
+  assert.match(styles, /auth-umbrella-pattern\.svg/);
   assert.match(styles, /background:var\(--k-glass\)/);
   assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:4\.35rem; \}/);
   assert.match(styles, /backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);

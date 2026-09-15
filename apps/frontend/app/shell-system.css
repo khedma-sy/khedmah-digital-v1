@@ -87,3 +87,23 @@
   outline-offset:3px;
   box-shadow:0 0 0 1px var(--k-color-accent);
 }
+
+/* Official destinations recovered from the complete-services source lineage. */
+.khedma-footer-social { flex-basis:100%; display:grid; justify-items:center; gap:.8rem; text-align:center; }
+.khedma-footer-social strong { color:var(--k-color-text); }
+.khedma-footer-legal { display:flex; flex-wrap:wrap; justify-content:center; gap:.65rem 1rem; }
+.official-social-links { display:flex; flex-wrap:wrap; justify-content:center; gap:.65rem; max-width:100%; }
+.official-social-links a { display:grid; place-items:center; width:48px; height:48px; flex:0 0 48px; border:1px solid var(--k-color-border); border-radius:50%; background:var(--k-glass-strong); color:var(--k-color-text); transition:transform .18s ease,box-shadow .18s ease; }
+.official-social-links a:hover { transform:translateY(-3px); box-shadow:var(--k-shadow-sm); }
+.official-social-links a:focus-visible { outline:3px solid var(--k-color-text); outline-offset:3px; }
+.official-social-links svg { width:28px; height:28px; }
+.social-brand-icon { fill:currentColor; }
+.official-social-links .whatsapp-icon { color:#16834a; }
+.social-brand-icon-instagram { color:#bd2671; }
+.social-brand-icon-telegram { color:#087caf; }
+.social-brand-icon-youtube { color:#d92323; }
+[data-theme="dark"] .social-brand-icon-instagram { color:#ff83bd; }
+[data-theme="dark"] .social-brand-icon-telegram { color:#64c7f4; }
+[data-theme="dark"] .social-brand-icon-youtube { color:#ff7575; }
+[data-theme="dark"] .official-social-links .whatsapp-icon { color:#16834a; }
+@media (prefers-reduced-motion:reduce) { .official-social-links a { transition:none; } .official-social-links a:hover { transform:none; } }
