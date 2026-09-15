@@ -32,6 +32,7 @@ function serviceHarness(options: {
   driverApproval?: Record<string, unknown>;
   vehicleApproval?: Record<string, unknown>;
   denyRbac?: boolean;
+  concurrentDriverConflict?: boolean;
 } = {}) {
   const writes: Array<{ sql: string; params?: readonly unknown[] }> = [];
   const selectedBusiness = options.business ?? business;
@@ -43,6 +44,9 @@ function serviceHarness(options: {
       if (sql.includes('FROM khedmah_taxi.vehicle_approvals') && sql.includes('FOR UPDATE')) return { rows: options.vehicleApproval ? [options.vehicleApproval] : [] };
       if (sql.includes('FROM khedmah_taxi.driver_approvals') && sql.includes('FOR UPDATE')) return { rows: options.driverApproval ? [options.driverApproval] : [] };
       writes.push({ sql, params });
+      if (options.concurrentDriverConflict && sql.includes('INSERT INTO khedmah_taxi.driver_approvals')) {
+        return { rows: [], rowCount: 0 };
+      }
       return { rows: [], rowCount: 1 };
     }
   };
@@ -120,4 +124,10 @@ test('one driver cannot silently activate a second Taxi business profile', async
     business_profile_id: 'another-taxi-business', user_id: owner.id, vehicle_id: 'another-vehicle', zone_code: 'damascus', status: 'approved', revision: '1', expires_at: new Date(Date.now() + 100000)
   } });
   await assert.rejects(service.approve('session=example', business.id, approvalInput()), ConflictException);
+});
+
+test('a driver binding created after the precheck rejects approval before the audit event', async () => {
+  const { service, writes } = serviceHarness({ concurrentDriverConflict: true });
+  await assert.rejects(service.approve('session=example', business.id, approvalInput()), ConflictException);
+  assert.equal(writes.some(write => write.sql.includes('INSERT INTO khedmah_taxi.operational_approval_events')), false);
 });

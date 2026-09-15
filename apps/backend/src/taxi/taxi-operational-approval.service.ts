@@ -155,7 +155,7 @@ export class TaxiOperationalApprovalService {
         [vehicleId, business.id, business.owner_user_id, actor.id, verificationReference, reason,
           now.toISOString(), expiresAt.toISOString(), vehicleRevision.toString()]
       );
-      await client.query(
+      const driverWrite = await client.query(
         `INSERT INTO khedmah_taxi.driver_approvals
            (user_id,business_profile_id,vehicle_id,zone_code,status,reviewed_by,verification_reference,decision_reason,approved_at,expires_at,revision,updated_at)
          VALUES($1,$2,$3,$4,'approved',$5,$6,$7,$8,$9,$10,$8)
@@ -163,10 +163,17 @@ export class TaxiOperationalApprovalService {
            business_profile_id=EXCLUDED.business_profile_id,vehicle_id=EXCLUDED.vehicle_id,zone_code=EXCLUDED.zone_code,
            status='approved',reviewed_by=EXCLUDED.reviewed_by,verification_reference=EXCLUDED.verification_reference,
            decision_reason=EXCLUDED.decision_reason,approved_at=EXCLUDED.approved_at,expires_at=EXCLUDED.expires_at,
-           revision=EXCLUDED.revision,updated_at=EXCLUDED.updated_at`,
+           revision=EXCLUDED.revision,updated_at=EXCLUDED.updated_at
+         WHERE driver_approvals.business_profile_id=EXCLUDED.business_profile_id`,
         [business.owner_user_id, business.id, vehicleId, zoneCode, actor.id, verificationReference, reason,
           now.toISOString(), expiresAt.toISOString(), driverRevision.toString()]
       );
+      // A missing driver row cannot be locked by the earlier SELECT. Two first
+      // approvals for different profiles may both observe absence; recheck the
+      // binding under the INSERT conflict lock and roll back the vehicle write.
+      if (driverWrite.rowCount !== 1) {
+        throw new ConflictException('This driver already has another Taxi operational profile.');
+      }
       await this.insertEvent(client, {
         businessProfileId: business.id,
         driverUserId: business.owner_user_id,
