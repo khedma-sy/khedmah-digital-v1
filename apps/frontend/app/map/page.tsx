@@ -239,10 +239,13 @@ function MapDiscovery() {
         programmaticView.current = false; markViewportIntent();
       }),
       handle.addListener('zoom_changed', markViewportIntent),
+      // Keyboard panning changes the camera center without dragstart. Bounds
+      // alone also change when the container is resized/repainted; that must
+      // not turn an untouched map into a geographic search or invalidate data.
+      handle.addListener('center_changed', markViewportIntent),
       handle.addListener('bounds_changed', () => {
         if (map.current !== handle) return;
         setMapTilesLoaded(false);
-        markViewportIntent();
       }),
       handle.addListener('idle', () => {
         if (map.current !== handle) return;

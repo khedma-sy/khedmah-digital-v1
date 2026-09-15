@@ -178,6 +178,8 @@ export async function main(env = process.env) {
           record.lastControlReachable = record.lastControlHitTest.reachable;
           requireCondition(record.lastControlReachable, controlReachabilityFailure(record.lastControlHitTest));
         } else record.lastControlReachable = null;
+        record.routePreservedAfterInteraction = page.url() === url;
+        requireCondition(record.routePreservedAfterInteraction, 'INTERACTION_CHANGED_ROUTE');
         requireCondition(record.pageErrorCount === 0, 'BROWSER_RUNTIME_ERROR');
         record.status = 'passed';
       } catch (error) {
