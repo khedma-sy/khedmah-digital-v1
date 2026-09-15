@@ -21,15 +21,15 @@
 .page :global(.ui-eyebrow) { color: var(--food-orange-text); font-size: .8rem; font-weight: 800; }
 .page :global(.ui-back) { border-color: var(--food-orange-border); color: var(--food-orange-text); background: var(--food-orange-soft); transform: scaleX(-1); }
 .page :global(.ui-action) { font-family: var(--food-font-arabic); font-size: .88rem; font-weight: 700; }
-.page :global(.ui-action-primary) { color: var(--k-color-text); background: var(--k-gradient-orange); }
-.page :global(.ui-action-primary:hover) { background: var(--k-gradient-orange); }
+.page :global(.ui-action-primary) { color: var(--k-color-text); background: var(--k-color-orange-tint); }
+.page :global(.ui-action-primary:hover) { background: var(--k-color-orange-fade); }
 .page :global(.ui-action-secondary) { border-color: var(--food-orange-border); color: var(--food-orange-text); background: var(--k-color-surface); }
 .page :global(.ui-action-secondary:hover) { background: var(--food-orange-soft); }
 .page :global(.ui-action:focus-visible),
 .page :global(.ui-back:focus-visible) { outline-color: var(--k-color-text); }
 .page :global(.ui-empty-icon) { color: var(--food-orange-text); background: var(--food-orange-soft); }
-.page .courierEntry { border-color: var(--courier-green-deep); color: var(--k-color-text); background: var(--k-gradient-green); box-shadow: 0 .45rem 1rem color-mix(in srgb, var(--courier-green) 18%, transparent); }
-.page .courierEntry:hover { background: var(--k-gradient-green); }
+.page .courierEntry { border-color: var(--courier-green-deep); color: var(--k-color-text); background: var(--k-color-green-tint); box-shadow: 0 .45rem 1rem color-mix(in srgb, var(--courier-green) 18%, transparent); }
+.page .courierEntry:hover { background: var(--k-color-green-fade); }
 
 .foodCommand {
   display: grid;

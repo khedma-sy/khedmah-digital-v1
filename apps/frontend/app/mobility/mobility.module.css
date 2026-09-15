@@ -91,7 +91,7 @@
   font-weight:800;
   text-decoration:none;
 }
-.providerActions a:first-child{border-color:var(--mobility-accent);color:var(--k-color-text);background:var(--k-gradient-green)}
+.providerActions a:first-child{border-color:var(--mobility-accent);color:var(--k-color-text);background:var(--k-color-green-tint)}
 .disclaimer{
   max-width:58rem;
   margin:1.75rem auto 0;

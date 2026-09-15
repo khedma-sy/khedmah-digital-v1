@@ -7,6 +7,8 @@
   --section-accent: #07427c;
   --section-label: var(--k-color-blue-text);
   --section-gradient: var(--k-gradient-blue);
+  --section-action: var(--k-color-blue-tint);
+  --section-action-hover: var(--k-color-blue-fade);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -17,6 +19,8 @@
   --section-accent: #07427c;
   --section-label: var(--k-color-blue-text);
   --section-gradient: var(--k-gradient-blue);
+  --section-action: var(--k-color-blue-tint);
+  --section-action-hover: var(--k-color-blue-fade);
   --section-on-accent: #fff;
   --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
 }
@@ -28,6 +32,8 @@
   --section-accent: var(--brand-orange);
   --section-label: var(--k-color-orange-text);
   --section-gradient: var(--k-gradient-orange);
+  --section-action: var(--k-color-orange-tint);
+  --section-action-hover: var(--k-color-orange-fade);
   --section-on-accent: #143653;
 }
 
@@ -36,6 +42,8 @@
   --section-accent: var(--brand-green);
   --section-label: var(--k-color-green-text);
   --section-gradient: var(--k-gradient-green);
+  --section-action: var(--k-color-green-tint);
+  --section-action-hover: var(--k-color-green-fade);
   --section-on-accent: #143653;
 }
 
@@ -58,11 +66,11 @@
 .khedmah-section-identity .ui-action-primary {
   border-color: var(--section-label);
   color: var(--k-color-text);
-  background: var(--section-gradient);
+  background: var(--section-action);
 }
 .khedmah-section-identity .ui-action-primary:hover {
   color: var(--k-color-text);
-  background: var(--section-gradient);
+  background: var(--section-action-hover);
   box-shadow: inset 0 0 0 1px var(--section-label);
 }
 .khedmah-section-identity .ui-empty-icon {
