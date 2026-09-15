@@ -1,17 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { browserControlReachability, lastApplicationControl } from '../scripts/check-preview-interactions.mjs';
+import { browserControlReachability, controlReachabilityFailure, lastApplicationControl } from '../scripts/check-preview-interactions.mjs';
 
 async function scenario({ movingUntil = 0, overlay = false, focus = true }) {
   const originals = Object.fromEntries(['document', 'performance', 'requestAnimationFrame'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let now = 0;
-  const element = { tagName: 'A', contains: target => target === element,
+  const element = { tagName: 'A', isConnected: true, closest: () => null, contains: target => target === element,
     getBoundingClientRect: () => ({ left: 16, top: now < movingUntil ? now : 400, width: 288, height: 48 }) };
   try {
     Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } });
     Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: callback => { now += 16; callback(now); } });
     Object.defineProperty(globalThis, 'document', { configurable: true, value: {
       activeElement: focus ? element : null,
+      hasFocus: () => true,
       elementFromPoint: () => overlay ? { tagName: 'HEADER' } : element
     } });
     return await browserControlReachability(element);
@@ -38,8 +39,18 @@ test('a persistent overlay remains a failure and records the blocking element', 
 });
 
 test('moving or unfocused controls cannot pass the bounded reachability check', async () => {
-  assert.equal((await scenario({ movingUntil: 3000 })).reachable, false);
-  assert.equal((await scenario({ focus: false })).reachable, false);
+  assert.equal(controlReachabilityFailure(await scenario({ movingUntil: 3000 })), 'MAIN_CONTROL_UNSTABLE');
+  const unfocused = await scenario({ focus: false });
+  assert.equal(unfocused.reachable, false);
+  assert.equal(unfocused.hitMatches, true);
+  assert.equal(controlReachabilityFailure(unfocused), 'MAIN_CONTROL_FOCUS_LOST');
+});
+
+test('failure diagnostics distinguish focus, detachment and occlusion without granting a pass', async () => {
+  assert.equal(controlReachabilityFailure(await scenario({ overlay: true })), 'MAIN_CONTROL_OBSCURED');
+  assert.equal(controlReachabilityFailure(await scenario({})), null);
+  assert.equal(controlReachabilityFailure({ reachable: false, connected: false }), 'MAIN_CONTROL_DETACHED');
+  assert.equal(controlReachabilityFailure({ reachable: false, connected: true, documentFocused: false }), 'BROWSER_DOCUMENT_NOT_FOCUSED');
 });
 
 test('provider insertion cannot replace the application node after its ownership check', async () => {

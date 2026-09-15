@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assessActionContrast, assessActionFocus } from '../scripts/classifieds-action-contrast.mjs';
+import { assessActionContrast, assessActionFocus, assessControlMotion } from '../scripts/classifieds-action-contrast.mjs';
 
 const sample = (overrides = {}) => ({ visible: true, label: 'أضف إعلانًا', renderedOpacity: 1,
   unsupportedPaint: false, foregroundRgba: [20, 54, 83, 255], backgroundRgba: [253, 150, 3, 255], ...overrides });
+
+test('reduced motion rejects the computed hover and press regressions even with zero transition duration', () => {
+  for (const transform of ['none', 'matrix(1, 0, 0, 1, 0, 0)']) {
+    assert.equal(assessControlMotion({ reducedMotion: true, transform }).status, 'passed');
+  }
+  for (const transform of ['matrix(1, 0, 0, 1, 0, -1)', 'matrix(1, 0, 0, 1, 0, 1)', 'matrix(1.1, 0, 0, 1.1, 0, 0)', undefined]) {
+    assert.equal(assessControlMotion({ reducedMotion: true, transform, transitionDuration: '0s' }).failure, 'CONTROL_MOVES_WITH_REDUCED_MOTION');
+  }
+  assert.equal(assessControlMotion({ reducedMotion: false, transform: 'none' }).failure, 'REDUCED_MOTION_NOT_APPLIED');
+});
 
 test('computed action text accepts canonical navy on orange and rejects the original white regression', () => {
   assert.equal(assessActionContrast(sample()).status, 'passed');

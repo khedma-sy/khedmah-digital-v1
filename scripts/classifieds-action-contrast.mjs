@@ -31,6 +31,16 @@ export function assessActionFocus(sample) {
     reference: 'Computed theme canvas and surface paints; not a pixel audit of every surrounding gradient.', ratios };
 }
 
+// Preview explicitly requests reduced motion. Inspect computed transforms so a
+// higher-specificity interaction rule cannot silently defeat that preference.
+export function assessControlMotion(sample) {
+  const identity = sample.transform === 'none'
+    || /^matrix\(\s*1,\s*0,\s*0,\s*1,\s*0,\s*0\s*\)$/.test(sample.transform ?? '');
+  const passed = sample.reducedMotion === true && identity;
+  return { status: passed ? 'passed' : 'failed',
+    failure: passed ? null : sample.reducedMotion !== true ? 'REDUCED_MOTION_NOT_APPLIED' : 'CONTROL_MOVES_WITH_REDUCED_MOTION' };
+}
+
 export function browserActionPaint(element) {
   const style = getComputedStyle(element);
   // Canvas converts computed rgb()/color(srgb ...) to the same sRGB pixel format.
@@ -56,6 +66,8 @@ export function browserActionPaint(element) {
     color: style.color, backgroundColor: style.backgroundColor,
     foregroundRgba: rgba(style.color), backgroundRgba: rgba(style.backgroundColor),
     renderedOpacity, unsupportedPaint,
+    reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    transform: style.transform,
     outlineColor: style.outlineColor, outlineWidth: style.outlineWidth,
     outlineStyle: style.outlineStyle, outlineRgba: rgba(style.outlineColor),
     focusBackgroundReferences: ['--k-color-canvas', '--k-color-surface'].map((name) => rgba(style.getPropertyValue(name).trim())),
@@ -82,6 +94,11 @@ export async function measureClassifiedsActionContrast(page) {
       await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
       const paint = await action.evaluate(browserActionPaint);
       const assessment = assessActionContrast(paint);
+      assessment.motion = assessControlMotion(paint);
+      if (assessment.motion.status !== 'passed') {
+        assessment.status = 'failed';
+        assessment.failure = assessment.motion.failure;
+      }
       if (state === 'keyboard-focus') {
         assessment.focus = assessActionFocus(paint);
         if (assessment.focus.status !== 'passed') {

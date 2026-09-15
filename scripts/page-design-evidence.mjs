@@ -1,4 +1,4 @@
-import { assessActionContrast, browserActionPaint } from './classifieds-action-contrast.mjs';
+import { assessActionContrast, assessControlMotion, browserActionPaint } from './classifieds-action-contrast.mjs';
 
 // Anonymous form pages have their own navigation, rather than the public header.
 // Keep the public eight-destination gate unchanged and evaluate this shell explicitly.
@@ -102,6 +102,10 @@ export async function measurePageDesign(page, key) {
         const paint = await element.evaluate(browserActionPaint);
         if (icons) paint.label = await element.getAttribute('data-category-tone');
         const result = assessActionContrast(paint, icons ? 3 : 4.5);
+        if (!icons) {
+          result.motion = assessControlMotion(paint);
+          if (result.motion.status !== 'passed') assessment.failures.push(result.motion.failure);
+        }
         samples.push({ index, state, ...paint, ...result });
         if (result.status !== 'passed') assessment.failures.push(icons ? 'CATEGORY_ICON_CONTRAST_FAILED' : `${key.toUpperCase()}_ACTION_CONTRAST_FAILED`);
         if (!icons) await element.evaluate((node) => node.blur());
@@ -113,5 +117,5 @@ export async function measurePageDesign(page, key) {
   assessment.failures = [...new Set(assessment.failures)];
   assessment.status = assessment.failures.length ? 'failed' : 'passed';
   return { ...assessment, layout, contrastSamples: samples,
-    scope: 'Rendered spacing and RTL; category icon contrast >=3; solid Food, Store, Map, Taxi and Restaurant action text >=4.5 in three states. No whole-page accessibility or background-gradient certification.' };
+    scope: 'Rendered spacing and RTL; category icon contrast >=3; solid Food, Store, Map, Taxi and Restaurant action text >=4.5 and reduced-motion transforms at rest, hover and keyboard focus. No whole-page accessibility or background-gradient certification.' };
 }

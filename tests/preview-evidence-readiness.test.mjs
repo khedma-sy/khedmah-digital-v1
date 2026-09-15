@@ -133,7 +133,7 @@ async function exerciseMain(t, overrides = {}, options = {}) {
           keyboard: { press: async () => {} },
           locator: () => ({ count: async () => 6, nth: () => ({
             hover: async () => {}, focus: async () => {}, getAttribute: async () => 'navy',
-            evaluate: async (fn) => fn === browserActionPaint ? { label: 'fixture', visible: true, unsupportedPaint: false, renderedOpacity: 1, foregroundRgba: [255,255,255,255], backgroundRgba: [7,66,124,255] } : undefined
+            evaluate: async (fn) => fn === browserActionPaint ? { label: 'fixture', visible: true, unsupportedPaint: false, renderedOpacity: 1, reducedMotion: true, transform: options.motionRegression ? 'matrix(1, 0, 0, 1, 0, -1)' : 'none', foregroundRgba: [255,255,255,255], backgroundRgba: [7,66,124,255] } : undefined
           }) }),
           evaluate: async (fn, key) => {
             if (fn === browserDesignLayout) return { key, htmlDir: 'rtl', direction: 'rtl', missingTokens: [], samples: Array.from({ length: 6 }, () => ({ label: 'fixture', padding: options.missingSpacing && key === 'search' ? 0 : 16, minimumPadding: 16, gap: 16, minimumGap: 16 })) };
@@ -419,4 +419,12 @@ test('rendered spacing failures block Preview without changing a passing baselin
   assert.equal(report.before.status, 'passed');
   assert.equal(report.previewStatus, 'failed');
   assert.equal(report.after.filter((item) => item.failures.includes('SURFACE_PADDING_MISSING')).length, 8);
+});
+
+test('computed control movement blocks Preview when reduced motion is requested', async (t) => {
+  const { report } = await exerciseMain(t, {}, { motionRegression: true });
+  assert.equal(report.previewStatus, 'failed');
+  const failures = report.after.filter((item) => item.failures.includes('CONTROL_MOVES_WITH_REDUCED_MOTION'));
+  assert.equal(failures.length, 32); // Food, Store, Map and Taxi across eight variants.
+  assert.ok(failures.every((item) => item.status === 'failed'));
 });

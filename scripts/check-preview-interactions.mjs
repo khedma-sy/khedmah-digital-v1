@@ -54,14 +54,30 @@ export async function browserControlReachability(element) {
     const bounds = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     const focused = element === document.activeElement;
+    const active = document.activeElement;
     const hitMatches = !!hit && element.contains(hit);
     const stationary = previous && Object.keys(bounds).every(key => Math.abs(bounds[key] - previous[key]) <= 0.5);
     stableFrames = focused && hitMatches && stationary ? stableFrames + 1 : 0;
-    sample = { reachable: stableFrames >= 3, focused, hitMatches, bounds, hitTag: hit?.tagName?.toLowerCase() ?? null, stableFrames };
+    sample = { reachable: stableFrames >= 3, focused, hitMatches, bounds, hitTag: hit?.tagName?.toLowerCase() ?? null, stableFrames,
+      connected: element.isConnected, documentFocused: document.hasFocus(),
+      activeTag: active?.tagName?.toLowerCase() ?? null,
+      focusOwner: focused ? 'target' : active?.closest('[data-map-surface="true"]') ? 'map-provider'
+        : active?.closest('[data-khedmah-assistant]') ? 'assistant'
+        : active?.closest('main#foundation-content') ? 'application'
+        : active === document.body || active === document.documentElement ? 'document' : 'outside-main' };
     if (sample.reachable) return sample;
     previous = bounds;
   } while (performance.now() < deadline);
   return sample;
+}
+
+export function controlReachabilityFailure(sample) {
+  if (sample.reachable) return null;
+  if (sample.connected === false) return 'MAIN_CONTROL_DETACHED';
+  if (sample.documentFocused === false) return 'BROWSER_DOCUMENT_NOT_FOCUSED';
+  if (!sample.focused) return 'MAIN_CONTROL_FOCUS_LOST';
+  if (!sample.hitMatches) return 'MAIN_CONTROL_OBSCURED';
+  return 'MAIN_CONTROL_UNSTABLE';
 }
 
 export async function waitForInteractionReadiness(page, timeout) {
@@ -156,7 +172,7 @@ export async function main(env = process.env) {
           }));
           record.lastControlHitTest = await last.evaluate(browserControlReachability);
           record.lastControlReachable = record.lastControlHitTest.reachable;
-          requireCondition(record.lastControlReachable, 'MAIN_CONTROL_OBSCURED');
+          requireCondition(record.lastControlReachable, controlReachabilityFailure(record.lastControlHitTest));
         } else record.lastControlReachable = null;
         requireCondition(record.pageErrorCount === 0, 'BROWSER_RUNTIME_ERROR');
         record.status = 'passed';
