@@ -119,6 +119,18 @@ export class DriverDocumentReviewService {
     const reviewedAt = new Date().toISOString();
 
     return this.db.transaction(async client => {
+      const candidate = await client.query<{ owner_id: string }>(
+        `SELECT owner_id FROM media_assets
+         WHERE id=$1 AND owner_type='business_profile' AND visibility='private'
+           AND asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')`,
+        [id]
+      );
+      if (!candidate.rows[0]) throw new NotFoundException('Driver document was not found.');
+      const business = await client.query<{ id: string }>(
+        `SELECT id FROM business_profiles WHERE id=$1 FOR UPDATE`,
+        [candidate.rows[0].owner_id]
+      );
+      if (!business.rows[0]) throw new NotFoundException('Business profile was not found.');
       const locked = await client.query<{ owner_id: string; asset_type: DriverDocumentReviewItem['documentType'] }>(
         `SELECT owner_id,asset_type FROM media_assets
          WHERE id=$1 AND owner_type='business_profile' AND visibility='private'
@@ -127,7 +139,7 @@ export class DriverDocumentReviewService {
         [id]
       );
       const document = locked.rows[0];
-      if (!document) throw new NotFoundException('Driver document was not found.');
+      if (!document || document.owner_id !== candidate.rows[0].owner_id) throw new NotFoundException('Driver document was not found.');
       await client.query(
         `INSERT INTO mobility_document_reviews
            (media_asset_id,business_profile_id,document_type,status,review_reason,reviewed_by,reviewed_at,created_at,updated_at)

@@ -5,8 +5,13 @@ readonly MIGRATION_VERSION='030_billing_credits_subscriptions'
 readonly DEFAULT_MIGRATION_FILE='/migrations/030_billing_credits_subscriptions.sql'
 readonly APPROVED_SHA256='d758036cbcf20fbcee176c9ea7ba097564142de839b609b22a5cb469d6335194'
 readonly APPROVED_GIT_BLOB='88795ee75d9948e5ecf85d8c2d53f6b77397b52b'
+readonly BILLING_ADMIN_ROLE_MIGRATION_VERSION='033_billing_admin_role'
+readonly DEFAULT_BILLING_ADMIN_ROLE_MIGRATION_FILE='/migrations/033_billing_admin_role.sql'
+readonly APPROVED_033_SHA256='acc42c10459b0f90c276e843942bc712283616fc71ac854c177bb20defa34463'
+readonly APPROVED_033_GIT_BLOB='7bbdd79c5c129f41134c10ba15eedc644e396888'
 
 migration_file="${BILLING_MIGRATION_FILE:-$DEFAULT_MIGRATION_FILE}"
+billing_admin_role_migration_file="${BILLING_ADMIN_ROLE_MIGRATION_FILE:-$DEFAULT_BILLING_ADMIN_ROLE_MIGRATION_FILE}"
 environment="${DEPLOYMENT_ENVIRONMENT:-}"
 mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
@@ -14,7 +19,7 @@ production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
 
 case "$environment" in
   preview|staging) ;;
-  *) echo 'ERROR: Billing migration 030 is allowed only in preview or staging.' >&2; exit 2 ;;
+  *) echo 'ERROR: Billing migrations 030 and 033 are allowed only in preview or staging.' >&2; exit 2 ;;
 esac
 case "$mode" in
   verify|apply) ;;
@@ -26,11 +31,14 @@ test -n "$production_project" || { echo 'ERROR: PRODUCTION_GOOGLE_CLOUD_PROJECT 
 test -n "${DATABASE_URL:-}" || { echo 'ERROR: DATABASE_URL is required.' >&2; exit 2; }
 [ "${MIGRATION_SHA256:-}" = "$APPROVED_SHA256" ] || { echo 'ERROR: Billing migration 030 approval checksum does not match.' >&2; exit 3; }
 [ "${MIGRATION_GIT_BLOB:-}" = "$APPROVED_GIT_BLOB" ] || { echo 'ERROR: Billing migration 030 approval Git blob does not match.' >&2; exit 3; }
+[ "${MIGRATION_033_SHA256:-}" = "$APPROVED_033_SHA256" ] || { echo 'ERROR: Billing migration 033 approval checksum does not match.' >&2; exit 3; }
+[ "${MIGRATION_033_GIT_BLOB:-}" = "$APPROVED_033_GIT_BLOB" ] || { echo 'ERROR: Billing migration 033 approval Git blob does not match.' >&2; exit 3; }
 if [ "$mode" = 'apply' ]; then
   expected_confirmation="APPLY_KHEDMAH_NONPROD_030_$(printf '%s' "$environment" | tr '[:lower:]' '[:upper:]')"
   [ "${MIGRATION_CONFIRMATION:-}" = "$expected_confirmation" ] || { echo 'ERROR: Explicit Billing migration 030 confirmation is required.' >&2; exit 3; }
 fi
 printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null
+printf '%s  %s\n' "$APPROVED_033_SHA256" "$billing_admin_role_migration_file" | sha256sum -c - >/dev/null
 
 if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
   command -v python3 >/dev/null 2>&1 || exit 52
@@ -76,7 +84,7 @@ probe_count() {
   printf '%s' "$value"
 }
 
-schema_state() {
+schema_state_030() {
   identity="$(probe_count "SELECT ((to_regclass(current_schema() || '.core_user_accounts') IS NOT NULL)::int + (to_regclass(current_schema() || '.identity_sessions') IS NOT NULL)::int)")" || return $?
   [ "$identity" -eq 2 ] || { printf '%s' 'missing_identity'; return 0; }
   table_count="$(probe_count "SELECT count(*)::int FROM (VALUES ('billing_program_config'),('billing_plans'),('billing_promo_codes'),('billing_purchase_orders'),('billing_subscriptions'),('billing_credit_grants'),('billing_credit_ledger'),('billing_usage_rates'),('billing_usage_receipts'),('billing_promo_redemptions')) AS required(name) WHERE to_regclass(current_schema() || '.' || name) IS NOT NULL")" || return $?
@@ -94,6 +102,21 @@ schema_state() {
   printf '%s' 'partial_or_unverified'
 }
 
+schema_state_033() {
+  admin_roles="$(probe_count "SELECT (to_regclass('public.admin_roles') IS NOT NULL)::int")" || return $?
+  [ "$admin_roles" -eq 1 ] || { printf '%s' 'missing_admin_roles'; return 0; }
+
+  constraint_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c'")" || return $?
+  [ "$constraint_count" -eq 1 ] || { printf '%s' 'partial_or_unverified'; return 0; }
+
+  predecessor_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c' AND d.definition LIKE '%bootstrap_admin%' AND d.definition LIKE '%platform_admin%' AND d.definition LIKE '%moderator%' AND d.definition NOT LIKE '%billing_admin%' AND (length(d.definition)-length(replace(d.definition,'''','')))/2=3")" || return $?
+  target_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c' AND d.definition LIKE '%bootstrap_admin%' AND d.definition LIKE '%platform_admin%' AND d.definition LIKE '%moderator%' AND d.definition LIKE '%billing_admin%' AND (length(d.definition)-length(replace(d.definition,'''','')))/2=4")" || return $?
+
+  if [ "$target_count" -eq 1 ]; then printf '%s' 'verified'; return 0; fi
+  if [ "$predecessor_count" -eq 1 ]; then printf '%s' 'not_applied'; return 0; fi
+  printf '%s' 'partial_or_unverified'
+}
+
 exit_for_state() {
   case "$1" in
     missing_identity) exit 41 ;;
@@ -103,15 +126,23 @@ exit_for_state() {
   esac
 }
 
-state="$(schema_state)" || exit $?
+exit_for_033_state() {
+  case "$1" in
+    missing_admin_roles) exit 41 ;;
+    not_applied) exit 43 ;;
+    partial_or_unverified) exit 44 ;;
+    *) exit 48 ;;
+  esac
+}
+
+state="$(schema_state_030)" || exit $?
 if [ "$state" = 'verified' ]; then
   printf '%s\n' "MIGRATION_030_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
-  exit 0
-fi
-if [ "$mode" = 'verify' ]; then exit_for_state "$state"; fi
-[ "$state" = 'not_applied' ] || exit_for_state "$state"
+else
+  if [ "$mode" = 'verify' ]; then exit_for_state "$state"; fi
+  [ "$state" = 'not_applied' ] || exit_for_state "$state"
 
-psql_exec -X -v ON_ERROR_STOP=1 <<SQL
+  psql_exec -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-030',0));
 DO \$guard\$
@@ -132,6 +163,50 @@ END
 COMMIT;
 SQL
 
-state="$(schema_state)" || exit $?
-[ "$state" = 'verified' ] || exit_for_state "$state"
-printf '%s\n' "MIGRATION_030_APPLIED_AND_VERIFIED:${environment}:${project}"
+  state="$(schema_state_030)" || exit $?
+  [ "$state" = 'verified' ] || exit_for_state "$state"
+  printf '%s\n' "MIGRATION_030_APPLIED_AND_VERIFIED:${environment}:${project}"
+fi
+
+state_033="$(schema_state_033)" || exit $?
+if [ "$state_033" = 'verified' ]; then
+  printf '%s\n' "MIGRATION_033_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
+  exit 0
+fi
+if [ "$mode" = 'verify' ]; then exit_for_033_state "$state_033"; fi
+[ "$state_033" = 'not_applied' ] || exit_for_033_state "$state_033"
+
+psql_exec -X -v ON_ERROR_STOP=1 <<SQL
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-033',0));
+DO \$guard\$
+BEGIN
+  IF to_regclass(current_schema() || '.billing_program_config') IS NULL
+     OR to_regclass(current_schema() || '.billing_plans') IS NULL
+     OR to_regclass(current_schema() || '.billing_credit_ledger') IS NULL THEN
+    RAISE EXCEPTION 'MIGRATION_033_REQUIRES_VERIFIED_MIGRATION_030';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d
+    WHERE n.nspname='public' AND t.relname='admin_roles'
+      AND c.conname='admin_roles_role_check' AND c.contype='c'
+      AND d.definition LIKE '%bootstrap_admin%'
+      AND d.definition LIKE '%platform_admin%'
+      AND d.definition LIKE '%moderator%'
+      AND d.definition NOT LIKE '%billing_admin%'
+      AND (length(d.definition)-length(replace(d.definition,'''','')))/2=3
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION_033_PARTIAL_OR_UNVERIFIED_STATE';
+  END IF;
+END
+\$guard\$;
+\ir $billing_admin_role_migration_file
+SQL
+
+state_033="$(schema_state_033)" || exit $?
+[ "$state_033" = 'verified' ] || exit_for_033_state "$state_033"
+printf '%s\n' "MIGRATION_033_APPLIED_AND_VERIFIED:${environment}:${project}"

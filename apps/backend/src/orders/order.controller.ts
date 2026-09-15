@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Inject,
   Param,
@@ -14,36 +15,54 @@ import { OrderService } from "./order.service";
 @Controller("orders")
 export class OrderController {
   constructor(@Inject(OrderService) private readonly orders: OrderService) {}
-  @Post() create(
+  @Post()
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  create(
     @Headers("cookie") cookie: string | undefined,
     @Headers("idempotency-key") key: string | undefined,
     @Body() body: Record<string, unknown>,
   ) {
     return this.orders.create(cookie, body, key).then((order) => ({ order }));
   }
-  @Get("mine") mine(@Headers("cookie") cookie: string | undefined) {
+  @Get("mine")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  mine(@Headers("cookie") cookie: string | undefined) {
     return this.orders.mine(cookie).then((orders) => ({ orders }));
   }
-  @Get("merchant") merchant(
+  @Get("merchant")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  merchant(
     @Headers("cookie") cookie: string | undefined,
     @Query("businessId") id: string,
   ) {
     return this.orders.merchant(cookie, id).then((orders) => ({ orders }));
   }
-  @Get("courier") courier(
+  @Get("courier")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  courier(
     @Headers("cookie") cookie: string | undefined,
     @Query("businessId") id: string,
   ) {
     return this.orders.courier(cookie, id).then((orders) => ({ orders }));
   }
-  @Get('eligible-couriers') eligibleCouriers(
+  @Get('eligible-couriers')
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  eligibleCouriers(
     @Headers('cookie') cookie: string | undefined,
     @Query('businessId') businessId: string,
     @Query('page') page: string | undefined,
   ) {
     return this.orders.eligibleCouriers(cookie, businessId, page);
   }
-  @Patch(":id/status") transition(
+  @Patch(":id/status")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  transition(
     @Headers("cookie") cookie: string | undefined,
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
@@ -52,14 +71,20 @@ export class OrderController {
       .transition(cookie, id, body)
       .then((order) => ({ order }));
   }
-  @Post(":id/ratings") rate(
+  @Post(":id/ratings")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  rate(
     @Headers("cookie") cookie: string | undefined,
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
   ) {
     return this.orders.rate(cookie, id, body).then(() => ({ rated: true }));
   }
-  @Post(":id/location") location(
+  @Post(":id/location")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  location(
     @Headers("cookie") cookie: string | undefined,
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
@@ -68,7 +93,10 @@ export class OrderController {
       .location(cookie, id, body)
       .then(() => ({ recorded: true }));
   }
-  @Get(":id/tracking") tracking(
+  @Get(":id/tracking")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  tracking(
     @Headers("cookie") cookie: string | undefined,
     @Param("id") id: string,
   ) {

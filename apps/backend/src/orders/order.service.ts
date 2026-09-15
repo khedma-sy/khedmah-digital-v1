@@ -7,10 +7,8 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { BusinessProfileRepository } from "../business-profiles/business-profile.repository";
-import { IdentityRepository } from "../identity/identity.repository";
 import { IdentityService } from "../identity/identity.service";
 import { readSessionToken } from "../identity/session-cookie";
-import { NotificationService } from "../notifications/notification.service";
 import { OrderRepository } from "./order.repository";
 import type {
   FulfillmentOrder,
@@ -37,21 +35,27 @@ export class OrderService {
     @Inject(OrderRepository) private readonly repo: OrderRepository,
     @Inject(BusinessProfileRepository) private readonly businesses: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
-    @Inject(IdentityRepository) private readonly audits: IdentityRepository,
-    @Inject(NotificationService) private readonly notifications: NotificationService,
   ) {}
 
   async create(cookie: string | undefined, value: Record<string, unknown>, keyValue: unknown): Promise<PublicFulfillmentOrder> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const input = validateCreateOrder(value);
     const key = validateIdempotency(keyValue);
+    const matchesRequest = (candidate: FulfillmentOrder) => {
+      const sameItems = candidate.items.length === input.items.length && candidate.items.every((item) => input.items.some((requested) => requested.productListingId === item.productListingId && requested.quantity === item.quantity));
+      return sameItems
+        && candidate.deliveryAddress === input.deliveryAddress
+        && candidate.customerPhone === input.customerPhone
+        && candidate.deliveryLatitude === input.deliveryLatitude
+        && candidate.deliveryLongitude === input.deliveryLongitude
+        && candidate.customerNote === input.customerNote
+        && candidate.prescriptionAttested === input.prescriptionAttested;
+    };
     const prior = await this.repo.findIdempotent(actor.id, key);
     if (prior) {
-      const sameItems = prior.items.length === input.items.length && prior.items.every((item) => input.items.some((candidate) => candidate.productListingId === item.productListingId && candidate.quantity === item.quantity));
-      if (!sameItems || prior.deliveryAddress !== input.deliveryAddress || prior.customerPhone !== input.customerPhone || prior.customerNote !== input.customerNote || prior.prescriptionAttested !== input.prescriptionAttested) {
+      if (!matchesRequest(prior)) {
         throw new BadRequestException("Idempotency-Key was already used for a different order.");
       }
-      await this.notifyCreated(prior);
       return expose(prior, "customer");
     }
     const products = await this.repo.findProducts(input.items.map((i) => i.productListingId));
@@ -83,10 +87,19 @@ export class OrderService {
       customerNote: input.customerNote, prescriptionAttested: input.prescriptionAttested,
       pharmacyReviewStatus: vertical === "pharmacy" ? "pending" : "not_required", items, createdAt: now, updatedAt: now,
     };
-    const created = await this.repo.create(order, key);
-    await this.audits.appendAuditLog("fulfillment.order.created", { actorUserId: actor.id, correlationId: created.id });
-    await this.notifyCreated(created);
-    return expose(created, "customer");
+    try {
+      const created = await this.repo.create(order, key);
+      return expose(created, "customer");
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505") {
+        const winner = await this.repo.findIdempotent(actor.id, key);
+        if (winner) {
+          if (!matchesRequest(winner)) throw new BadRequestException("Idempotency-Key was already used for a different order.");
+          return expose(winner, "customer");
+        }
+      }
+      throw error;
+    }
   }
 
   async mine(cookie: string | undefined) {
@@ -97,7 +110,7 @@ export class OrderService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const b = await this.businesses.findById(businessId);
     if (!b || b.ownerUserId !== actor.id) throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForMerchant(businessId)).map((order) => expose(order, "merchant"));
+    return (await this.repo.listForMerchant(businessId, actor.id)).map((order) => expose(order, "merchant"));
   }
   async eligibleCouriers(cookie: string | undefined, businessId: string, pageValue?: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
@@ -111,7 +124,7 @@ export class OrderService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const b = await this.businesses.findById(businessId);
     if (!b || b.ownerUserId !== actor.id || b.categoryCode !== "delivery_courier") throw new ForbiddenException("Access denied.");
-    return (await this.repo.listForCourier(businessId)).map((order) => expose(order, "courier"));
+    return (await this.repo.listForCourier(businessId, actor.id)).map((order) => expose(order, "courier"));
   }
 
   async transition(cookie: string | undefined, id: string, value: Record<string, unknown>) {
@@ -124,70 +137,49 @@ export class OrderService {
     const courier = o.courierOwnerUserId === actor.id;
     let options: Parameters<OrderRepository["transition"]>[3] = {};
     if (customer) {
+      options = { authority: "customer" };
       if (!customerTransitions[o.status]?.includes(action.status)) throw new BadRequestException("Customer transition is not allowed.");
     } else if (merchant) {
+      options = { authority: "merchant" };
       if (o.status === "placed" && action.status === "quoted") {
         if (action.deliveryFee === undefined) throw new BadRequestException("deliveryFee is required.");
         if (o.vertical === "pharmacy" && !action.pharmacyApproved) throw new BadRequestException("Pharmacist approval is required.");
-        options = { deliveryFee: action.deliveryFee, pharmacyReviewStatus: o.vertical === "pharmacy" ? "approved" : "not_required" };
+        options = { ...options, deliveryFee: action.deliveryFee, pharmacyReviewStatus: o.vertical === "pharmacy" ? "approved" : "not_required" };
       } else if (o.status === "merchant_confirmed" && action.status === "courier_assigned") {
         if (!action.courierBusinessId) throw new BadRequestException("courierBusinessId is required.");
-        const b = await this.businesses.findById(action.courierBusinessId);
-        if (!b || b.categoryCode !== "delivery_courier" || b.visibility !== "public" || b.trustStatus !== "approved" || b.moderationStatus !== "approved" || b.status !== "active" || await this.repo.countApprovedMobilityDocuments(b.id) !== 4) {
-          throw new BadRequestException("Courier is not eligible.");
-        }
-        options = { courierBusinessId: b.id };
+        const eligibility = await this.assertCourierEligible(action.courierBusinessId, o.merchantBusinessId);
+        options = { ...options, courierBusinessId: action.courierBusinessId, ...eligibility };
       } else if (o.status === "courier_accepted" && action.status === "ready_for_pickup") {
       } else if (["placed", "quoted"].includes(o.status) && action.status === "rejected") {
         if (!action.reason) throw new BadRequestException("reason is required.");
-        options = { reason: action.reason, pharmacyReviewStatus: o.vertical === "pharmacy" ? "rejected" : o.pharmacyReviewStatus };
+        options = { ...options, reason: action.reason, pharmacyReviewStatus: o.vertical === "pharmacy" ? "rejected" : o.pharmacyReviewStatus };
       } else throw new BadRequestException("Merchant transition is not allowed.");
     } else if (courier) {
+      options = { authority: "courier", expectedCourierBusinessId: o.courierBusinessId };
       if (o.status === "courier_assigned" && action.status === "courier_accepted") {
-        await this.assertCourierEligible(o.courierBusinessId);
+        options = { ...options, ...await this.assertCourierEligible(o.courierBusinessId, o.merchantBusinessId) };
       } else if (o.status === "courier_assigned" && action.status === "merchant_confirmed") {
-        options = { reason: action.reason ?? "Courier declined", clearCourierBusinessId: true };
+        options = { ...options, reason: action.reason ?? "Courier declined", clearCourierBusinessId: true };
       } else if (o.status === "ready_for_pickup" && action.status === "picked_up") {
-        await this.assertCourierEligible(o.courierBusinessId);
+        options = { ...options, ...await this.assertCourierEligible(o.courierBusinessId, o.merchantBusinessId) };
       } else if (o.status === "picked_up" && action.status === "delivered") {
       } else throw new BadRequestException("Courier transition is not allowed.");
     } else throw new ForbiddenException("Access denied.");
 
     const updated = await this.repo.transition(o, action.status, actor.id, options);
     if (!updated) throw new BadRequestException("Order changed; refresh and retry.");
-    await this.audits.appendAuditLog("fulfillment.order.status_changed", { actorUserId: actor.id, correlationId: `${updated.id}:${o.status}:${updated.status}` });
-    await this.notifyStatus(updated, actor.id);
     return expose(updated, customer ? "customer" : merchant ? "merchant" : "courier");
   }
 
-  private async notifyCreated(order: FulfillmentOrder): Promise<void> {
-    if (!order.merchantOwnerUserId) return;
-    await this.notifications.publish({ userId: order.merchantOwnerUserId, eventKey: `${order.id}:placed:${order.merchantOwnerUserId}`,
-      eventType: 'order.created', referenceType: 'order', referenceId: order.id, title: 'طلب جديد',
-      body: order.vertical === 'food' ? 'وصل طلب طعام جديد. افتحه للمراجعة والقبول.' : 'وصل طلب جديد. افتحه للمراجعة.',
-      metadata: { status: order.status, vertical: order.vertical } });
-  }
-
-  private async notifyStatus(order: FulfillmentOrder, actorId: string): Promise<void> {
-    const recipients = new Set([order.customerUserId, order.merchantOwnerUserId, order.courierOwnerUserId].filter((id): id is string => Boolean(id) && id !== actorId));
-    const messages: Record<OrderStatus, [string, string]> = {
-      placed: ['طلب جديد', 'تم إنشاء الطلب.'], quoted: ['تم تسعير الطلب', 'أرسل المتجر السعر ورسوم التوصيل.'],
-      merchant_confirmed: ['تم تأكيد الطلب', 'أكد الزبون الطلب وأصبح جاهزاً للمتابعة.'], courier_assigned: ['مهمة توصيل جديدة', 'تم إسناد طلب توصيل إليك. اقبله أو ارفضه.'],
-      courier_accepted: ['قُبلت مهمة التوصيل', 'وافق المندوب على توصيل الطلب.'], ready_for_pickup: ['الطلب جاهز للاستلام', 'يمكن للمندوب استلام الطلب الآن.'],
-      picked_up: ['الطلب في الطريق', 'استلم المندوب الطلب وبدأ التوصيل.'], delivered: ['تم تسليم الطلب', 'اكتملت رحلة الطلب بنجاح.'],
-      rejected: ['تعذر قبول الطلب', 'رفض المتجر الطلب. راجع التفاصيل.'], cancelled: ['أُلغي الطلب', 'تم إلغاء الطلب.']
-    };
-    const [title, body] = messages[order.status];
-    await Promise.all([...recipients].map(userId => this.notifications.publish({ userId,
-      eventKey: `${order.id}:${order.status}:${userId}`, eventType: 'order.status_changed', referenceType: 'order', referenceId: order.id,
-      title, body, metadata: { status: order.status, vertical: order.vertical } })));
-  }
-
-  private async assertCourierEligible(businessId?: string) {
-    const b = businessId ? await this.businesses.findById(businessId) : undefined;
-    if (!b || b.categoryCode !== "delivery_courier" || b.visibility !== "public" || b.trustStatus !== "approved" || b.moderationStatus !== "approved" || b.status !== "active" || await this.repo.countApprovedMobilityDocuments(b.id) !== 4) {
+  private async assertCourierEligible(businessId: string | undefined, merchantBusinessId: string) {
+    const [courier, merchant] = await Promise.all([
+      businessId ? this.businesses.findById(businessId) : undefined,
+      this.businesses.findById(merchantBusinessId),
+    ]);
+    if (!courier || !merchant || courier.categoryCode !== "delivery_courier" || courier.cityCode !== merchant.cityCode || courier.visibility !== "public" || courier.trustStatus !== "approved" || courier.moderationStatus !== "approved" || courier.status !== "active" || await this.repo.countApprovedMobilityDocuments(courier.id) !== 4) {
       throw new BadRequestException("Courier is not eligible.");
     }
+    return { eligibleCourierBusinessId: courier.id };
   }
 
   async rate(cookie: string | undefined, id: string, value: Record<string, unknown>) {
@@ -219,18 +211,15 @@ export class OrderService {
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180 || (accuracy !== undefined && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 5000))) {
       throw new BadRequestException("Location is invalid.");
     }
-    await this.repo.recordLocation(order, latitude, longitude, accuracy);
+    if (!await this.repo.recordLocation(order, actor.id, latitude, longitude, accuracy)) throw new BadRequestException("Order changed; refresh and retry.");
   }
 
   async tracking(cookie: string | undefined, id: string) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    const order = await this.repo.findById(id);
-    if (!order) throw new NotFoundException("Order was not found.");
-    if (![order.customerUserId, order.merchantOwnerUserId, order.courierOwnerUserId].includes(actor.id)) throw new ForbiddenException("Access denied.");
-    return {
-      status: order.status,
-      location: ["courier_accepted", "ready_for_pickup", "picked_up"].includes(order.status) ? await this.repo.latestLocation(id) : undefined,
-    };
+    const tracking = await this.repo.trackingForActor(id, actor.id);
+    if (!tracking) throw new NotFoundException("Order was not found.");
+    if (!tracking.authorized) throw new ForbiddenException("Access denied.");
+    return { status: tracking.status, location: tracking.location };
   }
 }
 

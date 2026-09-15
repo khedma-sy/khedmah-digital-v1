@@ -10,6 +10,7 @@ test('checkout and courier assignment fail closed when a provider loses eligibil
   for(const gate of ["b.visibility='public'","b.moderation_status='approved'","b.trust_status='approved'","b.status='active'"]){
     assert.match(products,new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
   }
-  assert.match(service,/countApprovedMobilityDocuments\(b\.id\)/);
-  assert.match(service,/b\.status !== "active"/);
+  assert.match(service,/countApprovedMobilityDocuments\(courier\.id\)/);
+  assert.match(service,/courier\.cityCode !== merchant\.cityCode/);
+  assert.match(service,/courier\.status !== "active"/);
 });

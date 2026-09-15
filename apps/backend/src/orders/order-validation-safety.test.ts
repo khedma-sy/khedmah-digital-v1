@@ -14,7 +14,7 @@ test('eligible courier discovery is restricted to the merchant owner and the mer
   const calls:unknown[]=[];
   const repo={eligibleCouriers:async(...args:unknown[])=>{calls.push(args);return {couriers:[],total:0,page:1,limit:20};}};
   const business={id:'merchant',ownerUserId:'owner',categoryCode:'restaurant',cityCode:'damascus'};
-  const make=(actor:string)=>new OrderService(repo as never,{findById:async()=>business} as never,{getCurrentUser:async()=>({id:actor})} as never,{} as never,{} as never);
+  const make=(actor:string)=>new OrderService(repo as never,{findById:async()=>business} as never,{getCurrentUser:async()=>({id:actor})} as never);
   await assert.rejects(make('stranger').eligibleCouriers('fixture','merchant'),/Access denied/);assert.equal(calls.length,0);
   await make('owner').eligibleCouriers('fixture','merchant','2');assert.deepEqual(calls,[['damascus',2]]);
   await assert.rejects(make('owner').eligibleCouriers('fixture','merchant','-1'),/page is invalid/);

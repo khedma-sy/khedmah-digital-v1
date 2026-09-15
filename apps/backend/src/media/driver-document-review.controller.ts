@@ -7,12 +7,14 @@ export class DriverDocumentReviewController {
 
   @Get('review-queue')
   @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   queue(@Headers('cookie') cookie: string | undefined) {
     return this.documents.reviewQueue(cookie);
   }
 
   @Get('business/:businessId')
   @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   list(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('businessId') businessId: string
@@ -32,6 +34,8 @@ export class DriverDocumentReviewController {
   }
 
   @Post(':id/review')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   review(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('id') id: string,

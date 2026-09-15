@@ -2,8 +2,9 @@ FROM postgres:16-alpine
 
 RUN apk add --no-cache python3
 COPY backend/migrations/versions/030_billing_credits_subscriptions.sql /migrations/030_billing_credits_subscriptions.sql
+COPY backend/migrations/versions/033_billing_admin_role.sql /migrations/033_billing_admin_role.sql
 COPY scripts/deployment/run-billing-nonproduction-migration.sh /usr/local/bin/run-billing-nonproduction-migration
-RUN chmod 0555 /usr/local/bin/run-billing-nonproduction-migration /migrations/030_billing_credits_subscriptions.sql \
+RUN chmod 0555 /usr/local/bin/run-billing-nonproduction-migration /migrations/030_billing_credits_subscriptions.sql /migrations/033_billing_admin_role.sql \
     && chmod -R a-w /migrations
 USER postgres
 ENTRYPOINT ["/usr/local/bin/run-billing-nonproduction-migration"]

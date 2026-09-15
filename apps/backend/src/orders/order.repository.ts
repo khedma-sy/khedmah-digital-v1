@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import type { PoolClient } from "pg";
 import { DatabasePool } from "../database/database.pool";
 import type {
   FulfillmentOrder,
@@ -66,6 +67,23 @@ interface ItemRow extends Record<string, unknown> {
 const projection = `o.*, merchant.owner_user_id AS merchant_owner_user_id, merchant.name AS merchant_name,
  merchant.address_ar AS pickup_address, merchant.phone AS merchant_phone,
  courier.owner_user_id AS courier_owner_user_id, courier.name AS courier_name, courier.phone AS courier_phone`;
+
+const statusMessages: Record<OrderStatus, readonly [string, string]> = {
+  placed: ['طلب جديد', 'تم إنشاء الطلب.'], quoted: ['تم تسعير الطلب', 'أرسل المتجر السعر ورسوم التوصيل.'],
+  merchant_confirmed: ['تم تأكيد الطلب', 'أكد الزبون الطلب وأصبح جاهزاً للمتابعة.'], courier_assigned: ['مهمة توصيل جديدة', 'تم إسناد طلب توصيل إليك. اقبله أو ارفضه.'],
+  courier_accepted: ['قُبلت مهمة التوصيل', 'وافق المندوب على توصيل الطلب.'], ready_for_pickup: ['الطلب جاهز للاستلام', 'يمكن للمندوب استلام الطلب الآن.'],
+  picked_up: ['الطلب في الطريق', 'استلم المندوب الطلب وبدأ التوصيل.'], delivered: ['تم تسليم الطلب', 'اكتملت رحلة الطلب بنجاح.'],
+  rejected: ['تعذر قبول الطلب', 'رفض المتجر الطلب. راجع التفاصيل.'], cancelled: ['أُلغي الطلب', 'تم إلغاء الطلب.'],
+};
+
+async function insertNotification(client: PoolClient, input: { userId: string; orderId: string; status: OrderStatus; vertical: OrderVertical; eventType: 'order.created' | 'order.status_changed'; title: string; body: string; transitionEventId?: string; fromStatus?: OrderStatus; reason?: string; }) {
+  await client.query(
+    `INSERT INTO platform_notifications (id,user_id,event_key,event_type,reference_type,reference_id,title,body,metadata)
+     VALUES($1,$2,$3,$4,'order',$5,$6,$7,$8::jsonb)
+     ON CONFLICT(user_id,event_key) DO NOTHING`,
+    [randomUUID(), input.userId, `${input.orderId}:${input.transitionEventId ?? input.status}:${input.userId}`, input.eventType, input.orderId, input.title, input.body, JSON.stringify({ status: input.status, vertical: input.vertical, ...(input.fromStatus ? { fromStatus: input.fromStatus } : {}), ...(input.reason ? { reason: input.reason } : {}) })],
+  );
+}
 
 @Injectable()
 export class OrderRepository {
@@ -149,6 +167,17 @@ export class OrderRepository {
         `INSERT INTO fulfillment_order_events (id,order_id,actor_user_id,from_status,to_status,occurred_at) VALUES ($1,$2,$3,NULL,'placed',$4)`,
         [randomUUID(), order.id, order.customerUserId, order.createdAt],
       );
+      await client.query(
+        `INSERT INTO audit_logs(id,event_type,actor_user_id,correlation_id,occurred_at)
+         VALUES($1,'fulfillment.order.created',$2,$3,$4)`,
+        [randomUUID(), order.customerUserId, order.id, order.createdAt],
+      );
+      const merchant = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1`, [order.merchantBusinessId]);
+      if (merchant.rows[0]) await insertNotification(client, {
+        userId: merchant.rows[0].owner_user_id, orderId: order.id, status: 'placed', vertical: order.vertical,
+        eventType: 'order.created', title: 'طلب جديد',
+        body: order.vertical === 'food' ? 'وصل طلب طعام جديد. افتحه للمراجعة والقبول.' : 'وصل طلب جديد. افتحه للمراجعة.',
+      });
     });
     return (await this.findById(order.id))!;
   }
@@ -170,8 +199,8 @@ export class OrderRepository {
     return row ? this.findById(row.id) : undefined;
   }
   async listForCustomer(id: string) { return this.list(`o.customer_user_id=$1`, [id]); }
-  async listForMerchant(id: string) { return this.list(`o.merchant_business_id=$1`, [id]); }
-  async listForCourier(id: string) { return this.list(`o.courier_business_id=$1`, [id]); }
+  async listForMerchant(id: string, ownerUserId: string) { return this.list(`o.merchant_business_id=$1 AND merchant.owner_user_id=$2`, [id, ownerUserId]); }
+  async listForCourier(id: string, ownerUserId: string) { return this.list(`o.courier_business_id=$1 AND courier.owner_user_id=$2`, [id, ownerUserId]); }
   private async list(where: string, params: unknown[]) {
     const rows = await this.db.query<OrderRow>(
       `SELECT ${projection} FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id WHERE ${where} ORDER BY o.created_at DESC LIMIT 100`, params,
@@ -192,18 +221,79 @@ export class OrderRepository {
     return grouped;
   }
 
-  async transition(order: FulfillmentOrder, next: OrderStatus, actor: string, options: { deliveryFee?: number; courierBusinessId?: string; clearCourierBusinessId?: boolean; reason?: string; pharmacyReviewStatus?: FulfillmentOrder["pharmacyReviewStatus"]; } = {}): Promise<FulfillmentOrder | undefined> {
+  async transition(order: FulfillmentOrder, next: OrderStatus, actor: string, options: { authority?: "customer" | "merchant" | "courier"; deliveryFee?: number; courierBusinessId?: string; clearCourierBusinessId?: boolean; reason?: string; pharmacyReviewStatus?: FulfillmentOrder["pharmacyReviewStatus"]; eligibleCourierBusinessId?: string; expectedCourierBusinessId?: string; } = {}): Promise<FulfillmentOrder | undefined> {
     const now = new Date().toISOString();
     const changed = await this.db.transaction(async (client) => {
+      const protectedBusinessIds = [...new Set([
+        order.merchantBusinessId,
+        options.eligibleCourierBusinessId,
+        options.expectedCourierBusinessId,
+      ].filter((id): id is string => Boolean(id)))].sort();
+      await client.query(
+        `SELECT id FROM business_profiles WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE`,
+        [protectedBusinessIds],
+      );
+      if (options.eligibleCourierBusinessId) {
+        await client.query(
+          `SELECT id FROM media_assets
+           WHERE owner_type='business_profile' AND owner_id=$1
+             AND asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+           ORDER BY id FOR UPDATE`,
+          [options.eligibleCourierBusinessId],
+        );
+      }
       const result = await client.query(
-        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8 WHERE id=$1 AND status=$2 RETURNING id`,
-        [order.id, order.status, next, options.deliveryFee ?? null, options.courierBusinessId ?? null, options.pharmacyReviewStatus ?? null, options.reason ?? null, now, options.clearCourierBusinessId ?? false],
+        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8
+         WHERE id=$1 AND status=$2
+           AND (
+             ($13::text='customer' AND customer_user_id=$12)
+             OR ($13::text='merchant' AND EXISTS (SELECT 1 FROM business_profiles live_merchant WHERE live_merchant.id=fulfillment_orders.merchant_business_id AND live_merchant.owner_user_id=$12))
+             OR ($13::text='courier' AND EXISTS (SELECT 1 FROM business_profiles live_courier WHERE live_courier.id=fulfillment_orders.courier_business_id AND live_courier.owner_user_id=$12))
+           )
+           AND ($11::text IS NULL OR courier_business_id=$11)
+           AND ($10::text IS NULL OR (
+             (($5::text IS NOT NULL AND $5=$10) OR ($5::text IS NULL AND courier_business_id=$10))
+             AND EXISTS (
+             SELECT 1 FROM business_profiles eligible
+             WHERE eligible.id=$10 AND eligible.category_code='delivery_courier'
+               AND eligible.city_code=(SELECT merchant.city_code FROM business_profiles merchant WHERE merchant.id=fulfillment_orders.merchant_business_id)
+               AND eligible.visibility='public' AND eligible.status='active'
+               AND eligible.trust_status='approved' AND eligible.moderation_status='approved'
+               AND (SELECT COUNT(*) FROM (
+                 SELECT DISTINCT ON (document_type) document_type,status
+                 FROM mobility_document_reviews WHERE business_profile_id=eligible.id
+                   AND document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+                 ORDER BY document_type,created_at DESC,media_asset_id DESC
+               ) latest WHERE latest.status='approved')=4
+             )
+           ))
+         RETURNING id`,
+        [order.id, order.status, next, options.deliveryFee ?? null, options.courierBusinessId ?? null, options.pharmacyReviewStatus ?? null, options.reason ?? null, now, options.clearCourierBusinessId ?? false, options.eligibleCourierBusinessId ?? null, options.expectedCourierBusinessId ?? null, actor, options.authority ?? null],
       );
       if (!result.rowCount) return false;
+      const transitionEventId = randomUUID();
       await client.query(
         `INSERT INTO fulfillment_order_events(id,order_id,actor_user_id,from_status,to_status,reason,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-        [randomUUID(), order.id, actor, order.status, next, options.reason ?? null, now],
+        [transitionEventId, order.id, actor, order.status, next, options.reason ?? null, now],
       );
+      await client.query(
+        `INSERT INTO audit_logs(id,event_type,actor_user_id,correlation_id,occurred_at)
+         VALUES($1,'fulfillment.order.status_changed',$2,$3,$4)`,
+        [randomUUID(), actor, `${order.id}:${order.status}:${next}`, now],
+      );
+      const parties = await client.query<{ customer_user_id: string; merchant_owner_user_id: string; courier_owner_user_id: string | null; vertical: OrderVertical }>(
+        `SELECT o.customer_user_id,merchant.owner_user_id AS merchant_owner_user_id,courier.owner_user_id AS courier_owner_user_id,o.vertical
+         FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id
+         LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id WHERE o.id=$1`, [order.id],
+      );
+      const party = parties.rows[0];
+      if (party) {
+        const [title, body] = options.clearCourierBusinessId
+          ? ['جاري اختيار مندوب آخر', 'اعتذر المندوب الحالي عن المهمة، ويجري إسناد الطلب إلى مندوب آخر.']
+          : statusMessages[next];
+        const recipients = new Set([party.customer_user_id, party.merchant_owner_user_id, party.courier_owner_user_id].filter((id): id is string => Boolean(id) && id !== actor));
+        for (const userId of recipients) await insertNotification(client, { userId, orderId: order.id, status: next, vertical: party.vertical, eventType: 'order.status_changed', title, body, transitionEventId, fromStatus: order.status, reason: options.reason });
+      }
       return true;
     });
     return changed ? this.findById(order.id) : undefined;
@@ -217,17 +307,48 @@ export class OrderRepository {
       [randomUUID(), order.id, order.customerUserId, targetType, target, score, comment ?? null],
     );
   }
-  async recordLocation(order: FulfillmentOrder, latitude: number, longitude: number, accuracy?: number) {
-    await this.db.query(
-      `INSERT INTO fulfillment_order_location_updates(id,order_id,courier_business_id,latitude,longitude,accuracy_meters,recorded_at) VALUES($1,$2,$3,$4,$5,$6,NOW()) ON CONFLICT (order_id) DO UPDATE SET courier_business_id=EXCLUDED.courier_business_id,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,accuracy_meters=EXCLUDED.accuracy_meters,recorded_at=EXCLUDED.recorded_at`,
-      [randomUUID(), order.id, order.courierBusinessId, latitude, longitude, accuracy ?? null],
-    );
+  async recordLocation(order: FulfillmentOrder, actorUserId: string, latitude: number, longitude: number, accuracy?: number) {
+    if (!order.courierBusinessId) return false;
+    return this.db.transaction(async (client) => {
+      await client.query(`SELECT id FROM business_profiles WHERE id=$1 FOR UPDATE`, [order.courierBusinessId]);
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO fulfillment_order_location_updates(id,order_id,courier_business_id,latitude,longitude,accuracy_meters,recorded_at)
+         SELECT $1,o.id,o.courier_business_id,$5,$6,$7,NOW()
+         FROM fulfillment_orders o JOIN business_profiles courier ON courier.id=o.courier_business_id
+         WHERE o.id=$2 AND courier.owner_user_id=$3 AND o.courier_business_id=$4
+           AND o.status IN ('courier_accepted','ready_for_pickup','picked_up')
+         ON CONFLICT (order_id) DO UPDATE SET courier_business_id=EXCLUDED.courier_business_id,latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,accuracy_meters=EXCLUDED.accuracy_meters,recorded_at=EXCLUDED.recorded_at
+         RETURNING id`,
+        [randomUUID(), order.id, actorUserId, order.courierBusinessId, latitude, longitude, accuracy ?? null],
+      );
+      return result.rowCount === 1;
+    });
   }
-  async latestLocation(orderId: string) {
-    const [row] = await this.db.query<{ latitude: string; longitude: string; accuracy_meters: string | null; recorded_at: Date; } & Record<string, unknown>>(
-      `SELECT latitude,longitude,accuracy_meters,recorded_at FROM fulfillment_order_location_updates WHERE order_id=$1 ORDER BY recorded_at DESC LIMIT 1`, [orderId],
+  async trackingForActor(orderId: string, actorUserId: string) {
+    const [row] = await this.db.query<{ status: OrderStatus; authorized: boolean; latitude: string | null; longitude: string | null; accuracy_meters: string | null; recorded_at: Date | null; } & Record<string, unknown>>(
+      `SELECT o.status,
+         COALESCE(o.customer_user_id=$2 OR merchant.owner_user_id=$2 OR courier.owner_user_id=$2,false) AS authorized,
+         location.latitude,location.longitude,location.accuracy_meters,location.recorded_at
+       FROM fulfillment_orders o
+       JOIN business_profiles merchant ON merchant.id=o.merchant_business_id
+       LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id
+       LEFT JOIN LATERAL (
+         SELECT latitude,longitude,accuracy_meters,recorded_at
+         FROM fulfillment_order_location_updates WHERE order_id=o.id
+       ) location ON o.status IN ('courier_accepted','ready_for_pickup','picked_up')
+         AND (o.customer_user_id=$2 OR merchant.owner_user_id=$2 OR courier.owner_user_id=$2)
+       WHERE o.id=$1`, [orderId, actorUserId],
     );
-    return row ? { latitude: Number(row.latitude), longitude: Number(row.longitude), accuracyMeters: row.accuracy_meters === null ? undefined : Number(row.accuracy_meters), recordedAt: row.recorded_at.toISOString() } : undefined;
+    if (!row) return undefined;
+    return {
+      status: row.status,
+      authorized: row.authorized,
+      location: row.latitude === null || row.longitude === null || row.recorded_at === null ? undefined : {
+        latitude: Number(row.latitude), longitude: Number(row.longitude),
+        accuracyMeters: row.accuracy_meters === null ? undefined : Number(row.accuracy_meters),
+        recordedAt: row.recorded_at.toISOString(),
+      },
+    };
   }
 }
 

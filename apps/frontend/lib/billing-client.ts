@@ -1,5 +1,5 @@
 export interface BillingPlan { code:string; nameAr:string; billingCycle:'monthly'|'annual'; durationMonths:number; priceMinor:number; pointsGranted:number; features:string[] }
-export interface BillingOrder { id:string; planCode:string; amountMinor:number; discountMinor:number; totalMinor:number; promoCode?:string; status:'pending'|'paid'|'cancelled'|'expired'; externalReference?:string; createdAt:string; paidAt?:string }
+export interface BillingOrder { id:string; planCode:string; amountMinor:number; discountMinor:number; totalMinor:number; currency:'SYP'; currencyEra:'SYP_NEW_2026'; promoCode?:string; status:'pending'|'paid'|'cancelled'|'expired'; externalReference?:string; createdAt:string; paidAt?:string }
 export interface BillingQuote { plan:BillingPlan; promo?:{code:string;percentageOff:number;messageAr:string}; amountMinor:number; discountMinor:number; totalMinor:number }
 export interface BillingAccount { pointsAvailable:number; orders:BillingOrder[]; subscriptions:Array<{id:string;planCode:string;status:string;periodEnd:string}> }
 export const billingMoney = (minor:number) => `${(minor/100).toLocaleString('ar-SY-u-nu-latn',{maximumFractionDigits:2})} ل.س جديدة`;
@@ -11,6 +11,8 @@ export function billingError(error:unknown):string {
   if(/quoted total changed/.test(message))return 'تغير السعر؛ راجع الإجمالي مجددًا قبل إنشاء الطلب.';
   if(/reference already belongs/.test(message))return 'مرجع السداد مستخدم لطلب آخر؛ لا يمكن احتساب المبلغ مرتين.';
   if(/different payment reference/.test(message))return 'أُكد هذا الطلب بمرجع سداد مختلف.';
+  if(/review attestation/.test(message))return 'يجب الإقرار بمطابقة السداد قبل تأكيده.';
+  if(/amount or currency does not match/.test(message))return 'تغيرت بيانات الطلب؛ حدّث القائمة وطابق المبلغ والعملة مجددًا.';
   if(/separate billing administrator/.test(message))return 'يجب أن يراجع هذا السداد مسؤول فوترة آخر.';
   if(/access denied/.test(message))return 'هذا الحساب لا يملك صلاحية مراجعة المدفوعات.';
   return 'تعذر إتمام العملية. حدّث البيانات وأعد المحاولة؛ لا يُعد الطلب مدفوعًا حتى يظهر تأكيد السداد.';
@@ -30,5 +32,5 @@ export const billingApi={
   create:(planCode:string,promoCode:string,requestId:string,expectedTotalMinor:number)=>request<{order:BillingOrder}>('/billing/orders',post({planCode,promoCode,requestId,expectedTotalMinor})),
   cancel:(id:string)=>request<{order:BillingOrder}>(`/billing/orders/${encodeURIComponent(id)}/cancel`,post({})),
   pending:()=>request<{orders:BillingOrder[]}>('/admin/billing/orders/pending'),
-  markPaid:(id:string,externalReference:string)=>request<{order:BillingOrder}>(`/admin/billing/orders/${encodeURIComponent(id)}/mark-paid`,post({externalReference}))
+  markPaid:(order:BillingOrder,externalReference:string,attested:boolean)=>request<{order:BillingOrder}>(`/admin/billing/orders/${encodeURIComponent(order.id)}/mark-paid`,post({externalReference,attested,confirmedTotalMinor:order.totalMinor,confirmedCurrency:order.currency,confirmedCurrencyEra:order.currencyEra}))
 };

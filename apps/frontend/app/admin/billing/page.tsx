@@ -21,7 +21,7 @@ export default function BillingAdminPage(){
   async function confirm(){
     if(!order||!checked||reference.trim().length<4||inFlight.current)return;
     inFlight.current=true;setBusy(true);setError('');setNotice('');
-    try{await billingApi.markPaid(order.id,reference.trim());setOrders(current=>current.filter(o=>o.id!==order.id));setSelected('');setReference('');setChecked(false);setNotice('تم تسجيل السداد وتفعيل الاشتراك ومنح النقاط. حُفظ مرجع السداد والمسؤول في سجل الفوترة.');}
+    try{await billingApi.markPaid(order,reference.trim(),checked);setOrders(current=>current.filter(o=>o.id!==order.id));setSelected('');setReference('');setChecked(false);setNotice('تم تسجيل السداد وتفعيل الاشتراك ومنح النقاط. حُفظ مرجع السداد والمسؤول في سجل الفوترة.');}
     catch(cause){setError(billingError(cause));}finally{inFlight.current=false;setBusy(false);}
   }
   return <PageShell className={styles.page} label="مراجعة سداد الباقات"><PageHeader title="مراجعة سداد الباقات" description="طابق الطلب مع السداد المستلم، ثم سجّل المرجع. تتطلب هذه الصفحة صلاحية إدارة الفوترة." backHref="/admin"/>
