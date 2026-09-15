@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evidenceRoutes, evidenceThemes, validateBaseUrl } from './capture-preview-evidence.mjs';
+import { installMainFocusTrace } from './preview-focus-trace.mjs';
 
 export function assessAssistantGeometry(snapshot) {
   const failures = [];
@@ -99,6 +100,7 @@ export async function main(env = process.env) {
   const widths = [320, 390];
   const expectedScenarios = evidenceRoutes.length * widths.length * evidenceThemes.length;
   const report = { schemaVersion: 2, capturedAt: new Date().toISOString(), headSha: env.PREVIEW_HEAD_SHA || null,
+    deployedHeadSha: env.PREVIEW_DEPLOYED_HEAD_SHA || env.PREVIEW_HEAD_SHA || null,
     checkoutSha: env.GITHUB_SHA || null, status: 'failed',
     scope: `Anonymous mobile UI only: ${evidenceRoutes.length} evidence routes at 320/390px and light/dark. Open/close assistant, Escape, focus return, and reachability of the last visible Khedmah-owned main control. Provider map internals are excluded from application-control reachability. Map-provider readiness is intentionally assessed by visual evidence, not duplicated here. No microphone, location permission, authentication, form submission or server writes.`, scenarios: [] };
   let browser;
@@ -118,6 +120,7 @@ export async function main(env = process.env) {
       try {
         context = await browser.newContext({ viewport: { width, height: width === 320 ? 740 : 844 }, locale: 'ar-SY', colorScheme: theme, reducedMotion: 'reduce' });
         page = await context.newPage(); page.setDefaultTimeout(6000);
+        await page.addInitScript(installMainFocusTrace);
         page.on('pageerror', () => { record.pageErrorCount += 1; });
         const response = await page.goto(new URL(route.path, origin).href, { waitUntil: 'domcontentloaded', timeout: 15000 });
         requireCondition(response?.ok(), 'HTTP_NOT_SUCCESS');
@@ -164,6 +167,7 @@ export async function main(env = process.env) {
         // Focus and hit testing only: never click a main form's submit button.
         const last = await lastApplicationControl(page);
         if (last) {
+          record.lastControlFocusStartedAt = await page.evaluate(() => performance.now());
           await last.scrollIntoViewIfNeeded(); await last.focus();
           record.lastControl = await last.evaluate(element => ({
             tag: element.tagName.toLowerCase(),
@@ -180,6 +184,8 @@ export async function main(env = process.env) {
         record.failures.push(typeof error.code === 'string' && /^[A-Z_]+$/.test(error.code) ? error.code : error.name === 'TimeoutError' ? 'INTERACTION_TIMEOUT' : 'INTERACTION_FAILED');
       } finally {
         if (page) {
+          try { record.mainFocusTrace = await page.evaluate(() => window.__khedmahReadMainFocusTrace?.() ?? []); }
+          catch { record.focusTraceUnavailable = true; }
           try { record.screenshot = `${stem}-${record.status}.png`; await page.screenshot({ path: resolve(directory, record.screenshot), fullPage: true, timeout: 10000 }); }
           catch { record.failures.push('SCREENSHOT_UNAVAILABLE'); record.status = 'failed'; delete record.screenshot; }
         }

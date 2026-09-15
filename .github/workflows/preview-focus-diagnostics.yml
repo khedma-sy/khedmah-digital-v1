@@ -1,0 +1,39 @@
+name: PR 175 focus diagnostics
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - scripts/check-preview-interactions.mjs
+      - scripts/preview-focus-trace.mjs
+      - .github/workflows/preview-focus-diagnostics.yml
+permissions:
+  contents: read
+jobs:
+  inspect-deployed-preview:
+    if: github.event.pull_request.number == 175 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/khedmah-browser" --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          "$RUNNER_TEMP/khedmah-browser/node_modules/.bin/playwright" install --with-deps chromium
+      # Temporary read-only diagnosis of the already deployed, anonymous PR175
+      # UI. This job neither deploys nor replaces any release/Preview gate.
+      - name: Trace the deployed UI without credentials or writes
+        env:
+          AFTER_URL: https://khedmah-pr-175-frontend-r4siuerfha-ew.a.run.app
+          PREVIEW_DEPLOYED_HEAD_SHA: fefe88c3a12db5ddbd234c8f7ffb57ae5efa6f91
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
+        run: node scripts/check-preview-interactions.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: preview-175-focus-diagnostics
+          path: preview-evidence/
+          if-no-files-found: error
+          retention-days: 7
