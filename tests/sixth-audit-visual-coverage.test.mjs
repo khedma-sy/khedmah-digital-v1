@@ -43,10 +43,36 @@ test('sixth audit visuals are executed by the existing read-only Preview evidenc
   assert.match(acceptance, /classifiedsReport\.status !== 'passed' \|\| sixthAuditVisualReport\.status !== 'passed'/);
 });
 
-test('Classifieds orange primary actions use the accessible dark semantic foreground', () => {
-  assert.match(css, /\.page :global\(\.ui-action-primary\)\{color:var\(--k-color-on-accent\);background:var\(--ads-accent\)\}/);
-  assert.match(css, /\.page :global\(\.ui-action-primary:hover\)\{color:var\(--k-color-on-accent\);background:color-mix\(in srgb,var\(--ads-accent\) 90%,#fff\)\}/);
+test('Classifieds pale orange actions retain measurable paint and theme-aware text', () => {
+  assert.match(css, /\.page :global\(\.ui-action-primary\)\{color:var\(--k-color-text\);background:var\(--k-color-orange-tint\)\}/);
+  assert.match(css, /\.page :global\(\.ui-action-primary:hover\)\{color:var\(--k-color-text\);background:var\(--k-color-orange-fade\)\}/);
   assert.doesNotMatch(css, /ui-action-primary:hover[^\n]*84%,#000/);
   assert.ok(contrast('#143653', '#fd9603') >= 4.5, 'canonical dark text must meet normal-text contrast on Khedmah orange');
   assert.ok(contrast('#ffffff', '#fd9603') < 4.5, 'white must remain rejected on Khedmah orange for normal text');
+});
+
+test('service gradients retain normal-text contrast throughout the fade in both themes', () => {
+  const tokens = read('apps/frontend/app/design-tokens.css');
+  const colors = (block) => Object.fromEntries([...block.matchAll(/(--[\w-]+):\s*(#[\da-f]{6});/gi)].map(([, key, value]) => [key, value]));
+  const light = colors(tokens.match(/:root\s*\{([^}]+)\}/)[1]);
+  const dark = { ...light, ...colors(tokens.match(/:root\[data-theme='dark'\]\s*\{([^}]+)\}/)[1]) };
+  assert.equal(light['--k-color-surface'], '#ffffff', 'light gradients must finish in white');
+  for (const [theme, palette] of Object.entries({ light, dark })) {
+    for (const tone of ['blue', 'green', 'orange']) {
+      const gradient = tokens.match(new RegExp(String.raw`--k-gradient-${tone}:\s*([^;]+);`))[1];
+      const stops = [...gradient.matchAll(/var\((--[\w-]+)\)/g)].map(([, key]) => palette[key]);
+      assert.equal(stops.length, 3);
+      assert.equal(stops.at(-1), palette['--k-color-surface']);
+      for (let segment = 0; segment < stops.length - 1; segment++) {
+        for (let step = 0; step <= 100; step++) {
+          const start = rgb(stops[segment]);
+          const end = rgb(stops[segment + 1]);
+          const background = '#' + start.map((channel, index) => Math.round(channel + (end[index] - channel) * step / 100).toString(16).padStart(2, '0')).join('');
+          for (const key of ['--k-color-text', '--k-color-text-muted', `--k-color-${tone}-text`]) {
+            assert.ok(contrast(palette[key], background) >= 4.5, `${theme}/${tone}/${key} must remain readable at segment ${segment}, step ${step}`);
+          }
+        }
+      }
+    }
+  }
 });

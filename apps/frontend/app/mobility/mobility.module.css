@@ -10,7 +10,7 @@
   margin-inline:auto;
   padding:clamp(1rem,2.4vw,1.5rem);
   border-color:color-mix(in srgb,var(--mobility-accent) 18%,var(--k-color-border));
-  background:color-mix(in srgb,var(--k-color-surface) 88%,transparent);
+  background:var(--k-gradient-green);
 }
 .typeSwitch,.actions,.providerActions{display:flex;flex-wrap:wrap;gap:.65rem}
 .typeSwitch{
@@ -91,7 +91,7 @@
   font-weight:800;
   text-decoration:none;
 }
-.providerActions a:first-child{border-color:var(--mobility-accent);color:#143653;background:var(--mobility-accent)}
+.providerActions a:first-child{border-color:var(--mobility-accent);color:var(--k-color-text);background:var(--k-gradient-green)}
 .disclaimer{
   max-width:58rem;
   margin:1.75rem auto 0;

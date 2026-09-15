@@ -57,12 +57,12 @@ test('category icons use semantic official brand tones instead of one global blu
   assert.match(themes, /catalog-category-icon\[data-category-tone='navy'\]/);
 });
 
-test('homepage restores blue identity and prioritizes launch services', () => {
+test('homepage blends lighter brand tones and prioritizes launch services', () => {
   assert.match(home, /href: '\/food'/);
   assert.match(home, /href: '\/mobility\?type=delivery'/);
   assert.match(home, /href: '\/taxi'/);
   assert.match(home, /href="\/store"/);
-  assert.match(homeStyles, /linear-gradient\(135deg,#052f59 0%,#07427c 58%,#0b4f8e 100%\)/i);
+  assert.match(homeStyles, /\.hero\s*\{[^}]*var\(--k-gradient-blue\)/i);
   assert.match(homeStyles, /\.foodCard/);
   assert.match(homeStyles, /\.deliveryCard/);
   assert.match(homeStyles, /\.taxiCard/);

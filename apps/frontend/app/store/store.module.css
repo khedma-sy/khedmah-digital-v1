@@ -3,9 +3,9 @@
   --store-accent:var(--brand-orange,#fd9603);
   --store-accent-soft:color-mix(in srgb,var(--store-accent) 10%,var(--k-color-surface));
 }
-.page :global(.ui-action-primary){color:var(--k-color-on-accent);background:var(--store-accent)}
-.page :global(.ui-action-primary:hover){color:var(--k-color-on-accent);background:color-mix(in srgb,var(--store-accent) 90%,#fff)}
-.page :global(.ui-eyebrow){color:var(--k-color-warning)}
+.page :global(.ui-action-primary){color:var(--k-color-text);background:var(--k-gradient-orange)}
+.page :global(.ui-action-primary:hover){color:var(--k-color-text);background:var(--k-gradient-orange)}
+.page :global(.ui-eyebrow){color:var(--k-color-orange-text)}
 .page :global(.ui-empty-icon){color:var(--store-accent);background:var(--store-accent-soft)}
 .toolbar{
   display:grid;

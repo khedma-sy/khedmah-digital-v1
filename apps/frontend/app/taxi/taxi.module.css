@@ -1,4 +1,4 @@
-.page{display:grid;gap:1rem;--taxi-navy:var(--k-color-primary);--taxi-green:var(--brand-green);background:linear-gradient(180deg,color-mix(in srgb,var(--taxi-navy) 5%,var(--k-color-canvas)),var(--k-color-canvas))}
+.page{display:grid;gap:1rem;--taxi-navy:var(--k-color-primary);--taxi-green:var(--brand-green);background:var(--k-gradient-blue)}
 .hero{display:grid;gap:.5rem}
 .switcher{display:flex;gap:.5rem;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(18rem,.9fr);gap:1rem;align-items:start}
