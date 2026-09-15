@@ -56,10 +56,13 @@ export function validateAdUpdate(value: unknown): ValidatedAdUpdate {
   };
 }
 
-export function validateAdSubmit(value: unknown): { clientRequestId: string } {
+export function validateAdSubmit(value: unknown): { clientRequestId: string; expectedContentRevision: number } {
   const body = asRecord(value);
-  rejectUnknown(body, new Set(['clientRequestId']));
-  return { clientRequestId: requestId(body.clientRequestId) };
+  rejectUnknown(body, new Set(['clientRequestId', 'expectedContentRevision']));
+  return {
+    clientRequestId: requestId(body.clientRequestId),
+    expectedContentRevision: positiveInteger(body.expectedContentRevision, 'expectedContentRevision')
+  };
 }
 
 export function validateAdRevisionAction(value: unknown): ValidatedAdRevisionAction {

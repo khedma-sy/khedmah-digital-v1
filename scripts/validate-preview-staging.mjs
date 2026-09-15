@@ -11,6 +11,8 @@ const requiredFiles = [
   'Dockerfile.taxi-pricing-migration', 'cloudbuild.taxi-pricing-migration.yaml',
   'scripts/deployment/ensure-billing-nonproduction-schema.sh', 'scripts/deployment/run-billing-nonproduction-migration.sh',
   'Dockerfile.billing-migration', 'cloudbuild.billing-migration.yaml',
+  'scripts/deployment/ensure-food-promotions-nonproduction-schema.sh', 'scripts/deployment/run-food-promotions-nonproduction-migration.sh',
+  'Dockerfile.food-promotions-migration', 'cloudbuild.food-promotions-migration.yaml',
   'scripts/deployment/cleanup-preview.sh', 'scripts/deployment/rollback-staging.sh', 'scripts/validate-environment-separation.mjs',
   'docs/deployment/PREVIEW-STAGING-ARCHITECTURE.md', 'docs/deployment/OWNER-REVIEW-GUIDE.md'
 ];
@@ -112,8 +114,14 @@ for (const required of ['Refusing Billing schema operation on the production pro
 const billingRunner = await readFile('scripts/deployment/run-billing-nonproduction-migration.sh','utf8');
 for (const required of ['030_billing_credits_subscriptions','033_billing_admin_role','Refusing Billing migration 030 against the production project','MIGRATION_030_PARTIAL_OR_UNVERIFIED_STATE','MIGRATION_033_PARTIAL_OR_UNVERIFIED_STATE',"pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-030',0))","pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-033',0))",'pg_get_constraintdef(c.oid)',"d.definition LIKE '%billing_admin%'",'SYP_NEW_2026','KHEDMA30']) if (!billingRunner.includes(required)) throw new Error(`Billing migration safety gate is missing: ${required}`);
 
+for (const required of ['ensure-food-promotions-nonproduction-schema.sh','FOOD_PROMOTIONS_MIGRATION_034_MODE','APPLY_KHEDMAH_NONPROD_034_${environment^^}']) if (!deployment.includes(required)) throw new Error(`Food promotion deployment gate is missing: ${required}`);
+const foodPromotionEnsure = await readFile('scripts/deployment/ensure-food-promotions-nonproduction-schema.sh','utf8');
+for (const required of ['Refusing food promotion schema operation on the production project','127206eb637c285b5fe8ed7bba389360562288e27cc3379d22596fb7dc2ac2dd','b59b8ae42b86bc505d9f2293579546a344e37ab1','FOOD_PROMOTIONS_034_FAILED_EXECUTION','FOOD_PROMOTIONS_034_CONTAINER_LOGS_BEGIN','cloudbuild.food-promotions-migration.yaml']) if (!foodPromotionEnsure.includes(required)) throw new Error(`Food promotion migration diagnostics or reviewed identity is missing: ${required}`);
+const foodPromotionRunner = await readFile('scripts/deployment/run-food-promotions-nonproduction-migration.sh','utf8');
+for (const required of ['034_food_order_promotions.sql','Refusing food promotion migration 034 against the production project','MIGRATION_034_REQUIRES_FULFILLMENT_026','MIGRATION_034_PARTIAL_OR_UNVERIFIED_STATE',"pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-food-promotions-034',0))",'food_promo_claims','discount_amount']) if (!foodPromotionRunner.includes(required)) throw new Error(`Food promotion migration safety gate is missing: ${required}`);
+
 const productionOperator = await readFile('.github/workflows/production-operator.yml', 'utf8');
 if (productionOperator.includes('APPLY_MIGRATION_025') || productionOperator.includes('025_classifieds')) throw new Error('Migration 025 must not be exposed through the Production operator');
-for (const forbidden of ['026_cash_fulfillment_orders','027_mobility_document_reviews','028_platform_notifications','APPLY_MIGRATION_026','APPLY_MIGRATION_027','APPLY_MIGRATION_028','029_taxi_pricing_revisions','030_billing_credits_subscriptions','033_billing_admin_role','APPLY_MIGRATION_029','APPLY_MIGRATION_030','APPLY_MIGRATION_033','billing-migration','taxi-pricing-migration']) if (productionOperator.includes(forbidden)) throw new Error(`Non-production migration must not be exposed through the Production operator: ${forbidden}`);
+for (const forbidden of ['026_cash_fulfillment_orders','027_mobility_document_reviews','028_platform_notifications','APPLY_MIGRATION_026','APPLY_MIGRATION_027','APPLY_MIGRATION_028','029_taxi_pricing_revisions','030_billing_credits_subscriptions','033_billing_admin_role','034_food_order_promotions','APPLY_MIGRATION_029','APPLY_MIGRATION_030','APPLY_MIGRATION_033','APPLY_MIGRATION_034','billing-migration','taxi-pricing-migration','food-promotions-migration']) if (productionOperator.includes(forbidden)) throw new Error(`Non-production migration must not be exposed through the Production operator: ${forbidden}`);
 
 console.log(`Preview/staging infrastructure valid (${requiredFiles.length} required files checked).`);

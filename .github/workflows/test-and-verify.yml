@@ -159,7 +159,7 @@ jobs:
           echo "🔍 Checking KILL CRITICAL boundaries..."
 
           # These capabilities remain forbidden everywhere, including the governed
-          # fulfillment and Product V2 billing migrations.
+          # fulfillment, Product V2 billing and restaurant-funded promotion migrations.
           globally_forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
@@ -206,7 +206,19 @@ jobs:
             exit 1
           fi
 
-          echo "✅ Boundary check completed with exact governed 026 and 030 exceptions"
+          food_promotion_migration='backend/migrations/versions/034_food_order_promotions.sql'
+          test -f "$food_promotion_migration" || { echo "❌ Governed food promotion migration 034 is missing"; exit 1; }
+          food_promotion_allowed_tables='food_promo_claims food_promo_codes'
+          food_promotion_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$food_promotion_migration" || true; } | sort | xargs)"
+          food_promotion_expected_tables="$(printf '%s\n' $food_promotion_allowed_tables | sort | xargs)"
+          if [ "$food_promotion_actual_tables" != "$food_promotion_expected_tables" ]; then
+            echo "❌ Migration 034 defines an unexpected food promotion table set"
+            echo "Expected: $food_promotion_expected_tables"
+            echo "Actual:   $food_promotion_actual_tables"
+            exit 1
+          fi
+
+          echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
 
   validate-pr:
     name: PR Validation

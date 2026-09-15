@@ -19,6 +19,14 @@ export interface OrderItem {
   readonly requiresPrescription: boolean;
 }
 
+export interface FulfillmentOrderEvent {
+  readonly id: string;
+  readonly fromStatus?: OrderStatus;
+  readonly toStatus: OrderStatus;
+  readonly reason?: string;
+  readonly occurredAt: string;
+}
+
 export interface FulfillmentOrder {
   readonly id: string;
   readonly customerUserId: string;
@@ -37,6 +45,8 @@ export interface FulfillmentOrder {
   readonly paymentStatus: "pending" | "cash_collected";
   readonly currency: "SYP" | "USD";
   readonly subtotal: number;
+  readonly promoCode?: string;
+  readonly discountAmount: number;
   readonly deliveryFee?: number;
   readonly total?: number;
   readonly deliveryAddress: string;
@@ -49,8 +59,22 @@ export interface FulfillmentOrder {
     "not_required" | "pending" | "approved" | "rejected";
   readonly rejectionReason?: string;
   readonly items: readonly OrderItem[];
+  readonly events?: readonly FulfillmentOrderEvent[];
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface FoodOrderQuote {
+  readonly merchantBusinessId: string;
+  readonly vertical: OrderVertical;
+  readonly currency: "SYP" | "USD";
+  readonly subtotal: number;
+  readonly discountAmount: number;
+  readonly discountedSubtotal: number;
+  readonly promotion?: {
+    readonly code: string;
+    readonly nameAr: string;
+  };
 }
 
 export type PublicFulfillmentOrder = Omit<

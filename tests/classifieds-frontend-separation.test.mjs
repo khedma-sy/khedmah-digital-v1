@@ -70,6 +70,13 @@ test('classifieds images preserve the complete image and owner edit uses authent
   assert.doesNotMatch(css, /umbrella-pattern\.svg/);
 });
 
+test('classifieds price and status text use the accessible orange text token', async () => {
+  const css = await read('apps/frontend/app/classifieds/classifieds.module.css');
+  assert.match(css, /\.price\{[^}]*color:var\(--k-color-orange-text\)/);
+  assert.match(css, /\.status\{[^}]*color:var\(--k-color-orange-text\)/);
+  assert.doesNotMatch(css, /\.(?:price|status)\{[^}]*color:var\(--ads-accent\)/);
+});
+
 test('Store subroutes no longer present products as classifieds or return to classifieds', async () => {
   const [sell, detail] = await Promise.all([
     read('apps/frontend/app/store/sell/page.tsx'),

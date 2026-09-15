@@ -5,7 +5,7 @@ type BrandMarkProps = { compact?: boolean };
 export function BrandMark({ compact = false }: BrandMarkProps) {
   const glassId = useId();
   return (
-    <span className={`khedma-brand${compact ? ' khedma-brand-compact' : ''}`} aria-label="خدمة - تحت مظلة واحدة">
+    <span className={`khedma-brand${compact ? ' khedma-brand-compact' : ''}`} aria-label="خدمة ديجتل - تحت مظلة واحدة">
       <svg viewBox="0 0 120 126" role="img" aria-hidden="true" className="khedma-umbrella-glass">
         <defs>
           <linearGradient id={glassId} x1="0" y1="0" x2=".3" y2="1">
@@ -21,7 +21,7 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
         <path d="M60 10v62" fill="none" stroke="#81be49" strokeWidth="5" strokeLinecap="round" />
         <path d="M60 72v24c0 11 16 11 16 0" fill="none" stroke="#81be49" strokeWidth="6" strokeLinecap="round" />
       </svg>
-      <span><b>خدمة</b><small>تحت مظلة واحدة</small></span>
+      <span><b>خدمة ديجتل</b><small>تحت مظلة واحدة</small></span>
     </span>
   );
 }

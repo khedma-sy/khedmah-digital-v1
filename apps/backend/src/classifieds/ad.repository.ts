@@ -118,11 +118,13 @@ export class AdRepository {
     });
   }
 
-  async submit(ownerUserId: string, id: string, requestId: string, fingerprint: string): Promise<AdListing> {
+  async submit(ownerUserId: string, id: string, requestId: string, fingerprint: string,
+    expectedContentRevision: number): Promise<AdListing> {
     return this.db.transaction(async (client) => {
       const ad = await this.requireOwnerLocked(client, ownerUserId, id);
       const replay = await this.readReplay(client, ownerUserId, 'submit', requestId, fingerprint);
       if (replay) return replay;
+      if (ad.contentRevision !== expectedContentRevision) throw new ConflictException({ code: 'CONTENT_REVISION_CONFLICT' });
       if (!['draft', 'inactive', 'rejected'].includes(ad.status)) throw new ConflictException({ code: 'AD_NOT_SUBMITTABLE' });
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
 

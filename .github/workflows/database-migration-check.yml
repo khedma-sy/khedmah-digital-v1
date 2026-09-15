@@ -61,6 +61,7 @@ jobs:
             031_taxi_operational_approvals
             032_taxi_operational_profile_gate
             033_billing_admin_role
+            034_food_order_promotions
           )
 
           for migration in "${migrations[@]}"; do
@@ -82,6 +83,11 @@ jobs:
                 echo 'Migration 033 must preserve admin role assignments.' >&2
                 exit 1
               fi
+            elif [[ "$migration" == "034_food_order_promotions" ]]; then
+              grep -Fq 'CREATE TABLE food_promo_codes' "$forward"
+              grep -Fq 'CREATE TABLE food_promo_claims' "$forward"
+              grep -Fq 'MIGRATION_034_ROLLBACK_BLOCKED' "$rollback"
+              grep -Fq 'discount_amount <> 0' "$rollback"
             else
               grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             fi
@@ -160,6 +166,8 @@ jobs:
             032_taxi_operational_profile_gate_rollback.sql \
             033_billing_admin_role.sql \
             033_billing_admin_role_rollback.sql \
+            034_food_order_promotions.sql \
+            034_food_order_promotions_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"
@@ -168,7 +176,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Product V2 billing credits/subscriptions and Taxi operational approvals/profile authority are approved scope.
+          # Product V2 billing credits/subscriptions, Taxi operational approvals/profile authority,
+          # and restaurant-funded food promotion claims are approved scope.
           # Generic payment processor, marketplace, inventory, commissions, social-profile and tracking schemas remain forbidden.
           forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn --include='*.sql' "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" backend/migrations/versions; then

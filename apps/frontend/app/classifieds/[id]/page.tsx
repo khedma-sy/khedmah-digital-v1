@@ -49,7 +49,7 @@ export default function ClassifiedDetailPage() {
       <Surface className={styles.gallery}>{ad.imageUrls.length ? ad.imageUrls.map((url, index) => <div className={styles.image} key={url}><img src={url} alt={`${ad.titleAr} — صورة ${index + 1}`}/></div>) : <div className={styles.image}><span aria-hidden="true">خ</span></div>}</Surface>
       <Surface className={styles.detailBody}>
         <span className={styles.status}>{AD_KIND_LABELS[ad.kind]}</span>
-        <strong className={styles.price}>{formatAdPrice(ad)}</strong>
+        <strong className={styles.price} dir="auto">{formatAdPrice(ad)}</strong>
         {ad.descriptionAr && <p>{ad.descriptionAr}</p>}
         <div className={styles.actions}>
           {ad.businessProfileId && <ActionLink href={`/business-profiles/${encodeURIComponent(ad.businessProfileId)}`}>فتح النشاط المرتبط</ActionLink>}

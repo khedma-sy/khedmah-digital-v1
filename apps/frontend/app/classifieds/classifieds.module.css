@@ -25,9 +25,9 @@
 .card>.meta,.card>.price,.card>:global(.ui-action),.card>.status{margin-inline:1rem}
 .card>:global(.ui-action){margin-block-end:1rem;margin-block-start:auto}
 .meta{display:flex;flex-wrap:wrap;gap:.4rem;color:var(--k-color-text-muted);font-size:.8rem;line-height:1.6}
-.price{font-size:1.1rem;color:var(--ads-accent);font-weight:900}
+.price{font-size:1.1rem;color:var(--k-color-orange-text);font-weight:900}
 .actions{display:flex;flex-wrap:wrap;gap:.6rem}
-.status{display:inline-flex;width:max-content;border-radius:999px;padding:.3rem .65rem;background:var(--ads-accent-soft);color:var(--ads-accent);font-size:.82rem;font-weight:800}
+.status{display:inline-flex;width:max-content;border:1px solid color-mix(in srgb,var(--ads-accent) 28%,var(--k-color-border));border-radius:999px;padding:.3rem .65rem;background:var(--ads-accent-soft);color:var(--k-color-orange-text);font-size:.82rem;font-weight:800}
 .formShell{width:min(100%,58rem);margin-inline:auto}
 .form{display:grid;gap:1rem;padding:clamp(1rem,2.2vw,1.35rem)}
 .formFields{display:grid;gap:1rem;min-width:0;margin:0;padding:0;border:0}

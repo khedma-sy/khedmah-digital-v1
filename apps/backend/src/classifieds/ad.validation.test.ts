@@ -34,7 +34,11 @@ test('direct contact contract is explicit', () => {
 });
 
 test('write request keys and optimistic revisions are mandatory', () => {
-  assert.throws(() => validateAdSubmit({ clientRequestId: 'short' }), BadRequestException);
+  assert.throws(() => validateAdSubmit({ clientRequestId: 'short', expectedContentRevision: 1 }), BadRequestException);
+  assert.throws(() => validateAdSubmit({ clientRequestId: 'classifieds-submit-0001' }), BadRequestException);
+  assert.deepEqual(validateAdSubmit({ clientRequestId: 'classifieds-submit-0001', expectedContentRevision: 4 }), {
+    clientRequestId: 'classifieds-submit-0001', expectedContentRevision: 4
+  });
   assert.throws(() => validateAdUpdate({ ...base(), titleAr: 'تعديل' }), BadRequestException);
   const update = validateAdUpdate({ clientRequestId: 'classifieds-update-0001', expectedContentRevision: 3, titleAr: 'تعديل' });
   assert.equal(update.expectedContentRevision, 3);

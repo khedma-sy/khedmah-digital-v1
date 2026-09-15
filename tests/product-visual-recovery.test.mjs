@@ -36,15 +36,14 @@ test('section identity uses the approved Khedmah brand colors', () => {
   assert.match(themes, /--brand-orange:\s*#fd9603/i);
 });
 
-test('primary brand stays خدمة and stacks the umbrella above the name', () => {
-  assert.match(layout, /const SITE_NAME = 'خدمة';/);
-  assert.doesNotMatch(layout, /const SITE_NAME = 'خدمة ديجتل';/);
-  assert.match(brandMark, /aria-label="خدمة - تحت مظلة واحدة"/);
-  assert.match(brandMark, /<b>خدمة<\/b>/);
-  assert.doesNotMatch(brandMark, /خدمة ديجتل/);
+test('primary brand uses خدمة ديجتل and stacks the umbrella above the name', () => {
+  assert.match(layout, /const SITE_NAME = 'خدمة ديجتل';/);
+  assert.match(brandMark, /aria-label="خدمة ديجتل - تحت مظلة واحدة"/);
+  assert.match(brandMark, /<b>خدمة ديجتل<\/b>/);
   assert.match(shell, /\.khedma-header \.khedma-brand\{[^}]*display:grid/);
   assert.match(shell, /\.khedma-header \.khedma-brand>svg\{width:2\.45rem/);
-  assert.doesNotMatch(home, /خدمة ديجتل/);
+  assert.match(home, /title: \{ absolute: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك' \}/);
+  assert.match(home, />انضم إلى خدمة<\/Link>/);
 });
 
 test('category icons use semantic official brand tones instead of one global blue', () => {

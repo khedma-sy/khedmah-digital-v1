@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, type ProductListing } from "../../../lib/recovered-service-client";
+import { api, type FoodOrderQuote, type ProductListing } from "../../../lib/recovered-service-client";
 import {
   clearRestaurantCart,
   readRestaurantCart,
@@ -36,8 +36,13 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [attested, setAttested] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const quoteGeneration = useRef(0);
+  const createAttempt = useRef<{ fingerprint: string; key: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -113,6 +118,43 @@ export default function CheckoutPage() {
       ? `/store/products/${productId}`
       : "/store";
 
+  function changePromo(value: string) {
+    quoteGeneration.current += 1;
+    setQuoteLoading(false);
+    setPromoInput(value);
+    setQuote(null);
+    setError("");
+  }
+
+  async function applyPromo() {
+    const code = promoInput.trim().toUpperCase();
+    if (!businessId || !code || !items.length) return;
+    const generation = ++quoteGeneration.current;
+    setQuoteLoading(true);
+    setError("");
+    try {
+      const result = await api.orders.quote({
+        items: items.map((entry) => ({ productListingId: entry.product.id, quantity: entry.quantity })),
+        promoCode: code,
+      });
+      if (generation === quoteGeneration.current) {
+        setPromoInput(result.quote.promotion?.code ?? code);
+        setQuote(result.quote);
+      }
+    } catch (cause) {
+      if (generation !== quoteGeneration.current) return;
+      const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+      if (status === 401) {
+        router.push(`/auth/login?next=${encodeURIComponent(`/orders/checkout?businessId=${businessId}`)}`);
+        return;
+      }
+      setQuote(null);
+      setError("تعذر تطبيق كود الخصم. تحقق من الكود وشروطه ثم أعد المحاولة.");
+    } finally {
+      if (generation === quoteGeneration.current) setQuoteLoading(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!items.length) return;
@@ -120,12 +162,16 @@ export default function CheckoutPage() {
       setError("يجب تأكيد إقرار الوصفة قبل إرسال الطلب.");
       return;
     }
+    const normalizedPromo = promoInput.trim().toUpperCase();
+    if (normalizedPromo && (!quote?.promotion || quote.promotion.code !== normalizedPromo)) {
+      setError("طبّق كود الخصم وراجع الإجمالي قبل إرسال الطلب.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       await requestOrderNotifications();
-      await api.orders.create(
-        {
+      const payload = {
           items: items.map((entry) => ({
             productListingId: entry.product.id,
             quantity: entry.quantity,
@@ -134,9 +180,14 @@ export default function CheckoutPage() {
           customerPhone: phone,
           customerNote: note || undefined,
           prescriptionAttested: attested,
-        },
-        crypto.randomUUID(),
-      );
+          promoCode: quote?.promotion?.code,
+          expectedSubtotal: quote?.promotion ? quote.subtotal : undefined,
+          expectedDiscountAmount: quote?.promotion ? quote.discountAmount : undefined,
+        };
+      const fingerprint = JSON.stringify(payload);
+      if (!createAttempt.current || createAttempt.current.fingerprint !== fingerprint)
+        createAttempt.current = { fingerprint, key: crypto.randomUUID() };
+      await api.orders.create(payload, createAttempt.current.key);
       if (businessId) clearRestaurantCart(businessId);
       router.push("/orders");
     } catch (cause) {
@@ -148,6 +199,11 @@ export default function CheckoutPage() {
         return router.push(
           `/auth/login?next=${encodeURIComponent(`/orders/checkout?${businessId ? `businessId=${businessId}` : `productId=${productId}`}`)}`,
         );
+      if (status === 409 && quote?.promotion) {
+        setQuote(null);
+        setError("تغيّر السعر أو لم يعد كود الخصم متاحًا. طبّق الكود مجددًا وراجع الإجمالي.");
+        return;
+      }
       setError(cause instanceof Error ? cause.message : "تعذر إنشاء الطلب.");
     } finally {
       setSaving(false);
@@ -180,10 +236,22 @@ export default function CheckoutPage() {
                 {product.price.toLocaleString("ar-SY-u-nu-latn")} {product.currency}
               </p>
             ))}
-            <strong>
-              المجموع الأولي: {subtotal.toLocaleString("ar-SY-u-nu-latn")} {currency}
-            </strong>
+            <strong>المجموع الأولي: {(quote?.subtotal ?? subtotal).toLocaleString("ar-SY-u-nu-latn")} {currency}</strong>
+            {quote?.promotion && <div className={styles.discount} role="status">
+              <span>{quote.promotion.nameAr} · <bdi>{quote.promotion.code}</bdi></span>
+              <span>الخصم: -{quote.discountAmount.toLocaleString("ar-SY-u-nu-latn")} {currency}</span>
+              <strong>بعد الخصم: {quote.discountedSubtotal.toLocaleString("ar-SY-u-nu-latn")} {currency}</strong>
+            </div>}
           </section>
+          {businessId && <section className={styles.promo} aria-label="كود خصم المطعم">
+            <label>كود الخصم
+              <input dir="ltr" autoCapitalize="characters" autoComplete="off" maxLength={32} value={promoInput} disabled={saving || quoteLoading} onChange={(event) => changePromo(event.target.value)} />
+            </label>
+            <ActionButton type="button" variant="secondary" disabled={saving || quoteLoading || promoInput.trim().length < 4} onClick={() => void applyPromo()}>
+              {quoteLoading ? "جارٍ التحقق…" : quote?.promotion ? "إعادة التحقق" : "تطبيق الكود"}
+            </ActionButton>
+            <small>خصم ممول من المطعم على قيمة الأصناف فقط. رسوم التوصيل لا يشملها الخصم.</small>
+          </section>}
           <label>
             رقم الهاتف
             <input

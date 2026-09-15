@@ -11,7 +11,7 @@ import { DeliveryEntry } from './components/delivery-entry';
 import './platform.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
-const SITE_NAME = 'خدمة';
+const SITE_NAME = 'خدمة ديجتل';
 
 const arabicFont = Noto_Sans_Arabic({
   subsets: ['arabic'],
@@ -73,7 +73,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           الانتقال إلى المحتوى
         </a>
         <header className="khedma-header">
-          <Link href="/" aria-label="خدمة - الرئيسية"><BrandMark compact /></Link>
+          <Link href="/" aria-label="خدمة ديجتل - الرئيسية"><BrandMark compact /></Link>
           <DiscoveryNavigation />
           <div className="khedma-header-actions"><AuthNavigation /><ThemeToggle /><SmartAssistant /></div>
         </header>

@@ -15,6 +15,15 @@ import { OrderService } from "./order.service";
 @Controller("orders")
 export class OrderController {
   constructor(@Inject(OrderService) private readonly orders: OrderService) {}
+  @Post("quote")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  quote(
+    @Headers("cookie") cookie: string | undefined,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.orders.quote(cookie, body).then((quote) => ({ quote }));
+  }
   @Post()
   @Header("Cache-Control", "private, no-store")
   @Header("Vary", "Cookie")

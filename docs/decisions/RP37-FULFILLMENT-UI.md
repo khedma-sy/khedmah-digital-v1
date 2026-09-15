@@ -17,6 +17,8 @@ This is a **narrow bridge, not a general documentation waiver**. It authorizes n
 
 ## Boundary
 
-These pages use the governed cash-fulfillment backend restored on the PR #175 recovery line. Payment remains cash-only. Courier assignment retains the approved-document gate. Taxi remains governed by the newer Taxi rollout and is not replaced by the historical Mobility migration. Classifieds remains independent from Store and fulfillment.
+These pages use the governed cash-fulfillment backend restored on the PR #175 recovery line. Payment remains cash-only. Restaurant owners may provision restaurant-funded basket promotions through the exact `/food-promotions` API and the promotions tab on `/orders/merchant`; customers obtain a server quote before `/orders` creation, and the claimed discount is snapshotted atomically with the order. Promotion value applies only to food item subtotal, never delivery fees, grocery, pharmacy, a platform subsidy, or an electronic payment gateway.
+
+Courier assignment retains the approved-document gate. Taxi remains governed by the newer Taxi rollout and is not replaced by the historical Mobility migration. Classifieds remains independent from Store and fulfillment. Migration `034_food_order_promotions` is preview/staging-only until separately reviewed; its rollback refuses to discard any campaign, claim, or discounted-order data.
 
 The supplement does not authorize Production deployment or bypass build, test, Preview, or manual review gates.

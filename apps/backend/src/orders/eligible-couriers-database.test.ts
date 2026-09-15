@@ -14,7 +14,7 @@ test('courier selection paginates real eligible profiles and excludes a newer pe
   const owner=randomUUID(),reviewer=randomUUID(),profiles:string[]=[];
   try{
     await resetCanonicalTestSchema(pool);
-    for(const migration of ['024_product_store','025_classifieds','027_mobility_document_reviews'])await pool.query(await readFile(resolve(__dirname,'../../../../backend/migrations/versions',`${migration}.sql`),'utf8'));
+    for(const migration of ['024_product_store','025_classifieds','026_cash_fulfillment_orders','027_mobility_document_reviews'])await pool.query(await readFile(resolve(__dirname,'../../../../backend/migrations/versions',`${migration}.sql`),'utf8'));
     const now=new Date().toISOString();
     for(const id of [owner,reviewer])await identity.saveAccount({id,email:`${id}@example.test`,passwordHash:'nonlogin-fixture',status:'active',createdAt:now,updatedAt:now});
     for(let i=0;i<22;i++){
@@ -40,5 +40,14 @@ test('courier selection paginates real eligible profiles and excludes a newer pe
     assert.equal(queue.businesses.length,1);assert.equal(queue.businesses[0].businessProfileId,profiles[0]);assert.equal(queue.businesses[0].pendingDocuments,1);
     await pool.query("UPDATE business_profiles SET trust_status='pending' WHERE id=$1",[profiles[1]]);
     assert.equal((await repo.eligibleCouriers('damascus',1)).total,20);
+    await pool.query("UPDATE business_profiles SET availability='busy' WHERE id=$1",[profiles[2]]);
+    assert.equal((await repo.eligibleCouriers('damascus',1)).total,19);
+    await pool.query("UPDATE business_profiles SET availability='available' WHERE id=$1",[profiles[2]]);
+    const merchantId=randomUUID();
+    await pool.query(`INSERT INTO business_profiles(id,name,owner_user_id,category_code,city_code,visibility,moderation_status,trust_status,status) VALUES($1,'Restaurant',$2,'restaurant','damascus','public','approved','approved','active')`,[merchantId,owner]);
+    await pool.query(`INSERT INTO fulfillment_orders(id,customer_user_id,merchant_business_id,courier_business_id,vertical,status,payment_method,payment_status,currency,subtotal,delivery_address,customer_phone,idempotency_key) VALUES($1,$2,$3,$4,'food','courier_assigned','cash','pending','SYP',1000,'Damascus address','0999999999',$5)`,[randomUUID(),owner,merchantId,profiles[3],`active-job-${randomUUID()}`]);
+    const withoutBusyCouriers=await repo.eligibleCouriers('damascus',1);
+    assert.equal(withoutBusyCouriers.total,19);
+    assert.ok(withoutBusyCouriers.couriers.every(c=>c.id!==profiles[3]));
   }finally{await pool.end();}
 });

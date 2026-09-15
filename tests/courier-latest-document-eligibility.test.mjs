@@ -14,10 +14,11 @@ test('courier eligibility counts only the latest review for each required docume
   assert.doesNotMatch(repository, /COUNT\(\*\)::text AS count FROM mobility_document_reviews\s+WHERE business_profile_id=\$1 AND status='approved'/);
 });
 
-test('courier eligibility is rechecked at assignment, acceptance and pickup', () => {
+test('courier credentials are rechecked at assignment, acceptance and pickup while pickup ignores new-job availability', () => {
   assert.match(service, /countApprovedMobilityDocuments\(courier\.id\) !== 4/);
   assert.match(service, /o\.status === "courier_assigned" && action\.status === "courier_accepted"[\s\S]*assertCourierEligible/);
   assert.match(service, /o\.status === "ready_for_pickup" && action\.status === "picked_up"[\s\S]*assertCourierEligible/);
+  assert.match(service, /assertCourierEligible\(o\.courierBusinessId, o\.merchantBusinessId, false\)/);
   assert.match(service, /categoryCode !== "delivery_courier"/);
   assert.match(service, /visibility !== "public"/);
   assert.match(service, /trustStatus !== "approved"/);

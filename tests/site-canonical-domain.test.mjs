@@ -24,8 +24,6 @@ test('public canonical origin is the approved UK domain across metadata surfaces
 });
 
 test('principal public title uses the canonical Khedmah Arabic name', () => {
-  assert.match(files[0], /const SITE_NAME = 'خدمة'/);
-  assert.doesNotMatch(files[0], /const SITE_NAME = 'خدمة ديجتل'/);
-  assert.match(files[1], /title: 'خدمة - كل ما تحتاجه أقرب إليك'/);
-  assert.doesNotMatch(files[1], /title: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك'/);
+  assert.match(files[0], /const SITE_NAME = 'خدمة ديجتل'/);
+  assert.match(files[1], /title: \{ absolute: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك' \}/);
 });

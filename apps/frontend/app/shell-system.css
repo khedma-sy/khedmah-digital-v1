@@ -22,7 +22,7 @@
 .khedma-header .khedma-brand{min-width:4.15rem;display:grid;justify-items:center;align-content:center;gap:0;color:var(--k-color-text);line-height:1}
 .khedma-header .khedma-brand>svg{width:2.45rem;height:auto}
 .khedma-header .khedma-brand>span{display:grid;justify-items:center;gap:.05rem;margin:0}
-.khedma-header .khedma-brand b{color:var(--brand-navy,#07427c);font-size:1.02rem;font-weight:900;line-height:1}
+.khedma-header .khedma-brand b{color:var(--brand-navy,#07427c);font-size:1.02rem;font-weight:900;line-height:1;white-space:nowrap}
 .khedma-header .khedma-brand small{color:var(--k-color-text-muted);font-size:.46rem;font-weight:800;line-height:1.2;white-space:nowrap}
 :root[data-theme='dark'] .khedma-header .khedma-brand b{color:var(--k-color-text)}
 .khedma-header .nav-session{display:flex;align-items:center;flex-wrap:nowrap;gap:.3rem;min-width:0}

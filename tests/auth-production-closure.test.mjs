@@ -120,9 +120,8 @@ test('principal site title uses the canonical Khedmah name while functional prof
     read('apps/frontend/app/brand-system.css')
   ]);
 
-  assert.match(layout, /const SITE_NAME = 'خدمة'/);
-  assert.doesNotMatch(layout, /const SITE_NAME = 'خدمة ديجتل'/);
-  assert.match(layout, /aria-label="خدمة - الرئيسية"/);
+  assert.match(layout, /const SITE_NAME = 'خدمة ديجتل'/);
+  assert.match(layout, /aria-label="خدمة ديجتل - الرئيسية"/);
   assert.doesNotMatch(profile, /خدمة ديجتل|Khedmah Digital V1|أنا مع خدمة/);
   assert.match(styles, /\.identity-card h1,\.identity-card h2,\.identity-card label/);
   assert.match(styles, /\.identity-card input:focus,\.identity-card select:focus/);

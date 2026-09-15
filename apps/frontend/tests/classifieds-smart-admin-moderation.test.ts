@@ -27,3 +27,13 @@ test('a moderation decision carries the exact Smart Admin assessment version rev
   assert.match(client, /expectedAssessmentVersion,/);
   assert.match(client, /CLASSIFIEDS_SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1'/);
 });
+
+test('pending ad images use the authenticated admin media endpoint', async () => {
+  const page = await read('../app/admin/moderation/page.tsx');
+  const client = await read('../lib/classifieds-client.ts');
+
+  assert.match(page, /adminClassifiedsApi\.reviewMediaUrl\(sourceUrl\)/);
+  assert.match(page, /<img src=\{reviewUrl\}/);
+  assert.doesNotMatch(page, /<a href=\{url\}[^>]*>\s*فتح صورة الإعلان/);
+  assert.match(client, /\/api\/v1\/admin\/classifieds\/media\/\$\{encodeURIComponent\(mediaId\)\}/);
+});

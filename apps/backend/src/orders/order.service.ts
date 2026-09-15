@@ -20,6 +20,7 @@ import {
   validateCreateOrder,
   validateIdempotency,
   validateOrderAction,
+  validateOrderQuote,
 } from "./order.validation";
 
 const food = new Set(["restaurant", "cafe", "bakery", "sweets", "catering", "juice_icecream"]);
@@ -27,6 +28,7 @@ const grocery = new Set(["butcher", "grocery", "fruits_vegetables", "fish_poultr
 const customerTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
   placed: ["cancelled"],
   quoted: ["merchant_confirmed", "cancelled"],
+  merchant_confirmed: ["cancelled"],
 };
 
 @Injectable()
@@ -36,6 +38,61 @@ export class OrderService {
     @Inject(BusinessProfileRepository) private readonly businesses: BusinessProfileRepository,
     @Inject(IdentityService) private readonly identity: IdentityService,
   ) {}
+
+  private async prepareBasket(input: readonly { productListingId: string; quantity: number }[]) {
+    const products = await this.repo.findProducts(input.map((item) => item.productListingId));
+    if (products.length !== input.length)
+      throw new BadRequestException("One or more products are unavailable.");
+    const merchantId = products[0]!.business_profile_id;
+    const currency = products[0]!.currency;
+    if (products.some((product) => product.business_profile_id !== merchantId
+      || product.currency !== currency
+      || product.status !== "active"
+      || product.moderation_status !== "approved"
+      || product.availability === "out_of_stock")) {
+      throw new BadRequestException("All items must be available from one approved merchant and use one currency.");
+    }
+    if (products.some((product) => product.controlled_item))
+      throw new BadRequestException("Controlled pharmacy items cannot be ordered through the platform.");
+    const category = products[0]!.business_category_code;
+    const vertical: OrderVertical = category === "pharmacy"
+      ? "pharmacy"
+      : food.has(category)
+        ? "food"
+        : grocery.has(category)
+          ? "grocery"
+          : (() => { throw new BadRequestException("This merchant category is not enabled for cash fulfillment."); })();
+    const quantities = new Map(input.map((item) => [item.productListingId, item.quantity]));
+    const items = products.map((product) => ({
+      productListingId: product.id,
+      titleAr: product.title_ar,
+      unitPrice: Number(product.price),
+      quantity: quantities.get(product.id)!,
+      requiresPrescription: product.requires_prescription,
+    }));
+    return {
+      merchantId,
+      merchantName: products[0]!.business_name,
+      currency,
+      vertical,
+      items,
+      subtotal: Math.round(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100,
+    };
+  }
+
+  async quote(cookie: string | undefined, value: Record<string, unknown>) {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const input = validateOrderQuote(value);
+    const basket = await this.prepareBasket(input.items);
+    return this.repo.quoteFoodPromotion({
+      userId: actor.id,
+      merchantBusinessId: basket.merchantId,
+      vertical: basket.vertical,
+      currency: basket.currency,
+      subtotal: basket.subtotal,
+      promoCode: input.promoCode,
+    });
+  }
 
   async create(cookie: string | undefined, value: Record<string, unknown>, keyValue: unknown): Promise<PublicFulfillmentOrder> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
@@ -49,7 +106,10 @@ export class OrderService {
         && candidate.deliveryLatitude === input.deliveryLatitude
         && candidate.deliveryLongitude === input.deliveryLongitude
         && candidate.customerNote === input.customerNote
-        && candidate.prescriptionAttested === input.prescriptionAttested;
+        && candidate.prescriptionAttested === input.prescriptionAttested
+        && candidate.promoCode === input.promoCode
+        && (!input.promoCode || (candidate.subtotal === input.expectedSubtotal
+          && candidate.discountAmount === input.expectedDiscountAmount));
     };
     const prior = await this.repo.findIdempotent(actor.id, key);
     if (prior) {
@@ -58,37 +118,26 @@ export class OrderService {
       }
       return expose(prior, "customer");
     }
-    const products = await this.repo.findProducts(input.items.map((i) => i.productListingId));
-    if (products.length !== input.items.length) throw new BadRequestException("One or more products are unavailable.");
-    const merchantId = products[0]!.business_profile_id;
-    const currency = products[0]!.currency;
-    if (products.some((p) => p.business_profile_id !== merchantId || p.currency !== currency || p.status !== "active" || p.moderation_status !== "approved" || p.availability === "out_of_stock")) {
-      throw new BadRequestException("All items must be available from one approved merchant and use one currency.");
-    }
-    if (products.some((p) => p.controlled_item)) throw new BadRequestException("Controlled pharmacy items cannot be ordered through the platform.");
-    const category = products[0]!.business_category_code;
-    const vertical: OrderVertical = category === "pharmacy" ? "pharmacy" : food.has(category) ? "food" : grocery.has(category) ? "grocery" : (() => { throw new BadRequestException("This merchant category is not enabled for cash fulfillment."); })();
-    const itemMap = new Map(input.items.map((i) => [i.productListingId, i.quantity]));
-    const items = products.map((p) => ({
-      productListingId: p.id,
-      titleAr: p.title_ar,
-      unitPrice: Number(p.price),
-      quantity: itemMap.get(p.id)!,
-      requiresPrescription: p.requires_prescription,
-    }));
-    const prescription = items.some((i) => i.requiresPrescription);
+    const basket = await this.prepareBasket(input.items);
+    const prescription = basket.items.some((item) => item.requiresPrescription);
     if (prescription && !input.prescriptionAttested) throw new BadRequestException("Prescription attestation is required; pharmacist approval remains mandatory.");
     const now = new Date().toISOString();
     const order: FulfillmentOrder = {
-      id: randomUUID(), customerUserId: actor.id, merchantBusinessId: merchantId, merchantName: products[0]!.business_name,
-      vertical, status: "placed", paymentMethod: "cash", paymentStatus: "pending", currency,
-      subtotal: items.reduce((s, i) => s + i.unitPrice * i.quantity, 0), deliveryAddress: input.deliveryAddress,
+      id: randomUUID(), customerUserId: actor.id, merchantBusinessId: basket.merchantId, merchantName: basket.merchantName,
+      vertical: basket.vertical, status: "placed", paymentMethod: "cash", paymentStatus: "pending", currency: basket.currency,
+      subtotal: basket.subtotal, discountAmount: 0, deliveryAddress: input.deliveryAddress,
       customerPhone: input.customerPhone, deliveryLatitude: input.deliveryLatitude, deliveryLongitude: input.deliveryLongitude,
       customerNote: input.customerNote, prescriptionAttested: input.prescriptionAttested,
-      pharmacyReviewStatus: vertical === "pharmacy" ? "pending" : "not_required", items, createdAt: now, updatedAt: now,
+      pharmacyReviewStatus: basket.vertical === "pharmacy" ? "pending" : "not_required", items: basket.items, createdAt: now, updatedAt: now,
     };
     try {
-      const created = await this.repo.create(order, key);
+      const created = await this.repo.create(order, key, {
+        promoCode: input.promoCode,
+        expectedSubtotal: input.expectedSubtotal,
+        expectedDiscountAmount: input.expectedDiscountAmount,
+      });
+      if (!matchesRequest(created))
+        throw new BadRequestException("Idempotency-Key was already used for a different order.");
       return expose(created, "customer");
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505") {
@@ -135,11 +184,25 @@ export class OrderService {
     const customer = o.customerUserId === actor.id;
     const merchant = o.merchantOwnerUserId === actor.id;
     const courier = o.courierOwnerUserId === actor.id;
+    const customerAllowed = customerTransitions[o.status]?.includes(action.status) ?? false;
+    const merchantAllowed =
+      (o.status === "placed" && action.status === "quoted") ||
+      (o.status === "merchant_confirmed" && action.status === "courier_assigned") ||
+      (["courier_assigned", "courier_accepted", "ready_for_pickup"].includes(o.status) && action.status === "merchant_confirmed") ||
+      (o.status === "courier_accepted" && action.status === "ready_for_pickup") ||
+      (["placed", "quoted", "merchant_confirmed"].includes(o.status) && action.status === "rejected");
+    const courierAllowed =
+      (o.status === "courier_assigned" && action.status === "courier_accepted") ||
+      (["courier_assigned", "courier_accepted", "ready_for_pickup"].includes(o.status) && action.status === "merchant_confirmed") ||
+      (o.status === "ready_for_pickup" && action.status === "picked_up") ||
+      (o.status === "picked_up" && action.status === "delivered");
+    let authority: "customer" | "merchant" | "courier";
     let options: Parameters<OrderRepository["transition"]>[3] = {};
-    if (customer) {
-      options = { authority: "customer" };
-      if (!customerTransitions[o.status]?.includes(action.status)) throw new BadRequestException("Customer transition is not allowed.");
-    } else if (merchant) {
+    if (customer && customerAllowed) {
+      authority = "customer";
+      options = { authority };
+    } else if (merchant && merchantAllowed && !(courier && courierAllowed && action.expectedCourierBusinessId === undefined)) {
+      authority = "merchant";
       options = { authority: "merchant" };
       if (o.status === "placed" && action.status === "quoted") {
         if (action.deliveryFee === undefined) throw new BadRequestException("deliveryFee is required.");
@@ -149,37 +212,53 @@ export class OrderService {
         if (!action.courierBusinessId) throw new BadRequestException("courierBusinessId is required.");
         const eligibility = await this.assertCourierEligible(action.courierBusinessId, o.merchantBusinessId);
         options = { ...options, courierBusinessId: action.courierBusinessId, ...eligibility };
+      } else if (["courier_assigned", "courier_accepted", "ready_for_pickup"].includes(o.status) && action.status === "merchant_confirmed") {
+        if (!action.reason || !action.expectedCourierBusinessId) {
+          throw new BadRequestException("reason and expectedCourierBusinessId are required.");
+        }
+        if (action.expectedCourierBusinessId !== o.courierBusinessId) {
+          throw new BadRequestException("Assigned courier changed; refresh and retry.");
+        }
+        options = {
+          ...options,
+          reason: action.reason,
+          clearCourierBusinessId: true,
+          expectedCourierBusinessId: action.expectedCourierBusinessId,
+        };
       } else if (o.status === "courier_accepted" && action.status === "ready_for_pickup") {
-      } else if (["placed", "quoted"].includes(o.status) && action.status === "rejected") {
+      } else if (["placed", "quoted", "merchant_confirmed"].includes(o.status) && action.status === "rejected") {
         if (!action.reason) throw new BadRequestException("reason is required.");
         options = { ...options, reason: action.reason, pharmacyReviewStatus: o.vertical === "pharmacy" ? "rejected" : o.pharmacyReviewStatus };
-      } else throw new BadRequestException("Merchant transition is not allowed.");
-    } else if (courier) {
+      }
+    } else if (courier && courierAllowed) {
+      authority = "courier";
       options = { authority: "courier", expectedCourierBusinessId: o.courierBusinessId };
       if (o.status === "courier_assigned" && action.status === "courier_accepted") {
         options = { ...options, ...await this.assertCourierEligible(o.courierBusinessId, o.merchantBusinessId) };
-      } else if (o.status === "courier_assigned" && action.status === "merchant_confirmed") {
+      } else if (["courier_assigned", "courier_accepted", "ready_for_pickup"].includes(o.status) && action.status === "merchant_confirmed") {
         options = { ...options, reason: action.reason ?? "Courier declined", clearCourierBusinessId: true };
       } else if (o.status === "ready_for_pickup" && action.status === "picked_up") {
-        options = { ...options, ...await this.assertCourierEligible(o.courierBusinessId, o.merchantBusinessId) };
+        options = { ...options, ...await this.assertCourierEligible(o.courierBusinessId, o.merchantBusinessId, false) };
       } else if (o.status === "picked_up" && action.status === "delivered") {
-      } else throw new BadRequestException("Courier transition is not allowed.");
+      }
+    } else if (customer || merchant || courier) {
+      throw new BadRequestException("Order transition is not allowed.");
     } else throw new ForbiddenException("Access denied.");
 
     const updated = await this.repo.transition(o, action.status, actor.id, options);
     if (!updated) throw new BadRequestException("Order changed; refresh and retry.");
-    return expose(updated, customer ? "customer" : merchant ? "merchant" : "courier");
+    return expose(updated, authority);
   }
 
-  private async assertCourierEligible(businessId: string | undefined, merchantBusinessId: string) {
+  private async assertCourierEligible(businessId: string | undefined, merchantBusinessId: string, requireAvailability = true) {
     const [courier, merchant] = await Promise.all([
       businessId ? this.businesses.findById(businessId) : undefined,
       this.businesses.findById(merchantBusinessId),
     ]);
-    if (!courier || !merchant || courier.categoryCode !== "delivery_courier" || courier.cityCode !== merchant.cityCode || courier.visibility !== "public" || courier.trustStatus !== "approved" || courier.moderationStatus !== "approved" || courier.status !== "active" || await this.repo.countApprovedMobilityDocuments(courier.id) !== 4) {
+    if (!courier || !merchant || courier.categoryCode !== "delivery_courier" || courier.cityCode !== merchant.cityCode || courier.visibility !== "public" || courier.trustStatus !== "approved" || courier.moderationStatus !== "approved" || courier.status !== "active" || (requireAvailability && courier.availability !== "available") || await this.repo.countApprovedMobilityDocuments(courier.id) !== 4) {
       throw new BadRequestException("Courier is not eligible.");
     }
-    return { eligibleCourierBusinessId: courier.id };
+    return { eligibleCourierBusinessId: courier.id, requireCourierAvailability: requireAvailability };
   }
 
   async rate(cookie: string | undefined, id: string, value: Record<string, unknown>) {
@@ -229,7 +308,11 @@ function expose(o: FulfillmentOrder, viewer: "customer" | "merchant" | "courier"
   const accepted = ["courier_accepted", "ready_for_pickup", "picked_up", "delivered"].includes(o.status);
   if (viewer !== "merchant") delete safe.customerPhone;
   if (viewer === "courier" && accepted) safe.customerPhone = o.customerPhone;
-  if (!accepted || viewer === "merchant") delete safe.courierPhone;
+  if (viewer === "customer" && !accepted) {
+    delete safe.courierBusinessId;
+    delete safe.courierName;
+  }
+  if (!accepted && viewer !== "merchant") delete safe.courierPhone;
   if (viewer !== "courier") delete safe.merchantPhone;
   return safe as PublicFulfillmentOrder;
 }

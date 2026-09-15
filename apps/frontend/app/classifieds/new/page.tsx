@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, type PublicBusinessProfile } from '../../../lib/api-client';
-import { classifiedsApi, type AdImage, type AdKind, type AdPriceMode, type OwnerAdListing } from '../../../lib/classifieds-client';
+import { CLASSIFIEDS_MAX_IMAGES, classifiedsApi, type AdImage, type AdKind, type AdPriceMode, type OwnerAdListing } from '../../../lib/classifieds-client';
 import { CLASSIFIEDS_ENABLED, clearRequestId, requestId } from '../../../lib/classifieds';
 import { useCategories } from '../../../lib/use-categories';
 import { useSyrianCities } from '../../../lib/use-syrian-cities';
@@ -49,13 +49,16 @@ export default function NewClassifiedPage() {
   const [quota, setQuota] = useState<{ used: number; limit: 3 } | null>(null);
   const [loading, setLoading] = useState(CLASSIFIEDS_ENABLED);
   const [saving, setSaving] = useState(false);
+  const [savingIntent, setSavingIntent] = useState<'draft' | 'review' | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [createConflict, setCreateConflict] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [draft, setDraft] = useState<OwnerAdListing | null>(null);
   const [images, setImages] = useState<AdImage[]>([]);
   const lifecycle = useRef(0);
   const pending = useRef(false);
-  const mediaRequestKeys = useRef<string[]>([]);
+  const operationRequestKeys = useRef(new Set<string>());
 
   useEffect(() => {
     if (!CLASSIFIEDS_ENABLED) return;
@@ -104,31 +107,69 @@ export default function NewClassifiedPage() {
     return '';
   }
 
+  function operationRequestId(storageKey: string): string {
+    operationRequestKeys.current.add(storageKey);
+    return requestId(storageKey);
+  }
+
+  function acknowledgeRequest(storageKey: string): void {
+    clearRequestId(storageKey);
+    operationRequestKeys.current.delete(storageKey);
+  }
+
+  function startAnotherAd(): void {
+    if (pending.current) return;
+    clearRequestId(CREATE_KEY);
+    for (const key of operationRequestKeys.current) clearRequestId(key);
+    operationRequestKeys.current.clear();
+    setDraft(null);
+    setImages([]);
+    setForm(INITIAL_FORM);
+    setCreateConflict(false);
+    setError('');
+    setNotice('');
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current) return;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const intent: 'draft' | 'review' = submitter?.value === 'draft' ? 'draft' : 'review';
+    if (intent === 'review' && quota && quota.used === quota.limit) {
+      setError('تم استهلاك الحصة الحالية. يمكنك حفظ الإعلان كمسودة دون إرساله للمراجعة.');
+      return;
+    }
     const validation = clientValidation();
     if (validation) { setError(validation); return; }
     const input = event.currentTarget.elements.namedItem('adImages') as HTMLInputElement;
     const selected = Array.from(input.files ?? []);
-    if (selected.some((file) => !allowedTypes.includes(file.type as typeof allowedTypes[number]) || file.size <= 0 || file.size > 5 * 1024 * 1024)) {
-      setError('الصور المقبولة JPG أو PNG أو WebP وبحد 5 ميغابايت للصورة.'); return;
+    if (images.length + selected.length > CLASSIFIEDS_MAX_IMAGES) {
+      setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان. لديك ${images.length} صور محفوظة.`);
+      return;
     }
+    if (selected.some((file) => !allowedTypes.includes(file.type as typeof allowedTypes[number]) || file.size <= 0 || file.size > 5 * 1024 * 1024)) {
+      setError('الصور المقبولة JPG أو PNG أو WebP، وحدها 5 ميغابايت للصورة.'); return;
+    }
+    input.value = '';
     pending.current = true;
     const generation = lifecycle.current;
-    setSaving(true); setError('');
+    setSaving(true); setSavingIntent(intent); setError(''); setNotice(''); setCreateConflict(false);
     let current = draft;
     try {
       if (!current) {
         const created = await classifiedsApi.create({ ...payload(), clientRequestId: requestId(CREATE_KEY) });
+        if (generation !== lifecycle.current) return;
         current = created.ad;
+        clearRequestId(CREATE_KEY);
       } else {
+        const updateKey = `khedmah.classifieds.update.${current.id}.${current.contentRevision}`;
         const updated = await classifiedsApi.update(current.id, {
-          ...payload(), clientRequestId: crypto.randomUUID(), expectedContentRevision: current.contentRevision
+          ...payload(), clientRequestId: operationRequestId(updateKey), expectedContentRevision: current.contentRevision
         });
+        if (generation !== lifecycle.current) return;
         current = updated.ad;
+        acknowledgeRequest(updateKey);
       }
-      if (generation !== lifecycle.current) return;
       setDraft(current);
       const stored = await classifiedsApi.listImages(current.id).catch(() => ({ images: [] as AdImage[] }));
       if (generation !== lifecycle.current) return;
@@ -139,31 +180,46 @@ export default function NewClassifiedPage() {
         const content = await readFile(file);
         if (generation !== lifecycle.current) return;
         const storageKey = `khedmah.classifieds.media.${current.id}.${file.name}.${file.size}.${file.lastModified}.${index}`;
-        mediaRequestKeys.current.push(storageKey);
         const uploaded = await classifiedsApi.uploadImage(current.id, {
-          clientRequestId: requestId(storageKey), expectedContentRevision: contentRevision, filename: file.name,
-          mimeType: file.type as typeof allowedTypes[number], sizeBytes: file.size, content, sortOrder: stored.images.length + index
+          clientRequestId: operationRequestId(storageKey), expectedContentRevision: contentRevision, filename: file.name,
+          mimeType: file.type as typeof allowedTypes[number], sizeBytes: file.size, content, sortOrder: index
         });
         contentRevision = uploaded.contentRevision;
         if (generation !== lifecycle.current) return;
+        acknowledgeRequest(storageKey);
+        current = { ...current, revision: uploaded.adRevision, contentRevision: uploaded.contentRevision };
+        setDraft(current);
         setImages((value) => value.some((item) => item.id === uploaded.image.id) ? value : [...value, uploaded.image]);
       }
 
-      const submitted = await classifiedsApi.submit(current.id, crypto.randomUUID());
+      if (intent === 'draft') {
+        setDraft(current);
+        setNotice('تم حفظ المسودة. لم تُرسل للمراجعة ولم تستهلك من حصة الإعلانات.');
+        return;
+      }
+
+      const submitKey = `khedmah.classifieds.submit.${current.id}.${current.contentRevision}`;
+      const submitted = await classifiedsApi.submit(current.id, {
+        clientRequestId: operationRequestId(submitKey), expectedContentRevision: current.contentRevision
+      });
       if (generation !== lifecycle.current) return;
+      acknowledgeRequest(submitKey);
       setDraft(submitted.ad);
-      clearRequestId(CREATE_KEY);
-      for (const key of mediaRequestKeys.current) clearRequestId(key);
       router.push('/classifieds/manage');
     } catch (cause) {
       if (generation !== lifecycle.current) return;
       const issue = cause instanceof Error ? cause as Error & { statusCode?: number; code?: string } : undefined;
       if (issue?.statusCode === 429 || issue?.code === 'AD_FREE_QUOTA_EXHAUSTED') {
         setError('تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب. المسودة محفوظة ولن تُكرر عند إعادة المحاولة.');
+      } else if (issue?.code === 'AD_IMAGE_LIMIT_REACHED') {
+        setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان.`);
       } else if (issue?.statusCode === 409) {
-        setError('تغيرت المسودة أو توجد محاولة محفوظة بنفس المفتاح. افتح «إعلاناتي» لمراجعة النسخة الحالية قبل المتابعة.');
+        if (!current) setCreateConflict(true);
+        setError(current
+          ? 'تغيرت المسودة أو توجد محاولة محفوظة بنفس المفتاح. افتح «إعلاناتي» لمراجعة النسخة الحالية قبل المتابعة.'
+          : 'هذه المحاولة مرتبطة بمسودة سابقة. راجع «إعلاناتي» أو ابدأ محاولة جديدة بمفتاح مستقل.');
       } else {
-        setError(issue?.message || 'لم تكتمل العملية. المسودة المحفوظة لن تُنشأ مرة أخرى عند إعادة نفس المحاولة.');
+        setError(issue?.message || 'لم تكتمل العملية. أعد اختيار الصور غير المحفوظة فقط؛ لن ننشئ مسودة أخرى لنفس المحاولة.');
       }
       if (current) {
         try {
@@ -172,7 +228,7 @@ export default function NewClassifiedPage() {
         } catch { /* The primary error remains the useful message. */ }
       }
     } finally {
-      if (generation === lifecycle.current) { pending.current = false; setSaving(false); }
+      if (generation === lifecycle.current) { pending.current = false; setSaving(false); setSavingIntent(null); }
     }
   }
 
@@ -183,7 +239,9 @@ export default function NewClassifiedPage() {
     <PageHeader eyebrow="إعلانات خدمة" title="إضافة إعلان" description="أنشئ إعلانًا مستقلاً عن متجر خدمة. إنشاء المسودة لا يستهلك الحصة؛ أول إرسال للمراجعة يحجز أحد الإعلانات المجانية الثلاثة." actions={<ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink>}/>
     {quota && <Surface className={styles.quota}><strong>الحصة المجانية</strong><span>{quota.used} من {quota.limit} مستخدمة</span></Surface>}
     {quota && quota.used === quota.limit && <StatusMessage tone="warning">يمكنك حفظ مسودة، لكن لن يمكن إرسال إعلان جديد للمراجعة بعد استهلاك الحصة الحالية.</StatusMessage>}
-    {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+    {error && <StatusMessage tone="danger">{error}{createConflict && <div className={styles.actions}><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء محاولة إعلان جديدة</ActionButton><ActionLink href="/classifieds/manage" variant="secondary">مراجعة إعلاناتي</ActionLink></div>}</StatusMessage>}
+    {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
+    {draft?.status === 'draft' && <Surface className={styles.quota}><span>هذه المسودة محفوظة؛ يمكنك إرسالها للمراجعة أو بدء إعلان آخر.</span><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء إعلان جديد</ActionButton></Surface>}
     {categoryError && <StatusMessage tone="danger">{categoryError}</StatusMessage>}
     {cityError && <StatusMessage tone="danger">{cityError}</StatusMessage>}
     <Surface as="form" className={styles.form} onSubmit={submit} aria-busy={saving}>
@@ -197,7 +255,7 @@ export default function NewClassifiedPage() {
         <label className={styles.field}>الوصف<textarea name="descriptionAr" rows={5} maxLength={4000} value={form.descriptionAr} onChange={(event) => setForm((value) => ({ ...value, descriptionAr: event.target.value }))}/></label>
         <div className={styles.formGrid}>
           <label className={styles.field}>طريقة السعر<select name="priceMode" value={form.priceMode} onChange={(event) => setForm((value) => ({ ...value, priceMode: event.target.value as AdPriceMode }))}><option value="none">بدون سعر محدد</option><option value="fixed">سعر ثابت</option><option value="negotiable">قابل للتفاوض</option><option value="contact">تواصل للسعر</option></select></label>
-          {form.priceMode === 'fixed' && <label className={styles.field}>السعر<input name="priceMinor" type="number" min="1" step="1" value={form.priceMinor} required onChange={(event) => setForm((value) => ({ ...value, priceMinor: event.target.value }))}/></label>}
+          {form.priceMode === 'fixed' && <label className={styles.field}>السعر<input name="priceMinor" type="number" inputMode="numeric" dir="ltr" min="1" step="1" value={form.priceMinor} required onChange={(event) => setForm((value) => ({ ...value, priceMinor: event.target.value }))}/></label>}
         </div>
         {form.priceMode === 'fixed' && <label className={styles.field}>العملة<select name="currency" value={form.currency} onChange={(event) => setForm((value) => ({ ...value, currency: event.target.value as 'SYP' | 'USD' }))}><option value="SYP">ليرة سورية</option><option value="USD">دولار أمريكي</option></select></label>}
         <div className={styles.formGrid}>
@@ -206,11 +264,14 @@ export default function NewClassifiedPage() {
         </div>
         <div className={styles.formGrid}>
           <label className={styles.field}>طريقة التواصل<select name="contactMode" value={form.contactMode} onChange={(event) => setForm((value) => ({ ...value, contactMode: event.target.value as FormState['contactMode'] }))}><option value="profile">الملف المرتبط</option><option value="phone">هاتف</option><option value="whatsapp">واتساب</option></select></label>
-          {form.contactMode !== 'profile' && <label className={styles.field}>بيانات التواصل<input name="contactValue" maxLength={80} required value={form.contactValue} onChange={(event) => setForm((value) => ({ ...value, contactValue: event.target.value }))}/></label>}
+          {form.contactMode !== 'profile' && <label className={styles.field}>بيانات التواصل<input name="contactValue" type="tel" inputMode="tel" dir="ltr" maxLength={80} required value={form.contactValue} onChange={(event) => setForm((value) => ({ ...value, contactValue: event.target.value }))}/></label>}
         </div>
-        <label className={styles.field}>صور الإعلان — اختيارية<input name="adImages" type="file" accept="image/jpeg,image/png,image/webp" multiple/></label>
-        <p className={styles.notice}>كل صورة حتى 5 ميغابايت. الصور المحفوظة حاليًا: {images.length}. لا تنشئ هذه العملية طلب شراء أو دفعة.</p>
-        <ActionButton type="submit" disabled={saving || categoryLoading || !!categoryError}>{saving ? 'جارٍ الحفظ والإرسال…' : 'حفظ وإرسال للمراجعة'}</ActionButton>
+        <label className={styles.field}>صور الإعلان — اختيارية، حتى {CLASSIFIEDS_MAX_IMAGES} صور<input name="adImages" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={images.length >= CLASSIFIEDS_MAX_IMAGES}/></label>
+        <p className={styles.notice}>كل صورة حتى 5 ميغابايت. الصور المحفوظة: {images.length} من {CLASSIFIEDS_MAX_IMAGES}. حفظ المسودة لا يستهلك حصة، ولا تنشئ هذه العملية طلب شراء أو دفعة.</p>
+        <div className={styles.actions}>
+          <ActionButton type="submit" name="intent" value="draft" variant="secondary" disabled={saving || categoryLoading || !!categoryError}>{savingIntent === 'draft' ? 'جارٍ حفظ المسودة…' : 'حفظ كمسودة'}</ActionButton>
+          <ActionButton type="submit" name="intent" value="review" disabled={saving || categoryLoading || !!categoryError || Boolean(quota && quota.used === quota.limit)}>{savingIntent === 'review' ? 'جارٍ الحفظ والإرسال…' : 'حفظ وإرسال للمراجعة'}</ActionButton>
+        </div>
       </fieldset>
     </Surface>
   </div></PageShell>;

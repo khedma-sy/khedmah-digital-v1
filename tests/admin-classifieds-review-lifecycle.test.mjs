@@ -30,7 +30,7 @@ const ad = {
   contactMode: 'phone',
   contactValue: '0999999999',
   status: 'pending_review',
-  imageUrls: ['/api/v1/classifieds-media/first', '/api/v1/classifieds-media/second'],
+  imageUrls: ['/api/v1/classifieds/media/public/first', '/api/v1/classifieds/media/public/second'],
   submittedAt: '2026-09-10T00:00:00Z',
   createdAt: '2026-09-09T00:00:00Z',
   updatedAt: '2026-09-10T00:00:00Z',
@@ -53,6 +53,7 @@ function fixture({ enabled = true } = {}) {
   };
   const adminClassifiedsApi = {
     pending() { pendingCalls += 1; return call(queueLoads); },
+    reviewMediaUrl: (url) => url.replace('/api/v1/classifieds/media/public/', '/api/v1/admin/classifieds/media/'),
     review(...args) { const d = call(decisions); decisions.at(-1).args = args; return d.promise; }
   };
   const page = clientPage(readSource('apps/frontend/app/admin/moderation/page.tsx'), {
@@ -110,8 +111,9 @@ test('Classifieds moderation shows the full review snapshot and Smart Admin asse
   assert.match(f.page.text, /رُصدت إشارة تتطلب انتباه المشرف/);
   assert.match(f.page.text, /راجع مطابقة بيانات التواصل للمحتوى/);
   assert.match(f.page.text, /القرار النهائي بشري ومسجل/);
-  assert.ok(f.page.find(n => n.type === 'a' && n.props.href === '/api/v1/classifieds-media/first'));
-  assert.ok(f.page.find(n => n.type === 'a' && n.props.href === '/api/v1/classifieds-media/second'));
+  assert.ok(f.page.find(n => n.type === 'img' && n.props.src === '/api/v1/admin/classifieds/media/first'));
+  assert.ok(f.page.find(n => n.type === 'img' && n.props.src === '/api/v1/admin/classifieds/media/second'));
+  assert.equal(f.page.find(n => n.props?.href?.includes('/classifieds/media/public/')), undefined);
 });
 
 test('approval sends the displayed review revision and Smart Admin assessment version and is single-flight', async () => {
@@ -161,6 +163,7 @@ test('409 closes the ad decision, refreshes its snapshot, and requires a new exp
     '../../../lib/api-client': { api },
     '../../../lib/classifieds-client': { adminClassifiedsApi: {
       pending: async () => ({ ads: [{ ...ad, reviewRevision: ++pendingCalls + 2, smartAdmin: { ...smartAdmin, reviewRevision: pendingCalls + 2 }, titleAr: pendingCalls === 1 ? ad.titleAr : 'نسخة أحدث' }] }),
+      reviewMediaUrl: (url) => url.replace('/api/v1/classifieds/media/public/', '/api/v1/admin/classifieds/media/'),
       review: async (...args) => { decisions.push(args); throw Object.assign(new Error('changed'), { statusCode: 409 }); }
     }, CLASSIFIEDS_SMART_ADMIN_VERSION: SMART_ADMIN_VERSION },
     '../../../lib/classifieds': { CLASSIFIEDS_ENABLED: true, AD_KIND_LABELS: { sale: 'للبيع' }, formatAdPrice: () => '250000 SYP' }
@@ -185,6 +188,12 @@ test('Classifieds admin client serializes review revision, Smart Admin version a
     }
   });
   await adminClassifiedsApi.review('ad/one', 'approved', 3, SMART_ADMIN_VERSION);
+  assert.equal(
+    adminClassifiedsApi.reviewMediaUrl('/api/v1/classifieds/media/public/image_1'),
+    '/api/v1/admin/classifieds/media/image_1'
+  );
+  assert.equal(adminClassifiedsApi.reviewMediaUrl('/api/v1/classifieds/media/public/image%2F1'), undefined);
+  assert.equal(adminClassifiedsApi.reviewMediaUrl('/api/v1/classifieds/media/publicish/image-1'), undefined);
   assert.equal(calls[0].url, '/api/v1/admin/classifieds/ad%2Fone/moderation');
   assert.deepEqual(JSON.parse(calls[0].init.body), { decision: 'approved', expectedReviewRevision: 3, expectedAssessmentVersion: SMART_ADMIN_VERSION });
   await assert.rejects(() => adminClassifiedsApi.review('ad/one', 'rejected', 4, SMART_ADMIN_VERSION, 'سبب واضح'), cause => cause.statusCode === 409 && cause.code === 'AD_REVIEW_CONFLICT');

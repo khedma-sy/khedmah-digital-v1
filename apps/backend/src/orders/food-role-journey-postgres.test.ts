@@ -21,6 +21,9 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 import { OrderController } from './order.controller';
 import { OrderRepository } from './order.repository';
 import { OrderService } from './order.service';
+import { FoodPromotionController } from './food-promotion.controller';
+import { FoodPromotionRepository } from './food-promotion.repository';
+import { FoodPromotionService } from './food-promotion.service';
 
 type Actor = 'customer' | 'merchant' | 'courier' | 'reviewer' | 'outsider';
 
@@ -41,6 +44,7 @@ test('food delivery role journey uses canonical sessions, governed review and at
   const businesses = new BusinessProfileRepository(db);
   const orders = new OrderRepository(db);
   const orderService = new OrderService(orders, businesses, identity);
+  const foodPromotionService = new FoodPromotionService(new FoodPromotionRepository(db), identity);
   const notificationRepository = new NotificationRepository(db);
   const notifications = new NotificationService(notificationRepository, identity);
   const reviewerEmail = 'role-reviewer@example.test';
@@ -59,7 +63,7 @@ test('food delivery role journey uses canonical sessions, governed review and at
     process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = JSON.stringify({ [reviewerEmail]: ['security_operations_engineer'] });
     documentService = new DriverDocumentReviewService(db, identity, new OperationsRbacService());
     await resetCanonicalTestSchema(pool);
-    for (const migration of ['024_product_store', '025_classifieds', '026_cash_fulfillment_orders', '027_mobility_document_reviews', '028_platform_notifications']) {
+    for (const migration of ['024_product_store', '025_classifieds', '026_cash_fulfillment_orders', '027_mobility_document_reviews', '028_platform_notifications', '034_food_order_promotions']) {
       await pool.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions', `${migration}.sql`), 'utf8'));
     }
     const now = new Date().toISOString();
@@ -93,9 +97,10 @@ test('food delivery role journey uses canonical sessions, governed review and at
     }
 
     @Module({
-      controllers: [OrderController, DriverDocumentReviewController, NotificationController],
+      controllers: [OrderController, FoodPromotionController, DriverDocumentReviewController, NotificationController],
       providers: [
         { provide: OrderService, useValue: orderService },
+        { provide: FoodPromotionService, useValue: foodPromotionService },
         { provide: DriverDocumentReviewService, useValue: documentService },
         { provide: NotificationService, useValue: notifications },
       ],
@@ -143,13 +148,33 @@ test('food delivery role journey uses canonical sessions, governed review and at
     const afterReview = await request<{ couriers: Array<{ id: string; cityCode: string }>; total: number }>(`/orders/eligible-couriers?businessId=${merchantBusinessId}`, 'merchant');
     assert.equal(afterReview.total, 1); assert.deepEqual(afterReview.couriers, [{ id: courierBusinessId, name: 'مندوب دمشق', cityCode: 'damascus' }]);
 
+    const validFrom = new Date(Date.now() - 60_000).toISOString();
+    const validUntil = new Date(Date.now() + 86_400_000).toISOString();
+    await request('/food-promotions', 'outsider', { method: 'POST', expected: 403, body: { businessId: merchantBusinessId, code: 'ROLE10', nameAr: 'خصم اختبار الأدوار', discountType: 'percentage', percentageOff: 10, currency: 'SYP', minimumSubtotal: 1000, validFrom, validUntil, maxRedemptions: 1, perUserLimit: 1 } });
+    const campaign = await request<{ promotion: { id: string; code: string } }>('/food-promotions', 'merchant', { method: 'POST', expected: 201, body: { businessId: merchantBusinessId, code: 'ROLE10', nameAr: 'خصم اختبار الأدوار', discountType: 'percentage', percentageOff: 10, currency: 'SYP', minimumSubtotal: 1000, validFrom, validUntil, maxRedemptions: 1, perUserLimit: 1 } });
+    assert.equal(campaign.promotion.code, 'ROLE10');
+    const promotionList = await request<{ promotions: Array<{ id: string }> }>(`/food-promotions?businessId=${merchantBusinessId}`, 'merchant');
+    assert.deepEqual(promotionList.promotions.map(item => item.id), [campaign.promotion.id]);
+    await request(`/food-promotions?businessId=${merchantBusinessId}`, 'outsider', { expected: 403 });
+    const quote = await request<{ quote: { subtotal: number; discountAmount: number; discountedSubtotal: number; promotion: { code: string } } }>('/orders/quote', 'customer', { method: 'POST', expected: 201, body: { items: [{ productListingId: productId, quantity: 2 }], promoCode: 'role10' } });
+    assert.deepEqual(quote.quote, { merchantBusinessId, vertical: 'food', currency: 'SYP', subtotal: 2000, discountAmount: 200, discountedSubtotal: 1800, promotion: { code: 'ROLE10', nameAr: 'خصم اختبار الأدوار' } });
+
+    const cancellationBody = { items: [{ productListingId: productId, quantity: 2 }], deliveryAddress: 'دمشق إلغاء اختبار', customerPhone: '0999999999', promoCode: 'ROLE10', expectedSubtotal: 2000, expectedDiscountAmount: 200 };
+    const cancellation = await request<{ order: { id: string } }>('/orders', 'customer', { method: 'POST', body: cancellationBody, expected: 201, headers: { 'idempotency-key': randomUUID() } });
+    await request(`/orders/${cancellation.order.id}/status`, 'merchant', { method: 'PATCH', body: { status: 'quoted', deliveryFee: 100 } });
+    await request(`/orders/${cancellation.order.id}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed' } });
+    assert.equal((await pool.query(`SELECT status FROM food_promo_claims WHERE order_id=$1`, [cancellation.order.id])).rows[0].status, 'redeemed');
+    await request(`/orders/${cancellation.order.id}/status`, 'customer', { method: 'PATCH', body: { status: 'cancelled' } });
+    assert.deepEqual((await pool.query(`SELECT status,redeemed_at FROM food_promo_claims WHERE order_id=$1`, [cancellation.order.id])).rows[0], { status: 'released', redeemed_at: null });
+    await request('/orders/quote', 'customer', { method: 'POST', expected: 201, body: { items: [{ productListingId: productId, quantity: 2 }], promoCode: 'ROLE10' } });
+
     const idempotencyKey = randomUUID();
-    const createBody = { items: [{ productListingId: productId, quantity: 2 }], deliveryAddress: 'دمشق المزة اختبار', customerPhone: '0999999999', deliveryLatitude: 33.51, deliveryLongitude: 36.29 };
-    await pool.query(`ALTER TABLE platform_notifications ADD CONSTRAINT synthetic_create_notification_failure CHECK (title <> 'طلب جديد')`);
+    const createBody = { items: [{ productListingId: productId, quantity: 2 }], deliveryAddress: 'دمشق المزة اختبار', customerPhone: '0999999999', deliveryLatitude: 33.51, deliveryLongitude: 36.29, promoCode: 'ROLE10', expectedSubtotal: 2000, expectedDiscountAmount: 200 };
+    await pool.query(`ALTER TABLE platform_notifications ADD CONSTRAINT synthetic_create_notification_failure CHECK (title <> 'طلب جديد') NOT VALID`);
     try {
       await request('/orders', 'customer', { method: 'POST', body: createBody, expected: 500, headers: { 'idempotency-key': randomUUID() } });
-      const rolledBack = (await pool.query(`SELECT (SELECT count(*)::int FROM fulfillment_orders) orders,(SELECT count(*)::int FROM fulfillment_order_events) events,(SELECT count(*)::int FROM audit_logs WHERE event_type LIKE 'fulfillment.%') audits`)).rows[0];
-      assert.deepEqual(rolledBack, { orders: 0, events: 0, audits: 0 });
+      const rolledBack = (await pool.query(`SELECT (SELECT count(*)::int FROM fulfillment_orders WHERE status <> 'cancelled') orders,(SELECT count(*)::int FROM fulfillment_order_events WHERE order_id <> $1) events,(SELECT count(*)::int FROM audit_logs WHERE event_type LIKE 'fulfillment.%' AND correlation_id <> $1 AND correlation_id NOT LIKE $1 || ':%') audits,(SELECT count(*)::int FROM food_promo_claims WHERE status <> 'released') claims`, [cancellation.order.id])).rows[0];
+      assert.deepEqual(rolledBack, { orders: 0, events: 0, audits: 0, claims: 0 });
     } finally {
       await pool.query('ALTER TABLE platform_notifications DROP CONSTRAINT synthetic_create_notification_failure');
     }
@@ -158,6 +183,9 @@ test('food delivery role journey uses canonical sessions, governed review and at
       request<{ order: Record<string, unknown> }>('/orders', 'customer', { method: 'POST', body: createBody, expected: 201, headers: { 'idempotency-key': idempotencyKey } }),
     ]);
     assert.equal(created.order.id, replay.order.id); assert.equal(created.order.paymentMethod, 'cash'); assert.equal(created.order.status, 'placed');
+    assert.equal(created.order.promoCode, 'ROLE10'); assert.equal(created.order.discountAmount, 200);
+    assert.equal((await pool.query(`SELECT count(*)::int count FROM food_promo_claims WHERE order_id=$1 AND status='applied'`, [created.order.id])).rows[0].count, 1);
+    await request('/orders', 'customer', { method: 'POST', body: { ...createBody, deliveryAddress: 'دمشق محاولة حد ثانية' }, expected: 409, headers: { 'idempotency-key': randomUUID() } });
     assert.equal('customerUserId' in created.order, false); assert.equal('customerPhone' in created.order, false);
     const orderId = String(created.order.id);
 
@@ -173,7 +201,7 @@ test('food delivery role journey uses canonical sessions, governed review and at
     let merchantOrders = await request<{ orders: Array<Record<string, unknown>> }>(`/orders/merchant?businessId=${merchantBusinessId}`, 'merchant');
     assert.equal(merchantOrders.orders[0].customerPhone, '0999999999');
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'quoted', deliveryFee: 250 } });
-    await pool.query(`ALTER TABLE platform_notifications ADD CONSTRAINT synthetic_transition_notification_failure CHECK (title <> 'تم تأكيد الطلب')`);
+    await pool.query(`ALTER TABLE platform_notifications ADD CONSTRAINT synthetic_transition_notification_failure CHECK (title <> 'تم تأكيد الطلب') NOT VALID`);
     try {
       await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed' }, expected: 500 });
       const rolledBack = (await pool.query(`SELECT status,(SELECT count(*)::int FROM fulfillment_order_events WHERE order_id=$1) events,(SELECT count(*)::int FROM audit_logs WHERE correlation_id=$1 OR correlation_id LIKE $1 || ':%') audits FROM fulfillment_orders WHERE id=$1`, [orderId])).rows[0];
@@ -182,6 +210,7 @@ test('food delivery role journey uses canonical sessions, governed review and at
       await pool.query('ALTER TABLE platform_notifications DROP CONSTRAINT synthetic_transition_notification_failure');
     }
     await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed' } });
+    assert.equal((await pool.query(`SELECT status FROM food_promo_claims WHERE order_id=$1`, [orderId])).rows[0].status, 'redeemed');
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'courier_assigned', courierBusinessId: otherCityCourierId }, expected: 400 });
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'courier_assigned', courierBusinessId } });
 
@@ -225,6 +254,11 @@ test('food delivery role journey uses canonical sessions, governed review and at
     await request(`/orders/courier?businessId=${courierBusinessId}`, 'outsider', { expected: 403 });
     let courierOrders = await request<{ orders: Array<Record<string, unknown>> }>(`/orders/courier?businessId=${courierBusinessId}`, 'courier');
     assert.equal(courierOrders.orders[0].status, 'courier_assigned'); assert.equal('customerPhone' in courierOrders.orders[0], false);
+    const assignedCustomerOrders = await request<{ orders: Array<Record<string, unknown>> }>('/orders/mine', 'customer');
+    const assignedCustomerOrder = assignedCustomerOrders.orders.find(order => order.id === orderId)!;
+    assert.equal('courierBusinessId' in assignedCustomerOrder, false);
+    assert.equal('courierName' in assignedCustomerOrder, false);
+    assert.equal('courierPhone' in assignedCustomerOrder, false);
     const renewedLicense = randomUUID();
     await pool.query(
       `INSERT INTO media_assets(id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,asset_type,created_at,updated_at)
@@ -236,7 +270,24 @@ test('food delivery role journey uses canonical sessions, governed review and at
     await request(`/orders/${orderId}/status`, 'courier', { method: 'PATCH', body: { status: 'courier_accepted' } });
     courierOrders = await request<{ orders: Array<Record<string, unknown>> }>(`/orders/courier?businessId=${courierBusinessId}`, 'courier');
     assert.equal(courierOrders.orders[0].customerPhone, '0999999999');
+    const acceptedCustomerOrders = await request<{ orders: Array<Record<string, unknown>> }>('/orders/mine', 'customer');
+    const acceptedCustomerOrder = acceptedCustomerOrders.orders.find(order => order.id === orderId)!;
+    assert.equal(acceptedCustomerOrder.courierBusinessId, courierBusinessId);
+    assert.equal(acceptedCustomerOrder.courierName, 'مندوب دمشق');
+    assert.equal(acceptedCustomerOrder.courierPhone, '0222222222');
+    const confirmedAtBeforeRecall = (await pool.query<{ confirmed_at: Date }>(`SELECT confirmed_at FROM fulfillment_orders WHERE id=$1`, [orderId])).rows[0].confirmed_at.toISOString();
+    await request(`/orders/${orderId}/location`, 'courier', { method: 'POST', body: { latitude: 33.51, longitude: 36.29, accuracy: 11 }, expected: 201 });
+    await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'merchant_confirmed', reason: 'إعادة إسناد قبل الاستلام', expectedCourierBusinessId: courierBusinessId } });
+    assert.equal((await pool.query(`SELECT count(*)::int count FROM fulfillment_order_location_updates WHERE order_id=$1`, [orderId])).rows[0].count, 0);
+    assert.equal((await pool.query<{ confirmed_at: Date }>(`SELECT confirmed_at FROM fulfillment_orders WHERE id=$1`, [orderId])).rows[0].confirmed_at.toISOString(), confirmedAtBeforeRecall);
+    assert.equal((await pool.query(`SELECT status FROM food_promo_claims WHERE order_id=$1`, [orderId])).rows[0].status, 'redeemed');
+    await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'courier_assigned', courierBusinessId } });
+    await request(`/orders/${orderId}/status`, 'courier', { method: 'PATCH', body: { status: 'courier_accepted' } });
+    const trackingAfterReassignment = await request<{ status: string; location?: unknown }>(`/orders/${orderId}/tracking`, 'customer');
+    assert.equal(trackingAfterReassignment.status, 'courier_accepted');
+    assert.equal(trackingAfterReassignment.location, undefined);
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'ready_for_pickup' } });
+    await pool.query(`UPDATE business_profiles SET availability='busy' WHERE id=$1`, [courierBusinessId]);
     await request(`/orders/${orderId}/status`, 'courier', { method: 'PATCH', body: { status: 'picked_up' } });
     const pickedOrder = await orders.findById(orderId);
     assert.ok(pickedOrder);
@@ -253,7 +304,7 @@ test('food delivery role journey uses canonical sessions, governed review and at
     await request(`/orders/${orderId}/ratings`, 'customer', { method: 'POST', body: { targetType: 'merchant', score: 5 }, expected: 201 });
     await request(`/orders/${orderId}/ratings`, 'customer', { method: 'POST', body: { targetType: 'courier', score: 5 }, expected: 201 });
     merchantOrders = await request<{ orders: Array<Record<string, unknown>> }>(`/orders/merchant?businessId=${merchantBusinessId}`, 'merchant');
-    assert.equal(merchantOrders.orders[0].paymentStatus, 'cash_collected'); assert.equal(merchantOrders.orders[0].total, 2250);
+    assert.equal(merchantOrders.orders[0].paymentStatus, 'cash_collected'); assert.equal(merchantOrders.orders[0].total, 2050);
 
     const customerNotifications = await request<{ notifications: Array<{ referenceId: string }> }>('/notifications?limit=100', 'customer');
     assert.ok(customerNotifications.notifications.some(item => item.referenceId === orderId));
@@ -262,11 +313,12 @@ test('food delivery role journey uses canonical sessions, governed review and at
         (SELECT count(*)::int FROM fulfillment_orders WHERE id=$1) orders,
         (SELECT count(*)::int FROM fulfillment_order_events WHERE order_id=$1) events,
         (SELECT count(*)::int FROM fulfillment_order_ratings WHERE order_id=$1) ratings,
+        (SELECT count(*)::int FROM food_promo_claims WHERE order_id=$1 AND status='redeemed') promo_claims,
         (SELECT count(*)::int FROM fulfillment_order_location_updates WHERE order_id=$1) locations,
         (SELECT count(*)::int FROM platform_notifications WHERE reference_id=$1) notifications,
         (SELECT count(*)::int FROM audit_logs WHERE correlation_id=$1 OR correlation_id LIKE $1 || ':%') audits`, [orderId],
     )).rows[0];
-    assert.deepEqual(databaseEvidence, { orders: 1, events: 10, ratings: 2, locations: 1, notifications: 17, audits: 10 });
+    assert.deepEqual(databaseEvidence, { orders: 1, events: 13, ratings: 2, promo_claims: 1, locations: 1, notifications: 23, audits: 13 });
     const transitions = await pool.query<{ from_status: string | null; to_status: string; actor_user_id: string }>(
       `SELECT from_status,to_status,actor_user_id FROM fulfillment_order_events WHERE order_id=$1`, [orderId],
     );
@@ -277,6 +329,9 @@ test('food delivery role journey uses canonical sessions, governed review and at
       `quoted>merchant_confirmed:${people.customer}`,
       `merchant_confirmed>courier_assigned:${people.merchant}`,
       `courier_assigned>merchant_confirmed:${people.courier}`,
+      `merchant_confirmed>courier_assigned:${people.merchant}`,
+      `courier_assigned>courier_accepted:${people.courier}`,
+      `courier_accepted>merchant_confirmed:${people.merchant}`,
       `merchant_confirmed>courier_assigned:${people.merchant}`,
       `courier_assigned>courier_accepted:${people.courier}`,
       `courier_accepted>ready_for_pickup:${people.merchant}`,

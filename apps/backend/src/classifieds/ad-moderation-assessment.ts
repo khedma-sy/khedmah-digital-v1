@@ -49,8 +49,8 @@ export function assessAdForModeration(ad: AdListing): AdModerationAssessment {
   if (ad.contactMode === 'profile' && !ad.businessProfileId) {
     add('PROFILE_WITHOUT_BUSINESS', 'attention', 'طريقة التواصل عبر الملف تتطلب وجود ملف نشاط مرتبط.');
   }
-  if ((ad.priceMode === 'fixed' || ad.priceMode === 'negotiable') &&
-      (!Number.isSafeInteger(ad.priceMinor) || (ad.priceMinor ?? 0) < 0 || !ad.currency)) {
+  if (ad.priceMode === 'fixed' &&
+      (!Number.isSafeInteger(ad.priceMinor) || (ad.priceMinor ?? 0) <= 0 || !ad.currency)) {
     add('PRICE_CONTRACT_MISMATCH', 'attention', 'بيانات السعر لا تطابق عقد السعر للإعلان.');
   }
   if (!Number.isSafeInteger(ad.reviewRevision) || ad.reviewRevision <= 0) {

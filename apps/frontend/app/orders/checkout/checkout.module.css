@@ -10,4 +10,9 @@
 .checkout { max-width: 52rem; margin-inline: auto; border-color: color-mix(in srgb, var(--food-orange) 34%, var(--k-color-border)); box-shadow: 0 1.2rem 3rem color-mix(in srgb, var(--food-orange) 11%, transparent); }
 .summary { border-radius: var(--k-radius-lg); padding: 1rem; background: color-mix(in srgb, var(--food-orange) 10%, var(--k-color-surface)); }
 .summary h2 { margin-block-start: 0; }
+.discount { display: grid; gap: .35rem; margin-block-start: .8rem; border-radius: .75rem; padding: .75rem; background: color-mix(in srgb, var(--brand-green) 13%, var(--k-color-surface)); }
+.promo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .7rem; border: 1px solid color-mix(in srgb, var(--food-orange) 32%, var(--k-color-border)); border-radius: var(--k-radius-lg); padding: 1rem; }
+.promo label { min-width: 0; }
+.promo small { grid-column: 1 / -1; line-height: 1.7; }
 .payment { border-inline-start: .25rem solid var(--food-orange); border-radius: .75rem; padding: .8rem 1rem; background: color-mix(in srgb, var(--food-orange) 9%, var(--k-color-surface)); font-weight: 700; line-height: 1.8; }
+@media (max-width: 34rem) { .promo { grid-template-columns: 1fr; } .promo small { grid-column: auto; } }

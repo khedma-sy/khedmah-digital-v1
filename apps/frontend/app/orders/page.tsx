@@ -13,6 +13,7 @@ import {
   Surface,
 } from "../components/ui-primitives";
 import { OrderTracking } from "./order-tracking";
+import { OrderTimeline } from "./order-timeline";
 import { showOrderNotification } from "./order-alerts";
 
 const label: Record<FulfillmentOrder["status"], string> = {
@@ -211,6 +212,10 @@ export default function OrdersPage() {
               <p>
                 الأصناف: {order.subtotal.toLocaleString("ar-SY-u-nu-latn")} {order.currency}
               </p>
+              {order.promoCode && order.discountAmount > 0 && <p>
+                كود الخصم <bdi>{order.promoCode}</bdi>: -{order.discountAmount.toLocaleString("ar-SY-u-nu-latn")} {order.currency}
+                {" · "}الأصناف بعد الخصم: {(order.subtotal - order.discountAmount).toLocaleString("ar-SY-u-nu-latn")} {order.currency}
+              </p>}
               {order.total !== undefined && (
                 <p>
                   الإجمالي النقدي:{" "}
@@ -221,6 +226,8 @@ export default function OrdersPage() {
               )}
               {order.courierName && <p>المندوب: {order.courierName}</p>}
               {order.courierPhone && <p>رقم المندوب: <a href={`tel:${order.courierPhone}`} dir="ltr">{order.courierPhone}</a></p>}
+              {order.rejectionReason && <StatusMessage tone="danger">سبب الرفض: {order.rejectionReason}</StatusMessage>}
+              <OrderTimeline events={order.events} />
               {["courier_accepted", "ready_for_pickup", "picked_up"].includes(order.status) && (
                 <OrderTracking orderId={order.id} status={order.status} />
               )}
@@ -235,7 +242,7 @@ export default function OrdersPage() {
                     {busy ? "جارٍ الحفظ…" : "أوافق على الإجمالي"}
                   </ActionButton>
                 )}
-                {["placed", "quoted"].includes(order.status) && (
+                {["placed", "quoted", "merchant_confirmed"].includes(order.status) && (
                   <ActionButton variant="secondary" disabled={busy || actionInFlight.current} onClick={() => void move(order, "cancelled")}>
                     {busy ? "جارٍ الحفظ…" : "إلغاء الطلب"}
                   </ActionButton>

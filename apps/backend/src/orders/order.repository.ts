@@ -1,9 +1,10 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { DatabasePool } from "../database/database.pool";
 import type {
   FulfillmentOrder,
+  FulfillmentOrderEvent,
   OrderItem,
   OrderStatus,
   OrderVertical,
@@ -42,6 +43,8 @@ interface OrderRow extends Record<string, unknown> {
   payment_status: "pending" | "cash_collected";
   currency: "SYP" | "USD";
   subtotal: string;
+  promo_code: string | null;
+  discount_amount: string;
   delivery_fee: string | null;
   total: string | null;
   delivery_address: string;
@@ -55,6 +58,23 @@ interface OrderRow extends Record<string, unknown> {
   created_at: Date;
   updated_at: Date;
 }
+interface FoodPromotionRow extends Record<string, unknown> {
+  id: string;
+  code: string;
+  name_ar: string;
+  merchant_business_id: string;
+  discount_type: "percentage" | "fixed";
+  percentage_off: number | null;
+  fixed_amount: string | null;
+  currency: "SYP" | "USD";
+  minimum_subtotal: string;
+  maximum_discount: string | null;
+  active: boolean;
+  valid_from: Date;
+  valid_until: Date;
+  max_redemptions: number | null;
+  per_user_limit: number;
+}
 interface ItemRow extends Record<string, unknown> {
   order_id: string;
   product_listing_id: string;
@@ -63,10 +83,43 @@ interface ItemRow extends Record<string, unknown> {
   quantity: number;
   requires_prescription: boolean;
 }
+interface EventRow extends Record<string, unknown> {
+  id: string;
+  order_id: string;
+  from_status: OrderStatus | null;
+  to_status: OrderStatus;
+  reason: string | null;
+  occurred_at: Date;
+}
 
 const projection = `o.*, merchant.owner_user_id AS merchant_owner_user_id, merchant.name AS merchant_name,
  merchant.address_ar AS pickup_address, merchant.phone AS merchant_phone,
  courier.owner_user_id AS courier_owner_user_id, courier.name AS courier_name, courier.phone AS courier_phone`;
+
+interface FoodPromotionPricingInput {
+  readonly userId: string;
+  readonly merchantBusinessId: string;
+  readonly vertical: OrderVertical;
+  readonly currency: "SYP" | "USD";
+  readonly subtotal: number;
+  readonly promoCode?: string;
+}
+
+interface CreatePromotionExpectation {
+  readonly promoCode?: string;
+  readonly expectedSubtotal?: number;
+  readonly expectedDiscountAmount?: number;
+}
+
+interface ResolvedFoodPromotionQuote {
+  readonly merchantBusinessId: string;
+  readonly vertical: OrderVertical;
+  readonly currency: "SYP" | "USD";
+  readonly subtotal: number;
+  readonly discountAmount: number;
+  readonly discountedSubtotal: number;
+  readonly promotion?: { readonly id: string; readonly code: string; readonly nameAr: string };
+}
 
 const statusMessages: Record<OrderStatus, readonly [string, string]> = {
   placed: ['طلب جديد', 'تم إنشاء الطلب.'], quoted: ['تم تسعير الطلب', 'أرسل المتجر السعر ورسوم التوصيل.'],
@@ -88,6 +141,77 @@ async function insertNotification(client: PoolClient, input: { userId: string; o
 @Injectable()
 export class OrderRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
+
+  private async promotionQuote(
+    source: DatabasePool | PoolClient,
+    input: FoodPromotionPricingInput,
+    lock: boolean,
+  ): Promise<ResolvedFoodPromotionQuote> {
+    const base: ResolvedFoodPromotionQuote = {
+      merchantBusinessId: input.merchantBusinessId,
+      vertical: input.vertical,
+      currency: input.currency,
+      subtotal: input.subtotal,
+      discountAmount: 0,
+      discountedSubtotal: input.subtotal,
+    };
+    if (!input.promoCode) return base;
+    if (input.vertical !== "food")
+      throw new BadRequestException("Food promotion is unavailable for this basket.");
+    const query = async <T extends Record<string, unknown>>(sql: string, params: unknown[]) =>
+      source instanceof DatabasePool
+        ? source.query<T>(sql, params)
+        : (await source.query<T>(sql, params)).rows;
+    const promotions = await query<FoodPromotionRow>(
+      `SELECT * FROM food_promo_codes
+       WHERE merchant_business_id=$1 AND code=$2${lock ? " FOR UPDATE" : ""}`,
+      [input.merchantBusinessId, input.promoCode],
+    );
+    const promotion = promotions[0];
+    const now = new Date();
+    if (!promotion || !promotion.active || promotion.merchant_business_id !== input.merchantBusinessId
+      || promotion.currency !== input.currency || promotion.valid_from > now || promotion.valid_until <= now
+      || input.subtotal < Number(promotion.minimum_subtotal)) {
+      throw new BadRequestException("Food promotion is unavailable for this basket.");
+    }
+    const userClaims = await query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM food_promo_claims
+       WHERE promo_id=$1 AND user_id=$2 AND status IN ('applied','redeemed')`,
+      [promotion.id, input.userId],
+    );
+    if (Number(userClaims[0]?.count ?? 0) >= promotion.per_user_limit)
+      throw new ConflictException("Food promotion redemption limit was reached.");
+    if (promotion.max_redemptions !== null) {
+      const totalClaims = await query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM food_promo_claims
+         WHERE promo_id=$1 AND status IN ('applied','redeemed')`,
+        [promotion.id],
+      );
+      if (Number(totalClaims[0]?.count ?? 0) >= promotion.max_redemptions)
+        throw new ConflictException("Food promotion redemption limit was reached.");
+    }
+    let discount = promotion.discount_type === "percentage"
+      ? input.subtotal * Number(promotion.percentage_off) / 100
+      : Number(promotion.fixed_amount);
+    if (promotion.maximum_discount !== null)
+      discount = Math.min(discount, Number(promotion.maximum_discount));
+    discount = Math.round(discount * 100) / 100;
+    if (discount <= 0 || discount >= input.subtotal)
+      throw new BadRequestException("Food promotion is unavailable for this basket.");
+    return {
+      ...base,
+      discountAmount: discount,
+      discountedSubtotal: Math.round((input.subtotal - discount) * 100) / 100,
+      promotion: { id: promotion.id, code: promotion.code, nameAr: promotion.name_ar },
+    };
+  }
+
+  quoteFoodPromotion(input: FoodPromotionPricingInput) {
+    return this.promotionQuote(this.db, input, false).then(({ promotion, ...quote }) => ({
+      ...quote,
+      promotion: promotion ? { code: promotion.code, nameAr: promotion.nameAr } : undefined,
+    }));
+  }
 
   async findProducts(ids: readonly string[]): Promise<ProductOrderRow[]> {
     return this.db.query<ProductOrderRow>(
@@ -120,7 +244,13 @@ export class OrderRepository {
     const eligibility = `FROM business_profiles b
       WHERE b.category_code='delivery_courier' AND b.city_code=$1
         AND b.visibility='public' AND b.status='active'
+        AND b.availability='available'
         AND b.trust_status='approved' AND b.moderation_status='approved'
+        AND NOT EXISTS (
+          SELECT 1 FROM fulfillment_orders active_job
+          WHERE active_job.courier_business_id=b.id
+            AND active_job.status IN ('courier_assigned','courier_accepted','ready_for_pickup','picked_up')
+        )
         AND (SELECT COUNT(*) FROM (
           SELECT DISTINCT ON (document_type) document_type,status
           FROM mobility_document_reviews WHERE business_profile_id=b.id
@@ -136,10 +266,78 @@ export class OrderRepository {
   async create(
     order: FulfillmentOrder,
     idempotencyKey: string,
+    expectation: CreatePromotionExpectation = {},
   ): Promise<FulfillmentOrder> {
-    await this.db.transaction(async (client) => {
+    const orderId = await this.db.transaction(async (client) => {
       await client.query(
-        `INSERT INTO fulfillment_orders (id,customer_user_id,merchant_business_id,vertical,status,payment_method,payment_status,currency,subtotal,delivery_address,customer_phone,delivery_latitude,delivery_longitude,customer_note,prescription_attested,pharmacy_review_status,idempotency_key,created_at,updated_at) VALUES ($1,$2,$3,$4,'placed','cash','pending',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15)`,
+        `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
+        [`fulfillment-request:${order.customerUserId}:${idempotencyKey}`],
+      );
+      const replay = await client.query<{ id: string }>(
+        `SELECT id FROM fulfillment_orders
+         WHERE customer_user_id=$1 AND idempotency_key=$2 FOR UPDATE`,
+        [order.customerUserId, idempotencyKey],
+      );
+      if (replay.rows[0]) return replay.rows[0].id;
+
+      const currentProducts = await client.query<ProductOrderRow>(
+        `SELECT p.id,p.business_profile_id,p.owner_user_id,b.name AS business_name,
+           b.category_code AS business_category_code,p.title_ar,p.price,p.currency,
+           p.availability,p.status,p.moderation_status,p.requires_prescription,p.controlled_item
+         FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id
+         WHERE p.id=ANY($1::text[])
+           AND b.visibility='public' AND b.moderation_status='approved'
+           AND b.trust_status='approved' AND b.status='active'
+         ORDER BY p.id FOR KEY SHARE OF p,b`,
+        [[...order.items.map((item) => item.productListingId)].sort()],
+      );
+      if (currentProducts.rows.length !== order.items.length)
+        throw new ConflictException("Basket changed; review the order again.");
+      const byId = new Map(currentProducts.rows.map((product) => [product.id, product]));
+      const currentCategory = currentProducts.rows[0]?.business_category_code;
+      const currentVertical: OrderVertical | undefined = currentCategory === "pharmacy"
+        ? "pharmacy"
+        : ["restaurant", "cafe", "bakery", "sweets", "catering", "juice_icecream"].includes(currentCategory ?? "")
+          ? "food"
+          : ["butcher", "grocery", "fruits_vegetables", "fish_poultry_shop"].includes(currentCategory ?? "")
+            ? "grocery"
+            : undefined;
+      const unchanged = order.items.every((item) => {
+        const current = byId.get(item.productListingId);
+        return current
+          && current.business_profile_id === order.merchantBusinessId
+          && current.currency === order.currency
+          && current.status === "active"
+          && current.moderation_status === "approved"
+          && current.availability !== "out_of_stock"
+          && !current.controlled_item
+          && current.title_ar === item.titleAr
+          && Number(current.price) === item.unitPrice
+          && current.requires_prescription === item.requiresPrescription;
+      });
+      if (!unchanged || currentVertical !== order.vertical)
+        throw new ConflictException("Basket changed; review the order again.");
+
+      const quote = await this.promotionQuote(client, {
+        userId: order.customerUserId,
+        merchantBusinessId: order.merchantBusinessId,
+        vertical: order.vertical,
+        currency: order.currency,
+        subtotal: order.subtotal,
+        promoCode: expectation.promoCode,
+      }, true);
+      if (expectation.promoCode && (expectation.expectedSubtotal !== quote.subtotal
+        || expectation.expectedDiscountAmount !== quote.discountAmount)) {
+        throw new ConflictException("Food promotion quote changed; review it again.");
+      }
+
+      await client.query(
+        `INSERT INTO fulfillment_orders (
+           id,customer_user_id,merchant_business_id,vertical,status,payment_method,payment_status,
+           currency,subtotal,food_promo_id,promo_code,discount_amount,delivery_address,
+           customer_phone,delivery_latitude,delivery_longitude,customer_note,prescription_attested,
+           pharmacy_review_status,idempotency_key,created_at,updated_at
+         ) VALUES ($1,$2,$3,$4,'placed','cash','pending',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18)`,
         [
           order.id,
           order.customerUserId,
@@ -147,6 +345,9 @@ export class OrderRepository {
           order.vertical,
           order.currency,
           order.subtotal,
+          quote.promotion?.id ?? null,
+          quote.promotion?.code ?? null,
+          quote.discountAmount,
           order.deliveryAddress,
           order.customerPhone,
           order.deliveryLatitude ?? null,
@@ -163,6 +364,17 @@ export class OrderRepository {
           `INSERT INTO fulfillment_order_items (id,order_id,product_listing_id,title_ar,unit_price,quantity,requires_prescription) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
           [randomUUID(), order.id, item.productListingId, item.titleAr, item.unitPrice, item.quantity, item.requiresPrescription],
         );
+      if (quote.promotion) {
+        await client.query(
+          `INSERT INTO food_promo_claims(
+             id,promo_id,order_id,user_id,merchant_business_id,code_snapshot,
+             subtotal_snapshot,discount_amount,currency,status,applied_at
+           ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'applied',$10)`,
+          [randomUUID(), quote.promotion.id, order.id, order.customerUserId,
+            order.merchantBusinessId, quote.promotion.code, order.subtotal,
+            quote.discountAmount, order.currency, order.createdAt],
+        );
+      }
       await client.query(
         `INSERT INTO fulfillment_order_events (id,order_id,actor_user_id,from_status,to_status,occurred_at) VALUES ($1,$2,$3,NULL,'placed',$4)`,
         [randomUUID(), order.id, order.customerUserId, order.createdAt],
@@ -178,8 +390,9 @@ export class OrderRepository {
         eventType: 'order.created', title: 'طلب جديد',
         body: order.vertical === 'food' ? 'وصل طلب طعام جديد. افتحه للمراجعة والقبول.' : 'وصل طلب جديد. افتحه للمراجعة.',
       });
+      return order.id;
     });
-    return (await this.findById(order.id))!;
+    return (await this.findById(orderId))!;
   }
 
   async findById(id: string): Promise<FulfillmentOrder | undefined> {
@@ -188,8 +401,8 @@ export class OrderRepository {
       [id],
     );
     if (!row) return undefined;
-    const items = await this.itemsFor([id]);
-    return map(row, items.get(id) ?? []);
+    const [items, events] = await Promise.all([this.itemsFor([id]), this.eventsFor([id])]);
+    return map(row, items.get(id) ?? [], events.get(id) ?? []);
   }
   async findIdempotent(customer: string, key: string) {
     const [row] = await this.db.query<{ id: string } & Record<string, unknown>>(
@@ -205,8 +418,9 @@ export class OrderRepository {
     const rows = await this.db.query<OrderRow>(
       `SELECT ${projection} FROM fulfillment_orders o JOIN business_profiles merchant ON merchant.id=o.merchant_business_id LEFT JOIN business_profiles courier ON courier.id=o.courier_business_id WHERE ${where} ORDER BY o.created_at DESC LIMIT 100`, params,
     );
-    const items = await this.itemsFor(rows.map((r) => r.id));
-    return rows.map((r) => map(r, items.get(r.id) ?? []));
+    const ids = rows.map((r) => r.id);
+    const [items, events] = await Promise.all([this.itemsFor(ids), this.eventsFor(ids)]);
+    return rows.map((r) => map(r, items.get(r.id) ?? [], events.get(r.id) ?? []));
   }
   private async itemsFor(ids: string[]) {
     const grouped = new Map<string, OrderItem[]>();
@@ -221,7 +435,30 @@ export class OrderRepository {
     return grouped;
   }
 
-  async transition(order: FulfillmentOrder, next: OrderStatus, actor: string, options: { authority?: "customer" | "merchant" | "courier"; deliveryFee?: number; courierBusinessId?: string; clearCourierBusinessId?: boolean; reason?: string; pharmacyReviewStatus?: FulfillmentOrder["pharmacyReviewStatus"]; eligibleCourierBusinessId?: string; expectedCourierBusinessId?: string; } = {}): Promise<FulfillmentOrder | undefined> {
+  private async eventsFor(ids: string[]) {
+    const grouped = new Map<string, FulfillmentOrderEvent[]>();
+    if (!ids.length) return grouped;
+    const rows = await this.db.query<EventRow>(
+      `SELECT id,order_id,from_status,to_status,reason,occurred_at
+       FROM fulfillment_order_events
+       WHERE order_id=ANY($1::text[])
+       ORDER BY occurred_at,id`,
+      [ids],
+    );
+    for (const row of rows) {
+      const value: FulfillmentOrderEvent = {
+        id: row.id,
+        fromStatus: row.from_status ?? undefined,
+        toStatus: row.to_status,
+        reason: row.reason ?? undefined,
+        occurredAt: row.occurred_at.toISOString(),
+      };
+      grouped.set(row.order_id, [...(grouped.get(row.order_id) ?? []), value]);
+    }
+    return grouped;
+  }
+
+  async transition(order: FulfillmentOrder, next: OrderStatus, actor: string, options: { authority?: "customer" | "merchant" | "courier"; deliveryFee?: number; courierBusinessId?: string; clearCourierBusinessId?: boolean; reason?: string; pharmacyReviewStatus?: FulfillmentOrder["pharmacyReviewStatus"]; eligibleCourierBusinessId?: string; expectedCourierBusinessId?: string; requireCourierAvailability?: boolean; } = {}): Promise<FulfillmentOrder | undefined> {
     const now = new Date().toISOString();
     const changed = await this.db.transaction(async (client) => {
       const protectedBusinessIds = [...new Set([
@@ -233,6 +470,18 @@ export class OrderRepository {
         `SELECT id FROM business_profiles WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE`,
         [protectedBusinessIds],
       );
+      const formerCourierOwner = options.clearCourierBusinessId && order.courierBusinessId
+        ? (await client.query<{ owner_user_id: string }>(
+            `SELECT owner_user_id FROM business_profiles WHERE id=$1`,
+            [order.courierBusinessId],
+          )).rows[0]?.owner_user_id
+        : undefined;
+      const promoClaims = await client.query<{ id: string; status: "applied" | "redeemed" | "released" }>(
+        `SELECT claim.id,claim.status FROM food_promo_claims claim
+         JOIN food_promo_codes promo ON promo.id=claim.promo_id
+         WHERE claim.order_id=$1 FOR UPDATE OF promo,claim`,
+        [order.id],
+      );
       if (options.eligibleCourierBusinessId) {
         await client.query(
           `SELECT id FROM media_assets
@@ -243,7 +492,7 @@ export class OrderRepository {
         );
       }
       const result = await client.query(
-        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8
+        `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal-discount_amount+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $2='quoted' AND $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8
          WHERE id=$1 AND status=$2
            AND (
              ($13::text='customer' AND customer_user_id=$12)
@@ -258,7 +507,14 @@ export class OrderRepository {
              WHERE eligible.id=$10 AND eligible.category_code='delivery_courier'
                AND eligible.city_code=(SELECT merchant.city_code FROM business_profiles merchant WHERE merchant.id=fulfillment_orders.merchant_business_id)
                AND eligible.visibility='public' AND eligible.status='active'
+               AND (NOT $14::boolean OR eligible.availability='available')
                AND eligible.trust_status='approved' AND eligible.moderation_status='approved'
+               AND NOT EXISTS (
+                 SELECT 1 FROM fulfillment_orders active_job
+                 WHERE active_job.courier_business_id=eligible.id
+                   AND active_job.id<>fulfillment_orders.id
+                   AND active_job.status IN ('courier_assigned','courier_accepted','ready_for_pickup','picked_up')
+               )
                AND (SELECT COUNT(*) FROM (
                  SELECT DISTINCT ON (document_type) document_type,status
                  FROM mobility_document_reviews WHERE business_profile_id=eligible.id
@@ -268,9 +524,37 @@ export class OrderRepository {
              )
            ))
          RETURNING id`,
-        [order.id, order.status, next, options.deliveryFee ?? null, options.courierBusinessId ?? null, options.pharmacyReviewStatus ?? null, options.reason ?? null, now, options.clearCourierBusinessId ?? false, options.eligibleCourierBusinessId ?? null, options.expectedCourierBusinessId ?? null, actor, options.authority ?? null],
+        [order.id, order.status, next, options.deliveryFee ?? null, options.courierBusinessId ?? null, options.pharmacyReviewStatus ?? null, options.reason ?? null, now, options.clearCourierBusinessId ?? false, options.eligibleCourierBusinessId ?? null, options.expectedCourierBusinessId ?? null, actor, options.authority ?? null, options.requireCourierAvailability ?? true],
       );
       if (!result.rowCount) return false;
+      if (options.clearCourierBusinessId) {
+        await client.query(
+          `DELETE FROM fulfillment_order_location_updates WHERE order_id=$1`,
+          [order.id],
+        );
+      }
+      if (order.discountAmount > 0) {
+        const claim = promoClaims.rows[0];
+        if (!claim) throw new Error("FOOD_PROMOTION_CLAIM_MISSING");
+        if (next === "cancelled" || next === "rejected") {
+          if (claim.status !== "released") {
+            const released = await client.query(
+              `UPDATE food_promo_claims
+               SET status='released',redeemed_at=NULL,released_at=$2
+               WHERE id=$1 AND status IN ('applied','redeemed')`,
+              [claim.id, now],
+            );
+            if (released.rowCount !== 1) throw new Error("FOOD_PROMOTION_RELEASE_STATE_INVALID");
+          }
+        } else if (order.status === "quoted" && next === "merchant_confirmed") {
+          const redeemed = await client.query(
+            `UPDATE food_promo_claims SET status='redeemed',redeemed_at=$2
+             WHERE id=$1 AND status='applied'`,
+            [claim.id, now],
+          );
+          if (redeemed.rowCount !== 1) throw new Error("FOOD_PROMOTION_REDEMPTION_STATE_INVALID");
+        }
+      }
       const transitionEventId = randomUUID();
       await client.query(
         `INSERT INTO fulfillment_order_events(id,order_id,actor_user_id,from_status,to_status,reason,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7)`,
@@ -289,9 +573,11 @@ export class OrderRepository {
       const party = parties.rows[0];
       if (party) {
         const [title, body] = options.clearCourierBusinessId
-          ? ['جاري اختيار مندوب آخر', 'اعتذر المندوب الحالي عن المهمة، ويجري إسناد الطلب إلى مندوب آخر.']
+          ? options.authority === 'merchant'
+            ? ['تم سحب مهمة التوصيل', 'أعادت المنشأة المهمة لاختيار مندوب آخر.']
+            : ['جاري اختيار مندوب آخر', 'اعتذر المندوب الحالي عن المهمة، ويجري إسناد الطلب إلى مندوب آخر.']
           : statusMessages[next];
-        const recipients = new Set([party.customer_user_id, party.merchant_owner_user_id, party.courier_owner_user_id].filter((id): id is string => Boolean(id) && id !== actor));
+        const recipients = new Set([party.customer_user_id, party.merchant_owner_user_id, party.courier_owner_user_id, formerCourierOwner].filter((id): id is string => Boolean(id) && id !== actor));
         for (const userId of recipients) await insertNotification(client, { userId, orderId: order.id, status: next, vertical: party.vertical, eventType: 'order.status_changed', title, body, transitionEventId, fromStatus: order.status, reason: options.reason });
       }
       return true;
@@ -335,6 +621,7 @@ export class OrderRepository {
        LEFT JOIN LATERAL (
          SELECT latitude,longitude,accuracy_meters,recorded_at
          FROM fulfillment_order_location_updates WHERE order_id=o.id
+           AND courier_business_id=o.courier_business_id
        ) location ON o.status IN ('courier_accepted','ready_for_pickup','picked_up')
          AND (o.customer_user_id=$2 OR merchant.owner_user_id=$2 OR courier.owner_user_id=$2)
        WHERE o.id=$1`, [orderId, actorUserId],
@@ -352,7 +639,7 @@ export class OrderRepository {
   }
 }
 
-function map(r: OrderRow, items: OrderItem[]): FulfillmentOrder {
+function map(r: OrderRow, items: OrderItem[], events: FulfillmentOrderEvent[]): FulfillmentOrder {
   return {
     id: r.id,
     customerUserId: r.customer_user_id,
@@ -371,6 +658,8 @@ function map(r: OrderRow, items: OrderItem[]): FulfillmentOrder {
     paymentStatus: r.payment_status,
     currency: r.currency,
     subtotal: Number(r.subtotal),
+    promoCode: r.promo_code ?? undefined,
+    discountAmount: Number(r.discount_amount),
     deliveryFee: r.delivery_fee === null ? undefined : Number(r.delivery_fee),
     total: r.total === null ? undefined : Number(r.total),
     deliveryAddress: r.delivery_address,
@@ -382,6 +671,7 @@ function map(r: OrderRow, items: OrderItem[]): FulfillmentOrder {
     pharmacyReviewStatus: r.pharmacy_review_status,
     rejectionReason: r.rejection_reason ?? undefined,
     items,
+    events,
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
   };

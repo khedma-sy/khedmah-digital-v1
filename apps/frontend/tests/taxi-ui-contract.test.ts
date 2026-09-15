@@ -4,15 +4,14 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('principal title uses خدمة while functional taxi wording and umbrella identity stay canonical', async () => {
+test('principal title uses خدمة ديجتل while functional taxi wording and umbrella identity stay canonical', async () => {
   const layout = await read('app/layout.tsx');
   const mark = await read('app/components/brand-mark.tsx');
   const page = await read('app/taxi/page.tsx');
-  assert.match(layout, /const SITE_NAME = 'خدمة'/);
-  assert.doesNotMatch(layout, /const SITE_NAME = 'خدمة ديجتل'/);
-  assert.match(layout, /aria-label="خدمة - الرئيسية"/);
-  assert.match(mark, /<b>خدمة<\/b>/);
-  assert.doesNotMatch(mark, /خدمة ديجتل/);
+  assert.match(layout, /const SITE_NAME = 'خدمة ديجتل'/);
+  assert.match(layout, /aria-label="خدمة ديجتل - الرئيسية"/);
+  assert.match(mark, /<b>خدمة ديجتل<\/b>/);
+  assert.match(mark, /aria-label="خدمة ديجتل - تحت مظلة واحدة"/);
   assert.match(page, /label="خدمة تكسي"/);
   assert.match(page, /eyebrow="خدمة — التنقل"/);
   assert.doesNotMatch(page, /خدمة ديجتل/);

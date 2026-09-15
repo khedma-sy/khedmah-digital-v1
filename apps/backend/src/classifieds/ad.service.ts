@@ -45,7 +45,13 @@ export class AdService {
     this.assertEnabled();
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     const request = validateAdSubmit(body);
-    return this.runRepository(() => this.repository.submit(actor.id, id, request.clientRequestId, fingerprint({ id })));
+    return this.runRepository(() => this.repository.submit(
+      actor.id,
+      id,
+      request.clientRequestId,
+      fingerprint({ id, expectedContentRevision: request.expectedContentRevision }),
+      request.expectedContentRevision
+    ));
   }
 
   async deactivate(cookie: string | undefined, id: string, body: unknown): Promise<AdListing> {

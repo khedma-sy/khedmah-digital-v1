@@ -1,0 +1,9 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/034_food_order_promotions.sql /migrations/034_food_order_promotions.sql
+COPY scripts/deployment/run-food-promotions-nonproduction-migration.sh /usr/local/bin/run-food-promotions-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-food-promotions-nonproduction-migration /migrations/034_food_order_promotions.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-food-promotions-nonproduction-migration"]

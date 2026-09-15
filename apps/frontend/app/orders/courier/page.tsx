@@ -24,6 +24,7 @@ import {
   showOrderNotification,
 } from "../order-alerts";
 import { CourierEvidenceDialog } from "./courier-evidence-dialog";
+import { OrderTimeline } from "../order-timeline";
 import styles from "./courier.module.css";
 
 const statusLabel: Record<FulfillmentOrder["status"], string> = {
@@ -57,6 +58,8 @@ export default function CourierOrders() {
   const alertsEnabledRef = useRef(false);
   const loadedOnceRef = useRef(false);
   const actionInFlight = useRef(false);
+  const selectedRef = useRef("");
+  const requestSequenceRef = useRef(0);
   const knownOrderStatusesRef = useRef<Map<string, FulfillmentOrder["status"]>>(new Map());
 
   useEffect(() => {
@@ -111,13 +114,18 @@ export default function CourierOrders() {
   }, []);
   const load = useCallback(async (id: string) => {
     if (!id) return;
+    const request = ++requestSequenceRef.current;
     const next = (await api.orders.courier(id)).orders;
+    if (selectedRef.current !== id || request !== requestSequenceRef.current) return;
     announceNewTasks(next);
     setOrders(next);
     setError("");
     loadedOnceRef.current = true;
   }, [announceNewTasks]);
   useEffect(() => {
+    selectedRef.current = selected;
+    requestSequenceRef.current += 1;
+    setOrders([]);
     loadedOnceRef.current = false;
     knownOrderStatusesRef.current = new Map();
     if (!selected) return;
@@ -127,7 +135,11 @@ export default function CourierOrders() {
     const interval = window.setInterval(() => {
       void load(selected).catch(() => undefined);
     }, 8000);
-    return () => window.clearInterval(interval);
+    return () => {
+      if (selectedRef.current === selected) selectedRef.current = "";
+      requestSequenceRef.current += 1;
+      window.clearInterval(interval);
+    };
   }, [load, selected]);
 
   async function enableAlerts() {
@@ -187,9 +199,11 @@ export default function CourierOrders() {
           {o.customerNote && <div><dt><PlatformIcon name="info" size={17}/>ملاحظة العميل</dt><dd>{o.customerNote}</dd></div>}
           {o.total !== undefined && <div><dt><PlatformIcon name="check" size={17}/>التحصيل النقدي</dt><dd>{o.total.toLocaleString("ar-SY-u-nu-latn")} {o.currency}</dd></div>}
         </dl>
+        <OrderTimeline events={o.events} />
         <div className={styles.orderActions}>
           {["courier_accepted", "ready_for_pickup", "picked_up"].includes(o.status) && <CourierLocationButton orderId={o.id} status={o.status} />}
           {o.status === "courier_assigned" && <><ActionButton disabled={busy || actionInFlight.current} onClick={() => void move(o, "courier_accepted")}>{busy ? "جارٍ الحفظ…" : "قبول المهمة"}</ActionButton><ActionButton disabled={busy || actionInFlight.current} variant="secondary" onClick={() => void move(o, "merchant_confirmed")}>غير متاح</ActionButton></>}
+          {["courier_accepted", "ready_for_pickup"].includes(o.status) && <ActionButton disabled={busy || actionInFlight.current} variant="secondary" onClick={() => void move(o, "merchant_confirmed")}>تعذّر إكمال المهمة</ActionButton>}
           {o.status === "ready_for_pickup" && <ActionButton disabled={busy || actionInFlight.current} onClick={() => setConfirmation({ order: o, status: "picked_up" })}>{busy ? "جارٍ الحفظ…" : "استلمت الطلب"}</ActionButton>}
           {o.status === "picked_up" && <ActionButton disabled={busy || actionInFlight.current} onClick={() => setConfirmation({ order: o, status: "delivered" })}>{busy ? "جارٍ الحفظ…" : "تم التسليم وتحصيل النقد"}</ActionButton>}
         </div>

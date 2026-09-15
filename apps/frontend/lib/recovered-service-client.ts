@@ -5,21 +5,25 @@ import {
   type ProductListing as CoreProductListing,
   type PublicBusinessProfile as CorePublicBusinessProfile,
 } from './api-client';
+import { readApiError } from './api-errors';
 
 export type PublicBusinessProfile = CorePublicBusinessProfile & { readonly ratingCount?: number };
 export type ProductListing = CoreProductListing & { readonly requiresPrescription: boolean; readonly controlledItem: boolean };
 export type FulfillmentOrderStatus = 'placed'|'quoted'|'merchant_confirmed'|'courier_assigned'|'courier_accepted'|'ready_for_pickup'|'picked_up'|'delivered'|'rejected'|'cancelled';
 export type EligibleCourier = {id:string;name:string;cityCode:string};
 export interface FulfillmentOrderItem { readonly productListingId:string;readonly titleAr:string;readonly unitPrice:number;readonly quantity:number;readonly requiresPrescription:boolean; }
+export interface FulfillmentOrderEvent { readonly id:string;readonly fromStatus?:FulfillmentOrderStatus;readonly toStatus:FulfillmentOrderStatus;readonly reason?:string;readonly occurredAt:string; }
 export interface FulfillmentOrder {
   readonly id:string;readonly merchantBusinessId:string;readonly merchantName:string;readonly pickupAddress?:string;readonly merchantPhone?:string;readonly courierBusinessId?:string;readonly courierName?:string;readonly courierPhone?:string;
-  readonly vertical:'food'|'grocery'|'pharmacy';readonly status:FulfillmentOrderStatus;readonly paymentMethod:'cash';readonly paymentStatus:'pending'|'cash_collected';readonly currency:'SYP'|'USD';readonly subtotal:number;readonly deliveryFee?:number;readonly total?:number;
-  readonly deliveryAddress:string;readonly customerPhone?:string;readonly deliveryLatitude?:number;readonly deliveryLongitude?:number;readonly customerNote?:string;readonly prescriptionAttested:boolean;readonly pharmacyReviewStatus:'not_required'|'pending'|'approved'|'rejected';readonly rejectionReason?:string;readonly items:FulfillmentOrderItem[];readonly createdAt:string;readonly updatedAt:string;
+  readonly vertical:'food'|'grocery'|'pharmacy';readonly status:FulfillmentOrderStatus;readonly paymentMethod:'cash';readonly paymentStatus:'pending'|'cash_collected';readonly currency:'SYP'|'USD';readonly subtotal:number;readonly promoCode?:string;readonly discountAmount:number;readonly deliveryFee?:number;readonly total?:number;
+  readonly deliveryAddress:string;readonly customerPhone?:string;readonly deliveryLatitude?:number;readonly deliveryLongitude?:number;readonly customerNote?:string;readonly prescriptionAttested:boolean;readonly pharmacyReviewStatus:'not_required'|'pending'|'approved'|'rejected';readonly rejectionReason?:string;readonly items:FulfillmentOrderItem[];readonly events?:FulfillmentOrderEvent[];readonly createdAt:string;readonly updatedAt:string;
 }
+export interface FoodOrderQuote {readonly merchantBusinessId:string;readonly vertical:'food'|'grocery'|'pharmacy';readonly currency:'SYP'|'USD';readonly subtotal:number;readonly discountAmount:number;readonly discountedSubtotal:number;readonly promotion?:{readonly code:string;readonly nameAr:string}}
+export interface FoodPromotion {readonly id:string;readonly code:string;readonly nameAr:string;readonly merchantBusinessId:string;readonly createdByUserId:string;readonly discountType:'percentage'|'fixed';readonly percentageOff?:number;readonly fixedAmount?:number;readonly currency:'SYP'|'USD';readonly minimumSubtotal:number;readonly maximumDiscount?:number;readonly active:boolean;readonly validFrom:string;readonly validUntil:string;readonly maxRedemptions?:number;readonly perUserLimit:number;readonly createdAt:string;readonly updatedAt:string}
 type ProductFilters={readonly q?:string;readonly categoryCode?:string;readonly cityCode?:string;readonly businessProfileId?:string};
 type Tracking={readonly status:FulfillmentOrderStatus;readonly location?:{readonly latitude:number;readonly longitude:number;readonly accuracyMeters?:number;readonly recordedAt:string}};
 
-async function request<T>(path:string,init?:RequestInit):Promise<T>{const response=await fetch(`/api/v1${path}`,{...init,credentials:'include',headers:{'Content-Type':'application/json',...init?.headers}});const data=await response.json().catch(()=>({}));if(!response.ok){const raw=(data as {message?:string|string[]}).message??`خطأ في الخادم (${response.status})`;const message=Array.isArray(raw)?raw.join('. '):raw;throw Object.assign(new Error(message),{statusCode:response.status});}return data as T;}
+async function request<T>(path:string,init?:RequestInit):Promise<T>{const response=await fetch(`/api/v1${path}`,{...init,credentials:'include',headers:{'Content-Type':'application/json',...init?.headers}});const data=await response.json().catch(()=>({}));if(!response.ok){const {message,code}=readApiError(data,response.status);throw Object.assign(new Error(message),{statusCode:response.status,code});}return data as T;}
 function normalizeProduct(product:CoreProductListing&{requiresPrescription?:boolean;controlledItem?:boolean}):ProductListing{return {...product,requiresPrescription:Boolean(product.requiresPrescription),controlledItem:Boolean(product.controlledItem)} as ProductListing;}
 
 const products={
@@ -33,7 +37,8 @@ export const api={
   ...coreApi,
   products,
   orders:{
-    create(data:{items:Array<{productListingId:string;quantity:number}>;deliveryAddress:string;customerPhone:string;customerNote?:string;prescriptionAttested:boolean;deliveryLatitude?:number;deliveryLongitude?:number},idempotencyKey:string){return request<{order:FulfillmentOrder}>('/orders',{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify(data)});},
+    quote(data:{items:Array<{productListingId:string;quantity:number}>;promoCode?:string}){return request<{quote:FoodOrderQuote}>('/orders/quote',{method:'POST',body:JSON.stringify(data)});},
+    create(data:{items:Array<{productListingId:string;quantity:number}>;deliveryAddress:string;customerPhone:string;customerNote?:string;prescriptionAttested:boolean;deliveryLatitude?:number;deliveryLongitude?:number;promoCode?:string;expectedSubtotal?:number;expectedDiscountAmount?:number},idempotencyKey:string){return request<{order:FulfillmentOrder}>('/orders',{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify(data)});},
     mine(){return request<{orders:FulfillmentOrder[]}>('/orders/mine');},
     merchant(businessId:string){return request<{orders:FulfillmentOrder[]}>(`/orders/merchant?businessId=${encodeURIComponent(businessId)}`);},
     eligibleCouriers(businessId:string,page=1){return request<{couriers:EligibleCourier[];total:number;page:number;limit:number}>(`/orders/eligible-couriers?businessId=${encodeURIComponent(businessId)}&page=${page}`);},
@@ -42,5 +47,10 @@ export const api={
     rate(id:string,targetType:'merchant'|'courier',score:number,comment?:string){return request<{rated:true}>(`/orders/${encodeURIComponent(id)}/ratings`,{method:'POST',body:JSON.stringify({targetType,score,comment})});},
     recordLocation(id:string,location:{latitude:number;longitude:number;accuracy?:number}){return request<{recorded:true}>(`/orders/${encodeURIComponent(id)}/location`,{method:'POST',body:JSON.stringify(location)});},
     tracking(id:string){return request<Tracking>(`/orders/${encodeURIComponent(id)}/tracking`);},
+  },
+  foodPromotions:{
+    list(businessId:string){return request<{promotions:FoodPromotion[]}>(`/food-promotions?businessId=${encodeURIComponent(businessId)}`);},
+    create(data:{businessId:string;code:string;nameAr:string;discountType:'percentage'|'fixed';percentageOff?:number;fixedAmount?:number;currency:'SYP'|'USD';minimumSubtotal:number;maximumDiscount?:number;validFrom:string;validUntil:string;maxRedemptions?:number;perUserLimit:number}){return request<{promotion:FoodPromotion}>('/food-promotions',{method:'POST',body:JSON.stringify(data)});},
+    setActive(id:string,active:boolean,expectedUpdatedAt:string){return request<{promotion:FoodPromotion}>(`/food-promotions/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({active,expectedUpdatedAt})});},
   },
 };

@@ -134,7 +134,7 @@ function ClassifiedsContent() {
       <section className={styles.grid} aria-label="الإعلانات المنشورة">{ads.map((ad) => <Surface as="article" className={styles.card} key={ad.id}>
         <Link className={styles.image} href={`/classifieds/${encodeURIComponent(ad.id)}`}>{ad.imageUrls[0] ? <img src={ad.imageUrls[0]} alt={ad.titleAr}/> : <span aria-hidden="true">خ</span>}</Link>
         <div className={styles.meta}><span>{AD_KIND_LABELS[ad.kind]}</span>{ad.cityCode && <><span>·</span><span>{cityLabel(ad.cityCode, cities)}</span></>}</div>
-        <h2>{ad.titleAr}</h2><strong className={styles.price}>{formatAdPrice(ad)}</strong>
+        <h2>{ad.titleAr}</h2><strong className={styles.price} dir="auto">{formatAdPrice(ad)}</strong>
         <ActionLink href={`/classifieds/${encodeURIComponent(ad.id)}`}>عرض الإعلان</ActionLink>
       </Surface>)}</section>
       {(hasPrevious || hasNext) && <nav className={styles.pagination} aria-label="صفحات الإعلانات">

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AdMediaService } from '../classifieds/ad-media.service';
 import { CLASSIFIEDS_SMART_ADMIN_VERSION } from '../classifieds/ad-moderation-assessment';
 import { AdRepository } from '../classifieds/ad.repository';
@@ -82,7 +82,9 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
     await t.test('reviewer can inspect pending media while public cannot until approval', async () => {
       const ad = await createAd('classifieds-media-ad-create-0003', 'إعلان مراجعة الصور');
       const uploaded = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0004', ad.contentRevision));
-      const pending = await ads.submit(undefined, ad.id, { clientRequestId: 'classifieds-media-submit-0001' });
+      const pending = await ads.submit(undefined, ad.id, {
+        clientRequestId: 'classifieds-media-submit-0001', expectedContentRevision: uploaded.contentRevision
+      });
       await assert.rejects(() => media.readPublic(uploaded.image.id), NotFoundException);
       await assert.rejects(() => media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0005', uploaded.contentRevision)), ConflictException);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
@@ -100,7 +102,9 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
     await t.test('media edit after rejection returns the ad to draft and invalidates the reviewed content', async () => {
       const ad = await createAd('classifieds-media-ad-create-0004', 'إعلان مرفوض للتعديل');
       const firstImage = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0006', ad.contentRevision));
-      const pending = await ads.submit(undefined, ad.id, { clientRequestId: 'classifieds-media-submit-0002' });
+      const pending = await ads.submit(undefined, ad.id, {
+        clientRequestId: 'classifieds-media-submit-0002', expectedContentRevision: firstImage.contentRevision
+      });
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const rejected = await ads.moderate(undefined, ad.id, {
         expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'rejected', reason: 'الصورة تحتاج تحديثًا'
@@ -112,7 +116,9 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       assert.equal(current.status, 'draft');
       assert.equal(current.rejectionReason, undefined);
       assert.equal(current.imageUrls.length, 2);
-      const resubmitted = await ads.submit(undefined, ad.id, { clientRequestId: 'classifieds-media-submit-0003' });
+      const resubmitted = await ads.submit(undefined, ad.id, {
+        clientRequestId: 'classifieds-media-submit-0003', expectedContentRevision: changed.contentRevision
+      });
       assert.ok(resubmitted.reviewRevision > pending.reviewRevision);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       await assert.rejects(() => ads.moderate(undefined, ad.id, {
@@ -121,20 +127,30 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       assert.ok(firstImage.image.id);
     });
 
-    await t.test('delete replay does not bump content twice and no arbitrary image-count limit is introduced', async () => {
+    await t.test('the five-image limit is enforced and delete replay does not bump content twice', async () => {
       const ad = await createAd('classifieds-media-ad-create-0005', 'إعلان صور متعددة');
       let revision = ad.contentRevision;
       const images = [];
-      for (let index = 0; index < 6; index += 1) {
+      for (let index = 0; index < 5; index += 1) {
         const uploaded = await media.upload(undefined, ad.id, uploadBody(`classifieds-media-many-upload-${index}00`, revision, `image-${index}.png`, index));
         revision = uploaded.contentRevision;
         images.push(uploaded.image);
       }
-      assert.equal((await media.listMine(undefined, ad.id)).length, 6);
+      assert.equal((await media.listMine(undefined, ad.id)).length, 5);
+      await assert.rejects(
+        () => media.upload(undefined, ad.id, uploadBody('classifieds-media-many-upload-500', revision, 'image-5.png', 5)),
+        (cause: unknown) => cause instanceof BadRequestException
+          && (cause.getResponse() as { code?: string }).code === 'AD_IMAGE_LIMIT_REACHED'
+      );
       const body = { clientRequestId: 'classifieds-media-delete-0001', expectedContentRevision: revision };
       const removed = await media.remove(undefined, ad.id, images[0].id, body);
       const replay = await media.remove(undefined, ad.id, images[0].id, body);
       assert.equal(replay.contentRevision, removed.contentRevision);
+      assert.equal((await media.listMine(undefined, ad.id)).length, 4);
+      const replacement = await media.upload(undefined, ad.id, uploadBody(
+        'classifieds-media-replacement-0001', removed.contentRevision, 'replacement-after-delete.png', 5
+      ));
+      assert.equal(replacement.contentRevision, removed.contentRevision + 1);
       assert.equal((await media.listMine(undefined, ad.id)).length, 5);
       const [count] = await db.query<{ count: number }>(`SELECT count(*)::int AS count FROM media_assets WHERE owner_type='ad_listing' AND owner_id=$1`, [ad.id]);
       assert.equal(count.count, 5);

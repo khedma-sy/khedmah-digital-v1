@@ -9,6 +9,8 @@ test('order creation rejects non-finite coordinates and malformed bodies before 
   assert.equal(validateCreateOrder({...payload,deliveryLatitude:0,deliveryLongitude:0}).deliveryLatitude,0);
   assert.throws(()=>validateCreateOrder(null as never),/payload is invalid/);
   assert.throws(()=>validateOrderAction(null as never),/action is invalid/);
+  assert.throws(()=>validateOrderAction({status:'quoted',deliveryFee:1.234}),/deliveryFee is invalid/);
+  assert.equal(validateOrderAction({status:'quoted',deliveryFee:1.23}).deliveryFee,1.23);
 });
 test('eligible courier discovery is restricted to the merchant owner and the merchant city',async()=>{
   const calls:unknown[]=[];

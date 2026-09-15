@@ -1,0 +1,62 @@
+.timeline {
+  border-block: 1px solid var(--k-color-border);
+  padding-block: .35rem;
+}
+
+.timeline summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--brand-navy, #07427c);
+  font-size: .86rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.timeline ol {
+  display: grid;
+  gap: .15rem;
+  margin: .25rem 0 .5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .6rem;
+  position: relative;
+  padding-block: .35rem;
+}
+
+.timeline li > span {
+  width: .7rem;
+  height: .7rem;
+  margin-block-start: .38rem;
+  border: 2px solid var(--k-color-surface);
+  border-radius: 50%;
+  background: var(--brand-orange, #fd9603);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-orange, #fd9603) 38%, var(--k-color-border));
+}
+
+.timeline li > div {
+  display: grid;
+  gap: .12rem;
+}
+
+.timeline strong {
+  color: var(--k-color-text);
+  font-size: .83rem;
+}
+
+.timeline time {
+  color: var(--k-color-text-muted);
+  font-size: .75rem;
+}
+
+.timeline p {
+  margin: .2rem 0 0;
+  color: var(--k-color-danger);
+  font-size: .8rem;
+  line-height: 1.65;
+}

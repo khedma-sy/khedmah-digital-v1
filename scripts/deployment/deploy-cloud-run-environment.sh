@@ -87,6 +87,13 @@ TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environ
 export TAXI_OPERATIONAL_MIGRATION_031_MODE TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION
 bash scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
 
+# Restaurant-funded food promotion pricing is part of the cash-order contract.
+# Apply its claim ledger before backend rollout; no payment gateway or platform subsidy is enabled.
+FOOD_PROMOTIONS_MIGRATION_034_MODE='apply'
+FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environment^^}"
+export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION
+bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
+
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
 
