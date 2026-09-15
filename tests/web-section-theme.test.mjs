@@ -5,7 +5,7 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('web loads canonical section theme layer after design tokens', async () => {
-  const layout = await read('apps/frontend/app/layout.tsx');
+  const layout = await read('apps/frontend/app/platform.css');
   const tokensIndex = layout.indexOf("./design-tokens.css");
   const themesIndex = layout.indexOf("./section-themes.css");
   assert.ok(tokensIndex >= 0);

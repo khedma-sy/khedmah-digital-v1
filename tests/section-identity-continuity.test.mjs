@@ -59,10 +59,10 @@ test('landing states do not claim a failed search before the user has a search c
 
 test('Auth keeps Ask Khedmah visible without restoring the full global header or a blank shell row', async () => {
   const [layout, authShell] = await Promise.all([
-    read('apps/frontend/app/layout.tsx'),
+    read('apps/frontend/app/platform.css'),
     read('apps/frontend/app/auth-shell-override.css')
   ]);
-  assert.match(layout, /import '\.\/auth-shell-override\.css';/);
+  assert.match(layout, /@import '\.\/auth-shell-override\.css';/);
   assert.match(authShell, /body:has\(\.auth-experience\) \.khedma-header\s*\{[^}]*min-height:\s*0/s);
   assert.match(authShell, /\.khedma-header > a,[\s\S]*?\.nav-discovery-group\s*\{\s*display:\s*none/s);
   assert.match(authShell, /\.khedma-header-actions\s*\{[^}]*position:\s*fixed/s);

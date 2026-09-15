@@ -88,7 +88,8 @@ test('the complete authentication journey uses the approved reference system', a
     read('apps/frontend/app/auth/reset-password/page.tsx')
   ]);
 
-  assert.match(layout, /import '\.\/auth-experience\.css'/);
+  assert.match(layout, /import '\.\/platform\.css'/);
+  assert.match(await read('apps/frontend/app/platform.css'), /@import '\.\/auth-experience\.css'/);
   assert.match(styles, /auth-umbrella-pattern\.svg/);
   assert.match(styles, /background:var\(--k-glass\)/);
   assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:4\.35rem; \}/);

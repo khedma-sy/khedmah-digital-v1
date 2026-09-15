@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const layout = await readFile(new URL('../apps/frontend/app/layout.tsx', import.meta.url), 'utf8');
+const layout = await readFile(new URL('../apps/frontend/app/platform.css', import.meta.url), 'utf8');
 const a11y = await readFile(new URL('../apps/frontend/app/accessibility-system.css', import.meta.url), 'utf8');
 
 test('final accessibility stylesheet is loaded after feature styles', () => {
-  const authIndex = layout.indexOf("import './auth-experience.css';");
-  const a11yIndex = layout.indexOf("import './accessibility-system.css';");
+  const authIndex = layout.indexOf("@import './auth-experience.css';");
+  const a11yIndex = layout.indexOf("@import './accessibility-system.css';");
   assert.ok(authIndex >= 0 && a11yIndex > authIndex);
 });
 

@@ -35,7 +35,10 @@ function contrast(foreground, background) {
 }
 
 test('canonical shell loads after design tokens and legacy brand rules', async () => {
-  const layout = await read('apps/frontend/app/layout.tsx');
+  const root = await read('apps/frontend/app/layout.tsx');
+  assert.match(root, /import '\.\/platform\.css';/);
+  assert.equal([...root.matchAll(/import ['"][^'"]+\.css['"]/g)].length, 1);
+  const layout = await read('apps/frontend/app/platform.css');
   const tokens = layout.indexOf("./design-tokens.css");
   const brand = layout.indexOf("./brand-system.css");
   const shell = layout.indexOf("./shell-system.css");
