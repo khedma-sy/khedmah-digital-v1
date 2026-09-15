@@ -1,5 +1,6 @@
 .entry{position:relative;z-index:1;background:var(--k-color-surface);border-block-end:1px solid var(--k-color-border);border-inline-start:.3rem solid var(--brand-green);color:var(--k-color-text)}
 .entry details{max-width:76rem;margin-inline:auto;padding:.3rem 1rem}
+:global(body:has(.auth-experience)) .entry details{padding-block-start:4rem}
 .entry summary{min-height:2.5rem;display:flex;align-items:center;gap:.5rem;cursor:pointer;font-weight:750;width:fit-content;max-width:100%}
 .entry summary::after{content:'+';margin-inline-start:.5rem;color:var(--k-color-primary)}
 .entry details[open] summary::after{content:'−'}
