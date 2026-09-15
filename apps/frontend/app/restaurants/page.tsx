@@ -127,16 +127,16 @@ export default function RestaurantsPage() {
       <PageHeader
         eyebrow="خدمة فود · طلب الطعام"
         title="اطلب وجبتك بسهولة"
-        description="ابحث عن مطعم أو طبق، اختر أصنافك، ثم تابع الطلب حتى بابك."
+        description="ابحث عن مطعم، تصفّح قائمته واختر أصنافك، ثم تابع الطلب حتى بابك."
         backHref="/food"
         actions={<ActionLink href="/orders" variant="secondary"><PlatformIcon name="cart" size={17}/>طلباتي</ActionLink>}
       />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
       {warning && <StatusMessage tone="warning">{warning}</StatusMessage>}
       <Surface className={styles.foodCommand}>
-        <div className={styles.toolbarHeading}><span data-khedma-icon-surface className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>كل المطاعم والأصناف المتاحة في مكان واحد.</p></div></div>
+        <div className={styles.toolbarHeading}><span data-khedma-icon-surface className={styles.toolbarIcon}><PlatformIcon name="food" size={24}/></span><div><h2>ماذا تشتهي اليوم؟</h2><p>استكشف المطاعم المتاحة، ثم افتح صفحة المطعم لتصفّح قائمته.</p></div></div>
         <label className={styles.field}>
-          <span className={styles.visuallyHidden}>اسم المطعم أو الطبق</span>
+          <span className={styles.visuallyHidden}>اسم المطعم</span>
           <span className={styles.searchControl}>
             <PlatformIcon name="search" size={20} />
             <input

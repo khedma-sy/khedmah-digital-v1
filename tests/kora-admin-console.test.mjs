@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read=(path)=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [page,client,contract]=await Promise.all([
+const [page,client,contract,restaurants]=await Promise.all([
   read('apps/frontend/app/admin/kora/page.tsx'),
   read('apps/frontend/lib/kora-admin-client.ts'),
-  read('docs/decisions/RP39-KORA-ADMIN-UI.md')
+  read('docs/decisions/RP39-KORA-ADMIN-UI.md'),
+  read('apps/frontend/app/restaurants/page.tsx')
 ]);
 
 test('KORA executive admin console uses the protected supervised API and no fake metrics',()=>{
@@ -18,12 +19,30 @@ test('KORA executive admin console uses the protected supervised API and no fake
   assert.match(page,/غير قابلة للتنفيذ التلقائي/);
 });
 
-test('KORA console links only implemented administration routes and labels pending UIs',()=>{
-  for(const href of ['/orders/merchant','/admin/categories','/admin/moderation','/admin/verification','/admin/operations-product']) assert.match(page,new RegExp(`href=\\"${href.replaceAll('/','\\/')}\\"`));
-  assert.doesNotMatch(page,/href=\"\/admin\/taxi-pricing\"/);
-  assert.doesNotMatch(page,/href=\"\/admin\/billing\"/);
-  assert.match(page,/Taxi Pricing[\s\S]*API جاهز|Backend \+ Migration 029 جاهزان/);
-  assert.match(page,/Billing & Points[\s\S]*Migration 030/);
+test('KORA console links concrete route modules and their key operating clients',async()=>{
+  const keyContracts=new Map([
+    ['/orders/merchant',/api\.orders\.merchant\(/],
+    ['/admin/taxi-pricing',/taxiPricingApi\.current\(/],
+    ['/admin/taxi-drivers',/taxiOperationalReviewApi\.candidates\(/],
+    ['/admin/billing',/billingApi\.pending\(/],
+    ['/billing',/billingApi\.quote\(/],
+    ['/admin/driver-documents',/driverDocumentsApi\.queue\(/],
+    ['/orders/courier',/api\.orders\.courier\(/]
+  ]);
+  for(const href of ['/orders/merchant','/admin/categories','/admin/moderation','/admin/verification','/admin/operations-product','/admin/taxi-pricing','/admin/taxi-drivers','/admin/billing','/billing','/admin/driver-documents','/orders/courier']) {
+    assert.match(page,new RegExp(`href=\\"${href.replaceAll('/','\\/')}\\"`));
+    const route=await read(`apps/frontend/app${href}/page.tsx`);
+    assert.match(route,/export default function\s+\w+\s*\(/,`${href} must export a page component`);
+    if(keyContracts.has(href))assert.match(route,keyContracts.get(href),`${href} must call its operating client`);
+  }
+  assert.doesNotMatch(page,/واجهة Billing لم|واجهة التسعير الإدارية مستقلة وقيد الربط/);
+  assert.match(page,/حفظ التسعيرة لا يفعّل الرحلات/);
+  assert.match(page,/الدفع الإلكتروني غير موصول/);
+});
+
+test('restaurant discovery describes menus without claiming that search results display menu items',()=>{
+  assert.match(restaurants,/افتح صفحة المطعم لتصفّح قائمته/);
+  assert.doesNotMatch(restaurants,/كل المطاعم والأصناف المتاحة في مكان واحد/);
 });
 
 test('KORA page preserves truthfulness boundaries for process-local evidence',()=>{
