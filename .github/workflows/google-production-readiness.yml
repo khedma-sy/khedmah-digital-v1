@@ -2,28 +2,54 @@ name: Google production readiness
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "tests/android-apk-artifact.test.mjs", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production.yaml", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
 
 permissions: { contents: read }
 jobs:
   validate-files:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - uses: actions/setup-java@v6
-        with: { distribution: temurin, java-version: 17, cache: gradle }
+        with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
+        with: { cache-read-only: true }
+      - name: Install Android SDK 36 and AGP build tools
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - run: npm ci
       - name: Verify the repository Gradle Wrapper
-        run: node --test tests/android-gradle-wrapper.test.mjs
+        run: node --test tests/android-gradle-wrapper.test.mjs tests/android-apk-artifact.test.mjs
       - run: npm run validate:google
       - run: npm run validate:firebase
       - run: npm run verify:firebase-secrets
       - run: npm run validate:operations
       - name: Compile Android source without protected runtime configuration
         run: npm run build:android
+      - name: Verify and fingerprint the debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="apps/android/app/build/outputs/apk/debug"
+          test -s "$output/app-debug.apk"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify "$output/app-debug.apk"
+          (cd "$output" && sha256sum app-debug.apk > app-debug.apk.sha256)
+          printf '{"sourceCommit":"%s","artifactKind":"debug-unconfigured","productionReady":false,"deviceTested":false}\n' "$(git rev-parse HEAD)" > "$output/build-info.json"
+          printf '%s\n' 'Source-validation debug APK only. API, Firebase, Google sign-in and Maps runtime configuration are not injected. Not a production release or proof of device acceptance.' > "$output/README.txt"
+      - name: Upload debug APK and provenance
+        uses: actions/upload-artifact@v7
+        with:
+          name: khedmah-debug-apk
+          path: |
+            apps/android/app/build/outputs/apk/debug/app-debug.apk
+            apps/android/app/build/outputs/apk/debug/app-debug.apk.sha256
+            apps/android/app/build/outputs/apk/debug/build-info.json
+            apps/android/app/build/outputs/apk/debug/README.txt
+          if-no-files-found: error
+          retention-days: 14
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
     environment: production
