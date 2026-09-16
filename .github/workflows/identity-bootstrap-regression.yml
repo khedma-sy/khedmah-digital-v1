@@ -4,6 +4,8 @@ on:
     paths:
       - 'apps/backend/src/identity/**'
       - 'apps/backend/src/integration/**'
+      - 'apps/backend/src/database/**'
+      - 'apps/backend/src/health*.ts'
       - '.github/workflows/identity-bootstrap-regression.yml'
 permissions:
   contents: read
