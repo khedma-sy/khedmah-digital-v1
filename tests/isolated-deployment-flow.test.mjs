@@ -8,7 +8,7 @@ const script='scripts/deployment/deploy-cloud-run-environment.sh';
 function fixture(environment,overrides={}) {
   const dir=mkdtempSync(join(tmpdir(),'khedmah-deploy-'));const bin=join(dir,'bin');mkdirSync(bin);const log=join(dir,'calls.jsonl');
   const record=`const fs=require('node:fs');const a=process.argv.slice(2);fs.appendFileSync(process.env.FIXTURE_LOG,JSON.stringify({tool:require('node:path').basename(process.argv[1]),args:a})+'\\n');`;
-  writeFileSync(join(bin,'gcloud'),'#!/usr/bin/env node\n'+record+`if(a[0]==='run'&&a[1]==='services'&&a[2]==='describe'){const type=a[3].includes('backend')?'backend':'frontend';console.log('https://'+type+'-'+process.env.FIXTURE_ENV+'.example.run.app');}`,{mode:0o755});
+  writeFileSync(join(bin,'gcloud'),'#!/usr/bin/env node\n'+record+`if(a[0]==='secrets'&&process.env.FIXTURE_PREVIEW_MAIL==='1')console.log('1');if(a[0]==='run'&&a[1]==='services'&&a[2]==='describe'){const type=a[3].includes('backend')?'backend':'frontend';console.log('https://'+type+'-'+process.env.FIXTURE_ENV+'.example.run.app');}`,{mode:0o755});
   writeFileSync(join(bin,'curl'),'#!/usr/bin/env node\n'+record+`if(a.includes('--dump-header')){const i=a.indexOf('--header'),origin=a[i+1].slice('Origin: '.length);const value=process.env.FIXTURE_BAD_CORS==='1'?'*':origin;fs.writeFileSync(a[a.indexOf('--dump-header')+1],'HTTP/2 204 No Content\\r\\nAccess-Control-Allow-Origin: '+value+'\\r\\nAccess-Control-Allow-Credentials: true\\r\\n\\r\\n');}`,{mode:0o755});
   const env={...process.env,PATH:bin+':'+process.env.PATH,FIXTURE_LOG:log,FIXTURE_ENV:environment,GOOGLE_CLOUD_PROJECT:`${environment}-fixture`,PRODUCTION_GOOGLE_CLOUD_PROJECT:'production-fixture',GOOGLE_CLOUD_REGION:'me-central1',ARTIFACT_REPOSITORY:`${environment}-images`,RUNTIME_SERVICE_ACCOUNT:'fixture-deployer',CLOUD_SQL_INSTANCE_CONNECTION_NAME:`${environment}-fixture:me-central1:isolated-db`,GCS_MEDIA_BUCKET:`${environment}-fixture-media`,EMAIL_FROM:'noreply@staging.example',...overrides};
   return{run(){return execFileSync('bash',[script,environment,environment==='preview'?'pr-166-abcdef123':'abcdef123'],{env,encoding:'utf8',stdio:'pipe'});},calls(){try{return readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);}catch{return[];}},close(){rmSync(dir,{recursive:true,force:true});}};
@@ -34,4 +34,19 @@ test('incorrect deployed CORS never reports a healthy deployment',()=>{
 test('CORS verifier requires headers on the successful final response, not an earlier retry',()=>{
   const dir=mkdtempSync(join(tmpdir(),'khedmah-preflight-'));const path=join(dir,'headers');const origin='https://frontend.example.test';const valid=`HTTP/2 204 No Content\r\nAccess-Control-Allow-Origin: ${origin}\r\nAccess-Control-Allow-Credentials: true\r\n\r\n`;
   try{for(const response of [valid+'HTTP/2 204 No Content\r\n\r\n',valid+'HTTP/2 503 Unavailable\r\n\r\n',valid.replace('true','false'),valid.replace('Access-Control-Allow-Origin:',`Access-Control-Allow-Origin: ${origin}\r\nAccess-Control-Allow-Origin:`)]){writeFileSync(path,response);assert.throws(()=>execFileSync(process.execPath,['scripts/deployment/verify-cors-preflight.mjs',path,origin],{stdio:'pipe'}));}writeFileSync(path,valid);assert.match(execFileSync(process.execPath,['scripts/deployment/verify-cors-preflight.mjs',path,origin],{encoding:'utf8'}),/origin verified/);}finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('preview binds an existing mail secret without copying values or changing the site origin',()=>{
+  const f=fixture('preview',{FIXTURE_PREVIEW_MAIL:'1',EMAIL_FROM:'noreply@mail.khedmah.uk'});
+  try {
+    assert.match(f.run(),/deployment healthy/);
+    const calls=f.calls();
+    const backend=calls.find(c=>c.tool==='gcloud'&&c.args[0]==='run'&&c.args[1]==='deploy'&&c.args[2].includes('backend'));
+    assert.equal(backend.args.find(a=>a.startsWith('--set-secrets=')),'--set-secrets=DATABASE_URL=DATABASE_URL:latest,RESEND_API_KEY=RESEND_API_KEY:latest');
+    assert.ok(backend.args.some(a=>a.startsWith('--set-env-vars=')&&a.includes('EMAIL_FROM=noreply@mail.khedmah.uk')));
+    assert.ok(calls.some(c=>c.tool==='gcloud'&&c.args[0]==='secrets'&&c.args.includes('preview-fixture')));
+    assert.ok(calls.every(c=>!c.args.includes('production-fixture')&&!c.args.includes('access')));
+    assert.ok(calls.some(c=>c.args.includes('--update-env-vars=CORS_ORIGIN=https://frontend-preview.example.run.app,NEXT_PUBLIC_SITE_URL=https://frontend-preview.example.run.app')));
+  } finally { f.close(); }
 });
