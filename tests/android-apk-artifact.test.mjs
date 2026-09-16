@@ -7,7 +7,8 @@ const sourceJob = workflow.split('  validate-files:')[1].split('  production-sec
 test('debug APK build remains on a hosted runner without protected credentials or deployment', () => {
   assert.match(sourceJob, /runs-on: ubuntu-latest/);
   assert.match(sourceJob, /java-version: 17/);
-  assert.match(sourceJob, /sdkmanager "platforms;android-36" "build-tools;35\.0\.0"/);
+  assert.match(sourceJob, /"\$sdkmanager" "platforms;android-36" "build-tools;35\.0\.0"/);
+  assert.match(sourceJob, /find "\$ANDROID_HOME\/cmdline-tools" -type f -name sdkmanager/);
   assert.match(sourceJob, /persist-credentials: false/);
   assert.match(sourceJob, /cache-read-only: true/);
   assert.doesNotMatch(sourceJob, /secrets\.|environment: production|gcloud|continue-on-error/);

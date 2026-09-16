@@ -19,7 +19,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { cache-read-only: true }
       - name: Install Android SDK 36 and AGP build tools
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="${ANDROID_HOME:?Android SDK root is missing}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          test -x "$sdkmanager"
+          "$sdkmanager" "platforms;android-36" "build-tools;35.0.0"
       - run: npm ci
       - name: Verify the repository Gradle Wrapper
         run: node --test tests/android-gradle-wrapper.test.mjs tests/android-apk-artifact.test.mjs
