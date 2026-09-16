@@ -1,9 +1,10 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import { hashPassword } from '../security/password-security';
 import { IdentityRepository } from '../identity.repository';
 import { SessionTokenService } from '../security/session-token.service';
 import { UserAccount, UserProfile } from '../identity.types';
+import { EmailVerificationService } from '../email/email-verification.service';
 
 export interface BootstrapAdminRequest {
   readonly email?: unknown;
@@ -47,7 +48,8 @@ function secretMatches(provided: string | undefined, expected: string): boolean 
 export class BootstrapAdminService {
   constructor(
     @Inject(IdentityRepository) private readonly repository: IdentityRepository,
-    @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
+    @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService,
+    @Optional() @Inject(EmailVerificationService) private readonly emailVerification?: EmailVerificationService
   ) {}
 
   /**
@@ -67,8 +69,6 @@ export class BootstrapAdminService {
       throw new ForbiddenException('Bootstrap secret invalid.');
     }
 
-    // Fast path. createBootstrapAdmin repeats this decision while holding the
-    // database-wide advisory lock, so concurrent requests cannot both win.
     if (await this.repository.hasAdminAccount()) {
       throw new ConflictException('Bootstrap has already been completed. Remove BOOTSTRAP_ADMIN_SECRET from environment.');
     }
@@ -81,7 +81,7 @@ export class BootstrapAdminService {
       id: userId,
       email: input.email,
       passwordHash: hashPassword(input.password),
-      status: 'active',
+      status: 'pending',
       createdAt: now,
       updatedAt: now
     };
@@ -97,6 +97,10 @@ export class BootstrapAdminService {
     const created = await this.repository.createBootstrapAdmin(account, profile, BOOTSTRAP_ROLE);
     if (!created) {
       throw new ConflictException('Bootstrap has already been completed. Remove BOOTSTRAP_ADMIN_SECRET from environment.');
+    }
+
+    if (this.emailVerification) {
+      await this.emailVerification.requestVerification(userId, input.email);
     }
 
     return {
