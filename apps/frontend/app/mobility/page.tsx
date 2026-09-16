@@ -13,10 +13,11 @@ type Place = { formatted_address?: string; geometry?: { location?: { lat(): numb
 type Listener = { remove(): void };
 type Autocomplete = { addListener(name: 'place_changed', callback: () => void): Listener; getPlace(): Place; unbindAll(): void };
 type MobilityMapsApi = {
+  importLibrary?: (name: 'places') => Promise<unknown>;
   places?: { Autocomplete: new (input: HTMLInputElement, options: object) => Autocomplete };
   Geocoder?: new () => { geocode(request: object, callback: (results: Array<{ formatted_address?: string }> | null, status: string) => void): void };
 };
-type MobilityWindow = Window & { google?: { maps?: MobilityMapsApi }; initKhedmahMobility?: () => void };
+type MobilityWindow = Window & { google?: { maps?: MobilityMapsApi }; initKhedmahMobility?: () => void; gm_authFailure?: () => void };
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const SCRIPT_ID = 'khedmah-google-maps';
@@ -43,10 +44,10 @@ function MobilityContent() {
   const [destination, setDestination] = useState('');
   const [pickupCoordinates, setPickupCoordinates] = useState<Coordinates>();
   const [providers, setProviders] = useState<PublicBusinessProfile[]>([]);
-  const [placesReady, setPlacesReady] = useState(false);
+  const [placesState, setPlacesState] = useState<'loading' | 'ready' | 'failed' | 'unconfigured'>(MAPS_KEY ? 'loading' : 'unconfigured');
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [message, setMessage] = useState(MAPS_KEY ? 'اكتب العنوان واختره من اقتراحات Google.' : 'اقتراحات Google غير مهيأة حاليًا؛ استخدم موقعك الحالي للبحث القريب.');
+  const [message, setMessage] = useState('');
 
   const validCoordinates = (point: Coordinates) => Number.isFinite(point.latitude) && Math.abs(point.latitude) <= 90
     && Number.isFinite(point.longitude) && Math.abs(point.longitude) <= 180;
@@ -89,25 +90,44 @@ function MobilityContent() {
     const runtime = window as MobilityWindow;
     let cancelled = false;
     let initialized = false;
+    let failed = false;
+    let importing = false;
+    let timeout: number | undefined;
     let pickupAutocomplete: Autocomplete | undefined;
     let destinationAutocomplete: Autocomplete | undefined;
     const listeners: Listener[] = [];
     const previousInitializer = runtime.initKhedmahMobility;
+    const previousAuthFailure = runtime.gm_authFailure;
     let script: HTMLScriptElement | null = null;
-    setPlacesReady(false);
+    setPlacesState('loading');
+    const releasePlaces = () => {
+      listeners.splice(0).forEach(listener => listener.remove());
+      pickupAutocomplete?.unbindAll(); destinationAutocomplete?.unbindAll();
+      pickupAutocomplete = undefined; destinationAutocomplete = undefined;
+    };
     const fail = () => {
-      if (cancelled) return;
-      setPlacesReady(false);
-      setMessage('تعذر تحميل اقتراحات Google. يمكنك استخدام موقعك أو اختيار المدينة من صفحة البحث.');
+      if (cancelled || failed) return;
+      failed = true;
+      window.clearTimeout(timeout);
+      releasePlaces();
+      setPlacesState('failed');
     };
     const initialize = () => {
-      if (cancelled || initialized || !runtime.google?.maps?.places || !pickupInput.current || !destinationInput.current) return;
+      if (cancelled || initialized || failed || !pickupInput.current || !destinationInput.current) return;
+      const maps = runtime.google?.maps;
+      if (!maps?.places) {
+        // A previous route may have loaded Maps without Places. Reuse its SDK.
+        if (maps?.importLibrary && !importing) {
+          importing = true;
+          try { void maps.importLibrary('places').then(initialize, fail); } catch { fail(); }
+        }
+        return;
+      }
       try {
-        initialized = true;
-        pickupAutocomplete = new runtime.google.maps.places.Autocomplete(pickupInput.current, { fields: ['formatted_address', 'geometry'], componentRestrictions: { country: 'sy' } });
-        destinationAutocomplete = new runtime.google.maps.places.Autocomplete(destinationInput.current, { fields: ['formatted_address', 'geometry'], componentRestrictions: { country: 'sy' } });
+        pickupAutocomplete = new maps.places.Autocomplete(pickupInput.current, { fields: ['formatted_address', 'geometry'], componentRestrictions: { country: 'sy' } });
+        destinationAutocomplete = new maps.places.Autocomplete(destinationInput.current, { fields: ['formatted_address', 'geometry'], componentRestrictions: { country: 'sy' } });
         listeners.push(pickupAutocomplete.addListener('place_changed', () => {
-          if (cancelled) return;
+          if (cancelled || failed) return;
           locationSequence.current += 1; setLocating(false); invalidateSearch();
           const place = pickupAutocomplete?.getPlace();
           const location = place?.geometry?.location;
@@ -118,17 +138,21 @@ function MobilityContent() {
           setMessage('تم تحديد موقع الانطلاق.');
         }));
         listeners.push(destinationAutocomplete.addListener('place_changed', () => {
-          if (cancelled) return;
+          if (cancelled || failed) return;
           const place = destinationAutocomplete?.getPlace();
           setDestination(place?.formatted_address ?? destinationInput.current?.value ?? '');
         }));
-        setPlacesReady(true);
+        initialized = true;
+        window.clearTimeout(timeout);
+        setPlacesState('ready');
       } catch { fail(); }
     };
 
     runtime.initKhedmahMobility = initialize;
+    runtime.gm_authFailure = fail;
+    timeout = window.setTimeout(fail, 15000);
     script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-    if (runtime.google?.maps?.places) initialize();
+    if (runtime.google?.maps?.places || runtime.google?.maps?.importLibrary) initialize();
     else {
       if (!script) {
         script = document.createElement('script');
@@ -142,14 +166,16 @@ function MobilityContent() {
         script.addEventListener('error', fail);
       }
     }
-    const timeout = window.setTimeout(() => { if (!initialized) fail(); }, 15000);
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
-      listeners.forEach(listener => listener.remove());
-      pickupAutocomplete?.unbindAll(); destinationAutocomplete?.unbindAll();
+      releasePlaces();
       script?.removeEventListener('load', initialize);
       script?.removeEventListener('error', fail);
+      if (runtime.gm_authFailure === fail) {
+        if (previousAuthFailure) runtime.gm_authFailure = previousAuthFailure;
+        else delete runtime.gm_authFailure;
+      }
       if (runtime.initKhedmahMobility === initialize) {
         if (previousInitializer) runtime.initKhedmahMobility = previousInitializer;
         else delete runtime.initKhedmahMobility;
@@ -240,12 +266,12 @@ function MobilityContent() {
         : 'حدد نقطة الانطلاق لتجد الأنشطة المعتمدة الأقرب، ثم تواصل معها مباشرة. لا توجد رحلة مؤكدة قبل قبول المزود.'}
       backHref="/"
     />
-    <Surface as="form" className={styles.planner} onSubmit={findProviders} role="search" aria-label="البحث عن تكسي أو مندوب" aria-busy={loading || changingType}>
+    <Surface as="form" className={styles.planner} onSubmit={findProviders} role="search" aria-label="البحث عن تكسي أو مندوب" aria-busy={loading || changingType || placesState === 'loading'}>
       <div className={styles.typeSwitch} aria-label="نوع الخدمة">
         <ActionButton type="button" variant={type === 'taxi' ? 'primary' : 'secondary'} aria-pressed={type === 'taxi'} onClick={() => selectType('taxi')}><PlatformIcon name="car"/> تاكسي</ActionButton>
         <ActionButton type="button" variant={type === 'delivery' ? 'primary' : 'secondary'} aria-pressed={type === 'delivery'} onClick={() => selectType('delivery')}><PlatformIcon name="cart"/> مندوب توصيل</ActionButton>
       </div>
-      <div className={styles.fields}>
+      <div className={styles.fields} data-places-status={placesState}>
         <label>{deliveryMode ? 'موقع الاستلام' : 'موقع الانطلاق'}<input ref={pickupInput} value={pickup} onChange={(event) => editPickup(event.target.value)} placeholder="اختر عنوانًا من Google" autoComplete="off"/></label>
         <label>الوجهة (اختيارية للبحث)<input ref={destinationInput} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="أضف وجهة لفتح المسار" autoComplete="off"/></label>
       </div>
@@ -256,7 +282,7 @@ function MobilityContent() {
       </div>
       <ActionLink variant="secondary" href={`/search?type=business&categoryCode=${categoryFor(type)}`}>البحث حسب المدينة دون تحديد الموقع</ActionLink>
       {searchError && <StatusMessage tone="danger">{searchError} <ActionButton type="button" variant="secondary" onClick={() => void findProviders()}>إعادة البحث</ActionButton></StatusMessage>}
-      <StatusMessage tone={placesReady || pickupCoordinates ? 'info' : 'warning'}>{message}</StatusMessage>
+      <StatusMessage tone={placesState === 'failed' || placesState === 'unconfigured' ? 'warning' : 'info'}>{placesState === 'failed' ? 'تعذر تحميل اقتراحات Google. يمكنك استخدام موقعك أو اختيار المدينة من صفحة البحث. ' : placesState === 'unconfigured' ? 'اقتراحات Google غير مهيأة حاليًا؛ استخدم موقعك الحالي للبحث القريب. ' : ''}{message || (placesState === 'loading' ? 'جاري تحميل اقتراحات Google…' : placesState === 'ready' ? 'اكتب العنوان واختره من اقتراحات Google.' : '')}</StatusMessage>
     </Surface>
 
     {loading ? <SkeletonGrid count={4} label="جاري البحث عن مزودي الخدمة"/> : providers.length ? <section className={styles.results} aria-label="مزودو النقل والتوصيل">
@@ -264,7 +290,7 @@ function MobilityContent() {
         <div><span className={styles.badge}>{type === 'taxi' ? 'تاكسي' : 'توصيل'}</span><h2>{provider.name}</h2><p>{provider.addressAr ?? provider.cityCode}{typeof provider.distanceKm === 'number' && Number.isFinite(provider.distanceKm) && provider.distanceKm >= 0 ? ` · ${provider.distanceKm.toFixed(1)} كم` : ''}</p></div>
         <div className={styles.providerActions}><ActionLink href={`/business-profiles/${encodeURIComponent(provider.id)}?source=mobility`}>عرض النشاط والتواصل</ActionLink>{provider.phone && <a href={`tel:${provider.phone}`}>اتصال</a>}</div>
       </Surface>)}
-    </section> : searched && <EmptyState icon={<PlatformIcon name={type === 'taxi' ? 'car' : 'cart'} size={34}/>} title={deliveryMode ? 'لا يوجد مندوب معتمد قريب حاليًا' : 'لا يوجد مزود معتمد قريب حاليًا'} description={deliveryMode ? 'يمكنك توسيع البحث على الخريطة أو العودة لاحقًا بعد انضمام مندوبي توصيل جدد.' : 'يمكنك توسيع البحث عبر الخريطة أو العودة لاحقًا بعد انضمام مزودين جدد.'} actions={<><ActionLink href={`/map?categoryCode=${categoryFor(type)}`}>البحث على الخريطة</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">{deliveryMode ? 'سجّل نشاط توصيل' : 'سجّل نشاط نقل أو توصيل'}</ActionLink></>}/>} 
+    </section> : searched && <EmptyState icon={<PlatformIcon name={type === 'taxi' ? 'car' : 'cart'} size={34}/>} title={deliveryMode ? 'لا يوجد مندوب معتمد قريب حاليًا' : 'لا يوجد مزود معتمد قريب حاليًا'} description={deliveryMode ? 'يمكنك توسيع البحث على الخريطة أو العودة لاحقًا بعد انضمام مندوبي توصيل جدد.' : 'يمكنك توسيع البحث عبر الخريطة أو العودة لاحقًا بعد انضمام مزودين جدد.'} actions={<><ActionLink href={`/map?categoryCode=${categoryFor(type)}`}>البحث على الخريطة</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">{deliveryMode ? 'سجّل نشاط توصيل' : 'سجّل نشاط نقل أو توصيل'}</ActionLink></>}/>}
     <p className={styles.disclaimer}>{deliveryMode ? 'خدمة تربطك بمندوبي التوصيل المعتمدين وتسهّل الاتصال؛ الاتفاق على التوصيل المستقل يتم مباشرة مع المندوب.' : 'خدمة تعرض مزودي الخدمة وتسهّل الاتصال فقط؛ الاتفاق والسعر والقبول يتم مباشرة مع المزود.'} <Link href="/search">عرض كل الخدمات</Link></p>
   </PageShell>;
 }
