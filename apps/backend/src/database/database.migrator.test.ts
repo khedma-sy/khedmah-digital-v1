@@ -12,8 +12,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name 
 const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
 
-test('canonical schema 024 passes when every contract anchor is present', () => {
-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '024');
+test('canonical schema 034 passes when every release contract anchor is present', () => {
+  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '034');
   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
 });
 
@@ -31,13 +31,22 @@ for (const scenario of [
   ['missing 020 external identity binding', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'external_identities' && a.kind === 'table'],
   ['missing 021 provider reports table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'provider_reports' && a.kind === 'table'],
   ['missing 022 category hierarchy', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'categories_parent_code_fk'],
-  ['missing 024 classifieds table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'product_listings' && a.kind === 'table'],
+  ['missing 024 store table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'product_listings' && a.kind === 'table'],
+  ['missing 025 classifieds table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'ad_listings' && a.kind === 'table'],
+  ['missing 026 fulfillment table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.kind === 'table'],
+  ['missing 027 mobility document review table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'mobility_document_reviews' && a.kind === 'table'],
+  ['missing 028 platform notifications table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'platform_notifications' && a.kind === 'table'],
+  ['missing 029 taxi pricing table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'taxi_pricing_revisions' && a.kind === 'table'],
+  ['missing 030 billing plan table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'billing_plans' && a.kind === 'table'],
+  ['missing 031 taxi driver approvals table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'driver_approvals' && a.kind === 'table'],
+  ['missing 034 food promotion table', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'food_promo_codes' && a.kind === 'table'],
+  ['missing 034 fulfillment promo snapshot', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.name === 'food_promo_id'],
   ['014-equivalent schema missing 015 index', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'contact_inquiries_professional_created_idx']
 ] as const) {
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=024 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=034 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });
@@ -55,6 +64,7 @@ test('module initialization verifies before startup can complete and performs no
   const pool = { query: async (sql: string) => { calls.push(sql); return completeCatalog(); } };
   await new DatabaseMigrator(pool as never).onModuleInit();
   assert.equal(calls.length, 1);
+  assert.match(calls[0], /khedmah_taxi/);
   assert.doesNotMatch(calls[0], /\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE)\b/i);
 });
 
