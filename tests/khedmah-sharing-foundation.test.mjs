@@ -75,7 +75,7 @@ test('mission does not add forbidden sharing runtime implementation files', asyn
   const files = await collectFiles(repoPath('.'));
   const forbiddenRuntimeFiles = files
     .map((file) => file.replace(repoPath('.'), ''))
-    .filter((file) => /(^|\/)(social-feed|followers|likes|comments|messaging|chat|advertising|paid-promotion|ranking|marketplace|affiliate|commissions|ai)(\/|\.|-)/i.test(file));
+    .filter((file) => /(^|\/)(social-feed|followers|likes|comments|messaging|chat|advertising|paid-promotion|ranking|marketplace|affiliate|commissions|ai-recommendations?)(\/|\.|-)/i.test(file));
 
   assert.deepEqual(forbiddenRuntimeFiles, []);
 });

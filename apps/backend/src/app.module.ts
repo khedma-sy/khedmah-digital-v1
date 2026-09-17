@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiAdminModule } from './ai-admin/ai-admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
 import { CategoryModule } from './categories/category.module';
@@ -30,6 +31,7 @@ import { TaxiModule } from './taxi/taxi.module';
     ContactModule,
     AnalyticsModule,
     OperationsProductModule,
+    AiAdminModule,
     BusinessProfilesModule,
     ProfessionalProfilesModule,
     ServiceCatalogModule,
