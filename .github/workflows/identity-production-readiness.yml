@@ -8,7 +8,7 @@ on:
       - "apps/frontend/app/auth/**"
       - "apps/frontend/lib/firebase/**"
       - "scripts/validate-identity-production-readiness.mjs"
-      - "cloudbuild.production.yaml"
+      - "cloudbuild.production-new-account.yaml"
       - ".github/workflows/identity-production-readiness.yml"
 
 permissions:
