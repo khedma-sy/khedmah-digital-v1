@@ -128,7 +128,7 @@ jobs:
             --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=$OPERATIONS_BACKEND_SERVICE,_FRONTEND_SERVICE=$OPERATIONS_FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=$GCS_MEDIA_BUCKET,_NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL,_CORS_ORIGIN=$CORS_ORIGIN,_EMAIL_FROM=$EMAIL_FROM,_FACEBOOK_AUTH_ENABLED=$FACEBOOK_AUTH_ENABLED" \
             --quiet
 
-      - name: Verify live revisions
+      - name: Verify live revisions and Maps readiness
         shell: bash
         run: |
           set -euo pipefail
@@ -137,5 +137,10 @@ jobs:
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$BACKEND_URL/api/v1/health" >/dev/null
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$BACKEND_URL/api/v1/health/ready" >/dev/null
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$FRONTEND_URL/" >/dev/null
+          BROWSER="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          test -n "$BROWSER" || { echo 'Chrome is required for live Maps certification.' >&2; exit 1; }
+          MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"
+          printf '%s' "$MAP_DOM" | grep -F 'data-map-status="ready"' >/dev/null
           echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo 'MAP_STATUS=ready' >> "$GITHUB_STEP_SUMMARY"
