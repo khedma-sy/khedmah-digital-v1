@@ -1,9 +1,10 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { hashPassword } from '../security/password-security';
 import { IdentityRepository } from '../identity.repository';
 import { SessionTokenService } from '../security/session-token.service';
 import { UserAccount, UserProfile } from '../identity.types';
+import { EmailVerificationService } from '../email/email-verification.service';
 
 export interface BootstrapAdminRequest {
   readonly email?: unknown;
@@ -47,7 +48,8 @@ function secretMatches(provided: string | undefined, expected: string): boolean 
 export class BootstrapAdminService {
   constructor(
     @Inject(IdentityRepository) private readonly repository: IdentityRepository,
-    @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService
+    @Inject(SessionTokenService) private readonly sessionTokens: SessionTokenService,
+    @Inject(EmailVerificationService) private readonly emailVerification: EmailVerificationService
   ) {}
 
   /**
@@ -81,7 +83,7 @@ export class BootstrapAdminService {
       id: userId,
       email: input.email,
       passwordHash: hashPassword(input.password),
-      status: 'active',
+      status: 'pending',
       createdAt: now,
       updatedAt: now
     };
@@ -99,10 +101,22 @@ export class BootstrapAdminService {
       throw new ConflictException('Bootstrap has already been completed. Remove BOOTSTRAP_ADMIN_SECRET from environment.');
     }
 
+    // Account creation is committed before delivery. A provider failure must not
+    // activate the account, leak provider details, or invite a second bootstrap.
+    try {
+      await this.emailVerification.requestVerification(userId, input.email);
+    } catch {
+      throw new ServiceUnavailableException(
+        'Bootstrap admin was created pending verification, but the verification email could not be sent. ' +
+        'Request a new verification email; do not bootstrap again. ' +
+        'Remove BOOTSTRAP_ADMIN_SECRET from environment immediately.'
+      );
+    }
+
     return {
       userId,
       email: input.email,
-      message: 'Bootstrap admin created. Remove BOOTSTRAP_ADMIN_SECRET from environment immediately.'
+      message: 'Bootstrap admin created pending email verification. Open the verification link before signing in. Remove BOOTSTRAP_ADMIN_SECRET from environment immediately.'
     };
   }
 
