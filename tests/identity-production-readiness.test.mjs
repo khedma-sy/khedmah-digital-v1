@@ -30,21 +30,22 @@ test('Web identity validator fails closed on missing production values', async (
   assert.match(validator, /Missing Web identity production configuration/);
   assert.match(validator, /Web and backend Firebase project IDs must match/);
   assert.match(validator, /EMAIL_FROM must be a valid production sender address/);
+  assert.match(validator, /legacy Google project/i);
 });
 
-test('production email defaults use the verified Resend sending domain', async () => {
+test('new-account production email uses the verified Resend sending domain', async () => {
   const provider = await read('apps/backend/src/identity/email/email-provider.ts');
-  const cloudBuild = await read('cloudbuild.production.yaml');
+  const cloudBuild = await read('cloudbuild.production-new-account.yaml');
 
   assert.match(provider, /noreply@mail\.khedmah\.uk/);
   assert.match(cloudBuild, /_EMAIL_FROM: noreply@mail\.khedmah\.uk/);
   assert.doesNotMatch(provider, /noreply@khedmah\.digital/);
-  assert.doesNotMatch(cloudBuild, /_EMAIL_FROM: noreply@khedmah\.digital/);
+  assert.doesNotMatch(cloudBuild, /project-94512a0e-1a5e-4bdb-87f|774201339973/);
 });
 
 test('Cloud Run environment delimiter cannot collide with the sender address', async () => {
-  const cloudBuild = await read('cloudbuild.production.yaml');
+  const cloudBuild = await read('cloudbuild.production-new-account.yaml');
 
-  assert.match(cloudBuild, /--update-env-vars "\^\|\^/);
+  assert.match(cloudBuild, /--update-env-vars '\^\|\^/);
   assert.doesNotMatch(cloudBuild, /--update-env-vars "\^@\^/);
 });
