@@ -7,8 +7,6 @@ set +x
   exit 5
 }
 
-: "${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
-
 for name in \
   GOOGLE_CLOUD_PROJECT \
   PRODUCTION_GOOGLE_CLOUD_PROJECT \
@@ -19,12 +17,39 @@ for name in \
   OPERATIONS_FRONTEND_SERVICE \
   OPERATIONS_RUNTIME_SERVICE_ACCOUNT \
   CLOUD_SQL_INSTANCE_CONNECTION_NAME \
-  GCS_MEDIA_BUCKET; do
+  GCS_MEDIA_BUCKET \
+  NEXT_PUBLIC_API_URL \
+  CORS_ORIGIN \
+  EMAIL_FROM; do
   [[ -n "${!name:-}" ]] || { echo "Missing ${name}." >&2; exit 4; }
 done
 
 [[ "$GOOGLE_CLOUD_PROJECT" == "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || {
   echo 'Refusing Production deployment because GOOGLE_CLOUD_PROJECT does not match PRODUCTION_GOOGLE_CLOUD_PROJECT.' >&2
+  exit 6
+}
+
+legacy_pattern='project-94512a0e-1a5e-4bdb-87f|774201339973'
+for value in \
+  "$GOOGLE_CLOUD_PROJECT" \
+  "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT" \
+  "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
+  "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+  "$GCS_MEDIA_BUCKET" \
+  "$NEXT_PUBLIC_API_URL" \
+  "$CORS_ORIGIN"; do
+  if printf '%s' "$value" | grep -Eq "$legacy_pattern"; then
+    echo 'Refusing Production deployment because a legacy Google project binding remains.' >&2
+    exit 6
+  fi
+done
+
+[[ "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo 'Runtime service account must belong to the active Production project.' >&2
+  exit 6
+}
+[[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]] || {
+  echo 'Cloud SQL connection must belong to the active Production project and region.' >&2
   exit 6
 }
 
@@ -73,6 +98,6 @@ gcloud builds submit . \
   --region "$GOOGLE_CLOUD_REGION" \
   --service-account "$BUILD_SERVICE_ACCOUNT" \
   --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
-  --config cloudbuild.production.yaml \
-  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
+  --config cloudbuild.production-new-account.yaml \
+  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},_CORS_ORIGIN=${CORS_ORIGIN},_EMAIL_FROM=${EMAIL_FROM},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
   --quiet
