@@ -26,8 +26,8 @@ test('Contact repository binds inquiry and idempotency marker in one transaction
   assert.match(repository, /professional_profile_id/);
 });
 
-test('startup requires the critical Migration 016 uniqueness anchor', async () => {
+test('startup keeps the critical Migration 016 uniqueness anchor inside release schema 034', async () => {
   const migrator = await read('apps/backend/src/database/database.migrator.ts');
-  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '024'/);
+  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '034'/);
   assert.match(migrator, /contact_submission_idempotency_submitter_key_unique/);
 });
