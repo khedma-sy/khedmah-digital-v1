@@ -52,7 +52,9 @@ android {
         targetSdk = 36
         versionCode = configuredVersionCode ?: 1
         versionName = configuredVersionName ?: "1.0"
-        val apiBaseUrl = providers.gradleProperty("KHEDMAH_API_BASE_URL").orNull ?: ""
+        val apiBaseUrl = providers.gradleProperty("KHEDMAH_API_BASE_URL").orNull
+            ?: providers.environmentVariable("KHEDMAH_API_BASE_URL").orNull
+            ?: ""
         buildConfigField("String", "KHEDMAH_API_BASE_URL", "\"${apiBaseUrl.replace("\"", "\\\"")}\"")
         val googleServerClientId = providers.gradleProperty("GOOGLE_OAUTH_SERVER_CLIENT_ID").orNull
             ?: providers.environmentVariable("GOOGLE_OAUTH_SERVER_CLIENT_ID").orNull
