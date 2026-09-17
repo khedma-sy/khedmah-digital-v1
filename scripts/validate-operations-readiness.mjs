@@ -9,9 +9,10 @@ const pending = (area, name, detail) => results.push({ area, name, status: 'pend
 const read = (file) => readFile(file, 'utf8');
 
 const requiredFiles = [
-  'cloudbuild.production.yaml', 'infra/iac/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
+  'cloudbuild.production-new-account.yaml', 'infra/iac/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
   'config/google/google.ts', 'config/google/firebase.ts', 'config/google/maps.ts', 'scripts/google-production-deploy.sh',
   'scripts/google-production-rollback.sh', 'scripts/collect-live-production-evidence.sh', 'scripts/run-live-production-certification.sh',
+  '.github/workflows/production-operator-new-account.yml', '.github/workflows/production-migrations-025-034.yml',
   'docs/reports/operations-product-live-certification/production-certification-report.md', 'docs/google/disaster-recovery.md', 'docs/operations-product/README.md'
 ];
 for (const file of requiredFiles) check('repository', file, existsSync(file), existsSync(file) ? 'present' : 'missing');
@@ -33,6 +34,21 @@ for (const file of tracked) {
   if (secretPattern.test(value)) leaked.push(file);
 }
 check('security', 'credential signature scan', leaked.length === 0, leaked.join(', ') || 'no signatures found');
+
+const legacyPattern = /project-94512a0e-1a5e-4bdb-87f|774201339973/;
+const runtimeCritical = tracked.filter(file =>
+  file === 'cloudbuild.production-new-account.yaml' ||
+  file === 'scripts/google-production-deploy.sh' ||
+  file === '.github/workflows/production-operator-new-account.yml' ||
+  file === '.github/workflows/production-migrations-025-034.yml' ||
+  file.startsWith('infra/iac/') || file.startsWith('config/google/')
+);
+const legacyRuntimeBindings = [];
+for (const file of runtimeCritical) {
+  const value = await read(file).catch(() => '');
+  if (legacyPattern.test(value)) legacyRuntimeBindings.push(file);
+}
+check('google-cloud', 'no legacy production binding', legacyRuntimeBindings.length === 0, legacyRuntimeBindings.join(', ') || 'runtime-critical production files are account-neutral');
 
 const roleSource = await read('apps/backend/src/operations-product/operations-product.types.ts');
 const roles = ['operations_product_director', 'infrastructure_manager', 'cloud_administrator', 'devops_engineer', 'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer'];
@@ -68,8 +84,11 @@ for (const [area, name, variable] of externalRequirements) {
   if (requireProduction) check(area, name, valid, valid ? `${variable} injected` : `${variable} missing or not enabled`);
   else pending(area, name, `${variable} requires production environment evidence`);
 }
+if (requireProduction && legacyPattern.test(prod.GOOGLE_CLOUD_PROJECT || '')) check('google-cloud', 'project isolation', false, 'GOOGLE_CLOUD_PROJECT references the legacy project');
+else if (requireProduction) check('google-cloud', 'project isolation', true, 'production Google project is not the legacy project');
 if (requireProduction && /(?:dev|development|staging|test|local)/i.test(prod.FIREBASE_PROJECT_ID || '')) check('firebase', 'production isolation', false, 'FIREBASE_PROJECT_ID resembles a non-production project');
-else if (requireProduction) check('firebase', 'production isolation', true, 'production project identifier does not match forbidden environment labels');
+else if (requireProduction && legacyPattern.test(prod.FIREBASE_PROJECT_ID || '')) check('firebase', 'production isolation', false, 'FIREBASE_PROJECT_ID references the legacy project');
+else if (requireProduction) check('firebase', 'production isolation', true, 'production project identifier does not match forbidden environment labels or legacy project');
 else pending('firebase', 'production isolation', 'requires injected production project identifier and Google/Firebase console evidence');
 
 const summary = results.reduce((value, result) => ({ ...value, [result.status]: (value[result.status] || 0) + 1 }), {});
