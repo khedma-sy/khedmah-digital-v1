@@ -25,8 +25,11 @@ test('owner workspace uploads files without image URL fields', async () => {
   assert.doesNotMatch(page, /رابط الصورة|image url/i);
 });
 
-test('production deployment wires the dedicated media bucket', async () => {
+test('production deployment injects the dedicated media bucket instead of hardcoding an account', async () => {
   const cloudBuild = await read('../cloudbuild.production.yaml');
+  const operator = await read('../.github/workflows/production-operator.yml');
   assert.match(cloudBuild, /GCS_MEDIA_BUCKET=\$\{_GCS_MEDIA_BUCKET\}/);
-  assert.match(cloudBuild, /_GCS_MEDIA_BUCKET: project-94512a0e-1a5e-4bdb-87f-khedmah-media/);
+  assert.match(cloudBuild, /_GCS_MEDIA_BUCKET: REQUIRED_FROM_OPERATOR/);
+  assert.match(operator, /GCS_MEDIA_BUCKET: \$\{\{ vars\.GCS_MEDIA_BUCKET \}\}/);
+  assert.doesNotMatch(cloudBuild, /project-94512a0e-1a5e-4bdb-87f/);
 });
