@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '034';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
 
@@ -24,7 +24,7 @@ const index = (domain: string, migration: string, tableName: string, name: strin
 
 /**
  * Deliberately small contract surface: identity/ownership, public eligibility,
- * lifecycle integrity, idempotency and production identity recovery/OAuth anchors.
+ * lifecycle integrity, idempotency and the release-critical operational schemas.
  * It is not intended to be an exhaustive database performance audit.
  */
 export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
@@ -88,9 +88,24 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   ...['report_identifier', 'reporter_user_identifier', 'target_type', 'reason_code', 'details', 'status', 'reviewed_by_user_identifier', 'resolution_note', 'created_at'].map((name) => column('reports', '021', 'provider_reports', name)),
   constraint('reports', '021', 'provider_reports', 'provider_reports_exactly_one_target_check'),
   index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
-  table('classifieds', '024', 'product_listings'),
-  ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
-  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
+  table('store', '024', 'product_listings'),
+  ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('store', '024', 'product_listings', name)),
+  index('store', '024', 'product_listings', 'product_listings_public_idx'),
+  table('classifieds', '025', 'ad_listings'),
+  table('classifieds', '025', 'ad_free_slots'),
+  table('fulfillment', '026', 'fulfillment_orders'),
+  table('fulfillment', '026', 'fulfillment_order_items'),
+  table('mobility-documents', '027', 'mobility_document_reviews'),
+  table('platform-notifications', '028', 'platform_notifications'),
+  table('taxi-pricing', '029', 'taxi_pricing_revisions'),
+  table('billing', '030', 'billing_plans'),
+  table('billing', '030', 'billing_subscriptions'),
+  table('taxi-operations', '031', 'driver_approvals'),
+  table('taxi-operations', '031', 'vehicle_approvals'),
+  table('food-promotions', '034', 'food_promo_codes'),
+  table('food-promotions', '034', 'food_promo_claims'),
+  ...['food_promo_id', 'promo_code', 'discount_amount'].map((name) => column('food-promotions', '034', 'fulfillment_orders', name)),
+  constraint('food-promotions', '034', 'fulfillment_orders', 'fulfillment_orders_total_contract')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }
@@ -111,19 +126,19 @@ export function verifyCanonicalSchema(rows: readonly CatalogRow[]): void {
 const CATALOG_QUERY = `
 SELECT 'table' AS kind, c.relname AS table_name, c.relname AS name
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p')
+WHERE n.nspname IN (current_schema(), 'khedmah_taxi') AND c.relkind IN ('r', 'p')
 UNION ALL
 SELECT 'column', c.table_name, c.column_name
-FROM information_schema.columns c WHERE c.table_schema = current_schema()
+FROM information_schema.columns c WHERE c.table_schema IN (current_schema(), 'khedmah_taxi')
 UNION ALL
 SELECT 'constraint', c.relname, con.conname
 FROM pg_catalog.pg_constraint con JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
-JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema()
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname IN (current_schema(), 'khedmah_taxi')
 UNION ALL
 SELECT 'index', t.relname, i.relname
 FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid = x.indrelid
 JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
-WHERE n.nspname = current_schema()`;
+WHERE n.nspname IN (current_schema(), 'khedmah_taxi')`;
 
 @Injectable()
 export class DatabaseMigrator implements OnModuleInit {
