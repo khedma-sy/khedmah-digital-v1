@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '024';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '034';
 
-export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index';
+export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index' | 'function';
 
 export interface SchemaAnchor {
   domain: string;
@@ -21,11 +21,12 @@ const constraint = (domain: string, migration: string, tableName: string, name: 
   ({ domain, migration, kind: 'constraint', table: tableName, name });
 const index = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
   ({ domain, migration, kind: 'index', table: tableName, name });
+const fn = (domain: string, migration: string, tableName: string, name: string): SchemaAnchor =>
+  ({ domain, migration, kind: 'function', table: tableName, name });
 
 /**
- * Deliberately small contract surface: identity/ownership, public eligibility,
- * lifecycle integrity, idempotency and production identity recovery/OAuth anchors.
- * It is not intended to be an exhaustive database performance audit.
+ * Deliberately bounded release contract. It verifies the structural anchors that
+ * the runtime depends on; it is not a performance audit or a migration runner.
  */
 export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('identity', '001', 'core_user_accounts'),
@@ -57,6 +58,8 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('notifications', '013', 'nearby_notifications'),
   ...['notification_identifier', 'user_identifier', 'idempotency_key', 'read_at'].map((name) => column('notifications', '013', 'nearby_notifications', name)),
   index('notifications', '013', 'nearby_notifications', 'nearby_notifications_user_idempotency_idx'),
+  table('supplier', '014', 'supplier_capabilities'),
+  ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name)),
   table('idempotency', '016', 'contact_submission_idempotency'),
   ...['submitter_user_id', 'idempotency_key', 'inquiry_id', 'payload_fingerprint', 'created_at'].map((name) => column('idempotency', '016', 'contact_submission_idempotency', name)),
   constraint('idempotency', '016', 'contact_submission_idempotency', 'contact_submission_idempotency_submitter_key_unique'),
@@ -75,8 +78,6 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_key_format'),
   constraint('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_request_count_nonnegative'),
   index('rate-limit', '018', 'rate_limit_buckets', 'rate_limit_buckets_reset_at_idx'),
-  table('supplier', '014', 'supplier_capabilities'),
-  ...['supplier_capability_identifier', 'business_profile_id', 'supplier_type', 'coverage_location_identifier', 'status'].map((name) => column('supplier', '014', 'supplier_capabilities', name)),
   table('identity-recovery', '020', 'password_reset_tokens'),
   ...['reset_identifier', 'user_identifier', 'token_hash', 'expires_at', 'used_at'].map((name) => column('identity-recovery', '020', 'password_reset_tokens', name)),
   index('identity-recovery', '020', 'password_reset_tokens', 'password_reset_tokens_user_created_idx'),
@@ -88,9 +89,57 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   ...['report_identifier', 'reporter_user_identifier', 'target_type', 'reason_code', 'details', 'status', 'reviewed_by_user_identifier', 'resolution_note', 'created_at'].map((name) => column('reports', '021', 'provider_reports', name)),
   constraint('reports', '021', 'provider_reports', 'provider_reports_exactly_one_target_check'),
   index('reports', '021', 'provider_reports', 'provider_reports_open_reporter_target_idx'),
-  table('classifieds', '024', 'product_listings'),
-  ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('classifieds', '024', 'product_listings', name)),
-  index('classifieds', '024', 'product_listings', 'product_listings_public_idx')
+  table('store', '024', 'product_listings'),
+  ...['business_profile_id', 'owner_user_id', 'title_ar', 'price', 'currency', 'category_code', 'availability', 'status', 'moderation_status'].map((name) => column('store', '024', 'product_listings', name)),
+  index('store', '024', 'product_listings', 'product_listings_public_idx'),
+
+  table('classifieds', '025', 'ad_listings'),
+  table('classifieds', '025', 'ad_free_slots'),
+  constraint('classifieds', '025', 'ad_listings', 'ad_listing_identity_owner_unique'),
+  index('classifieds', '025', 'ad_listings', 'ad_listings_public_idx'),
+
+  table('fulfillment', '026', 'fulfillment_orders'),
+  table('fulfillment', '026', 'fulfillment_order_items'),
+  table('fulfillment', '026', 'fulfillment_order_events'),
+  table('fulfillment', '026', 'fulfillment_order_ratings'),
+  table('fulfillment', '026', 'fulfillment_order_location_updates'),
+  ...['customer_user_id', 'merchant_business_id', 'status', 'payment_method', 'payment_status'].map((name) => column('fulfillment', '026', 'fulfillment_orders', name)),
+  constraint('fulfillment', '026', 'fulfillment_orders', 'fulfillment_orders_customer_idempotency_unique'),
+
+  table('mobility-review', '027', 'mobility_document_reviews'),
+  table('mobility-review', '027', 'mobility_document_review_events'),
+  ...['business_profile_id', 'document_type', 'status'].map((name) => column('mobility-review', '027', 'mobility_document_reviews', name)),
+
+  table('platform-notifications', '028', 'platform_notifications'),
+  ...['user_id', 'event_key', 'event_type', 'reference_type', 'read_at'].map((name) => column('platform-notifications', '028', 'platform_notifications', name)),
+  constraint('platform-notifications', '028', 'platform_notifications', 'platform_notifications_user_event_unique'),
+
+  table('taxi-pricing', '029', 'taxi_pricing_revisions'),
+  ...['zone_code', 'revision', 'currency_era', 'effective_base_minor', 'effective_per_km_minor'].map((name) => column('taxi-pricing', '029', 'taxi_pricing_revisions', name)),
+  constraint('taxi-pricing', '029', 'taxi_pricing_revisions', 'taxi_pricing_revisions_zone_revision_unique'),
+
+  table('billing', '030', 'billing_program_config'),
+  table('billing', '030', 'billing_plans'),
+  table('billing', '030', 'billing_purchase_orders'),
+  table('billing', '030', 'billing_subscriptions'),
+  table('billing', '030', 'billing_credit_grants'),
+  table('billing', '030', 'billing_credit_ledger'),
+  table('billing', '030', 'billing_usage_rates'),
+  table('billing', '030', 'billing_usage_receipts'),
+  table('billing', '030', 'billing_promo_redemptions'),
+
+  table('taxi-ops', '031', 'khedmah_taxi.vehicle_approvals'),
+  table('taxi-ops', '031', 'khedmah_taxi.driver_approvals'),
+  table('taxi-ops', '031', 'khedmah_taxi.operational_approval_events'),
+  fn('taxi-ops', '032', 'khedmah_taxi.resolve_actor_locked', 'profile_trust_gate'),
+
+  constraint('billing', '033', 'admin_roles', 'admin_roles_role_check_billing_admin'),
+
+  table('food-promotions', '034', 'food_promo_codes'),
+  table('food-promotions', '034', 'food_promo_claims'),
+  column('food-promotions', '034', 'fulfillment_orders', 'discount_amount'),
+  column('food-promotions', '034', 'fulfillment_orders', 'food_promo_id'),
+  constraint('food-promotions', '034', 'fulfillment_orders', 'fulfillment_orders_promo_snapshot_check')
 ];
 
 interface CatalogRow extends Record<string, unknown> { kind: SchemaAnchorKind; table_name: string; name: string }
@@ -109,21 +158,44 @@ export function verifyCanonicalSchema(rows: readonly CatalogRow[]): void {
 }
 
 const CATALOG_QUERY = `
-SELECT 'table' AS kind, c.relname AS table_name, c.relname AS name
+SELECT 'table' AS kind,
+  CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END AS table_name,
+  CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END AS name
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p')
+WHERE n.nspname IN ('public', 'khedmah_taxi') AND c.relkind IN ('r', 'p')
 UNION ALL
-SELECT 'column', c.table_name, c.column_name
-FROM information_schema.columns c WHERE c.table_schema = current_schema()
+SELECT 'column',
+  CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
+  c.column_name
+FROM information_schema.columns c WHERE c.table_schema IN ('public', 'khedmah_taxi')
 UNION ALL
-SELECT 'constraint', c.relname, con.conname
+SELECT 'constraint',
+  CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
+  con.conname
 FROM pg_catalog.pg_constraint con JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
-JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema()
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname IN ('public', 'khedmah_taxi')
 UNION ALL
-SELECT 'index', t.relname, i.relname
+SELECT 'index',
+  CASE WHEN n.nspname = 'public' THEN t.relname ELSE n.nspname || '.' || t.relname END,
+  i.relname
 FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid = x.indrelid
 JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
-WHERE n.nspname = current_schema()`;
+WHERE n.nspname IN ('public', 'khedmah_taxi')
+UNION ALL
+SELECT 'function', 'khedmah_taxi.resolve_actor_locked', 'profile_trust_gate'
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'khedmah_taxi' AND p.proname = 'resolve_actor_locked'
+  AND pg_catalog.pg_get_functiondef(p.oid) LIKE '%b.trust_status <> ''approved''%'
+  AND pg_catalog.pg_get_functiondef(p.oid) LIKE '%b.moderation_status <> ''approved''%'
+UNION ALL
+SELECT 'constraint', 'admin_roles', 'admin_roles_role_check_billing_admin'
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = 'admin_roles' AND con.conname = 'admin_roles_role_check'
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%billing_admin%'`;
 
 @Injectable()
 export class DatabaseMigrator implements OnModuleInit {
