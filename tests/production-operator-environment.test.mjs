@@ -40,12 +40,16 @@ test('new-account operator injects media, runtime, API and CORS configuration', 
     'OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}',
     'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
     'NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}',
-    'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}'
+    'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}',
+    'NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}'
   ]) assert.ok(workflow.includes(token), `missing ${token}`);
   assert.match(workflow, /_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT/);
   assert.match(workflow, /_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET/);
   assert.match(workflow, /_NEXT_PUBLIC_API_URL=\$NEXT_PUBLIC_API_URL/);
   assert.match(workflow, /_CORS_ORIGIN=\$CORS_ORIGIN/);
+  assert.match(workflow, /_SITE_URL=\$NEXT_PUBLIC_SITE_URL/);
+  assert.match(workflow, /npm run validate:identity:production/);
+  assert.doesNotMatch(workflow, /validate:firebase:production/);
 });
 
 test('production deployment proves the JavaScript map reaches ready state in Chrome', () => {
