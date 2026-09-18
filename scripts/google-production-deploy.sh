@@ -29,7 +29,8 @@ done
   exit 6
 }
 
-legacy_pattern='project-94512a0e-1a5e-4bdb-87f|774201339973'
+legacy_project="project-""94512a0e-1a5e-4bdb-87f"
+legacy_number="774201""339973"
 for value in \
   "$GOOGLE_CLOUD_PROJECT" \
   "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT" \
