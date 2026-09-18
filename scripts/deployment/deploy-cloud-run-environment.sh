@@ -94,6 +94,14 @@ TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environ
 export TAXI_OPERATIONAL_MIGRATION_031_MODE TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION
 bash scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
 
+# Taxi operational profile authority hardens Migration 031 by binding the approved
+# driver to the current public/moderated/trusted/active Taxi business profile.
+# This is a required canonical predecessor of Billing admin/Food 034 readiness.
+TAXI_OPERATIONAL_MIGRATION_032_MODE='apply'
+TAXI_OPERATIONAL_MIGRATION_032_CONFIRMATION="APPLY_KHEDMAH_NONPROD_032_${environment^^}"
+export TAXI_OPERATIONAL_MIGRATION_032_MODE TAXI_OPERATIONAL_MIGRATION_032_CONFIRMATION
+bash scripts/deployment/ensure-taxi-operational-profile-gate-nonproduction-schema.sh "$environment" "$identifier"
+
 # Restaurant-funded food promotion pricing is part of the cash-order contract.
 # Apply its claim ledger before backend rollout; no payment gateway or platform subsidy is enabled.
 FOOD_PROMOTIONS_MIGRATION_034_MODE='apply'
