@@ -102,3 +102,10 @@ test('production startup accepts canonical 034 only with a hardened runtime data
     else process.env.NODE_ENV = previous;
   }
 });
+
+
+test('production runtime privilege gate rejects CREATE on the Taxi schema', async () => {
+  const source = await readFile(new URL('./database.migrator.ts', import.meta.url), 'utf8');
+  assert.match(source, /NOT has_schema_privilege\(current_user, 'khedmah_taxi', 'CREATE'\)/);
+  assert.match(source, /RUNTIME_DATABASE_PRIVILEGES_NOT_HARDENED/);
+});
