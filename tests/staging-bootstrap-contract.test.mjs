@@ -36,6 +36,8 @@ test('bootstrap provider uses a bounded workflow_ref allowlist on the configured
   assert.match(bootstrap, /github_additional_workflow_paths/);
   assert.doesNotMatch(bootstrap, /job_workflow_ref/);
   assert.match(productionWif, /production-operator-new-account\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-baseline-001-020\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-bootstrap-admin\.yml@refs\/heads\/main/);
   assert.match(productionWif, /production-migrations-025-034\.yml@refs\/heads\/main/);
   assert.match(productionWif, /production-operator\.yml@refs\/heads\/main/);
   const legacySchemaOperator = readFileSync('.github/workflows/production-operator.yml', 'utf8');
