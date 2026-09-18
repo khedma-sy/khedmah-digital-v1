@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const source = await readFile(new URL('../scripts/run-production-migrations-025-034.sh', import.meta.url), 'utf8');
+const workflow = await readFile(new URL('../.github/workflows/production-migrations-025-034.yml', import.meta.url), 'utf8');
 
 test('production migration runner is checksum-bound and lineage ordered through 034', () => {
   assert.match(source, /MIGRATION_SHA256 must be a lowercase SHA-256/);
@@ -38,4 +39,13 @@ test('migration execution is serialized and reviewed files 033/034 keep their in
   assert.match(source, /MIGRATION_NUMBER" = '033'/);
   assert.match(source, /MIGRATION_NUMBER" = '034'/);
   assert.match(source, /MIGRATION_\$\{MIGRATION_NUMBER\}_POSTCONDITION_FAILED/);
+});
+
+
+test('025-034 workflow uses only the dedicated migration identity and elevated database secret', () => {
+  assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
+  assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.doesNotMatch(workflow, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_URL:latest/);
 });
