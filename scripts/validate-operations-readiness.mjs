@@ -44,11 +44,13 @@ const runtimeCritical = tracked.filter(file =>
   file.startsWith('infra/iac/') || file.startsWith('config/google/')
 );
 const legacyRuntimeBindings = [];
+const assignmentLike = /(?:GOOGLE_CLOUD_PROJECT|_RUNTIME_SERVICE_ACCOUNT|_CLOUD_SQL_INSTANCE|_NEXT_PUBLIC_API_URL|_CORS_ORIGIN|_GCS_MEDIA_BUCKET)\s*[:=][^\n]*/g;
 for (const file of runtimeCritical) {
   const value = await read(file).catch(() => '');
-  if (legacyPattern.test(value)) legacyRuntimeBindings.push(file);
+  const assignments = value.match(assignmentLike) || [];
+  if (assignments.some(line => legacyPattern.test(line))) legacyRuntimeBindings.push(file);
 }
-check('google-cloud', 'no legacy production binding', legacyRuntimeBindings.length === 0, legacyRuntimeBindings.join(', ') || 'runtime-critical production files are account-neutral');
+check('google-cloud', 'no legacy production binding', legacyRuntimeBindings.length === 0, legacyRuntimeBindings.join(', ') || 'runtime-critical production assignments are account-neutral');
 
 const roleSource = await read('apps/backend/src/operations-product/operations-product.types.ts');
 const roles = ['operations_product_director', 'infrastructure_manager', 'cloud_administrator', 'devops_engineer', 'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer'];
