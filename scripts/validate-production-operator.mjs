@@ -25,6 +25,8 @@ for (const contract of [
   'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
   'NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}',
   'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}',
+  'NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}',
+  'npm run validate:identity:production',
   'bash scripts/validate-production-deployment-readiness.sh',
   '/api/v1/health',
   '/api/v1/health/ready',
@@ -46,11 +48,14 @@ for (const contract of [
   '/api/v1/health/ready',
   '_RUNTIME_SERVICE_ACCOUNT: REQUIRED_RUNTIME_SERVICE_ACCOUNT',
   '_CLOUD_SQL_INSTANCE: REQUIRED_CLOUD_SQL_INSTANCE',
-  '_GCS_MEDIA_BUCKET: REQUIRED_GCS_MEDIA_BUCKET'
+  '_GCS_MEDIA_BUCKET: REQUIRED_GCS_MEDIA_BUCKET',
+  '_SITE_URL: REQUIRED_SITE_URL',
+  'NEXT_PUBLIC_SITE_URL=${_SITE_URL}'
 ]) {
   if (!cloudBuild.includes(contract)) throw new Error(`Production Cloud Build missing runtime contract: ${contract}`);
 }
 if (/\bnode:20\b/.test(cloudBuild)) throw new Error('Production Cloud Build must not use Node 20.');
+if (workflow.includes('validate:firebase:production')) throw new Error('Web/backend Production deployment must not depend on Android Firebase release configuration.');
 
 for (const contract of ['/api/v1/health', '/api/v1/health/ready', 'ready:true']) {
   if (!healthCheck.includes(contract)) throw new Error(`Production health evidence script missing readiness contract: ${contract}`);
