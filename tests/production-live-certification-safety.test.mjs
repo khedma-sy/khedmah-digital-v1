@@ -79,14 +79,14 @@ test('live validation distinguishes GCP Secret Manager values from CI-only OAuth
 
 
 test('live certification uses stable Cloud Monitoring CLI surface', async () => {
-  const live = await read('../scripts/production-operator-live-validation.sh');
+  const live = await read('scripts/production-operator-live-validation.sh');
   assert.match(live, /gcloud monitoring policies list/);
   assert.doesNotMatch(live, /gcloud alpha monitoring policies list/);
 });
 
 
 test('bootstrap grants only the reader roles needed by live production validation', async () => {
-  const bootstrap = await read('../infra/iac/bootstrap/main.tf');
+  const bootstrap = await read('infra/iac/bootstrap/main.tf');
   for (const role of [
     'roles/browser',
     'roles/identitytoolkit.viewer',
@@ -106,7 +106,7 @@ test('evidence collector also uses stable Cloud Monitoring CLI', () => {
 
 
 test('bootstrap enables live-certification Google APIs', async () => {
-  const bootstrap = await read('../infra/iac/bootstrap/main.tf');
+  const bootstrap = await read('infra/iac/bootstrap/main.tf');
   for (const api of [
     'logging.googleapis.com',
     'monitoring.googleapis.com',
