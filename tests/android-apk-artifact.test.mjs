@@ -41,3 +41,13 @@ test('android release WIF is restricted to protected main workflows', async () =
   assert.match(wif, /android-release-certification\.yml@refs\/heads\/main/);
   assert.match(bootstrap, /android-release-certification\.yml/);
 });
+
+
+test('release certification binds the APK certificate to the protected Android SHA-1', async () => {
+  const release = await readFile(new URL('../.github/workflows/android-release-certification.yml', import.meta.url), 'utf8');
+  assert.match(release, /EXPECTED_ANDROID_SHA1: \$\{\{ secrets\.GOOGLE_MAPS_ANDROID_SHA1 \}\}/);
+  assert.match(release, /apksigner" verify --print-certs|apksigner.*--print-certs/);
+  assert.match(release, /Signer #1 certificate SHA-1 digest/);
+  assert.match(release, /ACTUAL_ANDROID_SHA1/);
+  assert.match(release, /Android release certificate SHA-1 does not match/);
+});
