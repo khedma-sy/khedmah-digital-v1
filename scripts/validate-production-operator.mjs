@@ -19,7 +19,8 @@ for (const contract of [
   'service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}',
   'git fetch origin main',
   'test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"',
-  'gcloud builds get-default-service-account',
+  'OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}',
+  'BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"',
   'cloudbuild.production-new-account.yaml',
   'OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}',
   'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
@@ -56,6 +57,7 @@ for (const contract of [
 }
 if (/\bnode:20\b/.test(cloudBuild)) throw new Error('Production Cloud Build must not use Node 20.');
 if (workflow.includes('validate:firebase:production')) throw new Error('Web/backend Production deployment must not depend on Android Firebase release configuration.');
+if (workflow.includes('gcloud builds get-default-service-account')) throw new Error('Production deployment must use the dedicated build service account, never the project default Cloud Build identity.');
 
 for (const contract of ['/api/v1/health', '/api/v1/health/ready', 'ready:true']) {
   if (!healthCheck.includes(contract)) throw new Error(`Production health evidence script missing readiness contract: ${contract}`);
