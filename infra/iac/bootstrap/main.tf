@@ -19,6 +19,24 @@ locals {
     "sts.googleapis.com",
   ])
 
+  build_roles = toset([
+    "roles/artifactregistry.writer",
+    "roles/logging.logWriter",
+    "roles/run.admin",
+    "roles/serviceusage.serviceUsageConsumer",
+  ])
+
+  build_secret_names = toset([
+    "GOOGLE_MAPS_BROWSER_API_KEY",
+    "NEXT_PUBLIC_FIREBASE_API_KEY",
+    "NEXT_PUBLIC_FIREBASE_APP_ID",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  ])
+
   deployer_roles = toset([
     "roles/artifactregistry.writer",
     "roles/cloudbuild.builds.editor",
@@ -121,6 +139,14 @@ resource "google_service_account" "deployer" {
   depends_on = [google_project_service.bootstrap]
 }
 
+resource "google_service_account" "build" {
+  project      = var.project_id
+  account_id   = var.build_service_account_id
+  display_name = "Khedmah V1 Cloud Build executor"
+
+  depends_on = [google_project_service.bootstrap]
+}
+
 resource "google_project_iam_member" "runtime_cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
@@ -133,6 +159,26 @@ resource "google_project_iam_member" "deployer" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_member" "build" {
+  for_each = local.build_roles
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_service_account_iam_member" "build_runtime_user" {
+  service_account_id = google_service_account.runtime.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_storage_bucket_iam_member" "build_cloudbuild_source_reader" {
+  bucket = google_storage_bucket.cloudbuild_source.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.build.email}"
 }
 
 resource "google_secret_manager_secret" "runtime" {
@@ -155,6 +201,15 @@ resource "google_secret_manager_secret_iam_member" "runtime" {
   secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "build" {
+  for_each = local.build_secret_names
+
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runtime[each.value].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.build.email}"
 }
 
 resource "google_secret_manager_secret" "bootstrap_admin" {
