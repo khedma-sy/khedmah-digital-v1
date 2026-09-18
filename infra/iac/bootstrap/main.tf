@@ -189,6 +189,27 @@ resource "google_service_account_iam_member" "deployer_migration_user" {
   member             = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+resource "google_project_iam_custom_role" "database_user_role_manager" {
+  project     = var.project_id
+  role_id     = "khedmahDatabaseUserRoleManager"
+  title       = "Khedmah Database User Role Manager"
+  description = "Minimal permission set used only to replace Cloud SQL built-in database role assignments."
+
+  permissions = [
+    "cloudsql.instances.get",
+    "cloudsql.instances.list",
+    "cloudsql.users.get",
+    "cloudsql.users.list",
+    "cloudsql.users.update",
+  ]
+}
+
+resource "google_project_iam_member" "deployer_database_user_role_manager" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.database_user_role_manager.name
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 resource "google_project_iam_member" "deployer" {
   for_each = local.deployer_roles
 
