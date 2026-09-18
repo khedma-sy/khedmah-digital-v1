@@ -157,6 +157,31 @@ resource "google_secret_manager_secret_iam_member" "runtime" {
   member    = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+resource "google_secret_manager_secret" "bootstrap_admin" {
+  project   = var.project_id
+  secret_id = "BOOTSTRAP_ADMIN_SECRET"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_secret_manager_secret_iam_member" "bootstrap_admin_runtime" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.bootstrap_admin.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "bootstrap_admin_deployer" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.bootstrap_admin.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
   workload_identity_pool_id = "khedmah-github"
