@@ -1,0 +1,131 @@
+name: Terraform Client Maps Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      plan_run_id:
+        description: Successful Terraform Client Maps Plan run ID
+        required: true
+        type: string
+      state_bucket:
+        description: Protected Terraform state bucket
+        required: true
+        type: string
+      confirmation:
+        description: APPLY_KHEDMAH_CLIENT_MAPS_<sha7>
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-client-maps-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      REQUESTED_PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+      REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+      TF_IN_AUTOMATION: "true"
+      TF_WORKSPACE: default
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock apply to exact latest main and reviewed plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REQUESTED_PLAN_RUN_ID" =~ ^[0-9]+$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          test "$CONFIGURED_STATE_BUCKET" = "$REQUESTED_STATE_BUCKET"
+          test "$REQUESTED_CONFIRMATION" = "APPLY_KHEDMAH_CLIENT_MAPS_${REQUESTED_SHA:0:7}"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: client-maps-plan-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/client-maps-plan
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.plan_run_id }}
+
+      - name: Verify saved plan evidence
+        shell: bash
+        working-directory: ${{ runner.temp }}/client-maps-plan
+        run: |
+          set -euo pipefail
+          sha256sum --check SHA256SUMS
+          jq -e --arg commit "$REQUESTED_SHA" '.commit == $commit' metadata.json >/dev/null
+
+      - name: Authenticate to Production Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.2
+          terraform_wrapper: false
+
+      - name: Apply only the reviewed saved plan
+        shell: bash
+        env:
+          PLAN: ${{ runner.temp }}/client-maps-plan/client-maps.tfplan
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/iac/client-maps init -input=false -reconfigure             -backend-config="bucket=$REQUESTED_STATE_BUCKET"             -backend-config="prefix=khedmah/production/client-maps"
+          terraform -chdir=infra/iac/client-maps apply -input=false -lock-timeout=60s "$PLAN"
+
+      - name: Publish key values directly to Secret Manager without logging them
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in GOOGLE_MAPS_BROWSER_API_KEY GOOGLE_MAPS_ANDROID_API_KEY; do
+            gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
+          done
+          browser_key="$(terraform -chdir=infra/iac/client-maps output -raw browser_key_string)"
+          android_key="$(terraform -chdir=infra/iac/client-maps output -raw android_key_string)"
+          test -n "$browser_key"; test -n "$android_key"
+          echo "::add-mask::$browser_key"
+          echo "::add-mask::$android_key"
+          printf '%s' "$browser_key" | gcloud secrets versions add GOOGLE_MAPS_BROWSER_API_KEY             --project "$GOOGLE_CLOUD_PROJECT" --data-file=- --quiet >/dev/null
+          printf '%s' "$android_key" | gcloud secrets versions add GOOGLE_MAPS_ANDROID_API_KEY             --project "$GOOGLE_CLOUD_PROJECT" --data-file=- --quiet >/dev/null
+          unset browser_key android_key
+          for secret_name in GOOGLE_MAPS_BROWSER_API_KEY GOOGLE_MAPS_ANDROID_API_KEY; do
+            test "$(gcloud secrets versions describe latest --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
+          done
+
+      - name: Publish non-secret result
+        shell: bash
+        run: |
+          {
+            echo '### Restricted client Maps keys'
+            echo "- Commit: `$REQUESTED_SHA`"
+            echo '- Browser key: restrictions applied; value stored in Secret Manager.'
+            echo '- Android key: package/SHA-1 restriction applied; value stored in Secret Manager.'
+          } >> "$GITHUB_STEP_SUMMARY"
