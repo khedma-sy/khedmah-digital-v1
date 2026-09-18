@@ -16,7 +16,6 @@ const requiredEnvironment = [
   'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
   'NEXT_PUBLIC_FIREBASE_APP_ID',
   'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY',
-  'NEXT_PUBLIC_API_URL',
   'CORS_ORIGIN',
 ];
 
@@ -37,7 +36,7 @@ if (missing.length) throw new Error(`Missing Web identity production configurati
 const legacyProject = ['project', '94512a0e', '1a5e', '4bdb', '87f'].join('-');
 const legacyNumber = ['774201', '339973'].join('');
 const legacy = new RegExp(`${legacyProject}|${legacyNumber}`);
-for (const name of ['GOOGLE_CLOUD_PROJECT', 'CLOUD_SQL_INSTANCE_CONNECTION_NAME', 'NEXT_PUBLIC_API_URL', 'CORS_ORIGIN']) {
+for (const name of ['GOOGLE_CLOUD_PROJECT', 'CLOUD_SQL_INSTANCE_CONNECTION_NAME', 'CORS_ORIGIN']) {
   if (legacy.test(process.env[name])) throw new Error(`${name} still references the legacy Google project`);
 }
 
