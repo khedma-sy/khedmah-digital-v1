@@ -24,7 +24,6 @@ for (const contract of [
   'cloudbuild.production-new-account.yaml',
   'OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}',
   'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
-  'NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}',
   'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}',
   'NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}',
   'npm run validate:identity:production',
@@ -51,11 +50,17 @@ for (const contract of [
   '_CLOUD_SQL_INSTANCE: REQUIRED_CLOUD_SQL_INSTANCE',
   '_GCS_MEDIA_BUCKET: REQUIRED_GCS_MEDIA_BUCKET',
   '_SITE_URL: REQUIRED_SITE_URL',
-  'NEXT_PUBLIC_SITE_URL=${_SITE_URL}'
+  'NEXT_PUBLIC_SITE_URL=${_SITE_URL}',
+  'id: resolve-or-bootstrap-backend-url',
+  'production-backend-url',
+  '--build-arg NEXT_PUBLIC_API_URL="$BACKEND_URL"',
+  'id: bind-live-frontend-origin',
+  'CORS_ORIGIN=$ALLOWED_ORIGINS'
 ]) {
   if (!cloudBuild.includes(contract)) throw new Error(`Production Cloud Build missing runtime contract: ${contract}`);
 }
 if (/\bnode:20\b/.test(cloudBuild)) throw new Error('Production Cloud Build must not use Node 20.');
+if (cloudBuild.includes('_NEXT_PUBLIC_API_URL')) throw new Error('Production Cloud Build must derive NEXT_PUBLIC_API_URL from the live backend service.');
 if (workflow.includes('validate:firebase:production')) throw new Error('Web/backend Production deployment must not depend on Android Firebase release configuration.');
 if (workflow.includes('gcloud builds get-default-service-account')) throw new Error('Production deployment must use the dedicated build service account, never the project default Cloud Build identity.');
 
