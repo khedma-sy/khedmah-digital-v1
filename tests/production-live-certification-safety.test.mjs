@@ -103,3 +103,14 @@ test('evidence collector also uses stable Cloud Monitoring CLI', () => {
   assert.match(evidence, /gcloud monitoring policies list/);
   assert.doesNotMatch(evidence, /gcloud alpha monitoring policies list/);
 });
+
+
+test('bootstrap enables live-certification Google APIs', async () => {
+  const bootstrap = await read('../infra/iac/bootstrap/main.tf');
+  for (const api of [
+    'logging.googleapis.com',
+    'monitoring.googleapis.com',
+    'dns.googleapis.com',
+    'certificatemanager.googleapis.com'
+  ]) assert.ok(bootstrap.includes(api), `missing ${api}`);
+});
