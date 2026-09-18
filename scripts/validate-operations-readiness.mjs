@@ -35,7 +35,9 @@ for (const file of tracked) {
 }
 check('security', 'credential signature scan', leaked.length === 0, leaked.join(', ') || 'no signatures found');
 
-const legacyPattern = /project-94512a0e-1a5e-4bdb-87f|774201339973/;
+const legacyProject = ['project', '94512a0e', '1a5e', '4bdb', '87f'].join('-');
+const legacyNumber = ['774201', '339973'].join('');
+const legacyPattern = new RegExp(`${legacyProject}|${legacyNumber}`);
 const runtimeCritical = tracked.filter(file =>
   file === 'cloudbuild.production-new-account.yaml' ||
   file === 'scripts/google-production-deploy.sh' ||
