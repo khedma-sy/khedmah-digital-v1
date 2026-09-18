@@ -39,12 +39,23 @@ gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD
 gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" \
   --format='value(name)' >/dev/null
-gcloud run services describe "$BACKEND_SERVICE" \
-  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-  --format='value(metadata.name)' >/dev/null
-gcloud run services describe "$FRONTEND_SERVICE" \
-  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-  --format='value(metadata.name)' >/dev/null
+missing_services=()
+for service in "$BACKEND_SERVICE" "$FRONTEND_SERVICE"; do
+  if ! gcloud run services describe "$service" \
+    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+    --format='value(metadata.name)' >/dev/null 2>&1; then
+    missing_services+=("$service")
+  fi
+done
+if (( ${#missing_services[@]} > 0 )) && [[ "${ALLOW_FIRST_PRODUCTION_DEPLOY:-false}" != "true" ]]; then
+  echo "ERROR: Cloud Run services are missing: ${missing_services[*]}" >&2
+  exit 1
+fi
+if (( ${#missing_services[@]} > 0 )); then
+  echo "READY: FIRST_DEPLOY_MISSING_SERVICES=${missing_services[*]}"
+else
+  echo "READY: CLOUD_RUN_SERVICES=${BACKEND_SERVICE},${FRONTEND_SERVICE}"
+fi
 
 SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE##*:}"
 SQL_INSTANCE_REGION="$(gcloud sql instances describe "$SQL_INSTANCE_NAME" \
