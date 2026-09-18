@@ -17,12 +17,35 @@ variable "region" {
 variable "artifact_registry_repository_id" {
   description = "Docker Artifact Registry repository ID."
   type        = string
-  default     = "khedmah"
+  default     = "khedmah-digital"
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{2,62}$", var.artifact_registry_repository_id))
     error_message = "artifact_registry_repository_id must use lowercase letters, digits, and hyphens."
   }
+}
+
+variable "cloud_sql_instance_id" {
+  description = "Cloud SQL PostgreSQL instance ID."
+  type        = string
+  default     = "khedmah-v1-db"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{2,97}[a-z0-9]$", var.cloud_sql_instance_id))
+    error_message = "cloud_sql_instance_id must be a valid Cloud SQL instance ID."
+  }
+}
+
+variable "cloud_sql_database_name" {
+  description = "Application database created inside the Cloud SQL instance."
+  type        = string
+  default     = "khedmah"
+}
+
+variable "cloud_sql_tier" {
+  description = "Cloud SQL machine tier. Changing this changes recurring cost."
+  type        = string
+  default     = "db-custom-1-3840"
 }
 
 variable "runtime_service_account_id" {
@@ -44,8 +67,16 @@ variable "runtime_secret_names" {
     "DATABASE_URL",
     "FIREBASE_API_KEY",
     "FIREBASE_APP_ID",
+    "GOOGLE_MAPS_BROWSER_API_KEY",
     "GOOGLE_MAPS_SERVER_API_KEY",
     "GOOGLE_OAUTH_SERVER_CLIENT_ID",
+    "NEXT_PUBLIC_FIREBASE_API_KEY",
+    "NEXT_PUBLIC_FIREBASE_APP_ID",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
     "OPERATIONS_PRODUCT_ROLE_BINDINGS",
     "RESEND_API_KEY",
   ]
@@ -67,9 +98,9 @@ variable "github_repository" {
 }
 
 variable "github_workflow_path" {
-  description = "Repository-relative workflow path permitted by the Workload Identity provider."
+  description = "Repository-relative workflow path permitted by the initial Workload Identity provider."
   type        = string
-  default     = ".github/workflows/production-operator.yml"
+  default     = ".github/workflows/production-operator-new-account.yml"
 
   validation {
     condition     = startswith(var.github_workflow_path, ".github/workflows/") && endswith(var.github_workflow_path, ".yml")
