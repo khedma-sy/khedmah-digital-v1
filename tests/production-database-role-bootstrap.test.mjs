@@ -50,20 +50,14 @@ test('legacy broad runtime hardening path stays retired', async () => {
 });
 
 
-test('production hardening preserves Taxi trip least privilege without tariff or delete rights', async () => {
+test('canonical 034 hardening excludes candidate Taxi trip schema privileges', async () => {
   const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
-  assert.match(script, /jt_quotes/);
-  assert.match(script, /jt_orders/);
-  assert.match(script, /jt_evidence/);
-  assert.match(script, /jt_outbox/);
-  assert.match(script, /read_tariff_locked\(TEXT\)/);
-  assert.match(script, /read_route_locked\(TEXT, TEXT\)/);
-  assert.match(script, /UPDATE\(consumed_order_id\)/);
-  assert.match(script, /UPDATE\(consumed_event_id\)/);
-  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.tariffs','UPDATE'\)/);
-  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.routes','UPDATE'\)/);
-  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_events','DELETE'\)/);
-  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_cash_receipts','DELETE'\)/);
+  assert.match(script, /Taxi trip execution remains disabled in canonical schema 034/);
+  assert.doesNotMatch(script, /khedmah_taxi\.jt_orders/);
+  assert.doesNotMatch(script, /khedmah_taxi\.jt_quotes/);
+  assert.doesNotMatch(script, /khedmah_taxi\.jt_evidence/);
+  assert.doesNotMatch(script, /read_tariff_locked/);
+  assert.doesNotMatch(script, /read_route_locked/);
 });
 
 
