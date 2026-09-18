@@ -153,7 +153,9 @@ jobs:
           npm run build:android:release-apk
           npm run build:android:release-aab
 
-      - name: Verify signatures and provenance
+      - name: Verify signatures, release fingerprint and provenance
+        env:
+          EXPECTED_ANDROID_SHA1: ${{ secrets.GOOGLE_MAPS_ANDROID_SHA1 }}
         shell: bash
         run: |
           set -euo pipefail
@@ -161,7 +163,16 @@ jobs:
           AAB=apps/android/app/build/outputs/bundle/release/app-release.aab
           test -s "$APK"
           test -s "$AAB"
+          [[ "$EXPECTED_ANDROID_SHA1" =~ ^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$ ]]
           "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          CERT_OUTPUT="$("${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --print-certs "$APK")"
+          ACTUAL_ANDROID_SHA1="$(sed -n 's/^Signer #1 certificate SHA-1 digest: //p' <<<"$CERT_OUTPUT" | head -n1 | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')"
+          EXPECTED_ANDROID_SHA1_NORMALIZED="$(tr '[:lower:]' '[:upper:]' <<<"$EXPECTED_ANDROID_SHA1")"
+          test -n "$ACTUAL_ANDROID_SHA1"
+          test "$ACTUAL_ANDROID_SHA1" = "$EXPECTED_ANDROID_SHA1_NORMALIZED" || {
+            echo "Android release certificate SHA-1 does not match the protected Maps/OAuth fingerprint." >&2
+            exit 1
+          }
           jarsigner -verify -strict "$AAB" >/dev/null
           mkdir -p android-release-evidence
           cp "$APK" "$AAB" android-release-evidence/
