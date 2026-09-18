@@ -26,6 +26,7 @@ resource "google_iam_workload_identity_pool_provider" "github_production" {
       "${var.github_repository}/.github/workflows/production-operator-new-account.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/production-bootstrap-admin.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/production-migrations-025-034.yml@refs/heads/main",
+      "${var.github_repository}/.github/workflows/production-database-role-bootstrap.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-media-apply.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-media-plan.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-media-state-handoff.yml@refs/heads/main",
