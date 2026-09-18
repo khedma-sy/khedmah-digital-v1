@@ -108,6 +108,21 @@ variable "github_workflow_path" {
   }
 }
 
+
+variable "github_additional_workflow_paths" {
+  description = "Additional repository workflows allowed to impersonate the deployer on the same protected ref."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for path in var.github_additional_workflow_paths :
+      startswith(path, ".github/workflows/") && endswith(path, ".yml")
+    ])
+    error_message = "Every additional workflow path must identify a .yml file under .github/workflows/."
+  }
+}
+
 variable "github_ref" {
   description = "Git ref permitted by the Workload Identity provider."
   type        = string
