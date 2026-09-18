@@ -87,6 +87,8 @@ jobs:
         terraform -chdir=infra/iac/bootstrap validate
         terraform -chdir=infra/iac/media init -backend=false -input=false
         terraform -chdir=infra/iac/media validate
+        terraform -chdir=infra/iac/client-maps init -backend=false -input=false
+        terraform -chdir=infra/iac/client-maps validate
 
     - name: Build
       run: npm run build --if-present
