@@ -74,10 +74,13 @@ test('VERIFY_ONLY checks live deployment prerequisites without deploying', () =>
   assert.doesNotMatch(readiness, /secrets versions access|gcloud builds submit|gcloud run deploy/);
 });
 
-test('new-account Cloud Build derives the frontend API URL from the live backend service', () => {
+test('new-account Cloud Build derives the frontend API URL deterministically before deploy', () => {
   const build = readFileSync('cloudbuild.production-new-account.yaml', 'utf8');
-  assert.match(build, /id: resolve-or-bootstrap-backend-url/);
+  assert.match(build, /id: resolve-backend-url/);
   assert.match(build, /production-backend-url/);
+  assert.match(build, /gcloud projects describe/);
+  assert.match(build, /PREDICTED_PRODUCTION_BACKEND_URL/);
+  assert.match(build, /Deterministic Backend URL mismatch/);
   assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
   assert.match(build, /id: bind-live-frontend-origin/);
   assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
