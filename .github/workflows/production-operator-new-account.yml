@@ -146,6 +146,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          test "$GITHUB_SHA" = "$REQUESTED_SHA"
           test "$(gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
           BUILD_SERVICE_ACCOUNT="projects/$GOOGLE_CLOUD_PROJECT/serviceAccounts/$OPERATIONS_BUILD_SERVICE_ACCOUNT"
           gcloud builds submit . \
@@ -154,9 +158,9 @@ jobs:
             --service-account "$BUILD_SERVICE_ACCOUNT" \
             --gcs-source-staging-dir "gs://$GOOGLE_CLOUD_PROJECT-cloudbuild-source/source" \
             --config cloudbuild.database-role-bootstrap.yaml \
-            --substitutions "COMMIT_SHA=${GITHUB_SHA},_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY" \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY" \
             --quiet
-          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:${GITHUB_SHA}"
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
           JOB="khedmah-database-role-predeploy-verify"
           gcloud run jobs deploy "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
