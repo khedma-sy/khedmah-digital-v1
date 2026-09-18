@@ -63,7 +63,7 @@ terraform -chdir=infra/iac/bootstrap plan \
   -var="region=$GOOGLE_CLOUD_REGION" \
   -var="github_repository=$GITHUB_REPOSITORY" \
   -var='github_workflow_path=.github/workflows/production-operator-new-account.yml' \
-  -var='github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml"]' \
+  -var='github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml"]' \
   -var='github_ref=refs/heads/main'
 
 echo "READY: BOOTSTRAP_PLAN=$plan_file"
