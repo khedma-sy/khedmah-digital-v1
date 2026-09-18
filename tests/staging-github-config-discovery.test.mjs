@@ -17,6 +17,8 @@ test('Staging discovery is read-only and never reads secret payloads', () => {
   assert.match(script, /gcloud sql instances list/);
   assert.match(script, /gcloud artifacts repositories list/);
   assert.match(script, /gcloud storage buckets list/);
+  assert.match(script, /gcloud services list --enabled --filter='config\.name=identitytoolkit\.googleapis\.com'/);
+  assert.doesNotMatch(script, /gcloud services describe identitytoolkit\.googleapis\.com/);
   assert.match(script, /gcloud secrets versions describe latest/);
   assert.doesNotMatch(script, /secrets versions access/);
   assert.doesNotMatch(script, /services enable/);
