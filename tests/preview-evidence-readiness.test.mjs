@@ -277,10 +277,10 @@ test('CLI exits nonzero and saves an actionable report on missing Preview config
   assert.deepEqual(report.before.failures, ['BEFORE_URL_MISSING']);
 });
 
-test('review-evidence binds protected Preview variables while retaining least privilege and failure reporting', async () => {
+test('review-evidence resolves protected Staging baseline while retaining least privilege', async () => {
   const workflow = await readFile(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
-  assert.match(reviewJob, /^    environment: preview$/m);
+  const baselineJob = workflow.split('  resolve-staging-baseline:')[1].split('  review-evidence:')[0];\n  const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
+  assert.match(baselineJob, /^    environment: staging$/m);\n  assert.match(baselineJob, /khedmah-frontend-staging/);\n  assert.match(baselineJob, /gcloud run services describe/);\n  assert.match(reviewJob, /^    environment: preview$/m);
   assert.match(reviewJob, /BEFORE_URL: \$\{\{ vars\.STAGING_FRONTEND_URL \}\}/);
   assert.match(reviewJob, /contents: read\s+pull-requests: write/);
   assert.doesNotMatch(reviewJob, /id-token: write|continue-on-error|\|\| true/);
