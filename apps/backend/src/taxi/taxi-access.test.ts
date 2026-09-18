@@ -50,6 +50,11 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
   }
   try {
     await resetCanonicalTestSchema(pool);
+    // The shared canonical fixture now includes Taxi migrations through 034.
+    // This acceptance test intentionally installs its isolated candidate schema
+    // from access.candidate.sql, so remove only that schema after the canonical
+    // public prerequisites have been created.
+    await pool.query('DROP SCHEMA IF EXISTS khedmah_taxi CASCADE');
     await pool.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`); createdRole = true;
     await pool.query(await readFile(resolve(__dirname, 'sql/access.candidate.sql'), 'utf8')); createdSchema = true;
     await pool.query(`CREATE TABLE public."${marker}"(actor_id TEXT, executor TEXT)`); createdMarker = true;
