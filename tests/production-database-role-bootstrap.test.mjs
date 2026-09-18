@@ -40,3 +40,11 @@ test('prepare replaces Cloud SQL superuser membership with custom roles and re-v
   assert.match(bootstrapTerraform, /cloudsql\.users\.update/);
   assert.doesNotMatch(bootstrapTerraform, /roles\/cloudsql\.admin/);
 });
+
+
+test('legacy broad runtime hardening path stays retired', async () => {
+  const legacy = await readFile(new URL('../scripts/harden-production-runtime-database.sh', import.meta.url), 'utf8');
+  assert.match(legacy, /legacy runtime hardening path is retired/);
+  assert.match(legacy, /Production Database Role Bootstrap workflow in HARDEN mode/);
+  assert.doesNotMatch(legacy, /GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES/);
+});
