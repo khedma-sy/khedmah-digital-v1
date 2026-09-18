@@ -81,3 +81,15 @@ test('live certification uses stable Cloud Monitoring CLI surface', async () => 
   assert.match(live, /gcloud monitoring policies list/);
   assert.doesNotMatch(live, /gcloud alpha monitoring policies list/);
 });
+
+
+test('bootstrap grants only the reader roles needed by live production validation', async () => {
+  const bootstrap = await read('../infra/iac/bootstrap/main.tf');
+  for (const role of [
+    'roles/browser',
+    'roles/identitytoolkit.viewer',
+    'roles/logging.viewer',
+    'roles/monitoring.viewer'
+  ]) assert.ok(bootstrap.includes(role), `missing ${role}`);
+  assert.doesNotMatch(bootstrap, /"roles\/(owner|editor)"/);
+});
