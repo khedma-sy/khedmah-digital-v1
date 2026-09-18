@@ -26,6 +26,8 @@ locals {
   build_roles = toset([
     "roles/artifactregistry.writer",
     "roles/cloudsql.viewer",
+    "roles/dns.reader",
+    "roles/certificatemanager.viewer",
     "roles/logging.logWriter",
     "roles/run.admin",
     "roles/serviceusage.serviceUsageConsumer",
