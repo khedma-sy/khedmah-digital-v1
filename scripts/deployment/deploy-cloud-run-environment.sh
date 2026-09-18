@@ -59,6 +59,13 @@ if [[ "$environment" == "staging" ]]; then
   backend_secret_bindings+=",OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest"
 fi
 
+# Product Store 024 is the direct predecessor of Classifieds 025.
+# Keep schema ordering explicit in isolated non-production and fail closed on partial state.
+PRODUCT_STORE_MIGRATION_024_MODE='apply'
+PRODUCT_STORE_MIGRATION_024_CONFIRMATION="APPLY_KHEDMAH_NONPROD_024_${environment^^}"
+export PRODUCT_STORE_MIGRATION_024_MODE PRODUCT_STORE_MIGRATION_024_CONFIRMATION
+bash scripts/deployment/ensure-product-store-nonproduction-schema.sh "$environment" "$identifier"
+
 # Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
 # is therefore applied in isolated non-production even when Classifieds feature
 # flags remain disabled. Feature exposure and schema presence stay separate.
