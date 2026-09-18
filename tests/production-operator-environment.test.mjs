@@ -89,3 +89,14 @@ test('new-account Cloud Build derives the frontend API URL deterministically bef
   assert.doesNotMatch(operator, /NEXT_PUBLIC_API_URL: \$\{\{ vars\.NEXT_PUBLIC_API_URL \}\}/);
   assert.doesNotMatch(operator, /"\$NEXT_PUBLIC_API_URL"/);
 });
+
+
+test('Production operator restores the previous revision pair after a failed deployment', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /Capture currently serving Production revision pair/);
+  assert.match(workflow, /rollback_available=true/);
+  assert.match(workflow, /if: failure\(\) && steps\.before\.outputs\.rollback_available == 'true'/);
+  assert.match(workflow, /OPERATIONS_APPROVED_PRODUCTION: 'true'/);
+  assert.match(workflow, /google-production-rollback\.sh "\$PREVIOUS_BACKEND_REVISION" "\$PREVIOUS_FRONTEND_REVISION"/);
+  assert.match(workflow, /EMERGENCY_ROLLBACK=SUCCESS/);
+});
