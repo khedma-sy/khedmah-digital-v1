@@ -60,6 +60,12 @@ variable "deployer_service_account_id" {
   default     = "khedmah-v1-deployer"
 }
 
+variable "build_service_account_id" {
+  description = "Account ID for the dedicated Cloud Build execution identity."
+  type        = string
+  default     = "khedmah-v1-build"
+}
+
 variable "runtime_secret_names" {
   description = "Secret names to create. Secret values are managed outside Terraform."
   type        = set(string)
