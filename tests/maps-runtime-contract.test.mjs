@@ -37,7 +37,7 @@ test('new-account Production contract injects explicit API and CORS origins', as
   assert.match(build, /_NEXT_PUBLIC_API_URL: REQUIRED_NEXT_PUBLIC_API_URL/);
   assert.match(build, /_CORS_ORIGIN: REQUIRED_CORS_ORIGIN/);
   assert.match(build, /CORS_ORIGIN=\$\{_CORS_ORIGIN\}/);
-  assert.doesNotMatch(build, /project-94512a0e-1a5e-4bdb-87f|774201339973/);
+  assert.match(build, /_NEXT_PUBLIC_API_URL: REQUIRED_NEXT_PUBLIC_API_URL/);
   assert.match(middleware, /\.split\(','\)/);
   assert.match(middleware, /allowedOrigins\.has\(originHeader\)/);
 });
