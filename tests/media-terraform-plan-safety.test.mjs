@@ -128,7 +128,7 @@ esac
       PATH: `${bin}:${process.env.PATH}`,
       GOOGLE_CLOUD_PROJECT: 'khedmah-test-project',
       GOOGLE_CLOUD_REGION: 'me-central1',
-      GCS_MEDIA_LOCATION: 'europe-west1',
+      GCS_MEDIA_LOCATION: 'me-central1',
       TF_STATE_BUCKET: 'state-bucket',
       TF_PLAN_FILE: relative(join(repoRoot, '..'), publishedPlan),
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
@@ -260,10 +260,10 @@ test('media plan accepts the flat gcloud bucket protection schema used in produc
   assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
 });
 
-test('media plan separates the production runtime region from the bucket location', async (t) => {
+test('media plan keeps the approved bucket location independent from the runtime region', async (t) => {
   const result = await runPlanWithMocks(t, {
-    GOOGLE_CLOUD_REGION: 'me-central1',
-    GCS_MEDIA_LOCATION: 'europe-west1',
+    GOOGLE_CLOUD_REGION: 'europe-west1',
+    GCS_MEDIA_LOCATION: 'me-central1',
   });
 
   assert.equal(result.code, 0);
