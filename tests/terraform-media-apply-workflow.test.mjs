@@ -22,7 +22,9 @@ test('production WIF keeps explicit main workflow allowlist', () => {
   assert.match(productionOperator, /"attribute\.workflow_ref" = "assertion\.workflow_ref"/);
   assert.match(productionOperator, /assertion\.workflow_ref in \[/);
   assert.doesNotMatch(productionOperator, /job_workflow_ref/);
-  assert.match(productionOperator, /production-operator-new-account\.yml@refs\/heads\/main/);\n  assert.match(productionOperator, /production-migrations-025-034\.yml@refs\/heads\/main/);\n  assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /production-operator-new-account\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /production-migrations-025-034\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
   assert.match(productionOperator, /terraform-media-plan\.yml@refs\/heads\/main/);
   assert.match(productionOperator, /terraform-media-state-handoff\.yml@refs\/heads\/main/);
   assert.doesNotMatch(productionOperator, /\.github\/workflows\/\*@/);
