@@ -56,11 +56,15 @@ for (const contract of [
   'gcloud projects describe "$PROJECT_ID"',
   'PREDICTED_PRODUCTION_BACKEND_URL',
   'Deterministic Backend URL mismatch',
-  '--build-arg NEXT_PUBLIC_API_URL="$BACKEND_URL"',
-  'id: bind-live-frontend-origin',
-  'CORS_ORIGIN=$ALLOWED_ORIGINS'
+  'id: bind-live-frontend-origin'
 ]) {
   if (!cloudBuild.includes(contract)) throw new Error(`Production Cloud Build missing runtime contract: ${contract}`);
+}
+if (!/--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/.test(cloudBuild)) {
+  throw new Error('Production Cloud Build must derive NEXT_PUBLIC_API_URL from the resolved backend URL using Cloud Build escaping.');
+}
+if (!/CORS_ORIGIN=\$\$ALLOWED_ORIGINS/.test(cloudBuild)) {
+  throw new Error('Production Cloud Build must bind the live frontend origin into Backend CORS.');
 }
 if (/\bnode:20\b/.test(cloudBuild)) throw new Error('Production Cloud Build must not use Node 20.');
 if (cloudBuild.includes('_NEXT_PUBLIC_API_URL')) throw new Error('Production Cloud Build must derive NEXT_PUBLIC_API_URL from the live backend service.');
