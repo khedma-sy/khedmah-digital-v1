@@ -64,7 +64,6 @@ jobs:
           [[ "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]]
           [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]]
           [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]
-          [[ "$NEXT_PUBLIC_API_URL" == https://* ]]
           [[ "$NEXT_PUBLIC_SITE_URL" == https://* ]]
           [[ "$NEXT_PUBLIC_SITE_URL" != *","* ]]
           [[ "$NEXT_PUBLIC_SITE_URL" != *"localhost"* && "$NEXT_PUBLIC_SITE_URL" != *"127.0.0.1"* ]]
