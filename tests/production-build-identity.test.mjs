@@ -44,3 +44,11 @@ for (const path of buildWorkflows) test(`${path}: uses dedicated build identity 
   assert.match(source, /projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}/);
   assert.doesNotMatch(source, /gcloud builds get-default-service-account/);
 });
+
+
+test('Cloud Build can inspect the approved Cloud SQL attachment without database access', async () => {
+  const bootstrap = await read('../infra/iac/bootstrap/main.tf');
+  const buildRoles = bootstrap.split('build_roles = toset([')[1]?.split('])')[0] ?? '';
+  assert.match(buildRoles, /roles\/cloudsql\.viewer/);
+  assert.doesNotMatch(buildRoles, /roles\/cloudsql\.(admin|editor)/);
+});
