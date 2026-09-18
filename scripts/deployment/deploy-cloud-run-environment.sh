@@ -41,6 +41,13 @@ frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${
 # Taxi authority can be enabled after Migration 031 while trip execution remains independently fail-closed.
 backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_ACCESS_ENABLED=true,TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
 backend_secret_bindings="DATABASE_URL=DATABASE_URL:latest"
+if [[ "$environment" == "preview" ]]; then
+  preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
+  if [[ -n "$preview_email_from" ]]; then
+    backend_runtime_env+=",EMAIL_FROM=${preview_email_from}"
+    backend_secret_bindings+=",RESEND_API_KEY=RESEND_API_KEY:latest"
+  fi
+fi
 if [[ "$environment" == "staging" ]]; then
   [[ -n "${GCS_MEDIA_BUCKET:-}" ]] || { echo 'Missing GCS_MEDIA_BUCKET for Staging persistent media.' >&2; exit 3; }
   [[ -n "${EMAIL_FROM:-}" ]] || { echo 'Missing EMAIL_FROM for Staging email delivery.' >&2; exit 3; }
