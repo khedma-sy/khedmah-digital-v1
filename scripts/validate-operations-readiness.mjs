@@ -12,7 +12,10 @@ const requiredFiles = [
   'cloudbuild.production-new-account.yaml', 'infra/iac/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
   'config/google/google.ts', 'config/google/firebase.ts', 'config/google/maps.ts', 'scripts/google-production-deploy.sh',
   'scripts/google-production-rollback.sh', 'scripts/collect-live-production-evidence.sh', 'scripts/validate-production-domain-readiness.sh', 'scripts/run-live-production-certification.sh',
-  '.github/workflows/production-operator-new-account.yml', '.github/workflows/production-migrations-025-034.yml',
+  '.github/workflows/production-operator-new-account.yml', '.github/workflows/production-baseline-001-020.yml',
+  '.github/workflows/production-database-role-bootstrap.yml', '.github/workflows/production-operator.yml',
+  '.github/workflows/production-migrations-025-034.yml', '.github/workflows/android-release-certification.yml',
+  '.github/workflows/terraform-client-maps-plan.yml', '.github/workflows/terraform-client-maps-apply.yml',
   'docs/reports/operations-product-live-certification/production-certification-report.md', 'docs/google/disaster-recovery.md', 'docs/operations-product/README.md'
 ];
 for (const file of requiredFiles) check('repository', file, existsSync(file), existsSync(file) ? 'present' : 'missing');
@@ -42,7 +45,13 @@ const runtimeCritical = tracked.filter(file =>
   file === 'cloudbuild.production-new-account.yaml' ||
   file === 'scripts/google-production-deploy.sh' ||
   file === '.github/workflows/production-operator-new-account.yml' ||
+  file === '.github/workflows/production-baseline-001-020.yml' ||
+  file === '.github/workflows/production-database-role-bootstrap.yml' ||
+  file === '.github/workflows/production-operator.yml' ||
   file === '.github/workflows/production-migrations-025-034.yml' ||
+  file === '.github/workflows/android-release-certification.yml' ||
+  file === '.github/workflows/terraform-client-maps-plan.yml' ||
+  file === '.github/workflows/terraform-client-maps-apply.yml' ||
   file.startsWith('infra/iac/') || file.startsWith('config/google/')
 );
 const legacyRuntimeBindings = [];
