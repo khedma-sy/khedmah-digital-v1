@@ -16,9 +16,13 @@ test('manual Production deployment is explicitly approved, project-bound and loc
   assert.match(deploy, /COMMIT_SHA.*MAIN_SHA/s);
   assert.match(deploy, /gcloud auth list/);
   assert.match(deploy, /OPERATIONS_DEPLOYER_SERVICE_ACCOUNT/);
-  assert.match(deploy, /gcloud builds get-default-service-account/);
+  assert.match(deploy, /OPERATIONS_BUILD_SERVICE_ACCOUNT/);
+  assert.match(deploy, /BUILD_SERVICE_ACCOUNT="projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}"/);
+  assert.doesNotMatch(deploy, /gcloud builds get-default-service-account/);
   assert.match(deploy, /--gcs-source-staging-dir/);
   assert.match(deploy, /COMMIT_SHA=\$\{COMMIT_SHA\}/);
+  assert.match(deploy, /_SITE_URL=\$\{NEXT_PUBLIC_SITE_URL\}/);
+  assert.match(deploy, /cloudbuild\.production-new-account\.yaml/);
   assert.doesNotMatch(deploy, /_OPERATIONS_PRODUCT_ROLE_BINDINGS=/);
 });
 
