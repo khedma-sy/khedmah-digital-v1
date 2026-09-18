@@ -119,25 +119,11 @@ GRANT UPDATE(
 ) ON khedmah_taxi.vehicle_approvals TO "$RUNTIME_ROLE";
 GRANT INSERT ON TABLE khedmah_taxi.operational_approval_events TO "$RUNTIME_ROLE";
 
--- Native trip runtime: mirror the proven least-privilege contract from the
--- Taxi acceptance suite. No DELETE rights and no direct tariff/route mutation.
-GRANT SELECT, INSERT ON TABLE
-  khedmah_taxi.jt_quotes,
-  khedmah_taxi.jt_receipts,
-  khedmah_taxi.jt_events,
-  khedmah_taxi.jt_outbox,
-  khedmah_taxi.jt_cash_receipts,
-  khedmah_taxi.jt_ride_consents
-TO "$RUNTIME_ROLE";
-GRANT UPDATE(consumed_order_id) ON khedmah_taxi.jt_quotes TO "$RUNTIME_ROLE";
-GRANT SELECT, INSERT, UPDATE ON khedmah_taxi.jt_orders TO "$RUNTIME_ROLE";
-GRANT SELECT, UPDATE(consumed_event_id) ON khedmah_taxi.jt_evidence TO "$RUNTIME_ROLE";
-GRANT UPDATE(consumed_event_id) ON khedmah_taxi.jt_ride_consents TO "$RUNTIME_ROLE";
+-- Taxi trip execution remains disabled in canonical schema 034.
+-- The jt_* trip schema is still candidate-only and is intentionally not granted here.
 
 GRANT EXECUTE ON FUNCTION
-  khedmah_taxi.resolve_actor_locked(TEXT, BOOLEAN),
-  khedmah_taxi.read_tariff_locked(TEXT),
-  khedmah_taxi.read_route_locked(TEXT, TEXT)
+  khedmah_taxi.resolve_actor_locked(TEXT, BOOLEAN)
 TO "$RUNTIME_ROLE";
 
 COMMIT;
@@ -158,26 +144,7 @@ SELECT CASE WHEN
   AND NOT has_column_privilege('$RUNTIME_USER','khedmah_taxi.vehicle_approvals','id','UPDATE')
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.operational_approval_events','INSERT')
   AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.resolve_actor_locked(text,boolean)','EXECUTE')
-  AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.read_tariff_locked(text)','EXECUTE')
-  AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.read_route_locked(text,text)','EXECUTE')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','SELECT')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','INSERT')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','UPDATE')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','SELECT')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','INSERT')
-  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','consumed_order_id','UPDATE')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_evidence','SELECT')
-  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.jt_evidence','consumed_event_id','UPDATE')
-  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_events','DELETE')
-  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_cash_receipts','DELETE')
-  AND (
-    to_regclass('khedmah_taxi.tariffs') IS NULL
-    OR NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.tariffs','UPDATE')
-  )
-  AND (
-    to_regclass('khedmah_taxi.routes') IS NULL
-    OR NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.routes','UPDATE')
-  )
+  AND NOT has_schema_privilege('$RUNTIME_USER','khedmah_taxi','CREATE')
 THEN 'ready' ELSE 'blocked' END")"
     test "$post" = ready || {
       echo 'ERROR: RUNTIME_DATABASE_HARDENING_POSTCONDITION_FAILED' >&2
