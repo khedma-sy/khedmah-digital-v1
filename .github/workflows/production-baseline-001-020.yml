@@ -1,0 +1,149 @@
+name: Production Baseline 001-020
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: INITIALIZE_KHEDMAH_SCHEMA_001_020_<sha7>
+        required: true
+        type: string
+      backup_id:
+        description: Successful recent Cloud SQL backup ID for the fresh database
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-database-baseline
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 40
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+      EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock initialization to exact latest main and compute manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_BACKUP_ID" =~ ^[0-9]+$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          test "$REQUESTED_CONFIRMATION" = "INITIALIZE_KHEDMAH_SCHEMA_001_020_${REQUESTED_SHA:0:7}"
+
+          files=(
+            backend/migrations/versions/001_core_identity_accounts.sql
+            backend/migrations/versions/002_create_profiles.sql
+            backend/migrations/versions/003_create_professional_profiles.sql
+            backend/migrations/versions/004_analytics_and_contact.sql
+            backend/migrations/versions/005_email_verifications_and_admin_roles.sql
+            backend/migrations/versions/006_media_assets.sql
+            backend/migrations/versions/007_v2_marketplace.sql
+            backend/migrations/versions/008_provider_service_radius.sql
+            backend/migrations/versions/009_canonical_identity_runtime.sql
+            backend/migrations/versions/010_canonical_runtime_domains.sql
+            backend/migrations/versions/011_canonical_media_contract.sql
+            backend/migrations/versions/012_nearby_preferences.sql
+            backend/migrations/versions/013_nearby_notifications_read_state.sql
+            backend/migrations/versions/014_supplier_discovery.sql
+            backend/migrations/versions/015_contact_target_contract.sql
+            backend/migrations/versions/016_contact_submission_idempotency.sql
+            backend/migrations/versions/017_category_taxonomy_contract.sql
+            backend/migrations/versions/018_persistent_rate_limit_buckets.sql
+            backend/migrations/versions/019_remove_out_of_scope_subscription_schema.sql
+            backend/migrations/versions/020_identity_recovery_oauth.sql
+          )
+          for file in "${files[@]}"; do test -f "$file"; done
+          BASELINE_MANIFEST_SHA256="$(cat "${files[@]}" | sha256sum | awk '{print $1}')"
+          [[ "$BASELINE_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          echo "BASELINE_MANIFEST_SHA256=$BASELINE_MANIFEST_SHA256" >> "$GITHUB_ENV"
+
+      - name: Authenticate to Production Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify target and fresh-database backup evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_RUNTIME_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME BASELINE_MANIFEST_SHA256; do
+            test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
+          done
+          [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          EXPECTED_DESCRIPTION="khedmah-before-baseline-${REQUESTED_SHA:0:7}"
+          BACKUP_STATUS="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(status)')"
+          BACKUP_DESCRIPTION="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(description)')"
+          BACKUP_END_TIME="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(endTime)')"
+          test "$BACKUP_STATUS" = SUCCESSFUL
+          test "$BACKUP_DESCRIPTION" = "$EXPECTED_DESCRIPTION"
+          test -n "$BACKUP_END_TIME"
+          BACKUP_EPOCH="$(date -u -d "$BACKUP_END_TIME" +%s)"
+          NOW_EPOCH="$(date -u +%s)"
+          AGE="$((NOW_EPOCH - BACKUP_EPOCH))"
+          test "$AGE" -ge 0
+          test "$AGE" -le 86400
+
+      - name: Build immutable baseline image
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
+          if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
+            BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
+          fi
+          gcloud builds submit .             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --service-account "$BUILD_SERVICE_ACCOUNT"             --gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"             --config cloudbuild.production-baseline-001-020.yaml             --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY"             --quiet
+
+      - name: Initialize the fresh schema atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${OPERATIONS_ARTIFACT_REPOSITORY}/database-baseline-001-020:${REQUESTED_SHA}"
+          JOB="khedmah-database-baseline-001-020"
+          gcloud run jobs deploy "$JOB"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --image "$IMAGE"             --service-account "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"             --set-secrets 'DATABASE_URL=DATABASE_URL:latest'             --set-env-vars "BASELINE_MANIFEST_SHA256=${BASELINE_MANIFEST_SHA256}"             --tasks 1             --parallelism 1             --max-retries 0             --task-timeout 15m             --quiet
+          gcloud run jobs execute "$JOB"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --wait
+
+      - name: Publish baseline evidence
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        shell: bash
+        run: |
+          {
+            echo '### Production database baseline 001-020'
+            echo "- Commit: `$REQUESTED_SHA`"
+            echo "- Manifest SHA-256: `${BASELINE_MANIFEST_SHA256:-unresolved}`"
+            echo "- Backup: `$EXPECTED_BACKUP_ID`"
+            echo "- Result: `$RESULT`"
+          } >> "$GITHUB_STEP_SUMMARY"
