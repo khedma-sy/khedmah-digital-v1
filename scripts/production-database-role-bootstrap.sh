@@ -103,12 +103,34 @@ GRANT USAGE ON SCHEMA khedmah_taxi TO "$RUNTIME_ROLE";
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA khedmah_taxi FROM "$RUNTIME_ROLE";
 REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA khedmah_taxi FROM "$RUNTIME_ROLE";
 
+-- Operational approval APIs run inside the application runtime but remain
+-- constrained by application authorization and database review invariants.
 GRANT SELECT, INSERT, UPDATE ON TABLE
   khedmah_taxi.driver_approvals,
   khedmah_taxi.vehicle_approvals
 TO "$RUNTIME_ROLE";
 GRANT INSERT ON TABLE khedmah_taxi.operational_approval_events TO "$RUNTIME_ROLE";
-GRANT EXECUTE ON FUNCTION khedmah_taxi.resolve_actor_locked(TEXT, BOOLEAN) TO "$RUNTIME_ROLE";
+
+-- Native trip runtime: mirror the proven least-privilege contract from the
+-- Taxi acceptance suite. No DELETE rights and no direct tariff/route mutation.
+GRANT SELECT, INSERT ON TABLE
+  khedmah_taxi.jt_quotes,
+  khedmah_taxi.jt_receipts,
+  khedmah_taxi.jt_events,
+  khedmah_taxi.jt_outbox,
+  khedmah_taxi.jt_cash_receipts,
+  khedmah_taxi.jt_ride_consents
+TO "$RUNTIME_ROLE";
+GRANT UPDATE(consumed_order_id) ON khedmah_taxi.jt_quotes TO "$RUNTIME_ROLE";
+GRANT SELECT, INSERT, UPDATE ON khedmah_taxi.jt_orders TO "$RUNTIME_ROLE";
+GRANT SELECT, UPDATE(consumed_event_id) ON khedmah_taxi.jt_evidence TO "$RUNTIME_ROLE";
+GRANT UPDATE(consumed_event_id) ON khedmah_taxi.jt_ride_consents TO "$RUNTIME_ROLE";
+
+GRANT EXECUTE ON FUNCTION
+  khedmah_taxi.resolve_actor_locked(TEXT, BOOLEAN),
+  khedmah_taxi.read_tariff_locked(TEXT),
+  khedmah_taxi.read_route_locked(TEXT, TEXT)
+TO "$RUNTIME_ROLE";
 
 COMMIT;
 SQL
@@ -124,6 +146,18 @@ SELECT CASE WHEN
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','UPDATE')
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.operational_approval_events','INSERT')
   AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.resolve_actor_locked(text,boolean)','EXECUTE')
+  AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.read_tariff_locked(text)','EXECUTE')
+  AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.read_route_locked(text,text)','EXECUTE')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','SELECT')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','INSERT')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_orders','UPDATE')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','SELECT')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','INSERT')
+  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.jt_quotes','consumed_order_id','UPDATE')
+  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_evidence','SELECT')
+  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.jt_evidence','consumed_event_id','UPDATE')
+  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_events','DELETE')
+  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.jt_cash_receipts','DELETE')
   AND (
     to_regclass('khedmah_taxi.tariffs') IS NULL
     OR NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.tariffs','UPDATE')
