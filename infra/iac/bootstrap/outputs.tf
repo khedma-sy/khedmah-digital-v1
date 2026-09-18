@@ -52,3 +52,8 @@ output "secret_ids" {
   description = "Secret Manager secret IDs created without secret values."
   value       = { for name, secret in google_secret_manager_secret.runtime : name => secret.secret_id }
 }
+
+output "bootstrap_admin_secret_id" {
+  description = "One-time Secret Manager container used only by the protected bootstrap-admin workflow."
+  value       = google_secret_manager_secret.bootstrap_admin.secret_id
+}
