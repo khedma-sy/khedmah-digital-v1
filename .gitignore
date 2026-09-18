@@ -70,3 +70,11 @@ apps/android/local.properties
 *.tfstate
 *.tfstate.*
 *.tfplan
+# Generated local test/temp output (never commit)
+playwright-report/
+test-results/
+.nyc_output/
+tmp/
+temp/
+*.tmp
+*.log
