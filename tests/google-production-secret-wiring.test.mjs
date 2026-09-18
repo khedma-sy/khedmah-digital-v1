@@ -34,7 +34,7 @@ test('production configuration accepts only the approved media location', async 
   const productionEnv = Object.fromEntries(
     names.map((name) => [name, name.endsWith('_ENABLED') ? 'true' : 'injected-value']),
   );
-  productionEnv.GCS_MEDIA_LOCATION = 'europe-west1';
+  productionEnv.GCS_MEDIA_LOCATION = 'me-central1';
 
   assert.doesNotThrow(() => execFileSync(
     process.execPath,
@@ -47,6 +47,6 @@ test('production configuration accepts only the approved media location', async 
       ['scripts/validate-google-config.mjs', '--production'],
       { encoding: 'utf8', env: { ...productionEnv, GCS_MEDIA_LOCATION: 'US' } },
     ),
-    /GCS_MEDIA_LOCATION must be europe-west1/,
+    /GCS_MEDIA_LOCATION must be me-central1/,
   );
 });
