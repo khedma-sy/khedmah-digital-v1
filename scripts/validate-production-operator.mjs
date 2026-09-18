@@ -51,8 +51,11 @@ for (const contract of [
   '_GCS_MEDIA_BUCKET: REQUIRED_GCS_MEDIA_BUCKET',
   '_SITE_URL: REQUIRED_SITE_URL',
   'NEXT_PUBLIC_SITE_URL=${_SITE_URL}',
-  'id: resolve-or-bootstrap-backend-url',
+  'id: resolve-backend-url',
   'production-backend-url',
+  'gcloud projects describe "$PROJECT_ID"',
+  'PREDICTED_PRODUCTION_BACKEND_URL',
+  'Deterministic Backend URL mismatch',
   '--build-arg NEXT_PUBLIC_API_URL="$BACKEND_URL"',
   'id: bind-live-frontend-origin',
   'CORS_ORIGIN=$ALLOWED_ORIGINS'
