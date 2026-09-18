@@ -1,0 +1,10 @@
+FROM postgres:16-alpine
+
+COPY scripts/harden-production-runtime-database.sh /usr/local/bin/harden-production-runtime-database
+COPY scripts/check-production-runtime-database.sh /usr/local/bin/check-production-runtime-database
+
+RUN chmod 0555 /usr/local/bin/harden-production-runtime-database \
+    /usr/local/bin/check-production-runtime-database
+
+USER postgres
+ENTRYPOINT ["/usr/local/bin/harden-production-runtime-database"]
