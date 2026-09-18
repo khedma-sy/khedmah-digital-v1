@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+
 const deploy = await readFile(new URL('../scripts/google-production-deploy.sh', import.meta.url), 'utf8');
 const rollback = await readFile(new URL('../scripts/google-production-rollback.sh', import.meta.url), 'utf8');
 const certification = await readFile(new URL('../scripts/run-live-production-certification.sh', import.meta.url), 'utf8');
