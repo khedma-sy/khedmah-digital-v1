@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: Required for PREPARE/HARDEN: <MODE>_KHEDMAH_DATABASE_ROLES_<sha7>
+        description: 'Required for PREPARE/HARDEN: <MODE>_KHEDMAH_DATABASE_ROLES_<sha7>'
         required: false
         type: string
 
