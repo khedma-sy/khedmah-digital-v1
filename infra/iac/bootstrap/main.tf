@@ -163,10 +163,30 @@ resource "google_service_account" "build" {
   depends_on = [google_project_service.bootstrap]
 }
 
+resource "google_service_account" "migration" {
+  project      = var.project_id
+  account_id   = var.migration_service_account_id
+  display_name = "Khedmah V1 database migrator"
+
+  depends_on = [google_project_service.bootstrap]
+}
+
 resource "google_project_iam_member" "runtime_cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_project_iam_member" "migration_cloud_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.migration.email}"
+}
+
+resource "google_service_account_iam_member" "deployer_migration_user" {
+  service_account_id = google_service_account.migration.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_project_iam_member" "deployer" {
@@ -226,6 +246,31 @@ resource "google_secret_manager_secret_iam_member" "build" {
   secret_id = google_secret_manager_secret.runtime[each.value].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_secret_manager_secret" "database_migration" {
+  project   = var.project_id
+  secret_id = "DATABASE_MIGRATION_URL"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_secret_manager_secret_iam_member" "database_migration_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.database_migration.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.migration.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "database_migration_deployer_version_manager" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.database_migration.secret_id
+  role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "maps_browser_deployer_version_manager" {
