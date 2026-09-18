@@ -35,6 +35,7 @@ jobs:
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       MIGRATION_NUMBER: ${{ inputs.migration_number }}
@@ -118,10 +119,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
-          if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
-            BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
-          fi
+          test -n "$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+          [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]]
+          BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
           gcloud builds submit . \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
