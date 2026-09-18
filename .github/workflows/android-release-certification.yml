@@ -1,0 +1,145 @@
+name: Android Release Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA to certify
+        required: true
+        type: string
+      version_code:
+        description: Positive Android versionCode
+        required: true
+        type: string
+      version_name:
+        description: Android versionName
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  certify-release:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock certification to exact latest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.commit_sha }}" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "${{ inputs.commit_sha }}"
+          test "$(git rev-parse origin/main)" = "${{ inputs.commit_sha }}"
+          [[ "${{ inputs.version_code }}" =~ ^[1-9][0-9]*$ ]]
+          test -n "${{ inputs.version_name }}"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Install Android SDK 36 and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          test -x "$sdkmanager"
+          "$sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+
+      - run: npm ci
+
+      - name: Reconstruct protected Android configuration
+        shell: bash
+        env:
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
+          ANDROID_RELEASE_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64"
+          test -n "$ANDROID_RELEASE_KEYSTORE_B64"
+          printf '%s' "$FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 --decode > apps/android/app/google-services.json
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/khedmah-release.keystore"
+          chmod 600 apps/android/app/google-services.json "$RUNNER_TEMP/khedmah-release.keystore"
+          test -s apps/android/app/google-services.json
+          test -s "$RUNNER_TEMP/khedmah-release.keystore"
+
+      - name: Verify Firebase Android package contract
+        env:
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+        run: node scripts/verify-firebase-github-secrets.mjs
+
+      - name: Build signed Release APK and AAB
+        env:
+          ANDROID_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/khedmah-release.keystore
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+          ANDROID_VERSION_NAME: ${{ inputs.version_name }}
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+          KHEDMAH_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build:android:release-apk
+          npm run build:android:release-aab
+
+      - name: Verify signatures and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=apps/android/app/build/outputs/apk/release/app-release.apk
+          AAB=apps/android/app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          jarsigner -verify -strict "$AAB" >/dev/null
+          mkdir -p android-release-evidence
+          cp "$APK" "$AAB" android-release-evidence/
+          (cd android-release-evidence && sha256sum app-release.apk app-release.aab > SHA256SUMS)
+          printf '{"sourceCommit":"%s","versionCode":"%s","versionName":"%s","applicationId":"com.khedmah.digital","signed":true,"deviceTested":false}\n'             "${{ inputs.commit_sha }}" "${{ inputs.version_code }}" "${{ inputs.version_name }}" > android-release-evidence/build-info.json
+
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: khedmah-android-release-${{ inputs.version_code }}
+          path: android-release-evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove reconstructed secrets
+        if: always()
+        shell: bash
+        run: |
+          rm -f apps/android/app/google-services.json
+          rm -f "$RUNNER_TEMP/khedmah-release.keystore"
