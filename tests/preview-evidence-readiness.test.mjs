@@ -279,15 +279,20 @@ test('CLI exits nonzero and saves an actionable report on missing Preview config
 
 test('review-evidence resolves protected Staging baseline while retaining least privilege', async () => {
   const workflow = await readFile(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  const baselineJob = workflow.split('  resolve-staging-baseline:')[1].split('  review-evidence:')[0];\n  const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
-  assert.match(baselineJob, /^    environment: staging$/m);\n  assert.match(baselineJob, /khedmah-frontend-staging/);\n  assert.match(baselineJob, /gcloud run services describe/);\n  assert.match(reviewJob, /^    environment: preview$/m);
-  assert.match(reviewJob, /BEFORE_URL: \$\{\{ vars\.STAGING_FRONTEND_URL \}\}/);
+  const baselineJob = workflow.split('  resolve-staging-baseline:')[1].split('  review-evidence:')[0];
+  const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
+  assert.match(baselineJob, /^    environment: staging$/m);
+  assert.match(baselineJob, /khedmah-frontend-staging/);
+  assert.match(baselineJob, /gcloud run services describe/);
+  assert.match(reviewJob, /^    environment: preview$/m);
+  assert.match(reviewJob, /BEFORE_URL: \$\{\{ needs\.resolve-staging-baseline\.outputs\.frontend_url \}\}/);
+  assert.doesNotMatch(reviewJob, /STAGING_FRONTEND_URL/);
   assert.match(reviewJob, /contents: read\s+pull-requests: write/);
   assert.doesNotMatch(reviewJob, /id-token: write|continue-on-error|\|\| true/);
   assert.match(reviewJob, /if: always\(\)/);
   assert.match(reviewJob, /evidence\.previewStatus/);
-  assert.match(reviewJob, /evidence\.before\?\.failures/);
-  assert.match(reviewJob, /evidence\.setupFailure/);
+  assert.match(reviewJob, /evidence\.before\?\.status/);
+  assert.match(reviewJob, /STAGING_URL/);
 });
 
 test('a failed baseline browser context cannot suppress all Preview diagnostics', async (t) => {
