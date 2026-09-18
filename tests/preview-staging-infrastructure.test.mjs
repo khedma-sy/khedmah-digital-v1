@@ -48,3 +48,19 @@ test('staging Cloud Build uses the project-owned source bucket without changing 
   assert.match(script, /"\$\{cloudbuild_source_args\[@\]\}" --config "cloudbuild\.\$\{environment\}-backend\.yaml"/);
   assert.match(script, /"\$\{cloudbuild_source_args\[@\]\}" --config "\$config"/);
 });
+
+
+test('non-production deploy applies Product Store 024 before Classifieds 025', () => {
+  const deploy = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  const productStore = deploy.indexOf('ensure-product-store-nonproduction-schema.sh');
+  const classifieds = deploy.indexOf('ensure-classifieds-nonproduction-schema.sh');
+  assert.ok(productStore >= 0);
+  assert.ok(classifieds > productStore);
+
+  const ensure = readFileSync('scripts/deployment/ensure-product-store-nonproduction-schema.sh', 'utf8');
+  const runner = readFileSync('scripts/deployment/run-product-store-nonproduction-migration.sh', 'utf8');
+  assert.match(ensure, /Refusing Product Store schema operation on Production/);
+  assert.match(runner, /Refusing Product Store migration 024 against Production/);
+  assert.match(runner, /MIGRATION_024_REQUIRES_SCHEMA_022/);
+  assert.match(runner, /MIGRATION_024_APPLIED_AND_VERIFIED/);
+});
