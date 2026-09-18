@@ -74,3 +74,10 @@ test('live validation distinguishes GCP Secret Manager values from CI-only OAuth
   assert.doesNotMatch(secretBlock, /GOOGLE_OAUTH_WEB_CLIENT_ID/);
   assert.doesNotMatch(secretBlock, /GOOGLE_OAUTH_ANDROID_CLIENT_ID/);
 });
+
+
+test('live certification uses stable Cloud Monitoring CLI surface', async () => {
+  const live = await read('../scripts/production-operator-live-validation.sh');
+  assert.match(live, /gcloud monitoring policies list/);
+  assert.doesNotMatch(live, /gcloud alpha monitoring policies list/);
+});
