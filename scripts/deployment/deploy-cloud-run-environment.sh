@@ -65,7 +65,7 @@ PRODUCT_STORE_MIGRATION_024_MODE='apply'
 PRODUCT_STORE_MIGRATION_024_CONFIRMATION="APPLY_KHEDMAH_NONPROD_024_${environment^^}"
 export PRODUCT_STORE_MIGRATION_024_MODE PRODUCT_STORE_MIGRATION_024_CONFIRMATION
 bash # Ensure the canonical non-production foundation through 022 before Product Store 024.
-scripts/deployment/ensure-foundation-nonproduction-schema.sh "$environment" "$identifier"
+bash scripts/deployment/ensure-foundation-nonproduction-schema.sh "$environment" "$identifier"
 scripts/deployment/ensure-product-store-nonproduction-schema.sh "$environment" "$identifier"
 
 # Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
