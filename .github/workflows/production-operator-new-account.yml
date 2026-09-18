@@ -150,6 +150,25 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v3
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - id: before
+        name: Capture currently serving Production revision pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          backend_revision="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.traffic[0].revisionName)' 2>/dev/null || true)"
+          frontend_revision="$(gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.traffic[0].revisionName)' 2>/dev/null || true)"
+          if [[ -n "$backend_revision" && -n "$frontend_revision" ]]; then
+            echo "rollback_available=true" >> "$GITHUB_OUTPUT"
+            echo "backend_revision=$backend_revision" >> "$GITHUB_OUTPUT"
+            echo "frontend_revision=$frontend_revision" >> "$GITHUB_OUTPUT"
+          else
+            echo "rollback_available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy exact main commit through account-neutral Cloud Build
         shell: bash
         run: |
@@ -183,3 +202,15 @@ jobs:
           echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "Android/clients API variable after approval: NEXT_PUBLIC_API_URL=$BACKEND_URL" >> "$GITHUB_STEP_SUMMARY"
           echo 'MAP_STATUS=ready' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Emergency rollback after failed Production deployment or certification
+        if: failure() && steps.before.outputs.rollback_available == 'true'
+        env:
+          OPERATIONS_APPROVED_PRODUCTION: 'true'
+          PREVIOUS_BACKEND_REVISION: ${{ steps.before.outputs.backend_revision }}
+          PREVIOUS_FRONTEND_REVISION: ${{ steps.before.outputs.frontend_revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/google-production-rollback.sh "$PREVIOUS_BACKEND_REVISION" "$PREVIOUS_FRONTEND_REVISION"
+          echo 'EMERGENCY_ROLLBACK=SUCCESS' >> "$GITHUB_STEP_SUMMARY"
