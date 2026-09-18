@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+
 const bootstrap = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
 const variables = await readFile(new URL('../infra/iac/bootstrap/variables.tf', import.meta.url), 'utf8');
 const outputs = await readFile(new URL('../infra/iac/bootstrap/outputs.tf', import.meta.url), 'utf8');
