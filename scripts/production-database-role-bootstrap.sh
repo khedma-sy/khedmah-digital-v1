@@ -105,10 +105,18 @@ REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA khedmah_taxi FROM "$RUNTIME_ROL
 
 -- Operational approval APIs run inside the application runtime but remain
 -- constrained by application authorization and database review invariants.
-GRANT SELECT, INSERT, UPDATE ON TABLE
+GRANT SELECT, INSERT ON TABLE
   khedmah_taxi.driver_approvals,
   khedmah_taxi.vehicle_approvals
 TO "$RUNTIME_ROLE";
+GRANT UPDATE(
+  business_profile_id, vehicle_id, zone_code, status, reviewed_by,
+  verification_reference, decision_reason, approved_at, expires_at, revision, updated_at
+) ON khedmah_taxi.driver_approvals TO "$RUNTIME_ROLE";
+GRANT UPDATE(
+  driver_user_id, status, reviewed_by, verification_reference, decision_reason,
+  approved_at, expires_at, revision, updated_at
+) ON khedmah_taxi.vehicle_approvals TO "$RUNTIME_ROLE";
 GRANT INSERT ON TABLE khedmah_taxi.operational_approval_events TO "$RUNTIME_ROLE";
 
 -- Native trip runtime: mirror the proven least-privilege contract from the
@@ -143,7 +151,11 @@ SELECT CASE WHEN
   AND has_table_privilege('$RUNTIME_USER','public.core_user_accounts','INSERT')
   AND has_schema_privilege('$RUNTIME_USER','khedmah_taxi','USAGE')
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','SELECT')
-  AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','UPDATE')
+  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','status','UPDATE')
+  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','reviewed_by','UPDATE')
+  AND NOT has_column_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','user_id','UPDATE')
+  AND has_column_privilege('$RUNTIME_USER','khedmah_taxi.vehicle_approvals','status','UPDATE')
+  AND NOT has_column_privilege('$RUNTIME_USER','khedmah_taxi.vehicle_approvals','id','UPDATE')
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.operational_approval_events','INSERT')
   AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.resolve_actor_locked(text,boolean)','EXECUTE')
   AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.read_tariff_locked(text)','EXECUTE')
