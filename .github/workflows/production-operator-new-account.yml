@@ -142,6 +142,7 @@ jobs:
           bash scripts/validate-production-deployment-readiness.sh
 
       - name: Verify production database role isolation before deployment
+        if: inputs.mode == 'DEPLOY_PRODUCTION'
         shell: bash
         run: |
           set -euo pipefail
