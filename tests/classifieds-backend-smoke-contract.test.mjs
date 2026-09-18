@@ -59,7 +59,7 @@ test('deploy runs Classifieds backend smoke after backend URL resolution and bef
   const backendUrl = deployScript.indexOf('backend_url="$(gcloud run services describe');
   const smokeGate = deployScript.indexOf("if [[ \"$CLASSIFIEDS_ENABLED\" == 'true' ]]");
   const smokeCall = deployScript.indexOf('verify-classifieds-backend-smoke.mjs');
-  const frontendBuild = deployScript.indexOf('gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config"');
+  const frontendBuild = deployScript.indexOf('gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "$config"');
   assert.ok(backendUrl >= 0);
   assert.ok(smokeGate > backendUrl);
   assert.ok(smokeCall > smokeGate);
