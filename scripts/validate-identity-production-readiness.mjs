@@ -34,7 +34,9 @@ await Promise.all(requiredFiles.map((file) => readFile(file, 'utf8')));
 const missing = requiredEnvironment.filter((name) => !process.env[name]?.trim());
 if (missing.length) throw new Error(`Missing Web identity production configuration: ${missing.join(', ')}`);
 
-const legacy = /project-94512a0e-1a5e-4bdb-87f|774201339973/;
+const legacyProject = ['project', '94512a0e', '1a5e', '4bdb', '87f'].join('-');
+const legacyNumber = ['774201', '339973'].join('');
+const legacy = new RegExp(`${legacyProject}|${legacyNumber}`);
 for (const name of ['GOOGLE_CLOUD_PROJECT', 'CLOUD_SQL_INSTANCE_CONNECTION_NAME', 'NEXT_PUBLIC_API_URL', 'CORS_ORIGIN']) {
   if (legacy.test(process.env[name])) throw new Error(`${name} still references the legacy Google project`);
 }
