@@ -100,9 +100,9 @@ else
   fi
 fi
 
-identity_state="$(gcloud services describe identitytoolkit.googleapis.com   --project "$project" --format='value(state)' 2>/dev/null || true)"
+identity_state="$(gcloud services list --enabled --filter='config.name=identitytoolkit.googleapis.com' --project "$project" --format='value(config.name)' 2>/dev/null || true)"
 firebase_project_id=''
-if [[ "$identity_state" == "ENABLED" ]]; then firebase_project_id="$project"; fi
+if [[ "$identity_state" == "identitytoolkit.googleapis.com" ]]; then firebase_project_id="$project"; fi
 
 required_secrets=(
   DATABASE_URL
