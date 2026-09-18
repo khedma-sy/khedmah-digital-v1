@@ -182,6 +182,13 @@ resource "google_secret_manager_secret_iam_member" "bootstrap_admin_deployer" {
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "bootstrap_admin_version_manager" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.bootstrap_admin.secret_id
+  role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
   workload_identity_pool_id = "khedmah-github"
