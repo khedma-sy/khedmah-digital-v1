@@ -41,6 +41,11 @@ jobs:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       REQUESTED_MODE: ${{ inputs.mode }}
       REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+      DATABASE_RUNTIME_USER: ${{ vars.DATABASE_RUNTIME_USER || 'khedmah_app' }}
+      DATABASE_MIGRATION_USER: ${{ vars.DATABASE_MIGRATION_USER || 'khedmah_migrator' }}
+      DATABASE_RUNTIME_ROLE: ${{ vars.DATABASE_RUNTIME_ROLE || 'khedmah_runtime_role' }}
+      DATABASE_MIGRATION_ROLE: ${{ vars.DATABASE_MIGRATION_ROLE || 'khedmah_migration_role' }}
+      DATABASE_NAME: ${{ vars.DATABASE_NAME || 'khedmah' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -56,7 +61,7 @@ jobs:
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
-          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_ARTIFACT_REPOSITORY OPERATIONS_BUILD_SERVICE_ACCOUNT OPERATIONS_MIGRATION_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME; do
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_ARTIFACT_REPOSITORY OPERATIONS_BUILD_SERVICE_ACCOUNT OPERATIONS_MIGRATION_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME DATABASE_RUNTIME_USER DATABASE_MIGRATION_USER DATABASE_RUNTIME_ROLE DATABASE_MIGRATION_ROLE DATABASE_NAME; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
           [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
@@ -122,12 +127,54 @@ jobs:
             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
             --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
-            --set-env-vars "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE" \
+            --set-env-vars "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME" \
             --tasks 1 \
             --parallelism 1 \
             --max-retries 0 \
             --task-timeout 10m \
             --quiet
+          gcloud run jobs execute "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --wait
+
+      - name: Replace Cloud SQL built-in superuser roles with custom least-privilege roles
+        if: inputs.mode == 'PREPARE'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          gcloud sql users assign-roles "$DATABASE_RUNTIME_USER" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --instance "$SQL_INSTANCE_NAME" \
+            --type BUILT_IN \
+            --database-roles "$DATABASE_RUNTIME_ROLE" \
+            --revoke-existing-roles \
+            --quiet
+          gcloud sql users assign-roles "$DATABASE_MIGRATION_USER" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --instance "$SQL_INSTANCE_NAME" \
+            --type BUILT_IN \
+            --database-roles "$DATABASE_MIGRATION_ROLE" \
+            --revoke-existing-roles \
+            --quiet
+
+      - name: Verify role isolation immediately after prepare
+        if: inputs.mode == 'PREPARE'
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          JOB="khedmah-database-role-verify"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
+            --set-env-vars "DATABASE_ROLE_PHASE=verify,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME" \
+            --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
           gcloud run jobs execute "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
