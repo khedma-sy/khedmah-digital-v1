@@ -48,3 +48,20 @@ test('legacy broad runtime hardening path stays retired', async () => {
   assert.match(legacy, /Production Database Role Bootstrap workflow in HARDEN mode/);
   assert.doesNotMatch(legacy, /GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES/);
 });
+
+
+test('production hardening preserves Taxi trip least privilege without tariff or delete rights', async () => {
+  const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
+  assert.match(script, /jt_quotes/);
+  assert.match(script, /jt_orders/);
+  assert.match(script, /jt_evidence/);
+  assert.match(script, /jt_outbox/);
+  assert.match(script, /read_tariff_locked\(TEXT\)/);
+  assert.match(script, /read_route_locked\(TEXT, TEXT\)/);
+  assert.match(script, /UPDATE\(consumed_order_id\)/);
+  assert.match(script, /UPDATE\(consumed_event_id\)/);
+  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.tariffs','UPDATE'\)/);
+  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.routes','UPDATE'\)/);
+  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_events','DELETE'\)/);
+  assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_cash_receipts','DELETE'\)/);
+});
