@@ -2,7 +2,6 @@ locals {
   google_apis = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
-    "sqladmin.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "run.googleapis.com",
