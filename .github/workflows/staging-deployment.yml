@@ -4,6 +4,7 @@ on:
     branches: [develop]
 permissions:
   contents: read
+  actions: write
   id-token: write
 concurrency:
   group: staging
@@ -142,6 +143,20 @@ jobs:
           path: staging-runtime-evidence/
           if-no-files-found: error
           retention-days: 14
+      - name: Publish healthy Staging URL to Preview baseline variable
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_FRONTEND_URL: ${{ steps.deploy.outputs.frontend_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$STAGING_FRONTEND_URL" == https://* ]]
+          endpoint="repos/${GITHUB_REPOSITORY}/environments/preview/variables/STAGING_FRONTEND_URL"
+          if ! gh api --method PATCH "$endpoint" -f value="$STAGING_FRONTEND_URL" >/dev/null 2>&1; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/environments/preview/variables"               -f name=STAGING_FRONTEND_URL               -f value="$STAGING_FRONTEND_URL" >/dev/null
+          fi
+          printf 'PREVIEW_BASELINE_SYNCED=%s\n' "$STAGING_FRONTEND_URL"
+
       - name: Record deployment summary
         run: |
           echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
