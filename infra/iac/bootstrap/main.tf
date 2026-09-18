@@ -7,10 +7,14 @@ locals {
   ]
 
   google_apis = toset([
+    "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "identitytoolkit.googleapis.com",
     "iam.googleapis.com",
+    "maps-android-backend.googleapis.com",
+    "maps-backend.googleapis.com",
+    "places-backend.googleapis.com",
     "iamcredentials.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
@@ -44,6 +48,7 @@ locals {
     "roles/iam.serviceAccountUser",
     "roles/run.admin",
     "roles/secretmanager.viewer",
+    "roles/serviceusage.apiKeysAdmin",
     "roles/serviceusage.serviceUsageConsumer",
     "roles/serviceusage.serviceUsageViewer",
     "roles/storage.bucketViewer",
@@ -210,6 +215,38 @@ resource "google_secret_manager_secret_iam_member" "build" {
   secret_id = google_secret_manager_secret.runtime[each.value].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "maps_browser_deployer_version_manager" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runtime["GOOGLE_MAPS_BROWSER_API_KEY"].secret_id
+  role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_secret_manager_secret" "maps_android" {
+  project   = var.project_id
+  secret_id = "GOOGLE_MAPS_ANDROID_API_KEY"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_secret_manager_secret_iam_member" "maps_android_deployer_version_manager" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.maps_android.secret_id
+  role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "maps_android_deployer_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.maps_android.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_secret_manager_secret" "bootstrap_admin" {
