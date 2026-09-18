@@ -45,3 +45,12 @@ test('baseline refuses any existing Khedmah schema and verifies 019 scope reconc
   assert.match(runner, /BASELINE_019_SCOPE_RECONCILIATION_FAILED/);
   assert.match(runner, /BASELINE_001_020_APPLIED_AND_VERIFIED/);
 });
+
+
+test('baseline uses the dedicated migration identity and elevated database secret only', () => {
+  assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
+  assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.doesNotMatch(workflow, /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_URL:latest/);
+});
