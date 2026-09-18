@@ -65,8 +65,8 @@ test('client Maps apply consumes only reviewed plan and publishes masked keys to
   assert.match(apply, /secrets versions add GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(apply, /secrets versions add GOOGLE_MAPS_ANDROID_API_KEY/);
   assert.doesNotMatch(apply, /echo ["']?\$browser_key|echo ["']?\$android_key/);
-  const bootstrapVariables = await read('infra/iac/bootstrap/variables.tf');
-  assert.match(bootstrapVariables, /"GOOGLE_MAPS_ANDROID_API_KEY"/);
+  assert.match(bootstrap, /google_secret_manager_secret" "maps_android/);
+  assert.match(bootstrap, /secret_id = "GOOGLE_MAPS_ANDROID_API_KEY"/);
   assert.match(bootstrap, /maps_android_deployer_version_manager/);
   assert.match(bootstrap, /maps_android_deployer_accessor/);
   assert.match(productionWif, /terraform-client-maps-plan\.yml@refs\/heads\/main/);
