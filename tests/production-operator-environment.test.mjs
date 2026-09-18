@@ -111,3 +111,12 @@ test('Production operator verifies hardened database roles before Cloud Build de
   assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
 });
+
+
+test('VERIFY_ONLY never creates database verification jobs', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+    ?.split('\n      - name:')[0] ?? '';
+  assert.match(block, /if: inputs\.mode == 'DEPLOY_PRODUCTION'/);
+  assert.match(block, /gcloud run jobs deploy/);
+});
