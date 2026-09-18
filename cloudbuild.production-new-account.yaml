@@ -12,10 +12,12 @@ steps:
           '${_RUNTIME_SERVICE_ACCOUNT}' '${_CLOUD_SQL_INSTANCE}' '${_NEXT_PUBLIC_API_URL}'
           '${_CORS_ORIGIN}' '${_GCS_MEDIA_BUCKET}'
         )
+        legacy_project="project-""94512a0e-1a5e-4bdb-87f"
+        legacy_number="774201""339973"
         for value in "$${values[@]}"; do
           test -n "$$value"
           case "$$value" in REQUIRED_*) echo "ERROR: unresolved production substitution $$value" >&2; exit 1;; esac
-          case "$$value" in *project-94512a0e-1a5e-4bdb-87f*|*774201339973*) echo 'ERROR: legacy Google project binding detected.' >&2; exit 1;; esac
+          if [[ "$$value" == *"$$legacy_project"* || "$$value" == *"$$legacy_number"* ]]; then echo 'ERROR: legacy Google project binding detected.' >&2; exit 1; fi
         done
         case '${_RUNTIME_SERVICE_ACCOUNT}' in *"@$PROJECT_ID.iam.gserviceaccount.com") ;; *) echo 'ERROR: runtime service account must belong to active project.' >&2; exit 1;; esac
         case '${_CLOUD_SQL_INSTANCE}' in "$PROJECT_ID":'${_REGION}':*) ;; *) echo 'ERROR: Cloud SQL must belong to active project and region.' >&2; exit 1;; esac
