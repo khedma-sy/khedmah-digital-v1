@@ -41,6 +41,7 @@ jobs:
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
       OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
       OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
       OPERATIONS_FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
@@ -164,10 +165,9 @@ jobs:
         run: |
           set -euo pipefail
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
-          BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
-          if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
-            BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
-          fi
+          test -n "$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+          [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]]
+          BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
           gcloud builds submit . \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
