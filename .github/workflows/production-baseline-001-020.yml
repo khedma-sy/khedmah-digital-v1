@@ -33,7 +33,7 @@ jobs:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
-      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_MIGRATION_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_MIGRATION_SERVICE_ACCOUNT }}
       OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_RUNTIME_SERVICE_ACCOUNT OPERATIONS_BUILD_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME BASELINE_MANIFEST_SHA256; do
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_MIGRATION_SERVICE_ACCOUNT OPERATIONS_BUILD_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME BASELINE_MANIFEST_SHA256; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
           [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]
@@ -130,7 +130,7 @@ jobs:
           set -euo pipefail
           IMAGE="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${OPERATIONS_ARTIFACT_REPOSITORY}/database-baseline-001-020:${REQUESTED_SHA}"
           JOB="khedmah-database-baseline-001-020"
-          gcloud run jobs deploy "$JOB"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --image "$IMAGE"             --service-account "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"             --set-secrets 'DATABASE_URL=DATABASE_URL:latest'             --set-env-vars "BASELINE_MANIFEST_SHA256=${BASELINE_MANIFEST_SHA256}"             --tasks 1             --parallelism 1             --max-retries 0             --task-timeout 15m             --quiet
+          gcloud run jobs deploy "$JOB"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --image "$IMAGE"             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"             --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest'             --set-env-vars "BASELINE_MANIFEST_SHA256=${BASELINE_MANIFEST_SHA256}"             --tasks 1             --parallelism 1             --max-retries 0             --task-timeout 15m             --quiet
           gcloud run jobs execute "$JOB"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --wait
 
       - name: Publish baseline evidence
