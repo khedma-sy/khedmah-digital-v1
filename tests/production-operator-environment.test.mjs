@@ -35,18 +35,16 @@ test('new-account deployment uses project-owned Cloud Build source staging', () 
   assert.match(workflow, /cloudbuild\.production-new-account\.yaml/);
 });
 
-test('new-account operator injects media, runtime, API and CORS configuration', () => {
+test('new-account operator injects media, runtime and canonical origin configuration', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
   for (const token of [
     'OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}',
     'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
-    'NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}',
     'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}',
     'NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}'
   ]) assert.ok(workflow.includes(token), `missing ${token}`);
   assert.match(workflow, /_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT/);
   assert.match(workflow, /_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET/);
-  assert.match(workflow, /_NEXT_PUBLIC_API_URL=\$NEXT_PUBLIC_API_URL/);
   assert.match(workflow, /_CORS_ORIGIN=\$CORS_ORIGIN/);
   assert.match(workflow, /_SITE_URL=\$NEXT_PUBLIC_SITE_URL/);
   assert.match(workflow, /npm run validate:identity:production/);
@@ -74,4 +72,15 @@ test('VERIFY_ONLY checks live deployment prerequisites without deploying', () =>
   assert.match(readiness, /gcloud sql instances describe/);
   assert.match(readiness, /gcloud secrets versions describe latest/);
   assert.doesNotMatch(readiness, /secrets versions access|gcloud builds submit|gcloud run deploy/);
+});
+
+test('new-account Cloud Build derives the frontend API URL from the live backend service', () => {
+  const build = readFileSync('cloudbuild.production-new-account.yaml', 'utf8');
+  assert.match(build, /id: resolve-or-bootstrap-backend-url/);
+  assert.match(build, /production-backend-url/);
+  assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
+  assert.match(build, /id: bind-live-frontend-origin/);
+  assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
+  assert.doesNotMatch(build, /_NEXT_PUBLIC_API_URL/);
+  assert.doesNotMatch(readFileSync(operatorPath, 'utf8'), /NEXT_PUBLIC_API_URL: \$\{\{ vars\.NEXT_PUBLIC_API_URL \}\}/);
 });
