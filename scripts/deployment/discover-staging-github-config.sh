@@ -6,7 +6,7 @@ set +x
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-khedma-sy/khedmah-digital-v1}"
 
-for command_name in gcloud jq; do
+for command_name in gcloud; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "ERROR: missing required command: $command_name" >&2
     exit 3
@@ -43,9 +43,26 @@ elif [[ -n "${GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT:-}" ]] && grep -F -x "$GCP_ST
 fi
 
 provider=''
-pool_name="projects/${project_number}/locations/global/workloadIdentityPools/khedmah-github"
-if gcloud iam workload-identity-pools describe khedmah-github   --location=global --project "$project" --format='value(name)' >/dev/null 2>&1; then
-  provider="$(gcloud iam workload-identity-pools providers describe github-actions     --workload-identity-pool=khedmah-github     --location=global     --project "$project"     --format='value(name)' 2>/dev/null || true)"
+provider_condition=''
+if gcloud iam workload-identity-pools describe khedmah-github \
+  --location=global --project "$project" --format='value(name)' >/dev/null 2>&1; then
+  provider="$(gcloud iam workload-identity-pools providers describe github-actions \
+    --workload-identity-pool=khedmah-github \
+    --location=global \
+    --project "$project" \
+    --format='value(name)' 2>/dev/null || true)"
+  provider_condition="$(gcloud iam workload-identity-pools providers describe github-actions \
+    --workload-identity-pool=khedmah-github \
+    --location=global \
+    --project "$project" \
+    --format='value(attributeCondition)' 2>/dev/null || true)"
+  if [[ -n "$provider" ]]; then
+    if [[ "$provider_condition" != *"$GITHUB_REPOSITORY"* \
+       || "$provider_condition" != *"refs/heads/develop"* \
+       || "$provider_condition" != *".github/workflows/staging-deployment.yml@refs/heads/develop"* ]]; then
+      provider=''
+    fi
+  fi
 fi
 
 artifact_candidates="$(gcloud artifacts repositories list   --project "$project"   --location "$GOOGLE_CLOUD_REGION"   --format='value(name)' 2>/dev/null || true)"
@@ -55,8 +72,8 @@ if [[ -n "${STAGING_ARTIFACT_REPOSITORY:-}" ]]; then
     artifact_repository="$STAGING_ARTIFACT_REPOSITORY"
   fi
 else
-  ids="$(sed -n 's#^.*/repositories/##p' <<<"$artifact_candidates" | sed '/^$/d')"
-  if [[ "$(wc -l <<<"$ids" | tr -d ' ')" == "1" ]]; then artifact_repository="$ids"; fi
+  mapfile -t artifact_ids < <(sed 's#^.*/repositories/##' <<<"$artifact_candidates" | sed '/^$/d')
+  if (("${#artifact_ids[@]}" == 1)); then artifact_repository="${artifact_ids[0]}"; fi
 fi
 
 sql_candidates="$(gcloud sql instances list   --project "$project"   --filter="region=$GOOGLE_CLOUD_REGION"   --format='value(connectionName)' 2>/dev/null || true)"
@@ -66,20 +83,20 @@ if [[ -n "${STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]]; then
     sql_connection="$STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME"
   fi
 else
-  sql_count="$(sed '/^$/d' <<<"$sql_candidates" | wc -l | tr -d ' ')"
-  if [[ "$sql_count" == "1" ]]; then sql_connection="$(sed '/^$/d' <<<"$sql_candidates")"; fi
+  mapfile -t sql_connections < <(sed '/^$/d' <<<"$sql_candidates")
+  if (("${#sql_connections[@]}" == 1)); then sql_connection="${sql_connections[0]}"; fi
 fi
 
 bucket_rows="$(gcloud storage buckets list   --project "$project"   --format='value(name,location)' 2>/dev/null || true)"
 media_bucket=''
 if [[ -n "${STAGING_GCS_MEDIA_BUCKET:-}" ]]; then
-  if awk '{print $1}' <<<"$bucket_rows" | grep -F -x "$STAGING_GCS_MEDIA_BUCKET" >/dev/null; then
+  if awk '{print $1}' <<<"$bucket_rows" | sed 's#^gs://##' | grep -F -x "$STAGING_GCS_MEDIA_BUCKET" >/dev/null; then
     media_bucket="$STAGING_GCS_MEDIA_BUCKET"
   fi
 else
-  media_candidates="$(awk '{print $1}' <<<"$bucket_rows" | grep -Ei 'media' || true)"
-  if [[ "$(sed '/^$/d' <<<"$media_candidates" | wc -l | tr -d ' ')" == "1" ]]; then
-    media_bucket="$(sed '/^$/d' <<<"$media_candidates")"
+  mapfile -t media_candidates < <(awk '{print $1}' <<<"$bucket_rows" | sed 's#^gs://##' | grep -Ei 'media' || true)
+  if (("${#media_candidates[@]}" == 1)); then
+    media_bucket="${media_candidates[0]}"
   fi
 fi
 
@@ -138,7 +155,9 @@ unresolved=()
 (("${#missing_secret_versions[@]}" == 0)) || unresolved+=(SECRET_MANAGER_LATEST_VERSIONS)
 
 # These separation values cannot be derived safely from the Staging project alone.
-for name in   DEVELOPMENT_GOOGLE_CLOUD_PROJECT PREVIEW_GOOGLE_CLOUD_PROJECT PRODUCTION_GOOGLE_CLOUD_PROJECT   DEVELOPMENT_FIREBASE_PROJECT_ID PREVIEW_FIREBASE_PROJECT_ID PRODUCTION_FIREBASE_PROJECT_ID; do
+for name in \
+  DEVELOPMENT_GOOGLE_CLOUD_PROJECT PREVIEW_GOOGLE_CLOUD_PROJECT PRODUCTION_GOOGLE_CLOUD_PROJECT \
+  DEVELOPMENT_FIREBASE_PROJECT_ID PREVIEW_FIREBASE_PROJECT_ID PRODUCTION_FIREBASE_PROJECT_ID; do
   [[ -n "${!name:-}" ]] || unresolved+=("$name")
 done
 
