@@ -114,3 +114,19 @@ test('bootstrap enables live-certification Google APIs', async () => {
     'certificatemanager.googleapis.com'
   ]) assert.ok(bootstrap.includes(api), `missing ${api}`);
 });
+
+
+test('live certification requires the canonical public domain to remain on verified HTTPS', async () => {
+  const [certification, domain] = await Promise.all([
+    readFile(new URL('../scripts/run-live-production-certification.sh', import.meta.url), 'utf8'),
+    readFile(new URL('../scripts/validate-production-domain-readiness.sh', import.meta.url), 'utf8')
+  ]);
+  assert.match(certification, /NEXT_PUBLIC_SITE_URL/);
+  assert.match(certification, /validate-production-domain-readiness\.sh/);
+  assert.match(domain, /NEXT_PUBLIC_SITE_URL must use HTTPS/);
+  assert.match(domain, /canonical Production site must be the public domain/);
+  assert.match(domain, /curl --fail/);
+  assert.match(domain, /effective_host/);
+  assert.match(domain, /text\/html/);
+  assert.doesNotMatch(domain, /-k|--insecure/);
+});
