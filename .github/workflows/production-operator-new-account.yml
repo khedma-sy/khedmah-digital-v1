@@ -71,7 +71,7 @@ jobs:
         shell: bash
         env:
           OPERATIONS_DEPLOYER_SERVICE_ACCOUNT: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
-          OPERATIONS_APPROVED_PRODUCTION: 'true'
+          OPERATIONS_APPROVED_PRODUCTION: 'true'\n          ALLOW_FIRST_PRODUCTION_DEPLOY: ${{ inputs.mode == 'DEPLOY_PRODUCTION' && 'true' || 'false' }}
         run: |
           set -euo pipefail
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
