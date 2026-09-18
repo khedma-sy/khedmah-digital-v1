@@ -33,3 +33,11 @@ test('debug artifact records source provenance and does not claim runtime or rel
   assert.match(sourceJob, /runtime configuration are not injected/);
   assert.match(workflow, /production-secret-gate:\n    if: github\.event_name == 'workflow_dispatch'\n    environment: production/);
 });
+
+
+test('android release WIF is restricted to protected main workflows', async () => {
+  const wif = await readFile(new URL('../infra/iac/production_operator.tf', import.meta.url), 'utf8');
+  const bootstrap = await readFile(new URL('../scripts/bootstrap-new-production-project.sh', import.meta.url), 'utf8');
+  assert.match(wif, /android-release-certification\.yml@refs\/heads\/main/);
+  assert.match(bootstrap, /android-release-certification\.yml/);
+});
