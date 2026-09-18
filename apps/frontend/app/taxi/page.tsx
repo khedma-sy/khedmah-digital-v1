@@ -5,11 +5,13 @@ import { useSearchParams } from 'next/navigation';
 import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import { taxiApi, type TaxiAddress, type TaxiApiError, type TaxiOffer, type TaxiQuote, type TaxiTrip } from '../../lib/taxi-client';
+import { TaxiMapSelector } from './taxi-map-selector';
 import styles from './taxi.module.css';
 
 const RIDER_TRIP_KEY = 'khedmah-taxi-rider-trip';
 const DRIVER_TRIP_KEY = 'khedmah-taxi-driver-trip';
 const PLACE_KEY = 'khedmah-taxi-place-attempt';
+const TAXI_TRIPS_ENABLED = process.env.NEXT_PUBLIC_TAXI_TRIPS_ENABLED === 'true';
 
 function errorMessage(cause: unknown) {
   const error = cause as TaxiApiError;
@@ -22,15 +24,32 @@ function errorMessage(cause: unknown) {
 const amount = (minor: number, currency: string) => `${(minor / 100).toFixed(2)} ${currency}`;
 const km = (meters?: number) => typeof meters === 'number' ? `${(meters / 1000).toFixed(1)} كم` : '—';
 const phase = (trip: TaxiTrip) => ({ submitted: 'بانتظار سائق', accepted: 'السائق في الطريق', in_progress: 'الرحلة جارية', completed: 'مكتملة', cancelled: 'ملغاة', rejected: 'مرفوضة' }[trip.phase]);
+const validCoordinates = (value: TaxiAddress) => Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180;
 
 function AddressFields({ prefix, value, onChange }: { prefix: string; value: TaxiAddress; onChange(value: TaxiAddress): void }) {
-  const set = (field: keyof TaxiAddress, raw: string) => onChange({ ...value, [field]: field === 'latitude' || field === 'longitude' ? Number(raw) : raw });
-  return <div className={styles.fields}>
-    <label>{prefix} — المنطقة<input value={value.area} onChange={event => set('area', event.target.value)} maxLength={80} /></label>
-    <label>{prefix} — العنوان<input value={value.detail} onChange={event => set('detail', event.target.value)} maxLength={300} /></label>
-    <label>خط العرض<input type="number" step="any" value={value.latitude} onChange={event => set('latitude', event.target.value)} /></label>
-    <label>خط الطول<input type="number" step="any" value={value.longitude} onChange={event => set('longitude', event.target.value)} /></label>
-  </div>;
+  const set = (field: keyof TaxiAddress, raw: string) => {
+    if (field === 'latitude' || field === 'longitude') {
+      onChange({ ...value, [field]: raw.trim() === '' ? Number.NaN : Number(raw) });
+      return;
+    }
+    onChange({ ...value, [field]: raw });
+  };
+  const latitude = Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 ? value.latitude : '';
+  const longitude = Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180 ? value.longitude : '';
+  return <section className={styles.addressBlock} aria-label={`تفاصيل ${prefix}`}>
+    <h3>{prefix}</h3>
+    <div className={styles.fields}>
+      <label>المنطقة<input value={value.area} onChange={event => set('area', event.target.value)} maxLength={80} placeholder="مثال: المزة" /></label>
+      <label>وصف العنوان<input value={value.detail} onChange={event => set('detail', event.target.value)} maxLength={300} placeholder="شارع، بناء أو نقطة دالة" /></label>
+    </div>
+    <details className={styles.coordinateDetails}>
+      <summary>إدخال الإحداثيات يدويًا</summary>
+      <div className={styles.compactFields}>
+        <label>خط العرض<input type="number" step="any" value={latitude} onChange={event => set('latitude', event.target.value)} /></label>
+        <label>خط الطول<input type="number" step="any" value={longitude} onChange={event => set('longitude', event.target.value)} /></label>
+      </div>
+    </details>
+  </section>;
 }
 
 function TripCard({ trip, onRefresh }: { trip: TaxiTrip; onRefresh(): Promise<void> }) {
@@ -51,13 +70,13 @@ function TripCard({ trip, onRefresh }: { trip: TaxiTrip; onRefresh(): Promise<vo
 }
 
 function RiderJourney() {
-  const [pickup, setPickup] = useState<TaxiAddress>({ area: '', detail: '', latitude: 33.5138, longitude: 36.2765 });
-  const [dropoff, setDropoff] = useState<TaxiAddress>({ area: '', detail: '', latitude: 33.5, longitude: 36.3 });
+  const [pickup, setPickup] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
+  const [dropoff, setDropoff] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
   const [quote, setQuote] = useState<TaxiQuote>();
   const [trip, setTrip] = useState<TaxiTrip>();
   const [busy, setBusy] = useState(false);
   const [hasPendingPlace, setHasPendingPlace] = useState(false);
-  const [message, setMessage] = useState('حدد نقطتي الانطلاق والوجهة للحصول على تسعير خادمي معتمد.');
+  const [message, setMessage] = useState('حدد نقطتي الانطلاق والوجهة على الخريطة ثم أكمل وصف العنوان للحصول على تسعير خادمي معتمد.');
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -100,13 +119,22 @@ function RiderJourney() {
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       if (!mounted.current) return;
       setPickup(value => ({ ...value, latitude: coords.latitude, longitude: coords.longitude }));
-      setMessage('تم تحديث إحداثيات نقطة الانطلاق. اكتب وصف العنوان ثم اطلب السعر.');
-    }, () => mounted.current && setMessage('تعذر الوصول إلى موقعك. يمكنك إدخال الإحداثيات يدويًا.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+      setMessage('تم وضع نقطة الانطلاق على موقعك الحالي. أكمل وصف العنوان وحدد الوجهة على الخريطة.');
+    }, () => mounted.current && setMessage('تعذر الوصول إلى موقعك. اختر النقطة على الخريطة أو استخدم الإدخال اليدوي.'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
   async function price(event: FormEvent) {
     event.preventDefault(); if (busy) return;
-    setBusy(true); setMessage('جاري اعتماد المسار والتعرفة…'); setQuote(undefined);
+    setQuote(undefined);
+    if (!validCoordinates(pickup) || !validCoordinates(dropoff)) {
+      setMessage('حدد نقطة الانطلاق والوجهة على الخريطة أو أدخل الإحداثيات يدويًا قبل حساب السعر.');
+      return;
+    }
+    if (!pickup.area.trim() || !pickup.detail.trim() || !dropoff.area.trim() || !dropoff.detail.trim()) {
+      setMessage('أكمل المنطقة ووصف العنوان لنقطتي الانطلاق والوجهة قبل حساب السعر.');
+      return;
+    }
+    setBusy(true); setMessage('جاري اعتماد المسار والتعرفة…');
     try {
       const result = await taxiApi.rider.quote(pickup, dropoff);
       if (mounted.current) { setQuote(result); setMessage('العرض صالح مؤقتًا. السعر النهائي يعتمد على العداد الموثوق عند إنهاء الرحلة.'); }
@@ -165,9 +193,20 @@ function RiderJourney() {
     finally { if (mounted.current) setBusy(false); }
   }
 
+  async function rate(rating: number) {
+    if (!trip || busy || trip.phase !== 'completed' || trip.rating !== undefined || !Number.isInteger(rating) || rating < 1 || rating > 5) return;
+    setBusy(true);
+    try {
+      const updated = await taxiApi.rider.command(trip.id, 'rate', trip.version, { rating });
+      if (mounted.current) { setTrip(updated); setMessage(`تم تسجيل تقييمك ${rating} من 5.`); }
+    } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
+    finally { if (mounted.current) setBusy(false); }
+  }
+
   return <div className={styles.grid}>
     <Surface as="form" className={styles.panel} onSubmit={price} aria-busy={busy}>
       <h2>طلب تكسي</h2>
+      <TaxiMapSelector pickup={pickup} dropoff={dropoff} onPickupChange={setPickup} onDropoffChange={setDropoff} />
       <AddressFields prefix="الانطلاق" value={pickup} onChange={setPickup} />
       <AddressFields prefix="الوجهة" value={dropoff} onChange={setDropoff} />
       <div className={styles.actions}>
@@ -188,7 +227,14 @@ function RiderJourney() {
       {trip && <><TripCard trip={trip} onRefresh={() => restore(trip.id)} /><div className={styles.actions}>
         {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void consent()} disabled={busy}>أوافق على بدء الرحلة</ActionButton>}
         {!['in_progress', 'completed', 'cancelled', 'rejected'].includes(trip.phase) && <ActionButton type="button" variant="secondary" onClick={() => void cancel()} disabled={busy}>إلغاء الطلب</ActionButton>}
-      </div></>}
+      </div>
+      {trip.phase === 'completed' && <Surface className={styles.panel}>
+        <h3>قيّم رحلتك</h3>
+        {trip.rating !== undefined
+          ? <StatusMessage tone="success">تم تسجيل تقييمك: {trip.rating} من 5.</StatusMessage>
+          : <><p className={styles.note}>اختر تقييمًا واحدًا بعد اكتمال الرحلة. لا يمكن إرسال تقييم ثانٍ للرحلة نفسها.</p><div className={styles.actions} aria-label="تقييم رحلة التكسي">{[1, 2, 3, 4, 5].map((rating) => <ActionButton key={rating} type="button" variant="secondary" disabled={busy} onClick={() => void rate(rating)}>{rating} ★</ActionButton>)}</div></>}
+      </Surface>}
+      </>}
     </div>
   </div>;
 }
@@ -281,7 +327,7 @@ function DriverJourney() {
       </Surface>)}
       {trip && <><TripCard trip={trip} onRefresh={() => read(trip.id)} /><Surface className={styles.panel}>
         <h3>الخطوة التشغيلية</h3>
-        <p className={styles.note}>الوصول وإنهاء الرحلة يحتاجان إثباتات من كاتب موثوق/عداد؛ لا توجد أزرار لتزوير هذه البيانات من المتصفح.</p>
+        <p className={styles.note}>الوصول وإنهاء الرحلة يعتمدان على إثباتات تشغيلية موثوقة.</p>
         <div className={styles.actions}>
           {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void checkConsent()} disabled={busy}>تحقق من موافقة الراكب وابدأ</ActionButton>}
           {trip.phase === 'accepted' && !trip.rideStartedAt && <ActionButton type="button" variant="secondary" onClick={() => void release()} disabled={busy}>تحرير المهمة</ActionButton>}
@@ -294,9 +340,15 @@ function DriverJourney() {
 function TaxiContent() {
   const params = useSearchParams(); const driver = params.get('mode') === 'driver';
   return <PageShell className={styles.page} label="خدمة تكسي">
-    <PageHeader eyebrow="خدمة — التنقل" title="تكسي" description="رحلة تشغيلية مرتبطة بالحساب والتعرفة والمسار واعتماد السائق. لا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
-    <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
-    {driver ? <DriverJourney /> : <RiderJourney />}
+    <PageHeader eyebrow="خدمة — التنقل" title="تكسي" description="حدد الانطلاق والوجهة على الخريطة داخل صفحة التكسي. الرحلة تبقى مرتبطة بالحساب والتعرفة واعتماد السائق، ولا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
+    <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/taxi-driver-signup" variant="secondary">سجّل سيارتك</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
+    {!TAXI_TRIPS_ENABLED
+      ? <Surface className={styles.panel}>
+          <h2>التفعيل التشغيلي للرحلات</h2>
+          <StatusMessage tone="info">اعتماد السائقين والمركبات متاح، بينما إنشاء رحلات التكسي ما زال مغلقًا في هذه النسخة حتى اكتمال واعتماد مخطط الرحلات التشغيلي.</StatusMessage>
+          <div className={styles.actions}><ActionLink href="/taxi-driver-signup">سجّل سيارتك</ActionLink><ActionLink href="/mobility?type=taxi" variant="secondary">استعرض مزودي التكسي</ActionLink></div>
+        </Surface>
+      : driver ? <DriverJourney /> : <RiderJourney />}
   </PageShell>;
 }
 

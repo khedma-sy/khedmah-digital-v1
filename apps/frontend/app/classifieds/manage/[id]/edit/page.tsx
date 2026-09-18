@@ -3,8 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, type PublicBusinessProfile } from '../../../../../lib/api-client';
-import { classifiedsApi, type AdImage, type AdKind, type AdPriceMode, type OwnerAdListing } from '../../../../../lib/classifieds-client';
-import { AD_STATUS_LABELS, CLASSIFIEDS_ENABLED } from '../../../../../lib/classifieds';
+import { CLASSIFIEDS_MAX_IMAGES, classifiedsApi, type AdImage, type AdKind, type AdPriceMode, type OwnerAdListing } from '../../../../../lib/classifieds-client';
+import { AD_STATUS_LABELS, CLASSIFIEDS_ENABLED, clearRequestId, requestId } from '../../../../../lib/classifieds';
 import { useCategories } from '../../../../../lib/use-categories';
 import { useSyrianCities } from '../../../../../lib/use-syrian-cities';
 import { CategorySelectOptions } from '../../../../components/category-select-options';
@@ -111,6 +111,10 @@ export default function EditClassifiedPage() {
     if (issue) { setError(issue); return; }
     const input = event.currentTarget.elements.namedItem('adImages') as HTMLInputElement;
     const selected = Array.from(input.files ?? []);
+    if (images.length + selected.length > CLASSIFIEDS_MAX_IMAGES) {
+      setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان. احذف صورة محفوظة قبل إضافة بديل.`);
+      return;
+    }
     if (selected.some((file) => !allowedTypes.includes(file.type as typeof allowedTypes[number]) || file.size <= 0 || file.size > 5 * 1024 * 1024)) {
       setError('الصور المقبولة JPG أو PNG أو WebP وبحد 5 ميغابايت للصورة.'); return;
     }
@@ -165,7 +169,11 @@ export default function EditClassifiedPage() {
     if (!ad || operation.current || ad.status === 'active' || ad.status === 'pending_review') return;
     operation.current = true; setSaving(true); setError('');
     try {
-      const result = await classifiedsApi.submit(ad.id, crypto.randomUUID());
+      const storageKey = `khedmah.classifieds.submit.${ad.id}.${ad.contentRevision}`;
+      const result = await classifiedsApi.submit(ad.id, {
+        clientRequestId: requestId(storageKey), expectedContentRevision: ad.contentRevision
+      });
+      clearRequestId(storageKey);
       setAd(result.ad); setForm(fromAd(result.ad)); setNotice('تم إرسال الإعلان للمراجعة.');
     } catch (cause) {
       const issue = cause instanceof Error ? cause as Error & { statusCode?: number; code?: string } : undefined;
@@ -192,11 +200,12 @@ export default function EditClassifiedPage() {
         <div className={styles.formGrid}><label className={styles.field}>النوع<select value={form.kind} onChange={(event) => setForm((value) => value && ({ ...value, kind: event.target.value as AdKind }))}><option value="sale">للبيع</option><option value="service">خدمة</option><option value="wanted">مطلوب</option><option value="rent">للإيجار</option></select></label><label className={styles.field}>التصنيف<select value={form.categoryCode} disabled={categoryLoading || !!categoryError} onChange={(event) => setForm((value) => value && ({ ...value, categoryCode: event.target.value }))}><option value="">اختر تصنيفًا</option><CategorySelectOptions categories={categories} allowRoots={false}/></select></label></div>
         <label className={styles.field}>العنوان<input minLength={2} maxLength={160} value={form.titleAr} onChange={(event) => setForm((value) => value && ({ ...value, titleAr: event.target.value }))}/></label>
         <label className={styles.field}>الوصف<textarea rows={5} maxLength={4000} value={form.descriptionAr} onChange={(event) => setForm((value) => value && ({ ...value, descriptionAr: event.target.value }))}/></label>
-        <div className={styles.formGrid}><label className={styles.field}>طريقة السعر<select value={form.priceMode} onChange={(event) => setForm((value) => value && ({ ...value, priceMode: event.target.value as AdPriceMode }))}><option value="none">بدون سعر</option><option value="fixed">سعر ثابت</option><option value="negotiable">قابل للتفاوض</option><option value="contact">تواصل للسعر</option></select></label>{form.priceMode === 'fixed' && <label className={styles.field}>السعر<input type="number" min="1" step="1" value={form.priceMinor} onChange={(event) => setForm((value) => value && ({ ...value, priceMinor: event.target.value }))}/></label>}</div>
+        <div className={styles.formGrid}><label className={styles.field}>طريقة السعر<select value={form.priceMode} onChange={(event) => setForm((value) => value && ({ ...value, priceMode: event.target.value as AdPriceMode }))}><option value="none">بدون سعر</option><option value="fixed">سعر ثابت</option><option value="negotiable">قابل للتفاوض</option><option value="contact">تواصل للسعر</option></select></label>{form.priceMode === 'fixed' && <label className={styles.field}>السعر<input type="number" inputMode="numeric" dir="ltr" min="1" step="1" value={form.priceMinor} onChange={(event) => setForm((value) => value && ({ ...value, priceMinor: event.target.value }))}/></label>}</div>
         {form.priceMode === 'fixed' && <label className={styles.field}>العملة<select value={form.currency} onChange={(event) => setForm((value) => value && ({ ...value, currency: event.target.value as 'SYP' | 'USD' }))}><option value="SYP">ليرة سورية</option><option value="USD">دولار أمريكي</option></select></label>}
         <div className={styles.formGrid}><label className={styles.field}>المدينة<select value={form.cityCode} disabled={cityLoading || !!cityError} onChange={(event) => setForm((value) => value && ({ ...value, cityCode: event.target.value }))}><option value="">بدون مدينة</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label><label className={styles.field}>المنطقة<input maxLength={160} value={form.areaText} onChange={(event) => setForm((value) => value && ({ ...value, areaText: event.target.value }))}/></label></div>
-        <div className={styles.formGrid}><label className={styles.field}>طريقة التواصل<select value={form.contactMode} onChange={(event) => setForm((value) => value && ({ ...value, contactMode: event.target.value as FormState['contactMode'] }))}><option value="profile">الملف المرتبط</option><option value="phone">هاتف</option><option value="whatsapp">واتساب</option></select></label>{form.contactMode !== 'profile' && <label className={styles.field}>بيانات التواصل<input maxLength={80} value={form.contactValue} onChange={(event) => setForm((value) => value && ({ ...value, contactValue: event.target.value }))}/></label>}</div>
-        <label className={styles.field}>إضافة صور<input name="adImages" type="file" accept="image/jpeg,image/png,image/webp" multiple/></label>
+        <div className={styles.formGrid}><label className={styles.field}>طريقة التواصل<select value={form.contactMode} onChange={(event) => setForm((value) => value && ({ ...value, contactMode: event.target.value as FormState['contactMode'] }))}><option value="profile">الملف المرتبط</option><option value="phone">هاتف</option><option value="whatsapp">واتساب</option></select></label>{form.contactMode !== 'profile' && <label className={styles.field}>بيانات التواصل<input type="tel" inputMode="tel" dir="ltr" maxLength={80} value={form.contactValue} onChange={(event) => setForm((value) => value && ({ ...value, contactValue: event.target.value }))}/></label>}</div>
+        <label className={styles.field}>إضافة صور — حتى {CLASSIFIEDS_MAX_IMAGES} صور<input name="adImages" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={images.length >= CLASSIFIEDS_MAX_IMAGES}/></label>
+        <p className={styles.notice}>الصور المحفوظة: {images.length} من {CLASSIFIEDS_MAX_IMAGES}. احذف صورة قبل رفع بديل عند بلوغ الحد.</p>
         <ActionButton type="submit" disabled={saving || locked}>حفظ التعديلات والصور</ActionButton>
       </fieldset>
     </Surface>

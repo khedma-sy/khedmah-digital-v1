@@ -146,6 +146,7 @@ jobs:
         run: |
           echo "### Staging deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Frontend: ${{ steps.deploy.outputs.frontend_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preview baseline required: set STAGING_FRONTEND_URL=${{ steps.deploy.outputs.frontend_url }} in the protected preview environment before re-running PR Preview." >> "$GITHUB_STEP_SUMMARY"
           echo "- Backend health: ${{ steps.deploy.outputs.backend_url }}/api/v1/health" >> "$GITHUB_STEP_SUMMARY"
           echo "- Classifieds stage: ${{ steps.classifieds-stage.outputs.stage }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime observation: 6/6 health samples required" >> "$GITHUB_STEP_SUMMARY"

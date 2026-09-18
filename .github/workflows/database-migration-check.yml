@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate-migrations:
     name: Validate Migration Files
@@ -53,6 +57,15 @@ jobs:
             022_expand_category_taxonomy
             024_product_store
             025_classifieds
+            026_cash_fulfillment_orders
+            027_mobility_document_reviews
+            028_platform_notifications
+            029_taxi_pricing_revisions
+            030_billing_credits_subscriptions
+            031_taxi_operational_approvals
+            032_taxi_operational_profile_gate
+            033_billing_admin_role
+            034_food_order_promotions
           )
 
           for migration in "${migrations[@]}"; do
@@ -63,6 +76,22 @@ jobs:
             if [[ "$migration" == "019_remove_out_of_scope_subscription_schema" ]]; then
               grep -Eq '\bDROP[[:space:]]+TABLE\b' "$forward"
               grep -Eq '\bCREATE[[:space:]]+TABLE\b' "$rollback"
+            elif [[ "$migration" == "032_taxi_operational_profile_gate" ]]; then
+              grep -Eq 'CREATE[[:space:]]+OR[[:space:]]+REPLACE[[:space:]]+FUNCTION[[:space:]]+khedmah_taxi\.resolve_actor_locked' "$forward"
+              grep -Eq 'CREATE[[:space:]]+OR[[:space:]]+REPLACE[[:space:]]+FUNCTION[[:space:]]+khedmah_taxi\.resolve_actor_locked' "$rollback"
+            elif [[ "$migration" == "033_billing_admin_role" ]]; then
+              grep -Fq "'billing_admin'" "$forward"
+              grep -Fq 'MIGRATION_033_ROLLBACK_BLOCKED: billing_admin assignments exist' "$rollback"
+              grep -Eq 'IF[[:space:]]+EXISTS[[:space:]]*\(' "$rollback"
+              if grep -Eq '\b(DELETE[[:space:]]+FROM|TRUNCATE|DROP[[:space:]]+TABLE)\b' "$forward" "$rollback"; then
+                echo 'Migration 033 must preserve admin role assignments.' >&2
+                exit 1
+              fi
+            elif [[ "$migration" == "034_food_order_promotions" ]]; then
+              grep -Fq 'CREATE TABLE food_promo_codes' "$forward"
+              grep -Fq 'CREATE TABLE food_promo_claims' "$forward"
+              grep -Fq 'MIGRATION_034_ROLLBACK_BLOCKED' "$rollback"
+              grep -Fq 'discount_amount <> 0' "$rollback"
             else
               grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             fi
@@ -125,22 +154,38 @@ jobs:
             024_product_store_rollback.sql \
             025_classifieds.sql \
             025_classifieds_rollback.sql \
+            026_cash_fulfillment_orders.sql \
+            026_cash_fulfillment_orders_rollback.sql \
+            027_mobility_document_reviews.sql \
+            027_mobility_document_reviews_rollback.sql \
+            028_platform_notifications.sql \
+            028_platform_notifications_rollback.sql \
+            029_taxi_pricing_revisions.sql \
+            029_taxi_pricing_revisions_rollback.sql \
+            030_billing_credits_subscriptions.sql \
+            030_billing_credits_subscriptions_rollback.sql \
+            031_taxi_operational_approvals.sql \
+            031_taxi_operational_approvals_rollback.sql \
+            032_taxi_operational_profile_gate.sql \
+            032_taxi_operational_profile_gate_rollback.sql \
+            033_billing_admin_role.sql \
+            033_billing_admin_role_rollback.sql \
+            034_food_order_promotions.sql \
+            034_food_order_promotions_rollback.sql \
             | sort > "$expected"
-          find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' \
-            -printf '%f\n' | sort > "$actual"
-
+          find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"
 
-      - name: Enforce MVP table boundaries
+      - name: Enforce governed product table boundaries
         shell: bash
         run: |
           set -euo pipefail
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
-          if grep -Eirn \
-            --include='*.sql' \
-            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
-            backend/migrations/versions; then
-            echo 'Forbidden MVP table definition detected.' >&2
+          # Product V2 billing credits/subscriptions, Taxi operational approvals/profile authority,
+          # and restaurant-funded food promotion claims are approved scope.
+          # Generic payment processor, marketplace, inventory, commissions, social-profile and tracking schemas remain forbidden.
+          forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
+          if grep -Eirn --include='*.sql' "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" backend/migrations/versions; then
+            echo 'Forbidden product table definition detected.' >&2
             exit 1
           fi
 
@@ -153,6 +198,15 @@ jobs:
             if [[ "$file" == *019_remove_out_of_scope_subscription_schema.sql ]]; then
               grep -Eq '\bDROP[[:space:]]+TABLE\b' "$file"
               echo "Verified teardown migration: $file"
+              continue
+            fi
+            if [[ "$file" == *032_taxi_operational_profile_gate.sql ]]; then
+              grep -Fq "FROM public.business_profiles bb" "$file"
+              grep -Fq "b.visibility <> 'public'" "$file"
+              grep -Fq "b.moderation_status <> 'approved'" "$file"
+              grep -Fq "b.trust_status <> 'approved'" "$file"
+              grep -Fq "b.status <> 'active'" "$file"
+              echo "Verified Taxi authority hardening: $file"
               continue
             fi
             grep -Eq 'CONSTRAINT|PRIMARY KEY|FOREIGN KEY' "$file"

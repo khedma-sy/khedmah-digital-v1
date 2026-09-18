@@ -11,14 +11,15 @@ for name in \
   PRODUCTION_GOOGLE_CLOUD_PROJECT \
   GOOGLE_CLOUD_REGION \
   OPERATIONS_BACKEND_SERVICE \
-  OPERATIONS_FRONTEND_SERVICE; do
+  OPERATIONS_FRONTEND_SERVICE \
+  NEXT_PUBLIC_SITE_URL; do
   [[ -n "${!name:-}" ]] || { echo "Missing ${name}." >&2; exit 4; }
 done
 [[ "$GOOGLE_CLOUD_PROJECT" == "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || {
   echo 'Live Production certification is bound to the explicit Production project.' >&2
   exit 6
 }
-for command_name in gcloud node; do
+for command_name in gcloud node curl; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "Missing required command: ${command_name}." >&2; exit 3; }
 done
 
@@ -88,6 +89,7 @@ scripts/google-production-rollback.sh "$after_backend" "$after_frontend" > "$evi
 redeploy_seconds=$((SECONDS-start))
 deployment_changed=true
 
+scripts/validate-production-domain-readiness.sh | tee "$evidence_root/domain-readiness.txt"
 scripts/collect-live-production-evidence.sh "$evidence_root/runtime"
 printf '{"completedAt":"%s","deploySeconds":%d,"rollbackSeconds":%d,"redeploySeconds":%d,"status":"completed"}\n' \
   "$(date -u +%FT%TZ)" "$deploy_seconds" "$rollback_seconds" "$redeploy_seconds" > "$evidence_root/execution-summary.json"

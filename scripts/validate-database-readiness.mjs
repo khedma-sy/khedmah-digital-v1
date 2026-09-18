@@ -56,10 +56,36 @@ const EXPECTED_MIGRATIONS = [
   '019_remove_out_of_scope_subscription_schema_rollback.sql',
   '020_identity_recovery_oauth.sql',
   '020_identity_recovery_oauth_rollback.sql',
+  '021_provider_reports.sql',
+  '021_provider_reports_rollback.sql',
+  '022_expand_category_taxonomy.sql',
+  '022_expand_category_taxonomy_rollback.sql',
+  '024_product_store.sql',
+  '024_product_store_rollback.sql',
+  '025_classifieds.sql',
+  '025_classifieds_rollback.sql',
+  '026_cash_fulfillment_orders.sql',
+  '026_cash_fulfillment_orders_rollback.sql',
+  '027_mobility_document_reviews.sql',
+  '027_mobility_document_reviews_rollback.sql',
+  '028_platform_notifications.sql',
+  '028_platform_notifications_rollback.sql',
+  '029_taxi_pricing_revisions.sql',
+  '029_taxi_pricing_revisions_rollback.sql',
+  '030_billing_credits_subscriptions.sql',
+  '030_billing_credits_subscriptions_rollback.sql',
+  '031_taxi_operational_approvals.sql',
+  '031_taxi_operational_approvals_rollback.sql',
+  '032_taxi_operational_profile_gate.sql',
+  '032_taxi_operational_profile_gate_rollback.sql',
+  '033_billing_admin_role.sql',
+  '033_billing_admin_role_rollback.sql',
+  '034_food_order_promotions.sql',
+  '034_food_order_promotions_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'];
-const PRODUCTION_ADDITIONAL_ENV = ['DATABASE_URL', 'BOOTSTRAP_ADMIN_SECRET'];
+const PRODUCTION_ADDITIONAL_ENV = ['DATABASE_URL'];
 
 let passed = 0;
 let failed = 0;
@@ -99,10 +125,13 @@ for (const filename of EXPECTED_MIGRATIONS) {
   if (!existsSync(filepath)) continue;
   const content = readFileSync(filepath, 'utf8');
   const isTeardown = filename.startsWith('019_');
-  check(
-    `${filename} has schema DDL`,
-    isTeardown ? /\bDROP\s+TABLE\b/.test(content) : /\b(?:CREATE|ALTER)\s+TABLE\b/.test(content)
-  );
+  const isFunctionOnly = filename.startsWith('032_');
+  const hasExpectedDdl = isTeardown
+    ? /\bDROP\s+TABLE\b/.test(content)
+    : isFunctionOnly
+      ? /CREATE\s+OR\s+REPLACE\s+FUNCTION/i.test(content)
+      : /\b(?:CREATE|ALTER)\s+TABLE\b/.test(content);
+  check(`${filename} has governed schema DDL`, hasExpectedDdl);
   const rollbackFile = filename.replace('.sql', '_rollback.sql');
   check(`${filename} has rollback script`, existsSync(join(MIGRATIONS_DIR, rollbackFile)));
 }

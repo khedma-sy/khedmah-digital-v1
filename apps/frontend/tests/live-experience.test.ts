@@ -9,8 +9,10 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
 
   assert.match(home, /كل ما تحتاجه/);
   assert.match(home, /FeaturedCategories/);
-  assert.match(home, /اكتشف الخدمات/);
-  assert.match(home, /أضف نشاطك/);
+  assert.match(home, /خدمة فود/);
+  assert.match(home, /مندوب التوصيل/);
+  assert.match(home, /خدمة تكسي/);
+  assert.match(home, /متجر خدمة/);
   assert.match(home, /التصنيفات الرئيسية/);
   assert.match(home, /PlatformIcon name="search"/);
   assert.match(home, /khedma-community\.webp/);
@@ -22,7 +24,8 @@ test('homepage removes competing marketing and decorative concepts', async () =>
   for (const forbidden of ['BrandHero', 'orbit', 'خطط تنمو معك', 'Premium', '100%', 'كل الخدمات تحت مظلة واحدة']) {
     assert.doesNotMatch(home, new RegExp(forbidden));
   }
-  assert.match(home, /business-profiles\/new/);
+  assert.doesNotMatch(home, /business-profiles\/new/);
+  assert.match(home, /href="\/auth\/register"/);
 });
 
 test('homepage is mobile-first and supports system themes and controlled motion', async () => {
@@ -56,6 +59,8 @@ test('navigation avoids duplicate links and interactions respect reduced motion'
   assert.equal((layout.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.equal((navigation.match(/>الخدمات<\/Link>/g) ?? []).length, 0);
   assert.match(navigation, /label: 'التصنيفات'/);
+  assert.match(navigation, /label: 'المطاعم'/);
+  assert.match(navigation, /label: 'المتجر'/);
   assert.match(layout, /className="khedma-header"/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });

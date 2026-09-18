@@ -9,6 +9,7 @@ permissions:
 concurrency:
   group: preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
 jobs:
   quality-gates:
     if: github.event.action != 'closed'
@@ -20,8 +21,7 @@ jobs:
           POSTGRES_USER: khedmah
           POSTGRES_PASSWORD: khedmah_dev
           POSTGRES_DB: khedmah_ci
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -55,6 +55,7 @@ jobs:
         run: npm run validate:deployments
       - name: Secret usage validation
         run: npm run verify:firebase-secrets
+
   deploy-preview:
     if: github.event.action != 'closed'
     needs: quality-gates
@@ -76,7 +77,7 @@ jobs:
             echo "has_gcp=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_gcp=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cloud deployment"
+            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the preview environment"
           fi
       - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
@@ -117,9 +118,40 @@ jobs:
           CLASSIFIEDS_MIGRATION_025_MODE: ${{ steps.classifieds-stage.outputs.migration_mode }}
           CLASSIFIEDS_MIGRATION_025_CONFIRMATION: ${{ steps.classifieds-stage.outputs.migration_confirmation }}
         run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
+
+  resolve-staging-baseline:
+    if: github.event.action != 'closed'
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    environment: preview
+    outputs:
+      frontend_url: ${{ steps.resolve.outputs.frontend_url }}
+    steps:
+      - id: resolve
+        name: Resolve independent Staging frontend baseline without Staging credentials
+        env:
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$STAGING_FRONTEND_URL" || {
+            echo "::error::STAGING_FRONTEND_URL must be configured after a healthy Staging deployment." >&2
+            exit 2
+          }
+          [[ "$STAGING_FRONTEND_URL" == https://* ]] || {
+            echo '::error::STAGING_FRONTEND_URL must use HTTPS.' >&2
+            exit 2
+          }
+          [[ "$STAGING_FRONTEND_URL" != *"localhost"* && "$STAGING_FRONTEND_URL" != *"127.0.0.1"* ]] || {
+            echo '::error::STAGING_FRONTEND_URL must reference the independent deployed Staging frontend.' >&2
+            exit 2
+          }
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$STAGING_FRONTEND_URL/" >/dev/null
+          echo "frontend_url=$STAGING_FRONTEND_URL" >> "$GITHUB_OUTPUT"
+
   review-evidence:
-    if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != ''
-    needs: [quality-gates, deploy-preview]
+    if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != '' && needs.resolve-staging-baseline.outputs.frontend_url != ''
+    needs: [quality-gates, deploy-preview, resolve-staging-baseline]
     runs-on: ubuntu-latest
     environment: preview
     timeout-minutes: 12
@@ -138,7 +170,7 @@ jobs:
       - name: Capture before and after screenshots
         id: capture
         env:
-          BEFORE_URL: ${{ vars.STAGING_FRONTEND_URL }}
+          BEFORE_URL: ${{ needs.resolve-staging-baseline.outputs.frontend_url }}
           AFTER_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PLAYWRIGHT_PACKAGE_JSON: ${{ runner.temp }}/khedmah-browser/package.json
@@ -173,6 +205,7 @@ jobs:
         env:
           PREVIEW_URL: ${{ needs.deploy-preview.outputs.frontend_url }}
           BACKEND_URL: ${{ needs.deploy-preview.outputs.backend_url }}
+          STAGING_URL: ${{ needs.resolve-staging-baseline.outputs.frontend_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           QUALITY_RESULT: ${{ needs.quality-gates.result }}
           CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
@@ -189,12 +222,13 @@ jobs:
             let interactions = { status: 'unavailable', scenarios: [] };
             try { interactions = JSON.parse(fs.readFileSync('preview-evidence/interactions-manifest.json', 'utf8')); } catch {}
             const checks = evidence.after.map(item => `- ${item.route} (${item.viewport}, ${item.theme || 'light'}): **${item.status}**${item.failures.length ? ` — ${item.failures.join(', ')}` : ''}`).join('\n');
-            const body = `## 🔎 Preview Review\n\n### Verified reference\nHead: \`${process.env.PREVIEW_HEAD_SHA}\`\n\n### Automated results\nQuality gates: **${process.env.QUALITY_RESULT}**\nBrowser capture step: **${process.env.CAPTURE_OUTCOME || 'not run'}**\nClassifieds acceptance step: **${process.env.CLASSIFIEDS_OUTCOME || 'not run'}**\nClassifieds live acceptance: **${classifieds.status}** (page ${classifieds.pageStatus ?? 'n/a'}, proxy ${classifieds.proxiedApiStatus ?? 'n/a'}, backend ${classifieds.directBackendStatus ?? 'n/a'}, ads ${classifieds.adCount ?? 'n/a'})${classifieds.failures?.length ? ` — ${classifieds.failures.join(', ')}` : ''}\nMobile interaction step: **${process.env.INTERACTION_OUTCOME || 'not run'}**\nMobile interactions: **${interactions.status}** (${interactions.scenarios.filter(item => item.status === 'passed').length}/20)\nEvidence manifest: **${evidence.status}**\nPreview readiness: **${evidence.previewStatus || 'not_run'}**\nStaging homepage baseline: **${evidence.before?.status || 'unavailable'}**\nBaseline blockers: ${(evidence.before?.failures || []).join(', ') || 'none'}\nSetup failure: ${evidence.setupFailure || 'none'}\n\n${checks}\n\n### Preview URL\n[Open clickable preview](${process.env.PREVIEW_URL})\n\n### Backend health\n[Open health endpoint](${process.env.BACKEND_URL}/api/v1/health)\n\n### Screenshots and diagnostics\n[Open this run and download the screenshots plus manifest](${process.env.RUN_URL})\n\nA missing or invalid baseline keeps the comparison gate failed even when all Preview captures pass. Configure STAGING_FRONTEND_URL in the protected preview environment; never substitute Production or the Preview itself. The Classifieds acceptance is independent and read-only: it verifies the deployed /classifieds page, its same-origin /api/v1/classifieds request and the direct Preview backend endpoint without authentication or writes. Only passing captures are named before.png / after.png; failed captures are explicitly diagnostic. The Staging baseline is an environment comparison, not a verified parent-commit image. Coverage is anonymous home, categories, search, map and professional search in light/dark at 320, 390, 768 and 1280px; it is not a full visual, accessibility or end-to-end certification.\n\n### Owner review guide\n1. Inspect manifest.json and classifieds-acceptance-manifest.json before using screenshots as evidence.\n2. Resolve failures rather than accepting a blank or loading capture.\n3. Check RTL, responsive layout and changed paths manually.\n4. Exercise documented flows with test-only data.\n5. Record approval or defects before merge. No production deployment is authorized by this report.\n`;
+            const body = `## 🔎 Preview Review\n\nHead: \`${process.env.PREVIEW_HEAD_SHA}\`\n\nQuality gates: **${process.env.QUALITY_RESULT}**\nBrowser capture: **${process.env.CAPTURE_OUTCOME || 'not run'}**\nClassifieds acceptance: **${process.env.CLASSIFIEDS_OUTCOME || 'not run'}**\nMobile interactions: **${process.env.INTERACTION_OUTCOME || 'not run'}** (${interactions.scenarios.filter(item => item.status === 'passed').length}/${interactions.scenarios.length})\nStaging baseline: ${process.env.STAGING_URL}\nPreview readiness: **${evidence.previewStatus || 'not_run'}**\nBaseline status: **${evidence.before?.status || 'unavailable'}**\n\n${checks}\n\n[Open Preview](${process.env.PREVIEW_URL}) · [Backend health](${process.env.BACKEND_URL}/api/v1/health) · [Run evidence](${process.env.RUN_URL})\n\nThe baseline is the protected STAGING_FRONTEND_URL published only after a healthy Staging deployment; Production and the Preview itself are never accepted as substitutes. No production deployment is authorized by this report.`;
             const marker = '## 🔎 Preview Review';
             const comments = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number });
             const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
             if (existing) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
             else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+
   cleanup-preview:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
@@ -206,12 +240,7 @@ jobs:
         env:
           GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
-          if [ -n "$GCP_WI" ]; then
-            echo "has_gcp=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_gcp=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the 'preview' environment – skipping cleanup"
-          fi
+          if [ -n "$GCP_WI" ]; then echo "has_gcp=true" >> "$GITHUB_OUTPUT"; else echo "has_gcp=false" >> "$GITHUB_OUTPUT"; fi
       - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:

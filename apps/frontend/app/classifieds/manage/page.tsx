@@ -44,7 +44,7 @@ export default function ManageClassifiedsPage() {
         <span className={styles.status}>{AD_STATUS_LABELS[ad.status]}</span>
         <div className={styles.meta}><span>{AD_KIND_LABELS[ad.kind]}</span>{ad.cityCode && <><span>·</span><span>{ad.cityCode}</span></>}</div>
         <h2>{ad.titleAr}</h2>
-        <strong className={styles.price}>{formatAdPrice(ad)}</strong>
+        <strong className={styles.price} dir="auto">{formatAdPrice(ad)}</strong>
         {ad.rejectionReason && <StatusMessage tone="danger">{ad.rejectionReason}</StatusMessage>}
         <div className={styles.actions}>
           <ActionLink href={`/classifieds/manage/${encodeURIComponent(ad.id)}/edit`} variant="secondary">إدارة الإعلان</ActionLink>

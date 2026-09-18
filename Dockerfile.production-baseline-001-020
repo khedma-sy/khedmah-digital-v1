@@ -1,0 +1,10 @@
+FROM postgres:16-alpine
+
+COPY backend/migrations/versions /migrations
+COPY scripts/run-production-baseline-001-020.sh /usr/local/bin/run-production-baseline-001-020
+
+RUN chmod 0555 /usr/local/bin/run-production-baseline-001-020 \
+    && chmod -R a-w /migrations
+
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-production-baseline-001-020"]

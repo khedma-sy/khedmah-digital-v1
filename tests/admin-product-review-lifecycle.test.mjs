@@ -49,7 +49,7 @@ test('failed queue refresh is recoverable without replaying moderation', async (
 });
 test('the real API client serializes revision and preserves 409 errors', async () => {
   const requests = [];
-  const { api } = load(read('apps/frontend/lib/api-client.ts'), {}, { fetch: async (url, init) => { requests.push({ url, init }); return { ok: false, status: 409, json: async () => ({ message: 'changed' }) }; } });
+  const { api } = load(read('apps/frontend/lib/api-client.ts'), { './api-errors': load(read('apps/frontend/lib/api-errors.ts'), {}) }, { fetch: async (url, init) => { requests.push({ url, init }); return { ok: false, status: 409, json: async () => ({ message: 'changed' }) }; } });
   await assert.rejects(() => api.adminProducts.review('a/b', 'approved', revision), cause => cause.statusCode === 409);
   assert.equal(requests[0].url, '/api/v1/admin/products/a%2Fb/moderation'); assert.deepEqual(JSON.parse(requests[0].init.body), { status: 'approved', expectedRevision: revision });
 });

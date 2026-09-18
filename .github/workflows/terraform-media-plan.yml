@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 20
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
-      GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION || 'europe-west1' }}
+      GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION || 'me-central1' }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}

@@ -82,7 +82,7 @@ function fixture(query = '', options = {}) {
     emit(name) { for (const cb of this.events.get(name) ?? []) cb(); }
     getBounds() { return { toJSON: () => this.bounds }; }
     getCenter() { return { lat: () => this.center.lat, lng: () => this.center.lng }; }
-    fitBounds(bounds) { this.bounds = normalize(bounds); this.fits.push(this.bounds); this.emit('zoom_changed'); }
+    fitBounds(bounds) { this.bounds = normalize(bounds); this.fits.push(this.bounds); this.emit('center_changed'); this.emit('zoom_changed'); }
     panTo(point) { this.center = normalize(point); this.panned = true; }
   }
   class Overlay {
@@ -271,7 +271,36 @@ test('an area response arriving during a gesture cannot refit the old area or pu
 
 test('keyboard pan updates bounds without depending on a dragstart event', async () => {
   const f = fixture(); await finish(f); f.idle(undefined, false);
+  f.maps[0].bounds = areaB; f.maps[0].emit('center_changed'); f.maps[0].emit('bounds_changed'); f.idle(undefined, false); f.tick();
+  assert.deepEqual(f.calls.at(-1).input.boundaries, areaB);
+});
+
+test('bounds-only layout changes after initial idle do not navigate or constrain an untouched map', async () => {
+  const f = fixture(); await finish(f); f.idle(undefined, false);
+  const href = f.location.href;
   f.maps[0].bounds = areaB; f.maps[0].emit('bounds_changed'); f.idle(undefined, false); f.tick();
+  assert.equal(f.location.href, href);
+  assert.equal(f.navigations.length, 0);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.busy, false);
+});
+
+test('a layout-only bounds change cannot invalidate an in-flight city result', async () => {
+  const f = fixture('?cityCode=aleppo'); f.idle(undefined, false);
+  f.maps[0].bounds = areaB; f.maps[0].emit('bounds_changed'); f.idle(undefined, false); f.tick();
+  await finish(f, 'نتيجة المدينة الأصلية', f.calls[0]);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.navigations.length, 0);
+  assert.equal(f.busy, false);
+  assert.ok(f.titles.some(name => name.includes('نتيجة المدينة الأصلية')));
+});
+
+test('zoom still searches the final bounds once the camera is idle', async () => {
+  const f = fixture(); await finish(f); f.idle(undefined, false);
+  f.maps[0].bounds = areaB; f.maps[0].emit('zoom_changed'); f.maps[0].emit('bounds_changed');
+  assert.equal(f.calls.length, 1);
+  f.idle(undefined, false); f.tick();
+  assert.equal(f.calls.length, 2);
   assert.deepEqual(f.calls.at(-1).input.boundaries, areaB);
 });
 

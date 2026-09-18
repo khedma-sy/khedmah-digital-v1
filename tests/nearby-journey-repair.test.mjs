@@ -87,7 +87,7 @@ test('SDK pan failures are caught and do not leave the locate button disabled',a
  const f=fixture({key:true});f.initialize();f.emit('tilesloaded');await f.resolve(0);f.handles[0].panTo=()=>{throw new Error('pan failed');};
  f.locate();assert.doesNotThrow(()=>f.position());assert.equal(f.locateButton().props.disabled,false);
 });
-for(const event of ['dragstart','zoom_changed','idle'])test(`queued ${event} from a disposed map cannot update state or leave timers`,()=>{
+for(const event of ['dragstart','zoom_changed','center_changed','idle'])test(`queued ${event} from a disposed map cannot update state or leave timers`,()=>{
  const f=fixture({key:true});f.initialize();f.emit('idle');f.emit('dragstart');const late=f.handles[0].events.get(event);
  f.h.unmount();late();assert.equal(f.h.writesAfterUnmount,0);assert.equal(f.timers.size,0);
 });

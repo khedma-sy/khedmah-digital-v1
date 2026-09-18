@@ -50,6 +50,11 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
   }
   try {
     await resetCanonicalTestSchema(pool);
+    // The shared canonical fixture now includes Taxi migrations through 034.
+    // This acceptance test intentionally installs its isolated candidate schema
+    // from access.candidate.sql, so remove only that schema after the canonical
+    // public prerequisites have been created.
+    await pool.query('DROP SCHEMA IF EXISTS khedmah_taxi CASCADE');
     await pool.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`); createdRole = true;
     await pool.query(await readFile(resolve(__dirname, 'sql/access.candidate.sql'), 'utf8')); createdSchema = true;
     await pool.query(`CREATE TABLE public."${marker}"(actor_id TEXT, executor TEXT)`); createdMarker = true;
@@ -88,14 +93,20 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
     await t.test('client-selected unsupported roles cannot authorize settlement or administration', async () => {
       await assert.rejects(access.access(token, 'operator' as any), ForbiddenException);
     });
-    for (const [mode, flag] of [['test', undefined], ['test', 'TRUE'], ['production', 'true'], ['', 'true']]) {
-      await t.test(`disabled and production gates are closed (mode=${mode}, flag=${flag})`, async () => {
+    for (const [mode, flag] of [['test', undefined], ['test', 'TRUE'], ['production', undefined], ['', 'true']]) {
+      await t.test(`disabled or unsupported gates are closed (mode=${mode}, flag=${flag})`, async () => {
         process.env.NODE_ENV = mode;
         if (flag === undefined) delete process.env.TAXI_ACCESS_ENABLED; else process.env.TAXI_ACCESS_ENABLED = flag;
         try { await assert.rejects(access.access(token, 'customer'), ServiceUnavailableException); }
         finally { process.env.NODE_ENV = 'test'; process.env.TAXI_ACCESS_ENABLED = 'true'; }
       });
     }
+    await t.test('production access is enabled only by the exact protected flag', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.TAXI_ACCESS_ENABLED = 'true';
+      try { assert.deepEqual(await access.access(token, 'customer'), { id: user, role: 'customer' }); }
+      finally { process.env.NODE_ENV = 'test'; process.env.TAXI_ACCESS_ENABLED = 'true'; }
+    });
     for (const [name, sql, parameters, error] of [
       ['revoked session', 'UPDATE public.identity_sessions SET revoked_at=clock_timestamp() WHERE user_identifier=$1', [user], UnauthorizedException],
       ['suspended account', "UPDATE public.core_user_accounts SET account_status='suspended' WHERE user_identifier=$1", [user], UnauthorizedException],

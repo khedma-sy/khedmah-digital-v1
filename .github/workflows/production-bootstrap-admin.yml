@@ -1,0 +1,171 @@
+name: Production Bootstrap Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: BOOTSTRAP_KHEDMAH_ADMIN_<sha7>
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-bootstrap-admin
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-admin:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock bootstrap to exact latest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          test "$REQUESTED_CONFIRMATION" = "BOOTSTRAP_KHEDMAH_ADMIN_${REQUESTED_SHA:0:7}"
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          test -n "$GOOGLE_CLOUD_REGION"
+          test -n "$OPERATIONS_BACKEND_SERVICE"
+
+      - name: Authenticate to Production Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - id: bind
+        name: Bind the one-time bootstrap secret to the active backend revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          state="$(gcloud secrets versions describe latest --secret BOOTSTRAP_ADMIN_SECRET --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
+          test "$state" = ENABLED
+          gcloud run services update "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --update-secrets=BOOTSTRAP_ADMIN_SECRET=BOOTSTRAP_ADMIN_SECRET:latest             --quiet
+          backend_url="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.url)')"
+          [[ "$backend_url" == https://* ]]
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$backend_url/api/v1/health/ready" >/dev/null
+          echo "backend_url=$backend_url" >> "$GITHUB_OUTPUT"
+
+      - id: bootstrap
+        name: Create the first pending administrator and request verification
+        env:
+          BACKEND_URL: ${{ steps.bind.outputs.backend_url }}
+          ADMIN_EMAIL: ${{ secrets.PRODUCTION_BOOTSTRAP_ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.PRODUCTION_BOOTSTRAP_ADMIN_PASSWORD }}
+          ADMIN_DISPLAY_NAME: ${{ vars.PRODUCTION_BOOTSTRAP_ADMIN_DISPLAY_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          test -n "$BACKEND_URL"
+          test -n "$ADMIN_EMAIL"
+          test -n "$ADMIN_PASSWORD"
+          test "${#ADMIN_PASSWORD}" -ge 12
+          display_name="${ADMIN_DISPLAY_NAME:-Khedmah Admin}"
+
+          status_before="$(curl --fail --silent --show-error "$BACKEND_URL/api/v1/admin/bootstrap/status")"
+          if ! jq -e '.available == true' <<<"$status_before" >/dev/null; then
+            echo "result=already_complete" >> "$GITHUB_OUTPUT"
+            echo "http_code=not_called" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          bootstrap_secret="$(gcloud secrets versions access latest             --secret BOOTSTRAP_ADMIN_SECRET --project "$GOOGLE_CLOUD_PROJECT")"
+          test "${#bootstrap_secret}" -ge 32
+          echo "::add-mask::$bootstrap_secret"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"; unset bootstrap_secret ADMIN_PASSWORD' EXIT
+          payload="$(jq -nc             --arg email "$ADMIN_EMAIL"             --arg password "$ADMIN_PASSWORD"             --arg displayName "$display_name"             '{email:$email,password:$password,displayName:$displayName}')"
+          http_code="$(curl --silent --show-error             --output "$response_file"             --write-out '%{http_code}'             --header 'Content-Type: application/json'             --header "x-bootstrap-secret: $bootstrap_secret"             --data "$payload"             "$BACKEND_URL/api/v1/admin/bootstrap" || true)"
+
+          status_after="$(curl --silent --show-error "$BACKEND_URL/api/v1/admin/bootstrap/status" || true)"
+          if [[ "$http_code" =~ ^2[0-9][0-9]$ ]] && jq -e '.available == false' <<<"$status_after" >/dev/null 2>&1; then
+            result=created
+          elif jq -e '.available == false' <<<"$status_after" >/dev/null 2>&1; then
+            result=created_email_failed
+          else
+            result=failed
+          fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "http_code=$http_code" >> "$GITHUB_OUTPUT"
+
+      - name: Remove the bootstrap secret from Cloud Run
+        if: always() && steps.bind.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --remove-secrets=BOOTSTRAP_ADMIN_SECRET             --quiet
+          service_json="$(mktemp)"
+          trap 'rm -f "$service_json"' EXIT
+          gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format=json > "$service_json"
+          jq -e '[.spec.template.spec.containers[0].env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0' "$service_json" >/dev/null
+
+      - name: Disable the one-time bootstrap secret after account creation
+        if: always() && (steps.bootstrap.outputs.result == 'created' || steps.bootstrap.outputs.result == 'created_email_failed' || steps.bootstrap.outputs.result == 'already_complete')
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(gcloud secrets versions list BOOTSTRAP_ADMIN_SECRET             --project "$GOOGLE_CLOUD_PROJECT"             --filter='state=ENABLED' --limit=1 --sort-by='~createTime'             --format='value(name)')"
+          if [[ -n "$version" ]]; then
+            gcloud secrets versions disable "$version"               --secret BOOTSTRAP_ADMIN_SECRET               --project "$GOOGLE_CLOUD_PROJECT"               --quiet
+          fi
+
+      - name: Publish bootstrap result and enforce completion
+        if: always()
+        env:
+          RESULT: ${{ steps.bootstrap.outputs.result }}
+          HTTP_CODE: ${{ steps.bootstrap.outputs.http_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Production bootstrap admin'
+            echo "- Commit: `$REQUESTED_SHA`"
+            echo "- Result: `${RESULT:-failed_before_result}`"
+            echo "- HTTP: `${HTTP_CODE:-n/a}`"
+            echo '- Bootstrap secret binding was removed from the active backend service.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "${RESULT:-}" in
+            created)
+              echo 'Admin account created pending email verification.'
+              ;;
+            already_complete)
+              echo 'Bootstrap was already complete; no new account was created.'
+              ;;
+            created_email_failed)
+              echo 'Admin account exists pending verification, but delivery was not confirmed. Use the normal verification resend flow.' >&2
+              exit 1
+              ;;
+            *)
+              echo 'Bootstrap did not create a verified pending administrator.' >&2
+              exit 1
+              ;;
+          esac

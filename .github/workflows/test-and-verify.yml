@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Run Tests & Verification
@@ -153,18 +157,72 @@ jobs:
         run: npm run validate:database
 
       - name: 🔒 Verify no forbidden tables in migrations
+        shell: bash
         run: |
           set -euo pipefail
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+
+          # These capabilities remain forbidden everywhere, including the governed
+          # fulfillment, Product V2 billing and restaurant-funded promotion migrations.
+          globally_forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
-            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${globally_forbidden})" \
             backend/migrations/versions; then
-            echo "❌ Forbidden MVP table definition detected"
+            echo "❌ Forbidden product table definition detected"
             exit 1
           fi
-          echo "✅ Boundary check completed"
+
+          # Generic order tables remain forbidden. The only reviewed exceptions are
+          # the exact cash-fulfillment schema in 026 and the exact subscription
+          # purchase-order schema in 030, each checked against a closed table allowlist below.
+          if grep -Eirn \
+            --include='*.sql' \
+            --exclude='026_cash_fulfillment_orders.sql' \
+            --exclude='030_billing_credits_subscriptions.sql' \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(orders?)" \
+            backend/migrations/versions; then
+            echo "❌ Order table definition detected outside governed migrations 026 and 030"
+            exit 1
+          fi
+
+          fulfillment_migration='backend/migrations/versions/026_cash_fulfillment_orders.sql'
+          test -f "$fulfillment_migration" || { echo "❌ Governed fulfillment migration 026 is missing"; exit 1; }
+          fulfillment_allowed_tables='fulfillment_orders fulfillment_order_events fulfillment_order_items fulfillment_order_location_updates fulfillment_order_ratings'
+          fulfillment_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$fulfillment_migration" || true; } | sort | xargs)"
+          fulfillment_expected_tables="$(printf '%s\n' $fulfillment_allowed_tables | sort | xargs)"
+          if [ "$fulfillment_actual_tables" != "$fulfillment_expected_tables" ]; then
+            echo "❌ Migration 026 defines an unexpected table set"
+            echo "Expected: $fulfillment_expected_tables"
+            echo "Actual:   $fulfillment_actual_tables"
+            exit 1
+          fi
+
+          billing_migration='backend/migrations/versions/030_billing_credits_subscriptions.sql'
+          test -f "$billing_migration" || { echo "❌ Governed Product V2 billing migration 030 is missing"; exit 1; }
+          billing_allowed_tables='billing_program_config billing_plans billing_promo_codes billing_purchase_orders billing_subscriptions billing_credit_grants billing_credit_ledger billing_usage_rates billing_usage_receipts billing_promo_redemptions'
+          billing_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$billing_migration" || true; } | sort | xargs)"
+          billing_expected_tables="$(printf '%s\n' $billing_allowed_tables | sort | xargs)"
+          if [ "$billing_actual_tables" != "$billing_expected_tables" ]; then
+            echo "❌ Migration 030 defines an unexpected Product V2 billing table set"
+            echo "Expected: $billing_expected_tables"
+            echo "Actual:   $billing_actual_tables"
+            exit 1
+          fi
+
+          food_promotion_migration='backend/migrations/versions/034_food_order_promotions.sql'
+          test -f "$food_promotion_migration" || { echo "❌ Governed food promotion migration 034 is missing"; exit 1; }
+          food_promotion_allowed_tables='food_promo_claims food_promo_codes'
+          food_promotion_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$food_promotion_migration" || true; } | sort | xargs)"
+          food_promotion_expected_tables="$(printf '%s\n' $food_promotion_allowed_tables | sort | xargs)"
+          if [ "$food_promotion_actual_tables" != "$food_promotion_expected_tables" ]; then
+            echo "❌ Migration 034 defines an unexpected food promotion table set"
+            echo "Expected: $food_promotion_expected_tables"
+            echo "Actual:   $food_promotion_actual_tables"
+            exit 1
+          fi
+
+          echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
 
   validate-pr:
     name: PR Validation

@@ -91,6 +91,10 @@ function StoreContent() {
   function search(event: FormEvent) { event.preventDefault(); syncUrl(filters); }
   function clearFilters() { setFilters(EMPTY_FILTERS); syncUrl(EMPTY_FILTERS); }
   const hasFilters = !!(filters.q || filters.categoryCode || filters.cityCode || applied.q || applied.categoryCode || applied.cityCode);
+  const emptyTitle = hasFilters ? 'لا توجد منتجات مطابقة' : 'لا توجد منتجات منشورة بعد';
+  const emptyDescription = hasFilters
+    ? 'غيّر كلمة البحث أو التصنيف أو المدينة لعرض نتائج أخرى.'
+    : 'ستظهر هنا المنتجات التي تنشرها الأنشطة المحلية بعد اعتمادها.';
 
   return <PageShell className={styles.page} label="متجر خدمة">
     <PageHeader eyebrow="منتجات الأنشطة المحلية" title="متجر خدمة" description="استكشف المنتجات المنشورة، ثم تواصل مباشرة مع النشاط. لا توجد مدفوعات أو طلبات شراء داخل هذه الصفحة." actions={<><ActionLink href="/store/sell">عرض منتج للبيع</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink></>} />
@@ -109,7 +113,10 @@ function StoreContent() {
       <div className={styles.meta}><span>{product.businessName}</span><span>·</span><span>{cityLabel(product.cityCode ?? '', cities)}</span><span>·</span><span>{availability(product.availability)}</span></div>
       <h2>{product.titleAr}</h2><strong className={styles.price}>{product.price.toLocaleString('ar-SY')} {product.currency}</strong>
       <ActionLink href={`/store/products/${encodeURIComponent(product.id)}`}>عرض المنتج</ActionLink>
-    </Surface>)}</section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لا توجد منتجات مطابقة" description="غيّر البحث أو كن أول نشاط يعرض منتجًا في هذا التصنيف." actions={<ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>} />}
+    </Surface>)}</section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title={emptyTitle} description={emptyDescription} actions={<>
+      {hasFilters && <ActionButton type="button" variant="secondary" onClick={clearFilters}>مسح عوامل البحث</ActionButton>}
+      <ActionLink href="/store/sell">عرض منتج للبيع</ActionLink>
+    </>} />}
   </PageShell>;
 }
 

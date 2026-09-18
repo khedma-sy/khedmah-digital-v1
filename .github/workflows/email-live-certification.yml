@@ -1,0 +1,41 @@
+name: Email Live Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Request a fresh verification email or confirm using the protected temporary token
+        required: true
+        default: REQUEST
+        type: choice
+        options: [REQUEST, CONFIRM]
+
+permissions:
+  contents: read
+
+jobs:
+  certify-email:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Certify live Staging email flow
+        env:
+          BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
+          TEST_EMAIL: ${{ secrets.EMAIL_LIVE_TEST_ADDRESS }}
+          TEST_PASSWORD: ${{ secrets.EMAIL_LIVE_TEST_PASSWORD }}
+          VERIFICATION_TOKEN: ${{ inputs.phase == 'CONFIRM' && secrets.EMAIL_LIVE_VERIFICATION_TOKEN || '' }}
+        shell: bash
+        run: bash scripts/certify-staging-email-live.sh "${{ inputs.phase }}"
+
+      - name: Publish certification summary
+        shell: bash
+        run: |
+          echo '### Email Live Certification' >> "$GITHUB_STEP_SUMMARY"
+          echo "- Phase: `${{ inputs.phase }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
+          echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"

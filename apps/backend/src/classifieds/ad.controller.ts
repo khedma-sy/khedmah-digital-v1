@@ -7,8 +7,13 @@ export class AdController {
   constructor(@Inject(AdService) private readonly ads: AdService) {}
 
   @Get()
-  async list(@Query('q') q?: string, @Query('categoryCode') categoryCode?: string, @Query('cityCode') cityCode?: string) {
-    return { ads: await this.ads.listPublic({ q, categoryCode, cityCode }) };
+  async list(
+    @Query('q') q?: string,
+    @Query('categoryCode') categoryCode?: string,
+    @Query('cityCode') cityCode?: string,
+    @Query('page') page?: string
+  ) {
+    return this.ads.listPublic({ q, categoryCode, cityCode, page });
   }
 
   @Get('mine')

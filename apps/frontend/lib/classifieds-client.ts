@@ -5,6 +5,8 @@ export type AdPriceMode = 'fixed' | 'negotiable' | 'contact' | 'none';
 export type AdContactMode = 'profile' | 'phone' | 'whatsapp';
 export type AdStatus = 'draft' | 'pending_review' | 'active' | 'inactive' | 'expired' | 'rejected';
 export const CLASSIFIEDS_SMART_ADMIN_VERSION = 'classifieds-smart-admin-v1' as const;
+export const CLASSIFIEDS_PAGE_SIZE = 20 as const;
+export const CLASSIFIEDS_MAX_IMAGES = 5 as const;
 
 export interface AdModerationSignal {
   readonly code: 'NO_DESCRIPTION' | 'NO_IMAGE' | 'UNLINKED_BUSINESS' | 'DIRECT_CONTACT' | 'PROFILE_WITHOUT_BUSINESS' | 'PRICE_CONTRACT_MISMATCH' | 'REVIEW_REVISION_INVALID';
@@ -87,12 +89,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const classifiedsApi = {
-  list(filters: { q?: string; categoryCode?: string; cityCode?: string } = {}) {
+  list(filters: { q?: string; categoryCode?: string; cityCode?: string; page?: number } = {}) {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
     if (filters.categoryCode) params.set('categoryCode', filters.categoryCode);
     if (filters.cityCode) params.set('cityCode', filters.cityCode);
-    return request<{ ads: PublicAdListing[] }>(`/classifieds${params.size ? `?${params}` : ''}`);
+    if (filters.page && filters.page > 1) params.set('page', String(filters.page));
+    return request<{ ads: PublicAdListing[]; total: number; page: number }>(`/classifieds${params.size ? `?${params}` : ''}`);
   },
   get(id: string) { return request<{ ad: PublicAdListing }>(`/classifieds/${encodeURIComponent(id)}`); },
   listMine() { return request<{ ads: OwnerAdListing[] }>('/classifieds/mine'); },
@@ -100,7 +103,9 @@ export const classifiedsApi = {
   quota() { return request<AdQuota>('/classifieds/quota'); },
   create(data: Record<string, unknown>) { return request<{ ad: OwnerAdListing }>('/classifieds', { method: 'POST', body: JSON.stringify(data) }); },
   update(id: string, data: Record<string, unknown>) { return request<{ ad: OwnerAdListing }>(`/classifieds/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); },
-  submit(id: string, clientRequestId: string) { return request<{ ad: OwnerAdListing }>(`/classifieds/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ clientRequestId }) }); },
+  submit(id: string, data: { clientRequestId: string; expectedContentRevision: number }) {
+    return request<{ ad: OwnerAdListing }>(`/classifieds/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify(data) });
+  },
   deactivate(id: string, data: { clientRequestId: string; expectedRevision: number }) { return request<{ ad: OwnerAdListing }>(`/classifieds/${encodeURIComponent(id)}/deactivate`, { method: 'POST', body: JSON.stringify(data) }); },
   reactivate(id: string, data: { clientRequestId: string; expectedRevision: number }) { return request<{ ad: OwnerAdListing }>(`/classifieds/${encodeURIComponent(id)}/reactivate`, { method: 'POST', body: JSON.stringify(data) }); },
   uploadImage(id: string, data: { clientRequestId: string; expectedContentRevision: number; filename: string; mimeType: AdImage['mimeType']; sizeBytes: number; content: string; sortOrder?: number }) {
@@ -114,6 +119,13 @@ export const classifiedsApi = {
 
 export const adminClassifiedsApi = {
   pending() { return request<{ ads: OwnerAdListing[] }>('/admin/classifieds/pending'); },
+  reviewMediaUrl(publicUrl: string) {
+    const prefix = '/api/v1/classifieds/media/public/';
+    if (!publicUrl.startsWith(prefix)) return undefined;
+    const mediaId = publicUrl.slice(prefix.length);
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(mediaId)) return undefined;
+    return `/api/v1/admin/classifieds/media/${encodeURIComponent(mediaId)}`;
+  },
   review(id: string, decision: 'approved' | 'rejected', expectedReviewRevision: number,
     expectedAssessmentVersion: AdModerationAssessment['version'], reason?: string) {
     return request<{ ad: OwnerAdListing }>(`/admin/classifieds/${encodeURIComponent(id)}/moderation`, {

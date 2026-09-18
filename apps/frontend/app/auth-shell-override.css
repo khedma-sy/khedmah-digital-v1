@@ -1,0 +1,43 @@
+/* Auth keeps the focused identity screen while preserving the shared Ask Khedmah control.
+   The global header owns the assistant, but the rest of the header must not consume
+   layout space or compete with authentication controls. */
+body:has(.auth-experience) .khedma-header {
+  position: static;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body:has(.auth-experience) .khedma-header > a,
+body:has(.auth-experience) .khedma-header .nav-discovery-group {
+  display: none;
+}
+
+body:has(.auth-experience) .khedma-header-actions {
+  position: fixed;
+  z-index: 250;
+  inset-block-start: 1rem;
+  inset-inline-start: 1rem;
+  display: block;
+  min-width: 0;
+}
+
+body:has(.auth-experience) .khedma-header-actions > :not([data-khedmah-assistant]) {
+  display: none;
+}
+
+body:has(.auth-experience) [data-khedmah-assistant] {
+  display: flex;
+}
+
+@media(max-width:38rem) {
+  body:has(.auth-experience) .khedma-header-actions {
+    inset-block-start: .7rem;
+    inset-inline-start: .7rem;
+  }
+}

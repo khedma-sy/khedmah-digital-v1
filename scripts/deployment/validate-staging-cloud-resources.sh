@@ -37,8 +37,8 @@ required_apis=(
   storage.googleapis.com
 )
 for api in "${required_apis[@]}"; do
-  state="$(gcloud services describe "$api" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)' 2>/dev/null || true)"
-  if [[ "$state" != 'ENABLED' ]]; then
+  state="$(gcloud services list --enabled --filter="config.name=$api" --project "$GOOGLE_CLOUD_PROJECT" --format='value(config.name)' 2>/dev/null || true)"
+  if [[ "$state" != "$api" ]]; then
     echo "::error::Required Staging API is not enabled: ${api}" >&2
     exit 4
   fi

@@ -1,0 +1,51 @@
+name: Production Domain Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA to certify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  certify-domain:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock certification to exact latest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          test -n "$NEXT_PUBLIC_SITE_URL"
+
+      - name: Certify canonical HTTPS domain
+        shell: bash
+        run: bash scripts/validate-production-domain-readiness.sh
+
+      - name: Publish certification
+        shell: bash
+        run: |
+          {
+            echo '### Production domain certification'
+            echo "- Commit: $REQUESTED_SHA"
+            echo "- Canonical site: $NEXT_PUBLIC_SITE_URL"
+            echo '- HTTPS/domain readiness: passed'
+          } >> "$GITHUB_STEP_SUMMARY"

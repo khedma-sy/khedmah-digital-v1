@@ -5,6 +5,7 @@ import { createTestPool, resetCanonicalTestSchema } from '../../database/test-po
 import { IdentityRepository } from '../identity.repository';
 import { SessionTokenService } from '../security/session-token.service';
 import { BootstrapAdminService } from './bootstrap-admin.service';
+import { EmailVerificationService } from '../email/email-verification.service';
 
 const rawPool = createTestPool();
 
@@ -20,7 +21,11 @@ test('concurrent bootstrap requests produce exactly one bootstrap administrator'
   `);
 
   const repository = new IdentityRepository(pool);
-  const service = new BootstrapAdminService(repository, new SessionTokenService());
+  const deliveries: Array<{ userId: string; email: string }> = [];
+  const verifier = {
+    async requestVerification(userId: string, email: string) { deliveries.push({ userId, email }); }
+  } as unknown as EmailVerificationService;
+  const service = new BootstrapAdminService(repository, new SessionTokenService(), verifier);
   const originalSecret = process.env.BOOTSTRAP_ADMIN_SECRET;
   const secret = 'bootstrap-concurrency-secret-'.padEnd(40, 'x');
   process.env.BOOTSTRAP_ADMIN_SECRET = secret;
@@ -55,6 +60,12 @@ test('concurrent bootstrap requests produce exactly one bootstrap administrator'
     assert.equal(roleCount[0]?.count, '1');
     assert.equal(accountCount[0]?.count, '1');
     assert.equal(auditCount[0]?.count, '1');
+    const accounts = await pool.query<{ user_identifier: string; account_status: string }>(
+      'SELECT user_identifier, account_status FROM core_user_accounts'
+    );
+    assert.equal(accounts[0]?.account_status, 'pending');
+    assert.equal(deliveries.length, 1);
+    assert.equal(deliveries[0]?.userId, accounts[0]?.user_identifier);
   } finally {
     if (originalSecret === undefined) delete process.env.BOOTSTRAP_ADMIN_SECRET;
     else process.env.BOOTSTRAP_ADMIN_SECRET = originalSecret;

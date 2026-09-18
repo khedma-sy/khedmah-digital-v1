@@ -38,8 +38,16 @@ else
 fi
 backend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/backend:${tag}"
 frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/frontend:${tag}"
-backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
+# Taxi authority can be enabled after Migration 031 while trip execution remains independently fail-closed.
+backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_ACCESS_ENABLED=true,TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
 backend_secret_bindings="DATABASE_URL=DATABASE_URL:latest"
+if [[ "$environment" == "preview" ]]; then
+  preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
+  if [[ -n "$preview_email_from" ]]; then
+    backend_runtime_env+=",EMAIL_FROM=${preview_email_from}"
+    backend_secret_bindings+=",RESEND_API_KEY=RESEND_API_KEY:latest"
+  fi
+fi
 if [[ "$environment" == "staging" ]]; then
   [[ -n "${GCS_MEDIA_BUCKET:-}" ]] || { echo 'Missing GCS_MEDIA_BUCKET for Staging persistent media.' >&2; exit 3; }
   [[ -n "${EMAIL_FROM:-}" ]] || { echo 'Missing EMAIL_FROM for Staging email delivery.' >&2; exit 3; }
@@ -47,8 +55,51 @@ if [[ "$environment" == "staging" ]]; then
   backend_secret_bindings+=",OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest"
 fi
 
+# Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
+# is therefore applied in isolated non-production even when Classifieds feature
+# flags remain disabled. Feature exposure and schema presence stay separate.
+if [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' ]]; then
+  CLASSIFIEDS_MIGRATION_025_MODE='apply'
+  CLASSIFIEDS_MIGRATION_025_CONFIRMATION="APPLY_KHEDMAH_NONPROD_025_${environment^^}"
+  echo 'Migration 025 schema is required as the predecessor of fulfillment 026-028; Classifieds feature flags are unchanged.'
+fi
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
+
+# Orders, driver-document review and durable notifications are runtime contracts,
+# not optional Preview cosmetics. Apply atomically before building/deploying backend.
+FULFILLMENT_MIGRATIONS_026_028_MODE='apply'
+FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION="APPLY_KHEDMAH_NONPROD_026_028_${environment^^}"
+export FULFILLMENT_MIGRATIONS_026_028_MODE FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION
+scripts/deployment/ensure-fulfillment-nonproduction-schema.sh "$environment" "$identifier"
+
+# Taxi pricing history is governed separately from the candidate-only Taxi trip schema.
+# Apply the append-only pricing ledger before backend deployment; this does not enable trips.
+TAXI_PRICING_MIGRATION_029_MODE='apply'
+TAXI_PRICING_MIGRATION_029_CONFIRMATION="APPLY_KHEDMAH_NONPROD_029_${environment^^}"
+export TAXI_PRICING_MIGRATION_029_MODE TAXI_PRICING_MIGRATION_029_CONFIRMATION
+scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh "$environment" "$identifier"
+
+# Product V2 Billing is active backend runtime. Its append-only ledger, subscriptions,
+# welcome grants and promo contract must exist before the backend can serve Billing APIs.
+BILLING_MIGRATION_030_MODE='apply'
+BILLING_MIGRATION_030_CONFIRMATION="APPLY_KHEDMAH_NONPROD_030_${environment^^}"
+export BILLING_MIGRATION_030_MODE BILLING_MIGRATION_030_CONFIRMATION
+scripts/deployment/ensure-billing-nonproduction-schema.sh "$environment" "$identifier"
+
+# Taxi operational authority is intentionally narrower than trip execution. It promotes
+# document-reviewed driver/vehicle/zone approvals and actor resolution only. Trips stay off.
+TAXI_OPERATIONAL_MIGRATION_031_MODE='apply'
+TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environment^^}"
+export TAXI_OPERATIONAL_MIGRATION_031_MODE TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION
+bash scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
+
+# Restaurant-funded food promotion pricing is part of the cash-order contract.
+# Apply its claim ledger before backend rollout; no payment gateway or platform subsidy is enabled.
+FOOD_PROMOTIONS_MIGRATION_034_MODE='apply'
+FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environment^^}"
+export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION
+bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
 
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"

@@ -21,35 +21,48 @@ test('staging bootstrap example is locked to the isolated staging workflow trust
   expectValue('runtime_service_account_id', 'khedmah-v1-staging-runtime');
   expectValue('deployer_service_account_id', 'khedmah-v1-staging-deployer');
   assert.match(vars, /REPLACE_WITH_ISOLATED_STAGING_PROJECT_ID/);
-  assert.doesNotMatch(vars, /khedmah-preview-774201339973/);
+  assert.doesNotMatch(vars, /khedmah-preview-[0-9]{6,}/);
   assert.doesNotMatch(vars, /production-operator\.yml/);
   assert.doesNotMatch(vars, /refs\/heads\/main/);
 });
 
-test('bootstrap provider enforces the same workflow_ref claim family used by the production WIF contract', () => {
+test('bootstrap provider uses a bounded workflow_ref allowlist on the configured ref', () => {
   for (const claim of [
     'assertion.repository == "${var.github_repository}"',
     'assertion.ref == "${var.github_ref}"',
-    'assertion.workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"'
+    'assertion.workflow_ref in ${jsonencode(local.github_workflow_refs)}'
   ]) assert.ok(bootstrap.includes(claim), `missing WIF claim boundary: ${claim}`);
   assert.match(bootstrap, /"attribute\.workflow_ref"\s*=\s*"assertion\.workflow_ref"/);
+  assert.match(bootstrap, /github_additional_workflow_paths/);
   assert.doesNotMatch(bootstrap, /job_workflow_ref/);
-  assert.match(productionWif, /assertion\.workflow_ref/);
+  assert.match(productionWif, /production-operator-new-account\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-baseline-001-020\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-bootstrap-admin\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-migrations-025-034\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-operator\.yml@refs\/heads\/main/);
+  const legacySchemaOperator = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_021/);
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_022/);
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_024/);
+  assert.doesNotMatch(legacySchemaOperator, /DEPLOY_PRODUCTION|gcloud builds submit.*cloudbuild\.production-new-account\.yaml/);
   assert.match(bootstrap, /roles\/iam\.workloadIdentityUser/);
   assert.match(bootstrap, /google_service_account\.deployer\.name/);
 });
 
-test('staging bootstrap enables Cloud SQL and Storage APIs, grants metadata-only bucket visibility, and creates runtime secret containers only', () => {
+test('bootstrap provisions protected Cloud SQL, Cloud Build source storage and runtime secret containers without secret values', () => {
   assert.match(bootstrap, /sqladmin\.googleapis\.com/);
   assert.match(bootstrap, /storage\.googleapis\.com/);
+  assert.match(bootstrap, /google_storage_bucket" "cloudbuild_source"/);
+  assert.match(bootstrap, /google_sql_database_instance" "postgres"/);
+  assert.match(bootstrap, /database_version\s*=\s*"POSTGRES_16"/);
+  assert.match(bootstrap, /deletion_protection\s*=\s*true/);
+  assert.match(bootstrap, /point_in_time_recovery_enabled\s*=\s*true/);
   assert.match(bootstrap, /roles\/cloudsql\.client/);
   assert.match(bootstrap, /roles\/cloudsql\.viewer/);
-  assert.match(bootstrap, /roles\/serviceusage\.serviceUsageViewer/);
-  assert.match(bootstrap, /roles\/storage\.bucketViewer/);
+  assert.match(bootstrap, /roles\/storage\.objectAdmin/);
   assert.doesNotMatch(bootstrap, /roles\/storage\.admin/);
-  assert.doesNotMatch(bootstrap, /google_sql_database_instance/);
   assert.doesNotMatch(bootstrap, /secret_data\s*=/);
-  for (const secret of ['DATABASE_URL', 'FIREBASE_API_KEY', 'OPERATIONS_PRODUCT_ROLE_BINDINGS', 'RESEND_API_KEY']) {
+  for (const secret of ['DATABASE_URL', 'FIREBASE_API_KEY', 'GOOGLE_MAPS_BROWSER_API_KEY', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'OPERATIONS_PRODUCT_ROLE_BINDINGS', 'RESEND_API_KEY']) {
     assert.match(bootstrapVariables, new RegExp(`"${secret}"`));
   }
 });

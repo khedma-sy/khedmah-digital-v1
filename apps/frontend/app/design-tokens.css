@@ -6,7 +6,7 @@
   --k-color-surface-raised: #ffffff;
   --k-color-surface-muted: #f2f6f4;
   --k-color-text: #143653;
-  --k-color-text-muted: #526878;
+  --k-color-text-muted: #263f52;
   --k-color-border: #dce6e1;
   --k-color-primary: #07427c;
   --k-color-on-primary: #ffffff;
@@ -15,6 +15,20 @@
   --k-color-primary-soft: #e8f1f8;
   --k-color-brand: #07427c;
   --k-color-accent: #fd9603;
+  /* Owner revision: stronger service colors, restrained white blending; canonical marks stay intact. */
+  --k-color-blue-tint: #86b4d8;
+  --k-color-blue-fade: #e7f2fb;
+  --k-color-blue-text: #07427c;
+  --k-color-green-tint: #a0ce77;
+  --k-color-green-fade: #eff7e5;
+  --k-color-green-text: #24430f;
+  --k-color-orange-tint: #fdb853;
+  --k-color-orange-fade: #fff2df;
+  --k-color-orange-text: #743305;
+  --k-gradient-brand-blue: linear-gradient(135deg,#07427c 0%,#1b5186 100%);
+  --k-gradient-blue: linear-gradient(135deg,var(--k-color-blue-tint) 0%,var(--k-color-blue-fade) 52%,var(--k-color-surface) 100%);
+  --k-gradient-green: linear-gradient(135deg,var(--k-color-green-tint) 0%,var(--k-color-green-fade) 52%,var(--k-color-surface) 100%);
+  --k-gradient-orange: linear-gradient(135deg,var(--k-color-orange-tint) 0%,var(--k-color-orange-fade) 52%,var(--k-color-surface) 100%);
   --k-color-danger: #b42318;
   --k-color-danger-soft: #fee4e2;
   --k-color-success: #659f31;
@@ -29,6 +43,13 @@
   --k-radius-md: .8rem;
   --k-radius-lg: 1.1rem;
   --k-radius-xl: 1.35rem;
+  --k-radius-pill: 999px;
+  --k-space-2: .5rem;
+  --k-space-3: .75rem;
+  --k-space-4: 1rem;
+  --k-space-5: 1.5rem;
+  --k-space-6: 2rem;
+  --k-shadow-xl: var(--k-shadow-lg);
   --k-type-display: clamp(1.75rem, 2.6vw, 2.4rem);
   --k-type-page: clamp(1.3rem, 1.85vw, 1.75rem);
   --k-type-section: clamp(1.1rem, 1.45vw, 1.35rem);
@@ -53,7 +74,7 @@
   --success: var(--k-color-success);
   --warning: var(--k-color-warning);
   --brand-navy: var(--k-color-brand);
-  --brand-green: var(--k-color-primary);
+  --brand-green: #81be49;
   --brand-orange: var(--k-color-accent);
   --brand-warm: var(--k-color-canvas-soft);
   --brand-shadow: var(--k-shadow-lg);
@@ -75,6 +96,15 @@
   --k-color-primary-soft: #142b42;
   --k-color-brand: #f0f4f2;
   --k-color-accent: #ffad35;
+  --k-color-blue-tint: #233b50;
+  --k-color-blue-fade: #202d38;
+  --k-color-blue-text: #b8d8f2;
+  --k-color-green-tint: #293d2b;
+  --k-color-green-fade: #242f27;
+  --k-color-green-text: #cbe5ac;
+  --k-color-orange-tint: #493424;
+  --k-color-orange-fade: #322a24;
+  --k-color-orange-text: #ffd39c;
   --k-color-danger: #ff8a80;
   --k-color-danger-soft: #431f21;
   --k-color-success: #63d2a8;

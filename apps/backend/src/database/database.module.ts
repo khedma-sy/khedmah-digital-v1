@@ -1,4 +1,4 @@
-import { Global, Module, OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 import { DatabaseMigrator } from './database.migrator';
 import { RateLimitRepository } from './rate-limit.repository';
@@ -9,7 +9,7 @@ import { RateLimitRepository } from './rate-limit.repository';
   exports: [DatabasePool, RateLimitRepository]
 })
 export class DatabaseModule implements OnApplicationShutdown {
-  constructor(private readonly pool: DatabasePool) {}
+  constructor(@Inject(DatabasePool) private readonly pool: DatabasePool) {}
 
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();

@@ -46,6 +46,8 @@ interface ReceiptRow extends Record<string, unknown> {
   result_revision: string | number;
 }
 
+const MAX_AD_IMAGES = 5;
+
 export interface PublicAdImage {
   readonly id: string;
   readonly adId: string;
@@ -93,6 +95,18 @@ export class AdMediaService {
         return { adRevision: current.revision, contentRevision: current.contentRevision, image: toPublicImage(image) };
       }
       this.assertMutable(ad, input.expectedContentRevision);
+
+      const imageCount = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM media_assets
+         WHERE owner_type='ad_listing' AND owner_id=$1 AND asset_type='ad_image'`,
+        [adId]
+      );
+      if ((imageCount.rows[0]?.count ?? 0) >= MAX_AD_IMAGES) {
+        throw new BadRequestException({
+          code: 'AD_IMAGE_LIMIT_REACHED',
+          message: 'يمكن رفع 5 صور كحد أقصى للإعلان.'
+        });
+      }
 
       await this.storage.save(storageKey, bytes, input.mimeType);
       await client.query(

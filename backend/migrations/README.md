@@ -1,6 +1,6 @@
 # Canonical database migrations
 
-`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every version through `025`, with version `023` intentionally unused in the retained lineage.
+`backend/migrations/versions` is the only migration authority for the runtime application. The governed lineage contains exactly one forward file and one independently scoped rollback file for every retained version through `034`, with version `023` intentionally unused.
 
 Migrations are never executed by application startup. Startup performs read-only PostgreSQL catalog verification and fails with `CANONICAL_SCHEMA_INCOMPATIBLE` when the installed schema does not meet the required canonical level.
 
@@ -32,6 +32,15 @@ Migrations are never executed by application startup. Startup performs read-only
 | 022 | Hierarchical Arabic-first Category catalog, search aliases, and governed seed records |
 | 024 | Product discovery store listings and product media contract |
 | 025 | Independent free Classifieds listings, quota ledger, moderation history, idempotency, and ad media contract |
+| 026 | Cash fulfillment orders, item snapshots, transitions, locations, ratings, and idempotency |
+| 027 | Governed mobility-document review state used by courier eligibility |
+| 028 | Durable platform notifications for fulfillment transitions |
+| 029 | Append-only Taxi pricing revisions |
+| 030 | Product V2 billing credits, subscriptions, purchase ledger, and billing-only promo contract |
+| 031 | Taxi operational driver, vehicle, zone, and actor approvals |
+| 032 | Taxi actor authority bound to the current approved Business profile |
+| 033 | Billing administrator role authority |
+| 034 | Restaurant-funded food basket promotions, immutable order discount snapshots, and claim lifecycle |
 
 ## Safety rules
 

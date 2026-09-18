@@ -45,6 +45,8 @@ const projection = `a.id,a.owner_user_id,a.business_profile_id,a.kind,a.title_ar
   (SELECT COALESCE(array_agg(m.public_url ORDER BY m.sort_order,m.created_at) FILTER (WHERE m.public_url IS NOT NULL),ARRAY[]::text[])
      FROM media_assets m WHERE m.owner_type='ad_listing' AND m.owner_id=a.id AND m.asset_type='ad_image' AND m.visibility='public') AS image_urls`;
 
+type PublicFilters = { q?: string; categoryCode?: string; cityCode?: string };
+
 @Injectable()
 export class AdRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
@@ -116,11 +118,13 @@ export class AdRepository {
     });
   }
 
-  async submit(ownerUserId: string, id: string, requestId: string, fingerprint: string): Promise<AdListing> {
+  async submit(ownerUserId: string, id: string, requestId: string, fingerprint: string,
+    expectedContentRevision: number): Promise<AdListing> {
     return this.db.transaction(async (client) => {
       const ad = await this.requireOwnerLocked(client, ownerUserId, id);
       const replay = await this.readReplay(client, ownerUserId, 'submit', requestId, fingerprint);
       if (replay) return replay;
+      if (ad.contentRevision !== expectedContentRevision) throw new ConflictException({ code: 'CONTENT_REVISION_CONFLICT' });
       if (!['draft', 'inactive', 'rejected'].includes(ad.status)) throw new ConflictException({ code: 'AD_NOT_SUBMITTABLE' });
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
 
@@ -211,7 +215,33 @@ export class AdRepository {
     return (await this.db.query<AdRow>(`SELECT ${projection} FROM ad_listings a WHERE a.owner_user_id=$1 ORDER BY a.created_at DESC LIMIT 200`, [ownerUserId])).map(map);
   }
 
-  async listPublic(filters: { q?: string; categoryCode?: string; cityCode?: string }): Promise<AdListing[]> {
+  async listPublic(filters: PublicFilters, limit = 20, offset = 0): Promise<AdListing[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset < 0) {
+      throw new BadRequestException('Public classifieds pagination is invalid.');
+    }
+    const { where, params } = this.publicWhere(filters);
+    return (await this.db.query<AdRow>(
+      `SELECT ${projection} FROM ad_listings a ${where} ORDER BY a.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    )).map(map);
+  }
+
+  async countPublic(filters: PublicFilters): Promise<number> {
+    const { where, params } = this.publicWhere(filters);
+    const rows = await this.db.query<{ count: number | string }>(`SELECT count(*) AS count FROM ad_listings a ${where}`, params);
+    return Number.parseInt(String(rows[0]?.count ?? 0), 10);
+  }
+
+  async listPending(): Promise<AdListing[]> {
+    return (await this.db.query<AdRow>(`SELECT ${projection} FROM ad_listings a WHERE a.status='pending_review' ORDER BY a.submitted_at ASC,a.updated_at ASC LIMIT 200`)).map(map);
+  }
+
+  async quota(ownerUserId: string): Promise<{ used: number; limit: 3 }> {
+    const rows = await this.db.query<{ count: number }>(`SELECT count(*)::int AS count FROM ad_free_slots WHERE owner_user_id=$1`, [ownerUserId]);
+    return { used: rows[0]?.count ?? 0, limit: 3 };
+  }
+
+  private publicWhere(filters: PublicFilters): { where: string; params: unknown[] } {
     const clauses = ["a.status='active'", "(a.expires_at IS NULL OR a.expires_at>clock_timestamp())",
       "(a.business_profile_id IS NULL OR EXISTS(SELECT 1 FROM business_profiles b WHERE b.id=a.business_profile_id AND b.visibility='public' AND b.moderation_status='approved' AND b.trust_status='approved' AND b.status='active'))"];
     const params: unknown[] = [];
@@ -230,16 +260,7 @@ export class AdRepository {
       params.push(filters.cityCode);
       clauses.push(`a.city_code=$${params.length}`);
     }
-    return (await this.db.query<AdRow>(`SELECT ${projection} FROM ad_listings a WHERE ${clauses.join(' AND ')} ORDER BY a.created_at DESC LIMIT 100`, params)).map(map);
-  }
-
-  async listPending(): Promise<AdListing[]> {
-    return (await this.db.query<AdRow>(`SELECT ${projection} FROM ad_listings a WHERE a.status='pending_review' ORDER BY a.submitted_at ASC,a.updated_at ASC LIMIT 200`)).map(map);
-  }
-
-  async quota(ownerUserId: string): Promise<{ used: number; limit: 3 }> {
-    const rows = await this.db.query<{ count: number }>(`SELECT count(*)::int AS count FROM ad_free_slots WHERE owner_user_id=$1`, [ownerUserId]);
-    return { used: rows[0]?.count ?? 0, limit: 3 };
+    return { where: `WHERE ${clauses.join(' AND ')}`, params };
   }
 
   private async readReplay(client: PoolClient, ownerUserId: string, action: AdReceiptAction, requestId: string, fingerprint: string): Promise<AdListing | undefined> {

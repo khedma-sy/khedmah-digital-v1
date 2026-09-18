@@ -74,9 +74,9 @@ export default function VerifyEmailPage() {
           {status !== 'verified' ? (
             <>
               <p>{existing ? 'هذا البريد مسجل مسبقًا. إذا كان الحساب بانتظار التفعيل، اطلب رسالة تحقق جديدة.' : 'أرسلنا رابط تأكيد إلى بريدك. افتح الرسالة واضغط زر «تأكيد البريد الإلكتروني» لتفعيل الحساب.'}</p>
-              {email ? <p><strong>{email}</strong></p> : null}
+              <label className="auth-field"><span>البريد الإلكتروني لإعادة الإرسال</span><input aria-label="البريد الإلكتروني لإعادة الإرسال" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value.trim().toLowerCase())} placeholder="name@example.com" /></label>
               {message ? <p className={status === 'error' ? 'auth-error' : ''} role="status">{message}</p> : null}
-              {email ? <button className="auth-resend" type="button" onClick={resend} disabled={resending}>{resending ? 'جاري الإرسال...' : 'إرسال رابط تحقق جديد'}</button> : null}
+              <button className="auth-resend" type="button" onClick={resend} disabled={resending || !email.trim()}>{resending ? 'جاري الإرسال...' : 'إرسال رابط تحقق جديد'}</button>
               <Link className="auth-secondary" href="/auth/login">العودة إلى تسجيل الدخول</Link>
             </>
           ) : null}

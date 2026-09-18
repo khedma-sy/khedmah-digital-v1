@@ -27,10 +27,28 @@ if grep -Eq '^roles/(owner|editor)$' <<<"$roles"; then
 fi
 printf '%s\n' "$roles" | sort -u | jq -Rsc 'split("\n") | map(select(length > 0)) | {deployerRoles:.}' > "$evidence/deployer-role-summary.json"
 
-while IFS= read -r secret_name; do
-  [[ "$secret_name" =~ ^[A-Z][A-Z0-9_]+$ ]] || continue
+gcp_secret_names=(
+  DATABASE_URL
+  RESEND_API_KEY
+  BOOTSTRAP_ADMIN_SECRET
+  GOOGLE_OAUTH_SERVER_CLIENT_ID
+  GOOGLE_MAPS_BROWSER_API_KEY
+  GOOGLE_MAPS_ANDROID_API_KEY
+  GOOGLE_MAPS_SERVER_API_KEY
+  FIREBASE_API_KEY
+  FIREBASE_APP_ID
+  OPERATIONS_PRODUCT_ROLE_BINDINGS
+  NEXT_PUBLIC_FIREBASE_API_KEY
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+  NEXT_PUBLIC_FIREBASE_APP_ID
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+)
+for secret_name in "${gcp_secret_names[@]}"; do
   gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
-done < <(awk '/^  - [A-Z]/{print $2}' infra/secrets/required-secrets.yaml)
+done
 
 for secret_name in FIREBASE_API_KEY FIREBASE_APP_ID GOOGLE_MAPS_SERVER_API_KEY GOOGLE_OAUTH_SERVER_CLIENT_ID OPERATIONS_PRODUCT_ROLE_BINDINGS; do
   gcloud secrets get-iam-policy "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format=json \
@@ -42,7 +60,7 @@ gcloud builds list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REG
   | jq '[.[] | {id,status,createTime,finishTime}]' > "$evidence/latest-cloud-build.json"
 gcloud logging read 'resource.type="cloud_run_revision"' --project "$GOOGLE_CLOUD_PROJECT" --freshness=1h --limit=1 --format=json \
   | jq '[.[] | {timestamp,severity,resourceType:.resource.type}]' > "$evidence/logging-signal.json"
-gcloud alpha monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json \
+gcloud monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json \
   | jq '[.[] | {name,displayName,enabled}]' > "$evidence/alert-policies.json"
 
 echo 'Live production metadata and least-privilege boundaries verified without reading secret values.'

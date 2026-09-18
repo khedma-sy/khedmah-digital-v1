@@ -43,7 +43,7 @@ for account in "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" "$OPERATIONS_DEPLOYER_SERVI
 done
 gcloud projects get-iam-policy "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.bindings[] | {role,memberCount:(.members|length),condition:(.condition // null)}]' > "$output/iam-summary.json"
 gcloud secrets list --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name,createTime,labels,replication}]' > "$output/secrets.json"
-gcloud alpha monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name,displayName,enabled,combiner}]' > "$output/alert-policies.json"
+gcloud monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name,displayName,enabled,combiner}]' > "$output/alert-policies.json"
 gcloud logging read 'resource.type="cloud_run_revision"' --project "$GOOGLE_CLOUD_PROJECT" --freshness=1h --limit=1 --format=json | jq '[.[] | {timestamp,severity,resourceType:.resource.type}]' > "$output/logging-signal.json"
 gcloud certificate-manager certificates list --project "$GOOGLE_CLOUD_PROJECT" --location=global --format=json | jq '[.[] | {name,state,scope,createTime,updateTime}]' > "$output/certificates.json"
 gcloud dns managed-zones list --project "$GOOGLE_CLOUD_PROJECT" --format=json | jq '[.[] | {name,dnsName,visibility,creationTime}]' > "$output/dns-zones.json"

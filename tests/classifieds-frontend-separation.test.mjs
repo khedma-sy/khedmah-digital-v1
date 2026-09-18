@@ -45,7 +45,7 @@ test('public and owner ad DTOs keep moderation authority out of public discovery
   assert.match(client, /export interface OwnerAdListing extends AdListingBase/);
   assert.match(client, /readonly rejectionReason\?: string/);
   assert.match(client, /readonly reviewRevision: number/);
-  assert.match(client, /request<\{ ads: PublicAdListing\[\] \}>/);
+  assert.match(client, /request<\{ ads: PublicAdListing\[\]; total: number; page: number \}>/);
   assert.match(client, /request<\{ ads: OwnerAdListing\[\] \}>\('\/classifieds\/mine'\)/);
 });
 
@@ -68,6 +68,13 @@ test('classifieds images preserve the complete image and owner edit uses authent
   assert.match(css, /\.image img\{[^}]*object-fit:contain/);
   assert.match(edit, /\/api\/v1\/classifieds\/\$\{encodeURIComponent\(ad\.id\)\}\/media\/\$\{encodeURIComponent\(image\.id\)\}/);
   assert.doesNotMatch(css, /umbrella-pattern\.svg/);
+});
+
+test('classifieds price and status text use the accessible orange text token', async () => {
+  const css = await read('apps/frontend/app/classifieds/classifieds.module.css');
+  assert.match(css, /\.price\{[^}]*color:var\(--k-color-orange-text\)/);
+  assert.match(css, /\.status\{[^}]*color:var\(--k-color-orange-text\)/);
+  assert.doesNotMatch(css, /\.(?:price|status)\{[^}]*color:var\(--ads-accent\)/);
 });
 
 test('Store subroutes no longer present products as classifieds or return to classifieds', async () => {

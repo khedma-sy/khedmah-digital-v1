@@ -73,12 +73,30 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       await assert.rejects(() => service.update(undefined, ad.id, {
         clientRequestId: 'classifieds-pg-update-0002', expectedContentRevision: ad.contentRevision, titleAr: 'تعديل قديم'
       }), ConflictException);
+
+      await assert.rejects(() => service.submit(undefined, ad.id, {
+        clientRequestId: 'classifieds-pg-stale-submit-0001', expectedContentRevision: ad.contentRevision
+      }), ConflictException);
+      assert.deepEqual(await service.quota(undefined), { used: 0, limit: 3 });
+
+      const submitBody = {
+        clientRequestId: 'classifieds-pg-bound-submit-0001', expectedContentRevision: updated.contentRevision
+      };
+      const pending = await service.submit(undefined, ad.id, submitBody);
+      const replay = await service.submit(undefined, ad.id, submitBody);
+      assert.equal(pending.reviewRevision, replay.reviewRevision);
+      assert.deepEqual(await service.quota(undefined), { used: 1, limit: 3 });
+      await assert.rejects(() => service.submit(undefined, ad.id, {
+        ...submitBody, expectedContentRevision: updated.contentRevision + 1
+      }), ConflictException);
     });
 
     await t.test('review revision, append-only audit and public projection are enforced', async () => {
       actor = { id: 'classifieds_owner', email: 'owner@example.test' };
       const ad = await service.create(undefined, input('classifieds-pg-create-0003', 'إعلان للنشر العام'));
-      const pending = await service.submit(undefined, ad.id, { clientRequestId: 'classifieds-pg-submit-0001' });
+      const pending = await service.submit(undefined, ad.id, {
+        clientRequestId: 'classifieds-pg-submit-0001', expectedContentRevision: ad.contentRevision
+      });
       assert.equal(pending.status, 'pending_review');
       actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
       const approved = await service.moderate(undefined, ad.id, {
@@ -105,11 +123,19 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       for (let index = 0; index < 4; index += 1) {
         ads.push(await service.create(undefined, input(`classifieds-pg-quota-create-${index}000`, `إعلان الحصة ${index}`)));
       }
-      await service.submit(undefined, ads[0].id, { clientRequestId: 'classifieds-pg-quota-submit-0000' });
-      await service.submit(undefined, ads[1].id, { clientRequestId: 'classifieds-pg-quota-submit-0001' });
+      await service.submit(undefined, ads[0].id, {
+        clientRequestId: 'classifieds-pg-quota-submit-0000', expectedContentRevision: ads[0].contentRevision
+      });
+      await service.submit(undefined, ads[1].id, {
+        clientRequestId: 'classifieds-pg-quota-submit-0001', expectedContentRevision: ads[1].contentRevision
+      });
       const outcomes = await Promise.allSettled([
-        service.submit(undefined, ads[2].id, { clientRequestId: 'classifieds-pg-quota-submit-0002' }),
-        service.submit(undefined, ads[3].id, { clientRequestId: 'classifieds-pg-quota-submit-0003' })
+        service.submit(undefined, ads[2].id, {
+          clientRequestId: 'classifieds-pg-quota-submit-0002', expectedContentRevision: ads[2].contentRevision
+        }),
+        service.submit(undefined, ads[3].id, {
+          clientRequestId: 'classifieds-pg-quota-submit-0003', expectedContentRevision: ads[3].contentRevision
+        })
       ]);
       assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
       const rejected = outcomes.find((outcome) => outcome.status === 'rejected');

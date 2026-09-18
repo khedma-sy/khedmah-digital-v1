@@ -56,10 +56,13 @@ export function validateAdUpdate(value: unknown): ValidatedAdUpdate {
   };
 }
 
-export function validateAdSubmit(value: unknown): { clientRequestId: string } {
+export function validateAdSubmit(value: unknown): { clientRequestId: string; expectedContentRevision: number } {
   const body = asRecord(value);
-  rejectUnknown(body, new Set(['clientRequestId']));
-  return { clientRequestId: requestId(body.clientRequestId) };
+  rejectUnknown(body, new Set(['clientRequestId', 'expectedContentRevision']));
+  return {
+    clientRequestId: requestId(body.clientRequestId),
+    expectedContentRevision: positiveInteger(body.expectedContentRevision, 'expectedContentRevision')
+  };
 }
 
 export function validateAdRevisionAction(value: unknown): ValidatedAdRevisionAction {
@@ -90,11 +93,12 @@ export function validateAdModeration(value: unknown): ValidatedAdModeration {
   };
 }
 
-export function validateAdPublicFilters(filters: { q?: unknown; categoryCode?: unknown; cityCode?: unknown }) {
+export function validateAdPublicFilters(filters: { q?: unknown; categoryCode?: unknown; cityCode?: unknown; page?: unknown }) {
   const q = optionalText(filters.q, 120, 'q');
   const categoryCode = filters.categoryCode === undefined ? undefined : validateCategoryCode(filters.categoryCode);
   const cityCode = optionalCode(filters.cityCode, 'cityCode');
-  return { q, categoryCode, cityCode };
+  const page = publicPage(filters.page);
+  return { q, categoryCode, cityCode, page };
 }
 
 function readContent(body: Record<string, unknown>, partial: boolean): AdContentInput | AdContentPatch {
@@ -166,6 +170,19 @@ function requestId(value: unknown): string {
 function positiveInteger(value: unknown, field: string): number {
   if (!Number.isSafeInteger(value) || Number(value) < 1) throw new BadRequestException(`${field} must be a positive safe integer.`);
   return Number(value);
+}
+
+function publicPage(value: unknown): number {
+  if (value === undefined || value === null || value === '') return 1;
+  const parsed = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && /^[1-9]\d*$/.test(value.trim())
+      ? Number(value.trim())
+      : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 100_000) {
+    throw new BadRequestException('page must be a positive safe integer.');
+  }
+  return parsed;
 }
 
 function optionalPositiveInteger(value: unknown, field: string): number | undefined {

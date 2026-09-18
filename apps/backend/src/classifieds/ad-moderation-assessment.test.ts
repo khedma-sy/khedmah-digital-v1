@@ -68,6 +68,17 @@ test('smart admin exposes invalid price and review snapshot as attention signals
   assert.equal(assessment.humanDecisionRequired, true);
 });
 
+test('negotiable pricing without a fixed amount matches the classifieds price contract', () => {
+  const assessment = assessAdForModeration(makeAd({
+    priceMode: 'negotiable',
+    priceMinor: undefined,
+    currency: undefined
+  }));
+  assert.equal(assessment.signals.some((signal) => signal.code === 'PRICE_CONTRACT_MISMATCH'), false);
+  assert.equal(assessment.completeness, 'complete');
+  assert.equal(assessment.priority, 'standard');
+});
+
 test('profile contact without a linked business is explicitly flagged', () => {
   const assessment = assessAdForModeration(makeAd({ businessProfileId: undefined }));
   const codes = assessment.signals.map((signal) => signal.code);

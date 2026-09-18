@@ -1,0 +1,143 @@
+name: Terraform Client Maps Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      state_bucket:
+        description: Protected Terraform state bucket
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_FRONTEND_SERVICE: ${{ vars.OPERATIONS_FRONTEND_SERVICE || 'frontend' }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      GOOGLE_MAPS_ALLOWED_WEB_ORIGINS: ${{ vars.GOOGLE_MAPS_ALLOWED_WEB_ORIGINS }}
+      GOOGLE_MAPS_ANDROID_PACKAGE: ${{ vars.GOOGLE_MAPS_ANDROID_PACKAGE }}
+      GOOGLE_MAPS_ANDROID_SHA1: ${{ secrets.GOOGLE_MAPS_ANDROID_SHA1 }}
+      CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      TF_IN_AUTOMATION: "true"
+      TF_WORKSPACE: default
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Lock plan to exact latest main and protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_FRONTEND_SERVICE NEXT_PUBLIC_SITE_URL GOOGLE_MAPS_ALLOWED_WEB_ORIGINS GOOGLE_MAPS_ANDROID_PACKAGE GOOGLE_MAPS_ANDROID_SHA1 CONFIGURED_STATE_BUCKET REQUESTED_STATE_BUCKET; do
+            test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
+          done
+          test "$CONFIGURED_STATE_BUCKET" = "$REQUESTED_STATE_BUCKET"
+          test "$GOOGLE_MAPS_ANDROID_PACKAGE" = "com.khedmah.digital"
+          [[ "$GOOGLE_MAPS_ANDROID_SHA1" =~ ^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$ ]]
+          [[ "$NEXT_PUBLIC_SITE_URL" == https://* ]]
+          [[ "$NEXT_PUBLIC_SITE_URL" != *","* ]]
+
+      - name: Authenticate to Production Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.2
+          terraform_wrapper: false
+
+      - id: refs
+        name: Resolve required browser referrers
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+          [[ "$PROJECT_NUMBER" =~ ^[0-9]+$ ]]
+          FRONTEND_SEGMENT="${OPERATIONS_FRONTEND_SERVICE}-${PROJECT_NUMBER}"
+          test "${#FRONTEND_SEGMENT}" -le 63
+          CANONICAL_REF="${NEXT_PUBLIC_SITE_URL%/}/*"
+          CLOUD_RUN_REF="https://${FRONTEND_SEGMENT}.${GOOGLE_CLOUD_REGION}.run.app/*"
+          mapfile -t REFS < <(tr ',' '\n' <<<"$GOOGLE_MAPS_ALLOWED_WEB_ORIGINS" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d' | sort -u)
+          printf '%s\n' "${REFS[@]}" | grep -F -x "$CANONICAL_REF" >/dev/null || {
+            echo "Configured Maps referrers must include $CANONICAL_REF" >&2
+            exit 1
+          }
+          printf '%s\n' "${REFS[@]}" | grep -F -x "$CLOUD_RUN_REF" >/dev/null || {
+            echo "Configured Maps referrers must include $CLOUD_RUN_REF" >&2
+            exit 1
+          }
+          for ref in "${REFS[@]}"; do
+            [[ "$ref" == https://*/* ]] || { echo "Invalid Maps referrer: $ref" >&2; exit 1; }
+          done
+          REFERRERS_JSON="$(printf '%s\n' "${REFS[@]}" | jq -R . | jq -s .)"
+          echo "referrers_json=$REFERRERS_JSON" >> "$GITHUB_OUTPUT"
+          echo "canonical_ref=$CANONICAL_REF" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_ref=$CLOUD_RUN_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Verify protected state bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          bucket_json="$(mktemp)"
+          trap 'rm -f "$bucket_json"' EXIT
+          gcloud storage buckets describe "gs://$REQUESTED_STATE_BUCKET" --project "$GOOGLE_CLOUD_PROJECT" --format=json > "$bucket_json"
+          jq -e '
+            ((.uniform_bucket_level_access == true) or (.iamConfiguration.uniformBucketLevelAccess.enabled == true)) and
+            ((.public_access_prevention == "enforced") or (.iamConfiguration.publicAccessPrevention == "enforced")) and
+            ((.versioning_enabled == true) or (.versioning.enabled == true))
+          ' "$bucket_json" >/dev/null
+
+      - name: Create reviewed client Maps plan
+        shell: bash
+        env:
+          REFERRERS_JSON: ${{ steps.refs.outputs.referrers_json }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/iac/client-maps fmt -check
+          terraform -chdir=infra/iac/client-maps init -input=false -reconfigure             -backend-config="bucket=$REQUESTED_STATE_BUCKET"             -backend-config="prefix=khedmah/production/client-maps"
+          terraform -chdir=infra/iac/client-maps validate
+          PLAN="$RUNNER_TEMP/client-maps.tfplan"
+          terraform -chdir=infra/iac/client-maps plan -input=false -lock-timeout=60s -out="$PLAN"             -var="project_id=$GOOGLE_CLOUD_PROJECT"             -var="region=$GOOGLE_CLOUD_REGION"             -var="browser_allowed_referrers=$REFERRERS_JSON"             -var="android_package_name=$GOOGLE_MAPS_ANDROID_PACKAGE"             -var="android_sha1=$GOOGLE_MAPS_ANDROID_SHA1"
+          terraform -chdir=infra/iac/client-maps show -json "$PLAN" > "$RUNNER_TEMP/client-maps-plan.json"
+          jq -e '
+            all((.resource_changes // [])[];
+              (.address == "google_apikeys_key.browser" or .address == "google_apikeys_key.android") and
+              ((.change.actions | index("delete")) == null)
+            )
+          ' "$RUNNER_TEMP/client-maps-plan.json" >/dev/null
+          mkdir -p "$RUNNER_TEMP/client-maps-evidence"
+          cp "$PLAN" "$RUNNER_TEMP/client-maps-evidence/client-maps.tfplan"
+          printf '{"commit":"%s","canonicalReferrer":"%s","cloudRunReferrer":"%s"}\n'             "$REQUESTED_SHA" "${{ steps.refs.outputs.canonical_ref }}" "${{ steps.refs.outputs.cloud_run_ref }}"             > "$RUNNER_TEMP/client-maps-evidence/metadata.json"
+          (cd "$RUNNER_TEMP/client-maps-evidence" && sha256sum client-maps.tfplan metadata.json > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: client-maps-plan-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/client-maps-evidence/
+          if-no-files-found: error
+          retention-days: 7
