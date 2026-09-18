@@ -40,7 +40,7 @@ test('new-account production email uses the verified Resend sending domain', asy
   assert.match(provider, /noreply@mail\.khedmah\.uk/);
   assert.match(cloudBuild, /_EMAIL_FROM: noreply@mail\.khedmah\.uk/);
   assert.doesNotMatch(provider, /noreply@khedmah\.digital/);
-  assert.doesNotMatch(cloudBuild, /project-94512a0e-1a5e-4bdb-87f|774201339973/);
+  assert.match(cloudBuild, /_RUNTIME_SERVICE_ACCOUNT: REQUIRED_RUNTIME_SERVICE_ACCOUNT/);
 });
 
 test('Cloud Run environment delimiter cannot collide with the sender address', async () => {
