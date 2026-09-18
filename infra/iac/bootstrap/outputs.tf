@@ -57,3 +57,8 @@ output "bootstrap_admin_secret_id" {
   description = "One-time Secret Manager container used only by the protected bootstrap-admin workflow."
   value       = google_secret_manager_secret.bootstrap_admin.secret_id
 }
+
+output "build_service_account_email" {
+  description = "Set as OPERATIONS_BUILD_SERVICE_ACCOUNT."
+  value       = google_service_account.build.email
+}
