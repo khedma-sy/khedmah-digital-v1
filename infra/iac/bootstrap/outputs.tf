@@ -62,3 +62,8 @@ output "build_service_account_email" {
   description = "Set as OPERATIONS_BUILD_SERVICE_ACCOUNT."
   value       = google_service_account.build.email
 }
+
+output "maps_android_secret_id" {
+  description = "Secret Manager container for the restricted Android Maps API key."
+  value       = google_secret_manager_secret.maps_android.secret_id
+}
