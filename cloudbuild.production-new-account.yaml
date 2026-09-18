@@ -33,7 +33,7 @@ steps:
           test "$telemetry" = true || { echo 'ERROR: Production telemetry flags must all be true.' >&2; exit 1; }
         done
         for flag in '${_CLASSIFIEDS_ENABLED}' '${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}'; do
-          [[ "$flag" == true || "$flag" == false ]] || { echo 'ERROR: Classifieds rollout flags must be true or false.' >&2; exit 1; }
+          [[ "$$flag" == true || "$$flag" == false ]] || { echo 'ERROR: Classifieds rollout flags must be true or false.' >&2; exit 1; }
         done
         [[ '${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}' != true || '${_CLASSIFIEDS_ENABLED}' == true ]] || {
           echo 'ERROR: Frontend Classifieds cannot be enabled while Backend Classifieds is disabled.' >&2
