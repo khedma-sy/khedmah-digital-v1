@@ -249,6 +249,13 @@ resource "google_secret_manager_secret_iam_member" "maps_android_deployer_access
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "oauth_server_deployer_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runtime["GOOGLE_OAUTH_SERVER_CLIENT_ID"].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 resource "google_secret_manager_secret" "bootstrap_admin" {
   project   = var.project_id
   secret_id = "BOOTSTRAP_ADMIN_SECRET"
