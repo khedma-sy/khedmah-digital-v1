@@ -49,5 +49,6 @@ test('Production Taxi access is protected while candidate trip execution stays d
   assert.match(build, /Taxi trips remain candidate-only and must stay disabled in Production canonical schema 034/);
   assert.match(build, /TAXI_ACCESS_ENABLED=\\$\\{_TAXI_ACCESS_ENABLED\\}/);
   assert.match(build, /TAXI_TRIPS_ENABLED=\\$\\{_TAXI_TRIPS_ENABLED\\}/);
+  assert.match(build, /NEXT_PUBLIC_TAXI_TRIPS_ENABLED='\\$\\{_TAXI_TRIPS_ENABLED\\}'/);
   assert.doesNotMatch(build, /TAXI_OPERATING_ZONE/);
 });
