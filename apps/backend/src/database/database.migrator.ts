@@ -197,6 +197,34 @@ JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname = 'admin_roles' AND con.conname = 'admin_roles_role_check'
   AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%billing_admin%'`;
 
+
+interface RuntimePrivilegeRow extends Record<string, unknown> { hardened: boolean }
+
+const RUNTIME_PRIVILEGE_QUERY = `
+SELECT
+  NOT r.rolcreatedb
+  AND NOT r.rolcreaterole
+  AND NOT r.rolsuper
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_auth_members m
+    JOIN pg_catalog.pg_roles granted_role ON granted_role.oid = m.roleid
+    JOIN pg_catalog.pg_roles member_role ON member_role.oid = m.member
+    WHERE member_role.rolname = current_user
+      AND granted_role.rolname = 'cloudsqlsuperuser'
+  )
+  AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
+  AS hardened
+FROM pg_catalog.pg_roles r
+WHERE r.rolname = current_user`;
+
+export class RuntimeDatabasePrivilegeError extends Error {
+  constructor() {
+    super('RUNTIME_DATABASE_PRIVILEGES_NOT_HARDENED');
+    this.name = 'RuntimeDatabasePrivilegeError';
+  }
+}
+
 @Injectable()
 export class DatabaseMigrator implements OnModuleInit {
   private readonly logger = new Logger(DatabaseMigrator.name);
@@ -206,6 +234,11 @@ export class DatabaseMigrator implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     const rows = await this.pool.query<CatalogRow>(CATALOG_QUERY);
     verifyCanonicalSchema(rows);
+    if (process.env.NODE_ENV === 'production') {
+      const privilegeRows = await this.pool.query<RuntimePrivilegeRow>(RUNTIME_PRIVILEGE_QUERY);
+      if (privilegeRows[0]?.hardened !== true) throw new RuntimeDatabasePrivilegeError();
+      this.logger.log('Production runtime database privileges verified as hardened.');
+    }
     this.logger.log(`Canonical database schema ${REQUIRED_CANONICAL_SCHEMA_VERSION} verified.`);
   }
 }
