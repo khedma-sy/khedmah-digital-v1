@@ -100,3 +100,14 @@ test('Production operator restores the previous revision pair after a failed dep
   assert.match(workflow, /google-production-rollback\.sh "\$PREVIOUS_BACKEND_REVISION" "\$PREVIOUS_FRONTEND_REVISION"/);
   assert.match(workflow, /EMERGENCY_ROLLBACK=SUCCESS/);
 });
+
+
+test('Production operator verifies hardened database roles before Cloud Build deployment', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(workflow, /Verify production database role isolation before deployment/);
+  assert.match(workflow, /cloudbuild\.database-role-bootstrap\.yaml/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
+  assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
+});
