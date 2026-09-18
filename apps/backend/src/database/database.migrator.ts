@@ -214,6 +214,10 @@ SELECT
       AND granted_role.rolname = 'cloudsqlsuperuser'
   )
   AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
+  AND (
+    to_regnamespace('khedmah_taxi') IS NULL
+    OR NOT has_schema_privilege(current_user, 'khedmah_taxi', 'CREATE')
+  )
   AS hardened
 FROM pg_catalog.pg_roles r
 WHERE r.rolname = current_user`;
