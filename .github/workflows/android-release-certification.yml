@@ -18,12 +18,17 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   certify-release:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 45
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,6 +46,43 @@ jobs:
           test "$(git rev-parse origin/main)" = "${{ inputs.commit_sha }}"
           [[ "${{ inputs.version_code }}" =~ ^[1-9][0-9]*$ ]]
           test -n "${{ inputs.version_name }}"
+
+      - name: Authenticate to Production Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Resolve live Production API and protected Android client values
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_BACKEND_SERVICE; do
+            test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
+          done
+          PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+          [[ "$PROJECT_NUMBER" =~ ^[0-9]+$ ]]
+          DNS_SEGMENT="${OPERATIONS_BACKEND_SERVICE}-${PROJECT_NUMBER}"
+          test "${#DNS_SEGMENT}" -le 63
+          EXPECTED_API_BASE="https://${DNS_SEGMENT}.${GOOGLE_CLOUD_REGION}.run.app"
+          ACTUAL_API_BASE="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.url)')"
+          test "$ACTUAL_API_BASE" = "$EXPECTED_API_BASE"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$ACTUAL_API_BASE/api/v1/health/ready" >/dev/null
+
+          MAPS_KEY="$(gcloud secrets versions access latest             --secret GOOGLE_MAPS_ANDROID_API_KEY --project "$GOOGLE_CLOUD_PROJECT")"
+          OAUTH_SERVER_CLIENT_ID="$(gcloud secrets versions access latest             --secret GOOGLE_OAUTH_SERVER_CLIENT_ID --project "$GOOGLE_CLOUD_PROJECT")"
+          test -n "$MAPS_KEY"
+          [[ "$OAUTH_SERVER_CLIENT_ID" == *.apps.googleusercontent.com ]]
+          echo "::add-mask::$MAPS_KEY"
+          echo "::add-mask::$OAUTH_SERVER_CLIENT_ID"
+          {
+            echo "KHEDMAH_API_BASE_URL=$ACTUAL_API_BASE"
+            echo "GOOGLE_MAPS_ANDROID_API_KEY=$MAPS_KEY"
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$OAUTH_SERVER_CLIENT_ID"
+          } >> "$GITHUB_ENV"
+          unset MAPS_KEY OAUTH_SERVER_CLIENT_ID
 
       - uses: actions/setup-node@v7
         with:
@@ -105,9 +147,6 @@ jobs:
           ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
           ANDROID_VERSION_CODE: ${{ inputs.version_code }}
           ANDROID_VERSION_NAME: ${{ inputs.version_name }}
-          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
-          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}
-          KHEDMAH_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         shell: bash
         run: |
           set -euo pipefail
