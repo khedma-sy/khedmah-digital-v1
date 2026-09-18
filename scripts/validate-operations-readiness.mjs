@@ -9,7 +9,7 @@ const pending = (area, name, detail) => results.push({ area, name, status: 'pend
 const read = (file) => readFile(file, 'utf8');
 
 const requiredFiles = [
-  'cloudbuild.production-new-account.yaml', 'infra/iac/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
+  'cloudbuild.production-new-account.yaml', 'infra/iac/main.tf', 'infra/iac/bootstrap/main.tf', 'infra/iac/client-maps/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
   'config/google/google.ts', 'config/google/firebase.ts', 'config/google/maps.ts', 'scripts/google-production-deploy.sh',
   'scripts/google-production-rollback.sh', 'scripts/collect-live-production-evidence.sh', 'scripts/validate-production-domain-readiness.sh', 'scripts/run-live-production-certification.sh',
   '.github/workflows/production-operator-new-account.yml', '.github/workflows/production-baseline-001-020.yml',
@@ -21,9 +21,12 @@ const requiredFiles = [
 for (const file of requiredFiles) check('repository', file, existsSync(file), existsSync(file) ? 'present' : 'missing');
 
 const terraform = await read('infra/iac/main.tf');
+const bootstrapTerraform = await read('infra/iac/bootstrap/main.tf');
+const clientMapsTerraform = await read('infra/iac/client-maps/main.tf');
 const requiredServices = ['run.googleapis.com', 'cloudbuild.googleapis.com', 'artifactregistry.googleapis.com', 'secretmanager.googleapis.com', 'storage.googleapis.com', 'logging.googleapis.com', 'monitoring.googleapis.com', 'compute.googleapis.com', 'dns.googleapis.com', 'certificatemanager.googleapis.com'];
-for (const service of requiredServices) check('google-cloud', service, terraform.includes(service), 'required API declared in IaC');
-for (const restriction of ['browser_key_restrictions', 'android_key_restrictions', 'server_key_restrictions']) check('maps-security', restriction, terraform.includes(restriction), 'separate key restriction declared');
+for (const service of requiredServices) check('google-cloud', service, bootstrapTerraform.includes(service), 'required API declared in new-account bootstrap IaC');
+for (const restriction of ['browser_key_restrictions', 'android_key_restrictions']) check('maps-security', restriction, clientMapsTerraform.includes(restriction), 'restricted client key declared in isolated client-maps stack');
+check('maps-security', 'no client-maps server key', !clientMapsTerraform.includes('server_key_restrictions') && !clientMapsTerraform.includes('maps_server'), 'unused server key is not created by the new-account client stack');
 check('iam', 'no project-wide secret accessor', !terraform.includes('google_project_iam_member" "runtime_secret_accessor'), 'Secret access must be granted per secret');
 
 const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
@@ -72,7 +75,7 @@ check('governance', 'authority isolation', !roleSource.match(/board|executive|co
 
 const firebasePorts = await read('infra/firebase/firebase-services.ts');
 for (const capability of ['Authentication', 'Messaging', 'Analytics', 'CrashReporting', 'Storage']) check('firebase', capability, firebasePorts.includes(`Firebase${capability}`), 'SDK-neutral boundary exists');
-for (const capability of ['Remote Config', 'App Check', 'Hosting']) check('firebase', capability, terraform.toLowerCase().includes(capability.toLowerCase().replace(' ', '')), 'API declared in production IaC');
+for (const capability of ['Remote Config', 'App Check', 'Hosting']) check('firebase', capability, bootstrapTerraform.toLowerCase().includes(capability.toLowerCase().replace(' ', '')), 'API declared in new-account bootstrap IaC');
 
 try {
   execFileSync('terraform', ['-chdir=infra/iac', 'init', '-backend=false', '-input=false'], { stdio: 'pipe' });
