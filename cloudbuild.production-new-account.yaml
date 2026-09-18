@@ -40,12 +40,9 @@ steps:
           echo 'ERROR: Frontend Classifieds cannot be enabled while Backend Classifieds is disabled.' >&2
           exit 1
         }
-        for taxi_flag in '${_TAXI_ACCESS_ENABLED}' '${_TAXI_TRIPS_ENABLED}'; do
-          [[ "$taxi_flag" == true || "$taxi_flag" == false ]] || { echo 'ERROR: Taxi rollout flags must be true or false.' >&2; exit 1; }
-        done
-        [[ '${_TAXI_OPERATING_ZONE}' =~ ^[A-Za-z0-9_-]{1,50}$ ]] || { echo 'ERROR: TAXI_OPERATING_ZONE is invalid.' >&2; exit 1; }
-        [[ '${_TAXI_TRIPS_ENABLED}' != true || '${_TAXI_ACCESS_ENABLED}' == true ]] || {
-          echo 'ERROR: Taxi trips cannot be enabled while Taxi access is disabled.' >&2
+        [[ '${_TAXI_ACCESS_ENABLED}' == true || '${_TAXI_ACCESS_ENABLED}' == false ]] || { echo 'ERROR: TAXI_ACCESS_ENABLED must be true or false.' >&2; exit 1; }
+        test '${_TAXI_TRIPS_ENABLED}' = false || {
+          echo 'ERROR: Taxi trips remain candidate-only and must stay disabled in Production canonical schema 034.' >&2
           exit 1
         }
 
