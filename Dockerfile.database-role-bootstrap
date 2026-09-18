@@ -1,0 +1,6 @@
+FROM postgres:16-alpine
+
+COPY scripts/production-database-role-bootstrap.sh /usr/local/bin/production-database-role-bootstrap
+RUN chmod 0555 /usr/local/bin/production-database-role-bootstrap
+USER postgres
+ENTRYPOINT ["/usr/local/bin/production-database-role-bootstrap"]
