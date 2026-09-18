@@ -38,3 +38,16 @@ test('Production Classifieds rollout is explicit and cannot expose frontend over
   assert.match(build, /CLASSIFIEDS_ENABLED=\$\{_CLASSIFIEDS_ENABLED\}/);
   assert.match(build, /\[\[ "\$\$flag" == true \|\| "\$\$flag" == false \]\]/);
 });
+
+
+test('Production Taxi rollout variables are protected, validated and injected into backend runtime', () => {
+  for (const name of ['TAXI_ACCESS_ENABLED','TAXI_TRIPS_ENABLED','TAXI_OPERATING_ZONE']) {
+    assert.match(operator, new RegExp(`${name}: \\\$\\{\\{ vars\\.${name} \\}\\}`));
+    assert.match(build, new RegExp(`_${name}: REQUIRED_${name}`));
+  }
+  assert.match(operator, /Taxi trips cannot be enabled while Taxi access is disabled/);
+  assert.match(build, /Taxi trips cannot be enabled while Taxi access is disabled/);
+  assert.match(build, /TAXI_ACCESS_ENABLED=\$\{_TAXI_ACCESS_ENABLED\}/);
+  assert.match(build, /TAXI_TRIPS_ENABLED=\$\{_TAXI_TRIPS_ENABLED\}/);
+  assert.match(build, /TAXI_OPERATING_ZONE=\$\{_TAXI_OPERATING_ZONE\}/);
+});
