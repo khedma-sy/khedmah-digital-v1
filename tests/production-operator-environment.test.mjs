@@ -120,3 +120,16 @@ test('VERIFY_ONLY never creates database verification jobs', () => {
   assert.match(block, /if: inputs\.mode == 'DEPLOY_PRODUCTION'/);
   assert.match(block, /gcloud run jobs deploy/);
 });
+
+
+test('DB preflight is SHA-locked before any mutation', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+    ?.split('\n  deploy:')[0] ?? '';
+  assert.match(block, /git fetch origin main/);
+  assert.match(block, /git rev-parse origin\/main/);
+  assert.match(block, /test "\$GITHUB_SHA" = "\$REQUESTED_SHA"/);
+  assert.match(block, /COMMIT_SHA=\$REQUESTED_SHA/);
+  assert.match(block, /database-role-bootstrap:\$REQUESTED_SHA/);
+  assert.ok(block.indexOf('test "$GITHUB_SHA" = "$REQUESTED_SHA"') < block.indexOf('gcloud builds submit'));
+});
