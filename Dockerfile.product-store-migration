@@ -1,0 +1,9 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/024_product_store.sql /migrations/024_product_store.sql
+COPY scripts/deployment/run-product-store-nonproduction-migration.sh /usr/local/bin/run-product-store-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-product-store-nonproduction-migration /migrations/024_product_store.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-product-store-nonproduction-migration"]
