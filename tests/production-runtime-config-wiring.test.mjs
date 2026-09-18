@@ -26,3 +26,15 @@ test('Production telemetry flags fail closed and are passed from protected varia
   }
   assert.match(build, /Production telemetry flags must all be true/);
 });
+
+
+test('Production Classifieds rollout is explicit and cannot expose frontend over a disabled backend', () => {
+  assert.match(operator, /CLASSIFIEDS_ENABLED: \$\{\{ vars\.CLASSIFIEDS_ENABLED \}\}/);
+  assert.match(operator, /NEXT_PUBLIC_CLASSIFIEDS_ENABLED: \$\{\{ vars\.NEXT_PUBLIC_CLASSIFIEDS_ENABLED \}\}/);
+  assert.match(operator, /Frontend Classifieds cannot be enabled while Backend Classifieds is disabled/);
+  assert.match(build, /_CLASSIFIEDS_ENABLED: REQUIRED_CLASSIFIEDS_ENABLED/);
+  assert.match(build, /_NEXT_PUBLIC_CLASSIFIEDS_ENABLED: REQUIRED_NEXT_PUBLIC_CLASSIFIEDS_ENABLED/);
+  assert.match(build, /NEXT_PUBLIC_CLASSIFIEDS_ENABLED='\$\{_NEXT_PUBLIC_CLASSIFIEDS_ENABLED\}'/);
+  assert.match(build, /CLASSIFIEDS_ENABLED=\$\{_CLASSIFIEDS_ENABLED\}/);
+  assert.match(build, /\[\[ "\$\$flag" == true \|\| "\$\$flag" == false \]\]/);
+});
