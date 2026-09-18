@@ -60,7 +60,7 @@ gcloud builds list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REG
   | jq '[.[] | {id,status,createTime,finishTime}]' > "$evidence/latest-cloud-build.json"
 gcloud logging read 'resource.type="cloud_run_revision"' --project "$GOOGLE_CLOUD_PROJECT" --freshness=1h --limit=1 --format=json \
   | jq '[.[] | {timestamp,severity,resourceType:.resource.type}]' > "$evidence/logging-signal.json"
-gcloud alpha monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json \
+gcloud monitoring policies list --project "$GOOGLE_CLOUD_PROJECT" --format=json \
   | jq '[.[] | {name,displayName,enabled}]' > "$evidence/alert-policies.json"
 
 echo 'Live production metadata and least-privilege boundaries verified without reading secret values.'
