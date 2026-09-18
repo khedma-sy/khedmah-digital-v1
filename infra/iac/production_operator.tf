@@ -30,7 +30,8 @@ resource "google_iam_workload_identity_pool_provider" "github_production" {
       "${var.github_repository}/.github/workflows/terraform-media-plan.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-media-state-handoff.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-client-maps-plan.yml@refs/heads/main",
-      "${var.github_repository}/.github/workflows/terraform-client-maps-apply.yml@refs/heads/main"
+      "${var.github_repository}/.github/workflows/terraform-client-maps-apply.yml@refs/heads/main",
+      "${var.github_repository}/.github/workflows/android-release-certification.yml@refs/heads/main"
     ]
   EOT
 
