@@ -19,6 +19,10 @@ done
 [[ "$NEXT_PUBLIC_CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_ENABLED" == 'true' ]] || { echo 'Frontend Classifieds cannot be enabled before backend Classifieds.' >&2; exit 4; }
 [[ "$CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_MIGRATION_025_MODE" != 'off' ]] || { echo 'Backend Classifieds requires migration 025 verification before enablement.' >&2; exit 4; }
 tag="${environment}-${identifier}"
+cloudbuild_source_args=()
+if [[ "$environment" == "staging" ]]; then
+  cloudbuild_source_args=(--gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source")
+fi
 [[ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]] || { echo 'Missing CLOUD_SQL_INSTANCE_CONNECTION_NAME for isolated deployment.' >&2; exit 3; }
 if [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" != "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]; then
   if [[ "$environment" == "preview" ]]; then echo 'Preview Cloud SQL instance must belong to the preview project and region.' >&2;
@@ -101,7 +105,7 @@ FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environm
 export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION
 bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
 
-gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "cloudbuild.${environment}-backend.yaml" \
+gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"
 
 if [[ "$environment" == "staging" ]]; then
@@ -149,7 +153,7 @@ if [[ "$CLASSIFIEDS_ENABLED" == 'true' ]]; then
   node scripts/deployment/verify-classifieds-backend-smoke.mjs "$backend_url"
 fi
 
-gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config "$config" \
+gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "$config" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag},_NEXT_PUBLIC_API_URL=${backend_url},_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"
 
 gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$RUNTIME_SERVICE_ACCOUNT" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
