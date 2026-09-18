@@ -5,6 +5,10 @@ on:
     paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "tests/android-apk-artifact.test.mjs", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production-new-account.yaml", ".github/workflows/production-operator-new-account.yml", ".github/workflows/android-release-certification.yml", "package.json", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
 
 permissions: { contents: read }
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate-files:
     runs-on: ubuntu-latest
