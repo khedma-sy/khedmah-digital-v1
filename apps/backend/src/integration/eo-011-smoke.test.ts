@@ -15,6 +15,7 @@ import { RateLimitRepository } from '../database/rate-limit.repository';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
+import { EmailVerificationRequiredError } from '../identity/identity.errors';
 import { SessionTokenService } from '../identity/security/session-token.service';
 import { BusinessProfileRepository } from '../business-profiles/business-profile.repository';
 import { BusinessProfileService } from '../business-profiles/business-profile.service';
@@ -22,6 +23,7 @@ import { CategoryRepository } from '../categories/category.repository';
 import { CategoryService } from '../categories/category.service';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { EmailVerificationService } from '../identity/email/email-verification.service';
+import { EmailMessage, EmailProvider } from '../identity/email/email-provider';
 import { BootstrapAdminService } from '../identity/bootstrap/bootstrap-admin.service';
 import { RateLimitMiddleware } from '../middleware/rate-limit.middleware';
 import { SearchService } from '../search/search.service';
@@ -183,9 +185,13 @@ async function setupFixture() {
   const serviceCatalogRepo = new ServiceCatalogRepository(pool);
   const searchService = new SearchService(businessRepo, serviceCatalogRepo);
   const emailVerificationService = new EmailVerificationService(pool, identityRepo);
-  const bootstrapAdminService = new BootstrapAdminService(identityRepo, sessionTokens);
+  const sentEmails: EmailMessage[] = [];
+  (emailVerificationService as unknown as { emailProvider: EmailProvider }).emailProvider = {
+    async send(message: EmailMessage) { sentEmails.push(message); }
+  };
+  const bootstrapAdminService = new BootstrapAdminService(identityRepo, sessionTokens, emailVerificationService);
 
-  return { pool, identityRepo, identityService, businessService, searchService, emailVerificationService, bootstrapAdminService };
+  return { pool, identityRepo, identityService, businessService, searchService, emailVerificationService, bootstrapAdminService, sentEmails };
 }
 
 // WP-01: Bootstrap Admin
@@ -209,35 +215,52 @@ test('bootstrap admin: fails with wrong secret', async () => {
   delete process.env.BOOTSTRAP_ADMIN_SECRET;
 });
 
-test('bootstrap admin: creates admin on first call, rejects on second call', async () => {
-  const { bootstrapAdminService, identityRepo } = await setupFixture();
+test('bootstrap admin: remains pending until verification, then permits login and rejects a second bootstrap', async () => {
+  const { bootstrapAdminService, identityRepo, identityService, emailVerificationService, sentEmails } = await setupFixture();
+  const originalSecret = process.env.BOOTSTRAP_ADMIN_SECRET;
   const secret = 'x'.repeat(32);
   process.env.BOOTSTRAP_ADMIN_SECRET = secret;
+  const credentials = { email: 'admin@khedmah.example', password: 'admin-secure-password-123' };
 
-  const result = await bootstrapAdminService.bootstrap(secret, {
-    email: 'admin@khedmah.example',
-    password: 'admin-secure-password-123',
-    displayName: 'مدير النظام'
-  });
-  assert.ok(result.userId);
-  assert.equal(result.email, 'admin@khedmah.example');
+  try {
+    const result = await bootstrapAdminService.bootstrap(secret, {
+      ...credentials,
+      displayName: 'مدير النظام'
+    });
+    assert.ok(result.userId);
+    assert.equal(result.email, credentials.email);
+    assert.equal((await identityRepo.findAccountById(result.userId))?.status, 'pending');
+    assert.equal(sentEmails.length, 1);
+    assert.equal(sentEmails[0].to, credentials.email);
+    const token = sentEmails[0].textBody.match(/token=([A-Za-z0-9_-]+)/)?.[1];
+    assert.ok(token, 'bootstrap must send a real verification token through the test provider');
+    await assert.rejects(() => identityService.login(credentials), EmailVerificationRequiredError);
 
-  const roles = await identityRepo.findAdminRoles(result.userId);
-  assert.ok(roles.includes('bootstrap_admin'));
+    const roles = await identityRepo.findAdminRoles(result.userId);
+    assert.ok(roles.includes('bootstrap_admin'));
+    const logs = await identityRepo.listAuditLogs();
+    assert.ok(logs.some((entry) => entry.eventType === 'admin.bootstrap'));
+    assert.ok(logs.some((entry) => entry.eventType === 'email.verification.requested'));
 
-  const logs = await identityRepo.listAuditLogs();
-  assert.ok(logs.some((l) => l.eventType === 'admin.bootstrap'));
-
-  await assert.rejects(
-    () => bootstrapAdminService.bootstrap(secret, {
-      email: 'admin2@khedmah.example',
-      password: 'admin-secure-password-456',
-      displayName: 'مدير ثاني'
-    }),
-    { message: /Bootstrap has already been completed/ }
-  );
-
-  delete process.env.BOOTSTRAP_ADMIN_SECRET;
+    await emailVerificationService.confirmVerification(token);
+    assert.equal((await identityRepo.findAccountById(result.userId))?.status, 'active');
+    const login = await identityService.login(credentials);
+    assert.ok(login.sessionToken);
+    await identityService.logout(login.sessionToken);
+    await assert.rejects(() => emailVerificationService.confirmVerification(token), { message: 'Email has already been verified.' });
+    await assert.rejects(
+      () => bootstrapAdminService.bootstrap(secret, {
+        email: 'admin2@khedmah.example',
+        password: 'admin-secure-password-456',
+        displayName: 'مدير ثاني'
+      }),
+      { message: /Bootstrap has already been completed/ }
+    );
+    assert.equal(sentEmails.length, 1, 'a rejected bootstrap cannot send another email');
+  } finally {
+    if (originalSecret === undefined) delete process.env.BOOTSTRAP_ADMIN_SECRET;
+    else process.env.BOOTSTRAP_ADMIN_SECRET = originalSecret;
+  }
 });
 
 // WP-03: Rate Limiting
