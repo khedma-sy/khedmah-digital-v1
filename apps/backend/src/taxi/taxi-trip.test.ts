@@ -318,11 +318,12 @@ test('Taxi trip uses one native authority transaction and independently issued r
       await assert.rejects(asRole(runtime,c=>c.query("UPDATE khedmah_taxi.jt_orders SET payload=jsonb_set(payload,'{quote,totalMinor}','1') WHERE id=$1",[o.id])),(e:any)=>e.code==='55000');
       for(const table of ['jt_events','jt_cash_receipts']) await assert.rejects(asRole(runtime,c=>c.query(`DELETE FROM khedmah_taxi.${table}`)),(e:any)=>e.code==='42501');
     });
-    await t.test('production, disabled trips, malformed session and foreign reads remain denied',async()=>{
+    await t.test('disabled Production trips, malformed session and foreign reads remain denied',async()=>{
       const o=await place();await rejects(service.read(sessions.other,'customer',o.id),404);await rejects(service.read(sessions.second,'driver',o.id),404);
       await rejects(service.quote('malformed',coordinates),401);
-      process.env.TAXI_TRIPS_ENABLED='false';try{await rejects(quote(),503);}finally{process.env.TAXI_TRIPS_ENABLED='true';}
-      process.env.NODE_ENV='production';try{await rejects(quote(),503);}finally{process.env.NODE_ENV='test';}await cancel(o);
+      process.env.NODE_ENV='production';process.env.TAXI_TRIPS_ENABLED='false';
+      try{await rejects(quote(),503);}finally{process.env.NODE_ENV='test';process.env.TAXI_TRIPS_ENABLED='true';}
+      await cancel(o);
     });
   }finally{
     if(schema) await query('DROP SCHEMA IF EXISTS khedmah_taxi CASCADE');
