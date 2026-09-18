@@ -28,8 +28,9 @@ test('new-account production operator is manual and locked to latest main', () =
 
 test('new-account deployment uses project-owned Cloud Build source staging', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
-  assert.match(workflow, /gcloud builds get-default-service-account/);
-  assert.match(workflow, /projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{BUILD_SERVICE_ACCOUNT\}/);
+  assert.match(workflow, /OPERATIONS_BUILD_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_BUILD_SERVICE_ACCOUNT \}\}/);
+  assert.match(workflow, /projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}/);
+  assert.doesNotMatch(workflow, /gcloud builds get-default-service-account/);
   assert.match(workflow, /gs:\/\/\$\{GOOGLE_CLOUD_PROJECT\}-cloudbuild-source\/source/);
   assert.match(workflow, /cloudbuild\.production-new-account\.yaml/);
 });
@@ -65,7 +66,9 @@ test('VERIFY_ONLY checks live deployment prerequisites without deploying', () =>
   const readiness = readFileSync('scripts/validate-production-deployment-readiness.sh', 'utf8');
   assert.match(workflow, /Verify Google\/Firebase\/operations readiness/);
   assert.match(workflow, /bash scripts\/validate-production-deployment-readiness\.sh/);
-  assert.match(readiness, /gcloud builds get-default-service-account/);
+  assert.match(readiness, /OPERATIONS_BUILD_SERVICE_ACCOUNT/);
+  assert.match(readiness, /gcloud iam service-accounts describe/);
+  assert.doesNotMatch(readiness, /gcloud builds get-default-service-account/);
   assert.match(readiness, /gcloud artifacts repositories describe/);
   assert.match(readiness, /gcloud run services describe/);
   assert.match(readiness, /gcloud sql instances describe/);
