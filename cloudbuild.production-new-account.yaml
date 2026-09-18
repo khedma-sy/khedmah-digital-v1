@@ -117,6 +117,7 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="$$FIREBASE_MEASUREMENT_ID" \
           --build-arg NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED='${_FACEBOOK_AUTH_ENABLED}' \
           --build-arg NEXT_PUBLIC_CLASSIFIEDS_ENABLED='${_NEXT_PUBLIC_CLASSIFIEDS_ENABLED}' \
+          --build-arg NEXT_PUBLIC_TAXI_TRIPS_ENABLED='${_TAXI_TRIPS_ENABLED}' \
           -t '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/frontend:$COMMIT_SHA' .
 
   - id: push-frontend
