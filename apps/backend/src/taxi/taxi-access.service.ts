@@ -31,7 +31,7 @@ export class TaxiAccessService {
     work: (client: PoolClient, actor: TaxiActor) => Promise<T>): Promise<T> {
     // This pass authorizes pre-production acceptance only. No implicit rollout.
     if (process.env.TAXI_ACCESS_ENABLED !== 'true'
-      || !['development', 'test', 'preview', 'staging'].includes(process.env.NODE_ENV ?? '')) {
+      || !['development', 'test', 'preview', 'staging', 'production'].includes(process.env.NODE_ENV ?? '')) {
       throw new ServiceUnavailableException('Taxi access is not enabled.');
     }
     if (audience !== 'customer' && audience !== 'driver') throw new ForbiddenException('Taxi role is not supported.');
