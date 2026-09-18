@@ -3,6 +3,7 @@ set -euo pipefail
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
+: "${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL is required}"
 
 FRONTEND_SERVICE="${OPERATIONS_FRONTEND_SERVICE:-frontend}"
 FACEBOOK_AUTH_ENABLED="${FACEBOOK_AUTH_ENABLED:-false}"
@@ -43,10 +44,23 @@ curl --fail --silent --show-error \
   -H "X-Goog-User-Project: ${GOOGLE_CLOUD_PROJECT}" \
   "${ADMIN_BASE}/config" > "$CONFIG_FILE"
 
-if ! jq -e --arg host "$FRONTEND_HOST" '(.authorizedDomains // []) | index($host) != null' "$CONFIG_FILE" >/dev/null; then
-  echo "ERROR: Firebase authorizedDomains is missing the exact Cloud Run frontend host: ${FRONTEND_HOST}" >&2
+[[ "$NEXT_PUBLIC_SITE_URL" == https://* ]] || {
+  echo 'ERROR: NEXT_PUBLIC_SITE_URL must use HTTPS.' >&2
   exit 1
-fi
+}
+CANONICAL_HOST="${NEXT_PUBLIC_SITE_URL#https://}"
+CANONICAL_HOST="${CANONICAL_HOST%%/*}"
+[[ -n "$CANONICAL_HOST" && "$CANONICAL_HOST" != *"@"* && "$CANONICAL_HOST" != *":"* ]] || {
+  echo 'ERROR: NEXT_PUBLIC_SITE_URL must contain one canonical public host without credentials or port.' >&2
+  exit 1
+}
+
+for host in "$FRONTEND_HOST" "$CANONICAL_HOST"; do
+  if ! jq -e --arg host "$host" '(.authorizedDomains // []) | index($host) != null' "$CONFIG_FILE" >/dev/null; then
+    echo "ERROR: Firebase authorizedDomains is missing required host: ${host}" >&2
+    exit 1
+  fi
+done
 
 curl --fail --silent --show-error \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -72,7 +86,7 @@ for provider in "${required_providers[@]}"; do
   fi
 done
 
-echo "READY: FIREBASE_AUTHORIZED_DOMAIN=${FRONTEND_HOST}"
+echo "READY: FIREBASE_AUTHORIZED_DOMAINS=${FRONTEND_HOST},${CANONICAL_HOST}"
 if [[ "$FACEBOOK_AUTH_ENABLED" == true ]]; then
   echo "READY: FIREBASE_SOCIAL_PROVIDERS=google.com,facebook.com"
 else
