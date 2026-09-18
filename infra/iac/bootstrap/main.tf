@@ -39,7 +39,6 @@ resource "google_project_service" "bootstrap" {
   disable_on_destroy = false
 }
 
-
 resource "google_storage_bucket" "cloudbuild_source" {
   project                     = var.project_id
   name                        = "${var.project_id}-cloudbuild-source"
