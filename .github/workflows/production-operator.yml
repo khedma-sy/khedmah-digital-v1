@@ -97,7 +97,7 @@ jobs:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
-      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+      OPERATIONS_MIGRATION_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_MIGRATION_SERVICE_ACCOUNT }}
       OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
       CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
@@ -187,9 +187,9 @@ jobs:
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
             --image "$IMAGE" \
-            --service-account "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-            --set-secrets 'DATABASE_URL=DATABASE_URL:latest' \
+            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
             --set-env-vars "MIGRATION_VERSION=${MIGRATION_VERSION},MIGRATION_SHA256=${MIGRATION_SHA256}" \
             --tasks 1 \
             --parallelism 1 \
