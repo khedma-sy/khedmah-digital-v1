@@ -25,7 +25,10 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(workflow, /BACKUP_AGE_SECONDS/);
   assert.match(workflow, /--max-retries[= ]0/);
   assert.match(workflow, /--set-cloudsql-instances/);
-  assert.match(workflow, /DATABASE_URL=DATABASE_URL:latest/);
+  assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
+  assert.match(workflow, /--service-account "\\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
+  assert.doesNotMatch(workflow.split('  migrate-database:')[1] ?? '', /--service-account "\\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.match(workflow, /gcloud run jobs execute/);
   assert.match(runner, /APPROVED_MIGRATION_021='021_provider_reports'/);
   assert.match(runner, /APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'/);
