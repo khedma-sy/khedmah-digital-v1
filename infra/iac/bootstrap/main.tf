@@ -1,4 +1,11 @@
 locals {
+  github_workflow_refs = [
+    for path in setunion(
+      toset([var.github_workflow_path]),
+      var.github_additional_workflow_paths
+    ) : "${var.github_repository}/${path}@${var.github_ref}"
+  ]
+
   google_apis = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
@@ -175,7 +182,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   attribute_condition = <<-EOT
     assertion.repository == "${var.github_repository}" &&
     assertion.ref == "${var.github_ref}" &&
-    assertion.workflow_ref == "${var.github_repository}/${var.github_workflow_path}@${var.github_ref}"
+    assertion.workflow_ref in ${jsonencode(local.github_workflow_refs)}
   EOT
 
   oidc {
