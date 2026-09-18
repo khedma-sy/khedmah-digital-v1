@@ -17,6 +17,17 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.match(workflow, /--max-retries 0/);
 });
 
+test('workflow descriptions containing YAML colon separators are quoted', () => {
+  for (const line of workflow.split('\n')) {
+    const match = line.match(/^\s*description:\s*(.+)$/);
+    if (!match) continue;
+    const value = match[1].trim();
+    if (!value.includes(': ')) continue;
+    const quoted = (value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'));
+    assert.equal(quoted, true, `Unquoted YAML description with colon separator: ${line.trim()}`);
+  }
+});
+
 test('prepare and harden require explicit commit-bound confirmations', () => {
   assert.match(workflow, /PREPARE_KHEDMAH_DATABASE_ROLES_/);
   assert.match(workflow, /HARDEN_KHEDMAH_DATABASE_ROLES_/);
