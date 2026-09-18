@@ -55,7 +55,16 @@ terraform -chdir=infra/iac/bootstrap init   -input=false   -reconfigure   -backe
 
 terraform -chdir=infra/iac/bootstrap validate
 
-terraform -chdir=infra/iac/bootstrap plan   -input=false   -lock-timeout=60s   -out="$plan_file"   -var="project_id=$GOOGLE_CLOUD_PROJECT"   -var="region=$GOOGLE_CLOUD_REGION"   -var="github_repository=$GITHUB_REPOSITORY"   -var='github_workflow_path=.github/workflows/production-operator-new-account.yml'   -var='github_ref=refs/heads/main'
+terraform -chdir=infra/iac/bootstrap plan \
+  -input=false \
+  -lock-timeout=60s \
+  -out="$plan_file" \
+  -var="project_id=$GOOGLE_CLOUD_PROJECT" \
+  -var="region=$GOOGLE_CLOUD_REGION" \
+  -var="github_repository=$GITHUB_REPOSITORY" \
+  -var='github_workflow_path=.github/workflows/production-operator-new-account.yml' \
+  -var='github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml"]' \
+  -var='github_ref=refs/heads/main'
 
 echo "READY: BOOTSTRAP_PLAN=$plan_file"
 echo "READY: TF_STATE_BUCKET=$TF_STATE_BUCKET"
