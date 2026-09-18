@@ -22,8 +22,7 @@ test('production WIF keeps explicit main workflow allowlist', () => {
   assert.match(productionOperator, /"attribute\.workflow_ref" = "assertion\.workflow_ref"/);
   assert.match(productionOperator, /assertion\.workflow_ref in \[/);
   assert.doesNotMatch(productionOperator, /job_workflow_ref/);
-  assert.match(productionOperator, /production-operator\.yml@refs\/heads\/main/);
-  assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
+  assert.match(productionOperator, /production-operator-new-account\.yml@refs\/heads\/main/);\n  assert.match(productionOperator, /production-migrations-025-034\.yml@refs\/heads\/main/);\n  assert.match(productionOperator, /terraform-media-apply\.yml@refs\/heads\/main/);
   assert.match(productionOperator, /terraform-media-plan\.yml@refs\/heads\/main/);
   assert.match(productionOperator, /terraform-media-state-handoff\.yml@refs\/heads\/main/);
   assert.doesNotMatch(productionOperator, /\.github\/workflows\/\*@/);
@@ -48,6 +47,6 @@ test('media apply uses only saved plan and verifies private post-apply state', (
   assert.match(workflow, /MEDIA_BUCKET_APPLY_VERIFIED/);
   assert.match(workflow, /allUsers/);
   assert.match(workflow, /public_access_prevention/);
-  assert.match(workflow, /GOOGLE_CLOUD_PROJECT: \\$\\{\\{ vars\\.GOOGLE_CLOUD_PROJECT \\}\\}/);
+  assert.ok(workflow.includes('GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}'));
   assert.doesNotMatch(workflow, /gcloud builds submit|run deploy|DEPLOY_PRODUCTION|build-android/);
 });
