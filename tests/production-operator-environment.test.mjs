@@ -85,5 +85,7 @@ test('new-account Cloud Build derives the frontend API URL deterministically bef
   assert.match(build, /id: bind-live-frontend-origin/);
   assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
   assert.doesNotMatch(build, /_NEXT_PUBLIC_API_URL/);
-  assert.doesNotMatch(readFileSync(operatorPath, 'utf8'), /NEXT_PUBLIC_API_URL: \$\{\{ vars\.NEXT_PUBLIC_API_URL \}\}/);
+  const operator = readFileSync(operatorPath, 'utf8');
+  assert.doesNotMatch(operator, /NEXT_PUBLIC_API_URL: \$\{\{ vars\.NEXT_PUBLIC_API_URL \}\}/);
+  assert.doesNotMatch(operator, /"\$NEXT_PUBLIC_API_URL"/);
 });
