@@ -48,6 +48,6 @@ test('media apply uses only saved plan and verifies private post-apply state', (
   assert.match(workflow, /MEDIA_BUCKET_APPLY_VERIFIED/);
   assert.match(workflow, /allUsers/);
   assert.match(workflow, /public_access_prevention/);
-  assert.doesNotMatch(workflow, /project-94512a0e-1a5e-4bdb-87f|774201339973/);
+  assert.match(workflow, /GOOGLE_CLOUD_PROJECT: \\$\\{\\{ vars\\.GOOGLE_CLOUD_PROJECT \\}\\}/);
   assert.doesNotMatch(workflow, /gcloud builds submit|run deploy|DEPLOY_PRODUCTION|build-android/);
 });
