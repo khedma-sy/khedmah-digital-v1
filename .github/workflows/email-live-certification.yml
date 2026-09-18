@@ -59,8 +59,22 @@ jobs:
           register_body="$(mktemp)"
           trap 'rm -f "$register_body"' EXIT
           status="$(curl --silent --show-error --output "$register_body" --write-out '%{http_code}'             --header 'Content-Type: application/json'             --data "$(jq -nc --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" --arg displayName 'Khedmah Email Certification' '{email:$email,password:$password,displayName:$displayName}')"             "$BACKEND_URL/api/v1/auth/register")"
-          test "$status" = "201" || test "$status" = "200"
-          jq -e '.verificationRequired == true' "$register_body" >/dev/null
+          if [[ "$status" = "201" || "$status" = "200" ]]; then
+            jq -e '.verificationRequired == true' "$register_body" >/dev/null
+          elif [[ "$status" = "409" ]]; then
+            resend_body="$(mktemp)"
+            resend_status="$(curl --silent --show-error --output "$resend_body" --write-out '%{http_code}' \
+              --header 'Content-Type: application/json' \
+              --data "$(jq -nc --arg email "$TEST_EMAIL" '{email:$email}')" \
+              "$BACKEND_URL/api/v1/auth/email-verification/request")"
+            test "$resend_status" = "201" || test "$resend_status" = "200"
+            jq -e '.message == "If verification is required, an email has been sent."' "$resend_body" >/dev/null
+            rm -f "$resend_body"
+          else
+            cat "$register_body" >&2
+            echo "Unexpected registration status: $status" >&2
+            exit 1
+          fi
 
           login_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}'             --header 'Content-Type: application/json'             --data "$(jq -nc --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" '{email:$email,password:$password}')"             "$BACKEND_URL/api/v1/auth/login")"
           test "$login_status" = "401" || test "$login_status" = "403"
