@@ -2,6 +2,8 @@
 set -euo pipefail
 set +x
 
+: "${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
+
 [[ "${OPERATIONS_APPROVED_PRODUCTION:-}" == "true" ]] || {
   echo 'OPERATIONS_APPROVED_PRODUCTION=true is required.' >&2
   exit 5
@@ -39,7 +41,7 @@ for value in \
   "$GCS_MEDIA_BUCKET" \
   "$NEXT_PUBLIC_API_URL" \
   "$CORS_ORIGIN"; do
-  if printf '%s' "$value" | grep -Eq "$legacy_pattern"; then
+  if [[ "$value" == *"$legacy_project"* || "$value" == *"$legacy_number"* ]]; then
     echo 'Refusing Production deployment because a legacy Google project binding remains.' >&2
     exit 6
   fi
