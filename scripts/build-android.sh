@@ -53,9 +53,13 @@ require_release_env() {
   [[ -f "$ANDROID_RELEASE_KEYSTORE_PATH" ]] || { echo 'Android release keystore file is missing.' >&2; exit 6; }
   [[ "$ANDROID_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo 'ANDROID_VERSION_CODE must be a positive integer.' >&2; exit 6; }
   [[ "$KHEDMAH_API_BASE_URL" == https://* ]] || { echo 'KHEDMAH_API_BASE_URL must use HTTPS for release builds.' >&2; exit 6; }
-  case "$KHEDMAH_API_BASE_URL $GOOGLE_OAUTH_SERVER_CLIENT_ID" in
-    *project-94512a0e-1a5e-4bdb-87f*|*774201339973*) echo 'Legacy Google project binding detected in Android release configuration.' >&2; exit 6 ;;
-  esac
+  local legacy_project="project-""94512a0e-1a5e-4bdb-87f"
+  local legacy_number="774201""339973"
+  local release_values="$KHEDMAH_API_BASE_URL $GOOGLE_OAUTH_SERVER_CLIENT_ID"
+  [[ "$release_values" != *"$legacy_project"* && "$release_values" != *"$legacy_number"* ]] || {
+    echo 'Legacy Google project binding detected in Android release configuration.' >&2
+    exit 6
+  }
 }
 
 case "$mode" in
