@@ -50,6 +50,11 @@ test('client Maps apply consumes only reviewed plan and publishes masked keys to
     read('infra/iac/bootstrap/main.tf'),
     read('infra/iac/production_operator.tf'),
   ]);
+  assert.match(apply, /Verify reviewed plan run provenance/);
+  assert.match(apply, /Terraform Client Maps Plan/);
+  assert.match(apply, /\.conclusion.*success|test .*success/);
+  assert.match(apply, /\.head_branch.*main|test .*main/);
+  assert.match(apply, /\.head_sha/);
   assert.match(apply, /actions\/download-artifact@v8/);
   assert.match(apply, /sha256sum --check SHA256SUMS/);
   assert.match(apply, /APPLY_KHEDMAH_CLIENT_MAPS_/);
@@ -60,6 +65,8 @@ test('client Maps apply consumes only reviewed plan and publishes masked keys to
   assert.match(apply, /secrets versions add GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(apply, /secrets versions add GOOGLE_MAPS_ANDROID_API_KEY/);
   assert.doesNotMatch(apply, /echo ["']?\$browser_key|echo ["']?\$android_key/);
+  const bootstrapVariables = await read('infra/iac/bootstrap/variables.tf');
+  assert.match(bootstrapVariables, /"GOOGLE_MAPS_ANDROID_API_KEY"/);
   assert.match(bootstrap, /maps_android_deployer_version_manager/);
   assert.match(bootstrap, /maps_android_deployer_accessor/);
   assert.match(productionWif, /terraform-client-maps-plan\.yml@refs\/heads\/main/);
