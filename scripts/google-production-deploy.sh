@@ -18,10 +18,12 @@ for name in \
   OPERATIONS_BACKEND_SERVICE \
   OPERATIONS_FRONTEND_SERVICE \
   OPERATIONS_RUNTIME_SERVICE_ACCOUNT \
+  OPERATIONS_BUILD_SERVICE_ACCOUNT \
   CLOUD_SQL_INSTANCE_CONNECTION_NAME \
   GCS_MEDIA_BUCKET \
   NEXT_PUBLIC_API_URL \
   CORS_ORIGIN \
+  NEXT_PUBLIC_SITE_URL \
   EMAIL_FROM; do
   [[ -n "${!name:-}" ]] || { echo "Missing ${name}." >&2; exit 4; }
 done
@@ -37,10 +39,12 @@ for value in \
   "$GOOGLE_CLOUD_PROJECT" \
   "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT" \
   "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
+  "$OPERATIONS_BUILD_SERVICE_ACCOUNT" \
   "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
   "$GCS_MEDIA_BUCKET" \
   "$NEXT_PUBLIC_API_URL" \
-  "$CORS_ORIGIN"; do
+  "$CORS_ORIGIN" \
+  "$NEXT_PUBLIC_SITE_URL"; do
   if [[ "$value" == *"$legacy_project"* || "$value" == *"$legacy_number"* ]]; then
     echo 'Refusing Production deployment because a legacy Google project binding remains.' >&2
     exit 6
@@ -49,6 +53,10 @@ done
 
 [[ "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
   echo 'Runtime service account must belong to the active Production project.' >&2
+  exit 6
+}
+[[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo 'Build service account must belong to the active Production project.' >&2
   exit 6
 }
 [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]] || {
@@ -87,11 +95,7 @@ npm run validate:google
 node scripts/validate-operations-readiness.mjs --production
 bash scripts/validate-production-deployment-readiness.sh
 
-BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
-if [[ "$BUILD_SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
-  BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"
-fi
-[[ -n "$BUILD_SERVICE_ACCOUNT" ]] || { echo 'Cloud Build service account is unavailable.' >&2; exit 9; }
+BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
 
 SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"
 FACEBOOK_AUTH_ENABLED="${FACEBOOK_AUTH_ENABLED:-false}"
@@ -102,5 +106,5 @@ gcloud builds submit . \
   --service-account "$BUILD_SERVICE_ACCOUNT" \
   --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
   --config cloudbuild.production-new-account.yaml \
-  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},_CORS_ORIGIN=${CORS_ORIGIN},_EMAIL_FROM=${EMAIL_FROM},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
+  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},_CORS_ORIGIN=${CORS_ORIGIN},_SITE_URL=${NEXT_PUBLIC_SITE_URL},_EMAIL_FROM=${EMAIL_FROM},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
   --quiet
