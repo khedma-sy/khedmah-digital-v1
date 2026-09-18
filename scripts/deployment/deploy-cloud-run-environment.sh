@@ -59,6 +59,10 @@ if [[ "$environment" == "staging" ]]; then
   backend_secret_bindings+=",OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest"
 fi
 
+# Product Store 024 is the required predecessor for Classifieds 025.
+# Apply it first in isolated non-production and keep Production on its governed operator path.
+scripts/deployment/ensure-product-store-nonproduction-schema.sh "$environment" "$identifier"
+
 # Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
 # is therefore applied in isolated non-production even when Classifieds feature
 # flags remain disabled. Feature exposure and schema presence stay separate.
