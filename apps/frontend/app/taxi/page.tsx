@@ -11,6 +11,7 @@ import styles from './taxi.module.css';
 const RIDER_TRIP_KEY = 'khedmah-taxi-rider-trip';
 const DRIVER_TRIP_KEY = 'khedmah-taxi-driver-trip';
 const PLACE_KEY = 'khedmah-taxi-place-attempt';
+const TAXI_TRIPS_ENABLED = process.env.NEXT_PUBLIC_TAXI_TRIPS_ENABLED === 'true';
 
 function errorMessage(cause: unknown) {
   const error = cause as TaxiApiError;
@@ -341,7 +342,13 @@ function TaxiContent() {
   return <PageShell className={styles.page} label="خدمة تكسي">
     <PageHeader eyebrow="خدمة — التنقل" title="تكسي" description="حدد الانطلاق والوجهة على الخريطة داخل صفحة التكسي. الرحلة تبقى مرتبطة بالحساب والتعرفة واعتماد السائق، ولا يبدأ العداد دون موافقة الراكب الموثقة." backHref="/" />
     <div className={styles.switcher}><ActionLink href="/taxi" variant={driver ? 'secondary' : 'primary'}>راكب</ActionLink><ActionLink href="/taxi?mode=driver" variant={driver ? 'primary' : 'secondary'}>سائق</ActionLink><ActionLink href="/taxi-driver-signup" variant="secondary">سجّل سيارتك</ActionLink><ActionLink href="/mobility?type=delivery" variant="secondary">مندوب توصيل</ActionLink></div>
-    {driver ? <DriverJourney /> : <RiderJourney />}
+    {!TAXI_TRIPS_ENABLED
+      ? <Surface className={styles.panel}>
+          <h2>التفعيل التشغيلي للرحلات</h2>
+          <StatusMessage tone="info">اعتماد السائقين والمركبات متاح، بينما إنشاء رحلات التكسي ما زال مغلقًا في هذه النسخة حتى اكتمال واعتماد مخطط الرحلات التشغيلي.</StatusMessage>
+          <div className={styles.actions}><ActionLink href="/taxi-driver-signup">سجّل سيارتك</ActionLink><ActionLink href="/mobility?type=taxi" variant="secondary">استعرض مزودي التكسي</ActionLink></div>
+        </Surface>
+      : driver ? <DriverJourney /> : <RiderJourney />}
   </PageShell>;
 }
 
