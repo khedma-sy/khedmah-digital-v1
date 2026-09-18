@@ -11,6 +11,9 @@ test('Staging discovery is read-only and never reads secret payloads', () => {
   assert.equal(spawnSync('/bin/bash', ['-n', path]).status, 0);
   assert.match(script, /gcloud projects describe/);
   assert.match(script, /workload-identity-pools providers describe/);
+  assert.match(script, /refs\/heads\/develop/);
+  assert.match(script, /\.github\/workflows\/staging-deployment\.yml@refs\/heads\/develop/);
+  assert.match(script, /attributeCondition/);
   assert.match(script, /gcloud sql instances list/);
   assert.match(script, /gcloud artifacts repositories list/);
   assert.match(script, /gcloud storage buckets list/);
