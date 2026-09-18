@@ -87,6 +87,7 @@ printf '%s
   runtime_service_account_email: .runtime_service_account_email.value,
   deployer_service_account_email: .deployer_service_account_email.value,
   workload_identity_provider: .workload_identity_provider.value,
+  bootstrap_admin_secret_id: .bootstrap_admin_secret_id.value,
   secret_ids: .secret_ids.value
 }'
 
