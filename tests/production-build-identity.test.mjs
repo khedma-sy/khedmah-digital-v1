@@ -43,7 +43,7 @@ test('every frontend build-time Secret Manager binding is granted to the dedicat
 for (const path of buildWorkflows) test(`${path}: uses dedicated build identity and never the project default`, async () => {
   const source = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
   assert.match(source, /OPERATIONS_BUILD_SERVICE_ACCOUNT/);
-  assert.match(source, /projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}/);
+  assert.match(source, /projects\/\$\{?GOOGLE_CLOUD_PROJECT\}?\/serviceAccounts\/\$\{?OPERATIONS_BUILD_SERVICE_ACCOUNT\}?/);
   assert.doesNotMatch(source, /gcloud builds get-default-service-account/);
 });
 
