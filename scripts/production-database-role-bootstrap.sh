@@ -124,8 +124,14 @@ SELECT CASE WHEN
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.driver_approvals','UPDATE')
   AND has_table_privilege('$RUNTIME_USER','khedmah_taxi.operational_approval_events','INSERT')
   AND has_function_privilege('$RUNTIME_USER','khedmah_taxi.resolve_actor_locked(text,boolean)','EXECUTE')
-  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.tariffs','UPDATE')
-  AND NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.routes','UPDATE')
+  AND (
+    to_regclass('khedmah_taxi.tariffs') IS NULL
+    OR NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.tariffs','UPDATE')
+  )
+  AND (
+    to_regclass('khedmah_taxi.routes') IS NULL
+    OR NOT has_table_privilege('$RUNTIME_USER','khedmah_taxi.routes','UPDATE')
+  )
 THEN 'ready' ELSE 'blocked' END")"
     test "$post" = ready || {
       echo 'ERROR: RUNTIME_DATABASE_HARDENING_POSTCONDITION_FAILED' >&2
