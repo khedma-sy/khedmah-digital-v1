@@ -37,7 +37,12 @@ test('bootstrap provider uses a bounded workflow_ref allowlist on the configured
   assert.doesNotMatch(bootstrap, /job_workflow_ref/);
   assert.match(productionWif, /production-operator-new-account\.yml@refs\/heads\/main/);
   assert.match(productionWif, /production-migrations-025-034\.yml@refs\/heads\/main/);
-  assert.doesNotMatch(productionWif, /production-operator\.yml@refs\/heads\/main/);
+  assert.match(productionWif, /production-operator\.yml@refs\/heads\/main/);
+  const legacySchemaOperator = readFileSync('.github/workflows/production-operator.yml', 'utf8');
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_021/);
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_022/);
+  assert.match(legacySchemaOperator, /APPLY_MIGRATION_024/);
+  assert.doesNotMatch(legacySchemaOperator, /DEPLOY_PRODUCTION|gcloud builds submit.*cloudbuild\.production-new-account\.yaml/);
   assert.match(bootstrap, /roles\/iam\.workloadIdentityUser/);
   assert.match(bootstrap, /google_service_account\.deployer\.name/);
 });
