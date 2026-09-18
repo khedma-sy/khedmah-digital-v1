@@ -31,13 +31,15 @@ test('new-account Production deploy opens the live map in a browser and requires
   assert.match(workflow, /MAP_STATUS=ready/);
 });
 
-test('new-account Production contract injects explicit API and CORS origins', async () => {
+test('new-account Production derives the API URL and binds canonical plus live frontend origins', async () => {
   const build = await read('cloudbuild.production-new-account.yaml');
   const middleware = await read('apps/backend/src/middleware/csrf-origin.middleware.ts');
-  assert.match(build, /_NEXT_PUBLIC_API_URL: REQUIRED_NEXT_PUBLIC_API_URL/);
+  assert.match(build, /id: resolve-or-bootstrap-backend-url/);
+  assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
   assert.match(build, /_CORS_ORIGIN: REQUIRED_CORS_ORIGIN/);
-  assert.match(build, /CORS_ORIGIN=\$\{_CORS_ORIGIN\}/);
-  assert.match(build, /_NEXT_PUBLIC_API_URL: REQUIRED_NEXT_PUBLIC_API_URL/);
+  assert.match(build, /ALLOWED_ORIGINS='\$\{_CORS_ORIGIN\},'/);
+  assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
+  assert.doesNotMatch(build, /_NEXT_PUBLIC_API_URL/);
   assert.match(middleware, /\.split\(','\)/);
   assert.match(middleware, /allowedOrigins\.has\(originHeader\)/);
 });
