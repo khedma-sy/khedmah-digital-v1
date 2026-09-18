@@ -11,7 +11,7 @@ const read = (file) => readFile(file, 'utf8');
 const requiredFiles = [
   'cloudbuild.production-new-account.yaml', 'infra/iac/main.tf', 'infra/firebase/firebase.json', 'infra/firebase/storage.rules',
   'config/google/google.ts', 'config/google/firebase.ts', 'config/google/maps.ts', 'scripts/google-production-deploy.sh',
-  'scripts/google-production-rollback.sh', 'scripts/collect-live-production-evidence.sh', 'scripts/run-live-production-certification.sh',
+  'scripts/google-production-rollback.sh', 'scripts/collect-live-production-evidence.sh', 'scripts/validate-production-domain-readiness.sh', 'scripts/run-live-production-certification.sh',
   '.github/workflows/production-operator-new-account.yml', '.github/workflows/production-migrations-025-034.yml',
   'docs/reports/operations-product-live-certification/production-certification-report.md', 'docs/google/disaster-recovery.md', 'docs/operations-product/README.md'
 ];
