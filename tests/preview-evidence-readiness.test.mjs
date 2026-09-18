@@ -281,12 +281,13 @@ test('review-evidence resolves protected Staging baseline while retaining least 
   const workflow = await readFile(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
   const baselineJob = workflow.split('  resolve-staging-baseline:')[1].split('  review-evidence:')[0];
   const reviewJob = workflow.split('  review-evidence:')[1].split('  cleanup-preview:')[0];
-  assert.match(baselineJob, /^    environment: staging$/m);
-  assert.match(baselineJob, /khedmah-frontend-staging/);
-  assert.match(baselineJob, /gcloud run services describe/);
+  assert.match(baselineJob, /^    environment: preview$/m);
+  assert.match(baselineJob, /STAGING_FRONTEND_URL: \$\{\{ vars\.STAGING_FRONTEND_URL \}\}/);
+  assert.match(baselineJob, /STAGING_FRONTEND_URL must be configured after a healthy Staging deployment/);
+  assert.match(baselineJob, /curl --fail/);
+  assert.doesNotMatch(baselineJob, /google-github-actions\/auth|GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT|environment: staging/);
   assert.match(reviewJob, /^    environment: preview$/m);
   assert.match(reviewJob, /BEFORE_URL: \$\{\{ needs\.resolve-staging-baseline\.outputs\.frontend_url \}\}/);
-  assert.doesNotMatch(reviewJob, /STAGING_FRONTEND_URL/);
   assert.match(reviewJob, /contents: read\s+pull-requests: write/);
   assert.doesNotMatch(reviewJob, /id-token: write|continue-on-error|\|\| true/);
   assert.match(reviewJob, /if: always\(\)/);
