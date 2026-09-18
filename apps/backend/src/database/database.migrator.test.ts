@@ -5,6 +5,7 @@ import {
   CanonicalSchemaError,
   DatabaseMigrator,
   REQUIRED_CANONICAL_SCHEMA_VERSION,
+  RuntimeDatabasePrivilegeError,
   verifyCanonicalSchema
 } from './database.migrator';
 
@@ -64,4 +65,40 @@ test('catalog verification includes public and khedmah_taxi schemas and performs
 test('module initialization rejects before Nest application initialization completes', async () => {
   const pool = { query: async () => without((a) => a.name === 'food_promo_claims') };
   await assert.rejects(new DatabaseMigrator(pool as never).onModuleInit(), /CANONICAL_SCHEMA_INCOMPATIBLE/);
+});
+
+
+test('production startup fails closed when the runtime database identity is not hardened', async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  let call = 0;
+  const pool = {
+    query: async () => (++call === 1 ? completeCatalog() : [{ hardened: false }])
+  };
+  try {
+    await assert.rejects(
+      new DatabaseMigrator(pool as never).onModuleInit(),
+      (error: unknown) => error instanceof RuntimeDatabasePrivilegeError
+    );
+    assert.equal(call, 2);
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
+
+test('production startup accepts canonical 034 only with a hardened runtime database identity', async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  let call = 0;
+  const pool = {
+    query: async () => (++call === 1 ? completeCatalog() : [{ hardened: true }])
+  };
+  try {
+    await new DatabaseMigrator(pool as never).onModuleInit();
+    assert.equal(call, 2);
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
 });
