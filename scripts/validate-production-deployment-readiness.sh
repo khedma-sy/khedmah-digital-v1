@@ -4,6 +4,7 @@ set -euo pipefail
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 : "${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
+: "${OPERATIONS_BUILD_SERVICE_ACCOUNT:?OPERATIONS_BUILD_SERVICE_ACCOUNT is required}"
 
 AR_REPOSITORY="${OPERATIONS_ARTIFACT_REPOSITORY:-khedmah-digital}"
 BACKEND_SERVICE="${OPERATIONS_BACKEND_SERVICE:-backend}"
@@ -33,8 +34,12 @@ for api in "${required_apis[@]}"; do
   }
 done
 
-BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
-test -n "$BUILD_SERVICE_ACCOUNT"
+[[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo "ERROR: Build service account is outside the approved project." >&2
+  exit 1
+}
+BUILD_SERVICE_ACCOUNT="$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+gcloud iam service-accounts describe "$BUILD_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
 gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" \
