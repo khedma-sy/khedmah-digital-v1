@@ -67,3 +67,13 @@ output "maps_android_secret_id" {
   description = "Secret Manager container for the restricted Android Maps API key."
   value       = google_secret_manager_secret.maps_android.secret_id
 }
+
+output "migration_service_account_email" {
+  description = "Set as OPERATIONS_MIGRATION_SERVICE_ACCOUNT."
+  value       = google_service_account.migration.email
+}
+
+output "database_migration_secret_id" {
+  description = "Elevated database connection used only by governed migration jobs."
+  value       = google_secret_manager_secret.database_migration.secret_id
+}
