@@ -63,3 +63,14 @@ test('live evidence collection is bound to the explicit Production project and d
   assert.match(evidence, /dns-zones\.json/);
   assert.doesNotMatch(evidence, /secrets versions access/);
 });
+
+
+test('live validation distinguishes GCP Secret Manager values from CI-only OAuth clients', async () => {
+  const liveValidation = await readFile(new URL('../scripts/production-operator-live-validation.sh', import.meta.url), 'utf8');
+  assert.match(liveValidation, /gcp_secret_names=\(/);
+  assert.match(liveValidation, /GOOGLE_OAUTH_SERVER_CLIENT_ID/);
+  assert.match(liveValidation, /GOOGLE_MAPS_ANDROID_API_KEY/);
+  const secretBlock = liveValidation.split('gcp_secret_names=(')[1]?.split(')')[0] ?? '';
+  assert.doesNotMatch(secretBlock, /GOOGLE_OAUTH_WEB_CLIENT_ID/);
+  assert.doesNotMatch(secretBlock, /GOOGLE_OAUTH_ANDROID_CLIENT_ID/);
+});
