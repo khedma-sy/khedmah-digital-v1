@@ -34,7 +34,9 @@ test('new-account Production deploy opens the live map in a browser and requires
 test('new-account Production derives the API URL and binds canonical plus live frontend origins', async () => {
   const build = await read('cloudbuild.production-new-account.yaml');
   const middleware = await read('apps/backend/src/middleware/csrf-origin.middleware.ts');
-  assert.match(build, /id: resolve-or-bootstrap-backend-url/);
+  assert.match(build, /id: resolve-backend-url/);
+  assert.match(build, /gcloud projects describe/);
+  assert.match(build, /PREDICTED_PRODUCTION_BACKEND_URL/);
   assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
   assert.match(build, /_CORS_ORIGIN: REQUIRED_CORS_ORIGIN/);
   assert.match(build, /ALLOWED_ORIGINS='\$\{_CORS_ORIGIN\},'/);
