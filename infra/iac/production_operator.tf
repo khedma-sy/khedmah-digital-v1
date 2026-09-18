@@ -21,6 +21,7 @@ resource "google_iam_workload_identity_pool_provider" "github_production" {
     assertion.repository == "${var.github_repository}" &&
     assertion.ref == "refs/heads/main" &&
     assertion.workflow_ref in [
+      "${var.github_repository}/.github/workflows/production-operator.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/production-operator-new-account.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/production-migrations-025-034.yml@refs/heads/main",
       "${var.github_repository}/.github/workflows/terraform-media-apply.yml@refs/heads/main",
