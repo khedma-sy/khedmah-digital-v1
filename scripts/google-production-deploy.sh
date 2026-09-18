@@ -21,10 +21,12 @@ for name in \
   OPERATIONS_BUILD_SERVICE_ACCOUNT \
   CLOUD_SQL_INSTANCE_CONNECTION_NAME \
   GCS_MEDIA_BUCKET \
-  NEXT_PUBLIC_API_URL \
   CORS_ORIGIN \
   NEXT_PUBLIC_SITE_URL \
-  EMAIL_FROM; do
+  EMAIL_FROM \
+  GOOGLE_LOGGING_ENABLED \
+  GOOGLE_MONITORING_ENABLED \
+  GOOGLE_ERROR_REPORTING_ENABLED; do
   [[ -n "${!name:-}" ]] || { echo "Missing ${name}." >&2; exit 4; }
 done
 
@@ -42,7 +44,6 @@ for value in \
   "$OPERATIONS_BUILD_SERVICE_ACCOUNT" \
   "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
   "$GCS_MEDIA_BUCKET" \
-  "$NEXT_PUBLIC_API_URL" \
   "$CORS_ORIGIN" \
   "$NEXT_PUBLIC_SITE_URL"; do
   if [[ "$value" == *"$legacy_project"* || "$value" == *"$legacy_number"* ]]; then
@@ -63,6 +64,12 @@ done
   echo 'Cloud SQL connection must belong to the active Production project and region.' >&2
   exit 6
 }
+for telemetry_name in GOOGLE_LOGGING_ENABLED GOOGLE_MONITORING_ENABLED GOOGLE_ERROR_REPORTING_ENABLED; do
+  [[ "${!telemetry_name}" == "true" ]] || {
+    echo "${telemetry_name} must be true for Production deployment." >&2
+    exit 6
+  }
+done
 
 for command_name in git npm gcloud; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "Missing required command: ${command_name}." >&2; exit 3; }
@@ -93,7 +100,7 @@ gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)' >/d
 
 npm run validate:google
 node scripts/validate-operations-readiness.mjs --production
-bash scripts/validate-production-deployment-readiness.sh
+ALLOW_FIRST_PRODUCTION_DEPLOY=true bash scripts/validate-production-deployment-readiness.sh
 
 BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
 
@@ -106,5 +113,5 @@ gcloud builds submit . \
   --service-account "$BUILD_SERVICE_ACCOUNT" \
   --gcs-source-staging-dir "$SOURCE_STAGING_DIR" \
   --config cloudbuild.production-new-account.yaml \
-  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},_CORS_ORIGIN=${CORS_ORIGIN},_SITE_URL=${NEXT_PUBLIC_SITE_URL},_EMAIL_FROM=${EMAIL_FROM},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
+  --substitutions "COMMIT_SHA=${COMMIT_SHA},_REGION=${GOOGLE_CLOUD_REGION},_AR_REPOSITORY=${OPERATIONS_ARTIFACT_REPOSITORY},_BACKEND_SERVICE=${OPERATIONS_BACKEND_SERVICE},_FRONTEND_SERVICE=${OPERATIONS_FRONTEND_SERVICE},_RUNTIME_SERVICE_ACCOUNT=${OPERATIONS_RUNTIME_SERVICE_ACCOUNT},_CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},_GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET},_CORS_ORIGIN=${CORS_ORIGIN},_SITE_URL=${NEXT_PUBLIC_SITE_URL},_EMAIL_FROM=${EMAIL_FROM},_GOOGLE_LOGGING_ENABLED=${GOOGLE_LOGGING_ENABLED},_GOOGLE_MONITORING_ENABLED=${GOOGLE_MONITORING_ENABLED},_GOOGLE_ERROR_REPORTING_ENABLED=${GOOGLE_ERROR_REPORTING_ENABLED},_FACEBOOK_AUTH_ENABLED=${FACEBOOK_AUTH_ENABLED}" \
   --quiet
