@@ -123,30 +123,31 @@ jobs:
     if: github.event.action != 'closed'
     needs: quality-gates
     runs-on: ubuntu-latest
-    environment: staging
+    environment: preview
     outputs:
       frontend_url: ${{ steps.resolve.outputs.frontend_url }}
     steps:
-      - name: Authenticate to Staging Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v3
       - id: resolve
-        name: Resolve independent Staging frontend baseline
+        name: Resolve independent Staging frontend baseline without Staging credentials
         env:
-          STAGING_GOOGLE_CLOUD_PROJECT: ${{ vars.STAGING_GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$STAGING_GOOGLE_CLOUD_PROJECT"
-          test -n "$GOOGLE_CLOUD_REGION"
-          FRONTEND_URL="$(gcloud run services describe khedmah-frontend-staging --project "$STAGING_GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
-          [[ "$FRONTEND_URL" == https://*run.app ]]
-          curl --fail --silent --show-error --retry 4 --retry-all-errors "$FRONTEND_URL/" >/dev/null
-          echo "frontend_url=$FRONTEND_URL" >> "$GITHUB_OUTPUT"
+          test -n "$STAGING_FRONTEND_URL" || {
+            echo "::error::STAGING_FRONTEND_URL must be configured after a healthy Staging deployment." >&2
+            exit 2
+          }
+          [[ "$STAGING_FRONTEND_URL" == https://* ]] || {
+            echo '::error::STAGING_FRONTEND_URL must use HTTPS.' >&2
+            exit 2
+          }
+          [[ "$STAGING_FRONTEND_URL" != *"localhost"* && "$STAGING_FRONTEND_URL" != *"127.0.0.1"* ]] || {
+            echo '::error::STAGING_FRONTEND_URL must reference the independent deployed Staging frontend.' >&2
+            exit 2
+          }
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$STAGING_FRONTEND_URL/" >/dev/null
+          echo "frontend_url=$STAGING_FRONTEND_URL" >> "$GITHUB_OUTPUT"
 
   review-evidence:
     if: github.event.action != 'closed' && needs.deploy-preview.outputs.frontend_url != '' && needs.resolve-staging-baseline.outputs.frontend_url != ''
