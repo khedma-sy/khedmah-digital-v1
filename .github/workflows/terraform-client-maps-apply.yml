@@ -63,6 +63,19 @@ jobs:
           test "$CONFIGURED_STATE_BUCKET" = "$REQUESTED_STATE_BUCKET"
           test "$REQUESTED_CONFIRMATION" = "APPLY_KHEDMAH_CLIENT_MAPS_${REQUESTED_SHA:0:7}"
 
+      - name: Verify reviewed plan run provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REQUESTED_PLAN_RUN_ID}")"
+          test "$(jq -r '.name' <<<"$run_json")" = "Terraform Client Maps Plan"
+          test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
+          test "$(jq -r '.event' <<<"$run_json")" = "workflow_dispatch"
+          test "$(jq -r '.head_branch' <<<"$run_json")" = "main"
+          test "$(jq -r '.head_sha' <<<"$run_json")" = "$REQUESTED_SHA"
+
       - uses: actions/download-artifact@v8
         with:
           name: client-maps-plan-${{ inputs.commit_sha }}
