@@ -91,7 +91,15 @@ test('bootstrap grants only the reader roles needed by live production validatio
     'roles/browser',
     'roles/identitytoolkit.viewer',
     'roles/logging.viewer',
-    'roles/monitoring.viewer'
+    'roles/monitoring.viewer',
+    'roles/dns.reader',
+    'roles/certificatemanager.viewer'
   ]) assert.ok(bootstrap.includes(role), `missing ${role}`);
   assert.doesNotMatch(bootstrap, /"roles\/(owner|editor)"/);
+});
+
+
+test('evidence collector also uses stable Cloud Monitoring CLI', () => {
+  assert.match(evidence, /gcloud monitoring policies list/);
+  assert.doesNotMatch(evidence, /gcloud alpha monitoring policies list/);
 });
