@@ -87,6 +87,8 @@ printf '%s
   runtime_service_account_email: .runtime_service_account_email.value,
   deployer_service_account_email: .deployer_service_account_email.value,
   build_service_account_email: .build_service_account_email.value,
+  migration_service_account_email: .migration_service_account_email.value,
+  database_migration_secret_id: .database_migration_secret_id.value,
   workload_identity_provider: .workload_identity_provider.value,
   bootstrap_admin_secret_id: .bootstrap_admin_secret_id.value,
   secret_ids: .secret_ids.value
@@ -94,4 +96,4 @@ printf '%s
 
 echo 'APPLIED: bootstrap infrastructure exists in the new Google project.'
 echo 'NEXT: add secret VALUES as enabled Secret Manager versions; Terraform intentionally creates names only.'
-echo 'NEXT: set OPERATIONS_BUILD_SERVICE_ACCOUNT from build_service_account_email and configure the remaining GitHub production environment variables/secrets from the outputs above.'
+echo 'NEXT: set OPERATIONS_BUILD_SERVICE_ACCOUNT and OPERATIONS_MIGRATION_SERVICE_ACCOUNT from the Terraform outputs, then configure the remaining protected Production values.'
