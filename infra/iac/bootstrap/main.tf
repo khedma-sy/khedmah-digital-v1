@@ -2,6 +2,7 @@ locals {
   google_apis = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
+    "sqladmin.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "run.googleapis.com",
@@ -30,6 +31,62 @@ resource "google_project_service" "bootstrap" {
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
+}
+
+
+resource "google_storage_bucket" "cloudbuild_source" {
+  project                     = var.project_id
+  name                        = "${var.project_id}-cloudbuild-source"
+  location                    = var.region
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
+
+  versioning {
+    enabled = true
+  }
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_storage_bucket_iam_member" "deployer_cloudbuild_source_objects" {
+  bucket = google_storage_bucket.cloudbuild_source.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_sql_database_instance" "postgres" {
+  project             = var.project_id
+  name                = var.cloud_sql_instance_id
+  region              = var.region
+  database_version    = "POSTGRES_16"
+  deletion_protection = true
+
+  settings {
+    tier              = var.cloud_sql_tier
+    availability_type = "ZONAL"
+    disk_type          = "PD_SSD"
+    disk_autoresize    = true
+
+    backup_configuration {
+      enabled                        = true
+      point_in_time_recovery_enabled = true
+      start_time                     = "02:00"
+    }
+
+    ip_configuration {
+      ipv4_enabled = true
+    }
+  }
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_sql_database" "application" {
+  project  = var.project_id
+  name     = var.cloud_sql_database_name
+  instance = google_sql_database_instance.postgres.name
 }
 
 resource "google_artifact_registry_repository" "docker" {
