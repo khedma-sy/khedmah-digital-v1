@@ -29,3 +29,14 @@ test('production WIF and bootstrap trust include the database role workflow on m
   assert.match(wif, /production-database-role-bootstrap\.yml@refs\/heads\/main/);
   assert.match(bootstrap, /production-database-role-bootstrap\.yml/);
 });
+
+
+test('prepare replaces Cloud SQL superuser membership with custom roles and re-verifies', async () => {
+  const bootstrapTerraform = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
+  assert.match(workflow, /gcloud sql users assign-roles "\$DATABASE_RUNTIME_USER"/);
+  assert.match(workflow, /gcloud sql users assign-roles "\$DATABASE_MIGRATION_USER"/);
+  assert.match(workflow, /--revoke-existing-roles/);
+  assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
+  assert.match(bootstrapTerraform, /cloudsql\.users\.update/);
+  assert.doesNotMatch(bootstrapTerraform, /roles\/cloudsql\.admin/);
+});
