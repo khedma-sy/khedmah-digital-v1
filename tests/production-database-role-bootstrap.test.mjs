@@ -65,3 +65,14 @@ test('production hardening preserves Taxi trip least privilege without tariff or
   assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_events','DELETE'\)/);
   assert.match(script, /NOT has_table_privilege\('\$RUNTIME_USER','khedmah_taxi\.jt_cash_receipts','DELETE'\)/);
 });
+
+
+test('Taxi approval table updates stay column-scoped in production hardening', async () => {
+  const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
+  assert.match(script, /GRANT SELECT, INSERT ON TABLE[\s\S]*driver_approvals[\s\S]*vehicle_approvals/);
+  assert.match(script, /GRANT UPDATE\([\s\S]*status[\s\S]*reviewed_by[\s\S]*\) ON khedmah_taxi\.driver_approvals/);
+  assert.match(script, /GRANT UPDATE\([\s\S]*status[\s\S]*reviewed_by[\s\S]*\) ON khedmah_taxi\.vehicle_approvals/);
+  assert.doesNotMatch(script, /GRANT SELECT, INSERT, UPDATE ON TABLE[\s\S]*driver_approvals/);
+  assert.match(script, /NOT has_column_privilege\('\$RUNTIME_USER','khedmah_taxi\.driver_approvals','user_id','UPDATE'\)/);
+  assert.match(script, /NOT has_column_privilege\('\$RUNTIME_USER','khedmah_taxi\.vehicle_approvals','id','UPDATE'\)/);
+});
