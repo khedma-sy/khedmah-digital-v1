@@ -9,15 +9,12 @@ on:
         default: REQUEST
         type: choice
         options: [REQUEST, CONFIRM]
-  pull_request:
-    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
-  certify-email-manual:
-    if: github.event_name == 'workflow_dispatch'
+  certify-email:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 15
@@ -42,88 +39,3 @@ jobs:
           echo "- Phase: \`${{ inputs.phase }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
           echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"
-
-  certify-email-pr-request:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'release/candidate-2026-09-19' &&
-      github.event.pull_request.base.ref == 'main'
-    runs-on: ubuntu-latest
-    environment: staging
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Request fresh live Staging verification email
-        env:
-          BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
-          TEST_EMAIL: ${{ secrets.EMAIL_LIVE_TEST_ADDRESS }}
-          TEST_PASSWORD: ${{ secrets.EMAIL_LIVE_TEST_PASSWORD }}
-        shell: bash
-        run: bash scripts/certify-staging-email-live.sh REQUEST
-
-      - name: Publish request summary
-        shell: bash
-        run: |
-          echo '### Email Live Certification — PR REQUEST' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Scope: same-repository release candidate only' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Result: request path passed; inbox delivery and link activation remain required.' >> "$GITHUB_STEP_SUMMARY"
-          echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"
-
-  certify-email-pr-session:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'release/candidate-2026-09-19' &&
-      github.event.pull_request.base.ref == 'main'
-    needs: certify-email-pr-request
-    runs-on: ubuntu-latest
-    environment: staging
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Verify inbox-link activation through authenticated Staging session
-        env:
-          BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
-          TEST_EMAIL: ${{ secrets.EMAIL_LIVE_TEST_ADDRESS }}
-          TEST_PASSWORD: ${{ secrets.EMAIL_LIVE_TEST_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          set +x
-          test -n "$BACKEND_URL"
-          test -n "$TEST_EMAIL"
-          test -n "$TEST_PASSWORD"
-          [[ "$BACKEND_URL" == https://* ]]
-
-          cookie_jar="$(mktemp)"
-          login_body="$(mktemp)"
-          trap 'rm -f "$cookie_jar" "$login_body"' EXIT
-
-          login_status="$(curl --silent --show-error --cookie-jar "$cookie_jar" --output "$login_body" --write-out '%{http_code}'             --header 'Content-Type: application/json'             --data "$(jq -nc --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" '{email:$email,password:$password}')"             "$BACKEND_URL/api/v1/auth/login")"
-
-          if [[ "$login_status" != "200" && "$login_status" != "201" ]]; then
-            echo '::error::The Staging test account is still pending email verification. Open the newest verification message delivered to the protected test mailbox, activate its link, then re-run this failed job only.'
-            exit 1
-          fi
-
-          session_status="$(curl --silent --show-error --cookie "$cookie_jar" --output /dev/null --write-out '%{http_code}'             "$BACKEND_URL/api/v1/auth/session")"
-          test "$session_status" = "200"
-
-          echo 'EMAIL_LIVE_VERIFIED_SESSION=PASSED'
-
-      - name: Publish verified-session summary
-        shell: bash
-        run: |
-          echo '### Email Live Certification — PR VERIFIED SESSION' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Inbox verification link was activated outside GitHub.' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Verified account login passed against Staging.' >> "$GITHUB_STEP_SUMMARY"
-          echo '- Authenticated session check returned HTTP 200.' >> "$GITHUB_STEP_SUMMARY"
-          echo '- No verification token is stored in GitHub secrets or repository content.' >> "$GITHUB_STEP_SUMMARY"
