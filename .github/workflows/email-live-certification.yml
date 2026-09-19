@@ -9,12 +9,15 @@ on:
         default: REQUEST
         type: choice
         options: [REQUEST, CONFIRM]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
-  certify-email:
+  certify-email-manual:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 15
@@ -36,6 +39,80 @@ jobs:
         shell: bash
         run: |
           echo '### Email Live Certification' >> "$GITHUB_STEP_SUMMARY"
-          echo "- Phase: `${{ inputs.phase }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Phase: \`${{ inputs.phase }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
           echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"
+
+  certify-email-pr-request:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'release/candidate-2026-09-19' &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Request fresh live Staging verification email
+        env:
+          BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
+          TEST_EMAIL: ${{ secrets.EMAIL_LIVE_TEST_ADDRESS }}
+          TEST_PASSWORD: ${{ secrets.EMAIL_LIVE_TEST_PASSWORD }}
+        shell: bash
+        run: bash scripts/certify-staging-email-live.sh REQUEST
+
+      - name: Publish request summary
+        shell: bash
+        run: |
+          echo '### Email Live Certification — PR REQUEST' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Scope: same-repository release candidate only' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Result: request path passed; inbox delivery/token confirmation remains required.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"
+
+  certify-email-pr-confirm:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'release/candidate-2026-09-19' &&
+      github.event.pull_request.base.ref == 'main'
+    needs: certify-email-pr-request
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Require protected one-time verification token
+        env:
+          VERIFICATION_TOKEN: ${{ secrets.EMAIL_LIVE_VERIFICATION_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERIFICATION_TOKEN" || {
+            echo '::error::EMAIL_LIVE_VERIFICATION_TOKEN is not set. Confirm inbox delivery, store the delivered one-time token in the staging environment secret, then re-run this failed job only.'
+            exit 1
+          }
+
+      - name: Confirm live Staging verification and authenticated session
+        env:
+          BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
+          TEST_EMAIL: ${{ secrets.EMAIL_LIVE_TEST_ADDRESS }}
+          TEST_PASSWORD: ${{ secrets.EMAIL_LIVE_TEST_PASSWORD }}
+          VERIFICATION_TOKEN: ${{ secrets.EMAIL_LIVE_VERIFICATION_TOKEN }}
+        shell: bash
+        run: bash scripts/certify-staging-email-live.sh CONFIRM
+
+      - name: Publish confirmation summary
+        shell: bash
+        run: |
+          echo '### Email Live Certification — PR CONFIRM' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Email verification token accepted.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Verified account login/session checks passed against Staging.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- No token value is written to logs or repository content.' >> "$GITHUB_STEP_SUMMARY"
