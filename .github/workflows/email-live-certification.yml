@@ -36,6 +36,6 @@ jobs:
         shell: bash
         run: |
           echo '### Email Live Certification' >> "$GITHUB_STEP_SUMMARY"
-          echo "- Phase: \`${{ inputs.phase }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Phase: `${{ inputs.phase }}`" >> "$GITHUB_STEP_SUMMARY"
           echo '- Target: protected STAGING_BACKEND_URL' >> "$GITHUB_STEP_SUMMARY"
           echo '- No Google Cloud credential is used by this workflow.' >> "$GITHUB_STEP_SUMMARY"
