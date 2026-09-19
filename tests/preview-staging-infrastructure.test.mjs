@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 test('preview and staging infrastructure contract is complete', () => {
   const output = execFileSync(process.execPath, ['scripts/validate-preview-staging.mjs'], { encoding: 'utf8' });
@@ -37,4 +38,29 @@ test('preview cleanup refuses the production project before invoking gcloud', ()
     () => execFileSync('bash', ['scripts/deployment/cleanup-preview.sh', '42'], { env, stdio: 'pipe' }),
     error => error.status === 4 && error.stderr.toString().includes('Refusing cleanup in production')
   );
+});
+
+
+test('staging Cloud Build uses the project-owned source bucket without changing Preview staging', () => {
+  const script = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  assert.match(script, /if \[\[ "\$environment" == "staging" \]\]; then/);
+  assert.match(script, /--gcs-source-staging-dir "gs:\/\/\$\{GOOGLE_CLOUD_PROJECT\}-cloudbuild-source\/source"/);
+  assert.match(script, /"\$\{cloudbuild_source_args\[@\]\}" --config "cloudbuild\.\$\{environment\}-backend\.yaml"/);
+  assert.match(script, /"\$\{cloudbuild_source_args\[@\]\}" --config "\$config"/);
+});
+
+
+test('non-production deploy orders foundation 001-022 before Product Store 024 and Classifieds 025', () => {
+  const deploy = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
+  const foundation = deploy.indexOf('ensure-foundation-nonproduction-schema.sh');
+  const productStore = deploy.indexOf('ensure-product-store-nonproduction-schema.sh');
+  const classifieds = deploy.indexOf('ensure-classifieds-nonproduction-schema.sh');
+  assert.ok(foundation >= 0);
+  assert.ok(productStore > foundation);
+  assert.ok(classifieds > productStore);
+
+  const runner = readFileSync('scripts/deployment/run-foundation-nonproduction-migrations.sh', 'utf8');
+  assert.match(runner, /Refusing foundation 001-022 against Production/);
+  assert.match(runner, /FOUNDATION_001_022_PARTIAL/);
+  assert.match(runner, /FOUNDATION_001_022_APPLIED_AND_VERIFIED/);
 });

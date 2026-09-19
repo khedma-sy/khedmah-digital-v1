@@ -63,7 +63,7 @@ test('production email actions use one validated HTTPS site URL builder', async 
   assert.doesNotMatch(recovery, /\?token=\$\{encodeURIComponent/);
 });
 
-test('login uses real vector provider marks without decorative umbrella backgrounds', async () => {
+test('login uses real vector provider marks with the restored decorative umbrella background', async () => {
   const [login, icons, styles] = await Promise.all([
     read('apps/frontend/app/auth/login/page.tsx'),
     read('apps/frontend/app/auth/social-provider-icon.tsx'),
@@ -74,7 +74,7 @@ test('login uses real vector provider marks without decorative umbrella backgrou
   assert.match(login, /SocialProviderIcon provider="facebook"/);
   assert.match(icons, /fill="#4285f4"/);
   assert.match(icons, /fill="#1877f2"/);
-  assert.doesNotMatch(styles, /umbrella-pattern\.svg/);
+  assert.match(styles, /auth-umbrella-pattern\.svg/);
 });
 
 test('the complete authentication journey uses the approved reference system', async () => {
@@ -88,8 +88,9 @@ test('the complete authentication journey uses the approved reference system', a
     read('apps/frontend/app/auth/reset-password/page.tsx')
   ]);
 
-  assert.match(layout, /import '\.\/auth-experience\.css'/);
-  assert.doesNotMatch(styles, /umbrella-pattern\.svg/);
+  assert.match(layout, /import '\.\/platform\.css'/);
+  assert.match(await read('apps/frontend/app/platform.css'), /@import '\.\/auth-experience\.css'/);
+  assert.match(styles, /auth-umbrella-pattern\.svg/);
   assert.match(styles, /background:var\(--k-glass\)/);
   assert.match(styles, /\.identity-approved-brand \.khedma-brand>svg \{ width:4\.35rem; \}/);
   assert.match(styles, /backdrop-filter:blur\(var\(--k-glass-blur\)\) saturate\(108%\)/);
@@ -112,15 +113,15 @@ test('the complete authentication journey uses the approved reference system', a
   assert.match(reset, /auth-status-icon/);
 });
 
-test('public UI uses Khedmah only and profile fields remain readable', async () => {
+test('principal site title uses the canonical Khedmah name while functional profile copy stays Khedmah', async () => {
   const [layout, profile, styles] = await Promise.all([
     read('apps/frontend/app/layout.tsx'),
     read('apps/frontend/app/users/me/page.tsx'),
     read('apps/frontend/app/brand-system.css')
   ]);
 
-  assert.match(layout, /const SITE_NAME = 'خدمة'/);
-  assert.doesNotMatch(layout, /خدمة ديجتل|Khedmah Digital V1/);
+  assert.match(layout, /const SITE_NAME = 'خدمة ديجتل'/);
+  assert.match(layout, /aria-label="خدمة ديجتل - الرئيسية"/);
   assert.doesNotMatch(profile, /خدمة ديجتل|Khedmah Digital V1|أنا مع خدمة/);
   assert.match(styles, /\.identity-card h1,\.identity-card h2,\.identity-card label/);
   assert.match(styles, /\.identity-card input:focus,\.identity-card select:focus/);
@@ -134,7 +135,7 @@ test('retired locations directory redirects to the real map experience', async (
 
   assert.match(navigation, /href: '\/map', label: 'بالقرب مني'/);
   assert.doesNotMatch(navigation, />المواقع</);
-  assert.match(locations, /redirect\('\/map'\)/);
+  assert.match(locations, /redirect\(legacyDiscoveryHref\('\/map', await searchParams\)\)/);
   assert.doesNotMatch(locations, /api\.locations|قائمة الدول|قائمة المدن/);
 });
 

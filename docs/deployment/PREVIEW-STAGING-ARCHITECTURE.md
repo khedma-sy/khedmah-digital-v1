@@ -41,8 +41,8 @@ No mutable project, service account, secret, image repository, Cloud Run service
 
 1. PR gates run build, all tests, lint/type checks, high-severity dependency audit, Firebase validation, Google validation, and secret-usage validation.
 2. GitHub obtains a short-lived Preview identity through Workload Identity Federation.
-3. Cloud Build retrieves Preview Firebase Web configuration from Preview Secret Manager, builds immutable images, and pushes them to Preview Artifact Registry.
-4. PR-numbered Cloud Run services deploy and pass backend/frontend health checks.
+3. Cloud Build builds the backend first; its Cloud Run revision binds the isolated Cloud SQL instance and DATABASE_URL secret. The deployment reads the actual backend URL, then builds the frontend with that API URL and environment-specific Firebase/Maps configuration from Secret Manager.
+4. PR-numbered Cloud Run services deploy. The backend receives the exact frontend CORS origin; backend/frontend health checks and a credentialed-origin OPTIONS preflight gate deployment success.
 5. CI captures Staging (before) and Preview (after) screenshots, uploads them, and posts/updates the owner review comment.
 6. PR close deletes the PR services.
 7. A push to `develop` repeats gates and deploys stable Staging services using only Staging identity/configuration.
@@ -57,7 +57,7 @@ Staging uses stable service names and immutable SHA tags. The GitHub `staging` e
 
 ## Monitoring
 
-GitHub job/step summaries provide deployment status and URL history. Cloud Build records build history. Cloud Run health checks gate success; revisions provide deployment history/rollback targets. Cloud Logging, Error Reporting, and Cloud Monitoring remain project-isolated. Firebase status is validated before deployment. Configure alert policies for failed health checks, 5xx rate, latency, instance saturation, build failure, and Firebase errors in the Preview/Staging projects.
+GitHub job/step summaries provide deployment status and URL history. Cloud Build records build history. Cloud Run health checks and exact credentialed-origin preflight checks gate success; revisions provide deployment history/rollback targets. Cloud Logging, Error Reporting, and Cloud Monitoring remain project-isolated. Firebase status is validated before deployment. Configure alert policies for failed health checks, 5xx rate, latency, instance saturation, build failure, and Firebase errors in the Preview/Staging projects.
 
 ## Rollback and release
 
@@ -65,4 +65,4 @@ For Preview, redeploy a prior commit or close/reopen the PR. For Staging, list r
 
 ## Required GitHub environment configuration
 
-Create protected `preview` and `staging` GitHub environments. Configure their WIF provider, deployer/runtime service accounts, Google region, isolated project IDs, Artifact Registry names, all four environment identity variables for the separation gate, and `STAGING_FRONTEND_URL` for before screenshots. Secret Manager in each Google project must contain only that environment's seven `NEXT_PUBLIC_FIREBASE_*` build values.
+Create protected `preview` and `staging` GitHub environments. Configure their WIF provider, deployer/runtime service accounts, Google region, isolated project IDs, Artifact Registry names, all four environment identity variables for the separation gate, and `STAGING_FRONTEND_URL` for before screenshots. Configure `PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME` and `STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME` in their corresponding environments. Each connection must match its deployment project and region. Secret Manager in each Google project must hold only its own seven `NEXT_PUBLIC_FIREBASE_*` build values, Maps browser key and `DATABASE_URL`; the runtime identity needs access to the database secret and Cloud SQL. The frontend API URL is obtained from the deployed backend, not from a production fallback. Protected Staging deployment and a real before-screenshot baseline still require their configured environment and approved branch.

@@ -8,7 +8,12 @@ test('legacy organization creation redirects to the unified business workspace',
   const details = await readFile(new URL('../app/organizations/[id]/page.tsx', import.meta.url), 'utf8');
 
   assert.match(list, /المؤسسات والجهات/);
-  assert.match(list, /تجمع فريقك وملفات أعمالك/);
+  // Preserve access to existing organizations without advertising retired creation.
+  assert.match(list, /api\.organizations\.listMine\(\)/);
+  assert.match(list, /إنشاء جهات جديدة غير متاح في الإصدار الحالي/);
+  assert.match(list, /href="\/business-profiles"/);
+  assert.ok(list.includes('href={`/organizations/${organization.id}`}'));
+  assert.doesNotMatch(list, /href="\/organizations\/new"|api\.organizations\.create\(/);
   assert.match(create, /redirect\('\/business-profiles'\)/);
   assert.match(details, /إدارة الجهة/);
   assert.match(list, /SkeletonGrid/);

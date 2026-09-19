@@ -12,7 +12,13 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get('token') ?? '');
+    const url = new URL(window.location.href);
+    const nextToken = url.searchParams.get('token') ?? '';
+    setToken(nextToken);
+    if (url.searchParams.has('token')) {
+      url.searchParams.delete('token');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -33,6 +39,7 @@ export default function ResetPasswordPage() {
     try {
       await identityApi.resetPassword(token, password);
       setDone(true);
+      setToken('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر إعادة تعيين كلمة المرور.');
     } finally {

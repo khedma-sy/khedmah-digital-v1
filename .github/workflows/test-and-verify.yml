@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Run Tests & Verification
@@ -13,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
 
     services:
       postgres:
@@ -32,12 +36,12 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -74,7 +78,11 @@ jobs:
         run: npm run build
 
       - name: ✅ Run all tests
-        run: npm run test:all
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/khedmah-test-evidence"
+          npm run test:all 2>&1 | tee "$RUNNER_TEMP/khedmah-test-evidence/test-all.log"
         env:
           PGHOST: 127.0.0.1
           PGPORT: 5432
@@ -82,6 +90,38 @@ jobs:
           PGPASSWORD: khedmah_dev
           PGDATABASE: khedmah_ci
           ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
+
+      - name: Preserve test evidence
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EVIDENCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/khedmah-test-evidence"
+          mkdir -p "$evidence"
+          git rev-parse HEAD > "$evidence/checkout-sha.txt"
+          printf '%s\n' "$EVIDENCE_HEAD_SHA" > "$evidence/head-sha.txt"
+          printf '%s\n' "$EVIDENCE_JOB_STATUS" > "$evidence/job-status-before-archive.txt"
+          node --version > "$evidence/node-version.txt"
+          if [ -f "$evidence/test-all.log" ]; then
+            grep -E '^not ok |^# (tests|pass|fail|skipped|cancelled) ' "$evidence/test-all.log" > "$evidence/test-summary.txt" || true
+          else
+            printf '%s\n' 'NOT_EXECUTED: no test log was produced.' > "$evidence/test-summary.txt"
+          fi
+          git archive --format=tar.gz HEAD -- . ':!.env*' ':!*.pem' ':!*.key' ':!**/.env*' ':!**/*.pem' ':!**/*.key' ':!**/node_modules/**' > "$evidence/source-at-checkout.tar.gz"
+          (cd "$evidence" && sha256sum source-at-checkout.tar.gz > source-sha256.txt)
+          cat "$evidence/test-summary.txt"
+
+      - name: Upload test evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.node-version }}
+          path: ${{ runner.temp }}/khedmah-test-evidence/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: 🔐 Security audit
         run: npm audit --omit=dev --audit-level=high
@@ -97,7 +137,14 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: 📦 Setup Node.js 24
+        uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+
+      - name: 📋 Install dependencies
+        run: npm ci
 
       - name: 🔍 Check executable directory structure
         run: |
@@ -106,32 +153,76 @@ jobs:
           test -d "apps/frontend" && echo "✅ apps/frontend (executable frontend) present" || { echo "❌ apps/frontend missing"; exit 1; }
           test -d "backend/migrations/versions" && echo "✅ backend/migrations/versions (governed migrations) present" || { echo "❌ backend/migrations/versions missing"; exit 1; }
 
-      - name: 📄 Verify approved SQL migrations (001-003 only)
-        run: |
-          set -euo pipefail
-          echo "🔍 Checking migration files..."
-          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found"
-          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found"
-          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found"
-          echo "🔍 Checking approved migration files..."
-          test -f "backend/migrations/versions/001_core_identity_accounts.sql" && echo "✅ Migration 001 found" || { echo "❌ Migration 001 missing"; exit 1; }
-          test -f "backend/migrations/versions/002_create_profiles.sql" && echo "✅ Migration 002 found" || { echo "❌ Migration 002 missing"; exit 1; }
-          test -f "backend/migrations/versions/003_create_professional_profiles.sql" && echo "✅ Migration 003 found" || { echo "❌ Migration 003 missing"; exit 1; }
-          echo "ℹ️  Migration 004 is not approved — it must not be created until contracts are reviewed."
+      - name: 📄 Validate governed migration contract
+        run: npm run validate:database
 
       - name: 🔒 Verify no forbidden tables in migrations
+        shell: bash
         run: |
           set -euo pipefail
           echo "🔍 Checking KILL CRITICAL boundaries..."
-          forbidden='marketplace|payments?|commissions?|inventory|orders?|tracking|social_profiles?'
+
+          # These capabilities remain forbidden everywhere, including the governed
+          # fulfillment, Product V2 billing and restaurant-funded promotion migrations.
+          globally_forbidden='marketplace|payments?|commissions?|inventory|tracking|social_profiles?'
           if grep -Eirn \
             --include='*.sql' \
-            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${forbidden})" \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(${globally_forbidden})" \
             backend/migrations/versions; then
-            echo "❌ Forbidden MVP table definition detected"
+            echo "❌ Forbidden product table definition detected"
             exit 1
           fi
-          echo "✅ Boundary check completed"
+
+          # Generic order tables remain forbidden. The only reviewed exceptions are
+          # the exact cash-fulfillment schema in 026 and the exact subscription
+          # purchase-order schema in 030, each checked against a closed table allowlist below.
+          if grep -Eirn \
+            --include='*.sql' \
+            --exclude='026_cash_fulfillment_orders.sql' \
+            --exclude='030_billing_credits_subscriptions.sql' \
+            "CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+[^;]*(orders?)" \
+            backend/migrations/versions; then
+            echo "❌ Order table definition detected outside governed migrations 026 and 030"
+            exit 1
+          fi
+
+          fulfillment_migration='backend/migrations/versions/026_cash_fulfillment_orders.sql'
+          test -f "$fulfillment_migration" || { echo "❌ Governed fulfillment migration 026 is missing"; exit 1; }
+          fulfillment_allowed_tables='fulfillment_orders fulfillment_order_events fulfillment_order_items fulfillment_order_location_updates fulfillment_order_ratings'
+          fulfillment_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$fulfillment_migration" || true; } | sort | xargs)"
+          fulfillment_expected_tables="$(printf '%s\n' $fulfillment_allowed_tables | sort | xargs)"
+          if [ "$fulfillment_actual_tables" != "$fulfillment_expected_tables" ]; then
+            echo "❌ Migration 026 defines an unexpected table set"
+            echo "Expected: $fulfillment_expected_tables"
+            echo "Actual:   $fulfillment_actual_tables"
+            exit 1
+          fi
+
+          billing_migration='backend/migrations/versions/030_billing_credits_subscriptions.sql'
+          test -f "$billing_migration" || { echo "❌ Governed Product V2 billing migration 030 is missing"; exit 1; }
+          billing_allowed_tables='billing_program_config billing_plans billing_promo_codes billing_purchase_orders billing_subscriptions billing_credit_grants billing_credit_ledger billing_usage_rates billing_usage_receipts billing_promo_redemptions'
+          billing_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$billing_migration" || true; } | sort | xargs)"
+          billing_expected_tables="$(printf '%s\n' $billing_allowed_tables | sort | xargs)"
+          if [ "$billing_actual_tables" != "$billing_expected_tables" ]; then
+            echo "❌ Migration 030 defines an unexpected Product V2 billing table set"
+            echo "Expected: $billing_expected_tables"
+            echo "Actual:   $billing_actual_tables"
+            exit 1
+          fi
+
+          food_promotion_migration='backend/migrations/versions/034_food_order_promotions.sql'
+          test -f "$food_promotion_migration" || { echo "❌ Governed food promotion migration 034 is missing"; exit 1; }
+          food_promotion_allowed_tables='food_promo_claims food_promo_codes'
+          food_promotion_actual_tables="$({ sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+([A-Za-z0-9_]+).*/\1/ip' "$food_promotion_migration" || true; } | sort | xargs)"
+          food_promotion_expected_tables="$(printf '%s\n' $food_promotion_allowed_tables | sort | xargs)"
+          if [ "$food_promotion_actual_tables" != "$food_promotion_expected_tables" ]; then
+            echo "❌ Migration 034 defines an unexpected food promotion table set"
+            echo "Expected: $food_promotion_expected_tables"
+            echo "Actual:   $food_promotion_actual_tables"
+            exit 1
+          fi
+
+          echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
 
   validate-pr:
     name: PR Validation
@@ -140,7 +231,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 📊 Check PR files changed
         env:

@@ -1,7 +1,7 @@
-export type MediaVisibility = 'public' | 'private';
 export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'product_listing' | 'user';
+export type MediaVisibility = 'public' | 'private';
 export type MediaMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
-export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image';
+export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image' | 'driver_photo' | 'identity_card' | 'driving_license' | 'vehicle_license';
 
 export interface MediaAsset {
   readonly id: string;
@@ -21,15 +21,15 @@ export interface MediaAsset {
 }
 
 export interface UploadMediaRequest {
-  readonly ownerType?: unknown;
-  readonly ownerId?: unknown;
-  readonly visibility?: unknown;
-  readonly filename?: unknown;
-  readonly mimeType?: unknown;
-  readonly sizeBytes?: unknown;
-  readonly content?: unknown; // base64
-  readonly assetType?: unknown;
-  readonly sortOrder?: unknown;
+  readonly ownerType: MediaOwnerType;
+  readonly ownerId: string;
+  readonly filename: string;
+  readonly mimeType: MediaMimeType;
+  readonly sizeBytes: number;
+  readonly content: string;
+  readonly visibility?: MediaVisibility;
+  readonly assetType?: MediaAssetType;
+  readonly sortOrder?: number;
 }
 
 export interface PublicMediaAsset {

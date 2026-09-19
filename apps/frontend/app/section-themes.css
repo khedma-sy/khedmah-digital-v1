@@ -1,0 +1,154 @@
+/* Canonical section accents for Khedmah. Keep functional state colors separate from brand colors. */
+:root {
+  --brand-navy: #07427c;
+  --brand-green: #81be49;
+  --brand-orange: #fd9603;
+  --brand-warm: #f8faf9;
+  --section-accent: #07427c;
+  --section-label: var(--k-color-blue-text);
+  --section-gradient: var(--k-gradient-blue);
+  --section-action: var(--k-color-primary);
+  --section-on-action: var(--k-color-on-primary);
+  --section-action-hover: var(--k-color-primary-hover);
+  --section-on-accent: #fff;
+  --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+/* Route-family identity is owned by layouts, not by one landing page. */
+.khedmah-section-identity {
+  min-height: 100%;
+  --section-accent: #07427c;
+  --section-label: var(--k-color-blue-text);
+  --section-gradient: var(--k-gradient-blue);
+  --section-action: var(--k-color-primary);
+  --section-on-action: var(--k-color-on-primary);
+  --section-action-hover: var(--k-color-primary-hover);
+  --section-on-accent: #fff;
+  --section-accent-soft: color-mix(in srgb, var(--section-accent) 10%, var(--k-color-surface));
+}
+
+[data-khedmah-section='food'],
+[data-khedmah-section='commerce'],
+[data-khedmah-section='store'],
+[data-khedmah-section='classifieds'] {
+  --section-accent: var(--brand-orange);
+  --section-label: var(--k-color-orange-text);
+  --section-gradient: var(--k-gradient-orange);
+  --section-action: var(--k-color-orange-tint);
+  --section-on-action: var(--k-color-text);
+  --section-action-hover: var(--k-color-orange-fade);
+  --section-on-accent: #143653;
+}
+
+/* Delivery / road discovery owns the green section identity. Taxi stays navy in /taxi. */
+[data-khedmah-section='mobility'] {
+  --section-accent: var(--brand-green);
+  --section-label: var(--k-color-green-text);
+  --section-gradient: var(--k-gradient-green);
+  --section-action: var(--k-color-green-tint);
+  --section-on-action: var(--k-color-text);
+  --section-action-hover: var(--k-color-green-fade);
+  --section-on-accent: #143653;
+}
+
+[data-khedmah-section='taxi'],
+[data-khedmah-section='auth'] {
+  --section-accent: #07427c;
+  --section-on-accent: #fff;
+}
+
+.khedmah-section-identity .ui-page {
+  background: var(--section-gradient);
+}
+
+.khedmah-section-identity .ui-page-header {
+  border-block-end: 1px solid color-mix(in srgb, var(--section-accent) 16%, var(--k-color-border));
+  padding-block-end: .75rem;
+}
+
+.khedmah-section-identity .ui-eyebrow { color: var(--section-label); }
+.khedmah-section-identity .ui-action-primary {
+  border-color: var(--section-label);
+  color: var(--section-on-action);
+  background: var(--section-action);
+}
+.khedmah-section-identity .ui-action-primary:hover {
+  color: var(--section-on-action);
+  background: var(--section-action-hover);
+  box-shadow: inset 0 0 0 1px var(--section-label);
+}
+.khedmah-section-identity .ui-empty-icon {
+  color: var(--section-accent);
+  background: var(--section-accent-soft);
+}
+.khedmah-section-identity .ui-surface {
+  border-color: color-mix(in srgb, var(--section-accent) 12%, var(--k-glass-border));
+}
+.khedmah-section-identity .ui-action:focus-visible,
+.khedmah-section-identity .ui-back:focus-visible {
+  outline-color: var(--k-color-text);
+}
+
+/* Categories / service directory: green sector identity with category-specific brand tones. */
+.catalog-experience {
+  --section-accent: var(--brand-green);
+  background: var(--k-gradient-green);
+}
+
+.catalog-experience .catalog-filters button.active {
+  border-color: var(--section-accent);
+  background: var(--section-accent);
+}
+
+.catalog-experience .catalog-category-grid button:hover {
+  border-color: var(--section-accent);
+}
+
+.catalog-experience .catalog-category-icon {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='green'] {
+  background: var(--brand-green);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='orange'] {
+  background: var(--brand-orange);
+  color: #143653;
+}
+
+.catalog-experience .catalog-category-icon[data-category-tone='navy'] {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.catalog-experience .catalog-service-icon[data-category-tone='green'] { color: var(--brand-green); }
+.catalog-experience .catalog-service-icon[data-category-tone='orange'] { color: var(--brand-orange); }
+.catalog-experience .catalog-service-icon[data-category-tone='navy'] { color: var(--brand-navy); }
+
+.catalog-experience .catalog-service small {
+  color: var(--k-color-text-muted);
+}
+
+.catalog-experience .catalog-state-actions a,
+.catalog-experience .catalog-state-actions button {
+  border-color: var(--section-accent);
+  color: var(--k-color-text);
+}
+
+.catalog-experience .catalog-state-actions a:first-of-type {
+  color: #143653;
+  background: var(--section-accent);
+}
+
+/* Food / commerce uses the official orange sector identity. */
+[data-khedmah-section='commerce'] {
+  --section-accent: var(--brand-orange);
+}
+
+/* General nearby-map discovery stays on the umbrella navy identity. */
+.map-welcome {
+  --section-accent: #07427c;
+}

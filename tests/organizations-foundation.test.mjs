@@ -32,7 +32,7 @@ test('legacy organization creation redirects while existing data remains readabl
   const details = await read('apps/frontend/app/organizations/[id]/page.tsx');
 
   assert.match(list, /مساحة الأعمال/);
-  assert.match(list, /تجمع فريقك وملفات أعمالك/);
+  assert.match(list, /أدر الجهات المرتبطة بحسابك وأعضاء الفريق والصلاحيات/);
   assert.match(create, /redirect\('\/business-profiles'\)/);
   assert.match(details, /إدارة الجهة/);
   assert.doesNotMatch(`${list}\n${create}\n${details}`, /business profile|marketplace|payments|messaging|analytics/i);

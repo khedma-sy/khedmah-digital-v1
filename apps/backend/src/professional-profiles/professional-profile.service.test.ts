@@ -40,6 +40,7 @@ function createService(
 ): ProfessionalProfileService {
   const repository = {
     findById: async () => profile,
+    findByUserId: async (userId: string) => userId === profile.userId ? profile : undefined,
     findContactEligibility: async () => eligibility,
 
     listMediaAssets: async () => {
@@ -246,4 +247,21 @@ test('verification request rejects another user profile ownership', async () => 
       error instanceof Error &&
       error.message === 'Access denied'
   );
+});
+
+test('owner workspace includes actual review and public eligibility without exposing user identity', async () => {
+  const eligibility: Eligibility = { visibility: 'private', moderationStatus: 'pending', lifecycleStatus: 'created' };
+  const result = await createService(eligibility).getMine(undefined);
+  assert.deepEqual(result.contactEligibility, { ...eligibility, eligible: false });
+  assert.equal('userId' in result, false);
+});
+
+test('owner workspace public eligibility requires every public-read condition', async () => {
+  const publicState: Eligibility = { visibility: 'public', moderationStatus: 'approved', lifecycleStatus: 'active' };
+  for (const state of [publicState, { ...publicState, visibility: 'private' as const }, { ...publicState, moderationStatus: 'suspended' as const }, { ...publicState, lifecycleStatus: 'archived' as const }]) {
+    const result = await createService(state).getMine(undefined);
+    assert.equal(result.contactEligibility?.eligible, state === publicState);
+  }
+  const absent = await createService(undefined).getMine(undefined);
+  assert.equal(absent.contactEligibility, undefined);
 });

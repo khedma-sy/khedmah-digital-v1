@@ -144,8 +144,8 @@ test('service owned by non-public business is not returned in public search', as
   assert.equal(titles.includes('خدمة لعمل خاص'), false, 'Service from private business must not appear in public search');
 });
 
-test('service owned by approved public business is returned in public search', async () => {
-  const { service, businessRepo, cookie, ownerId } = await createFixture();
+test('new or edited service invalidates an approved business review until a fresh moderation decision', async () => {
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
 
   const now = new Date().toISOString();
   const publicBusinessId = 'bp-public-' + Date.now();
@@ -156,6 +156,7 @@ test('service owned by approved public business is returned in public search', a
     ownerUserId: ownerId,
     visibility: 'public',
     trustStatus: 'approved',
+    moderationStatus: 'approved',
     status: 'active',
     categoryCode: 'test',
     cityCode: 'damascus',
@@ -164,8 +165,9 @@ test('service owned by approved public business is returned in public search', a
     createdAt: now,
     updatedAt: now
   });
+  const beforeCreate = (await businessRepo.findById(publicBusinessId))!;
 
-  await service.create(cookie, {
+  const listing = await service.create(cookie, {
     titleAr: 'خدمة لعمل معتمد',
     categoryCode: 'test',
     priceType: 'negotiable',
@@ -174,13 +176,28 @@ test('service owned by approved public business is returned in public search', a
     ownerUserId: ownerId
   });
 
-  const result = await service.search({ q: 'خدمة', categoryCode: undefined, page: undefined });
-  const titles = result.services.map((s) => s.titleAr);
-  assert.ok(titles.includes('خدمة لعمل معتمد'), 'Service from approved public business must appear in public search');
+  const afterCreate = (await businessRepo.findById(publicBusinessId))!;
+  assert.equal(afterCreate.moderationStatus, 'pending');
+  assert.notEqual(afterCreate.revision, beforeCreate.revision);
+  assert.equal((await service.search({ q: 'خدمة لعمل معتمد' })).services.length, 0);
+
+  await pool.query(`UPDATE business_profiles SET moderation_status='approved',updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [publicBusinessId]);
+  assert.ok((await service.search({ q: 'خدمة لعمل معتمد' })).services.some((item) => item.id === listing.id));
+
+  const beforeEdit = (await businessRepo.findById(publicBusinessId))!;
+  await service.update(cookie, listing.id, { titleAr: 'خدمة معدلة تحتاج مراجعة' });
+  const afterEdit = (await businessRepo.findById(publicBusinessId))!;
+  assert.equal(afterEdit.moderationStatus, 'pending');
+  assert.notEqual(afterEdit.revision, beforeEdit.revision);
+  assert.equal((await service.search({ q: 'خدمة معدلة تحتاج مراجعة' })).services.length, 0);
+
+  await pool.query(`UPDATE business_profiles SET moderation_status='suspended' WHERE id=$1`, [publicBusinessId]);
+  await service.update(cookie, listing.id, { titleAr: 'تعديل أثناء الإيقاف' });
+  assert.equal((await businessRepo.findById(publicBusinessId))!.moderationStatus, 'suspended');
 });
 
-test('public service projection does not include owner user identifier', async () => {
-  const { service, businessRepo, cookie, ownerId } = await createFixture();
+test('public service projection does not include owner user identifier after fresh parent approval', async () => {
+  const { pool, service, businessRepo, cookie, ownerId } = await createFixture();
 
   const now = new Date().toISOString();
   const publicBusinessId = 'bp-pub2-' + Date.now();
@@ -191,6 +208,7 @@ test('public service projection does not include owner user identifier', async (
     ownerUserId: ownerId,
     visibility: 'public',
     trustStatus: 'approved',
+    moderationStatus: 'approved',
     status: 'active',
     categoryCode: 'test',
     cityCode: 'damascus',
@@ -208,6 +226,7 @@ test('public service projection does not include owner user identifier', async (
     ownerType: 'business',
     ownerUserId: ownerId
   });
+  await pool.query(`UPDATE business_profiles SET moderation_status='approved' WHERE id=$1`, [publicBusinessId]);
 
   const result = await service.search({ q: 'فحص', categoryCode: undefined, page: undefined });
   assert.ok(result.services.length > 0);
@@ -216,7 +235,7 @@ test('public service projection does not include owner user identifier', async (
   }
 });
 
-test('service and combined discovery filter listings by the governed city of either owner type', async () => {
+test('service and combined discovery filter listings by governed city only after both owners are freshly reviewed', async () => {
   const { pool, service, serviceRepo, businessRepo, professionalRepo, cookie, ownerId } = await createFixture();
   const now = new Date().toISOString();
   const businessId = `bp-city-${Date.now()}`;
@@ -228,6 +247,7 @@ test('service and combined discovery filter listings by the governed city of eit
     ownerUserId: ownerId,
     visibility: 'public',
     trustStatus: 'approved',
+    moderationStatus: 'approved',
     status: 'active',
     categoryCode: 'test',
     cityCode: 'damascus',
@@ -262,6 +282,13 @@ test('service and combined discovery filter listings by the governed city of eit
     titleAr: 'خدمة حلب', categoryCode: 'test', priceType: 'negotiable',
     ownerId: professionalId, ownerType: 'professional', ownerUserId: ownerId
   });
+  assert.equal((await businessRepo.findById(businessId))!.moderationStatus, 'pending');
+  assert.equal((await professionalRepo.findContactEligibility(professionalId))!.moderationStatus, 'pending');
+  assert.equal((await service.search({ cityCode: 'damascus' })).services.length, 0);
+  assert.equal((await service.search({ cityCode: 'aleppo' })).services.length, 0);
+
+  await pool.query(`UPDATE business_profiles SET moderation_status='approved' WHERE id=$1`, [businessId]);
+  await pool.query(`UPDATE professional_profiles SET moderation_status='approved' WHERE professional_profile_identifier=$1`, [professionalId]);
 
   const damascus = await service.search({ cityCode: 'damascus' });
   assert.deepEqual(damascus.services.map((item) => item.titleAr), ['خدمة دمشق']);
@@ -315,6 +342,8 @@ test('unchanged inactive legacy category does not block unrelated service edits'
   assert.equal(updated.categoryCode, 'legacy_service');
   assert.equal(updated.categoryNameAr, 'تصنيف خدمة قديم');
   assert.equal(updated.titleAr, 'خدمة قديمة معدلة');
+  assert.equal((await businessRepo.findById(businessId))!.moderationStatus, 'pending');
+  await pool.query(`UPDATE business_profiles SET moderation_status='approved' WHERE id=$1`, [businessId]);
   const publicResult = await service.search({ q: 'خدمة قديمة معدلة' });
   assert.equal(publicResult.services[0]?.categoryNameAr, 'تصنيف خدمة قديم');
   await assert.rejects(
@@ -324,4 +353,5 @@ test('unchanged inactive legacy category does not block unrelated service edits'
   const reclassified = await service.update(cookie, listing.id, { categoryCode: 'test' });
   assert.equal(reclassified.categoryCode, 'test');
   assert.equal(reclassified.categoryNameAr, 'اختبار');
+  assert.equal((await businessRepo.findById(businessId))!.moderationStatus, 'pending');
 });

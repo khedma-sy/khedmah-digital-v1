@@ -1,0 +1,9 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/031_taxi_operational_approvals.sql /migrations/031_taxi_operational_approvals.sql
+COPY scripts/deployment/run-taxi-operational-approval-nonproduction-migration.sh /usr/local/bin/run-taxi-operational-approval-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-taxi-operational-approval-nonproduction-migration /migrations/031_taxi_operational_approvals.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-taxi-operational-approval-nonproduction-migration"]

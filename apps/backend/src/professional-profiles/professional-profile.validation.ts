@@ -78,6 +78,8 @@ function validateCityCode(value: unknown): string {
 }
 
 export function validateProfessionalProfileUpsert(request: CreateProfessionalProfileRequest | UpdateProfessionalProfileRequest) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) throw new BadRequestException('Request body must be an object.');
+
   return {
     headlineAr: requiredString(request.headlineAr, 'headlineAr', 2, 200),
     headlineEn: optionalString(request.headlineEn, 'headlineEn', 200),

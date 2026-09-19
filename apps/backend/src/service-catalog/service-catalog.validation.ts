@@ -3,6 +3,12 @@ import { isSyrianCityCode } from '../locations/locations.service';
 import { CreateServiceRequest, ListOwnerServicesRequest, SearchServicesRequest, UpdateServiceRequest } from './dto/service-catalog.dto';
 import { ServiceOwnerType, ServicePriceCurrency, ServicePriceType, ServiceStatus } from './service-catalog.types';
 
+function assertRequestObject(value: unknown): void {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new BadRequestException('Service request must be an object.');
+  }
+}
+
 function requiredString(value: unknown, field: string, min: number, max: number): string {
   if (typeof value !== 'string') {
     throw new BadRequestException(`${field} must be a string.`);
@@ -81,17 +87,18 @@ function validateIdentifier(value: unknown, field: string): string {
 }
 
 function validatePage(value: unknown): number {
-  if (value === undefined) {
-    return 1;
-  }
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN;
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new BadRequestException('page must be a positive integer.');
+  if (value === undefined) return 1;
+  // Do not accept numeric prefixes, fractions, exponent notation or unsafe offsets.
+  const parsed = typeof value === 'number' ? value
+    : typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || !Number.isSafeInteger((parsed - 1) * 20)) {
+    throw new BadRequestException('page must be a positive integer with a safe pagination offset.');
   }
   return parsed;
 }
 
 export function validateCreateServiceRequest(request: CreateServiceRequest) {
+  assertRequestObject(request);
   return {
     titleAr: requiredString(request.titleAr, 'titleAr', 2, 200),
     titleEn: optionalString(request.titleEn, 'titleEn', 200),
@@ -108,6 +115,7 @@ export function validateCreateServiceRequest(request: CreateServiceRequest) {
 }
 
 export function validateUpdateServiceRequest(request: UpdateServiceRequest) {
+  assertRequestObject(request);
   const payload = {
     titleAr: request.titleAr === undefined ? undefined : requiredString(request.titleAr, 'titleAr', 2, 200),
     titleEn: request.titleEn === undefined ? undefined : optionalString(request.titleEn, 'titleEn', 200),
@@ -128,6 +136,7 @@ export function validateUpdateServiceRequest(request: UpdateServiceRequest) {
 }
 
 export function validateServiceSearchRequest(request: SearchServicesRequest) {
+  assertRequestObject(request);
   const cityCode = request.cityCode === undefined ? undefined : optionalString(request.cityCode, 'cityCode', 50);
   if (cityCode && !isSyrianCityCode(cityCode)) {
     throw new BadRequestException('cityCode must identify a supported Syrian city.');
@@ -141,5 +150,6 @@ export function validateServiceSearchRequest(request: SearchServicesRequest) {
 }
 
 export function validateOwnerServicesRequest(request: ListOwnerServicesRequest) {
+  assertRequestObject(request);
   return { ownerType: validateOwnerType(request.ownerType) };
 }

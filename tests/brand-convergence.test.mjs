@@ -6,7 +6,8 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('every web route receives the approved shared brand system', async () => {
   const layout = await read('apps/frontend/app/layout.tsx');
-  assert.match(layout, /brand-system\.css/);
+  assert.match(layout, /platform\.css/);
+  assert.match(await read('apps/frontend/app/platform.css'), /brand-system\.css/);
   assert.match(layout, /<BrandMark compact/);
 });
 

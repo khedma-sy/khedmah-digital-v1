@@ -8,7 +8,7 @@ test('Web primitives cover the seven template foundations', async () => {
   const [components, styles, layout] = await Promise.all([
     read('apps/frontend/app/components/ui-primitives.tsx'),
     read('apps/frontend/app/ui-primitives.css'),
-    read('apps/frontend/app/layout.tsx')
+    read('apps/frontend/app/platform.css')
   ]);
   for (const component of ['PageShell', 'PageHeader', 'Surface', 'ActionLink', 'ActionButton', 'StatusMessage', 'EmptyState', 'SkeletonGrid']) assert.match(components, new RegExp(`function ${component}`));
   assert.match(styles, /--k-color-surface/);

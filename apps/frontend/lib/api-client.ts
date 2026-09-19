@@ -1,3 +1,5 @@
+import { readApiError } from './api-errors';
+
 // Browser requests stay on the frontend origin. Next.js proxies /api/v1 to the
 // backend so the session cookie is first-party in production.
 const API_BASE = '';
@@ -45,6 +47,9 @@ export interface OperationsProductOverview {
 }
 
 export interface PublicBusinessProfile {
+  readonly contentRevision?: string;
+  readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly id: string;
   readonly name: string;
   readonly descriptionAr?: string;
@@ -85,6 +90,9 @@ export interface Category {
 }
 
 export interface PublicProfessionalProfile {
+  readonly contentRevision?: string;
+  readonly revision?: string;
+  readonly reviewImageUrls?: readonly string[];
   readonly id: string;
   readonly headlineAr: string;
   readonly headlineEn?: string;
@@ -139,6 +147,8 @@ export interface ProductListing {
   readonly businessName?: string;
   readonly cityCode?: string;
   readonly createdAt: string;
+  readonly revision: string;
+  readonly contentRevision: string;
 }
 
 export interface MediaAsset {
@@ -299,13 +309,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message =
-      (data as { message?: string | string[] }).message ??
-      `خطأ في الخادم (${response.status})`;
-    const text = Array.isArray(message) ? message.join('. ') : (message as string);
-    throw Object.assign(new Error(text), {
+    const { message, code } = readApiError(data, response.status);
+    const businessId = (data as { businessId?: unknown } | null)?.businessId;
+    const productId = (data as { productId?: unknown } | null)?.productId;
+    throw Object.assign(new Error(message), {
       statusCode: response.status,
-      code: (data as { code?: string }).code
+      code,
+      businessId: typeof businessId === 'string' ? businessId : undefined,
+      productId: typeof productId === 'string' ? productId : undefined
     });
   }
 
@@ -424,10 +435,11 @@ export const api = {
   },
   adminProducts: {
     pending() { return request<{ products: ProductListing[] }>('/admin/products/pending'); },
-    review(id: string, status: 'approved' | 'rejected', reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }); }
+    review(id: string, status: 'approved' | 'rejected', expectedRevision: string, reason?: string) { return request<{ product: ProductListing }>(`/admin/products/${encodeURIComponent(id)}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason, expectedRevision }) }); }
   },
   businesses: {
     create(data: {
+      clientRequestId?: string;
       name: string;
       descriptionAr?: string;
       descriptionEn?: string;
@@ -464,6 +476,7 @@ export const api = {
       return request<{ businesses: PublicBusinessProfile[]; total: number }>(`/businesses/search?${qs}`);
     },
     update(id: string, data: Partial<{
+      expectedContentRevision: string;
       name: string;
       descriptionAr: string;
       descriptionEn: string;
@@ -552,13 +565,13 @@ export const api = {
     submitForReview(id: string) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/submit`, { method: 'POST' });
     },
-    approveModeration(id: string) {
-      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST' });
+    approveModeration(id: string, expectedRevision: string) {
+      return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/approve`, { method: 'POST', body: JSON.stringify({ expectedRevision }) });
     },
-    rejectModeration(id: string, reason: string) {
+    rejectModeration(id: string, reason: string, expectedRevision: string) {
       return request<{ business: PublicBusinessProfile }>(`/businesses/${id}/moderation/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason, expectedRevision })
       });
     },
     suspend(id: string, reason: string) {
@@ -570,6 +583,7 @@ export const api = {
   },
   professionals: {
     createOrUpdate(data: {
+      expectedContentRevision?: string;
       headlineAr: string;
       headlineEn?: string;
       bioAr?: string;
@@ -625,13 +639,13 @@ export const api = {
     submitForReview(id: string) {
       return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/submit`, { method: 'POST' });
     },
-    approveModeration(id: string) {
-      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST' });
+    approveModeration(id: string, expectedRevision: string) {
+      return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/approve`, { method: 'POST', body: JSON.stringify({ expectedRevision }) });
     },
-    rejectModeration(id: string, reason: string) {
+    rejectModeration(id: string, reason: string, expectedRevision: string) {
       return request<{ professional: PublicProfessionalProfile }>(`/professionals/${id}/moderation/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason, expectedRevision })
       });
     },
     suspend(id: string, reason: string) {

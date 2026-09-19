@@ -7,11 +7,11 @@
     "build": "next build",
     "dev": "next dev -p 3000",
     "start": "next start -p 3000",
-    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx tests/**/*.test.ts"
+    "test": "node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "firebase": "^12.16.0",
-    "next": "15.5.25",
+    "next": "^15.5.24",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

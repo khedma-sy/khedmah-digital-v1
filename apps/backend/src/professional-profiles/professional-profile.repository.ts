@@ -1,5 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { PROFESSIONAL_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { PROFILE_REVISION_SQL, writeProfileReview, writeProfessionalSuspension } from '../moderation/profile-review-write';
 import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
 
 interface ProfessionalProfileRow extends Record<string, unknown> {
@@ -17,11 +19,26 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
+  readonly revision: string;
+  readonly content_revision: string;
+  readonly review_image_urls?: string[];
 }
 
 @Injectable()
 export class ProfessionalProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
+
+  async suspend(id: string, actorId: string, reason: string): Promise<void> {
+    await writeProfessionalSuspension(this.db, id, actorId, reason);
+  }
+
+  async review(id: string, actorId: string, status: 'approved' | 'rejected', expectedRevision: unknown, reason?: string): Promise<void> {
+    await writeProfileReview(this.db, 'professional', id, actorId, { status, expectedRevision, reason });
+  }
+
+  async submitForReview(id: string, actorId: string): Promise<void> {
+    await writeProfileReview(this.db, 'professional', id, actorId, { status: 'pending', ownerSubmission: true });
+  }
 
   async save(profile: ProfessionalProfile): Promise<void> {
     await this.db.query(
@@ -30,10 +47,14 @@ export class ProfessionalProfileRepository {
          lifecycle_status, visibility, moderation_status, headline_ar, headline_en, bio_ar, bio_en,
          availability, city_code, country_code, skills, created_at, updated_at
        )
-       SELECT $1, p.profile_identifier, $2, 'freelancer', 'active', 'private', 'pending',
+       SELECT $1, p.profile_identifier, $2, 'freelancer', 'created', 'private', 'pending',
               $3,$4,$5,$6,$7,$8,$9,$10,$11,$12
        FROM profiles p WHERE p.user_identifier = $2
        ON CONFLICT (professional_profile_identifier) DO UPDATE SET
+         moderation_status = CASE WHEN professional_profiles.moderation_status = 'suspended' THEN 'suspended'
+           WHEN ROW(professional_profiles.headline_ar,professional_profiles.headline_en,professional_profiles.bio_ar,professional_profiles.bio_en,professional_profiles.city_code,professional_profiles.country_code,professional_profiles.skills)
+             IS DISTINCT FROM ROW(EXCLUDED.headline_ar,EXCLUDED.headline_en,EXCLUDED.bio_ar,EXCLUDED.bio_en,EXCLUDED.city_code,EXCLUDED.country_code,EXCLUDED.skills) THEN 'pending'
+           ELSE professional_profiles.moderation_status END,
          headline_ar = EXCLUDED.headline_ar,
          headline_en = EXCLUDED.headline_en,
          bio_ar = EXCLUDED.bio_ar,
@@ -42,7 +63,7 @@ export class ProfessionalProfileRepository {
          city_code = EXCLUDED.city_code,
          country_code = EXCLUDED.country_code,
          skills = EXCLUDED.skills,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = GREATEST(clock_timestamp(),professional_profiles.updated_at+interval '1 microsecond')`,
       [
         profile.id,
         profile.userId,
@@ -60,9 +81,27 @@ export class ProfessionalProfileRepository {
     );
   }
 
+  async updateOwner(profile: ProfessionalProfile, expected: string, actorId: string): Promise<ProfessionalProfile> {
+    const rows = await this.db.query<ProfessionalProfileRow>(
+      `UPDATE professional_profiles SET
+        moderation_status = CASE WHEN moderation_status='suspended' THEN 'suspended'
+          WHEN ROW(headline_ar,headline_en,bio_ar,bio_en,city_code,country_code,skills)
+            IS DISTINCT FROM ROW($2::text,$3::text,$4::text,$5::text,$7::text,$8::text,$9::text[]) THEN 'pending'
+          ELSE moderation_status END,
+        headline_ar=$2,headline_en=$3,bio_ar=$4,bio_en=$5,availability=$6,city_code=$7,country_code=$8,skills=$9,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+       WHERE professional_profile_identifier=$1 AND user_identifier=$10 AND ${PROFESSIONAL_CONTENT_REVISION_SQL}=$11
+       RETURNING *,professional_profile_identifier AS id,user_identifier AS user_id,
+         ${PROFILE_REVISION_SQL} AS revision,${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision`,
+      [profile.id,profile.headlineAr,profile.headlineEn??null,profile.bioAr??null,profile.bioEn??null,profile.availability,
+        profile.cityCode,profile.countryCode,[...profile.skills],actorId,expected]);
+    if (!rows[0]) throw new ConflictException('Profile content changed. Reload before saving.');
+    return this.map(rows[0]);
+  }
+
   async findById(id: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE professional_profile_identifier = $1
        LIMIT 1`,
@@ -80,7 +119,7 @@ export class ProfessionalProfileRepository {
 
   async findByUserId(userId: string): Promise<ProfessionalProfile | undefined> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE user_identifier = $1
        LIMIT 1`,
@@ -108,7 +147,7 @@ export class ProfessionalProfileRepository {
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        ${where ? `${where} AND` : 'WHERE'} visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY is_featured DESC, created_at DESC
@@ -120,7 +159,7 @@ export class ProfessionalProfileRepository {
 
   async listFeatured(limit = 6): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision
        FROM professional_profiles
        WHERE is_featured = TRUE AND visibility = 'public' AND moderation_status = 'approved' AND lifecycle_status = 'active'
        ORDER BY featured_at DESC
@@ -132,7 +171,8 @@ export class ProfessionalProfileRepository {
 
   async listPendingModeration(): Promise<ProfessionalProfile[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
-      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at
+      `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision,
+              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='professional_profile' AND m.owner_id=professional_profiles.professional_profile_identifier AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls
        FROM professional_profiles
        WHERE moderation_status = 'pending'
        ORDER BY created_at ASC`
@@ -143,7 +183,7 @@ export class ProfessionalProfileRepository {
   async updateModerationStatus(id: string, moderationStatus: string, updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE professional_profiles
-       SET moderation_status = $2, updated_at = $3
+       SET moderation_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE professional_profile_identifier = $1`,
       [id, moderationStatus, updatedAt]
     );
@@ -152,7 +192,7 @@ export class ProfessionalProfileRepository {
   async updateLifecycleStatus(id: string, lifecycleStatus: string, updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE professional_profiles
-       SET lifecycle_status = $2, updated_at = $3
+       SET lifecycle_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE professional_profile_identifier = $1`,
       [id, lifecycleStatus, updatedAt]
     );
@@ -173,7 +213,10 @@ export class ProfessionalProfileRepository {
       isFeatured: row.is_featured ?? false,
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
+      updatedAt: row.updated_at.toISOString(),
+      reviewImageUrls: row.review_image_urls,
+      contentRevision: row.content_revision,
+      revision: row.revision
     };
   }
 
@@ -218,19 +261,29 @@ export class ProfessionalProfileRepository {
     }));
   }
 
-  async saveVerificationRequest(req: VerificationRequest): Promise<void> {
-    await this.db.query(
-      `INSERT INTO verification_requests (id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at`,
-      [req.id, req.entityType, req.entityId, req.requesterId, req.status, req.notes ?? null, null, null, req.createdAt, req.updatedAt]
-    );
+  async requestVerification(req: VerificationRequest): Promise<VerificationRequest> {
+    return this.db.transaction(async (client) => {
+      const parent = await client.query<{user_identifier:string}>(
+        `SELECT user_identifier FROM professional_profiles WHERE professional_profile_identifier=$1 FOR UPDATE`,[req.entityId]);
+      if (!parent.rows[0]) throw new NotFoundException('Professional profile not found.');
+      if (parent.rows[0].user_identifier !== req.requesterId) throw new ForbiddenException('Access denied');
+      const result = await client.query(
+        `SELECT * FROM verification_requests WHERE entity_type='professional' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,[req.entityId]);
+      const existing = result.rows[0];
+      if (existing && ['pending','approved'].includes(existing.status)) return {
+        id:existing.id,entityType:'professional',entityId:existing.entity_id,requesterId:existing.requester_id,status:existing.status,
+        notes:existing.notes??undefined,createdAt:existing.created_at.toISOString(),updatedAt:existing.updated_at.toISOString()};
+      const created = await client.query(
+        `INSERT INTO verification_requests (id,entity_type,entity_id,requester_id,status,created_at,updated_at)
+         VALUES ($1,'professional',$2,$3,'pending',clock_timestamp(),clock_timestamp()) RETURNING created_at,updated_at`,[req.id,req.entityId,req.requesterId]);
+      return {...req,entityType:'professional',status:'pending',createdAt:created.rows[0].created_at.toISOString(),updatedAt:created.rows[0].updated_at.toISOString()};
+    });
   }
 
   async findVerificationRequest(entityId: string): Promise<VerificationRequest | undefined> {
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; requester_id: string; status: string; notes: string | null; created_at: Date; updated_at: Date }>(
       `SELECT id, entity_type, entity_id, requester_id, status, notes, created_at, updated_at
-       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC,id DESC LIMIT 1`,
       ['professional', entityId]
     );
     if (!rows[0]) return undefined;

@@ -1,0 +1,166 @@
+name: Production Migrations 025-034
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration_number:
+        description: Canonical migration to apply
+        required: true
+        type: choice
+        options: ['025','026','027','028','029','030','031','032','033','034']
+      commit_sha:
+        description: Exact latest main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: APPLY_KHEDMAH_MIGRATION_NNN_<sha7>
+        required: true
+        type: string
+      backup_id:
+        description: Successful recent Cloud SQL backup ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 35
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+      OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
+      OPERATIONS_MIGRATION_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_MIGRATION_SERVICE_ACCOUNT }}
+      OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      MIGRATION_NUMBER: ${{ inputs.migration_number }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      EXPECTED_BACKUP_ID: ${{ inputs.backup_id }}
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Lock operation to exact latest main and resolve migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_BACKUP_ID" =~ ^[0-9]+$ ]]
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          git fetch origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          test "$ACTUAL_SHA" = "$REQUESTED_SHA"
+          test "$REQUESTED_SHA" = "$MAIN_SHA"
+          case "$MIGRATION_NUMBER" in
+            025) MIGRATION_NAME=025_classifieds ;;
+            026) MIGRATION_NAME=026_cash_fulfillment_orders ;;
+            027) MIGRATION_NAME=027_mobility_document_reviews ;;
+            028) MIGRATION_NAME=028_platform_notifications ;;
+            029) MIGRATION_NAME=029_taxi_pricing_revisions ;;
+            030) MIGRATION_NAME=030_billing_credits_subscriptions ;;
+            031) MIGRATION_NAME=031_taxi_operational_approvals ;;
+            032) MIGRATION_NAME=032_taxi_operational_profile_gate ;;
+            033) MIGRATION_NAME=033_billing_admin_role ;;
+            034) MIGRATION_NAME=034_food_order_promotions ;;
+            *) echo 'Unsupported migration.' >&2; exit 1 ;;
+          esac
+          MIGRATION_FILE="backend/migrations/versions/${MIGRATION_NAME}.sql"
+          test -f "$MIGRATION_FILE"
+          MIGRATION_SHA256="$(sha256sum "$MIGRATION_FILE" | awk '{print $1}')"
+          EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MIGRATION_${MIGRATION_NUMBER}_${REQUESTED_SHA:0:7}"
+          test "$CONFIRMATION" = "$EXPECTED_CONFIRMATION"
+          {
+            echo "MIGRATION_NAME=$MIGRATION_NAME"
+            echo "MIGRATION_SHA256=$MIGRATION_SHA256"
+            echo "MIGRATION_FILE=$MIGRATION_FILE"
+          } >> "$GITHUB_ENV"
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify production target and recent backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_CLOUD_PROJECT"
+          test -n "$GOOGLE_CLOUD_REGION"
+          test -n "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"
+          test -n "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          EXPECTED_DESCRIPTION="khedmah-before-${MIGRATION_NUMBER}-${REQUESTED_SHA:0:7}"
+          BACKUP_STATUS="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(status)')"
+          BACKUP_DESCRIPTION="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(description)')"
+          BACKUP_END_TIME="$(gcloud sql backups describe "$EXPECTED_BACKUP_ID" --project "$GOOGLE_CLOUD_PROJECT" --instance "$SQL_INSTANCE_NAME" --format='value(endTime)')"
+          test "$BACKUP_STATUS" = SUCCESSFUL
+          test "$BACKUP_DESCRIPTION" = "$EXPECTED_DESCRIPTION"
+          test -n "$BACKUP_END_TIME"
+          BACKUP_EPOCH="$(date -u -d "$BACKUP_END_TIME" +%s)"
+          NOW_EPOCH="$(date -u +%s)"
+          AGE="$((NOW_EPOCH - BACKUP_EPOCH))"
+          test "$AGE" -ge 0
+          test "$AGE" -le 86400
+
+      - name: Build checksum-bound migration image
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+          [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]]
+          BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
+          gcloud builds submit . \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --service-account "$BUILD_SERVICE_ACCOUNT" \
+            --gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source" \
+            --config cloudbuild.production-migrations-025-034.yaml \
+            --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY" \
+            --quiet
+
+      - name: Execute exactly one migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${OPERATIONS_ARTIFACT_REPOSITORY}/database-migrations-025-034:${REQUESTED_SHA}"
+          JOB="khedmah-database-migration-${MIGRATION_NUMBER}"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
+            --set-env-vars "MIGRATION_NUMBER=${MIGRATION_NUMBER},MIGRATION_SHA256=${MIGRATION_SHA256}" \
+            --tasks 1 \
+            --parallelism 1 \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --quiet
+          gcloud run jobs execute "$JOB" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait
+
+      - name: Publish immutable migration evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Production migration ${MIGRATION_NUMBER}"
+            echo "- Commit: \`${REQUESTED_SHA}\`"
+            echo "- File: \`${MIGRATION_FILE:-unresolved}\`"
+            echo "- SHA-256: \`${MIGRATION_SHA256:-unresolved}\`"
+            echo "- Backup: \`${EXPECTED_BACKUP_ID}\`"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
