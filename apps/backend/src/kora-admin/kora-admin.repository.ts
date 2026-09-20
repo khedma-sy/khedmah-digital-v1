@@ -41,9 +41,26 @@ export class KoraAdminRepository {
       (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='pending') AS store_pending_review,
       (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS store_review_overdue_24h,
       (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='approved' AND availability='out_of_stock') AS store_out_of_stock,
-      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW()) AS taxi_approved_drivers,
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals d
+       JOIN khedmah_taxi.vehicle_approvals v ON v.id=d.vehicle_id
+       JOIN business_profiles b ON b.id=d.business_profile_id
+       WHERE d.status='approved' AND d.expires_at > NOW()
+         AND v.status='approved' AND v.driver_user_id=d.user_id
+         AND v.business_profile_id=d.business_profile_id AND v.expires_at > NOW()
+         AND b.owner_user_id=d.user_id AND b.category_code='taxi'
+         AND b.visibility='public' AND b.moderation_status='approved'
+         AND b.trust_status='approved' AND b.status='active') AS taxi_approved_drivers,
       (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status IN ('suspended','revoked')) AS taxi_restricted_drivers,
-      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW() AND expires_at <= NOW()+INTERVAL '7 days') AS taxi_expiring_approvals_7d,
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals d
+       JOIN khedmah_taxi.vehicle_approvals v ON v.id=d.vehicle_id
+       JOIN business_profiles b ON b.id=d.business_profile_id
+       WHERE d.status='approved' AND d.expires_at > NOW()
+         AND d.expires_at <= NOW()+INTERVAL '7 days'
+         AND v.status='approved' AND v.driver_user_id=d.user_id
+         AND v.business_profile_id=d.business_profile_id AND v.expires_at > NOW()
+         AND b.owner_user_id=d.user_id AND b.category_code='taxi'
+         AND b.visibility='public' AND b.moderation_status='approved'
+         AND b.trust_status='approved' AND b.status='active') AS taxi_expiring_approvals_7d,
       (SELECT COUNT(*)::text FROM contact_inquiries WHERE created_at >= $1) AS contact_inquiries_24h,
       (SELECT COUNT(*)::text FROM contact_inquiries WHERE status IN ('submitted','received','read')) AS contact_inquiries_open,
       (SELECT COUNT(*)::text FROM contact_inquiries WHERE status='submitted' AND created_at < NOW()-INTERVAL '24 hours') AS contact_inquiries_unread_24h,
