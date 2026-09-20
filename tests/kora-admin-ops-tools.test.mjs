@@ -30,7 +30,7 @@ test('KORA is a separate operations module with protected admin endpoints', () =
 test('read_metrics uses fixed aggregate reads and marks unsupported metrics unavailable instead of zero', () => {
   assert.match(repository, /SELECT COUNT\(\*\)::text AS count FROM core_user_accounts/);
   assert.match(repository, /event_type='search_action'/);
-  for (const table of ['fulfillment_orders','billing_purchase_orders','ad_listings','product_listings','khedmah_taxi.driver_approvals','contact_inquiries','provider_reports']) {
+  for (const table of ['fulfillment_orders','billing_purchase_orders','ad_listings','product_listings','khedmah_taxi.driver_approvals','contact_inquiries','provider_reports','business_profiles','professional_profiles','verification_requests','mobility_document_reviews']) {
     assert.match(repository, new RegExp(table.replace('.', '\\.')));
   }
   assert.match(service, /tool: 'read_metrics'/);
@@ -52,10 +52,11 @@ test('detect_ui_failures never claims live browser state without supplied eviden
 test('operational anomaly review is deterministic and does not turn telemetry gaps into zero values', () => {
   assert.match(service, /incident\.severity === 'high' \|\| incident\.severity === 'critical'/);
   assert.match(service, /coverageGaps:/);
-  for (const resource of ['classifieds:moderation-backlog','store:moderation-backlog','classifieds:expiry-state','taxi:driver-approvals','contact:inquiry-backlog','reports:moderation-backlog','reports:sensitive-open']) {
+  for (const resource of ['classifieds:moderation-backlog','store:moderation-backlog','classifieds:expiry-state','taxi:driver-approvals','contact:inquiry-backlog','reports:moderation-backlog','reports:sensitive-open','moderation:business-profiles','moderation:professional-profiles','verification:requests','mobility:document-review']) {
     assert.match(service, new RegExp(resource));
   }
   assert.match(service, /Report reason codes remain allegations until human review/);
+  assert.match(service, /KORA reads queue counts, not private verification\/document evidence/);
   assert.match(service, /missing telemetry is never interpreted as zero/);
   assert.match(service, /automaticDecisionAuthorized: false/);
 });
