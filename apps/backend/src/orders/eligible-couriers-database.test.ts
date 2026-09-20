@@ -38,6 +38,14 @@ test('courier selection paginates real eligible profiles and excludes a newer pe
     const reviews=new DriverDocumentReviewService(db,{getCurrentUser:async()=>({id:reviewer,email:'reviewer@example.test'})} as never,{assert(){}} as never);
     const queue=await reviews.reviewQueue('fixture');
     assert.equal(queue.businesses.length,1);assert.equal(queue.businesses[0].businessProfileId,profiles[0]);assert.equal(queue.businesses[0].pendingDocuments,1);
+    const missingReviewMedia=randomUUID();
+    await pool.query(`INSERT INTO media_assets(id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,asset_type)
+      VALUES($1,$2,'business_profile',$3,'renewal-missing-review.png','image/png',1,'private',$1,'identity_card')`,[missingReviewMedia,owner,profiles[4]]);
+    await pool.query(`DELETE FROM mobility_document_reviews WHERE media_asset_id=$1`,[missingReviewMedia]);
+    const queueWithMissingDecision=await reviews.reviewQueue('fixture');
+    const missingDecisionBusiness=queueWithMissingDecision.businesses.find(item=>item.businessProfileId===profiles[4]);
+    assert.ok(missingDecisionBusiness,'latest private mobility asset without a decision row must remain in the admin review queue');
+    assert.equal(missingDecisionBusiness.pendingDocuments,1);
     await pool.query("UPDATE business_profiles SET trust_status='pending' WHERE id=$1",[profiles[1]]);
     assert.equal((await repo.eligibleCouriers('damascus',1)).total,20);
     await pool.query("UPDATE business_profiles SET availability='busy' WHERE id=$1",[profiles[2]]);

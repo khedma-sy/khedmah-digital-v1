@@ -68,6 +68,8 @@ jobs:
           state="$(gcloud secrets versions describe latest --secret BOOTSTRAP_ADMIN_SECRET --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
           test "$state" = ENABLED
           gcloud run services update "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --update-secrets=BOOTSTRAP_ADMIN_SECRET=BOOTSTRAP_ADMIN_SECRET:latest             --quiet
+          bound_env="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='json(spec.template.spec.containers[0].env)')"
+          jq -e 'any(.[]?; .name == "OPERATIONS_PRODUCT_ROLE_BINDINGS" and .valueFrom.secretKeyRef.name == "OPERATIONS_PRODUCT_ROLE_BINDINGS")' <<<"$bound_env" >/dev/null
           backend_url="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.url)')"
           [[ "$backend_url" == https://* ]]
           curl --fail --silent --show-error --retry 5 --retry-all-errors "$backend_url/api/v1/health" >/dev/null
@@ -80,6 +82,7 @@ jobs:
           ADMIN_EMAIL: ${{ secrets.PRODUCTION_BOOTSTRAP_ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.PRODUCTION_BOOTSTRAP_ADMIN_PASSWORD }}
           ADMIN_DISPLAY_NAME: ${{ vars.PRODUCTION_BOOTSTRAP_ADMIN_DISPLAY_NAME }}
+
         shell: bash
         run: |
           set -euo pipefail
