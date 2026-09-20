@@ -49,7 +49,7 @@ export default function AdminPage() {
       {canManageModeration ? <Link href="/admin/verification">التحقق</Link> : null}
       {canManageModeration ? <Link href="/admin/driver-documents">وثائق السائقين والمندوبين</Link> : null}
       {canManageModeration ? <Link href="/admin/taxi-drivers">سائقو التكسي</Link> : null}
-      <Link href="/admin/billing">مراجعة السداد</Link><Link href="/admin/taxi-pricing">تسعيرة التكسي</Link><Link href="/categories">دليل التصنيفات</Link><Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">إدارة المطاعم</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
+      <Link href="/admin/billing">مراجعة السداد</Link><Link href="/admin/taxi-pricing">تسعيرة التكسي</Link><Link href="/categories">دليل التصنيفات</Link><Link href="/admin/categories">إدارة التصنيفات</Link><Link href="/orders/merchant">مساحة منشأتي</Link><Link href="/admin/operations-product">التشغيل والبنية التحتية</Link>
     </nav>
 
     <section className="operations-summary" aria-label="ملخص الإدارة"><article><strong>{user.profile.displayName}</strong><span>الحساب الإداري</span></article><article><strong>{overview.roles.length}</strong><span>الأدوار المعتمدة</span></article><article><strong>{overview.openIncidents}</strong><span>حوادث في العملية الحالية</span></article><article><strong>{overview.pendingChanges}</strong><span>تغييرات في العملية الحالية</span></article></section>
@@ -58,7 +58,7 @@ export default function AdminPage() {
 
     <section className="operations-grid" aria-label="أقسام الإدارة">
       <article className="operations-panel"><div className="panel-heading"><h2>KORA Executive</h2><span>Supervised</span></div><p>Executive، Expose، KillCritic، Autopsy، المقاييس، الشذوذ ومسودات المهام في مركز واحد.</p><Link href="/admin/kora">فتح مركز KORA</Link></article>
-      <article className="operations-panel"><div className="panel-heading"><h2>إدارة المطاعم</h2><span>Live Ops</span></div><p>الطلبات الحية، القائمة، ساعات العمل، الرنة، المندوب ومؤشرات الأداء الفعلية.</p><Link href="/orders/merchant">فتح Restaurant Command Center</Link></article>
+      <article className="operations-panel"><div className="panel-heading"><h2>مساحة منشأتي</h2><span>Live Ops</span></div><p>الطلبات الحية، القائمة، ساعات العمل، الرنة، المندوب ومؤشرات الأداء الفعلية.</p><Link href="/orders/merchant">فتح مركز أوامر منشأتي</Link></article>
       <article className="operations-panel"><div className="panel-heading"><h2>إدارة التصنيفات</h2><span>Product V2</span></div><p>إدارة الشجرة الهرمية، الترتيب، الإبراز والتفعيل دون حذف المراجع التاريخية.</p><Link href="/admin/categories">فتح لوحة التصنيفات</Link></article>
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>المراجعة والبلاغات</h2><span>مقيد</span></div><p>مراجعة ملفات الأعمال والمهنيين والمنتجات والإعلانات والبلاغات قبل اتخاذ الإجراء.</p><Link href="/admin/moderation">فتح المراجعة</Link></article> : null}
       {canManageModeration ? <article className="operations-panel"><div className="panel-heading"><h2>التحقق</h2><span>بشري</span></div><p>مراجعة طلبات التحقق التجارية والمهنية والمستندات المرتبطة بها.</p><Link href="/admin/verification">فتح التحقق</Link></article> : null}
