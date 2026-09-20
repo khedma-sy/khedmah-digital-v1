@@ -32,7 +32,18 @@ export class KoraAdminRepository {
       (SELECT COUNT(*)::text FROM fulfillment_orders WHERE status='merchant_confirmed') AS delivery_waiting_assignment,
       (SELECT COUNT(*)::text FROM fulfillment_orders WHERE status='merchant_confirmed' AND updated_at < NOW()-INTERVAL '15 minutes') AS delivery_assignment_overdue,
       (SELECT COUNT(*)::text FROM billing_purchase_orders WHERE status='pending') AS billing_pending_orders,
-      (SELECT COUNT(*)::text FROM billing_purchase_orders WHERE status='paid' AND paid_at >= $1) AS billing_paid_orders_24h`, [since]);
+      (SELECT COUNT(*)::text FROM billing_purchase_orders WHERE status='paid' AND paid_at >= $1) AS billing_paid_orders_24h,
+      (SELECT COUNT(*)::text FROM ad_listings WHERE status='active' AND (expires_at IS NULL OR expires_at > NOW())) AS ads_active,
+      (SELECT COUNT(*)::text FROM ad_listings WHERE status='pending_review') AS ads_pending_review,
+      (SELECT COUNT(*)::text FROM ad_listings WHERE status='pending_review' AND submitted_at < NOW()-INTERVAL '24 hours') AS ads_review_overdue_24h,
+      (SELECT COUNT(*)::text FROM ad_listings WHERE status='active' AND expires_at IS NOT NULL AND expires_at <= NOW()) AS ads_expired_active,
+      (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='approved') AS store_active_products,
+      (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='pending') AS store_pending_review,
+      (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS store_review_overdue_24h,
+      (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='approved' AND availability='out_of_stock') AS store_out_of_stock,
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW()) AS taxi_approved_drivers,
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status IN ('suspended','revoked')) AS taxi_restricted_drivers,
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW() AND expires_at <= NOW()+INTERVAL '7 days') AS taxi_expiring_approvals_7d`, [since]);
     if (!row) throw new Error('KORA_SERVICE_METRICS_MISSING');
     return Object.fromEntries(Object.entries(row).map(([key,value])=>[key,this.parseCount(value)]));
   }
