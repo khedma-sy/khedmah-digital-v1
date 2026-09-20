@@ -41,6 +41,18 @@ test('read_metrics uses fixed aggregate reads and marks unsupported metrics unav
   assert.doesNotMatch(repository, /SELECT\s+\*/i);
 });
 
+
+test('KORA review metrics mirror canonical queue selection semantics', () => {
+  assert.match(repository, /DISTINCT ON \(entity_type,entity_id\)/);
+  assert.match(repository, /ORDER BY entity_type,entity_id,created_at DESC,id DESC/);
+  assert.match(repository, /JOIN business_profiles b ON vr\.entity_type='business' AND b\.id=vr\.entity_id/);
+  assert.match(repository, /JOIN professional_profiles p ON vr\.entity_type='professional' AND p\.professional_profile_identifier=vr\.entity_id/);
+  assert.match(repository, /DISTINCT ON \(m\.owner_id,m\.asset_type\)/);
+  assert.match(repository, /LEFT JOIN mobility_document_reviews r ON r\.media_asset_id=a\.id/);
+  assert.match(repository, /COALESCE\(r\.status,'pending'\)='pending'/);
+  assert.match(repository, /b\.category_code IN \('taxi','delivery_courier'\)/);
+});
+
 test('detect_ui_failures never claims live browser state without supplied evidence', () => {
   assert.match(service, /liveBrowserEvidenceConnected: false/);
   assert.match(service, /status: 'not_observed'/);
