@@ -10,11 +10,13 @@ KORA may read only metrics backed by an explicit source. The first slice exposes
 
 The 2026-09-15 extension connects fixed aggregate reads for fulfillment orders created in the last 24 hours, the Food subset, cancellations within that created-order cohort, current confirmed orders waiting for courier assignment, the subset waiting more than 15 minutes, pending subscription purchase orders, and subscriptions whose payment was confirmed in the last 24 hours.
 
-The 2026-09-20 Smart Admin extension adds fixed read-only aggregates for Classifieds, Store listings and Taxi driver approvals. It reports active and pending-review ads, review backlog older than 24 hours, expired ads that still carry the Active state, active/approved Store products, pending and overdue Store moderation, out-of-stock Store products, currently approved Taxi drivers, restricted driver approvals, and approved driver records expiring within seven days. These values come directly from `ad_listings`, `product_listings`, and `khedmah_taxi.driver_approvals`; KORA receives no generic SQL capability.
+The 2026-09-20 Smart Admin extension adds fixed read-only aggregates for Classifieds, Store listings, Taxi driver approvals, contact inquiries and provider reports. It reports active and pending-review ads, review backlog older than 24 hours, expired ads that still carry the Active state, active/approved Store products, pending and overdue Store moderation, out-of-stock Store products, currently approved Taxi drivers, restricted driver approvals, approved driver records expiring within seven days, new/open contact inquiries, submitted inquiries older than 24 hours, and open/provider-report backlog counts.
+
+These values come directly from `ad_listings`, `product_listings`, `khedmah_taxi.driver_approvals`, `contact_inquiries`, and `provider_reports`; KORA receives no generic SQL capability. Metrics use aggregate counts only and do not expose inquiry messages, report details, reporter identities, or target identities.
 
 Counts do not combine currencies or claim revenue, delivery duration, restaurant quality, Taxi trip volume, Store conversion, duplicate-ad detection, or cross-product coverage. Database read failures remain failures, never fabricated zeroes.
 
-Zero-result searches, cross-product counts, Taxi trip lifecycle metrics, Food preparation time, Delivery travel time, Store conversion, duplicate-ad detection, driver/restaurant issue rates and API/error-rate baselines remain uninstrumented.
+Zero-result searches remain uninstrumented because the current `search_action` contract does not require a result-count field. Cross-product counts, Taxi trip lifecycle metrics, Food preparation time, Delivery travel time, Store conversion, duplicate-ad detection, driver/restaurant issue rates and API/error-rate baselines also remain uninstrumented.
 
 ### `detect_ui_failures`
 
@@ -22,7 +24,9 @@ KORA owns a governed UI check registry for Taxi map embedding/navigation, Store 
 
 ### `review_operational_anomalies`
 
-The anomaly review evaluates confirmed high/critical Operations Product incidents from the current backend process and canonical fulfillment orders waiting for courier assignment for more than 15 minutes. It also surfaces Classifieds and Store moderation records waiting more than 24 hours, expired Classifieds records that remain in the Active state, and approved Taxi driver records that expire within seven days.
+The anomaly review evaluates confirmed high/critical Operations Product incidents from the current backend process and canonical fulfillment orders waiting for courier assignment for more than 15 minutes. It also surfaces Classifieds and Store moderation records waiting more than 24 hours, expired Classifieds records that remain in the Active state, approved Taxi driver records that expire within seven days, contact inquiries still in `submitted` state after 24 hours, and provider reports that remain open after 24 hours.
+
+Open provider reports with reason code `impersonation` or `inappropriate_content` may be surfaced as priority-review findings, but KORA must state that these are user allegations until a human moderator reviews the evidence.
 
 The 15-minute, 24-hour and seven-day thresholds are operational review signals, not customer-facing SLAs. Findings can produce advisory tasks; they cannot assign a courier, approve/reject content, renew a driver, confirm payment, modify a tariff, or perform another write. Cancellation rates, abnormal user activity, duplicate-ad detection, driver/restaurant issue rates, Taxi trip lifecycle, API failure rates, and error-rate baselines remain explicit coverage gaps until their sources exist.
 
