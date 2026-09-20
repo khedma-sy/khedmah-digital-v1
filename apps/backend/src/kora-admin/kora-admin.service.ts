@@ -292,6 +292,34 @@ export class KoraAdminService {
       severity: 'medium', evidence: `count=${serviceMetrics.provider_reports_sensitive_open};reason=impersonation_or_inappropriate_content;status=open;measured_at=${detectedAt}`,
       source: 'canonical_database.provider_reports', detectedAt
     });
+    if (serviceMetrics.business_profiles_review_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'moderation:business-profiles',
+      title: 'ملفات أعمال معلقة في المراجعة',
+      summary: `${serviceMetrics.business_profiles_review_overdue_24h} ملف أعمال بقي بحالة Pending لأكثر من 24 ساعة. يحتاج مراجعة بشرية؛ لا ينفذ KORA قرار اعتماد أو رفض.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.business_profiles_review_overdue_24h};moderation_status=pending;updated_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.business_profiles', detectedAt
+    });
+    if (serviceMetrics.professional_profiles_review_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'moderation:professional-profiles',
+      title: 'ملفات مهنيين معلقة في المراجعة',
+      summary: `${serviceMetrics.professional_profiles_review_overdue_24h} ملف مهني بقي بحالة Pending لأكثر من 24 ساعة. يحتاج مراجعة بشرية.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.professional_profiles_review_overdue_24h};moderation_status=pending;updated_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.professional_profiles', detectedAt
+    });
+    if (serviceMetrics.verification_requests_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'verification:requests',
+      title: 'طلبات تحقق معلقة',
+      summary: `${serviceMetrics.verification_requests_overdue_24h} طلب تحقق بقي Pending لأكثر من 24 ساعة. يلزم قرار بشري مبني على الأدلة.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.verification_requests_overdue_24h};status=pending;created_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.verification_requests', detectedAt
+    });
+    if (serviceMetrics.mobility_documents_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'mobility:document-review',
+      title: 'وثائق سائقين أو مندوبين معلقة',
+      summary: `${serviceMetrics.mobility_documents_overdue_24h} وثيقة بقيت Pending لأكثر من 24 ساعة. KORA يعرض العدد فقط ولا يقرأ محتوى الوثيقة أو يعتمدها تلقائيًا.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.mobility_documents_overdue_24h};status=pending;created_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.mobility_document_reviews', detectedAt
+    });
 
     return {
       tool: 'review_operational_anomalies' as const,
@@ -308,7 +336,7 @@ export class KoraAdminService {
         'api_failure_rate',
         'error_rate_baseline'
       ],
-      sourceBoundary: 'Current-process Operations incidents plus canonical fulfillment, Classifieds, Store, Taxi approval, contact-inquiry and provider-report state are evaluated. The 15-minute delivery, 24-hour review/follow-up and 7-day approval-expiry thresholds are internal review signals, not user-facing SLAs. Report reason codes remain allegations until human review; missing telemetry is never interpreted as zero.',
+      sourceBoundary: 'Current-process Operations incidents plus canonical fulfillment, Classifieds, Store, Taxi approval, contact-inquiry, provider-report, profile moderation, verification-request and mobility-document queue state are evaluated. The 15-minute delivery, 24-hour review/follow-up and 7-day approval-expiry thresholds are internal review signals, not user-facing SLAs. Report reason codes remain allegations until human review; KORA reads queue counts, not private verification/document evidence; missing telemetry is never interpreted as zero.',
       automaticDecisionAuthorized: false
     };
   }
@@ -338,7 +366,15 @@ export class KoraAdminService {
       ['contact_inquiries_unread_24h','استفسارات Submitted منذ أكثر من 24 ساعة','contact_inquiries.status=submitted','current'],
       ['provider_reports_open','بلاغات مقدمي الخدمات المفتوحة','provider_reports.status=open','current'],
       ['provider_reports_overdue_24h','بلاغات مفتوحة منذ أكثر من 24 ساعة','provider_reports.created_at','current'],
-      ['provider_reports_sensitive_open','بلاغات انتحال/محتوى غير مناسب مفتوحة','provider_reports.reason_code=sensitive','current']
+      ['provider_reports_sensitive_open','بلاغات انتحال/محتوى غير مناسب مفتوحة','provider_reports.reason_code=sensitive','current'],
+      ['business_profiles_pending_review','ملفات أعمال بانتظار المراجعة','business_profiles.moderation_status=pending','current'],
+      ['business_profiles_review_overdue_24h','ملفات أعمال معلقة أكثر من 24 ساعة','business_profiles.updated_at','current'],
+      ['professional_profiles_pending_review','ملفات مهنيين بانتظار المراجعة','professional_profiles.moderation_status=pending','current'],
+      ['professional_profiles_review_overdue_24h','ملفات مهنيين معلقة أكثر من 24 ساعة','professional_profiles.updated_at','current'],
+      ['verification_requests_pending','طلبات تحقق بانتظار القرار','verification_requests.status=pending','current'],
+      ['verification_requests_overdue_24h','طلبات تحقق معلقة أكثر من 24 ساعة','verification_requests.created_at','current'],
+      ['mobility_documents_pending','وثائق سائقين/مندوبين بانتظار المراجعة','mobility_document_reviews.status=pending','current'],
+      ['mobility_documents_overdue_24h','وثائق معلقة أكثر من 24 ساعة','mobility_document_reviews.created_at','current']
     ];
     return definitions.map(([key,label,source,window])=>{
       const value=values[key];

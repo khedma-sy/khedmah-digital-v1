@@ -49,7 +49,15 @@ export class KoraAdminRepository {
       (SELECT COUNT(*)::text FROM contact_inquiries WHERE status='submitted' AND created_at < NOW()-INTERVAL '24 hours') AS contact_inquiries_unread_24h,
       (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review')) AS provider_reports_open,
       (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND created_at < NOW()-INTERVAL '24 hours') AS provider_reports_overdue_24h,
-      (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND reason_code IN ('impersonation','inappropriate_content')) AS provider_reports_sensitive_open`, [since]);
+      (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND reason_code IN ('impersonation','inappropriate_content')) AS provider_reports_sensitive_open,
+      (SELECT COUNT(*)::text FROM business_profiles WHERE moderation_status='pending') AS business_profiles_pending_review,
+      (SELECT COUNT(*)::text FROM business_profiles WHERE moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS business_profiles_review_overdue_24h,
+      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending') AS professional_profiles_pending_review,
+      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS professional_profiles_review_overdue_24h,
+      (SELECT COUNT(*)::text FROM verification_requests WHERE status='pending') AS verification_requests_pending,
+      (SELECT COUNT(*)::text FROM verification_requests WHERE status='pending' AND created_at < NOW()-INTERVAL '24 hours') AS verification_requests_overdue_24h,
+      (SELECT COUNT(*)::text FROM mobility_document_reviews WHERE status='pending') AS mobility_documents_pending,
+      (SELECT COUNT(*)::text FROM mobility_document_reviews WHERE status='pending' AND created_at < NOW()-INTERVAL '24 hours') AS mobility_documents_overdue_24h`, [since]);
     if (!row) throw new Error('KORA_SERVICE_METRICS_MISSING');
     return Object.fromEntries(Object.entries(row).map(([key,value])=>[key,this.parseCount(value)]));
   }
