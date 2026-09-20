@@ -30,6 +30,9 @@ test('KORA is a separate operations module with protected admin endpoints', () =
 test('read_metrics uses fixed aggregate reads and marks unsupported metrics unavailable instead of zero', () => {
   assert.match(repository, /SELECT COUNT\(\*\)::text AS count FROM core_user_accounts/);
   assert.match(repository, /event_type='search_action'/);
+  for (const table of ['fulfillment_orders','billing_purchase_orders','ad_listings','product_listings','khedmah_taxi.driver_approvals']) {
+    assert.match(repository, new RegExp(table.replace('.', '\\.')));
+  }
   assert.match(service, /tool: 'read_metrics'/);
   assert.match(service, /status: 'not_instrumented'/);
   assert.match(service, /truthfulUnavailableValues: true/);
@@ -49,6 +52,9 @@ test('detect_ui_failures never claims live browser state without supplied eviden
 test('operational anomaly review is deterministic and does not turn telemetry gaps into zero values', () => {
   assert.match(service, /incident\.severity === 'high' \|\| incident\.severity === 'critical'/);
   assert.match(service, /coverageGaps:/);
+  for (const resource of ['classifieds:moderation-backlog','store:moderation-backlog','classifieds:expiry-state','taxi:driver-approvals']) {
+    assert.match(service, new RegExp(resource));
+  }
   assert.match(service, /missing telemetry is never interpreted as zero/);
   assert.match(service, /automaticDecisionAuthorized: false/);
 });
