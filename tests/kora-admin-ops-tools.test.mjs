@@ -30,12 +30,27 @@ test('KORA is a separate operations module with protected admin endpoints', () =
 test('read_metrics uses fixed aggregate reads and marks unsupported metrics unavailable instead of zero', () => {
   assert.match(repository, /SELECT COUNT\(\*\)::text AS count FROM core_user_accounts/);
   assert.match(repository, /event_type='search_action'/);
+  for (const table of ['fulfillment_orders','billing_purchase_orders','ad_listings','product_listings','khedmah_taxi.driver_approvals','contact_inquiries','provider_reports','business_profiles','professional_profiles','verification_requests','mobility_document_reviews']) {
+    assert.match(repository, new RegExp(table.replace('.', '\\.')));
+  }
   assert.match(service, /tool: 'read_metrics'/);
   assert.match(service, /status: 'not_instrumented'/);
   assert.match(service, /truthfulUnavailableValues: true/);
   assert.match(service, /Process-local only/);
   assert.doesNotMatch(repository, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|TRUNCATE)\b/i);
   assert.doesNotMatch(repository, /SELECT\s+\*/i);
+});
+
+
+test('KORA review metrics mirror canonical queue selection semantics', () => {
+  assert.match(repository, /DISTINCT ON \(entity_type,entity_id\)/);
+  assert.match(repository, /ORDER BY entity_type,entity_id,created_at DESC,id DESC/);
+  assert.match(repository, /JOIN business_profiles b ON vr\.entity_type='business' AND b\.id=vr\.entity_id/);
+  assert.match(repository, /JOIN professional_profiles p ON vr\.entity_type='professional' AND p\.professional_profile_identifier=vr\.entity_id/);
+  assert.match(repository, /DISTINCT ON \(m\.owner_id,m\.asset_type\)/);
+  assert.match(repository, /LEFT JOIN mobility_document_reviews r ON r\.media_asset_id=a\.id/);
+  assert.match(repository, /COALESCE\(r\.status,'pending'\)='pending'/);
+  assert.match(repository, /b\.category_code IN \('taxi','delivery_courier'\)/);
 });
 
 test('detect_ui_failures never claims live browser state without supplied evidence', () => {
@@ -49,6 +64,11 @@ test('detect_ui_failures never claims live browser state without supplied eviden
 test('operational anomaly review is deterministic and does not turn telemetry gaps into zero values', () => {
   assert.match(service, /incident\.severity === 'high' \|\| incident\.severity === 'critical'/);
   assert.match(service, /coverageGaps:/);
+  for (const resource of ['classifieds:moderation-backlog','store:moderation-backlog','classifieds:expiry-state','taxi:driver-approvals','contact:inquiry-backlog','reports:moderation-backlog','reports:sensitive-open','moderation:business-profiles','moderation:professional-profiles','verification:requests','mobility:document-review']) {
+    assert.match(service, new RegExp(resource));
+  }
+  assert.match(service, /Report reason codes remain allegations until human review/);
+  assert.match(service, /KORA reads queue counts, not private verification\/document evidence/);
   assert.match(service, /missing telemetry is never interpreted as zero/);
   assert.match(service, /automaticDecisionAuthorized: false/);
 });
