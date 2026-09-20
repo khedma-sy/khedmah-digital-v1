@@ -178,7 +178,7 @@ export class KoraAdminService {
     const metrics: KoraMetric[] = [
       this.availableMetric('users_total', 'Users', users, 'canonical_database.core_user_accounts', 'all_time', measuredAt),
       this.availableMetric('searches_24h', 'Search actions', searches, 'analytics_events.search_action', '24h', measuredAt),
-      ...this.fulfillmentMetrics(serviceMetrics, measuredAt),
+      ...this.platformMetrics(serviceMetrics, measuredAt),
       this.processMetric('open_operational_issues', 'Open operational issues', history.incidents.length, 'operations_product.current_process', measuredAt,
         'Process-local only; it is not a durable incident total across Cloud Run instances.'),
       this.processMetric('pending_changes', 'Pending operational changes', history.changes.length, 'operations_product.current_process', measuredAt,
@@ -186,11 +186,11 @@ export class KoraAdminService {
       this.unavailableMetric('zero_result_searches_24h', 'Zero-result searches', measuredAt, 'Search result-count telemetry is not instrumented yet.'),
       this.unavailableMetric('orders_24h', 'Orders', measuredAt, 'No canonical cross-product order metric is instrumented.'),
       this.unavailableMetric('cancellations_24h', 'Cancellations', measuredAt, 'No canonical cross-product cancellation metric is instrumented.'),
-      this.unavailableMetric('taxi_metrics', 'Taxi metrics', measuredAt, 'Taxi operational metrics are not connected to Kora yet.'),
+      this.unavailableMetric('taxi_trip_metrics', 'رحلات التكسي', measuredAt, 'Trip lifecycle metrics are intentionally not connected while the Taxi trip runtime remains feature-gated.'),
       this.unavailableMetric('food_metrics', 'جودة المطاعم وزمن التحضير', measuredAt, 'Order counts are measured separately; preparation-time and complaint metrics are not instrumented.'),
       this.unavailableMetric('delivery_metrics', 'جودة التوصيل ومدة الرحلة', measuredAt, 'Assignment backlog is measured separately; delivery-time and driver-issue metrics are not instrumented.'),
-      this.unavailableMetric('store_metrics', 'Store metrics', measuredAt, 'Store operational metrics are not connected to Kora yet.'),
-      this.unavailableMetric('ads_metrics', 'Ads metrics', measuredAt, 'Classifieds Smart Admin remains separate; aggregate Ads metrics are not connected yet.')
+      this.unavailableMetric('store_conversion_metrics', 'تحويلات المتجر', measuredAt, 'The Store is listing/discovery only; no purchase conversion metric exists.'),
+      this.unavailableMetric('ads_duplicate_metrics', 'الإعلانات المكررة', measuredAt, 'Duplicate-ad aggregate detection is not instrumented yet.')
     ];
 
     return {
@@ -243,6 +243,34 @@ export class KoraAdminService {
       severity: 'medium', evidence: `count=${serviceMetrics.delivery_assignment_overdue};status=merchant_confirmed;updated_at_older_than=15m;measured_at=${detectedAt}`,
       source: 'canonical_database.fulfillment_orders', detectedAt
     });
+    if (serviceMetrics.ads_review_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'classifieds:moderation-backlog',
+      title: 'إعلانات تنتظر المراجعة منذ أكثر من 24 ساعة',
+      summary: `${serviceMetrics.ads_review_overdue_24h} إعلانًا ما زال في قائمة المراجعة بعد 24 ساعة. هذه إشارة تشغيلية للمراجعة وليست وعد SLA للمستخدم.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.ads_review_overdue_24h};status=pending_review;submitted_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.ad_listings', detectedAt
+    });
+    if (serviceMetrics.store_review_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'store:moderation-backlog',
+      title: 'منتجات تنتظر المراجعة منذ أكثر من 24 ساعة',
+      summary: `${serviceMetrics.store_review_overdue_24h} منتجًا نشطًا ما زال بانتظار قرار المراجعة بعد 24 ساعة. هذه إشارة تشغيلية وليست وعد SLA.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.store_review_overdue_24h};moderation_status=pending;updated_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.product_listings', detectedAt
+    });
+    if (serviceMetrics.ads_expired_active > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'classifieds:expiry-state',
+      title: 'إعلانات منتهية ما زالت بحالة Active',
+      summary: `${serviceMetrics.ads_expired_active} إعلانًا تجاوز تاريخ انتهاء الصلاحية مع بقاء الحالة Active. الواجهة العامة تستبعدها، لكن الحالة تحتاج تنظيفًا تشغيليًا.`,
+      severity: 'low', evidence: `count=${serviceMetrics.ads_expired_active};status=active;expires_at_lte_now=true;measured_at=${detectedAt}`,
+      source: 'canonical_database.ad_listings', detectedAt
+    });
+    if (serviceMetrics.taxi_expiring_approvals_7d > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'taxi:driver-approvals',
+      title: 'اعتمادات سائقي تكسي تقترب من الانتهاء',
+      summary: `${serviceMetrics.taxi_expiring_approvals_7d} اعتمادًا فعالًا سينتهي خلال 7 أيام. راجع الوثائق قبل انتهاء الصلاحية.`,
+      severity: 'low', evidence: `count=${serviceMetrics.taxi_expiring_approvals_7d};status=approved;expires_within=7d;measured_at=${detectedAt}`,
+      source: 'canonical_database.khedmah_taxi.driver_approvals', detectedAt
+    });
 
     return {
       tool: 'review_operational_anomalies' as const,
@@ -254,15 +282,16 @@ export class KoraAdminService {
         'duplicate_ads_aggregate',
         'driver_issue_rate',
         'restaurant_issue_rate',
+        'taxi_trip_lifecycle',
         'api_failure_rate',
         'error_rate_baseline'
       ],
-      sourceBoundary: 'Current-process Operations incidents and canonical fulfillment assignment backlog are evaluated. The 15-minute threshold is an operational review signal, not a delivery promise; missing telemetry is never interpreted as zero.',
+      sourceBoundary: 'Current-process Operations incidents plus canonical fulfillment, Classifieds, Store and Taxi approval state are evaluated. The 15-minute delivery, 24-hour moderation and 7-day approval-expiry thresholds are operational review signals, not user-facing SLAs; missing telemetry is never interpreted as zero.',
       automaticDecisionAuthorized: false
     };
   }
 
-  private fulfillmentMetrics(values: Record<string,number>, measuredAt: string): KoraMetric[] {
+  private platformMetrics(values: Record<string,number>, measuredAt: string): KoraMetric[] {
     const definitions: Array<[string,string,string,KoraMetric['window']]> = [
       ['fulfillment_orders_24h','طلبات التنفيذ خلال 24 ساعة','fulfillment_orders','created_last_24h'],
       ['food_orders_24h','طلبات الطعام خلال 24 ساعة','fulfillment_orders.vertical=food','created_last_24h'],
@@ -270,7 +299,18 @@ export class KoraAdminService {
       ['delivery_waiting_assignment','طلبات مؤكدة تنتظر مندوبًا','fulfillment_orders.status=merchant_confirmed','current'],
       ['delivery_assignment_overdue','طلبات تنتظر مندوبًا أكثر من 15 دقيقة','fulfillment_orders.updated_at','current'],
       ['billing_pending_orders','طلبات اشتراك بانتظار السداد','billing_purchase_orders.status=pending','current'],
-      ['billing_paid_orders_24h','اشتراكات أُكد سدادها خلال 24 ساعة','billing_purchase_orders.paid_at','paid_last_24h']
+      ['billing_paid_orders_24h','اشتراكات أُكد سدادها خلال 24 ساعة','billing_purchase_orders.paid_at','paid_last_24h'],
+      ['ads_active','إعلانات فعالة','ad_listings.status=active','current'],
+      ['ads_pending_review','إعلانات بانتظار المراجعة','ad_listings.status=pending_review','current'],
+      ['ads_review_overdue_24h','إعلانات تنتظر المراجعة أكثر من 24 ساعة','ad_listings.submitted_at','current'],
+      ['ads_expired_active','إعلانات منتهية ما زالت Active','ad_listings.expires_at','current'],
+      ['store_active_products','منتجات متجر منشورة','product_listings.active+approved','current'],
+      ['store_pending_review','منتجات بانتظار المراجعة','product_listings.moderation_status=pending','current'],
+      ['store_review_overdue_24h','منتجات تنتظر المراجعة أكثر من 24 ساعة','product_listings.updated_at','current'],
+      ['store_out_of_stock','منتجات غير متوفرة حاليًا','product_listings.availability=out_of_stock','current'],
+      ['taxi_approved_drivers','سائقو تكسي باعتماد فعال','khedmah_taxi.driver_approvals.approved','current'],
+      ['taxi_restricted_drivers','سائقو تكسي موقوفون أو ملغاة اعتماداتهم','khedmah_taxi.driver_approvals.restricted','current'],
+      ['taxi_expiring_approvals_7d','اعتمادات تكسي تنتهي خلال 7 أيام','khedmah_taxi.driver_approvals.expires_at','current']
     ];
     return definitions.map(([key,label,source,window])=>{
       const value=values[key];
