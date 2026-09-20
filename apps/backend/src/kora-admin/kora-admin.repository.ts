@@ -43,7 +43,13 @@ export class KoraAdminRepository {
       (SELECT COUNT(*)::text FROM product_listings WHERE status='active' AND moderation_status='approved' AND availability='out_of_stock') AS store_out_of_stock,
       (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW()) AS taxi_approved_drivers,
       (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status IN ('suspended','revoked')) AS taxi_restricted_drivers,
-      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW() AND expires_at <= NOW()+INTERVAL '7 days') AS taxi_expiring_approvals_7d`, [since]);
+      (SELECT COUNT(*)::text FROM khedmah_taxi.driver_approvals WHERE status='approved' AND expires_at > NOW() AND expires_at <= NOW()+INTERVAL '7 days') AS taxi_expiring_approvals_7d,
+      (SELECT COUNT(*)::text FROM contact_inquiries WHERE created_at >= $1) AS contact_inquiries_24h,
+      (SELECT COUNT(*)::text FROM contact_inquiries WHERE status IN ('submitted','received','read')) AS contact_inquiries_open,
+      (SELECT COUNT(*)::text FROM contact_inquiries WHERE status='submitted' AND created_at < NOW()-INTERVAL '24 hours') AS contact_inquiries_unread_24h,
+      (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review')) AS provider_reports_open,
+      (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND created_at < NOW()-INTERVAL '24 hours') AS provider_reports_overdue_24h,
+      (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND reason_code IN ('impersonation','inappropriate_content')) AS provider_reports_sensitive_open`, [since]);
     if (!row) throw new Error('KORA_SERVICE_METRICS_MISSING');
     return Object.fromEntries(Object.entries(row).map(([key,value])=>[key,this.parseCount(value)]));
   }

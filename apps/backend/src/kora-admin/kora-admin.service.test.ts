@@ -28,7 +28,13 @@ const DEFAULT_SERVICE_METRICS: Record<string, number> = {
   store_out_of_stock: 1,
   taxi_approved_drivers: 4,
   taxi_restricted_drivers: 1,
-  taxi_expiring_approvals_7d: 0
+  taxi_expiring_approvals_7d: 0,
+  contact_inquiries_24h: 7,
+  contact_inquiries_open: 3,
+  contact_inquiries_unread_24h: 0,
+  provider_reports_open: 2,
+  provider_reports_overdue_24h: 0,
+  provider_reports_sensitive_open: 1
 };
 
 function createService(overrides: {
@@ -77,6 +83,8 @@ test('Kora reports measured values, never invents zero for missing telemetry, an
   const taxiApprovals = result.metrics.find((metric) => metric.key === 'taxi_approved_drivers');
   const ads = result.metrics.find((metric) => metric.key === 'ads_active');
   const store = result.metrics.find((metric) => metric.key === 'store_active_products');
+  const inquiries = result.metrics.find((metric) => metric.key === 'contact_inquiries_24h');
+  const reports = result.metrics.find((metric) => metric.key === 'provider_reports_open');
   const taxiTrips = result.metrics.find((metric) => metric.key === 'taxi_trip_metrics');
   const food = result.metrics.find((metric) => metric.key === 'food_metrics');
 
@@ -90,6 +98,10 @@ test('Kora reports measured values, never invents zero for missing telemetry, an
   assert.equal(ads?.value, 9);
   assert.equal(store?.status, 'available');
   assert.equal(store?.value, 6);
+  assert.equal(inquiries?.status, 'available');
+  assert.equal(inquiries?.value, 7);
+  assert.equal(reports?.status, 'available');
+  assert.equal(reports?.value, 2);
   assert.equal(taxiTrips?.status, 'not_instrumented');
   assert.equal(taxiTrips?.value, undefined);
   assert.equal(food?.status, 'not_instrumented');
@@ -144,6 +156,30 @@ test('Kora exposes canonical Ads Store and Taxi approval state and raises eviden
   assert.equal(resources.get('classifieds:expiry-state')?.severity,'low');
   assert.equal(resources.get('taxi:driver-approvals')?.source,'canonical_database.khedmah_taxi.driver_approvals');
   assert.match(resources.get('taxi:driver-approvals')!.evidence,/count=2;/);
+  assert.equal(anomalies.automaticDecisionAuthorized,false);
+});
+
+test('Kora counts inquiries and provider reports without treating report allegations as confirmed violations',async()=>{
+  const values={
+    ...DEFAULT_SERVICE_METRICS,
+    contact_inquiries_unread_24h:3,
+    provider_reports_overdue_24h:2,
+    provider_reports_sensitive_open:1
+  };
+  const service=createService({serviceMetrics:async()=>values});
+  const result=await service.readMetrics('operator');
+  for(const key of ['contact_inquiries_24h','contact_inquiries_open','provider_reports_open','provider_reports_sensitive_open']) {
+    assert.equal(result.metrics.find(m=>m.key===key)?.status,'available');
+    assert.equal(result.metrics.find(m=>m.key===key)?.value,values[key]);
+  }
+  assert.equal(result.metrics.find(m=>m.key==='zero_result_searches_24h')?.status,'not_instrumented');
+
+  const anomalies=await service.reviewOperationalAnomalies('operator');
+  const resources=new Map(anomalies.findings.map(f=>[f.resource,f]));
+  assert.equal(resources.get('contact:inquiry-backlog')?.source,'canonical_database.contact_inquiries');
+  assert.equal(resources.get('reports:moderation-backlog')?.source,'canonical_database.provider_reports');
+  assert.equal(resources.get('reports:sensitive-open')?.severity,'medium');
+  assert.match(resources.get('reports:sensitive-open')!.summary,/ادعاء/);
   assert.equal(anomalies.automaticDecisionAuthorized,false);
 });
 
