@@ -9,6 +9,7 @@ import { RateLimitRepository } from './database/rate-limit.repository';
 import { createRequestContextMiddleware } from './middleware/request-context.middleware';
 import { configuredOrigins, createCsrfOriginMiddleware } from './middleware/csrf-origin.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
+import { createSecurityHeadersMiddleware } from './middleware/security-headers.middleware';
 
 export async function createBackendApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -19,17 +20,15 @@ export async function createBackendApp() {
   const rateLimitRepository = app.get(RateLimitRepository);
 
   app.useLogger(logger);
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use(createSecurityHeadersMiddleware());
   app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
-  app.enableCors({
-    origin: configuredOrigins(),
-    credentials: true
-  });
+  app.enableCors({ origin: configuredOrigins(), credentials: true });
   app.setGlobalPrefix('api/v1');
 
-  // Global rate limiting on sensitive public endpoints
-  const authWindowMs = parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? '900000', 10); // 15 min
+  const authWindowMs = parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? '900000', 10);
   const authMax = parseInt(process.env.RATE_LIMIT_AUTH_MAX ?? '20', 10);
   const searchWindowMs = parseInt(process.env.RATE_LIMIT_SEARCH_WINDOW_MS ?? '60000', 10);
   const searchMax = parseInt(process.env.RATE_LIMIT_SEARCH_MAX ?? '30', 10);
@@ -38,24 +37,26 @@ export async function createBackendApp() {
 
   app.use('/api/v1/auth/register', createRateLimitMiddleware(rateLimitRepository, 'auth.register', authWindowMs, authMax));
   app.use('/api/v1/auth/login', createRateLimitMiddleware(rateLimitRepository, 'auth.login', authWindowMs, authMax));
-  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify', authWindowMs, authMax));
+  app.use('/api/v1/auth/google', createRateLimitMiddleware(rateLimitRepository, 'auth.google', authWindowMs, authMax));
+  app.use('/api/v1/auth/facebook', createRateLimitMiddleware(rateLimitRepository, 'auth.facebook', authWindowMs, authMax));
+  app.use('/api/v1/auth/forgot-password', createRateLimitMiddleware(rateLimitRepository, 'auth.forgot-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/reset-password', createRateLimitMiddleware(rateLimitRepository, 'auth.reset-password', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/request', createRateLimitMiddleware(rateLimitRepository, 'email.verify.request', authWindowMs, authMax));
+  app.use('/api/v1/auth/email-verification/confirm', createRateLimitMiddleware(rateLimitRepository, 'email.verify.confirm', authWindowMs, authMax));
+  app.use('/api/v1/admin/bootstrap', createRateLimitMiddleware(rateLimitRepository, 'admin.bootstrap', authWindowMs, authMax));
+  app.use('/api/v1/admin/kora', createRateLimitMiddleware(rateLimitRepository, 'kora.admin', authWindowMs, authMax));
+  app.use('/api/v1/taxi-operational-approvals', createRateLimitMiddleware(rateLimitRepository, 'taxi.operational-admin', authWindowMs, authMax));
+  app.use('/api/v1/taxi', createRateLimitMiddleware(rateLimitRepository, 'taxi', publicWindowMs, publicMax));
+  app.use('/api/v1/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds', publicWindowMs, publicMax));
+  app.use('/api/v1/admin/classifieds', createRateLimitMiddleware(rateLimitRepository, 'classifieds.admin', authWindowMs, authMax));
+  app.use('/api/v1/orders', createRateLimitMiddleware(rateLimitRepository, 'orders', publicWindowMs, publicMax));
+  app.use('/api/v1/food-promotions', createRateLimitMiddleware(rateLimitRepository, 'food-promotions', authWindowMs, authMax));
   app.use('/api/v1/search', createRateLimitMiddleware(rateLimitRepository, 'search', searchWindowMs, searchMax));
   app.use('/api/v1/contact', createRateLimitMiddleware(rateLimitRepository, 'contact', publicWindowMs, publicMax));
   app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));
   app.use('/api/v1/professional-profiles', createRateLimitMiddleware(rateLimitRepository, 'professional-profiles', publicWindowMs, publicMax));
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      forbidNonWhitelisted: true,
-      transform: false,
-      validationError: {
-        target: false,
-        value: false
-      },
-      whitelist: true
-    })
-  );
+  app.useGlobalPipes(new ValidationPipe({ forbidNonWhitelisted: true, transform: false, validationError: { target: false, value: false }, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
-
   return app;
 }

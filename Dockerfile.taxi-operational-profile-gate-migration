@@ -1,0 +1,9 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/032_taxi_operational_profile_gate.sql /migrations/032_taxi_operational_profile_gate.sql
+COPY scripts/deployment/run-taxi-operational-profile-gate-nonproduction-migration.sh /usr/local/bin/run-taxi-operational-profile-gate-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-taxi-operational-profile-gate-nonproduction-migration /migrations/032_taxi_operational_profile_gate.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-taxi-operational-profile-gate-nonproduction-migration"]

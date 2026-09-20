@@ -8,11 +8,14 @@ test('production readiness requires Google and gates Facebook behind the product
   const [validator, prerequisites, workflow] = await Promise.all([
     read('scripts/validate-firebase-social-auth-readiness.sh'),
     read('scripts/validate-production-deployment-readiness.sh'),
-    read('.github/workflows/production-operator.yml')
+    read('.github/workflows/production-operator-new-account.yml')
   ]);
 
   assert.match(prerequisites, /identitytoolkit\.googleapis\.com/);
   assert.match(validator, /\.authorizedDomains/);
+  assert.match(validator, /NEXT_PUBLIC_SITE_URL/);
+  assert.match(validator, /CANONICAL_HOST/);
+  assert.match(validator, /FIREBASE_AUTHORIZED_DOMAINS/);
   assert.match(validator, /required_providers=\(google\.com\)/);
   assert.match(validator, /FACEBOOK_AUTH_ENABLED/);
   assert.match(validator, /required_providers\+=\(facebook\.com\)/);

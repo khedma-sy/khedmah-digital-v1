@@ -1,4 +1,4 @@
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 WORKDIR /workspace
 
 COPY package.json package-lock.json ./
@@ -9,7 +9,7 @@ RUN npm ci
 COPY apps/backend apps/backend
 RUN npm --workspace apps/backend run build
 
-FROM node:20-slim AS runtime
+FROM node:24-slim AS runtime
 ENV NODE_ENV=production \
     PORT=8080
 WORKDIR /workspace

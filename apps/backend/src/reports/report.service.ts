@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
 import { IdentityRepository } from '../identity/identity.repository';
 import { IdentityService } from '../identity/identity.service';
@@ -43,7 +43,10 @@ export class ReportService {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     this.rbac.assert(actor.email, 'security.manage');
     const id = validateReportTargetId(idValue); const input = validateProviderReportReview(request);
-    if (!await this.reports.review(id, actor.id, input.status, input.note)) throw new NotFoundException('Report is unavailable for review.');
+    if (!await this.reports.review(id, actor.id, input.status, input.note)) {
+      if (await this.reports.exists(id)) throw new ConflictException('Report review state changed. Reload the moderation queue.');
+      throw new NotFoundException('Report is unavailable for review.');
+    }
     const context = getRequestContext();
     await this.auditLogs.appendAuditLog('provider.report.reviewed', { actorUserId: actor.id, requestId: context?.requestId, correlationId: context?.correlationId });
     return { id, status: input.status };

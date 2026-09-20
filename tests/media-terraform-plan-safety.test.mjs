@@ -128,7 +128,7 @@ esac
       PATH: `${bin}:${process.env.PATH}`,
       GOOGLE_CLOUD_PROJECT: 'khedmah-test-project',
       GOOGLE_CLOUD_REGION: 'me-central1',
-      GCS_MEDIA_LOCATION: 'europe-west1',
+      GCS_MEDIA_LOCATION: 'me-central1',
       TF_STATE_BUCKET: 'state-bucket',
       TF_PLAN_FILE: relative(join(repoRoot, '..'), publishedPlan),
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
@@ -145,7 +145,7 @@ esac
       MOCK_STATE_BUCKET_JSON:
         '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}',
       MOCK_STATE_RESOURCES: 'google_storage_bucket.media\n',
-      MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\teurope-west1',
+      MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\tme-central1',
       MOCK_RUNTIME_IDENTITY:
         'requested-media-bucket\tserviceAccount:runtime@khedmah-test-project.iam.gserviceaccount.com',
       MOCK_BUCKET_LIST_STATUS: 'success',
@@ -153,7 +153,7 @@ esac
       MOCK_PLAN_RESOURCES: '',
       MOCK_PLAN_DELETES: '',
       MOCK_PLANNED_MEDIA_IDENTITY:
-        'requested-media-bucket\tkhedmah-test-project\teurope-west1',
+        'requested-media-bucket\tkhedmah-test-project\tme-central1',
       MOCK_PLANNED_RUNTIME_IDENTITY:
         'requested-media-bucket\tserviceAccount:runtime@khedmah-test-project.iam.gserviceaccount.com',
       MOCK_PLAN_MARKER: planMarker,
@@ -260,10 +260,10 @@ test('media plan accepts the flat gcloud bucket protection schema used in produc
   assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
 });
 
-test('media plan separates the production runtime region from the bucket location', async (t) => {
+test('media plan keeps the approved bucket location independent from the runtime region', async (t) => {
   const result = await runPlanWithMocks(t, {
-    GOOGLE_CLOUD_REGION: 'me-central1',
-    GCS_MEDIA_LOCATION: 'europe-west1',
+    GOOGLE_CLOUD_REGION: 'europe-west1',
+    GCS_MEDIA_LOCATION: 'me-central1',
   });
 
   assert.equal(result.code, 0);
@@ -272,10 +272,10 @@ test('media plan separates the production runtime region from the bucket locatio
 });
 
 test('media plan rejects an unapproved bucket location', async (t) => {
-  const result = await runPlanWithMocks(t, { GCS_MEDIA_LOCATION: 'me-central1' });
+  const result = await runPlanWithMocks(t, { GCS_MEDIA_LOCATION: 'europe-west1' });
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /EXPECTED_MEDIA_LOCATION=europe-west1/);
+  assert.match(result.stderr, /EXPECTED_MEDIA_LOCATION=me-central1/);
   await assert.rejects(readFile(result.planMarker));
 });
 
@@ -289,7 +289,7 @@ test('media plan ignores an inherited non-default Terraform workspace', async (t
 
 test('media plan stops when state tracks a different bucket name', async (t) => {
   const result = await runPlanWithMocks(t, {
-    MOCK_MEDIA_IDENTITY: 'tracked-media-bucket\tkhedmah-test-project\teurope-west1',
+    MOCK_MEDIA_IDENTITY: 'tracked-media-bucket\tkhedmah-test-project\tme-central1',
   });
 
   assert.equal(result.code, 1);
@@ -300,7 +300,7 @@ test('media plan stops when state tracks a different bucket name', async (t) => 
 
 test('media plan stops when state tracks a different project', async (t) => {
   const result = await runPlanWithMocks(t, {
-    MOCK_MEDIA_IDENTITY: 'requested-media-bucket\twrong-project\teurope-west1',
+    MOCK_MEDIA_IDENTITY: 'requested-media-bucket\twrong-project\tme-central1',
   });
 
   assert.equal(result.code, 1);

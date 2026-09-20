@@ -11,7 +11,7 @@ test('media plan is a manual production WIF gate locked to latest main', () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /google-github-actions\/auth@v2/);
+  assert.match(workflow, /google-github-actions\/auth@v3/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.doesNotMatch(workflow, /pull_request:|push:|schedule:/);
 });
@@ -31,7 +31,7 @@ test('media plan publishes review evidence but cannot apply or deploy', () => {
   assert.match(workflow, /khedmah-media-plan-summary\.json/);
   assert.match(workflow, /cd "\$artifact_dir"/);
   assert.match(workflow, /sha256sum --check SHA256SUMS/);
-  assert.match(workflow, /actions\/upload-artifact@v4/);
+  assert.match(workflow, /actions\/upload-artifact@v7/);
   assert.match(workflow, /retention-days: 7/);
   assert.match(workflow, /Apply\/deployment: `NOT PERFORMED`/);
   assert.doesNotMatch(workflow, /terraform[^\n]*\bapply\b/);

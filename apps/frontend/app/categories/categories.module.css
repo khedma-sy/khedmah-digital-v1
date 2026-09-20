@@ -1,0 +1,24 @@
+.toneScope {
+  /* Category swatches retain brand pigment; the global brand alias adapts to dark text. */
+  --brand-navy: #07427c;
+  --brand-green: #81be49;
+  --brand-orange: #fd9603;
+}
+
+.toneScope :global(.catalog-category-icon[data-category-tone='navy']),
+.toneScope :global(.catalog-service-icon[data-category-tone='navy']) {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.toneScope :global(.catalog-category-icon[data-category-tone='green']),
+.toneScope :global(.catalog-service-icon[data-category-tone='green']) {
+  background: var(--brand-green);
+  color: var(--k-color-on-accent);
+}
+
+.toneScope :global(.catalog-category-icon[data-category-tone='orange']),
+.toneScope :global(.catalog-service-icon[data-category-tone='orange']) {
+  background: var(--brand-orange);
+  color: var(--k-color-on-accent);
+}

@@ -1,0 +1,30 @@
+.page {
+  --food-orange: #fd9603;
+  --food-orange-deep: color-mix(in srgb, var(--food-orange) 60%, #071833);
+  --food-orange-soft: color-mix(in srgb, var(--food-orange) 13%, var(--k-color-surface));
+  --food-orange-border: color-mix(in srgb, var(--food-orange) 40%, var(--k-color-border));
+  min-height: 100svh;
+  background: var(--k-gradient-orange);
+}
+
+.page :global(.ui-eyebrow) {
+  color: var(--food-orange-deep);
+}
+
+.page :global(.ui-action-primary) {
+  color: var(--k-color-text);
+  background: var(--k-color-orange-tint);
+}
+
+.page :global(.ui-action-primary:hover) {
+  background: var(--k-color-orange-fade);
+}
+
+.page :global(.ui-action-secondary) {
+  border-color: var(--food-orange-border);
+  color: var(--food-orange-deep);
+}
+
+.page :global(.ui-action:focus-visible) {
+  outline-color: var(--k-color-text);
+}

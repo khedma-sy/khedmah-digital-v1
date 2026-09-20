@@ -1,28 +1,32 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, City } from './api-client';
 
 export function useSyrianCities() {
   const [cities, setCities] = useState<City[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setIsLoading(true);
     setError('');
     try {
       const result = await api.locations.cities();
-      setCities(result.cities.filter((city) => city.countryCode === 'SY'));
+      if (requestId === requestSequence.current) setCities(result.cities.filter((city) => city.countryCode === 'SY'));
     } catch {
-      setCities([]);
-      setError('تعذر تحميل المدن المعتمدة. يمكنك متابعة البحث دون تحديد مدينة.');
+      if (requestId === requestSequence.current) setError('تعذر تحميل المدن المعتمدة. أعد المحاولة للاحتفاظ بالمدينة المحددة، أو امسحها للبحث في كل المدن.');
     } finally {
-      setIsLoading(false);
+      if (requestId === requestSequence.current) setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load]);
   return { cities, isLoading, error, retry: load };
 }
 

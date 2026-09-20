@@ -1,0 +1,63 @@
+name: Identity bootstrap regression
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/src/identity/**'
+      - 'apps/backend/src/integration/**'
+      - 'apps/backend/src/database/**'
+      - 'apps/backend/src/health*.ts'
+      - '.github/workflows/identity-bootstrap-regression.yml'
+permissions:
+  contents: read
+concurrency:
+  group: identity-regression-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  backend-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: khedmah
+          POSTGRES_PASSWORD: khedmah_dev
+          POSTGRES_DB: khedmah_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run complete backend suite against disposable PostgreSQL
+        working-directory: apps/backend
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: khedmah
+          PGPASSWORD: khedmah_dev
+          PGDATABASE: khedmah_ci
+          ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/identity-regression-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/identity-regression-evidence/checkout-sha.txt"
+          node ../../scripts/run-matched-tests.mjs --node-arg=--import=tsx --node-arg=--test-concurrency=1 --node-arg=--test-reporter=spec 'src/**/*.test.ts' 2>&1 | tee "$RUNNER_TEMP/identity-regression-evidence/backend-tests.log"
+      - name: Preserve backend evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: identity-regression-${{ github.run_id }}
+          path: ${{ runner.temp }}/identity-regression-evidence/
+          if-no-files-found: error
+          retention-days: 7

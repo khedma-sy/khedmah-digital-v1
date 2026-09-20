@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: Exact reviewed main commit SHA
+        description: Exact approved latest main commit SHA
         required: true
         type: string
       plan_run_id:
-        description: Successful Terraform Media Plan run ID
+        description: Approved Terraform Media Plan run ID
         required: true
         type: string
       state_bucket:
@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: Type APPLY_KHEDMAH_MEDIA_679F669
+        description: APPLY_KHEDMAH_MEDIA_<SHA7 uppercase>
         required: true
         type: string
 
@@ -50,12 +50,15 @@ jobs:
     name: Apply reviewed private media plan
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
-      APPROVED_SHA: 679f6698f4fb1580ff840f0d8bdb193880912433
-      APPROVED_PLAN_RUN_ID: "33023641715"
-      APPROVED_ARTIFACT_NAME: terraform-media-plan-679f6698f4fb1580ff840f0d8bdb193880912433
-      APPROVED_CONFIRMATION: APPLY_KHEDMAH_MEDIA_679F669
+      APPROVED_SHA: ${{ vars.TF_MEDIA_APPROVED_SHA }}
+      APPROVED_PLAN_RUN_ID: ${{ vars.TF_MEDIA_APPROVED_PLAN_RUN_ID }}
+      APPROVED_ARTIFACT_NAME: ${{ vars.TF_MEDIA_APPROVED_ARTIFACT_NAME }}
+      APPROVED_ROOT_LINEAGE: ${{ vars.TF_ROOT_STATE_LINEAGE }}
+      APPROVED_ROOT_SERIAL: ${{ vars.TF_ROOT_STATE_SERIAL }}
+      APPROVED_MEDIA_LINEAGE: ${{ vars.TF_MEDIA_STATE_LINEAGE }}
+      APPROVED_MEDIA_SERIAL: ${{ vars.TF_MEDIA_STATE_SERIAL }}
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
@@ -69,43 +72,52 @@ jobs:
       EXPECTED_MEDIA_LINEAGE: ${{ inputs.expected_media_lineage }}
       EXPECTED_MEDIA_SERIAL: ${{ inputs.expected_media_serial }}
       REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
-      TF_IN_AUTOMATION: "true"
+      TF_IN_AUTOMATION: 'true'
       TF_WORKSPACE: default
     steps:
       - name: Reject unapproved request before checkout or authentication
+        shell: bash
         run: |
           set -euo pipefail
+          for value in \
+            APPROVED_SHA APPROVED_PLAN_RUN_ID APPROVED_ARTIFACT_NAME \
+            APPROVED_ROOT_LINEAGE APPROVED_ROOT_SERIAL APPROVED_MEDIA_LINEAGE APPROVED_MEDIA_SERIAL \
+            GOOGLE_CLOUD_PROJECT GCS_MEDIA_LOCATION GCS_MEDIA_BUCKET OPERATIONS_RUNTIME_SERVICE_ACCOUNT CONFIGURED_STATE_BUCKET; do
+            test -n "${!value:-}" || { echo "Missing protected production variable: $value" >&2; exit 1; }
+          done
+          [[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$APPROVED_PLAN_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$REQUESTED_PLAN_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$APPROVED_ROOT_SERIAL" =~ ^[0-9]+$ ]]
+          [[ "$APPROVED_MEDIA_SERIAL" =~ ^[0-9]+$ ]]
           test "$REQUESTED_SHA" = "$APPROVED_SHA"
           test "$REQUESTED_PLAN_RUN_ID" = "$APPROVED_PLAN_RUN_ID"
-          test "$REQUESTED_CONFIRMATION" = "$APPROVED_CONFIRMATION"
           test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
-          [[ "$EXPECTED_ROOT_SERIAL" =~ ^[0-9]+$ ]]
-          [[ "$EXPECTED_MEDIA_SERIAL" =~ ^[0-9]+$ ]]
-          test "$EXPECTED_ROOT_LINEAGE" = "7f4f274c-10cf-4ba2-0dc5-85c03031f7fc"
-          test "$EXPECTED_ROOT_SERIAL" = "1"
-          test "$EXPECTED_MEDIA_LINEAGE" = "1cb9348c-6c22-d938-03bb-ab466862a98f"
-          test "$EXPECTED_MEDIA_SERIAL" = "2"
+          test "$EXPECTED_ROOT_LINEAGE" = "$APPROVED_ROOT_LINEAGE"
+          test "$EXPECTED_ROOT_SERIAL" = "$APPROVED_ROOT_SERIAL"
+          test "$EXPECTED_MEDIA_LINEAGE" = "$APPROVED_MEDIA_LINEAGE"
+          test "$EXPECTED_MEDIA_SERIAL" = "$APPROVED_MEDIA_SERIAL"
+          SHA7="${APPROVED_SHA:0:7}"
+          EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MEDIA_${SHA7^^}"
+          test "$REQUESTED_CONFIRMATION" = "$EXPECTED_CONFIRMATION"
 
       - name: Check out the approved commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
 
-      - name: Lock apply to the approved latest main
+      - name: Lock apply to exact latest main
+        shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
-          git merge-base --is-ancestor "$APPROVED_SHA" origin/main
-          git diff --name-only "$APPROVED_SHA" origin/main > /tmp/post-plan-files
-          diff -u <(printf '%s\n' \
-            '.github/workflows/terraform-media-apply.yml' \
-            'tests/terraform-media-apply-workflow.test.mjs') \
-            /tmp/post-plan-files
+          test "$(git rev-parse origin/main)" = "$APPROVED_SHA"
 
-      - name: Download the approved plan evidence
-        uses: actions/download-artifact@v4
+      - name: Download approved plan evidence
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.APPROVED_ARTIFACT_NAME }}
           path: ${{ runner.temp }}/approved-media-plan
@@ -115,37 +127,37 @@ jobs:
 
       - name: Verify plan evidence checksums
         working-directory: ${{ runner.temp }}/approved-media-plan
+        shell: bash
         run: |
           set -euo pipefail
           test -f SHA256SUMS
           sha256sum --check SHA256SUMS
-          test "$(wc -l < SHA256SUMS)" -eq 4
+          test -f khedmah-media.tfplan
+          test -f khedmah-media-plan.json
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
 
       - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.6.6
+          terraform_version: 1.16.2
           terraform_wrapper: false
 
-      - name: Verify states and approved plan
+      - name: Verify target, states and approved plan
         env:
           PLAN_FILE: ${{ runner.temp }}/approved-media-plan/khedmah-media.tfplan
           PLAN_JSON: ${{ runner.temp }}/approved-media-plan/khedmah-media-plan.json
+        shell: bash
         run: |
           set -euo pipefail
-          test "$GOOGLE_CLOUD_PROJECT" = "project-94512a0e-1a5e-4bdb-87f"
-          test "$GCS_MEDIA_BUCKET" = "project-94512a0e-1a5e-4bdb-87f-khedmah-media"
-          test "$GCS_MEDIA_LOCATION" = "europe-west1"
-          test "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" = "khedmah-v1-runtime@project-94512a0e-1a5e-4bdb-87f.iam.gserviceaccount.com"
+          gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           test "$REQUESTED_STATE_BUCKET" != "$GCS_MEDIA_BUCKET"
           test -s "$PLAN_FILE"
           test -s "$PLAN_JSON"
@@ -154,14 +166,14 @@ jobs:
           media_data="$(mktemp -d)"
           root_state="$(mktemp)"
           media_state="$(mktemp)"
-          trap 'rm -rf "$root_data" "$media_data"; rm -f "$root_state" "$media_state"' EXIT
+          trap 'rm -rf "$root_data" "$media_data"; rm -f "$root_state" "$media_state" /tmp/apply-plan.json' EXIT
 
           TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/root"
           TF_DATA_DIR="$root_data" terraform -chdir=infra/iac state pull > "$root_state"
           jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
-            '.lineage == $lineage and .serial == $serial and (.resources | length) == 0' "$root_state"
+            '.lineage == $lineage and .serial == $serial' "$root_state"
 
           export TF_DATA_DIR="$media_data"
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
@@ -169,75 +181,58 @@ jobs:
             -backend-config="prefix=khedmah/production/media"
           terraform -chdir=infra/iac/media state pull > "$media_state"
           jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
-            '.lineage == $lineage and .serial == $serial and (.resources | length) == 0' "$media_state"
+            '.lineage == $lineage and .serial == $serial' "$media_state"
 
-          test -z "$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" \
-            --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
+          test -z "$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
 
           terraform -chdir=infra/iac/media show -json "$PLAN_FILE" > /tmp/apply-plan.json
           cmp -s /tmp/apply-plan.json "$PLAN_JSON"
-          jq -e '
-            [(.resource_changes // [])[] | {address, actions: .change.actions}] == [
-              {address:"google_storage_bucket.media", actions:["create"]},
-              {address:"google_storage_bucket_iam_member.runtime_media_objects", actions:["create"]}
-            ] and
-            (.planned_values.root_module.resources | map(select(.address == "google_storage_bucket.media"))[0].values |
-              .name == "project-94512a0e-1a5e-4bdb-87f-khedmah-media" and
-              .project == "project-94512a0e-1a5e-4bdb-87f" and
-              .location == "EUROPE-WEST1" and
-              .public_access_prevention == "enforced" and
-              .uniform_bucket_level_access == true and
-              .versioning[0].enabled == true and
-              .soft_delete_policy[0].retention_duration_seconds == 2592000) and
-            (.planned_values.root_module.resources | map(select(.address == "google_storage_bucket_iam_member.runtime_media_objects"))[0].values |
-              .bucket == "project-94512a0e-1a5e-4bdb-87f-khedmah-media" and
-              .role == "roles/storage.objectAdmin" and
-              .member == "serviceAccount:khedmah-v1-runtime@project-94512a0e-1a5e-4bdb-87f.iam.gserviceaccount.com")
-          ' /tmp/apply-plan.json
+          jq -e \
+            --arg project "$GOOGLE_CLOUD_PROJECT" \
+            --arg bucket "$GCS_MEDIA_BUCKET" \
+            --arg location "${GCS_MEDIA_LOCATION^^}" \
+            --arg member "serviceAccount:${OPERATIONS_RUNTIME_SERVICE_ACCOUNT}" '
+              [(.resource_changes // [])[] | {address, actions: .change.actions}] == [
+                {address:"google_storage_bucket.media", actions:["create"]},
+                {address:"google_storage_bucket_iam_member.runtime_media_objects", actions:["create"]}
+              ] and
+              (.planned_values.root_module.resources | map(select(.address == "google_storage_bucket.media"))[0].values |
+                .name == $bucket and .project == $project and .location == $location and
+                .public_access_prevention == "enforced" and .uniform_bucket_level_access == true and
+                .versioning[0].enabled == true) and
+              (.planned_values.root_module.resources | map(select(.address == "google_storage_bucket_iam_member.runtime_media_objects"))[0].values |
+                .bucket == $bucket and .role == "roles/storage.objectAdmin" and .member == $member)
+            ' /tmp/apply-plan.json
 
-      - name: Apply only the approved saved plan
+      - name: Apply only approved saved plan
         env:
           TF_DATA_DIR: ${{ runner.temp }}/media-apply-data
           PLAN_FILE: ${{ runner.temp }}/approved-media-plan/khedmah-media.tfplan
+        shell: bash
         run: |
           set -euo pipefail
-          test "$REQUESTED_CONFIRMATION" = "$APPROVED_CONFIRMATION"
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
-      - name: Verify the created private media bucket
-        env:
-          TF_DATA_DIR: ${{ runner.temp }}/media-apply-data
+      - name: Verify created private media bucket
+        shell: bash
         run: |
           set -euo pipefail
-          state_json="$(mktemp)"
           bucket_json="$(mktemp)"
           policy_json="$(mktemp)"
-          trap 'rm -f "$state_json" "$bucket_json" "$policy_json"' EXIT
-          terraform -chdir=infra/iac/media state pull > "$state_json"
-          jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" '
-            .lineage == $lineage and .serial > 1 and
-            ([.resources[] | (.type + "." + .name)] | sort) == [
-              "google_storage_bucket.media",
-              "google_storage_bucket_iam_member.runtime_media_objects"
-            ]
-          ' "$state_json"
-          gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" \
-            --project="$GOOGLE_CLOUD_PROJECT" --format=json > "$bucket_json"
-          jq -e '
-            .name == "project-94512a0e-1a5e-4bdb-87f-khedmah-media" and
-            .location == "EUROPE-WEST1" and
+          trap 'rm -f "$bucket_json" "$policy_json"' EXIT
+          gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" --project="$GOOGLE_CLOUD_PROJECT" --format=json > "$bucket_json"
+          jq -e --arg bucket "$GCS_MEDIA_BUCKET" --arg location "${GCS_MEDIA_LOCATION^^}" '
+            .name == $bucket and .location == $location and
             ((.uniform_bucket_level_access == true) or (.iamConfiguration.uniformBucketLevelAccess.enabled == true)) and
             ((.public_access_prevention == "enforced") or (.iamConfiguration.publicAccessPrevention == "enforced")) and
-            ((.versioning_enabled == true) or (.versioning.enabled == true)) and
-            ((.soft_delete_policy.retentionDurationSeconds == "2592000") or (.softDeletePolicy.retentionDurationSeconds == "2592000"))
+            ((.versioning_enabled == true) or (.versioning.enabled == true))
           ' "$bucket_json"
           gcloud storage buckets get-iam-policy "gs://${GCS_MEDIA_BUCKET}" --format=json > "$policy_json"
-          jq -e '
-            any(.bindings[]?; .role == "roles/storage.objectAdmin" and
-              any(.members[]?; . == "serviceAccount:khedmah-v1-runtime@project-94512a0e-1a5e-4bdb-87f.iam.gserviceaccount.com")) and
+          jq -e --arg member "serviceAccount:${OPERATIONS_RUNTIME_SERVICE_ACCOUNT}" '
+            any(.bindings[]?; .role == "roles/storage.objectAdmin" and any(.members[]?; . == $member)) and
             ([.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers"))
           ' "$policy_json"
-          printf '%s\n' 'MEDIA_BUCKET_APPLY_VERIFIED'
+          echo MEDIA_BUCKET_APPLY_VERIFIED

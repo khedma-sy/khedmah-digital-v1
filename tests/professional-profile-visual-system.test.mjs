@@ -11,7 +11,7 @@ test('public professional profile uses the shared Khedmah visual system', async 
   for (const primitive of ['PageShell', 'Surface', 'StatusMessage', 'EmptyState', 'ActionButton']) {
     assert.match(page, new RegExp(`\\b${primitive}\\b`));
   }
-  for (const token of ['--k-color-canvas', '--k-color-primary', '--k-color-brand', '--k-color-surface']) {
+  for (const token of ['--k-color-canvas', '--brand-navy', '--k-color-surface', '--k-color-success']) {
     assert.match(css, new RegExp(token));
   }
   assert.doesNotMatch(page, /style=\{/);

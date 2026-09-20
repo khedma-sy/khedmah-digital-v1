@@ -13,8 +13,8 @@ variable "location" {
   type        = string
 
   validation {
-    condition     = var.location == "europe-west1"
-    error_message = "Production media must remain in europe-west1 unless an approved migration changes this contract."
+    condition     = var.location == "me-central1"
+    error_message = "Production media must remain in me-central1 unless an approved migration changes this contract."
   }
 }
 

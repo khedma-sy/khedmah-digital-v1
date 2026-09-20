@@ -1,4 +1,4 @@
-export type PlatformEnvironment = 'development' | 'staging' | 'production';
+export type PlatformEnvironment = 'development' | 'preview' | 'staging' | 'production';
 
 export interface PlatformConfig {
   readonly environment: PlatformEnvironment;
@@ -9,7 +9,7 @@ export interface PlatformConfig {
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_VERSION = '0.1.0';
-const SUPPORTED_ENVIRONMENTS = new Set<PlatformEnvironment>(['development', 'staging', 'production']);
+const SUPPORTED_ENVIRONMENTS = new Set<PlatformEnvironment>(['development', 'preview', 'staging', 'production']);
 
 function parseEnvironment(value: string | undefined): PlatformEnvironment {
   if (value && SUPPORTED_ENVIRONMENTS.has(value as PlatformEnvironment)) {

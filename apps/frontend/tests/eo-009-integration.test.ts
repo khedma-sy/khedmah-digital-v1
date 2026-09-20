@@ -12,15 +12,20 @@ test('EO-009 pages exist with Arabic-first labels and loading/error states', asy
   const serviceCatalog = await read('app/components/category-directory.tsx');
   const locations = await read('app/locations/page.tsx');
   const search = await read('app/search/page.tsx');
+  const primitives = await read('app/components/ui-primitives.tsx');
 
   assert.match(businessProfiles, /ملفات الأعمال/);
-  assert.match(professionalProfiles, /الملفات المهنية/);
+  assert.match(professionalProfiles, /title="ملفي المهني"/);
+  assert.match(professionalProfiles, /api\.professionals\.getMine\(\)/);
   assert.match(serviceCatalog, /دليل الخدمات/);
-  assert.match(locations, /redirect\('\/map'\)/);
+  assert.match(locations, /redirect\(legacyDiscoveryHref\('\/map', await searchParams\)\)/);
   assert.match(search, /البحث/);
 
   assert.match(businessProfiles, /StatusMessage tone="danger"/);
-  assert.match(professionalProfiles, /role="alert"/);
+  assert.match(professionalProfiles, /import\s*\{[^}]*\bStatusMessage\b[^}]*\}\s*from '\.\.\/components\/ui-primitives'/);
+  assert.match(professionalProfiles, /\{error && <StatusMessage tone="danger">\{error\}<\/StatusMessage>\}/);
+  assert.match(primitives, /export function StatusMessage\([\s\S]*?return <div[^>]*role=\{tone === 'danger' \? 'alert' : 'status'\}/);
+  assert.match(professionalProfiles, /SkeletonGrid count=\{2\} label="جاري تحميل ملفك المهني"/);
   assert.match(serviceCatalog, /SkeletonGrid label="جاري تحميل الخدمات"/);
   assert.match(search, /aria-busy/);
   assert.match(serviceCatalog, /StatusMessage tone="danger"/);
@@ -31,7 +36,11 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   const home = await read('app/page.tsx');
   const admin = await read('app/admin/page.tsx');
 
-  assert.match(home, /href="\/search"/);
+  assert.match(home, /<form action="\/search"/);
+  assert.match(home, /href: '\/food'/);
+  assert.match(home, /href: '\/mobility\?type=delivery'/);
+  assert.match(home, /href: '\/taxi'/);
+  assert.match(home, /href="\/store"/);
   assert.match(home, /href="\/auth\/register"/);
 
   for (const href of ['/admin/moderation', '/categories', '/admin/operations-product']) assert.match(admin, new RegExp(`href=\\"${href}\\"`));

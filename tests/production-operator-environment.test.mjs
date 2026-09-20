@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+const operatorPath = '.github/workflows/production-operator-new-account.yml';
+
 test('production operator is a gated manual deployment workflow', () => {
   const output = execFileSync(process.execPath, ['scripts/validate-production-operator.mjs'], { encoding: 'utf8' });
   assert.match(output, /gated deployment contract valid/);
@@ -15,71 +17,119 @@ test('production deployer can consume enabled Google APIs', () => {
   }
 });
 
-test('deployment summary treats markdown backticks as text', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.match(workflow, /printf -- '- Commit: `%s`/);
-  assert.doesNotMatch(workflow, /echo "- Commit: `/);
-});
-
-test('default Cloud Build account is normalized to a resource name', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.ok(workflow.includes('BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}"'));
-});
-
-test('production source is staged in a project-owned bucket', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.ok(workflow.includes('SOURCE_STAGING_DIR="gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source"'));
-  assert.ok(workflow.includes('--gcs-source-staging-dir "$SOURCE_STAGING_DIR"'));
-});
-
-test('production operator deploys the planned media bucket and runtime identity', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.match(workflow, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_RUNTIME_SERVICE_ACCOUNT \}\}/);
-  assert.match(workflow, /GCS_MEDIA_BUCKET: \$\{\{ vars\.GCS_MEDIA_BUCKET \}\}/);
-  assert.match(workflow, /test -n "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
-  assert.match(workflow, /test -n "\$GCS_MEDIA_BUCKET"/);
-  assert.match(
-    workflow,
-    /--substitutions "COMMIT_SHA=\$REQUESTED_SHA,_REGION=\$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=\$OPERATIONS_ARTIFACT_REPOSITORY,_BACKEND_SERVICE=\$BACKEND_SERVICE,_FRONTEND_SERVICE=\$FRONTEND_SERVICE,_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT,_CLOUD_SQL_INSTANCE=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET,_FACEBOOK_AUTH_ENABLED=\$FACEBOOK_AUTH_ENABLED"/,
-  );
-  assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
-});
-
-test('production deployment proves the JavaScript map reaches ready state in Chrome', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.match(workflow, /GOOGLE_MAPS_BROWSER_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
-  assert.match(workflow, /CHROME_BIN=.*google-chrome/);
-  assert.match(workflow, /--virtual-time-budget=25000/);
-  assert.match(workflow, /data-map-status="ready"/);
-});
-
-test('VERIFY_ONLY checks the live private media contract without deploying', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  assert.match(workflow, /Verify private media storage readiness/);
-  assert.match(workflow, /bash scripts\/validate-media-storage-readiness\.sh/);
-  assert.match(workflow, /GCS_MEDIA_LOCATION: \$\{\{ vars\.GCS_MEDIA_LOCATION \}\}/);
-  assert.match(workflow, /if: \$\{\{ inputs\.mode == 'DEPLOY_PRODUCTION' \}\}/);
-});
-
-test('VERIFY_ONLY checks live deployment prerequisites without reading secret payloads', () => {
-  const workflow = readFileSync('.github/workflows/production-operator.yml', 'utf8');
-  const readiness = readFileSync('scripts/validate-production-deployment-readiness.sh', 'utf8');
-  assert.match(workflow, /Verify deployment prerequisites without deploying/);
-  assert.match(workflow, /bash scripts\/validate-production-deployment-readiness\.sh/);
-  assert.match(readiness, /gcloud builds get-default-service-account/);
-  assert.match(readiness, /gcloud artifacts repositories describe/);
-  assert.match(readiness, /gcloud run services describe/);
-  assert.match(readiness, /gcloud sql instances describe/);
-  assert.match(readiness, /SQL_INSTANCE_REGION/);
-  assert.match(readiness, /gcloud secrets versions describe latest/);
-  assert.doesNotMatch(readiness, /secrets versions access|gcloud builds submit|gcloud run deploy/);
-  assert.match(readiness, /READY: SECRET_METADATA_COUNT=/);
-});
-
-test('production operator cannot deploy from an automatic repository event', () => {
-  const workflow = execFileSync('cat', ['.github/workflows/production-operator.yml'], { encoding: 'utf8' });
+test('new-account production operator is manual and locked to latest main', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
   assert.match(workflow, /default: VERIFY_ONLY/);
   assert.match(workflow, /inputs\.mode == 'DEPLOY_PRODUCTION'/);
-  assert.match(workflow, /test "\$REQUESTED_SHA" = "\$MAIN_SHA"/);
+  assert.match(workflow, /git fetch origin main/);
+  assert.match(workflow, /git rev-parse origin\/main/);
+});
+
+test('new-account deployment uses project-owned Cloud Build source staging', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /OPERATIONS_BUILD_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_BUILD_SERVICE_ACCOUNT \}\}/);
+  assert.match(workflow, /projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}/);
+  assert.doesNotMatch(workflow, /gcloud builds get-default-service-account/);
+  assert.match(workflow, /gs:\/\/\$\{GOOGLE_CLOUD_PROJECT\}-cloudbuild-source\/source/);
+  assert.match(workflow, /cloudbuild\.production-new-account\.yaml/);
+});
+
+test('new-account operator injects media, runtime and canonical origin configuration', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  for (const token of [
+    'OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}',
+    'GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}',
+    'CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}',
+    'NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}'
+  ]) assert.ok(workflow.includes(token), `missing ${token}`);
+  assert.match(workflow, /_RUNTIME_SERVICE_ACCOUNT=\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT/);
+  assert.match(workflow, /_GCS_MEDIA_BUCKET=\$GCS_MEDIA_BUCKET/);
+  assert.match(workflow, /_CORS_ORIGIN=\$CORS_ORIGIN/);
+  assert.match(workflow, /_SITE_URL=\$NEXT_PUBLIC_SITE_URL/);
+  assert.match(workflow, /npm run validate:identity:production/);
+  assert.doesNotMatch(workflow, /validate:firebase:production/);
+});
+
+test('production deployment proves the JavaScript map reaches ready state in Chrome', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /google-chrome/);
+  assert.match(workflow, /--virtual-time-budget=25000/);
+  assert.match(workflow, /data-map-status=\\?"ready\\?"/);
+  assert.match(workflow, /MAP_STATUS=ready/);
+});
+
+test('VERIFY_ONLY checks live deployment prerequisites without deploying', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const readiness = readFileSync('scripts/validate-production-deployment-readiness.sh', 'utf8');
+  assert.match(workflow, /Verify Google\/Firebase\/operations readiness/);
+  assert.match(workflow, /bash scripts\/validate-production-deployment-readiness\.sh/);
+  assert.match(readiness, /OPERATIONS_BUILD_SERVICE_ACCOUNT/);
+  assert.match(readiness, /gcloud iam service-accounts describe/);
+  assert.doesNotMatch(readiness, /gcloud builds get-default-service-account/);
+  assert.match(readiness, /gcloud artifacts repositories describe/);
+  assert.match(readiness, /gcloud run services describe/);
+  assert.match(readiness, /gcloud sql instances describe/);
+  assert.match(readiness, /gcloud secrets versions describe latest/);
+  assert.doesNotMatch(readiness, /secrets versions access|gcloud builds submit|gcloud run deploy/);
+});
+
+test('new-account Cloud Build derives the frontend API URL deterministically before deploy', () => {
+  const build = readFileSync('cloudbuild.production-new-account.yaml', 'utf8');
+  assert.match(build, /id: resolve-backend-url/);
+  assert.match(build, /production-backend-url/);
+  assert.match(build, /gcloud projects describe/);
+  assert.match(build, /PREDICTED_PRODUCTION_BACKEND_URL/);
+  assert.match(build, /Deterministic Backend URL mismatch/);
+  assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
+  assert.match(build, /id: bind-live-frontend-origin/);
+  assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
+  assert.doesNotMatch(build, /_NEXT_PUBLIC_API_URL/);
+  const operator = readFileSync(operatorPath, 'utf8');
+  assert.doesNotMatch(operator, /NEXT_PUBLIC_API_URL: \$\{\{ vars\.NEXT_PUBLIC_API_URL \}\}/);
+  assert.doesNotMatch(operator, /"\$NEXT_PUBLIC_API_URL"/);
+});
+
+
+test('Production operator restores the previous revision pair after a failed deployment', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /Capture currently serving Production revision pair/);
+  assert.match(workflow, /rollback_available=true/);
+  assert.match(workflow, /if: failure\(\) && steps\.before\.outputs\.rollback_available == 'true'/);
+  assert.match(workflow, /OPERATIONS_APPROVED_PRODUCTION: 'true'/);
+  assert.match(workflow, /google-production-rollback\.sh "\$PREVIOUS_BACKEND_REVISION" "\$PREVIOUS_FRONTEND_REVISION"/);
+  assert.match(workflow, /EMERGENCY_ROLLBACK=SUCCESS/);
+});
+
+
+test('Production operator verifies hardened database roles before Cloud Build deployment', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(workflow, /Verify production database role isolation before deployment/);
+  assert.match(workflow, /cloudbuild\.database-role-bootstrap\.yaml/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
+  assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
+});
+
+
+test('VERIFY_ONLY never creates database verification jobs', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+    ?.split('\n      - name:')[0] ?? '';
+  assert.match(block, /if: inputs\.mode == 'DEPLOY_PRODUCTION'/);
+  assert.match(block, /gcloud run jobs deploy/);
+});
+
+
+test('DB preflight is SHA-locked before any mutation', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+    ?.split('\n  deploy:')[0] ?? '';
+  assert.match(block, /git fetch origin main/);
+  assert.match(block, /git rev-parse origin\/main/);
+  assert.match(block, /test "\$GITHUB_SHA" = "\$REQUESTED_SHA"/);
+  assert.match(block, /COMMIT_SHA=\$REQUESTED_SHA/);
+  assert.match(block, /database-role-bootstrap:\$REQUESTED_SHA/);
+  assert.ok(block.indexOf('test "$GITHUB_SHA" = "$REQUESTED_SHA"') < block.indexOf('gcloud builds submit'));
 });

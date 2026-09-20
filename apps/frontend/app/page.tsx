@@ -6,8 +6,14 @@ import { RecentlyAdded } from './components/recently-added';
 import { PlatformIcon } from './components/platform-icon';
 import styles from './home.module.css';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.digital';
-export const metadata: Metadata = { title: 'خدمة - كل ما تحتاجه أقرب إليك', description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
+export const metadata: Metadata = { title: { absolute: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك' }, description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
+
+const launchServices = [
+  { href: '/food', icon: 'food' as const, title: 'خدمة فود', copy: 'مطاعم، مقاهٍ، مخابز وحلويات.', tone: 'foodCard' as const },
+  { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'مندوب التوصيل', copy: 'ابحث عن خدمات التوصيل القريبة.', tone: 'deliveryCard' as const },
+  { href: '/taxi', icon: 'car' as const, title: 'خدمة تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
+];
 
 const trustItems = [
   { icon: 'check' as const, title: 'معلومات واضحة', copy: 'ملفات منظمة تساعدك على الاختيار.' },
@@ -16,18 +22,29 @@ const trustItems = [
 ];
 
 export default function Home() {
-  return <main id="foundation-content" className={styles.page}>
+  return <main id="foundation-content" className={styles.page} data-khedmah-home>
     <section className={styles.hero} aria-labelledby="home-title">
       <div className={styles.heroCopy}>
         <p className={styles.eyebrow}><PlatformIcon name="check" /> تحت مظلة واحدة</p>
         <h1 id="home-title">كل ما تحتاجه<br /><em>أقرب إليك</em></h1>
-        <p className={styles.lead}>ابحث حسب الفئة والموقع، اطّلع على ملفات الأعمال ومقدمي الخدمات، ثم تواصل مباشرة دون وسطاء.</p>
+        <p className={styles.lead}>ابحث عن خدمة، اكتشف مطعمًا، أو تواصل مع مقدم خدمة قريب منك.</p>
         <form action="/search" className={styles.search}><label className="sr-only" htmlFor="home-search">ما الخدمة التي تبحث عنها؟</label><PlatformIcon name="search" /><input id="home-search" name="q" type="search" placeholder="ما الخدمة التي تبحث عنها؟" /><button type="submit">ابحث</button></form>
-        <div className={styles.actions}><Link href="/search"><PlatformIcon name="search" />اكتشف الخدمات</Link><Link href="/business-profiles/new"><PlatformIcon name="briefcase" />أضف نشاطك</Link><Link href="/mobility"><PlatformIcon name="car" />تاكسي وتوصيل</Link></div>
-        <p className={styles.heroNote}>للأفراد وأصحاب الأعمال والمهنيين</p>
+        <div className={styles.actions}><Link data-khedma-control href="/food"><PlatformIcon name="food" />المطاعم</Link><Link data-khedma-control href="/mobility?type=delivery"><PlatformIcon name="truck" />التوصيل</Link><Link data-khedma-control href="/taxi"><PlatformIcon name="car" />تكسي</Link></div>
+        <p className={styles.heroNote}>فترة تجريبية</p>
       </div>
       <div className={styles.heroVisual}><Image src="/brand/khedma-community.webp" alt="أصحاب أعمال ومهنيون يقدمون خدماتهم عبر منصة خدمة" fill priority sizes="(max-width: 900px) 100vw, 48vw" /><div className={styles.visualCard}><PlatformIcon name="check" /><span><b>خدمة أقرب إليك</b><small>اكتشف أعمالاً ومهنيين حولك</small></span></div></div>
     </section>
+
+    <section className={styles.launch} aria-labelledby="launch-title">
+      <div className={styles.launchHeading}><span>الخدمات الرئيسية</span><h2 id="launch-title">ماذا تحتاج اليوم؟</h2><p>اختر الخدمة المناسبة لتبدأ طلبك أو تصل إلى مقدم الخدمة.</p></div>
+      <div className={styles.launchGrid}>{launchServices.map((service) => <Link className={`${styles.launchCard} ${styles[service.tone]}`} href={service.href} key={service.href}>
+        <span className={styles.launchIcon}><PlatformIcon name={service.icon} size={30}/></span>
+        <span><b>{service.title}</b><small>{service.copy}</small></span>
+        <PlatformIcon name="arrow" size={20}/>
+      </Link>)}</div>
+      <div className={styles.secondaryServices}><Link href="/store"><PlatformIcon name="cart" size={18}/> متجر خدمة</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
+    </section>
+
     <section className={styles.discovery} aria-labelledby="categories-title">
       <div className={styles.sectionHeading}><span>اكتشف ما حولك</span><h2 id="categories-title">التصنيفات الرئيسية</h2><p>اختر المجال المناسب وانتقل مباشرة إلى نتائج البحث الحقيقية.</p></div>
       <FeaturedCategories />
@@ -36,7 +53,7 @@ export default function Home() {
     <section className={styles.trust} aria-labelledby="trust-title">
       <div className={styles.sectionHeading}><span>لماذا خدمة؟</span><h2 id="trust-title">وصول أوضح إلى الخدمة المناسبة</h2></div>
       <div className={styles.trustGrid}>{trustItems.map(item => <article key={item.title}><PlatformIcon name={item.icon} /><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
-      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link href="/auth/register">انضم إلى خدمة</Link></div>
+      <div className={styles.join}><div><h2>هل تقدم خدمة أو تدير نشاطاً؟</h2><p>أنشئ ملفك، أضف معلوماتك وخدماتك، واجعل نشاطك قابلاً للاكتشاف.</p></div><Link data-khedma-control href="/auth/register">انضم إلى خدمة</Link></div>
     </section>
   </main>;
 }

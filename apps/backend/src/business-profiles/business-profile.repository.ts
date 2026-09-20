@@ -1,6 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BUSINESS_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { PROFILE_REVISION_SQL, writeProfileReview, writeBusinessTrust } from '../moderation/profile-review-write';
 import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+import { withBusinessOwnerWrite } from './business-owner-transaction';
 
 interface BusinessProfileRow extends Record<string, unknown> {
   readonly id: string;
@@ -27,6 +30,9 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly featured_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
+  readonly revision: string;
+  readonly content_revision: string;
+  readonly review_image_urls?: string[];
   readonly service_radius?: string;
   readonly availability?: string;
   readonly rating?: string;
@@ -37,7 +43,36 @@ interface BusinessProfileRow extends Record<string, unknown> {
 export class BusinessProfileRepository {
   constructor(@Inject(DatabasePool) private readonly db: DatabasePool) {}
 
+  async review(id: string, actorId: string, status: 'approved' | 'rejected', expectedRevision: unknown, reason?: string): Promise<void> {
+    await writeProfileReview(this.db, 'business', id, actorId, { status, expectedRevision, reason });
+  }
+
+  async submitForReview(id: string, actorId: string): Promise<void> {
+    await writeProfileReview(this.db, 'business', id, actorId, { status: 'pending', ownerSubmission: true });
+  }
+
+  async insert(profile: BusinessProfile): Promise<BusinessProfile> {
+    return this.db.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO business_profiles (id,name,description_ar,description_en,owner_user_id,visibility,moderation_status,trust_status,status,
+          phone,email,website,category_code,city_code,country_code,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,'private','pending','pending','active',$6,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (id) DO NOTHING`,
+        [profile.id,profile.name,profile.descriptionAr??null,profile.descriptionEn??null,profile.ownerUserId,profile.phone??null,profile.email??null,
+          profile.website??null,profile.categoryCode,profile.cityCode,profile.countryCode,profile.createdAt,profile.updatedAt]);
+      // A separate statement observes the committed winner after an INSERT conflict wait.
+      const result = await client.query<BusinessProfileRow>(
+        `SELECT *, (SELECT c.name_ar FROM categories c WHERE c.code=business_profiles.category_code) AS category_name_ar,
+          ${PROFILE_REVISION_SQL} AS revision,${BUSINESS_CONTENT_REVISION_SQL} AS content_revision
+         FROM business_profiles WHERE id=$1`,[profile.id]);
+      if (!result.rows[0]) throw new ConflictException('The created business is no longer available.');
+      return this.map(result.rows[0]);
+    });
+  }
+
   async save(profile: BusinessProfile): Promise<void> {
+    // Owner edits must not replay trust, suspension, organization or featured
+    // values read before a newer administrative decision. Those have dedicated writes.
     await this.db.query(
       `INSERT INTO business_profiles (
          id, name, description_ar, description_en, owner_user_id, organization_id,
@@ -47,13 +82,14 @@ export class BusinessProfileRepository {
        )
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
        ON CONFLICT (id) DO UPDATE SET
+         moderation_status = CASE WHEN business_profiles.moderation_status = 'suspended' THEN 'suspended'
+           WHEN ROW(business_profiles.name,business_profiles.description_ar,business_profiles.description_en,business_profiles.phone,business_profiles.email,business_profiles.website,business_profiles.category_code,business_profiles.city_code,business_profiles.country_code,business_profiles.lat,business_profiles.lng,business_profiles.address_ar)
+             IS DISTINCT FROM ROW(EXCLUDED.name,EXCLUDED.description_ar,EXCLUDED.description_en,EXCLUDED.phone,EXCLUDED.email,EXCLUDED.website,EXCLUDED.category_code,EXCLUDED.city_code,EXCLUDED.country_code,EXCLUDED.lat,EXCLUDED.lng,EXCLUDED.address_ar) THEN 'pending'
+           ELSE business_profiles.moderation_status END,
          name = EXCLUDED.name,
          description_ar = EXCLUDED.description_ar,
          description_en = EXCLUDED.description_en,
-         organization_id = EXCLUDED.organization_id,
          visibility = EXCLUDED.visibility,
-         trust_status = EXCLUDED.trust_status,
-         status = EXCLUDED.status,
          phone = EXCLUDED.phone,
          email = EXCLUDED.email,
          website = EXCLUDED.website,
@@ -63,9 +99,7 @@ export class BusinessProfileRepository {
          lat = EXCLUDED.lat,
          lng = EXCLUDED.lng,
          address_ar = EXCLUDED.address_ar,
-         is_featured = EXCLUDED.is_featured,
-         featured_at = EXCLUDED.featured_at,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = GREATEST(clock_timestamp(), business_profiles.updated_at + interval '1 microsecond')`,
       [
         profile.id,
         profile.name,
@@ -94,13 +128,32 @@ export class BusinessProfileRepository {
     );
   }
 
+  async updateOwner(profile: BusinessProfile, expected: string, actorId: string): Promise<BusinessProfile> {
+    const rows = await this.db.query<BusinessProfileRow>(
+      `UPDATE business_profiles SET
+        moderation_status = CASE WHEN moderation_status = 'suspended' THEN 'suspended'
+          WHEN ROW(name,description_ar,description_en,phone,email,website,category_code,city_code,country_code,lat,lng,address_ar)
+            IS DISTINCT FROM ROW($2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$9::text,$10::text,$11::text,$12::numeric,$13::numeric,$14::text) THEN 'pending'
+          ELSE moderation_status END,
+        name=$2,description_ar=$3,description_en=$4,phone=$5,email=$6,website=$7,visibility=$8,
+        category_code=$9,city_code=$10,country_code=$11,lat=$12,lng=$13,address_ar=$14,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
+       WHERE id=$1 AND owner_user_id=$15 AND ${BUSINESS_CONTENT_REVISION_SQL}=$16
+       RETURNING *, (SELECT c.name_ar FROM categories c WHERE c.code=business_profiles.category_code) AS category_name_ar,
+         ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision`,
+      [profile.id,profile.name,profile.descriptionAr??null,profile.descriptionEn??null,profile.phone??null,profile.email??null,profile.website??null,
+        profile.visibility,profile.categoryCode,profile.cityCode,profile.countryCode,profile.lat??null,profile.lng??null,profile.addressAr??null,actorId,expected]);
+    if (!rows[0]) throw new ConflictException('Profile content changed. Reload before saving.');
+    return this.map(rows[0]);
+  }
+
   async findById(id: string): Promise<BusinessProfile | undefined> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -119,7 +172,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -138,7 +191,8 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
+              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='business_profile' AND m.owner_id=b.id AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -157,7 +211,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -177,7 +231,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -198,7 +252,7 @@ export class BusinessProfileRepository {
               status, phone, email, website, category_code,
               (SELECT c.name_ar FROM categories c WHERE c.code = b.category_code) AS category_name_ar,
               city_code, country_code,
-              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at,
+              lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -222,10 +276,14 @@ export class BusinessProfileRepository {
     return Number.parseInt(rows[0]?.count ?? '0', 10);
   }
 
+  async changeTrustStatus(id: string, status: BusinessProfileTrustStatus, actorId: string, reason?: string, verificationApproval = false): Promise<void> {
+    await writeBusinessTrust(this.db, id, actorId, status, reason, verificationApproval);
+  }
+
   async updateTrustStatus(id: string, trustStatus: BusinessProfileTrustStatus, updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE business_profiles
-       SET trust_status = $2, updated_at = $3
+       SET trust_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE id = $1`,
       [id, trustStatus, updatedAt]
     );
@@ -234,7 +292,7 @@ export class BusinessProfileRepository {
   async updateModerationStatus(id: string, moderationStatus: BusinessProfile['moderationStatus'], updatedAt: string): Promise<void> {
     await this.db.query(
       `UPDATE business_profiles
-       SET moderation_status = $2, updated_at = $3
+       SET moderation_status = $2, updated_at = GREATEST($3::timestamptz,clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE id = $1`,
       [id, moderationStatus, updatedAt]
     );
@@ -281,12 +339,20 @@ export class BusinessProfileRepository {
     }));
   }
 
-  async deleteMediaAsset(businessProfileId: string, id: string): Promise<void> {
-    await this.db.query(`DELETE FROM media_assets WHERE id = $1 AND owner_type = 'business_profile' AND owner_id = $2`, [id, businessProfileId]);
+  async deleteMediaAsset(businessProfileId: string, id: string, actorId: string): Promise<void> {
+    await this.db.transaction(async (client) => {
+      const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [businessProfileId]);
+      if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
+      if (parent.rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
+      const removed = await client.query(`DELETE FROM media_assets WHERE id=$1 AND owner_type='business_profile' AND owner_id=$2 RETURNING id`, [id,businessProfileId]);
+      if (!removed.rowCount) throw new NotFoundException('Media asset not found.');
+      await client.query(`UPDATE business_profiles SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
+        updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [businessProfileId]);
+    });
   }
 
-  async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[]): Promise<void> {
-    await this.db.transaction(async (client) => {
+  async replaceOpeningHours(businessProfileId: string, hours: OpeningHours[], actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, businessProfileId, actorId, async (client) => {
       await client.query(
         `DELETE FROM business_opening_hours WHERE business_profile_id = $1`,
         [businessProfileId]
@@ -313,14 +379,19 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, dayOfWeek: r.day_of_week, openTime: r.open_time, closeTime: r.close_time, isClosed: r.is_closed }));
   }
 
-  async saveBranch(branch: BusinessBranch): Promise<void> {
-    await this.db.query(
-      `INSERT INTO business_branches (id, business_profile_id, name_ar, name_en, address_ar, phone, city_code, lat, lng, is_main, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar, name_en = EXCLUDED.name_en, address_ar = EXCLUDED.address_ar,
-         phone = EXCLUDED.phone, city_code = EXCLUDED.city_code, lat = EXCLUDED.lat, lng = EXCLUDED.lng, is_main = EXCLUDED.is_main, updated_at = NOW()`,
-      [branch.id, branch.businessProfileId, branch.nameAr, branch.nameEn ?? null, branch.addressAr ?? null, branch.phone ?? null, branch.cityCode, branch.lat ?? null, branch.lng ?? null, branch.isMain]
-    );
+  async saveBranch(branch: BusinessBranch, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, branch.businessProfileId, actorId, async (client) => {
+      const saved = await client.query(
+        `INSERT INTO business_branches (id, business_profile_id, name_ar, name_en, address_ar, phone, city_code, lat, lng, is_main, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar, name_en = EXCLUDED.name_en, address_ar = EXCLUDED.address_ar,
+           phone = EXCLUDED.phone, city_code = EXCLUDED.city_code, lat = EXCLUDED.lat, lng = EXCLUDED.lng, is_main = EXCLUDED.is_main, updated_at = NOW()
+         WHERE business_branches.business_profile_id = EXCLUDED.business_profile_id
+         RETURNING id`,
+        [branch.id, branch.businessProfileId, branch.nameAr, branch.nameEn ?? null, branch.addressAr ?? null, branch.phone ?? null, branch.cityCode, branch.lat ?? null, branch.lng ?? null, branch.isMain]
+      );
+      if (!saved.rowCount) throw new ForbiddenException('Access denied.');
+    });
   }
 
   async listBranches(businessProfileId: string): Promise<BusinessBranch[]> {
@@ -334,13 +405,18 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, nameAr: r.name_ar, nameEn: r.name_en ?? undefined, addressAr: r.address_ar ?? undefined, phone: r.phone ?? undefined, cityCode: r.city_code, lat: r.lat ? Number(r.lat) : undefined, lng: r.lng ? Number(r.lng) : undefined, isMain: r.is_main }));
   }
 
-  async saveSocialLink(link: BusinessSocialLink): Promise<void> {
-    await this.db.query(
-      `INSERT INTO business_social_links (id, business_profile_id, platform, url, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (id) DO UPDATE SET platform = EXCLUDED.platform, url = EXCLUDED.url`,
-      [link.id, link.businessProfileId, link.platform, link.url]
-    );
+  async saveSocialLink(link: BusinessSocialLink, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, link.businessProfileId, actorId, async (client) => {
+      const saved = await client.query(
+        `INSERT INTO business_social_links (id, business_profile_id, platform, url, created_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (id) DO UPDATE SET platform = EXCLUDED.platform, url = EXCLUDED.url
+         WHERE business_social_links.business_profile_id = EXCLUDED.business_profile_id
+         RETURNING id`,
+        [link.id, link.businessProfileId, link.platform, link.url]
+      );
+      if (!saved.rowCount) throw new ForbiddenException('Access denied.');
+    });
   }
 
   async listSocialLinks(businessProfileId: string): Promise<BusinessSocialLink[]> {
@@ -351,8 +427,23 @@ export class BusinessProfileRepository {
     return rows.map((r) => ({ id: r.id, businessProfileId: r.business_profile_id, platform: r.platform, url: r.url }));
   }
 
-  async deleteSocialLink(businessProfileId: string, id: string): Promise<void> {
-    await this.db.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
+  async deleteSocialLink(businessProfileId: string, id: string, actorId: string): Promise<void> {
+    await withBusinessOwnerWrite(this.db, businessProfileId, actorId, async (client) => {
+      await client.query(`DELETE FROM business_social_links WHERE id = $1 AND business_profile_id = $2`, [id, businessProfileId]);
+    });
+  }
+
+  async requestVerification(req: VerificationRequest): Promise<VerificationRequest> {
+    return this.db.transaction(async (client) => {
+      const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [req.entityId]);
+      if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
+      if (parent.rows[0].owner_user_id !== req.requesterId) throw new ForbiddenException('Access denied.');
+      const result = await client.query(`SELECT * FROM verification_requests WHERE entity_type='business' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, [req.entityId]);
+      const existing = result.rows[0];
+      if (existing && ['pending','approved'].includes(existing.status)) return { id:existing.id,entityType:'business',entityId:existing.entity_id,requesterId:existing.requester_id,status:existing.status,notes:existing.notes ?? undefined,reviewedBy:existing.reviewed_by ?? undefined,reviewedAt:existing.reviewed_at?.toISOString(),createdAt:existing.created_at.toISOString(),updatedAt:existing.updated_at.toISOString() };
+      const created = await client.query(`INSERT INTO verification_requests (id,entity_type,entity_id,requester_id,status,created_at,updated_at) VALUES ($1,'business',$2,$3,'pending',clock_timestamp(),clock_timestamp()) RETURNING created_at,updated_at`, [req.id,req.entityId,req.requesterId]);
+      return {...req,entityType:'business',status:'pending',createdAt:created.rows[0].created_at.toISOString(),updatedAt:created.rows[0].updated_at.toISOString()};
+    });
   }
 
   async saveVerificationRequest(req: VerificationRequest): Promise<void> {
@@ -367,7 +458,7 @@ export class BusinessProfileRepository {
   async findVerificationRequest(entityType: string, entityId: string): Promise<VerificationRequest | undefined> {
     const rows = await this.db.query<{ id: string; entity_type: string; entity_id: string; requester_id: string; status: string; notes: string | null; reviewed_by: string | null; reviewed_at: Date | null; created_at: Date; updated_at: Date }>(
       `SELECT id, entity_type, entity_id, requester_id, status, notes, reviewed_by, reviewed_at, created_at, updated_at
-       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+       FROM verification_requests WHERE entity_type = $1 AND entity_id = $2 ORDER BY created_at DESC,id DESC LIMIT 1`,
       [entityType, entityId]
     );
     if (!rows[0]) return undefined;
@@ -475,6 +566,9 @@ export class BusinessProfileRepository {
       featuredAt: row.featured_at?.toISOString(),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
+      reviewImageUrls: row.review_image_urls,
+      contentRevision: row.content_revision,
+      revision: row.revision,
       serviceRadius: Number(row.service_radius ?? 25),
       availability: (row.availability ?? 'available') as BusinessProfile['availability'],
       rating: Number(row.rating ?? 0),

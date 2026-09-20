@@ -1,0 +1,16 @@
+DROP TRIGGER IF EXISTS billing_welcome_after_session ON identity_sessions;
+DROP FUNCTION IF EXISTS grant_welcome_credit_on_login();
+DROP TRIGGER IF EXISTS billing_promo_redemptions_no_rewrite ON billing_promo_redemptions;
+DROP TRIGGER IF EXISTS billing_usage_receipts_no_rewrite ON billing_usage_receipts;
+DROP TRIGGER IF EXISTS billing_credit_ledger_no_rewrite ON billing_credit_ledger;
+DROP FUNCTION IF EXISTS reject_billing_ledger_mutation();
+DROP TABLE IF EXISTS billing_promo_redemptions;
+DROP TABLE IF EXISTS billing_usage_receipts;
+DROP TABLE IF EXISTS billing_usage_rates;
+DROP TABLE IF EXISTS billing_credit_ledger;
+DROP TABLE IF EXISTS billing_credit_grants;
+DROP TABLE IF EXISTS billing_subscriptions;
+DROP TABLE IF EXISTS billing_purchase_orders;
+DROP TABLE IF EXISTS billing_promo_codes;
+DROP TABLE IF EXISTS billing_plans;
+DROP TABLE IF EXISTS billing_program_config;

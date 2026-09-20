@@ -1,0 +1,14 @@
+/* One ordered global stylesheet: overrides must remain after their legacy sources. */
+@import './globals.css';
+@import './brand-system.css';
+@import './design-tokens.css';
+@import './section-themes.css';
+@import './shell-system.css';
+@import './ui-primitives.css';
+@import './home-system.css';
+@import './admin-system.css';
+@import './moderation-system.css';
+@import './auth-experience.css';
+@import './auth-shell-override.css';
+@import './digital-controls.css';
+@import './accessibility-system.css';

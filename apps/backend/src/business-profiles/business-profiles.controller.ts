@@ -69,8 +69,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/media')
-  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string) {
-    return { assets: await this.businessProfiles.getMediaAssets('business', id, assetType) };
+  async getMedia(@Param('id') id: string, @Query('assetType') assetType?: string, @Headers('cookie') cookieHeader?: string) {
+    return { assets: await this.businessProfiles.getMediaAssets('business', id, assetType, cookieHeader) };
   }
 
   @Delete(':id/media/:assetId')
@@ -93,8 +93,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/opening-hours')
-  async getOpeningHours(@Param('id') id: string) {
-    return { hours: await this.businessProfiles.getOpeningHours(id) };
+  async getOpeningHours(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { hours: await this.businessProfiles.getOpeningHours(id, cookieHeader) };
   }
 
   // --- Branches ---
@@ -104,8 +104,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/branches')
-  async getBranches(@Param('id') id: string) {
-    return { branches: await this.businessProfiles.getBranches(id) };
+  async getBranches(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { branches: await this.businessProfiles.getBranches(id, cookieHeader) };
   }
 
   // --- Social Links ---
@@ -115,8 +115,8 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/social-links')
-  async getSocialLinks(@Param('id') id: string) {
-    return { links: await this.businessProfiles.getSocialLinks(id) };
+  async getSocialLinks(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    return { links: await this.businessProfiles.getSocialLinks(id, cookieHeader) };
   }
 
   @Delete(':id/social-links/:linkId')
@@ -132,13 +132,27 @@ export class BusinessProfilesController {
   }
 
   @Get(':id/verification-status')
-  async getVerificationStatus(@Param('id') id: string) {
-    return { status: await this.businessProfiles.getVerificationStatus('business', id) };
+  async getVerificationStatus(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    const verification = await this.businessProfiles.getVerificationStatus('business', id, cookieHeader);
+    return {
+      status: verification ? {
+        status: verification.status,
+        createdAt: verification.createdAt,
+        updatedAt: verification.updatedAt
+      } : null
+    };
   }
 
   @Get(':id/trust-history')
-  async getTrustHistory(@Param('id') id: string) {
-    return { history: await this.businessProfiles.getTrustHistory('business', id) };
+  async getTrustHistory(@Param('id') id: string, @Headers('cookie') cookieHeader?: string) {
+    const history = await this.businessProfiles.getTrustHistory('business', id, cookieHeader);
+    return {
+      history: history.map((entry) => ({
+        oldStatus: entry.oldStatus,
+        newStatus: entry.newStatus,
+        createdAt: entry.createdAt
+      }))
+    };
   }
 
   @Post(':id/submit')
@@ -146,19 +160,18 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.submitForReview(cookieHeader, id) };
   }
 
-  @Post(':id/approve')
-  async approve(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { business: await this.businessProfiles.approveVerification(cookieHeader, id) };
-  }
+  // Verification decisions are intentionally not exposed on the business owner surface.
+  // Human reviewers must use /admin/moderation/verification/:requestId/*, which binds the
+  // exact verification request and profile revision and records reviewer notes atomically.
 
   @Post(':id/moderation/approve')
-  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
-    return { business: await this.businessProfiles.approveModeration(cookieHeader, id) };
+  async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { expectedRevision?: unknown } | null) {
+    return { business: await this.businessProfiles.approveModeration(cookieHeader, id, body?.expectedRevision) };
   }
 
   @Post(':id/moderation/reject')
-  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
-    return { business: await this.businessProfiles.rejectModeration(cookieHeader, id, body.reason) };
+  async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string; expectedRevision?: unknown } | null) {
+    return { business: await this.businessProfiles.rejectModeration(cookieHeader, id, body?.reason ?? '', body?.expectedRevision) };
   }
 
   @Post(':id/suspend')
@@ -171,4 +184,3 @@ export class BusinessProfilesController {
     return { business: await this.businessProfiles.reactivateBusiness(cookieHeader, id) };
   }
 }
-

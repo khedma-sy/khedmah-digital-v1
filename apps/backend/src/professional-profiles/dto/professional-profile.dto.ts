@@ -1,4 +1,5 @@
 export interface CreateProfessionalProfileRequest {
+  readonly expectedContentRevision?: unknown;
   readonly headlineAr?: unknown;
   readonly headlineEn?: unknown;
   readonly bioAr?: unknown;

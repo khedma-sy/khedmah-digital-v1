@@ -176,6 +176,51 @@ export class IdentityRepository {
     return parseInt(rows[0]?.count ?? '0', 10) > 0;
   }
 
+  /**
+   * Creates the one-time bootstrap administrator under a database-wide
+   * transaction lock. This closes the check-then-create race across multiple
+   * backend replicas without requiring a new production schema migration.
+   */
+  async createBootstrapAdmin(account: UserAccount, profile: UserProfile, role: string): Promise<boolean> {
+    return this.db.transaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtextextended('khedmah-bootstrap-admin', 0))`);
+
+      const existing = await client.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM admin_roles WHERE role = 'bootstrap_admin'`
+      );
+      if (parseInt(existing.rows[0]?.count ?? '0', 10) > 0) return false;
+
+      await client.query(
+        `INSERT INTO core_user_accounts
+           (user_identifier, identity_reference, account_type, account_status, lifecycle_status, visibility_classification, created_at, updated_at)
+         VALUES ($1,$2,'individual_user',$3,$3,'private',$4,$5)`,
+        [account.id, `identity_${account.id.replaceAll('-', '')}`, account.status, account.createdAt, account.updatedAt]
+      );
+      await client.query(
+        `INSERT INTO identity_credentials (user_identifier,email,password_hash,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [account.id, account.email, account.passwordHash, account.createdAt, account.updatedAt]
+      );
+      await client.query(
+        `INSERT INTO profiles (profile_identifier, user_identifier, profile_type, display_name, lifecycle_status, visibility, locale, created_at, updated_at)
+         VALUES ($1, $2, 'personal_profile', $3, 'active', 'private', $4, $5, $6)`,
+        [`profile_${profile.userId.replaceAll('-', '')}`, profile.userId, profile.displayName, profile.locale, profile.createdAt, profile.updatedAt]
+      );
+      await client.query(
+        `INSERT INTO admin_roles (id, user_id, role, granted_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [randomUUID(), account.id, role]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, event_type, actor_user_id, request_id, correlation_id, occurred_at)
+         VALUES ($1, 'admin.bootstrap', $2, NULL, NULL, NOW())`,
+        [randomUUID(), account.id]
+      );
+
+      return true;
+    });
+  }
+
   async saveAdminRole(userId: string, role: string): Promise<void> {
     await this.db.query(
       `INSERT INTO admin_roles (id, user_id, role, granted_at)

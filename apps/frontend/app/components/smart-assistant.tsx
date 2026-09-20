@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './smart-assistant.module.css';
 
@@ -14,11 +14,20 @@ export function SmartAssistant() {
   const [query, setQuery] = useState('');
   const [listening, setListening] = useState(false);
   const [message, setMessage] = useState('اكتب أو قل ما تحتاجه، وسأقودك إلى المسار المناسب.');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
+  function close() {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  }
 
   function go(value: string) {
     const text = value.trim();
     if (!text) return setMessage('اكتب الخدمة أو الإعلان الذي تبحث عنه.');
-    if (/تكسي|تاكسي|سيارة|سائق/.test(text)) return router.push('/mobility?type=taxi');
+    setOpen(false);
+    if (/تكسي|تاكسي|سيارة|سائق/.test(text)) return router.push('/taxi');
     if (/مندوب|توصيل|شحن/.test(text)) return router.push('/mobility?type=delivery');
     if (/إعلان|اعلان|منتج|بيع|شراء|مستعمل/.test(text)) return router.push(`/classifieds?q=${encodeURIComponent(text)}`);
     router.push(`/search?q=${encodeURIComponent(text)}`);
@@ -37,8 +46,10 @@ export function SmartAssistant() {
     setListening(true); recognition.start();
   }
 
-  return <aside className={styles.root} aria-label="مساعد خدمة الذكي">
-    {open && <div className={styles.panel}><div className={styles.heading}><strong>مساعد خدمة</strong><button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المساعد">×</button></div><p>{message}</p><form onSubmit={submit}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}>{listening ? 'جاري الاستماع…' : '🎙 تحدث'}</button><button type="submit">اعثر عليها</button></div></form><div className={styles.quick}><button onClick={() => go('تكسي')} type="button">تكسي</button><button onClick={() => go('مندوب توصيل')} type="button">مندوب</button><button onClick={() => go('إعلانات')} type="button">إعلانات</button></div><small>لا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
-    <button className={styles.trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>☂ <span>اسأل خدمة</span></button>
+  return <aside className={styles.root} data-khedmah-assistant="true" aria-label="مساعد خدمة الذكي" onKeyDown={(event) => {
+    if (event.key === 'Escape' && open) { event.preventDefault(); close(); }
+  }}>
+    <button ref={triggerRef} className={styles.trigger} type="button" onClick={() => { if (open) close(); else setOpen(true); }} aria-label={open ? 'إغلاق مساعد خدمة' : 'فتح مساعد خدمة'} aria-expanded={open} aria-controls={open ? 'khedmah-assistant-panel' : undefined}>☂ <span>اسأل خدمة</span></button>
+    {open && <div id="khedmah-assistant-panel" className={styles.panel} role="region" aria-label="طلب المساعدة"><div className={styles.heading}><strong>مساعد خدمة</strong><button type="button" onClick={close} aria-label="إغلاق المساعد">×</button></div><p>{message}</p><form onSubmit={submit}><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثال: أريد تكسي إلى دمشق" aria-label="طلبك للمساعد"/><div className={styles.actions}><button type="button" onClick={listen} aria-pressed={listening}>{listening ? 'جاري الاستماع…' : '🎙 تحدث'}</button><button type="submit">اعثر عليها</button></div></form><div className={styles.quick}><button onClick={() => go('تكسي')} type="button">تكسي</button><button onClick={() => go('مندوب توصيل')} type="button">مندوب</button><button onClick={() => go('إعلانات')} type="button">إعلانات</button></div><small>لا يتم حفظ التسجيل الصوتي داخل خدمة.</small></div>}
   </aside>;
 }

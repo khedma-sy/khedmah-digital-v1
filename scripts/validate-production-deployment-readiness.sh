@@ -4,6 +4,7 @@ set -euo pipefail
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 : "${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
+: "${OPERATIONS_BUILD_SERVICE_ACCOUNT:?OPERATIONS_BUILD_SERVICE_ACCOUNT is required}"
 
 AR_REPOSITORY="${OPERATIONS_ARTIFACT_REPOSITORY:-khedmah-digital}"
 BACKEND_SERVICE="${OPERATIONS_BACKEND_SERVICE:-backend}"
@@ -33,18 +34,33 @@ for api in "${required_apis[@]}"; do
   }
 done
 
-BUILD_SERVICE_ACCOUNT="$(gcloud builds get-default-service-account --project "$GOOGLE_CLOUD_PROJECT")"
-test -n "$BUILD_SERVICE_ACCOUNT"
+[[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo "ERROR: Build service account is outside the approved project." >&2
+  exit 1
+}
+BUILD_SERVICE_ACCOUNT="$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+gcloud iam service-accounts describe "$BUILD_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
 gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" \
   --format='value(name)' >/dev/null
-gcloud run services describe "$BACKEND_SERVICE" \
-  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-  --format='value(metadata.name)' >/dev/null
-gcloud run services describe "$FRONTEND_SERVICE" \
-  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-  --format='value(metadata.name)' >/dev/null
+missing_services=()
+for service in "$BACKEND_SERVICE" "$FRONTEND_SERVICE"; do
+  if ! gcloud run services describe "$service" \
+    --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
+    --format='value(metadata.name)' >/dev/null 2>&1; then
+    missing_services+=("$service")
+  fi
+done
+if (( ${#missing_services[@]} > 0 )) && [[ "${ALLOW_FIRST_PRODUCTION_DEPLOY:-false}" != "true" ]]; then
+  echo "ERROR: Cloud Run services are missing: ${missing_services[*]}" >&2
+  exit 1
+fi
+if (( ${#missing_services[@]} > 0 )); then
+  echo "READY: FIRST_DEPLOY_MISSING_SERVICES=${missing_services[*]}"
+else
+  echo "READY: CLOUD_RUN_SERVICES=${BACKEND_SERVICE},${FRONTEND_SERVICE}"
+fi
 
 SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE##*:}"
 SQL_INSTANCE_REGION="$(gcloud sql instances describe "$SQL_INSTANCE_NAME" \

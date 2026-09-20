@@ -14,17 +14,22 @@ export default function VerifyEmailPage() {
   const [existing, setExisting] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const nextEmail = params.get('email') ?? '';
-    const nextToken = params.get('token') ?? '';
-    setExisting(params.get('existing') === '1');
+    const url = new URL(window.location.href);
+    const nextEmail = url.searchParams.get('email') ?? '';
+    const nextToken = url.searchParams.get('token') ?? '';
+    setExisting(url.searchParams.get('existing') === '1');
     setEmail(nextEmail);
     setToken(nextToken);
+    if (url.searchParams.has('token')) {
+      url.searchParams.delete('token');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
     if (nextToken) {
       setStatus('confirming');
       void identityApi.confirmEmailVerification(nextToken)
         .then((result) => {
           setEmail(result.email);
+          setToken('');
           setStatus('verified');
           setMessage('تم تأكيد بريدك الإلكتروني بنجاح. يمكنك الآن تسجيل الدخول.');
         })
@@ -69,9 +74,9 @@ export default function VerifyEmailPage() {
           {status !== 'verified' ? (
             <>
               <p>{existing ? 'هذا البريد مسجل مسبقًا. إذا كان الحساب بانتظار التفعيل، اطلب رسالة تحقق جديدة.' : 'أرسلنا رابط تأكيد إلى بريدك. افتح الرسالة واضغط زر «تأكيد البريد الإلكتروني» لتفعيل الحساب.'}</p>
-              {email ? <p><strong>{email}</strong></p> : null}
+              <label className="auth-field"><span>البريد الإلكتروني لإعادة الإرسال</span><input aria-label="البريد الإلكتروني لإعادة الإرسال" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value.trim().toLowerCase())} placeholder="name@example.com" /></label>
               {message ? <p className={status === 'error' ? 'auth-error' : ''} role="status">{message}</p> : null}
-              {email ? <button className="auth-resend" type="button" onClick={resend} disabled={resending}>{resending ? 'جاري الإرسال...' : 'إرسال رابط تحقق جديد'}</button> : null}
+              <button className="auth-resend" type="button" onClick={resend} disabled={resending || !email.trim()}>{resending ? 'جاري الإرسال...' : 'إرسال رابط تحقق جديد'}</button>
               <Link className="auth-secondary" href="/auth/login">العودة إلى تسجيل الدخول</Link>
             </>
           ) : null}

@@ -11,7 +11,7 @@ test('media state handoff is a manual production WIF gate locked to latest main'
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /google-github-actions\/auth@v2/);
+  assert.match(workflow, /google-github-actions\/auth@v3/);
   assert.match(workflow, /GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.doesNotMatch(workflow, /pull_request:|push:/);
