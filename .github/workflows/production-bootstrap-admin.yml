@@ -70,7 +70,7 @@ jobs:
           gcloud run services update "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT"             --region "$GOOGLE_CLOUD_REGION"             --update-secrets=BOOTSTRAP_ADMIN_SECRET=BOOTSTRAP_ADMIN_SECRET:latest             --quiet
           backend_url="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE"             --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION"             --format='value(status.url)')"
           [[ "$backend_url" == https://* ]]
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "$backend_url/api/v1/health/ready" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$backend_url/api/v1/health" >/dev/null
           echo "backend_url=$backend_url" >> "$GITHUB_OUTPUT"
 
       - id: bootstrap
@@ -148,10 +148,10 @@ jobs:
           set -euo pipefail
           {
             echo '### Production bootstrap admin'
-            echo "- Commit: `$REQUESTED_SHA`"
-            echo "- Result: `${RESULT:-failed_before_result}`"
-            echo "- HTTP: `${HTTP_CODE:-n/a}`"
-            echo '- Bootstrap secret binding was removed from the active backend service.'
+            echo "- Commit: $REQUESTED_SHA"
+            echo "- Result: ${RESULT:-failed_before_result}"
+            echo "- HTTP: ${HTTP_CODE:-n/a}"
+            echo '- Bootstrap secret binding cleanup is attempted only after a successful bind.'
           } >> "$GITHUB_STEP_SUMMARY"
           case "${RESULT:-}" in
             created)
