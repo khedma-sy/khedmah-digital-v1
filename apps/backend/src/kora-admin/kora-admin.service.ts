@@ -271,6 +271,27 @@ export class KoraAdminService {
       severity: 'low', evidence: `count=${serviceMetrics.taxi_expiring_approvals_7d};status=approved;expires_within=7d;measured_at=${detectedAt}`,
       source: 'canonical_database.khedmah_taxi.driver_approvals', detectedAt
     });
+    if (serviceMetrics.contact_inquiries_unread_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'contact:inquiry-backlog',
+      title: 'استفسارات لم تنتقل من Submitted منذ أكثر من 24 ساعة',
+      summary: `${serviceMetrics.contact_inquiries_unread_24h} استفسارًا بقي بحالة Submitted لأكثر من 24 ساعة. هذه إشارة متابعة داخلية وليست وعد SLA.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.contact_inquiries_unread_24h};status=submitted;created_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.contact_inquiries', detectedAt
+    });
+    if (serviceMetrics.provider_reports_overdue_24h > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'reports:moderation-backlog',
+      title: 'بلاغات مقدمي خدمات مفتوحة منذ أكثر من 24 ساعة',
+      summary: `${serviceMetrics.provider_reports_overdue_24h} بلاغًا ما زال Submitted أو In Review بعد 24 ساعة. يلزم مراجعة بشرية؛ هذا لا يثبت صحة البلاغ.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.provider_reports_overdue_24h};status=submitted_or_in_review;created_at_older_than=24h;measured_at=${detectedAt}`,
+      source: 'canonical_database.provider_reports', detectedAt
+    });
+    if (serviceMetrics.provider_reports_sensitive_open > 0) findings.push({
+      id: randomUUID(), kind: 'operational_anomaly', resource: 'reports:sensitive-open',
+      title: 'بلاغات حساسة مفتوحة تحتاج أولوية مراجعة',
+      summary: `${serviceMetrics.provider_reports_sensitive_open} بلاغًا مفتوحًا مصنفًا انتحالًا أو محتوى غير مناسب. التصنيف ادعاء من المبلّغ وليس حكمًا على المستهدف.`,
+      severity: 'medium', evidence: `count=${serviceMetrics.provider_reports_sensitive_open};reason=impersonation_or_inappropriate_content;status=open;measured_at=${detectedAt}`,
+      source: 'canonical_database.provider_reports', detectedAt
+    });
 
     return {
       tool: 'review_operational_anomalies' as const,
@@ -279,6 +300,7 @@ export class KoraAdminService {
       coverageGaps: [
         'cancellation_rate',
         'abnormal_user_activity',
+        'zero_result_searches',
         'duplicate_ads_aggregate',
         'driver_issue_rate',
         'restaurant_issue_rate',
@@ -286,7 +308,7 @@ export class KoraAdminService {
         'api_failure_rate',
         'error_rate_baseline'
       ],
-      sourceBoundary: 'Current-process Operations incidents plus canonical fulfillment, Classifieds, Store and Taxi approval state are evaluated. The 15-minute delivery, 24-hour moderation and 7-day approval-expiry thresholds are operational review signals, not user-facing SLAs; missing telemetry is never interpreted as zero.',
+      sourceBoundary: 'Current-process Operations incidents plus canonical fulfillment, Classifieds, Store, Taxi approval, contact-inquiry and provider-report state are evaluated. The 15-minute delivery, 24-hour review/follow-up and 7-day approval-expiry thresholds are internal review signals, not user-facing SLAs. Report reason codes remain allegations until human review; missing telemetry is never interpreted as zero.',
       automaticDecisionAuthorized: false
     };
   }
@@ -310,7 +332,13 @@ export class KoraAdminService {
       ['store_out_of_stock','منتجات غير متوفرة حاليًا','product_listings.availability=out_of_stock','current'],
       ['taxi_approved_drivers','سائقو تكسي باعتماد فعال','khedmah_taxi.driver_approvals.approved','current'],
       ['taxi_restricted_drivers','سائقو تكسي موقوفون أو ملغاة اعتماداتهم','khedmah_taxi.driver_approvals.restricted','current'],
-      ['taxi_expiring_approvals_7d','اعتمادات تكسي تنتهي خلال 7 أيام','khedmah_taxi.driver_approvals.expires_at','current']
+      ['taxi_expiring_approvals_7d','اعتمادات تكسي تنتهي خلال 7 أيام','khedmah_taxi.driver_approvals.expires_at','current'],
+      ['contact_inquiries_24h','استفسارات جديدة خلال 24 ساعة','contact_inquiries.created_at','24h'],
+      ['contact_inquiries_open','استفسارات مفتوحة','contact_inquiries.status=open','current'],
+      ['contact_inquiries_unread_24h','استفسارات Submitted منذ أكثر من 24 ساعة','contact_inquiries.status=submitted','current'],
+      ['provider_reports_open','بلاغات مقدمي الخدمات المفتوحة','provider_reports.status=open','current'],
+      ['provider_reports_overdue_24h','بلاغات مفتوحة منذ أكثر من 24 ساعة','provider_reports.created_at','current'],
+      ['provider_reports_sensitive_open','بلاغات انتحال/محتوى غير مناسب مفتوحة','provider_reports.reason_code=sensitive','current']
     ];
     return definitions.map(([key,label,source,window])=>{
       const value=values[key];
