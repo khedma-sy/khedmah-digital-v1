@@ -34,7 +34,15 @@ const DEFAULT_SERVICE_METRICS: Record<string, number> = {
   contact_inquiries_unread_24h: 0,
   provider_reports_open: 2,
   provider_reports_overdue_24h: 0,
-  provider_reports_sensitive_open: 1
+  provider_reports_sensitive_open: 1,
+  business_profiles_pending_review: 4,
+  business_profiles_review_overdue_24h: 0,
+  professional_profiles_pending_review: 3,
+  professional_profiles_review_overdue_24h: 0,
+  verification_requests_pending: 2,
+  verification_requests_overdue_24h: 0,
+  mobility_documents_pending: 5,
+  mobility_documents_overdue_24h: 0
 };
 
 function createService(overrides: {
@@ -182,6 +190,34 @@ test('Kora counts inquiries and provider reports without treating report allegat
   assert.match(resources.get('reports:sensitive-open')!.summary,/ادعاء/);
   assert.equal(anomalies.automaticDecisionAuthorized,false);
 });
+
+test('Kora monitors moderation verification and mobility queues without auto-approving private evidence',async()=>{
+  const values={
+    ...DEFAULT_SERVICE_METRICS,
+    business_profiles_review_overdue_24h:2,
+    professional_profiles_review_overdue_24h:1,
+    verification_requests_overdue_24h:3,
+    mobility_documents_overdue_24h:4
+  };
+  const service=createService({serviceMetrics:async()=>values});
+  const result=await service.readMetrics('operator');
+  for(const key of [
+    'business_profiles_pending_review','professional_profiles_pending_review',
+    'verification_requests_pending','mobility_documents_pending'
+  ]) {
+    assert.equal(result.metrics.find(m=>m.key===key)?.status,'available');
+    assert.equal(result.metrics.find(m=>m.key===key)?.value,values[key]);
+  }
+  const anomalies=await service.reviewOperationalAnomalies('operator');
+  const resources=new Map(anomalies.findings.map(f=>[f.resource,f]));
+  assert.equal(resources.get('moderation:business-profiles')?.source,'canonical_database.business_profiles');
+  assert.equal(resources.get('moderation:professional-profiles')?.source,'canonical_database.professional_profiles');
+  assert.equal(resources.get('verification:requests')?.source,'canonical_database.verification_requests');
+  assert.equal(resources.get('mobility:document-review')?.source,'canonical_database.mobility_document_reviews');
+  assert.match(resources.get('mobility:document-review')!.summary,/لا يقرأ محتوى الوثيقة/);
+  assert.equal(anomalies.automaticDecisionAuthorized,false);
+});
+
 
 test('Kora does not turn a failed service aggregate into zero or a fabricated healthy state',async()=>{
   const service=createService({serviceMetrics:async()=>{throw new Error('DB_UNAVAILABLE');}});
