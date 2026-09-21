@@ -68,6 +68,7 @@ locals {
     "roles/identitytoolkit.viewer",
     "roles/browser",
     "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountViewer",
     "roles/run.admin",
     "roles/secretmanager.viewer",
     "roles/serviceusage.apiKeysAdmin",
