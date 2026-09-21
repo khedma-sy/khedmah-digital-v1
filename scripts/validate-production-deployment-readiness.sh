@@ -5,6 +5,7 @@ set -euo pipefail
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 : "${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
 : "${OPERATIONS_BUILD_SERVICE_ACCOUNT:?OPERATIONS_BUILD_SERVICE_ACCOUNT is required}"
+: "${OPERATIONS_MIGRATION_SERVICE_ACCOUNT:?OPERATIONS_MIGRATION_SERVICE_ACCOUNT is required}"
 
 AR_REPOSITORY="${OPERATIONS_ARTIFACT_REPOSITORY:-khedmah-digital}"
 BACKEND_SERVICE="${OPERATIONS_BACKEND_SERVICE:-backend}"
@@ -40,6 +41,11 @@ done
 }
 BUILD_SERVICE_ACCOUNT="$OPERATIONS_BUILD_SERVICE_ACCOUNT"
 gcloud iam service-accounts describe "$BUILD_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
+[[ "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo "ERROR: Migration service account is outside the approved project." >&2
+  exit 1
+}
+gcloud iam service-accounts describe "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
 gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" \
@@ -74,8 +80,13 @@ gcloud iam service-accounts describe "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
 
 required_secrets=(
   DATABASE_URL
+  DATABASE_MIGRATION_URL
   FIREBASE_API_KEY
+  FIREBASE_APP_ID
+  GOOGLE_MAPS_ANDROID_API_KEY
   GOOGLE_MAPS_BROWSER_API_KEY
+  GOOGLE_MAPS_SERVER_API_KEY
+  GOOGLE_OAUTH_SERVER_CLIENT_ID
   NEXT_PUBLIC_FIREBASE_API_KEY
   NEXT_PUBLIC_FIREBASE_APP_ID
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
