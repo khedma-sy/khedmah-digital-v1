@@ -29,6 +29,7 @@ jobs:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
       OPERATIONS_BACKEND_SERVICE: ${{ vars.OPERATIONS_BACKEND_SERVICE || 'backend' }}
+      OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
     steps:
@@ -58,6 +59,25 @@ jobs:
           service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify bootstrap secret IAM before mutation
+        env:
+          DEPLOYER_SERVICE_ACCOUNT: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_SERVICE_ACCOUNT"
+          test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
+          [[ "$DEPLOYER_SERVICE_ACCOUNT" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+          [[ "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+          active_account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n1)"
+          test "$active_account" = "$DEPLOYER_SERVICE_ACCOUNT"
+          policy="$(gcloud secrets get-iam-policy BOOTSTRAP_ADMIN_SECRET --project "$GOOGLE_CLOUD_PROJECT" --format=json)"
+          jq -e --arg member "serviceAccount:$DEPLOYER_SERVICE_ACCOUNT" '.bindings[]? | select(.role == "roles/secretmanager.secretAccessor") | .members[]? | select(. == $member)' <<<"$policy" >/dev/null
+          jq -e --arg member "serviceAccount:$DEPLOYER_SERVICE_ACCOUNT" '.bindings[]? | select(.role == "roles/secretmanager.secretVersionManager") | .members[]? | select(. == $member)' <<<"$policy" >/dev/null
+          jq -e --arg member "serviceAccount:$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" '.bindings[]? | select(.role == "roles/secretmanager.secretAccessor") | .members[]? | select(. == $member)' <<<"$policy" >/dev/null
+          state="$(gcloud secrets versions describe latest --secret BOOTSTRAP_ADMIN_SECRET --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
+          test "$state" = ENABLED
 
       - id: bind
         name: Bind the one-time bootstrap secret to the active backend revision
