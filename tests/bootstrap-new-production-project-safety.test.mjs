@@ -87,12 +87,14 @@ test('state bucket IAM allowlists exact convenience-role/member pairs and deploy
   assert.match(script, /\(\(\$binding\.condition \/\/ null\) == null\)/);
 });
 
-test('state bucket IAM must remain private and gains only the scoped deployer object binding', () => {
+test('state bucket IAM remains exact-role allowlisted and requires the scoped deployer binding after apply', () => {
   assert.match(script, /verify_state_bucket_policy\(\)/);
-  assert.match(script, /allUsers/);
-  assert.match(script, /allAuthenticatedUsers/);
-  assert.match(script, /Terraform state bucket must not grant public IAM principals/);
+  assert.match(script, /roles\/storage\.legacyBucketReader/);
+  assert.match(script, /roles\/storage\.legacyObjectReader/);
+  assert.match(script, /roles\/storage\.legacyBucketOwner/);
+  assert.match(script, /roles\/storage\.legacyObjectOwner/);
   assert.match(script, /roles\/storage\.objectAdmin/);
+  assert.match(script, /Terraform state bucket contains an unexpected IAM role\/member binding/);
   assert.match(script, /Terraform state bucket is missing the bucket-scoped deployer objectAdmin binding/);
   assert.match(script, /terraform -chdir="\$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email/);
   assert.match(script, /verify_state_bucket_policy "\$deployer_email"/);
