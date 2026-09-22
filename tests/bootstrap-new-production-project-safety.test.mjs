@@ -235,7 +235,8 @@ test('bootstrap initialization never acquires a remote state lock', () => {
 test('PLAN is non-mutating and persists a checksum-addressable reviewed plan', () => {
   const plan = section('  PLAN)', '\n  APPLY)');
   assert.match(script, /-lockfile=readonly/);
-  assert.match(script, /infra\/iac\/bootstrap\/\.terraform\.lock\.hcl/);
+  assert.match(script, /BOOTSTRAP_TF_DIR/);
+  assert.match(script, /\.terraform\.lock\.hcl/);
   assert.match(plan, /terraform -chdir="\$BOOTSTRAP_TF_DIR" plan/);
   assert.match(plan, /-lock=false/);
   assert.doesNotMatch(plan, /-lock-timeout=/);
