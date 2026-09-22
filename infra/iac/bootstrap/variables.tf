@@ -24,6 +24,16 @@ variable "source_commit_sha" {
   }
 }
 
+variable "configuration_sha256" {
+  description = "SHA-256 fingerprint of the canonical bootstrap Terraform configuration files."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.configuration_sha256))
+    error_message = "configuration_sha256 must be a lowercase SHA-256 digest."
+  }
+}
+
 variable "terraform_state_bucket_name" {
   description = "Pre-created protected GCS bucket used by the bootstrap and governed production Terraform states."
   type        = string
