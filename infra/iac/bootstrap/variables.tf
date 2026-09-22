@@ -102,6 +102,17 @@ variable "migration_service_account_id" {
   default     = "khedmah-v1-migrator"
 }
 
+variable "readiness_verifier_service_account_id" {
+  description = "Account ID for the dedicated read-only Production readiness verifier."
+  type        = string
+  default     = "khedmah-v1-readiness"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.readiness_verifier_service_account_id))
+    error_message = "readiness_verifier_service_account_id must be a valid service account ID."
+  }
+}
+
 variable "runtime_secret_names" {
   description = "Secret names to create. Secret values are managed outside Terraform."
   type        = set(string)
