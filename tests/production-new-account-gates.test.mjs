@@ -95,3 +95,12 @@ test('bootstrap secret version is never disabled unless Cloud Run secret cleanup
   assert.ok(cleanup >= 0 && disable > cleanup);
   assert.match(workflow, /steps\.cleanup\.outcome == 'success'/);
 });
+
+
+test('Production readiness binds the media bucket to the active Google project number', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  assert.match(readiness, /gcloud projects describe "\$GOOGLE_CLOUD_PROJECT".*projectNumber/);
+  assert.match(readiness, /gcloud storage buckets describe "gs:\/\/\$\{GCS_MEDIA_BUCKET\}".*projectNumber/);
+  assert.match(readiness, /MEDIA_PROJECT_NUMBER/);
+  assert.match(readiness, /Media bucket belongs to a different Google Cloud project/);
+});
