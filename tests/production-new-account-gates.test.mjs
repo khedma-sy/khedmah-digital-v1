@@ -122,6 +122,7 @@ test('VERIFY_ONLY accepts a clean first-deploy state but rejects a partial Cloud
   assert.match(readiness, /Production Cloud Run service pair is inconsistent/);
   assert.match(readiness, /missing_services\[@\]\} == 2|#missing_services\[@\].*== 2/s);
   assert.match(readiness, /FIRST_DEPLOY_MISSING_SERVICES/);
+  assert.equal((readiness.match(/READY: CLOUD_RUN_SERVICES/g) ?? []).length, 1, 'Cloud Run readiness must be emitted only from the zero-missing branch');
   assert.doesNotMatch(readiness, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
 
   const operator = await read('.github/workflows/production-operator-new-account.yml');
