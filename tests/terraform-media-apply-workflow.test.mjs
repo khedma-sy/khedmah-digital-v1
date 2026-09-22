@@ -54,3 +54,22 @@ test('media apply uses only saved plan and verifies private post-apply state', (
   assert.ok(workflow.includes('GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}'));
   assert.doesNotMatch(workflow, /gcloud builds submit|run deploy|DEPLOY_PRODUCTION|build-android/);
 });
+
+
+test('fresh-account media apply has an explicit absent-state handshake and publishes the created state identity', () => {
+  assert.match(workflow, /expected_media_lineage:.*ABSENT/s);
+  assert.match(workflow, /APPROVED_MEDIA_LINEAGE.*ABSENT/s);
+  assert.match(workflow, /FIRST_MEDIA_APPLY=true/);
+  assert.match(workflow, /MEDIA_STATE_ALREADY_EXISTS/);
+  assert.match(workflow, /MEDIA_STATE_CREATED_DURING_REVIEW/);
+  assert.match(workflow, /MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY/);
+  assert.match(workflow, /MEDIA_STATE_LINEAGE=/);
+  assert.match(workflow, /MEDIA_STATE_SERIAL=/);
+});
+
+test('existing media state still requires exact lineage and serial', () => {
+  assert.match(workflow, /terraform -chdir=infra\/iac\/media state pull/);
+  assert.match(workflow, /\.lineage == \$lineage and \.serial == \$serial/);
+  assert.match(workflow, /test "\$EXPECTED_MEDIA_LINEAGE" = "\$APPROVED_MEDIA_LINEAGE"/);
+  assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "\$APPROVED_MEDIA_SERIAL"/);
+});
