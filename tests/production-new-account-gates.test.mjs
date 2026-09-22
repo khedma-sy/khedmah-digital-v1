@@ -130,3 +130,12 @@ test('VERIFY_ONLY accepts a clean first-deploy state but rejects a partial Cloud
   assert.doesNotMatch(operator, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
   assert.doesNotMatch(manualDeploy, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
 });
+
+
+test('VERIFY_ONLY is pinned to refs/heads/main and exact origin/main before Google authentication', async () => {
+  const workflow = await read('.github/workflows/production-operator-new-account.yml');
+  const lock = workflow.indexOf('test "$GITHUB_REF" = "refs/heads/main"');
+  const head = workflow.indexOf('test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"');
+  const auth = workflow.indexOf('Authenticate to Google Cloud');
+  assert.ok(lock >= 0 && head > lock && auth > head, 'source lock must run before Google authentication');
+});
