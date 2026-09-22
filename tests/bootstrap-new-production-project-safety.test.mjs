@@ -68,6 +68,15 @@ test('PREPARE_STATE is the only phase allowed to mutate prerequisite APIs or sta
   }
 });
 
+test('state bucket IAM rejects unexpected bucket-level principals', () => {
+  assert.match(script, /projectOwner:/);
+  assert.match(script, /projectEditor:/);
+  assert.match(script, /projectViewer:/);
+  assert.match(script, /serviceAccount:/);
+  assert.match(script, /Terraform state bucket contains an unexpected IAM principal/);
+  assert.match(script, /khedmah-v1-deployer@\$\{GOOGLE_CLOUD_PROJECT\}\.iam\.gserviceaccount\.com/);
+});
+
 test('state bucket IAM must remain private and gains only the scoped deployer object binding', () => {
   assert.match(script, /verify_state_bucket_policy\(\)/);
   assert.match(script, /allUsers/);
@@ -75,7 +84,7 @@ test('state bucket IAM must remain private and gains only the scoped deployer ob
   assert.match(script, /Terraform state bucket must not grant public IAM principals/);
   assert.match(script, /roles\/storage\.objectAdmin/);
   assert.match(script, /Terraform state bucket is missing the bucket-scoped deployer objectAdmin binding/);
-  assert.match(script, /terraform -chdir=infra\/iac\/bootstrap output -raw deployer_service_account_email/);
+  assert.match(script, /terraform -chdir="\$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email/);
   assert.match(script, /verify_state_bucket_policy "\$deployer_email"/);
 });
 
@@ -177,8 +186,10 @@ test('saved bootstrap plan must be complete and non-errored', () => {
 
 test('bootstrap computes a fingerprint from the canonical Terraform configuration files', () => {
   assert.match(script, /bootstrap_configuration_sha256\(\)/);
+  assert.match(script, /git archive --format=tar "\$CURRENT_SHA" infra\/iac\/bootstrap/);
+  assert.match(script, /BOOTSTRAP_TF_DIR="\$bootstrap_source_root\/infra\/iac\/bootstrap"/);
   for (const file of ['main.tf', 'variables.tf', 'outputs.tf', 'versions.tf', '.terraform.lock.hcl']) {
-    assert.ok(script.includes(`infra/iac/bootstrap/${file}`), `missing fingerprint input ${file}`);
+    assert.ok(script.includes(`$BOOTSTRAP_TF_DIR/$file`), `missing archived fingerprint input ${file}`);
   }
   assert.match(script, /CONFIGURATION_SHA256="\$\(bootstrap_configuration_sha256\)"/);
   assert.match(script, /-var=configuration_sha256=\$CONFIGURATION_SHA256/);
@@ -190,6 +201,13 @@ test('saved bootstrap plan must contain the exact canonical Terraform resource i
   for (const address of ["google_project_service.bootstrap","terraform_data.bootstrap_provenance","google_storage_bucket.cloudbuild_source","google_storage_bucket_iam_member.deployer_cloudbuild_source_objects","google_sql_database_instance.postgres","google_sql_database.application","google_artifact_registry_repository.docker","google_service_account.runtime","google_service_account.deployer","google_storage_bucket_iam_member.deployer_terraform_state_objects","google_service_account.build","google_service_account.migration","google_project_iam_member.runtime_cloud_sql_client","google_project_iam_member.migration_cloud_sql_client","google_service_account_iam_member.deployer_migration_user","google_project_iam_custom_role.database_user_role_manager","google_project_iam_member.deployer_database_user_role_manager","google_project_iam_custom_role.storage_bucket_policy_viewer","google_project_iam_member.deployer_storage_bucket_policy_viewer","google_project_iam_member.deployer","google_project_iam_member.build","google_service_account_iam_member.build_runtime_user","google_storage_bucket_iam_member.build_cloudbuild_source_reader","google_secret_manager_secret.runtime","google_secret_manager_secret_iam_member.runtime","google_secret_manager_secret_iam_member.build","google_secret_manager_secret.database_migration","google_secret_manager_secret_iam_member.database_migration_accessor","google_secret_manager_secret_iam_member.database_migration_deployer_version_manager","google_secret_manager_secret_iam_member.maps_browser_deployer_version_manager","google_secret_manager_secret.maps_android","google_secret_manager_secret_iam_member.maps_android_deployer_version_manager","google_secret_manager_secret_iam_member.maps_android_deployer_accessor","google_secret_manager_secret_iam_member.oauth_server_deployer_accessor","google_secret_manager_secret.bootstrap_admin","google_secret_manager_secret_iam_member.bootstrap_admin_runtime","google_secret_manager_secret_iam_member.bootstrap_admin_deployer","google_secret_manager_secret_iam_member.bootstrap_admin_version_manager","google_iam_workload_identity_pool.github","google_iam_workload_identity_pool_provider.github","google_service_account_iam_member.github_deployer"]) {
     assert.ok(script.includes(`"${address}"`), `missing canonical plan resource ${address}`);
   }
+});
+
+test('PLAN uses only Terraform source archived from the locked main commit', () => {
+  assert.match(script, /git archive --format=tar "\$CURRENT_SHA" infra\/iac\/bootstrap/);
+  assert.match(script, /BOOTSTRAP_TF_DIR/);
+  assert.match(script, /terraform -chdir="\$BOOTSTRAP_TF_DIR"/);
+  assert.doesNotMatch(script, /terraform -chdir=infra\/iac\/bootstrap/);
 });
 
 test('saved plan must contain matching provenance resource and configuration fingerprint', async () => {
@@ -210,7 +228,7 @@ test('saved bootstrap plan is cryptographically bound to the current main commit
 
 test('bootstrap initialization never acquires a remote state lock', () => {
   const init = section('terraform_init() {', '\n}');
-  assert.match(init, /terraform -chdir=infra\/iac\/bootstrap init/);
+  assert.match(init, /terraform -chdir="\$BOOTSTRAP_TF_DIR" init/);
   assert.match(init, /-lock=false/);
 });
 
@@ -218,15 +236,15 @@ test('PLAN is non-mutating and persists a checksum-addressable reviewed plan', (
   const plan = section('  PLAN)', '\n  APPLY)');
   assert.match(script, /-lockfile=readonly/);
   assert.match(script, /infra\/iac\/bootstrap\/\.terraform\.lock\.hcl/);
-  assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap plan/);
+  assert.match(plan, /terraform -chdir="\$BOOTSTRAP_TF_DIR" plan/);
   assert.match(plan, /-lock=false/);
   assert.doesNotMatch(plan, /-lock-timeout=/);
   assert.match(plan, /BOOTSTRAP_PLAN_SHA256/);
   assert.match(plan, /sha256sum/);
-  assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap show -json/);
+  assert.match(plan, /terraform -chdir="\$BOOTSTRAP_TF_DIR" show -json/);
   assert.match(plan, /destructive bootstrap plan rejected/);
   assert.match(plan, /NO_APPLY/);
-  assert.doesNotMatch(plan, /terraform -chdir=infra\/iac\/bootstrap apply/);
+  assert.doesNotMatch(plan, /terraform -chdir="\$BOOTSTRAP_TF_DIR" apply/);
   assert.doesNotMatch(plan, /gcloud services enable|gcloud storage buckets create|gcloud storage buckets update/);
 });
 
@@ -236,9 +254,9 @@ test('APPLY consumes only the saved approved plan and never replans', () => {
   assert.match(apply, /BOOTSTRAP_PLAN_SHA256/);
   assert.match(apply, /bootstrap plan checksum mismatch/);
   assert.match(apply, /APPLY_KHEDMAH_BOOTSTRAP_/);
-  assert.match(apply, /terraform -chdir=infra\/iac\/bootstrap apply/);
+  assert.match(apply, /terraform -chdir="\$BOOTSTRAP_TF_DIR" apply/);
   assert.match(apply, /destructive bootstrap plan rejected at APPLY/);
-  assert.doesNotMatch(apply, /terraform -chdir=infra\/iac\/bootstrap plan/);
+  assert.doesNotMatch(apply, /terraform -chdir="\$BOOTSTRAP_TF_DIR" plan/);
 });
 
 test('VERIFY is read-only and publishes only sanitized Terraform outputs', () => {
