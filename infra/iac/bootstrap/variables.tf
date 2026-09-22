@@ -14,6 +14,16 @@ variable "region" {
   default     = "me-central1"
 }
 
+variable "terraform_state_bucket_name" {
+  description = "Pre-created protected GCS bucket used by the bootstrap and governed production Terraform states."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.terraform_state_bucket_name))
+    error_message = "terraform_state_bucket_name must be a valid GCS bucket name."
+  }
+}
+
 variable "artifact_registry_repository_id" {
   description = "Docker Artifact Registry repository ID."
   type        = string
