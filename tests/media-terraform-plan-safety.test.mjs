@@ -40,7 +40,7 @@ elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
   [[ "$MOCK_BUCKET_LIST_STATUS" == "success" ]] || exit 9
   printf '%s' "$MOCK_EXISTING_BUCKETS"
 elif [[ "$1 $2 $3" == "storage objects describe" ]]; then
-  if [[ "${MOCK_ROOT_STATE_LOOKUP_STATUS:-}" == "error" ]]; then
+  if [[ "\${MOCK_ROOT_STATE_LOOKUP_STATUS:-}" == "error" ]]; then
     printf '%s\n' 'PERMISSION_DENIED: storage.objects.get' >&2
     exit 9
   fi
