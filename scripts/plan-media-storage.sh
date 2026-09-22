@@ -29,6 +29,23 @@ if [[ "$STATE_PREFIX" != "$EXPECTED_STATE_PREFIX" ]]; then
   exit 1
 fi
 
+classify_absent_gcs_object() {
+  local object_uri="$1"
+  local stderr_file
+  stderr_file="$(mktemp)"
+  if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$stderr_file"; then
+    rm -f "$stderr_file"
+    return 1
+  fi
+  if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$stderr_file"; then
+    rm -f "$stderr_file"
+    return 0
+  fi
+  cat "$stderr_file" >&2
+  rm -f "$stderr_file"
+  return 2
+}
+
 assert_legacy_root_released() {
   local failure_marker="${1:-NO_TERRAFORM_PLAN_CREATED}"
   local legacy_state_identity
@@ -42,8 +59,17 @@ assert_legacy_root_released() {
       printf '%s\n' "$failure_marker" >&2
       exit 1
     fi
-    if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-      printf 'ERROR: ROOT_STATE_UNEXPECTEDLY_EXISTS=%s\n' "$root_state_uri" >&2
+    if classify_absent_gcs_object "$root_state_uri"; then
+      :
+    else
+      case "$?" in
+        1)
+          printf 'ERROR: ROOT_STATE_UNEXPECTEDLY_EXISTS=%s\n' "$root_state_uri" >&2
+          ;;
+        *)
+          printf 'ERROR: ROOT_STATE_ABSENCE_CHECK_FAILED=%s\n' "$root_state_uri" >&2
+          ;;
+      esac
       printf '%s\n' "$failure_marker" >&2
       exit 1
     fi
