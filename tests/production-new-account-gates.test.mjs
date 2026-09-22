@@ -47,15 +47,17 @@ test('production deployment readiness verifies migration identity and all perman
   assert.doesNotMatch(readiness, /secrets versions access/);
 });
 
-test('new-account secret inventory includes migration but excludes the unused Maps server key', async () => {
+test('new-account secret contract retains the Maps server key required by production Google config', async () => {
   const inventory = await read('infra/secrets/required-secrets.yaml');
   const bootstrapVars = await read('infra/iac/bootstrap/variables.tf');
   const readiness = await read('scripts/validate-production-deployment-readiness.sh');
   const googleGate = await read('.github/workflows/google-production-readiness.yml');
   const live = await read('scripts/production-operator-live-validation.sh');
+  const maps = await read('config/google/maps.ts');
   assert.match(inventory, /DATABASE_MIGRATION_URL/);
+  assert.match(maps, /requireEnvironment\("GOOGLE_MAPS_SERVER_API_KEY"/);
   for (const source of [inventory, bootstrapVars, readiness, googleGate, live]) {
-    assert.doesNotMatch(source, /GOOGLE_MAPS_SERVER_API_KEY/);
+    assert.match(source, /GOOGLE_MAPS_SERVER_API_KEY/);
   }
 });
 
