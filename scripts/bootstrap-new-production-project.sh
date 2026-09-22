@@ -188,16 +188,33 @@ verify_state_bucket_policy() {
   jq -e --arg project "$GOOGLE_CLOUD_PROJECT" --arg deployer "$allowed_deployer" '
     [
       .bindings[]? as $binding
-      | $binding.members[]?
+      | $binding.members[]? as $member
       | select(
-          . != ("projectOwner:" + $project) and
-          . != ("projectEditor:" + $project) and
-          . != ("projectViewer:" + $project) and
-          . != ("serviceAccount:" + $deployer)
+          (
+            ($binding.role == "roles/storage.legacyBucketReader" or
+             $binding.role == "roles/storage.legacyObjectReader") and
+            $member == ("projectViewer:" + $project) and
+            (($binding.condition // null) == null)
+          ) or
+          (
+            ($binding.role == "roles/storage.legacyBucketOwner" or
+             $binding.role == "roles/storage.legacyObjectOwner") and
+            (
+              $member == ("projectEditor:" + $project) or
+              $member == ("projectOwner:" + $project)
+            ) and
+            (($binding.condition // null) == null)
+          ) or
+          (
+            $binding.role == "roles/storage.objectAdmin" and
+            $member == ("serviceAccount:" + $deployer) and
+            (($binding.condition // null) == null)
+          )
+          | not
         )
     ] | length == 0
   ' "$policy_json" >/dev/null || {
-    echo 'ERROR: Terraform state bucket contains an unexpected IAM principal.' >&2
+    echo 'ERROR: Terraform state bucket contains an unexpected IAM role/member binding.' >&2
     rm -f "$policy_json"
     return 1
   }
