@@ -98,7 +98,10 @@ bootstrap_configuration_sha256() {
   digest_input="$(mktemp)"
   for file in main.tf variables.tf outputs.tf versions.tf .terraform.lock.hcl; do
     test -f "$BOOTSTRAP_TF_DIR/$file"
-    sha256sum "$BOOTSTRAP_TF_DIR/$file" >>"$digest_input"
+    (
+      cd "$BOOTSTRAP_TF_DIR"
+      sha256sum "$file"
+    ) >>"$digest_input"
   done
   sha256sum "$digest_input" | awk '{print $1}'
   rm -f "$digest_input"
