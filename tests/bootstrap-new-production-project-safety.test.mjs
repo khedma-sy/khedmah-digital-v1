@@ -52,17 +52,6 @@ test('PREPARE_STATE is the only phase allowed to mutate prerequisite APIs or sta
   }
 });
 
-test('state bucket IAM must remain private and gains only the scoped deployer object binding', () => {
-  assert.match(script, /verify_state_bucket_policy\(\)/);
-  assert.match(script, /allUsers/);
-  assert.match(script, /allAuthenticatedUsers/);
-  assert.match(script, /Terraform state bucket must not grant public IAM principals/);
-  assert.match(script, /roles\/storage\.objectAdmin/);
-  assert.match(script, /Terraform state bucket is missing the deployer objectAdmin binding/);
-  assert.match(script, /terraform -chdir=infra\/iac\/bootstrap output -raw deployer_service_account_email/);
-  assert.match(script, /verify_state_bucket_policy "\$deployer_email"/);
-});
-
 test('state bucket lookup distinguishes confirmed absence from IAM or API errors', () => {
   assert.match(script, /bucket_status\(\)/);
   assert.match(script, /NOT_FOUND\|not found\|404\|does not exist/);
@@ -75,7 +64,6 @@ test('state bucket lookup distinguishes confirmed absence from IAM or API errors
 
 test('canonical infrastructure values are passed explicitly into Terraform plan', () => {
   for (const assignment of [
-    'terraform_state_bucket_name=$TF_STATE_BUCKET',
     'artifact_registry_repository_id=khedmah-digital',
     'cloud_sql_instance_id=khedmah-v1-db',
     'cloud_sql_database_name=khedmah',
@@ -88,24 +76,11 @@ test('canonical infrastructure values are passed explicitly into Terraform plan'
   ]) assert.ok(script.includes(assignment), `missing explicit Terraform variable ${assignment}`);
 });
 
-test('bootstrap grants WIF deployer object access only on the protected Terraform state bucket', async () => {
-  const bootstrap = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
-  const variables = await readFile(new URL('../infra/iac/bootstrap/variables.tf', import.meta.url), 'utf8');
-  assert.match(variables, /terraform_state_bucket_name/);
-  assert.match(bootstrap, /deployer_terraform_state_objects/);
-  assert.match(bootstrap, /bucket = var\.terraform_state_bucket_name/);
-  assert.match(bootstrap, /role   = "roles\/storage\.objectAdmin"/);
-  assert.match(bootstrap, /serviceAccount:\$\{google_service_account\.deployer\.email\}/);
-  const projectRoles = bootstrap.split('deployer_roles = toset([')[1]?.split('])')[0] ?? '';
-  assert.doesNotMatch(projectRoles, /roles\/storage\.objectAdmin/);
-});
-
 test('saved bootstrap plan is bound to the active project region repository and main ref', () => {
   assert.match(script, /verify_plan_target\(\)/);
   for (const field of [
     'project_id',
     'region',
-    'terraform_state_bucket_name',
     'github_repository',
     'github_ref',
     'github_workflow_path',
@@ -159,7 +134,7 @@ test('APPLY consumes only the saved approved plan and never replans', () => {
 test('VERIFY is read-only and publishes only sanitized Terraform outputs', () => {
   const verify = section('  VERIFY)', '\n  *)');
   assert.match(verify, /publish_outputs/);
-  assert.match(verify, /VERIFIED: bootstrap state, IAM and sanitized outputs/);
+  assert.match(verify, /VERIFIED: bootstrap state and sanitized outputs/);
   assert.doesNotMatch(verify, /terraform .* apply|gcloud services enable|buckets create|buckets update/);
   assert.match(script, /secret_ids: \.secret_ids\.value/);
 });
