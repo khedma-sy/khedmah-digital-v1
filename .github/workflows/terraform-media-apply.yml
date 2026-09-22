@@ -16,11 +16,11 @@ on:
         required: true
         type: string
       expected_root_lineage:
-        description: Exact root-state lineage
+        description: Exact root-state lineage, or ABSENT for the new-account root
         required: true
         type: string
       expected_root_serial:
-        description: Exact root-state serial
+        description: Exact root-state serial, or 0 when root lineage is ABSENT
         required: true
         type: string
       expected_media_lineage:
@@ -96,6 +96,13 @@ jobs:
           test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
           test "$EXPECTED_ROOT_LINEAGE" = "$APPROVED_ROOT_LINEAGE"
           test "$EXPECTED_ROOT_SERIAL" = "$APPROVED_ROOT_SERIAL"
+          if [[ "$APPROVED_ROOT_LINEAGE" == "ABSENT" ]]; then
+            test "$APPROVED_ROOT_SERIAL" = "0"
+            echo "ROOT_STATE_ABSENT=true" >> "$GITHUB_ENV"
+          else
+            test "$APPROVED_ROOT_LINEAGE" != "ABSENT"
+            echo "ROOT_STATE_ABSENT=false" >> "$GITHUB_ENV"
+          fi
           test "$EXPECTED_MEDIA_LINEAGE" = "$APPROVED_MEDIA_LINEAGE"
           test "$EXPECTED_MEDIA_SERIAL" = "$APPROVED_MEDIA_SERIAL"
           if [[ "$APPROVED_MEDIA_LINEAGE" == "ABSENT" ]]; then
@@ -175,12 +182,20 @@ jobs:
           media_state="$(mktemp)"
           trap 'rm -rf "$root_data" "$media_data"; rm -f "$root_state" "$media_state" /tmp/apply-plan.json' EXIT
 
-          TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
-            -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
-            -backend-config="prefix=khedmah/production/root"
-          TF_DATA_DIR="$root_data" terraform -chdir=infra/iac state pull > "$root_state"
-          jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
-            '.lineage == $lineage and .serial == $serial' "$root_state"
+          root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
+          if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
+            if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
+              echo "ERROR: ROOT_STATE_UNEXPECTEDLY_EXISTS" >&2
+              exit 1
+            fi
+          else
+            TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
+              -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
+              -backend-config="prefix=khedmah/production/root"
+            TF_DATA_DIR="$root_data" terraform -chdir=infra/iac state pull > "$root_state"
+            jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
+              '.lineage == $lineage and .serial == $serial' "$root_state"
+          fi
 
           media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
           export TF_DATA_DIR="$media_data"
@@ -232,7 +247,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
           media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
+          if [[ "$ROOT_STATE_ABSENT" == "true" ]] &&
+            gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
+            echo "ERROR: ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY" >&2
+            exit 1
+          fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
