@@ -97,11 +97,11 @@ for service in "$BACKEND_SERVICE" "$FRONTEND_SERVICE"; do
     missing_services+=("$service")
   fi
 done
-if (( ${#missing_services[@]} > 0 )) && [[ "${ALLOW_FIRST_PRODUCTION_DEPLOY:-false}" != "true" ]]; then
-  echo "ERROR: Cloud Run services are missing: ${missing_services[*]}" >&2
+if (( ${#missing_services[@]} == 1 )); then
+  echo "ERROR: Production Cloud Run service pair is inconsistent; exactly one service is missing: ${missing_services[*]}" >&2
   exit 1
 fi
-if (( ${#missing_services[@]} > 0 )); then
+if (( ${#missing_services[@]} == 2 )); then
   echo "READY: FIRST_DEPLOY_MISSING_SERVICES=${missing_services[*]}"
 else
   echo "READY: CLOUD_RUN_SERVICES=${BACKEND_SERVICE},${FRONTEND_SERVICE}"
