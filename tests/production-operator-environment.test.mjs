@@ -105,13 +105,13 @@ test('Production operator restores the previous revision pair after a failed dep
 
 test('Production deployment capture distinguishes first deploy from lookup failure', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
-  const block = workflow.split('Capture currently serving Production revision pair')[1]
+  const capture = workflow.split('Capture currently serving Production revision pair')[1]
     ?.split('\n      - name: Deploy exact main commit')[0] ?? '';
-  assert.match(block, /capture_revision\(\)/);
-  assert.match(block, /NOT_FOUND\|not found\|404/);
-  assert.match(block, /rollback safety cannot be established/);
-  assert.match(block, /Production service pair is inconsistent before deployment/);
-  assert.doesNotMatch(block, /2>\/dev\/null \|\| true/);
+  assert.match(capture, /capture_revision\(\)/);
+  assert.match(capture, /NOT_FOUND\|not found\|404/);
+  assert.match(capture, /rollback safety cannot be established/);
+  assert.doesNotMatch(capture, /2>\/dev\/null \|\| true/);
+  assert.match(workflow, /Production service pair is inconsistent before deployment/);
 });
 
 
