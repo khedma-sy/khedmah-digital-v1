@@ -91,10 +91,24 @@ gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --format='value(name)' >/dev/null
 missing_services=()
 for service in "$BACKEND_SERVICE" "$FRONTEND_SERVICE"; do
-  if ! gcloud run services describe "$service" \
+  describe_err="$(mktemp)"
+  if service_name="$(gcloud run services describe "$service" \
     --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" \
-    --format='value(metadata.name)' >/dev/null 2>&1; then
+    --format='value(metadata.name)' 2>"$describe_err")"; then
+    test "$service_name" = "$service" || {
+      echo "ERROR: Cloud Run service identity mismatch for $service." >&2
+      rm -f "$describe_err"
+      exit 1
+    }
+    rm -f "$describe_err"
+  elif grep -Eiq '(NOT_FOUND|not found|404)' "$describe_err"; then
     missing_services+=("$service")
+    rm -f "$describe_err"
+  else
+    echo "ERROR: Cloud Run service lookup failed for $service; refusing to classify it as missing." >&2
+    cat "$describe_err" >&2
+    rm -f "$describe_err"
+    exit 1
   fi
 done
 if (( ${#missing_services[@]} == 1 )); then
