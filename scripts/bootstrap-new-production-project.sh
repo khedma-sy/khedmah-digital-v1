@@ -41,6 +41,16 @@ cd "$repo_root"
   exit 4
 }
 
+origin_url="$(git remote get-url origin)"
+case "$origin_url" in
+  "https://github.com/$CANONICAL_GITHUB_REPOSITORY"|"https://github.com/$CANONICAL_GITHUB_REPOSITORY.git"|"git@github.com:$CANONICAL_GITHUB_REPOSITORY.git"|"ssh://git@github.com/$CANONICAL_GITHUB_REPOSITORY.git")
+    ;;
+  *)
+    echo "ERROR: origin must point to the canonical GitHub repository: $CANONICAL_GITHUB_REPOSITORY." >&2
+    exit 4
+    ;;
+esac
+
 git fetch origin main --quiet
 CURRENT_SHA="$(git rev-parse HEAD)"
 MAIN_SHA="$(git rev-parse origin/main)"
@@ -187,6 +197,8 @@ terraform_vars=(
 verify_plan_target() {
   local plan_json="$1"
   jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA" '
+      .complete == true and
+      .errored == false and
       .variables.project_id.value == $project and
       .variables.region.value == $region and
       .variables.source_commit_sha.value == $source_commit and
