@@ -73,3 +73,13 @@ test('existing media state still requires exact lineage and serial', () => {
   assert.match(workflow, /test "\$EXPECTED_MEDIA_LINEAGE" = "\$APPROVED_MEDIA_LINEAGE"/);
   assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "\$APPROVED_MEDIA_SERIAL"/);
 });
+
+
+test('fresh account may prove root state absence with ABSENT/0 without creating a root state', () => {
+  assert.match(workflow, /expected_root_lineage:.*ABSENT/s);
+  assert.match(workflow, /APPROVED_ROOT_LINEAGE.*ABSENT/s);
+  assert.match(workflow, /ROOT_STATE_ABSENT=true/);
+  assert.match(workflow, /ROOT_STATE_UNEXPECTEDLY_EXISTS/);
+  assert.match(workflow, /ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY/);
+  assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
+});
