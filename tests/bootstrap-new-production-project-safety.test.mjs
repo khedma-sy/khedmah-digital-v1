@@ -192,6 +192,9 @@ test('bootstrap computes a fingerprint from the canonical Terraform configuratio
     assert.ok(script.includes(`$BOOTSTRAP_TF_DIR/$file`), `missing archived fingerprint input ${file}`);
   }
   assert.match(script, /CONFIGURATION_SHA256="\$\(bootstrap_configuration_sha256\)"/);
+  assert.match(script, /cd "\$BOOTSTRAP_TF_DIR"/);
+  assert.match(script, /sha256sum "\$file"/);
+  assert.doesNotMatch(script, /sha256sum "\$BOOTSTRAP_TF_DIR\/\$file"/);
   assert.match(script, /-var=configuration_sha256=\$CONFIGURATION_SHA256/);
 });
 
