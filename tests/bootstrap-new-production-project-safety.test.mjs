@@ -107,6 +107,7 @@ test('bootstrap grants WIF deployer object access only on the protected Terrafor
   assert.match(bootstrap, /objects\/khedmah\/production\//);
   assert.match(script, /expected_prefix="projects\/_\/buckets\/\$TF_STATE_BUCKET\/objects\/khedmah\/production\/"/);
   assert.match(script, /prefix-scoped deployer objectAdmin binding/);
+  assert.match(script, /resource\.name\.startsWith\(\\\"/);
   const projectRoles = bootstrap.split('deployer_roles = toset([')[1]?.split('])')[0] ?? '';
   assert.doesNotMatch(projectRoles, /roles\/storage\.objectAdmin/);
 });
