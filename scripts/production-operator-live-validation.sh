@@ -34,6 +34,7 @@ gcp_secret_names=(
   GOOGLE_OAUTH_SERVER_CLIENT_ID
   GOOGLE_MAPS_BROWSER_API_KEY
   GOOGLE_MAPS_ANDROID_API_KEY
+  GOOGLE_MAPS_SERVER_API_KEY
   FIREBASE_API_KEY
   FIREBASE_APP_ID
   OPERATIONS_PRODUCT_ROLE_BINDINGS
@@ -49,7 +50,7 @@ for secret_name in "${gcp_secret_names[@]}"; do
   gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
 done
 
-for secret_name in FIREBASE_API_KEY FIREBASE_APP_ID GOOGLE_OAUTH_SERVER_CLIENT_ID OPERATIONS_PRODUCT_ROLE_BINDINGS; do
+for secret_name in FIREBASE_API_KEY FIREBASE_APP_ID GOOGLE_MAPS_SERVER_API_KEY GOOGLE_OAUTH_SERVER_CLIENT_ID OPERATIONS_PRODUCT_ROLE_BINDINGS; do
   gcloud secrets get-iam-policy "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format=json \
     | jq -e --arg member "serviceAccount:$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
       '.bindings[]? | select(.role == "roles/secretmanager.secretAccessor") | .members[]? | select(. == $member)' >/dev/null
