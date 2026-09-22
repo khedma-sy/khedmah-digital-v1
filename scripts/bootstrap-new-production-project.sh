@@ -192,7 +192,7 @@ verify_bootstrap_services() {
 }
 
 terraform_init() {
-  terraform -chdir=infra/iac/bootstrap init     -input=false     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
+  terraform -chdir=infra/iac/bootstrap init     -input=false     -lock=false     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
 }
 
 terraform_vars=(
