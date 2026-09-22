@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 set +x
-umask 077
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
