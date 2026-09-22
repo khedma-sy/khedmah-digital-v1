@@ -104,3 +104,13 @@ test('Production readiness binds the media bucket to the active Google project n
   assert.match(readiness, /MEDIA_PROJECT_NUMBER/);
   assert.match(readiness, /Media bucket belongs to a different Google Cloud project/);
 });
+
+
+test('manual Production deploy supplies every newly required live-readiness input', async () => {
+  const deploy = await read('scripts/google-production-deploy.sh');
+  for (const name of ['OPERATIONS_MIGRATION_SERVICE_ACCOUNT','GCS_MEDIA_BUCKET','GCS_MEDIA_LOCATION']) {
+    assert.ok(deploy.includes(name), `manual deploy is missing ${name}`);
+  }
+  assert.match(deploy, /Migration service account must belong to the active Production project/);
+  assert.match(deploy, /Media bucket location must match the active Production region/);
+});
