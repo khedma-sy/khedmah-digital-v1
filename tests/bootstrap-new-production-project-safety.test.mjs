@@ -288,3 +288,27 @@ test('VERIFY is read-only and publishes only sanitized Terraform outputs', () =>
   assert.doesNotMatch(verify, /terraform .* apply|gcloud services enable|buckets create|buckets update/);
   assert.match(script, /secret_ids: \.secret_ids\.value/);
 });
+
+
+test('bootstrap tfvars examples declare every required provenance input', async () => {
+  for (const name of ['production', 'staging']) {
+    const example = await readFile(
+      new URL(`../infra/iac/bootstrap/${name}.tfvars.example`, import.meta.url),
+      'utf8',
+    );
+    for (const required of [
+      'source_commit_sha',
+      'configuration_sha256',
+      'terraform_state_bucket_name',
+    ]) {
+      assert.match(example, new RegExp(`^\\s*${required}\\s*=`, 'm'), `${name} example missing ${required}`);
+    }
+  }
+
+  const production = await readFile(
+    new URL('../infra/iac/bootstrap/production.tfvars.example', import.meta.url),
+    'utf8',
+  );
+  assert.match(production, /scripts\/bootstrap-new-production-project\.sh/);
+  assert.match(production, /google-production-readiness\.yml/);
+});
