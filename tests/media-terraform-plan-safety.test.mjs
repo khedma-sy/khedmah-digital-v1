@@ -39,8 +39,17 @@ elif [[ "$1 $2 $3" == "iam service-accounts describe" ]]; then
 elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
   [[ "$MOCK_BUCKET_LIST_STATUS" == "success" ]] || exit 9
   printf '%s' "$MOCK_EXISTING_BUCKETS"
-elif [[ "$1 $2 $3" == "storage ls --all-versions" ]]; then
-  [[ "$MOCK_ROOT_STATE_EXISTS" == "true" ]] && exit 0 || exit 1
+elif [[ "$1 $2 $3" == "storage objects describe" ]]; then
+  if [[ "${MOCK_ROOT_STATE_LOOKUP_STATUS:-}" == "error" ]]; then
+    printf '%s\n' 'PERMISSION_DENIED: storage.objects.get' >&2
+    exit 9
+  fi
+  if [[ "$MOCK_ROOT_STATE_EXISTS" == "true" ]]; then
+    printf '%s\n' "khedmah/production/root/default.tfstate"
+    exit 0
+  fi
+  printf '%s\n' 'NOT_FOUND: object does not exist' >&2
+  exit 1
 else
   exit 1
 fi
@@ -153,6 +162,7 @@ esac
       MOCK_BUCKET_LIST_STATUS: 'success',
       MOCK_EXISTING_BUCKETS: '',
       MOCK_ROOT_STATE_EXISTS: 'false',
+      MOCK_ROOT_STATE_LOOKUP_STATUS: 'not_found',
       MOCK_PLAN_RESOURCES: '',
       MOCK_PLAN_DELETES: '',
       MOCK_PLANNED_MEDIA_IDENTITY:
@@ -275,6 +285,20 @@ test('fresh-account media plan fails if a root state appears after absence was a
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /ROOT_STATE_UNEXPECTEDLY_EXISTS/);
+  assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
+  await assert.rejects(readFile(result.publishedPlan));
+});
+
+test('fresh-account media plan rejects root-state lookup permission errors', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    LEGACY_ROOT_STATE_LINEAGE: 'ABSENT',
+    LEGACY_ROOT_STATE_SERIAL: '0',
+    MOCK_ROOT_STATE_LOOKUP_STATUS: 'error',
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /ROOT_STATE_ABSENCE_CHECK_FAILED/);
+  assert.match(result.stderr, /PERMISSION_DENIED/);
   assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
   await assert.rejects(readFile(result.publishedPlan));
 });
