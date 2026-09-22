@@ -14,6 +14,16 @@ variable "region" {
   default     = "me-central1"
 }
 
+variable "source_commit_sha" {
+  description = "Exact latest main commit that produced the reviewed bootstrap plan."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.source_commit_sha))
+    error_message = "source_commit_sha must be a full lowercase Git commit SHA."
+  }
+}
+
 variable "terraform_state_bucket_name" {
   description = "Pre-created protected GCS bucket used by the bootstrap and governed production Terraform states."
   type        = string
