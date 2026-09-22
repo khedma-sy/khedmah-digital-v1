@@ -1,9 +1,16 @@
 # Staging-only bootstrap inputs. This example is never auto-loaded by Terraform.
 # Copy it outside the repository or pass values explicitly after the isolated
 # Staging project has been selected and verified by the operator.
+# Replace every provenance placeholder with values derived from the exact commit/config
+# used to produce the reviewed staging plan.
 
 project_id = "REPLACE_WITH_ISOLATED_STAGING_PROJECT_ID"
 region     = "me-central1"
+
+# Required bootstrap provenance/state inputs. These intentionally have no defaults.
+source_commit_sha           = "REPLACE_WITH_EXACT_40_CHAR_SOURCE_COMMIT_SHA"
+configuration_sha256        = "REPLACE_WITH_EXACT_64_CHAR_BOOTSTRAP_CONFIG_SHA256"
+terraform_state_bucket_name = "REPLACE_WITH_ISOLATED_STAGING_TERRAFORM_STATE_BUCKET"
 
 artifact_registry_repository_id = "khedmah-staging"
 runtime_service_account_id       = "khedmah-v1-staging-runtime"

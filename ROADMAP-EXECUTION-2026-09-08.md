@@ -2,18 +2,18 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-آخر تحديث: **2026-09-22 — Gate B أُغلق ودُمج؛ Gate C/PR #201 يشدد Bootstrap الحساب الجديد ويغلق WIF readiness dependency، ولا توجد أي mutation على Production حتى الآن.**
+آخر تحديث: **2026-09-22 — Gate C مدمج؛ PR #203 يغلق انحراف أمثلة Bootstrap ويزيل readiness من deployer WIF قبل Gate D.**
 
-- **قفل المصدر الحالي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، ومرجع Production الوحيد هو `main`. رأس `main` الحالي المثبت هو `fc3b36925b78a5798816771aeea18e6b8efa516c`. فرع `develop` ليس مصدر إصدار Production.
-- **Gate A:** CLOSED. PR #198 دُمج بعد CI/Preview الكامل وحماية `apps/android/app/google-services.json` من Git.
-- **Gate B:** CLOSED + MERGED. PR #200 دُمج إلى `main@fc3b36925b78a5798816771aeea18e6b8efa516c` بعد Test & Verify وNode CI وGoogle validation وPreview والمراجعة النهائية.
-- **Gate C / PR #201 Draft:** Bootstrap أصبح مراحل صريحة `PREPARE_STATE → PLAN → APPLY → VERIFY`، مقفلاً على exact latest `main` والمستودع الرسمي. PLAN غير mutating، APPLY يستهلك الخطة المحفوظة نفسها فقط، والخطة مربوطة بـcommit/config fingerprint/resource inventory/WIF allowlist. Terraform المطلوب `>=1.8.0`، والمصدر المستخدم للـPLAN/APPLY يُستخرج بـ`git archive` من commit المقفل. state bucket يفشل مغلقاً عند أخطاء lookup ويطبق exact role/member allowlist.
-- **إصلاح Gate C الأخير:** التدقيق كشف أن Bootstrap WIF allowlist لم يكن يسمح لـ`.github/workflows/google-production-readiness.yml`، ما كان سيمنع Gate D من المصادقة إلى الحساب الجديد. أُضيف هذا workflow تحديداً إلى Terraform input وإلى saved-plan verifier في repair commit `5488d22b6698b016521ea651309a409cf5af3a48`، ثم أُضيف regression coverage في `fd141c38fd6a10a207aea26c5d321cd902589042`؛ وهو أيضاً آخر رأس برمجي قبل تحديث نقطة الاستئناف.
-- **دليل الرأس البرمجي `fd141c38…`:** behind `main` = 0، review threads = 0، وCodex final-head review لم يجد مشكلة كبيرة. CI/Preview للرأس كان قيد التشغيل عند كتابة هذا checkpoint؛ تحديث التوثيق الحالي يولد رأس PR أحدث ويجب اعتماد نتائج ذلك الرأس الأحدث فقط قبل الدمج.
-- **Autopsy لـGate D:** `google-production-readiness.yml` اليدوي يثبت حالياً protected GitHub configuration وFirebase/Web/Android builds، لكنه لا يصادق إلى Google Cloud ولا يثبت بنفسه live Secret Manager enabled-state/IAM/project contract. بعد دمج Gate C يجب تشديد Gate D بإضافة exact-main lock + WIF auth + read-only live new-account/Secret Manager certification، دون قراءة أو طباعة secret payloads.
-- **حالة الأسرار:** لا يوجد حتى الآن إثبات live كامل أن جميع أسرار الحساب الجديد محقونة. معيار الإثبات هو: secret exists + latest version ENABLED + correct project + required IAM + config/Firebase/Android parity، مع منع `secrets versions access` في شهادة metadata/IAM.
-- **حدود التنفيذ:** لم يُنفذ Terraform APPLY على الحساب الجديد، ولا Production deploy، ولا database migration، ولا bootstrap-admin mutation، ولا secret payload read. `TAXI_TRIPS_ENABLED=false` يبقى fail-closed.
-- **الخطوة التالية المسموحة:** إنهاء CI/Preview والمراجعة على رأس PR #201 النهائي، ثم Ready + merge فقط إذا كانت كلها خضراء و`behind=0`. بعد ذلك يبدأ Gate D hardening/live certification؛ أي تشغيل حي يبقى مقفلاً حتى توفر WIF/production environment الصحيحين وإثبات المشروع الجديد.
+- **قفل المصدر:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، وProduction من `main` فقط. رأس `main` المثبت بعد PR #201 هو `54c5fbc28fb880b8cee8baafd023e8898a8ef8ac`.
+- **Gate A:** CLOSED.
+- **Gate B:** CLOSED + MERGED.
+- **Gate C:** CLOSED + MERGED عبر PR #201 بعد CI/Preview والمراجعة النهائية. Bootstrap هو `PREPARE_STATE → PLAN → APPLY → VERIFY` ومقفل على exact latest main، canonical repository، archived Terraform source، configuration fingerprint، resource inventory، saved-plan checksum، وfail-closed state bucket/IAM.
+- **PR #203 — post-merge hotfix:** عالج P2 الأول بإكمال أمثلة tfvars بمدخلات `source_commit_sha` و`configuration_sha256` و`terraform_state_bucket_name` دون defaults. المراجعة اللاحقة كشفت P1/P2 إضافيين: مثال Production كان ما يزال يوحي بمسار Terraform مباشر يمكنه تجاوز wrapper، و`google-production-readiness.yml` كان ضمن deployer WIF رغم أنه لا يحتاج صلاحيات mutation.
+- **إصلاح P1:** `production.tfvars.example` أصبح reference inventory فقط ويمنع صراحة direct Terraform plan/apply أو تمرير provenance يدوياً؛ Production bootstrap مسموح فقط عبر `scripts/bootstrap-new-production-project.sh`.
+- **إصلاح P2 الأمني:** أزيل `.github/workflows/google-production-readiness.yml` من عقد deployer WIF الحقيقي ومن saved-plan verifier ومن مثال Production. regression tests تفرض بقاؤه خارج deployer trust.
+- **قرار Gate D:** شهادة live secrets/readiness لن تستخدم deployer. Gate D يجب أن ينشئ/يستخدم هوية **read-only verifier** مستقلة ومقيدة بالـworkflow/ref المطلوبين، وبصلاحيات metadata/IAM اللازمة فقط، دون `secretmanager.versions.access` ودون قراءة payloads.
+- **حدود التنفيذ:** لا Terraform APPLY على الحساب الجديد، لا Production deploy، لا migration، لا bootstrap-admin mutation، ولا secret payload read حتى الآن. `TAXI_TRIPS_ENABLED=false` يبقى fail-closed.
+- **الخطوة التالية:** إنهاء CI/Preview + final Codex review على رأس PR #203 بعد إصلاحي P1/P2، ثم Ready/Merge فقط إذا `behind main=0` ولا blocker. بعدها يبدأ Gate D hardening للهوية read-only وشهادة الأسرار الحية.
 
 آخر تحديث: **2026-09-15 — دُمج إصلاح استرداد checkout وربط KORA فوق دفعة المطاعم والخصومات والمندوب الأحدث؛ التحقق المحلي النهائي ناجح والدفعة جاهزة للرفع العادي المصرح به إلى PR175.**
 
