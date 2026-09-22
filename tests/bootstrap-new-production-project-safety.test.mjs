@@ -199,6 +199,12 @@ test('saved bootstrap plan is cryptographically bound to the current main commit
   assert.match(script, /\.variables\.source_commit_sha\.value == \$source_commit/);
 });
 
+test('bootstrap initialization never acquires a remote state lock', () => {
+  const init = section('terraform_init() {', '\n}');
+  assert.match(init, /terraform -chdir=infra\/iac\/bootstrap init/);
+  assert.match(init, /-lock=false/);
+});
+
 test('PLAN is non-mutating and persists a checksum-addressable reviewed plan', () => {
   const plan = section('  PLAN)', '\n  APPLY)');
   assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap plan/);
