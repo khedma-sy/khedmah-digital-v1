@@ -24,11 +24,11 @@ on:
         required: true
         type: string
       expected_media_lineage:
-        description: Exact media-state lineage
+        description: Exact media-state lineage, or ABSENT for the reviewed first apply
         required: true
         type: string
       expected_media_serial:
-        description: Exact media-state serial
+        description: Exact media-state serial, or 0 with ABSENT for the reviewed first apply
         required: true
         type: string
       confirmation:
@@ -98,6 +98,13 @@ jobs:
           test "$EXPECTED_ROOT_SERIAL" = "$APPROVED_ROOT_SERIAL"
           test "$EXPECTED_MEDIA_LINEAGE" = "$APPROVED_MEDIA_LINEAGE"
           test "$EXPECTED_MEDIA_SERIAL" = "$APPROVED_MEDIA_SERIAL"
+          if [[ "$APPROVED_MEDIA_LINEAGE" == "ABSENT" ]]; then
+            test "$APPROVED_MEDIA_SERIAL" = "0"
+            echo "FIRST_MEDIA_APPLY=true" >> "$GITHUB_ENV"
+          else
+            test "$APPROVED_MEDIA_LINEAGE" != "ABSENT"
+            echo "FIRST_MEDIA_APPLY=false" >> "$GITHUB_ENV"
+          fi
           SHA7="${APPROVED_SHA:0:7}"
           EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MEDIA_${SHA7^^}"
           test "$REQUESTED_CONFIRMATION" = "$EXPECTED_CONFIRMATION"
@@ -175,13 +182,27 @@ jobs:
           jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
             '.lineage == $lineage and .serial == $serial' "$root_state"
 
+          media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
           export TF_DATA_DIR="$media_data"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            if gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
+              echo "ERROR: MEDIA_STATE_ALREADY_EXISTS" >&2
+              exit 1
+            fi
+          fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
-          terraform -chdir=infra/iac/media state pull > "$media_state"
-          jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
-            '.lineage == $lineage and .serial == $serial' "$media_state"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            if gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
+              echo "ERROR: MEDIA_STATE_CREATED_DURING_REVIEW" >&2
+              exit 1
+            fi
+          else
+            terraform -chdir=infra/iac/media state pull > "$media_state"
+            jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
+              '.lineage == $lineage and .serial == $serial' "$media_state"
+          fi
 
           test -z "$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
 
@@ -211,9 +232,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]] &&
+            gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
+            echo "ERROR: MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY" >&2
+            exit 1
+          fi
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
       - name: Verify created private media bucket
@@ -235,4 +262,25 @@ jobs:
             any(.bindings[]?; .role == "roles/storage.objectAdmin" and any(.members[]?; . == $member)) and
             ([.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers"))
           ' "$policy_json"
+          state_data="$(mktemp -d)"
+          state_file="$(mktemp)"
+          trap 'rm -rf "$state_data"; rm -f "$state_file" "$bucket_json" "$policy_json"' EXIT
+          TF_DATA_DIR="$state_data" terraform -chdir=infra/iac/media init -input=false -reconfigure \
+            -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
+            -backend-config="prefix=khedmah/production/media" >/dev/null
+          TF_DATA_DIR="$state_data" terraform -chdir=infra/iac/media state pull > "$state_file"
+          new_lineage="$(jq -er '.lineage' "$state_file")"
+          new_serial="$(jq -er '.serial' "$state_file")"
+          [[ "$new_serial" =~ ^[0-9]+$ ]]
+          jq -e '
+            [.resources[]? | select(
+              (.type == "google_storage_bucket" and .name == "media") or
+              (.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects")
+            )] | length == 2
+          ' "$state_file" >/dev/null
+          {
+            echo "MEDIA_STATE_LINEAGE=$new_lineage"
+            echo "MEDIA_STATE_SERIAL=$new_serial"
+            echo "MEDIA_BUCKET_APPLY_VERIFIED"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo MEDIA_BUCKET_APPLY_VERIFIED
