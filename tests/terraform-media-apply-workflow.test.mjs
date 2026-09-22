@@ -83,3 +83,14 @@ test('fresh account may prove root state absence with ABSENT/0 without creating 
   assert.match(workflow, /ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY/);
   assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
 });
+
+
+test('fresh-account media apply rejects ambiguous object lookup failures', () => {
+  assert.match(workflow, /gcloud storage objects describe/);
+  assert.match(workflow, /ROOT_STATE_UNEXPECTEDLY_EXISTS_LOOKUP_FAILED/);
+  assert.match(workflow, /MEDIA_STATE_ALREADY_EXISTS_LOOKUP_FAILED/);
+  assert.match(workflow, /MEDIA_STATE_CREATED_DURING_REVIEW_LOOKUP_FAILED/);
+  assert.match(workflow, /ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY_LOOKUP_FAILED/);
+  assert.match(workflow, /MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY_LOOKUP_FAILED/);
+  assert.doesNotMatch(workflow, /gcloud storage ls --all-versions "\$(?:root|media)_state_uri" >\/dev\/null 2>&1/);
+});
