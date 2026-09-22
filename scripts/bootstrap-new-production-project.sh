@@ -172,7 +172,8 @@ verify_state_bucket() {
 }
 
 verify_state_bucket_policy() {
-  local expected_deployer="${1:-khedmah-v1-deployer@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com}"
+  local expected_deployer="${1:-}"
+  local allowed_deployer="khedmah-v1-deployer@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
   local policy_json
   policy_json="$(mktemp)"
   if ! gcloud storage buckets get-iam-policy "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$policy_json"; then
@@ -181,7 +182,7 @@ verify_state_bucket_policy() {
     return 1
   fi
 
-  jq -e --arg project "$GOOGLE_CLOUD_PROJECT" --arg deployer "$expected_deployer" '
+  jq -e --arg project "$GOOGLE_CLOUD_PROJECT" --arg deployer "$allowed_deployer" '
     [
       .bindings[]? as $binding
       | $binding.members[]?
