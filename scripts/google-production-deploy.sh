@@ -133,7 +133,7 @@ gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)' >/d
 
 npm run validate:google
 node scripts/validate-operations-readiness.mjs --production
-ALLOW_FIRST_PRODUCTION_DEPLOY=true bash scripts/validate-production-deployment-readiness.sh
+bash scripts/validate-production-deployment-readiness.sh
 
 BUILD_SERVICE_ACCOUNT="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/${OPERATIONS_BUILD_SERVICE_ACCOUNT}"
 
