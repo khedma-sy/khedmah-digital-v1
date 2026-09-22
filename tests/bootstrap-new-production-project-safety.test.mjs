@@ -168,7 +168,7 @@ test('saved bootstrap plan must be complete and non-errored', () => {
 
 test('bootstrap computes a fingerprint from the canonical Terraform configuration files', () => {
   assert.match(script, /bootstrap_configuration_sha256\(\)/);
-  for (const file of ['main.tf', 'variables.tf', 'outputs.tf', 'versions.tf']) {
+  for (const file of ['main.tf', 'variables.tf', 'outputs.tf', 'versions.tf', '.terraform.lock.hcl']) {
     assert.ok(script.includes(`infra/iac/bootstrap/${file}`), `missing fingerprint input ${file}`);
   }
   assert.match(script, /CONFIGURATION_SHA256="\$\(bootstrap_configuration_sha256\)"/);
@@ -207,6 +207,8 @@ test('bootstrap initialization never acquires a remote state lock', () => {
 
 test('PLAN is non-mutating and persists a checksum-addressable reviewed plan', () => {
   const plan = section('  PLAN)', '\n  APPLY)');
+  assert.match(script, /-lockfile=readonly/);
+  assert.match(script, /infra\/iac\/bootstrap\/\.terraform\.lock\.hcl/);
   assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap plan/);
   assert.match(plan, /-lock=false/);
   assert.doesNotMatch(plan, /-lock-timeout=/);
