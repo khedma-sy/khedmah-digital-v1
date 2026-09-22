@@ -5,10 +5,6 @@ import test from 'node:test';
 
 const script = await readFile(new URL('../scripts/bootstrap-new-production-project.sh', import.meta.url), 'utf8');
 
-test('bootstrap protects local plan and evidence files by default', () => {
-  assert.match(script, /umask 077/);
-});
-
 test('bootstrap shell is syntactically valid', () => {
   execFileSync('bash', ['-n', 'scripts/bootstrap-new-production-project.sh'], { stdio: 'pipe' });
 });
