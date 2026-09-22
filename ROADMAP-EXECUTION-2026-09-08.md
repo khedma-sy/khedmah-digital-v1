@@ -2,17 +2,18 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-آخر تحديث: **2026-09-22 — Gate C دُمج إلى main، ثم كشف Codex P2 بعد الدمج في أمثلة Bootstrap؛ hotfix جارٍ قبل فتح Gate D.**
+آخر تحديث: **2026-09-22 — Gate C مدمج؛ PR #203 يغلق انحراف أمثلة Bootstrap ويزيل readiness من deployer WIF قبل Gate D.**
 
-- **قفل المصدر الحالي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، ومرجع Production الوحيد هو `main`. رأس `main` المثبت بعد دمج Gate C هو `54c5fbc28fb880b8cee8baafd023e8898a8ef8ac`. فرع `develop` ليس مصدر إصدار Production.
+- **قفل المصدر:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، وProduction من `main` فقط. رأس `main` المثبت بعد PR #201 هو `54c5fbc28fb880b8cee8baafd023e8898a8ef8ac`.
 - **Gate A:** CLOSED.
 - **Gate B:** CLOSED + MERGED.
-- **Gate C:** PR #201 دُمج بعد نجاح Test & Verify وNode CI وGoogle production readiness وPR Preview والمراجعة النهائية. Bootstrap أصبح `PREPARE_STATE → PLAN → APPLY → VERIFY`، مقفلاً على exact latest main والمستودع الرسمي، مع PLAN غير mutating وAPPLY يستهلك الخطة المحفوظة نفسها فقط.
-- **P2 post-merge:** المراجعة اللاحقة كشفت أن `production.tfvars.example` و`staging.tfvars.example` لم يذكرا المدخلات الإلزامية الجديدة `source_commit_sha` و`configuration_sha256` و`terraform_state_bucket_name`، ما يكسر المسار الموثق المباشر للموديول.
-- **Hotfix الحالي:** الفرع `fix/gate-c-bootstrap-examples-2026-09-22` يضيف المدخلات المطلوبة إلى المثالين دون إعطائها defaults، يثبت أن wrapper `scripts/bootstrap-new-production-project.sh` هو المسار المعياري للإنتاج، ويضيف `.github/workflows/google-production-readiness.yml` إلى مثال allowlist الإنتاجي. regression test جديد يفرض وجود مدخلات provenance في المثالين. آخر commit تنفيذي قبل تحديث checkpoint هو `800bfec7427509fb5afd6ab25d870762bbd547d1`.
-- **حدود التنفيذ:** لم يُنفذ Terraform APPLY على الحساب الجديد، ولا Production deploy، ولا database migration، ولا bootstrap-admin mutation، ولا secret payload read. `TAXI_TRIPS_ENABLED=false` يبقى fail-closed.
-- **Gate D:** لم يبدأ بعد. لا يوجد حتى الآن إثبات live كامل أن جميع أسرار الحساب الجديد محقونة. معيار الإثبات: secret exists + latest version ENABLED + correct project + required IAM + config/Firebase/Android parity، مع منع قراءة أو طباعة secret payloads.
-- **الخطوة التالية المسموحة:** فتح PR صغير للـhotfix الحالي، تشغيل CI/Preview + final review على رأسه، دمجه فقط إذا كان `behind main = 0` ولا توجد review blockers. بعد ذلك فقط يبدأ Gate D hardening/live secret certification.
+- **Gate C:** CLOSED + MERGED عبر PR #201 بعد CI/Preview والمراجعة النهائية. Bootstrap هو `PREPARE_STATE → PLAN → APPLY → VERIFY` ومقفل على exact latest main، canonical repository، archived Terraform source، configuration fingerprint، resource inventory، saved-plan checksum، وfail-closed state bucket/IAM.
+- **PR #203 — post-merge hotfix:** عالج P2 الأول بإكمال أمثلة tfvars بمدخلات `source_commit_sha` و`configuration_sha256` و`terraform_state_bucket_name` دون defaults. المراجعة اللاحقة كشفت P1/P2 إضافيين: مثال Production كان ما يزال يوحي بمسار Terraform مباشر يمكنه تجاوز wrapper، و`google-production-readiness.yml` كان ضمن deployer WIF رغم أنه لا يحتاج صلاحيات mutation.
+- **إصلاح P1:** `production.tfvars.example` أصبح reference inventory فقط ويمنع صراحة direct Terraform plan/apply أو تمرير provenance يدوياً؛ Production bootstrap مسموح فقط عبر `scripts/bootstrap-new-production-project.sh`.
+- **إصلاح P2 الأمني:** أزيل `.github/workflows/google-production-readiness.yml` من عقد deployer WIF الحقيقي ومن saved-plan verifier ومن مثال Production. regression tests تفرض بقاؤه خارج deployer trust.
+- **قرار Gate D:** شهادة live secrets/readiness لن تستخدم deployer. Gate D يجب أن ينشئ/يستخدم هوية **read-only verifier** مستقلة ومقيدة بالـworkflow/ref المطلوبين، وبصلاحيات metadata/IAM اللازمة فقط، دون `secretmanager.versions.access` ودون قراءة payloads.
+- **حدود التنفيذ:** لا Terraform APPLY على الحساب الجديد، لا Production deploy، لا migration، لا bootstrap-admin mutation، ولا secret payload read حتى الآن. `TAXI_TRIPS_ENABLED=false` يبقى fail-closed.
+- **الخطوة التالية:** إنهاء CI/Preview + final Codex review على رأس PR #203 بعد إصلاحي P1/P2، ثم Ready/Merge فقط إذا `behind main=0` ولا blocker. بعدها يبدأ Gate D hardening للهوية read-only وشهادة الأسرار الحية.
 
 آخر تحديث: **2026-09-15 — دُمج إصلاح استرداد checkout وربط KORA فوق دفعة المطاعم والخصومات والمندوب الأحدث؛ التحقق المحلي النهائي ناجح والدفعة جاهزة للرفع العادي المصرح به إلى PR175.**
 
