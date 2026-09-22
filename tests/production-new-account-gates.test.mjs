@@ -54,7 +54,9 @@ test('new-account secret contract retains the Maps server key required by produc
   const googleGate = await read('.github/workflows/google-production-readiness.yml');
   const live = await read('scripts/production-operator-live-validation.sh');
   const maps = await read('config/google/maps.ts');
+  const productionEnv = await read('.env.production');
   assert.match(inventory, /DATABASE_MIGRATION_URL/);
+  assert.match(productionEnv, /^GOOGLE_MAPS_SERVER_API_KEY=$/m);
   assert.match(maps, /requireEnvironment\("GOOGLE_MAPS_SERVER_API_KEY"/);
   for (const source of [inventory, bootstrapVars, readiness, googleGate, live]) {
     assert.match(source, /GOOGLE_MAPS_SERVER_API_KEY/);
