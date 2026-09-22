@@ -61,6 +61,24 @@ test "$CURRENT_SHA" = "$MAIN_SHA" || {
 }
 SHA7="${CURRENT_SHA:0:7}"
 
+bootstrap_configuration_sha256() {
+  local file
+  local digest_input
+  digest_input="$(mktemp)"
+  for file in \
+    infra/iac/bootstrap/main.tf \
+    infra/iac/bootstrap/variables.tf \
+    infra/iac/bootstrap/outputs.tf \
+    infra/iac/bootstrap/versions.tf; do
+    test -f "$file"
+    sha256sum "$file" >>"$digest_input"
+  done
+  sha256sum "$digest_input" | awk '{print $1}'
+  rm -f "$digest_input"
+}
+CONFIGURATION_SHA256="$(bootstrap_configuration_sha256)"
+[[ "$CONFIGURATION_SHA256" =~ ^[0-9a-f]{64}$ ]]
+
 gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)' >/dev/null
 gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
 
@@ -178,6 +196,7 @@ terraform_vars=(
   "-var=project_id=$GOOGLE_CLOUD_PROJECT"
   "-var=region=$GOOGLE_CLOUD_REGION"
   "-var=source_commit_sha=$CURRENT_SHA"
+  "-var=configuration_sha256=$CONFIGURATION_SHA256"
   "-var=terraform_state_bucket_name=$TF_STATE_BUCKET"
   "-var=artifact_registry_repository_id=khedmah-digital"
   "-var=cloud_sql_instance_id=khedmah-v1-db"
@@ -196,12 +215,13 @@ terraform_vars=(
 
 verify_plan_target() {
   local plan_json="$1"
-  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA" '
+  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA"     --arg configuration_sha256 "$CONFIGURATION_SHA256" '
       .complete == true and
       .errored == false and
       .variables.project_id.value == $project and
       .variables.region.value == $region and
       .variables.source_commit_sha.value == $source_commit and
+      .variables.configuration_sha256.value == $configuration_sha256 and
       .variables.terraform_state_bucket_name.value == $state_bucket and
       .variables.github_repository.value == $repository and
       .variables.github_ref.value == "refs/heads/main" and
@@ -244,6 +264,16 @@ verify_plan_target() {
         "OPERATIONS_PRODUCT_ROLE_BINDINGS",
         "RESEND_API_KEY"
       ] | sort))
+      and
+      ([.planned_values.root_module.resources[]? | select(.address == "terraform_data.bootstrap_provenance")] | length == 1) and
+      (
+        .planned_values.root_module.resources[]
+        | select(.address == "terraform_data.bootstrap_provenance")
+        | .values.input.source_commit_sha == $source_commit and
+          .values.input.configuration_sha256 == $configuration_sha256 and
+          .values.input.github_repository == $repository and
+          .values.input.terraform_state_bucket == $state_bucket
+      )
     ' "$plan_json" >/dev/null || {
       echo 'ERROR: bootstrap plan target does not match the canonical project/infrastructure/WIF/secret contract.' >&2
       return 1
