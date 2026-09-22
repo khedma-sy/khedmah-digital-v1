@@ -102,6 +102,11 @@ test('bootstrap grants WIF deployer object access only on the protected Terrafor
   assert.match(bootstrap, /bucket = var\.terraform_state_bucket_name/);
   assert.match(bootstrap, /role   = "roles\/storage\.objectAdmin"/);
   assert.match(bootstrap, /serviceAccount:\$\{google_service_account\.deployer\.email\}/);
+  assert.match(bootstrap, /Khedmah production Terraform state only/);
+  assert.match(bootstrap, /resource\.name\.startsWith/);
+  assert.match(bootstrap, /objects\/khedmah\/production\//);
+  assert.match(script, /expected_prefix="projects\/_\/buckets\/\$TF_STATE_BUCKET\/objects\/khedmah\/production\/"/);
+  assert.match(script, /prefix-scoped deployer objectAdmin binding/);
   const projectRoles = bootstrap.split('deployer_roles = toset([')[1]?.split('])')[0] ?? '';
   assert.doesNotMatch(projectRoles, /roles\/storage\.objectAdmin/);
 });
