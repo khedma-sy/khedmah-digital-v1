@@ -1,27 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 set +x
+umask 077
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
-GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-khedma-sy/khedmah-digital-v1}"
+CANONICAL_GITHUB_REPOSITORY="khedma-sy/khedmah-digital-v1"
+GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$CANONICAL_GITHUB_REPOSITORY}"
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-${GOOGLE_CLOUD_PROJECT}-khedmah-tfstate}"
+TF_STATE_LOCATION="${TF_STATE_LOCATION:-$GOOGLE_CLOUD_REGION}"
 TF_STATE_PREFIX="${TF_STATE_PREFIX:-khedmah/production/bootstrap}"
-BOOTSTRAP_APPLY="${BOOTSTRAP_APPLY:-false}"
+BOOTSTRAP_MODE="${BOOTSTRAP_MODE:-PLAN}"
+BOOTSTRAP_PLAN_FILE="${BOOTSTRAP_PLAN_FILE:-}"
+BOOTSTRAP_PLAN_SHA256="${BOOTSTRAP_PLAN_SHA256:-}"
+BOOTSTRAP_CONFIRMATION="${BOOTSTRAP_CONFIRMATION:-}"
 
 legacy_project="project-""94512a0e-1a5e-4bdb-87f"
 legacy_number="774201""339973"
+test "$GITHUB_REPOSITORY" = "$CANONICAL_GITHUB_REPOSITORY" || {
+  echo "ERROR: bootstrap repository must be $CANONICAL_GITHUB_REPOSITORY." >&2
+  exit 2
+}
 [[ "$GOOGLE_CLOUD_PROJECT" != *"$legacy_project"* && "$GOOGLE_CLOUD_PROJECT" != *"$legacy_number"* ]] || {
   echo 'ERROR: refusing to bootstrap the legacy Google project.' >&2
   exit 2
 }
 
-for command_name in gcloud terraform git jq; do
+for command_name in gcloud terraform git jq sha256sum tar; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "ERROR: missing required command: $command_name" >&2
     exit 3
   }
 done
+
+terraform_version="$(terraform version -json | jq -r '.terraform_version // empty')"
+[[ "$terraform_version" =~ ^([0-9]+)\.([0-9]+)(\.[0-9]+)?([+-].*)?$ ]] || {
+  echo "ERROR: unable to determine Terraform version." >&2
+  exit 3
+}
+terraform_major="${BASH_REMATCH[1]}"
+terraform_minor="${BASH_REMATCH[2]}"
+if (( terraform_major < 1 || (terraform_major == 1 && terraform_minor < 8) )); then
+  echo "ERROR: Terraform 1.8.0 or newer is required for bootstrap plan completeness checks. Detected: $terraform_version" >&2
+  exit 3
+fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
@@ -30,6 +52,62 @@ cd "$repo_root"
   echo 'ERROR: bootstrap requires a clean repository checkout.' >&2
   exit 4
 }
+
+origin_url="$(git remote get-url origin)"
+case "$origin_url" in
+  "https://github.com/$CANONICAL_GITHUB_REPOSITORY"|"https://github.com/$CANONICAL_GITHUB_REPOSITORY.git"|"git@github.com:$CANONICAL_GITHUB_REPOSITORY.git"|"ssh://git@github.com/$CANONICAL_GITHUB_REPOSITORY.git")
+    ;;
+  *)
+    echo "ERROR: origin must point to the canonical GitHub repository: $CANONICAL_GITHUB_REPOSITORY." >&2
+    exit 4
+    ;;
+esac
+
+git fetch origin main --quiet
+CURRENT_SHA="$(git rev-parse HEAD)"
+MAIN_SHA="$(git rev-parse origin/main)"
+[[ "$CURRENT_SHA" =~ ^[0-9a-f]{40}$ ]]
+test "$CURRENT_SHA" = "$MAIN_SHA" || {
+  echo 'ERROR: bootstrap is locked to the exact latest origin/main commit.' >&2
+  exit 4
+}
+SHA7="${CURRENT_SHA:0:7}"
+
+bootstrap_source_root="$(mktemp -d)"
+plan_json_tmp=""
+cleanup_bootstrap() {
+  rm -rf "$bootstrap_source_root"
+  if [[ -n "$plan_json_tmp" ]]; then
+    rm -f "$plan_json_tmp"
+  fi
+}
+trap cleanup_bootstrap EXIT
+
+git archive --format=tar "$CURRENT_SHA" infra/iac/bootstrap | tar -xf - -C "$bootstrap_source_root"
+BOOTSTRAP_TF_DIR="$bootstrap_source_root/infra/iac/bootstrap"
+for source_file in main.tf variables.tf outputs.tf versions.tf .terraform.lock.hcl; do
+  test -f "$BOOTSTRAP_TF_DIR/$source_file" || {
+    echo "ERROR: canonical bootstrap source is incomplete in commit $CURRENT_SHA: $source_file" >&2
+    exit 4
+  }
+done
+
+bootstrap_configuration_sha256() {
+  local file
+  local digest_input
+  digest_input="$(mktemp)"
+  for file in main.tf variables.tf outputs.tf versions.tf .terraform.lock.hcl; do
+    test -f "$BOOTSTRAP_TF_DIR/$file"
+    (
+      cd "$BOOTSTRAP_TF_DIR"
+      sha256sum "$file"
+    ) >>"$digest_input"
+  done
+  sha256sum "$digest_input" | awk '{print $1}'
+  rm -f "$digest_input"
+}
+CONFIGURATION_SHA256="$(bootstrap_configuration_sha256)"
+[[ "$CONFIGURATION_SHA256" =~ ^[0-9a-f]{64}$ ]]
 
 gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectId)' >/dev/null
 gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
@@ -40,60 +118,439 @@ billing_enabled="$(gcloud billing projects describe "$GOOGLE_CLOUD_PROJECT" --fo
   exit 5
 }
 
-gcloud services enable serviceusage.googleapis.com storage.googleapis.com   --project "$GOOGLE_CLOUD_PROJECT" --quiet
+bucket_status() {
+  local output_file error_file
+  output_file="$(mktemp)"
+  error_file="$(mktemp)"
+  if gcloud storage buckets describe "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$output_file" 2>"$error_file"; then
+    rm -f "$error_file"
+    cat "$output_file"
+    rm -f "$output_file"
+    return 0
+  fi
+  if grep -Eiq '(NOT_FOUND|not found|404|does not exist)' "$error_file"; then
+    rm -f "$output_file" "$error_file"
+    return 10
+  fi
+  echo 'ERROR: Terraform state bucket lookup failed; refusing to classify it as absent.' >&2
+  cat "$error_file" >&2
+  rm -f "$output_file" "$error_file"
+  return 11
+}
 
-if ! gcloud storage buckets describe "gs://$TF_STATE_BUCKET"   --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null 2>&1; then
-  gcloud storage buckets create "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT"     --location "$GOOGLE_CLOUD_REGION"     --uniform-bucket-level-access     --public-access-prevention     --quiet
-fi
+verify_state_bucket() {
+  local bucket_json expected_project_number bucket_project_number
+  bucket_json="$(mktemp)"
+  if bucket_status >"$bucket_json"; then
+    :
+  else
+    local status=$?
+    rm -f "$bucket_json"
+    if [[ "$status" -eq 10 ]]; then
+      echo 'ERROR: Terraform state bucket does not exist. Run PREPARE_STATE first.' >&2
+    fi
+    return 1
+  fi
 
-gcloud storage buckets update "gs://$TF_STATE_BUCKET"   --project "$GOOGLE_CLOUD_PROJECT"   --uniform-bucket-level-access   --public-access-prevention   --versioning   --quiet
+  expected_project_number="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+  bucket_project_number="$(jq -r '.projectNumber // .project_number // empty' "$bucket_json")"
+  [[ "$expected_project_number" =~ ^[0-9]+$ ]]
+  test "$bucket_project_number" = "$expected_project_number" || {
+    echo 'ERROR: Terraform state bucket belongs to a different Google Cloud project.' >&2
+    rm -f "$bucket_json"
+    return 1
+  }
 
-plan_file="$(mktemp -t khedmah-production-bootstrap.XXXXXX.tfplan)"
-trap 'rm -f "$plan_file"' EXIT
+  jq -e --arg bucket "$TF_STATE_BUCKET" --arg location "${TF_STATE_LOCATION^^}" '
+    .name == $bucket and .location == $location and
+    ((.uniform_bucket_level_access == true) or (.iamConfiguration.uniformBucketLevelAccess.enabled == true)) and
+    ((.public_access_prevention == "enforced") or (.iamConfiguration.publicAccessPrevention == "enforced")) and
+    ((.versioning_enabled == true) or (.versioning.enabled == true))
+  ' "$bucket_json" >/dev/null || {
+    echo 'ERROR: Terraform state bucket protections or location do not match the approved contract.' >&2
+    rm -f "$bucket_json"
+    return 1
+  }
+  rm -f "$bucket_json"
+}
 
-terraform -chdir=infra/iac/bootstrap init   -input=false   -reconfigure   -backend-config="bucket=$TF_STATE_BUCKET"   -backend-config="prefix=$TF_STATE_PREFIX"
+verify_state_bucket_policy() {
+  local expected_deployer="${1:-}"
+  local allowed_deployer="khedmah-v1-deployer@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+  local policy_json
+  policy_json="$(mktemp)"
+  if ! gcloud storage buckets get-iam-policy "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$policy_json"; then
+    echo 'ERROR: unable to read Terraform state bucket IAM policy.' >&2
+    rm -f "$policy_json"
+    return 1
+  fi
 
-terraform -chdir=infra/iac/bootstrap validate
+  jq -e --arg project "$GOOGLE_CLOUD_PROJECT" --arg deployer "$allowed_deployer" '
+    [
+      .bindings[]? as $binding
+      | $binding.members[]? as $member
+      | select(
+          (
+            ($binding.role == "roles/storage.legacyBucketReader" or
+             $binding.role == "roles/storage.legacyObjectReader") and
+            $member == ("projectViewer:" + $project) and
+            (($binding.condition // null) == null)
+          ) or
+          (
+            ($binding.role == "roles/storage.legacyBucketOwner" or
+             $binding.role == "roles/storage.legacyObjectOwner") and
+            (
+              $member == ("projectEditor:" + $project) or
+              $member == ("projectOwner:" + $project)
+            ) and
+            (($binding.condition // null) == null)
+          ) or
+          (
+            $binding.role == "roles/storage.objectAdmin" and
+            $member == ("serviceAccount:" + $deployer) and
+            (($binding.condition // null) == null)
+          )
+          | not
+        )
+    ] | length == 0
+  ' "$policy_json" >/dev/null || {
+    echo 'ERROR: Terraform state bucket contains an unexpected IAM role/member binding.' >&2
+    rm -f "$policy_json"
+    return 1
+  }
 
-terraform -chdir=infra/iac/bootstrap plan \
-  -input=false \
-  -lock-timeout=60s \
-  -out="$plan_file" \
-  -var="project_id=$GOOGLE_CLOUD_PROJECT" \
-  -var="region=$GOOGLE_CLOUD_REGION" \
-  -var="github_repository=$GITHUB_REPOSITORY" \
-  -var='github_workflow_path=.github/workflows/production-operator-new-account.yml' \
-  -var='github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/production-database-role-bootstrap.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml",".github/workflows/android-release-certification.yml"]' \
-  -var='github_ref=refs/heads/main'
+  if [[ -n "$expected_deployer" ]]; then
+    jq -e --arg member "serviceAccount:$expected_deployer" '
+      any(.bindings[]?;
+        .role == "roles/storage.objectAdmin" and
+        any(.members[]?; . == $member) and
+        ((.condition // null) == null)
+      )
+    ' "$policy_json" >/dev/null || {
+      echo 'ERROR: Terraform state bucket is missing the bucket-scoped deployer objectAdmin binding.' >&2
+      rm -f "$policy_json"
+      return 1
+    }
+  fi
+  rm -f "$policy_json"
+}
 
-echo "READY: BOOTSTRAP_PLAN=$plan_file"
-echo "READY: TF_STATE_BUCKET=$TF_STATE_BUCKET"
-echo "READY: TF_STATE_PREFIX=$TF_STATE_PREFIX"
+verify_bootstrap_services() {
+  local enabled_apis
+  enabled_apis="$(gcloud services list --enabled --project "$GOOGLE_CLOUD_PROJECT" --format='value(config.name)')"
+  for api in serviceusage.googleapis.com storage.googleapis.com; do
+    grep -F -x -- "$api" <<<"$enabled_apis" >/dev/null || {
+      echo "ERROR: required bootstrap prerequisite API is not enabled: $api" >&2
+      return 1
+    }
+  done
+}
 
-if [[ "$BOOTSTRAP_APPLY" != "true" ]]; then
-  echo 'NO_APPLY: review the Terraform plan; rerun with BOOTSTRAP_APPLY=true only after approval.'
-  exit 0
-fi
+terraform_init() {
+  terraform -chdir="$BOOTSTRAP_TF_DIR" init     -input=false     -lock=false     -lockfile=readonly     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
+}
 
-terraform -chdir=infra/iac/bootstrap apply   -input=false   -lock-timeout=60s   "$plan_file"
+terraform_vars=(
+  "-var=project_id=$GOOGLE_CLOUD_PROJECT"
+  "-var=region=$GOOGLE_CLOUD_REGION"
+  "-var=source_commit_sha=$CURRENT_SHA"
+  "-var=configuration_sha256=$CONFIGURATION_SHA256"
+  "-var=terraform_state_bucket_name=$TF_STATE_BUCKET"
+  "-var=artifact_registry_repository_id=khedmah-digital"
+  "-var=cloud_sql_instance_id=khedmah-v1-db"
+  "-var=cloud_sql_database_name=khedmah"
+  "-var=cloud_sql_tier=db-custom-1-3840"
+  "-var=runtime_service_account_id=khedmah-v1-runtime"
+  "-var=deployer_service_account_id=khedmah-v1-deployer"
+  "-var=build_service_account_id=khedmah-v1-build"
+  "-var=migration_service_account_id=khedmah-v1-migrator"
+  "-var=github_repository=$GITHUB_REPOSITORY"
+  "-var=github_workflow_path=.github/workflows/production-operator-new-account.yml"
+  '-var=github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/production-database-role-bootstrap.yml",".github/workflows/google-production-readiness.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml",".github/workflows/android-release-certification.yml"]'
+  '-var=github_ref=refs/heads/main'
+  '-var=runtime_secret_names=["DATABASE_URL","FIREBASE_API_KEY","FIREBASE_APP_ID","GOOGLE_MAPS_BROWSER_API_KEY","GOOGLE_MAPS_SERVER_API_KEY","GOOGLE_OAUTH_SERVER_CLIENT_ID","NEXT_PUBLIC_FIREBASE_API_KEY","NEXT_PUBLIC_FIREBASE_APP_ID","NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN","NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID","NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID","NEXT_PUBLIC_FIREBASE_PROJECT_ID","NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET","OPERATIONS_PRODUCT_ROLE_BINDINGS","RESEND_API_KEY"]'
+)
 
-outputs_json="$(terraform -chdir=infra/iac/bootstrap output -json)"
-printf '%s
-' "$outputs_json" | jq '{
-  artifact_registry_repository_id: .artifact_registry_repository_id.value,
-  cloudbuild_source_bucket: .cloudbuild_source_bucket.value,
-  cloud_sql_instance_connection_name: .cloud_sql_instance_connection_name.value,
-  cloud_sql_database_name: .cloud_sql_database_name.value,
-  runtime_service_account_email: .runtime_service_account_email.value,
-  deployer_service_account_email: .deployer_service_account_email.value,
-  build_service_account_email: .build_service_account_email.value,
-  migration_service_account_email: .migration_service_account_email.value,
-  database_migration_secret_id: .database_migration_secret_id.value,
-  workload_identity_provider: .workload_identity_provider.value,
-  bootstrap_admin_secret_id: .bootstrap_admin_secret_id.value,
-  secret_ids: .secret_ids.value
-}'
+verify_plan_target() {
+  local plan_json="$1"
+  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA"     --arg configuration_sha256 "$CONFIGURATION_SHA256" '
+      .complete == true and
+      .errored == false and
+      .variables.project_id.value == $project and
+      .variables.region.value == $region and
+      .variables.source_commit_sha.value == $source_commit and
+      .variables.configuration_sha256.value == $configuration_sha256 and
+      .variables.terraform_state_bucket_name.value == $state_bucket and
+      .variables.github_repository.value == $repository and
+      .variables.github_ref.value == "refs/heads/main" and
+      .variables.github_workflow_path.value == ".github/workflows/production-operator-new-account.yml" and
+      .variables.artifact_registry_repository_id.value == "khedmah-digital" and
+      .variables.cloud_sql_instance_id.value == "khedmah-v1-db" and
+      .variables.cloud_sql_database_name.value == "khedmah" and
+      .variables.cloud_sql_tier.value == "db-custom-1-3840" and
+      .variables.runtime_service_account_id.value == "khedmah-v1-runtime" and
+      .variables.deployer_service_account_id.value == "khedmah-v1-deployer" and
+      .variables.build_service_account_id.value == "khedmah-v1-build" and
+      .variables.migration_service_account_id.value == "khedmah-v1-migrator" and
+      ((.variables.github_additional_workflow_paths.value | sort) == ([
+        ".github/workflows/android-release-certification.yml",
+        ".github/workflows/google-production-readiness.yml",
+        ".github/workflows/production-baseline-001-020.yml",
+        ".github/workflows/production-bootstrap-admin.yml",
+        ".github/workflows/production-database-role-bootstrap.yml",
+        ".github/workflows/production-migrations-025-034.yml",
+        ".github/workflows/production-operator.yml",
+        ".github/workflows/terraform-client-maps-apply.yml",
+        ".github/workflows/terraform-client-maps-plan.yml",
+        ".github/workflows/terraform-media-apply.yml",
+        ".github/workflows/terraform-media-plan.yml",
+        ".github/workflows/terraform-media-state-handoff.yml"
+      ] | sort)) and
+      ((.variables.runtime_secret_names.value | sort) == ([
+        "DATABASE_URL",
+        "FIREBASE_API_KEY",
+        "FIREBASE_APP_ID",
+        "GOOGLE_MAPS_BROWSER_API_KEY",
+        "GOOGLE_MAPS_SERVER_API_KEY",
+        "GOOGLE_OAUTH_SERVER_CLIENT_ID",
+        "NEXT_PUBLIC_FIREBASE_API_KEY",
+        "NEXT_PUBLIC_FIREBASE_APP_ID",
+        "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+        "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+        "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+        "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+        "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+        "OPERATIONS_PRODUCT_ROLE_BINDINGS",
+        "RESEND_API_KEY"
+      ] | sort))
+      and
+      (([.configuration.root_module.resources[]?.address] | sort) == ([
+        "google_project_service.bootstrap",
+        "terraform_data.bootstrap_provenance",
+        "google_storage_bucket.cloudbuild_source",
+        "google_storage_bucket_iam_member.deployer_cloudbuild_source_objects",
+        "google_sql_database_instance.postgres",
+        "google_sql_database.application",
+        "google_artifact_registry_repository.docker",
+        "google_service_account.runtime",
+        "google_service_account.deployer",
+        "google_storage_bucket_iam_member.deployer_terraform_state_objects",
+        "google_service_account.build",
+        "google_service_account.migration",
+        "google_project_iam_member.runtime_cloud_sql_client",
+        "google_project_iam_member.migration_cloud_sql_client",
+        "google_service_account_iam_member.deployer_migration_user",
+        "google_project_iam_custom_role.database_user_role_manager",
+        "google_project_iam_member.deployer_database_user_role_manager",
+        "google_project_iam_custom_role.storage_bucket_policy_viewer",
+        "google_project_iam_member.deployer_storage_bucket_policy_viewer",
+        "google_project_iam_member.deployer",
+        "google_project_iam_member.build",
+        "google_service_account_iam_member.build_runtime_user",
+        "google_storage_bucket_iam_member.build_cloudbuild_source_reader",
+        "google_secret_manager_secret.runtime",
+        "google_secret_manager_secret_iam_member.runtime",
+        "google_secret_manager_secret_iam_member.build",
+        "google_secret_manager_secret.database_migration",
+        "google_secret_manager_secret_iam_member.database_migration_accessor",
+        "google_secret_manager_secret_iam_member.database_migration_deployer_version_manager",
+        "google_secret_manager_secret_iam_member.maps_browser_deployer_version_manager",
+        "google_secret_manager_secret.maps_android",
+        "google_secret_manager_secret_iam_member.maps_android_deployer_version_manager",
+        "google_secret_manager_secret_iam_member.maps_android_deployer_accessor",
+        "google_secret_manager_secret_iam_member.oauth_server_deployer_accessor",
+        "google_secret_manager_secret.bootstrap_admin",
+        "google_secret_manager_secret_iam_member.bootstrap_admin_runtime",
+        "google_secret_manager_secret_iam_member.bootstrap_admin_deployer",
+        "google_secret_manager_secret_iam_member.bootstrap_admin_version_manager",
+        "google_iam_workload_identity_pool.github",
+        "google_iam_workload_identity_pool_provider.github",
+        "google_service_account_iam_member.github_deployer"
+      ] | sort)) and
+      (((.configuration.root_module.module_calls // {}) | length) == 0)
+      and
+      ([.planned_values.root_module.resources[]? | select(.address == "terraform_data.bootstrap_provenance")] | length == 1) and
+      (
+        .planned_values.root_module.resources[]
+        | select(.address == "terraform_data.bootstrap_provenance")
+        | .values.input.source_commit_sha == $source_commit and
+          .values.input.configuration_sha256 == $configuration_sha256 and
+          .values.input.github_repository == $repository and
+          .values.input.terraform_state_bucket == $state_bucket
+      )
+    ' "$plan_json" >/dev/null || {
+      echo 'ERROR: bootstrap plan target does not match the canonical project/infrastructure/WIF/secret contract.' >&2
+      return 1
+    }
+}
+publish_outputs() {
+  local outputs_json
+  outputs_json="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -json)"
+  printf '%s\n' "$outputs_json" | jq '{
+    artifact_registry_repository_id: .artifact_registry_repository_id.value,
+    cloudbuild_source_bucket: .cloudbuild_source_bucket.value,
+    cloud_sql_instance_connection_name: .cloud_sql_instance_connection_name.value,
+    cloud_sql_database_name: .cloud_sql_database_name.value,
+    runtime_service_account_email: .runtime_service_account_email.value,
+    deployer_service_account_email: .deployer_service_account_email.value,
+    build_service_account_email: .build_service_account_email.value,
+    migration_service_account_email: .migration_service_account_email.value,
+    database_migration_secret_id: .database_migration_secret_id.value,
+    workload_identity_provider: .workload_identity_provider.value,
+    bootstrap_admin_secret_id: .bootstrap_admin_secret_id.value,
+    secret_ids: .secret_ids.value
+  }'
+}
 
-echo 'APPLIED: bootstrap infrastructure exists in the new Google project.'
-echo 'NEXT: add secret VALUES as enabled Secret Manager versions; Terraform intentionally creates names only.'
-echo 'NEXT: set OPERATIONS_BUILD_SERVICE_ACCOUNT and OPERATIONS_MIGRATION_SERVICE_ACCOUNT from the Terraform outputs, then configure the remaining protected Production values.'
+case "$BOOTSTRAP_MODE" in
+  PREPARE_STATE)
+    expected_confirmation="PREPARE_KHEDMAH_BOOTSTRAP_STATE_${GOOGLE_CLOUD_PROJECT}_${SHA7^^}"
+    test "$BOOTSTRAP_CONFIRMATION" = "$expected_confirmation" || {
+      echo "ERROR: PREPARE_STATE requires confirmation: $expected_confirmation" >&2
+      exit 6
+    }
+
+    gcloud services enable serviceusage.googleapis.com storage.googleapis.com       --project "$GOOGLE_CLOUD_PROJECT" --quiet
+
+    bucket_json="$(mktemp)"
+    if bucket_status >"$bucket_json"; then
+      existing_location="$(jq -r '.location // empty' "$bucket_json")"
+      expected_project_number="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+      existing_project_number="$(jq -r '.projectNumber // .project_number // empty' "$bucket_json")"
+      [[ "$expected_project_number" =~ ^[0-9]+$ ]]
+      test "$existing_project_number" = "$expected_project_number" || {
+        echo 'ERROR: refusing to mutate a Terraform state bucket owned by another Google Cloud project.' >&2
+        rm -f "$bucket_json"
+        exit 6
+      }
+      test "$existing_location" = "${TF_STATE_LOCATION^^}" || {
+        echo 'ERROR: existing Terraform state bucket location cannot be changed safely.' >&2
+        rm -f "$bucket_json"
+        exit 6
+      }
+      rm -f "$bucket_json"
+    else
+      status=$?
+      rm -f "$bucket_json"
+      if [[ "$status" -ne 10 ]]; then
+        exit 6
+      fi
+      gcloud storage buckets create "gs://$TF_STATE_BUCKET"         --project "$GOOGLE_CLOUD_PROJECT"         --location "$TF_STATE_LOCATION"         --uniform-bucket-level-access         --public-access-prevention         --quiet
+    fi
+
+    gcloud storage buckets update "gs://$TF_STATE_BUCKET"       --project "$GOOGLE_CLOUD_PROJECT"       --uniform-bucket-level-access       --public-access-prevention       --versioning       --quiet
+
+    verify_bootstrap_services
+    verify_state_bucket
+    verify_state_bucket_policy
+    echo "PREPARED: TF_STATE_BUCKET=$TF_STATE_BUCKET"
+    echo "PREPARED: TF_STATE_PREFIX=$TF_STATE_PREFIX"
+    echo 'NEXT: run BOOTSTRAP_MODE=PLAN from the same exact main commit.'
+    ;;
+
+  PLAN)
+    verify_bootstrap_services
+    verify_state_bucket
+    verify_state_bucket_policy
+    terraform_init
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
+
+    if [[ -z "$BOOTSTRAP_PLAN_FILE" ]]; then
+      BOOTSTRAP_PLAN_FILE="${TMPDIR:-/tmp}/khedmah-production-bootstrap-${CURRENT_SHA}.tfplan"
+    fi
+    [[ "$BOOTSTRAP_PLAN_FILE" = /* ]] || {
+      echo 'ERROR: BOOTSTRAP_PLAN_FILE must be an absolute path.' >&2
+      exit 7
+    }
+
+    terraform -chdir="$BOOTSTRAP_TF_DIR" plan       -input=false       -lock=false       -out="$BOOTSTRAP_PLAN_FILE"       "${terraform_vars[@]}"
+
+    PLAN_SHA256="$(sha256sum "$BOOTSTRAP_PLAN_FILE" | awk '{print $1}')"
+    PLAN_JSON="${BOOTSTRAP_PLAN_FILE}.json"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" show -json "$BOOTSTRAP_PLAN_FILE" >"$PLAN_JSON"
+    verify_plan_target "$PLAN_JSON"
+    jq -e '
+      [(.resource_changes // [])[] | select(.change.actions | index("delete"))] | length == 0
+    ' "$PLAN_JSON" >/dev/null || {
+      echo 'ERROR: destructive bootstrap plan rejected.' >&2
+      exit 7
+    }
+
+    echo "READY: BOOTSTRAP_PLAN=$BOOTSTRAP_PLAN_FILE"
+    echo "READY: BOOTSTRAP_PLAN_SHA256=$PLAN_SHA256"
+    echo "READY: TF_STATE_BUCKET=$TF_STATE_BUCKET"
+    echo "READY: TF_STATE_PREFIX=$TF_STATE_PREFIX"
+    echo 'NO_APPLY: review the saved plan and checksum before APPLY.'
+    ;;
+
+  APPLY)
+    verify_bootstrap_services
+    verify_state_bucket
+    verify_state_bucket_policy
+    terraform_init
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
+
+    test -n "$BOOTSTRAP_PLAN_FILE" || {
+      echo 'ERROR: APPLY requires BOOTSTRAP_PLAN_FILE from an approved PLAN run.' >&2
+      exit 8
+    }
+    test -s "$BOOTSTRAP_PLAN_FILE" || {
+      echo 'ERROR: approved bootstrap plan file is missing or empty.' >&2
+      exit 8
+    }
+    [[ "$BOOTSTRAP_PLAN_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+      echo 'ERROR: APPLY requires the exact BOOTSTRAP_PLAN_SHA256 from PLAN.' >&2
+      exit 8
+    }
+    actual_plan_sha256="$(sha256sum "$BOOTSTRAP_PLAN_FILE" | awk '{print $1}')"
+    test "$actual_plan_sha256" = "$BOOTSTRAP_PLAN_SHA256" || {
+      echo 'ERROR: bootstrap plan checksum mismatch.' >&2
+      exit 8
+    }
+    expected_confirmation="APPLY_KHEDMAH_BOOTSTRAP_${GOOGLE_CLOUD_PROJECT}_${SHA7^^}"
+    test "$BOOTSTRAP_CONFIRMATION" = "$expected_confirmation" || {
+      echo "ERROR: APPLY requires confirmation: $expected_confirmation" >&2
+      exit 8
+    }
+
+    plan_json_tmp="$(mktemp)"
+    plan_json="$plan_json_tmp"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" show -json "$BOOTSTRAP_PLAN_FILE" >"$plan_json"
+    verify_plan_target "$plan_json"
+    jq -e '
+      [(.resource_changes // [])[] | select(.change.actions | index("delete"))] | length == 0
+    ' "$plan_json" >/dev/null || {
+      echo 'ERROR: destructive bootstrap plan rejected at APPLY.' >&2
+      exit 8
+    }
+
+    terraform -chdir="$BOOTSTRAP_TF_DIR" apply       -input=false       -lock-timeout=60s       "$BOOTSTRAP_PLAN_FILE"
+
+    deployer_email="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email)"
+    [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+    verify_state_bucket_policy "$deployer_email"
+
+    publish_outputs
+    echo 'APPLIED: bootstrap infrastructure exists in the new Google project.'
+    echo 'NEXT: inject secret VALUES as enabled Secret Manager versions; Terraform creates secret containers only.'
+    echo 'NEXT: configure protected GitHub Production variables/secrets from the sanitized Terraform outputs.'
+    ;;
+
+  VERIFY)
+    verify_bootstrap_services
+    verify_state_bucket
+    verify_state_bucket_policy
+    terraform_init
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
+    deployer_email="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email)"
+    [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+    verify_state_bucket_policy "$deployer_email"
+    publish_outputs
+    echo 'VERIFIED: bootstrap state, IAM and sanitized outputs are readable from the exact latest main commit.'
+    ;;
+
+  *)
+    echo 'ERROR: BOOTSTRAP_MODE must be one of PREPARE_STATE, PLAN, APPLY, VERIFY.' >&2
+    exit 9
+    ;;
+esac

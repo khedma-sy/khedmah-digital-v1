@@ -14,6 +14,36 @@ variable "region" {
   default     = "me-central1"
 }
 
+variable "source_commit_sha" {
+  description = "Exact latest main commit that produced the reviewed bootstrap plan."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.source_commit_sha))
+    error_message = "source_commit_sha must be a full lowercase Git commit SHA."
+  }
+}
+
+variable "configuration_sha256" {
+  description = "SHA-256 fingerprint of the canonical bootstrap Terraform configuration files."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.configuration_sha256))
+    error_message = "configuration_sha256 must be a lowercase SHA-256 digest."
+  }
+}
+
+variable "terraform_state_bucket_name" {
+  description = "Pre-created protected GCS bucket used by the bootstrap and governed production Terraform states."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.terraform_state_bucket_name))
+    error_message = "terraform_state_bucket_name must be a valid GCS bucket name."
+  }
+}
+
 variable "artifact_registry_repository_id" {
   description = "Docker Artifact Registry repository ID."
   type        = string

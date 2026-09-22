@@ -86,6 +86,15 @@ resource "google_project_service" "bootstrap" {
   disable_on_destroy = false
 }
 
+resource "terraform_data" "bootstrap_provenance" {
+  input = {
+    source_commit_sha      = var.source_commit_sha
+    configuration_sha256   = var.configuration_sha256
+    github_repository      = var.github_repository
+    terraform_state_bucket = var.terraform_state_bucket_name
+  }
+}
+
 resource "google_storage_bucket" "cloudbuild_source" {
   project                     = var.project_id
   name                        = "${var.project_id}-cloudbuild-source"
@@ -165,6 +174,12 @@ resource "google_service_account" "deployer" {
   display_name = "Khedmah V1 deployer"
 
   depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_storage_bucket_iam_member" "deployer_terraform_state_objects" {
+  bucket = var.terraform_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_service_account" "build" {
