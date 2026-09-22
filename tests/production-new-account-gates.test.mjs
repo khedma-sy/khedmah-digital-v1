@@ -33,7 +33,6 @@ test('production deployment readiness verifies migration identity and all perman
     'FIREBASE_APP_ID',
     'GOOGLE_MAPS_ANDROID_API_KEY',
     'GOOGLE_MAPS_BROWSER_API_KEY',
-    'GOOGLE_MAPS_SERVER_API_KEY',
     'GOOGLE_OAUTH_SERVER_CLIENT_ID',
     'NEXT_PUBLIC_FIREBASE_API_KEY',
     'NEXT_PUBLIC_FIREBASE_APP_ID',
@@ -48,10 +47,16 @@ test('production deployment readiness verifies migration identity and all perman
   assert.doesNotMatch(readiness, /secrets versions access/);
 });
 
-test('human-readable secret inventory includes migration and server Maps secrets', async () => {
+test('new-account secret inventory includes migration but excludes the unused Maps server key', async () => {
   const inventory = await read('infra/secrets/required-secrets.yaml');
+  const bootstrapVars = await read('infra/iac/bootstrap/variables.tf');
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  const googleGate = await read('.github/workflows/google-production-readiness.yml');
+  const live = await read('scripts/production-operator-live-validation.sh');
   assert.match(inventory, /DATABASE_MIGRATION_URL/);
-  assert.match(inventory, /GOOGLE_MAPS_SERVER_API_KEY/);
+  for (const source of [inventory, bootstrapVars, readiness, googleGate, live]) {
+    assert.doesNotMatch(source, /GOOGLE_MAPS_SERVER_API_KEY/);
+  }
 });
 
 
