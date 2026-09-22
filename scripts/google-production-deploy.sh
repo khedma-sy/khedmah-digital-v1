@@ -71,10 +71,6 @@ done
   echo 'Migration service account must belong to the active Production project.' >&2
   exit 6
 }
-[[ "$GCS_MEDIA_LOCATION" == "$GOOGLE_CLOUD_REGION" ]] || {
-  echo 'Media bucket location must match the active Production region.' >&2
-  exit 6
-}
 [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]] || {
   echo 'Cloud SQL connection must belong to the active Production project and region.' >&2
   exit 6
