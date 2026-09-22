@@ -41,8 +41,8 @@ test('handoff verifies protected root state and exact reviewed state identity', 
 test('fresh account verifies an absent root state instead of manufacturing an empty state', () => {
   assert.match(workflow, /VERIFY_EMPTY_ROOT/);
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
-  assert.match(workflow, /assert_gcs_object_absent\\(\\)/);
-  assert.match(workflow, /assert_gcs_object_absent "\\$root_state_uri" ROOT_STATE_ALREADY_EXISTS/);
+  assert.match(workflow, /assert_gcs_object_absent\(\)/);
+  assert.match(workflow, /assert_gcs_object_absent "\$root_state_uri" ROOT_STATE_ALREADY_EXISTS/);
   assert.match(workflow, /lineage=ABSENT/);
   assert.match(workflow, /serial=0/);
   assert.doesNotMatch(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT|INITIALIZE_EMPTY_ROOT/);
