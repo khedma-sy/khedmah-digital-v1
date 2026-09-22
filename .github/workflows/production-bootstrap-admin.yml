@@ -140,7 +140,8 @@ jobs:
           echo "result=$result" >> "$GITHUB_OUTPUT"
           echo "http_code=$http_code" >> "$GITHUB_OUTPUT"
 
-      - name: Remove the bootstrap secret from Cloud Run
+      - id: cleanup
+        name: Remove the bootstrap secret from Cloud Run
         if: always() && steps.bind.outcome == 'success'
         shell: bash
         run: |
@@ -152,7 +153,7 @@ jobs:
           jq -e '[.spec.template.spec.containers[0].env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0' "$service_json" >/dev/null
 
       - name: Disable the one-time bootstrap secret after account creation
-        if: always() && (steps.bootstrap.outputs.result == 'created' || steps.bootstrap.outputs.result == 'created_email_failed' || steps.bootstrap.outputs.result == 'already_complete')
+        if: always() && steps.cleanup.outcome == 'success' && (steps.bootstrap.outputs.result == 'created' || steps.bootstrap.outputs.result == 'created_email_failed' || steps.bootstrap.outputs.result == 'already_complete')
         shell: bash
         run: |
           set -euo pipefail
