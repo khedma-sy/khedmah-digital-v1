@@ -26,7 +26,7 @@ test "$GITHUB_REPOSITORY" = "$CANONICAL_GITHUB_REPOSITORY" || {
   exit 2
 }
 
-for command_name in gcloud terraform git jq sha256sum; do
+for command_name in gcloud terraform git jq sha256sum tar; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "ERROR: missing required command: $command_name" >&2
     exit 3
@@ -73,18 +73,32 @@ test "$CURRENT_SHA" = "$MAIN_SHA" || {
 }
 SHA7="${CURRENT_SHA:0:7}"
 
+bootstrap_source_root="$(mktemp -d)"
+plan_json_tmp=""
+cleanup_bootstrap() {
+  rm -rf "$bootstrap_source_root"
+  if [[ -n "$plan_json_tmp" ]]; then
+    rm -f "$plan_json_tmp"
+  fi
+}
+trap cleanup_bootstrap EXIT
+
+git archive --format=tar "$CURRENT_SHA" infra/iac/bootstrap | tar -xf - -C "$bootstrap_source_root"
+BOOTSTRAP_TF_DIR="$bootstrap_source_root/infra/iac/bootstrap"
+for source_file in main.tf variables.tf outputs.tf versions.tf .terraform.lock.hcl; do
+  test -f "$BOOTSTRAP_TF_DIR/$source_file" || {
+    echo "ERROR: canonical bootstrap source is incomplete in commit $CURRENT_SHA: $source_file" >&2
+    exit 4
+  }
+done
+
 bootstrap_configuration_sha256() {
   local file
   local digest_input
   digest_input="$(mktemp)"
-  for file in \
-    infra/iac/bootstrap/main.tf \
-    infra/iac/bootstrap/variables.tf \
-    infra/iac/bootstrap/outputs.tf \
-    infra/iac/bootstrap/versions.tf \
-    infra/iac/bootstrap/.terraform.lock.hcl; do
-    test -f "$file"
-    sha256sum "$file" >>"$digest_input"
+  for file in main.tf variables.tf outputs.tf versions.tf .terraform.lock.hcl; do
+    test -f "$BOOTSTRAP_TF_DIR/$file"
+    sha256sum "$BOOTSTRAP_TF_DIR/$file" >>"$digest_input"
   done
   sha256sum "$digest_input" | awk '{print $1}'
   rm -f "$digest_input"
@@ -158,7 +172,7 @@ verify_state_bucket() {
 }
 
 verify_state_bucket_policy() {
-  local expected_deployer="${1:-}"
+  local expected_deployer="${1:-khedmah-v1-deployer@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com}"
   local policy_json
   policy_json="$(mktemp)"
   if ! gcloud storage buckets get-iam-policy "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$policy_json"; then
@@ -167,10 +181,19 @@ verify_state_bucket_policy() {
     return 1
   fi
 
-  jq -e '
-    [.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers")
+  jq -e --arg project "$GOOGLE_CLOUD_PROJECT" --arg deployer "$expected_deployer" '
+    [
+      .bindings[]? as $binding
+      | $binding.members[]?
+      | select(
+          . != ("projectOwner:" + $project) and
+          . != ("projectEditor:" + $project) and
+          . != ("projectViewer:" + $project) and
+          . != ("serviceAccount:" + $deployer)
+        )
+    ] | length == 0
   ' "$policy_json" >/dev/null || {
-    echo 'ERROR: Terraform state bucket must not grant public IAM principals.' >&2
+    echo 'ERROR: Terraform state bucket contains an unexpected IAM principal.' >&2
     rm -f "$policy_json"
     return 1
   }
@@ -203,7 +226,7 @@ verify_bootstrap_services() {
 }
 
 terraform_init() {
-  terraform -chdir=infra/iac/bootstrap init     -input=false     -lock=false     -lockfile=readonly     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
+  terraform -chdir="$BOOTSTRAP_TF_DIR" init     -input=false     -lock=false     -lockfile=readonly     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
 }
 
 terraform_vars=(
@@ -340,7 +363,7 @@ verify_plan_target() {
 }
 publish_outputs() {
   local outputs_json
-  outputs_json="$(terraform -chdir=infra/iac/bootstrap output -json)"
+  outputs_json="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -json)"
   printf '%s\n' "$outputs_json" | jq '{
     artifact_registry_repository_id: .artifact_registry_repository_id.value,
     cloudbuild_source_bucket: .cloudbuild_source_bucket.value,
@@ -408,7 +431,7 @@ case "$BOOTSTRAP_MODE" in
     verify_state_bucket
     verify_state_bucket_policy
     terraform_init
-    terraform -chdir=infra/iac/bootstrap validate
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
 
     if [[ -z "$BOOTSTRAP_PLAN_FILE" ]]; then
       BOOTSTRAP_PLAN_FILE="${TMPDIR:-/tmp}/khedmah-production-bootstrap-${CURRENT_SHA}.tfplan"
@@ -418,11 +441,11 @@ case "$BOOTSTRAP_MODE" in
       exit 7
     }
 
-    terraform -chdir=infra/iac/bootstrap plan       -input=false       -lock=false       -out="$BOOTSTRAP_PLAN_FILE"       "${terraform_vars[@]}"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" plan       -input=false       -lock=false       -out="$BOOTSTRAP_PLAN_FILE"       "${terraform_vars[@]}"
 
     PLAN_SHA256="$(sha256sum "$BOOTSTRAP_PLAN_FILE" | awk '{print $1}')"
     PLAN_JSON="${BOOTSTRAP_PLAN_FILE}.json"
-    terraform -chdir=infra/iac/bootstrap show -json "$BOOTSTRAP_PLAN_FILE" >"$PLAN_JSON"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" show -json "$BOOTSTRAP_PLAN_FILE" >"$PLAN_JSON"
     verify_plan_target "$PLAN_JSON"
     jq -e '
       [(.resource_changes // [])[] | select(.change.actions | index("delete"))] | length == 0
@@ -443,7 +466,7 @@ case "$BOOTSTRAP_MODE" in
     verify_state_bucket
     verify_state_bucket_policy
     terraform_init
-    terraform -chdir=infra/iac/bootstrap validate
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
 
     test -n "$BOOTSTRAP_PLAN_FILE" || {
       echo 'ERROR: APPLY requires BOOTSTRAP_PLAN_FILE from an approved PLAN run.' >&2
@@ -468,9 +491,9 @@ case "$BOOTSTRAP_MODE" in
       exit 8
     }
 
-    plan_json="$(mktemp)"
-    trap 'rm -f "$plan_json"' EXIT
-    terraform -chdir=infra/iac/bootstrap show -json "$BOOTSTRAP_PLAN_FILE" >"$plan_json"
+    plan_json_tmp="$(mktemp)"
+    plan_json="$plan_json_tmp"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" show -json "$BOOTSTRAP_PLAN_FILE" >"$plan_json"
     verify_plan_target "$plan_json"
     jq -e '
       [(.resource_changes // [])[] | select(.change.actions | index("delete"))] | length == 0
@@ -479,9 +502,9 @@ case "$BOOTSTRAP_MODE" in
       exit 8
     }
 
-    terraform -chdir=infra/iac/bootstrap apply       -input=false       -lock-timeout=60s       "$BOOTSTRAP_PLAN_FILE"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" apply       -input=false       -lock-timeout=60s       "$BOOTSTRAP_PLAN_FILE"
 
-    deployer_email="$(terraform -chdir=infra/iac/bootstrap output -raw deployer_service_account_email)"
+    deployer_email="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email)"
     [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
     verify_state_bucket_policy "$deployer_email"
 
@@ -496,8 +519,8 @@ case "$BOOTSTRAP_MODE" in
     verify_state_bucket
     verify_state_bucket_policy
     terraform_init
-    terraform -chdir=infra/iac/bootstrap validate
-    deployer_email="$(terraform -chdir=infra/iac/bootstrap output -raw deployer_service_account_email)"
+    terraform -chdir="$BOOTSTRAP_TF_DIR" validate
+    deployer_email="$(terraform -chdir="$BOOTSTRAP_TF_DIR" output -raw deployer_service_account_email)"
     [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
     verify_state_bucket_policy "$deployer_email"
     publish_outputs
