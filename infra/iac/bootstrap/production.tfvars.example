@@ -1,7 +1,8 @@
-# Production new-account bootstrap inputs. Never place secret values in this file.
-# Copy outside the repository or pass TF_VAR_* values from the authenticated operator.
-# Canonical production execution is scripts/bootstrap-new-production-project.sh.
-# Replace every provenance placeholder below with values derived from the exact locked main commit.
+# REFERENCE INVENTORY ONLY — DO NOT run Terraform plan/apply directly with this file.
+# Production bootstrap MUST run only through scripts/bootstrap-new-production-project.sh.
+# Do not copy this file into an executable tfvars path and do not manually supply its
+# provenance fields through TF_VAR_*; the wrapper computes and verifies them from exact main.
+# Never place secret values in this file.
 
 project_id = "REPLACE_WITH_NEW_PRODUCTION_PROJECT_ID"
 region     = "me-central1"
@@ -24,7 +25,6 @@ github_workflow_path = ".github/workflows/production-operator-new-account.yml"
 github_ref           = "refs/heads/main"
 
 github_additional_workflow_paths = [
-  ".github/workflows/google-production-readiness.yml",
   ".github/workflows/production-migrations-025-034.yml",
   ".github/workflows/terraform-media-plan.yml",
   ".github/workflows/terraform-media-apply.yml",
