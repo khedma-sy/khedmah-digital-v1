@@ -88,6 +88,9 @@ test('fresh account may prove root state absence with ABSENT/0 without creating 
 test('fresh-account media apply rejects ambiguous object lookup failures', () => {
   assert.match(workflow, /gcloud storage objects describe/);
   assert.match(workflow, /\$\{error_label\}_LOOKUP_FAILED/);
+  assert.match(workflow, /gcloud storage ls --all-versions/);
+  assert.match(workflow, /\$\{error_label\}_ARCHIVED_GENERATIONS_PRESENT/);
+  assert.match(workflow, /\$\{error_label\}_VERSIONS_LOOKUP_FAILED/);
   for (const label of [
     'ROOT_STATE_UNEXPECTEDLY_EXISTS',
     'MEDIA_STATE_ALREADY_EXISTS',
