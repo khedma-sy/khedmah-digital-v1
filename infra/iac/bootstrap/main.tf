@@ -231,6 +231,8 @@ resource "google_project_iam_custom_role" "storage_bucket_policy_viewer" {
   permissions = [
     "storage.buckets.getIamPolicy",
   ]
+
+  depends_on = [google_project_service.bootstrap]
 }
 
 resource "google_project_iam_member" "deployer_storage_bucket_policy_viewer" {
