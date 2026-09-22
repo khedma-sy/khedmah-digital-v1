@@ -167,6 +167,7 @@ test('saved bootstrap plan is bound to the active project region repository and 
     assert.ok(script.includes(`.variables.${field}.value`), `missing plan target field ${field}`);
   }
   assert.match(script, /production-operator-new-account\.yml/);
+  assert.match(script, /google-production-readiness\.yml/);
   assert.match(script, /terraform-media-state-handoff\.yml/);
   assert.match(script, /GOOGLE_MAPS_SERVER_API_KEY/);
   assert.match(script, /db-custom-1-3840/);
@@ -175,6 +176,11 @@ test('saved bootstrap plan is bound to the active project region repository and 
   const apply = section('  APPLY)', '\n  VERIFY)');
   assert.match(plan, /verify_plan_target "\$PLAN_JSON"/);
   assert.match(apply, /verify_plan_target "\$plan_json"/);
+});
+
+test('bootstrap WIF allowlist permits the protected Google production readiness workflow', () => {
+  const matches = script.match(/\.github\/workflows\/google-production-readiness\.yml/g) ?? [];
+  assert.equal(matches.length, 2, 'readiness workflow must be in both Terraform input and saved-plan allowlist verification');
 });
 
 test('bootstrap requires origin itself to be the canonical GitHub repository', () => {
