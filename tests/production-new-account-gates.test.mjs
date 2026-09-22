@@ -53,3 +53,27 @@ test('human-readable secret inventory includes migration and server Maps secrets
   assert.match(inventory, /DATABASE_MIGRATION_URL/);
   assert.match(inventory, /GOOGLE_MAPS_SERVER_API_KEY/);
 });
+
+
+test('new-account deployer gets only the custom permission needed to read media bucket IAM', async () => {
+  const bootstrap = await read('infra/iac/bootstrap/main.tf');
+  assert.match(bootstrap, /storage_bucket_policy_viewer/);
+  assert.match(bootstrap, /storage\.buckets\.getIamPolicy/);
+  const custom = bootstrap.split('resource "google_project_iam_custom_role" "storage_bucket_policy_viewer"')[1]?.split('resource "google_project_iam_member" "deployer_storage_bucket_policy_viewer"')[0] ?? '';
+  assert.doesNotMatch(custom, /storage\.buckets\.setIamPolicy|storage\.buckets\.update|storage\.objects\./);
+});
+
+test('Production readiness verifies the private durable media bucket and runtime binding', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  assert.match(readiness, /GCS_MEDIA_BUCKET is required/);
+  assert.match(readiness, /GCS_MEDIA_LOCATION is required/);
+  assert.match(readiness, /gcloud storage buckets describe "gs:\/\/\$\{GCS_MEDIA_BUCKET\}"/);
+  assert.match(readiness, /public_access_prevention/);
+  assert.match(readiness, /uniform_bucket_level_access|uniformBucketLevelAccess/);
+  assert.match(readiness, /versioning_enabled|versioning\.enabled/);
+  assert.match(readiness, /gcloud storage buckets get-iam-policy/);
+  assert.match(readiness, /roles\/storage\.objectAdmin/);
+  assert.match(readiness, /allUsers/);
+  assert.match(readiness, /allAuthenticatedUsers/);
+  assert.doesNotMatch(readiness, /storage buckets set-iam-policy/);
+});
