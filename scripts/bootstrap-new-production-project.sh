@@ -33,6 +33,18 @@ for command_name in gcloud terraform git jq sha256sum; do
   }
 done
 
+terraform_version="$(terraform version -json | jq -r '.terraform_version // empty')"
+[[ "$terraform_version" =~ ^([0-9]+)\.([0-9]+)(\.[0-9]+)?([+-].*)?$ ]] || {
+  echo "ERROR: unable to determine Terraform version." >&2
+  exit 3
+}
+terraform_major="${BASH_REMATCH[1]}"
+terraform_minor="${BASH_REMATCH[2]}"
+if (( terraform_major < 1 || (terraform_major == 1 && terraform_minor < 8) )); then
+  echo "ERROR: Terraform 1.8.0 or newer is required for bootstrap plan completeness checks. Detected: $terraform_version" >&2
+  exit 3
+fi
+
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
