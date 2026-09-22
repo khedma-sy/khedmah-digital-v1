@@ -171,6 +171,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local stderr_file
+            stderr_file="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$stderr_file"; then
+              rm -f "$stderr_file"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$stderr_file"; then
+              rm -f "$stderr_file"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+            cat "$stderr_file" >&2
+            rm -f "$stderr_file"
+            return 1
+          }
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           test "$REQUESTED_STATE_BUCKET" != "$GCS_MEDIA_BUCKET"
           test -s "$PLAN_FILE"
@@ -184,10 +203,7 @@ jobs:
 
           root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
           if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
-            if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-              echo "ERROR: ROOT_STATE_UNEXPECTEDLY_EXISTS" >&2
-              exit 1
-            fi
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_UNEXPECTEDLY_EXISTS
           else
             TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
               -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
@@ -200,19 +216,13 @@ jobs:
           media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
           export TF_DATA_DIR="$media_data"
           if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
-            if gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
-              echo "ERROR: MEDIA_STATE_ALREADY_EXISTS" >&2
-              exit 1
-            fi
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_ALREADY_EXISTS
           fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
           if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
-            if gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
-              echo "ERROR: MEDIA_STATE_CREATED_DURING_REVIEW" >&2
-              exit 1
-            fi
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_CREATED_DURING_REVIEW
           else
             terraform -chdir=infra/iac/media state pull > "$media_state"
             jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
@@ -247,20 +257,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local stderr_file
+            stderr_file="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$stderr_file"; then
+              rm -f "$stderr_file"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$stderr_file"; then
+              rm -f "$stderr_file"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+            cat "$stderr_file" >&2
+            rm -f "$stderr_file"
+            return 1
+          }
           root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
           media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
-          if [[ "$ROOT_STATE_ABSENT" == "true" ]] &&
-            gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-            echo "ERROR: ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY" >&2
-            exit 1
+          if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY
           fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
-          if [[ "$FIRST_MEDIA_APPLY" == "true" ]] &&
-            gcloud storage ls --all-versions "$media_state_uri" >/dev/null 2>&1; then
-            echo "ERROR: MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY" >&2
-            exit 1
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY
           fi
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
