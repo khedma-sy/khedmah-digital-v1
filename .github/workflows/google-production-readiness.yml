@@ -33,6 +33,11 @@ jobs:
           test -x "$sdkmanager"
           "$sdkmanager" "platforms;android-36" "build-tools;35.0.0"
       - run: npm ci
+      - name: Verify live Production secret certification contract
+        shell: bash
+        run: |
+          bash -n scripts/validate-production-live-secret-certification.sh
+          node --test tests/google-production-readiness-live-secret-certification.test.mjs
       - name: Verify the repository Gradle Wrapper
         run: node --test tests/android-gradle-wrapper.test.mjs tests/android-apk-artifact.test.mjs
       - run: npm run validate:google

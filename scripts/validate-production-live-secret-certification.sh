@@ -112,10 +112,13 @@ test "${#permanent_secret_names[@]}" -eq 17 || {
 
 for secret_name in "${permanent_secret_names[@]}"; do
   resource_name="$(gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
-  test "$resource_name" = "projects/$project_number/secrets/$secret_name" || {
-    echo 'ERROR: Secret resource is not bound to the protected Production project.' >&2
-    exit 1
-  }
+  case "$resource_name" in
+    "projects/$GOOGLE_CLOUD_PROJECT/secrets/$secret_name"|"projects/$project_number/secrets/$secret_name") ;;
+    *)
+      echo 'ERROR: Secret resource is not bound to the protected Production project.' >&2
+      exit 1
+      ;;
+  esac
 
   state="$(gcloud secrets versions describe latest --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
   test "$state" = ENABLED || {

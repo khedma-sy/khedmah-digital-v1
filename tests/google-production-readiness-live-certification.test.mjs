@@ -46,7 +46,8 @@ test('live secret certification is metadata-only and covers the 17 permanent GCP
   assert.ok(certification.includes('gcloud secrets get-iam-policy'));
   assert.ok(certification.includes('SECRET_PAYLOADS_READ=0'));
   assert.ok(!certification.includes('secrets versions access'));
-  assert.ok(!certification.includes('BOOTSTRAP_ADMIN_SECRET\n'));
+  const permanentBlock = certification.split('permanent_secret_names=(')[1]?.split(')')[0] ?? '';
+  assert.ok(!permanentBlock.includes('BOOTSTRAP_ADMIN_SECRET'));
 });
 
 test('live secret certification binds project and active deployer before inspecting IAM', async () => {
@@ -55,6 +56,7 @@ test('live secret certification binds project and active deployer before inspect
   assert.ok(certification.includes('gcloud auth list'));
   assert.ok(certification.includes('test "$active_account" = "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT"'));
   assert.ok(certification.includes('gcloud projects describe "$GOOGLE_CLOUD_PROJECT"'));
+  assert.ok(certification.includes('projects/$GOOGLE_CLOUD_PROJECT/secrets/$secret_name'));
   assert.ok(certification.includes('projects/$project_number/secrets/$secret_name'));
 });
 
