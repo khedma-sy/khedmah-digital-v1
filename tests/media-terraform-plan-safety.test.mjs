@@ -39,6 +39,8 @@ elif [[ "$1 $2 $3" == "iam service-accounts describe" ]]; then
 elif [[ "$1 $2 $3" == "storage buckets list" ]]; then
   [[ "$MOCK_BUCKET_LIST_STATUS" == "success" ]] || exit 9
   printf '%s' "$MOCK_EXISTING_BUCKETS"
+elif [[ "$1 $2 $3" == "storage ls --all-versions" ]]; then
+  [[ "$MOCK_ROOT_STATE_EXISTS" == "true" ]] && exit 0 || exit 1
 else
   exit 1
 fi
@@ -150,6 +152,7 @@ esac
         'requested-media-bucket\tserviceAccount:runtime@khedmah-test-project.iam.gserviceaccount.com',
       MOCK_BUCKET_LIST_STATUS: 'success',
       MOCK_EXISTING_BUCKETS: '',
+      MOCK_ROOT_STATE_EXISTS: 'false',
       MOCK_PLAN_RESOURCES: '',
       MOCK_PLAN_DELETES: '',
       MOCK_PLANNED_MEDIA_IDENTITY:
@@ -248,6 +251,32 @@ test('media plan proceeds only after every state ownership check succeeds', asyn
   assert.ok(isAbsolute(invokedPlanPath));
   assert.notEqual(invokedPlanPath, result.publishedPlan);
   await readFile(result.publishedPlan);
+});
+
+test('fresh-account media plan accepts an explicitly absent root state without pulling it', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    LEGACY_ROOT_STATE_LINEAGE: 'ABSENT',
+    LEGACY_ROOT_STATE_SERIAL: '0',
+    MOCK_LEGACY_STATE_STATUS: 'failure',
+    MOCK_ROOT_STATE_EXISTS: 'false',
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /READY: MEDIA_TERRAFORM_PLAN=/);
+  await readFile(result.publishedPlan);
+});
+
+test('fresh-account media plan fails if a root state appears after absence was approved', async (t) => {
+  const result = await runPlanWithMocks(t, {
+    LEGACY_ROOT_STATE_LINEAGE: 'ABSENT',
+    LEGACY_ROOT_STATE_SERIAL: '0',
+    MOCK_ROOT_STATE_EXISTS: 'true',
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /ROOT_STATE_UNEXPECTEDLY_EXISTS/);
+  assert.match(result.stderr, /NO_TERRAFORM_PLAN_CREATED/);
+  await assert.rejects(readFile(result.publishedPlan));
 });
 
 test('media plan accepts the flat gcloud bucket protection schema used in production', async (t) => {
