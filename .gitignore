@@ -78,3 +78,4 @@ tmp/
 temp/
 *.tmp
 *.log
+apps/android/app/google-services.json
