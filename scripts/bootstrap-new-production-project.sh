@@ -5,7 +5,8 @@ umask 077
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
-GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-khedma-sy/khedmah-digital-v1}"
+CANONICAL_GITHUB_REPOSITORY="khedma-sy/khedmah-digital-v1"
+GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$CANONICAL_GITHUB_REPOSITORY}"
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-${GOOGLE_CLOUD_PROJECT}-khedmah-tfstate}"
 TF_STATE_LOCATION="${TF_STATE_LOCATION:-$GOOGLE_CLOUD_REGION}"
 TF_STATE_PREFIX="${TF_STATE_PREFIX:-khedmah/production/bootstrap}"
@@ -16,6 +17,10 @@ BOOTSTRAP_CONFIRMATION="${BOOTSTRAP_CONFIRMATION:-}"
 
 legacy_project="project-""94512a0e-1a5e-4bdb-87f"
 legacy_number="774201""339973"
+test "$GITHUB_REPOSITORY" = "$CANONICAL_GITHUB_REPOSITORY" || {
+  echo "ERROR: bootstrap repository must be $CANONICAL_GITHUB_REPOSITORY." >&2
+  exit 2
+}
 [[ "$GOOGLE_CLOUD_PROJECT" != *"$legacy_project"* && "$GOOGLE_CLOUD_PROJECT" != *"$legacy_number"* ]] || {
   echo 'ERROR: refusing to bootstrap the legacy Google project.' >&2
   exit 2
@@ -162,6 +167,7 @@ terraform_init() {
 terraform_vars=(
   "-var=project_id=$GOOGLE_CLOUD_PROJECT"
   "-var=region=$GOOGLE_CLOUD_REGION"
+  "-var=source_commit_sha=$CURRENT_SHA"
   "-var=terraform_state_bucket_name=$TF_STATE_BUCKET"
   "-var=artifact_registry_repository_id=khedmah-digital"
   "-var=cloud_sql_instance_id=khedmah-v1-db"
@@ -180,9 +186,10 @@ terraform_vars=(
 
 verify_plan_target() {
   local plan_json="$1"
-  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$GITHUB_REPOSITORY" '
+  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA" '
       .variables.project_id.value == $project and
       .variables.region.value == $region and
+      .variables.source_commit_sha.value == $source_commit and
       .variables.terraform_state_bucket_name.value == $state_bucket and
       .variables.github_repository.value == $repository and
       .variables.github_ref.value == "refs/heads/main" and
@@ -310,7 +317,7 @@ case "$BOOTSTRAP_MODE" in
       exit 7
     }
 
-    terraform -chdir=infra/iac/bootstrap plan       -input=false       -lock-timeout=60s       -out="$BOOTSTRAP_PLAN_FILE"       "${terraform_vars[@]}"
+    terraform -chdir=infra/iac/bootstrap plan       -input=false       -lock=false       -out="$BOOTSTRAP_PLAN_FILE"       "${terraform_vars[@]}"
 
     PLAN_SHA256="$(sha256sum "$BOOTSTRAP_PLAN_FILE" | awk '{print $1}')"
     PLAN_JSON="${BOOTSTRAP_PLAN_FILE}.json"
