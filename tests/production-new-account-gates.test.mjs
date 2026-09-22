@@ -77,3 +77,12 @@ test('Production readiness verifies the private durable media bucket and runtime
   assert.match(readiness, /allAuthenticatedUsers/);
   assert.doesNotMatch(readiness, /storage buckets set-iam-policy/);
 });
+
+
+test('Production readiness validates runtime identity before media IAM evaluation', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  const runtimeCheck = readiness.indexOf('Runtime service account is outside the approved project.');
+  const mediaPolicy = readiness.indexOf('gcloud storage buckets get-iam-policy');
+  assert.ok(runtimeCheck >= 0 && mediaPolicy > runtimeCheck);
+  assert.match(readiness, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT.*GOOGLE_CLOUD_PROJECT/s);
+});
