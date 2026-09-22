@@ -62,7 +62,7 @@ test('state bucket IAM must remain private and gains only the scoped deployer ob
   assert.match(script, /allAuthenticatedUsers/);
   assert.match(script, /Terraform state bucket must not grant public IAM principals/);
   assert.match(script, /roles\/storage\.objectAdmin/);
-  assert.match(script, /Terraform state bucket is missing the deployer objectAdmin binding/);
+  assert.match(script, /Terraform state bucket is missing the bucket-scoped deployer objectAdmin binding/);
   assert.match(script, /terraform -chdir=infra\/iac\/bootstrap output -raw deployer_service_account_email/);
   assert.match(script, /verify_state_bucket_policy "\$deployer_email"/);
 });
