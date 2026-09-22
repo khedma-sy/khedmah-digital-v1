@@ -148,3 +148,20 @@ test('VERIFY_ONLY is pinned to refs/heads/main and exact origin/main before Goog
   const auth = workflow.indexOf('Authenticate to Google Cloud');
   assert.ok(lock >= 0 && head > lock && auth > head, 'source lock must run before Google authentication');
 });
+
+
+test('root-state absence accepts only confirmed not-found and rejects lookup errors', async () => {
+  const plan = await read('scripts/plan-media-storage.sh');
+  assert.match(plan, /gcloud storage objects describe/);
+  assert.match(plan, /ROOT_STATE_ABSENCE_CHECK_FAILED/);
+  assert.match(plan, /NOT_FOUND\|not found\|404\|matched no objects\|does not exist/);
+  assert.doesNotMatch(plan, /gcloud storage ls --all-versions "\$root_state_uri" >\/dev\/null 2>&1/);
+});
+
+test('Cloud Run first-deploy detection distinguishes not-found from lookup failures', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  assert.match(readiness, /Cloud Run service lookup failed for \$service; refusing to classify it as missing/);
+  assert.match(readiness, /NOT_FOUND\|not found\|404/);
+  assert.match(readiness, /Cloud Run service identity mismatch/);
+  assert.doesNotMatch(readiness, /--format='value\(metadata\.name\)' >\/dev\/null 2>&1/);
+});
