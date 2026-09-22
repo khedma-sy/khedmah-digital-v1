@@ -79,6 +79,7 @@ test('state bucket lookup distinguishes confirmed absence from IAM or API errors
 
 test('canonical infrastructure values are passed explicitly into Terraform plan', () => {
   for (const assignment of [
+    'source_commit_sha=$CURRENT_SHA',
     'terraform_state_bucket_name=$TF_STATE_BUCKET',
     'artifact_registry_repository_id=khedmah-digital',
     'cloud_sql_instance_id=khedmah-v1-db',
@@ -109,6 +110,7 @@ test('saved bootstrap plan is bound to the active project region repository and 
   for (const field of [
     'project_id',
     'region',
+    'source_commit_sha',
     'terraform_state_bucket_name',
     'github_repository',
     'github_ref',
@@ -137,9 +139,24 @@ test('saved bootstrap plan is bound to the active project region repository and 
   assert.match(apply, /verify_plan_target "\$plan_json"/);
 });
 
+test('bootstrap rejects any non-canonical GitHub repository before planning WIF trust', () => {
+  assert.match(script, /CANONICAL_GITHUB_REPOSITORY="khedma-sy\/khedmah-digital-v1"/);
+  assert.match(script, /test "\$GITHUB_REPOSITORY" = "\$CANONICAL_GITHUB_REPOSITORY"/);
+  assert.match(script, /bootstrap repository must be \$CANONICAL_GITHUB_REPOSITORY/);
+  assert.match(script, /--arg repository "\$CANONICAL_GITHUB_REPOSITORY"/);
+});
+
+test('saved bootstrap plan is cryptographically bound to the current main commit through Terraform input', () => {
+  assert.match(script, /-var=source_commit_sha=\$CURRENT_SHA/);
+  assert.match(script, /--arg source_commit "\$CURRENT_SHA"/);
+  assert.match(script, /\.variables\.source_commit_sha\.value == \$source_commit/);
+});
+
 test('PLAN is non-mutating and persists a checksum-addressable reviewed plan', () => {
   const plan = section('  PLAN)', '\n  APPLY)');
   assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap plan/);
+  assert.match(plan, /-lock=false/);
+  assert.doesNotMatch(plan, /-lock-timeout=/);
   assert.match(plan, /BOOTSTRAP_PLAN_SHA256/);
   assert.match(plan, /sha256sum/);
   assert.match(plan, /terraform -chdir=infra\/iac\/bootstrap show -json/);
