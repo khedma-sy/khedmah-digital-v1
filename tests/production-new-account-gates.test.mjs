@@ -86,3 +86,12 @@ test('Production readiness validates runtime identity before media IAM evaluatio
   assert.ok(runtimeCheck >= 0 && mediaPolicy > runtimeCheck);
   assert.match(readiness, /OPERATIONS_RUNTIME_SERVICE_ACCOUNT.*GOOGLE_CLOUD_PROJECT/s);
 });
+
+
+test('bootstrap secret version is never disabled unless Cloud Run secret cleanup succeeded', async () => {
+  const workflow = await read('.github/workflows/production-bootstrap-admin.yml');
+  const cleanup = workflow.indexOf('id: cleanup');
+  const disable = workflow.indexOf('Disable the one-time bootstrap secret after account creation');
+  assert.ok(cleanup >= 0 && disable > cleanup);
+  assert.match(workflow, /steps\.cleanup\.outcome == 'success'/);
+});
