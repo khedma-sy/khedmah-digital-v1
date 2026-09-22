@@ -114,3 +114,18 @@ test('manual Production deploy supplies every newly required live-readiness inpu
   assert.match(deploy, /Migration service account must belong to the active Production project/);
   assert.match(deploy, /Media bucket location must match the active Production region/);
 });
+
+
+test('VERIFY_ONLY accepts a clean first-deploy state but rejects a partial Cloud Run pair', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  assert.match(readiness, /missing_services\[@\]\} == 1|#missing_services\[@\].*== 1/s);
+  assert.match(readiness, /Production Cloud Run service pair is inconsistent/);
+  assert.match(readiness, /missing_services\[@\]\} == 2|#missing_services\[@\].*== 2/s);
+  assert.match(readiness, /FIRST_DEPLOY_MISSING_SERVICES/);
+  assert.doesNotMatch(readiness, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
+
+  const operator = await read('.github/workflows/production-operator-new-account.yml');
+  const manualDeploy = await read('scripts/google-production-deploy.sh');
+  assert.doesNotMatch(operator, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
+  assert.doesNotMatch(manualDeploy, /ALLOW_FIRST_PRODUCTION_DEPLOY/);
+});
