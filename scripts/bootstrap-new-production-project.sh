@@ -163,13 +163,16 @@ verify_state_bucket_policy() {
   }
 
   if [[ -n "$expected_deployer" ]]; then
-    jq -e --arg member "serviceAccount:$expected_deployer" '
+    expected_prefix="projects/_/buckets/$TF_STATE_BUCKET/objects/khedmah/production/"
+    jq -e --arg member "serviceAccount:$expected_deployer" --arg prefix "$expected_prefix" '
       any(.bindings[]?;
         .role == "roles/storage.objectAdmin" and
-        any(.members[]?; . == $member)
+        any(.members[]?; . == $member) and
+        (.condition.title == "Khedmah production Terraform state only") and
+        (.condition.expression == ("resource.name.startsWith(\\\"" + $prefix + "\\\")"))
       )
     ' "$policy_json" >/dev/null || {
-      echo 'ERROR: Terraform state bucket is missing the deployer objectAdmin binding.' >&2
+      echo 'ERROR: Terraform state bucket is missing the prefix-scoped deployer objectAdmin binding.' >&2
       rm -f "$policy_json"
       return 1
     }
