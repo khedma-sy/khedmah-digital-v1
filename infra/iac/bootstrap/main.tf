@@ -167,6 +167,12 @@ resource "google_service_account" "deployer" {
   depends_on = [google_project_service.bootstrap]
 }
 
+resource "google_storage_bucket_iam_member" "deployer_terraform_state_objects" {
+  bucket = var.terraform_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 resource "google_service_account" "build" {
   project      = var.project_id
   account_id   = var.build_service_account_id
