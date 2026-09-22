@@ -61,6 +61,13 @@ test "$GCS_MEDIA_BUCKET" != "$SOURCE_BUCKET" || {
 MEDIA_BUCKET_JSON="$(mktemp)"
 MEDIA_POLICY_JSON="$(mktemp)"
 trap 'rm -f "$MEDIA_BUCKET_JSON" "$MEDIA_POLICY_JSON"' EXIT
+EXPECTED_PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+MEDIA_PROJECT_NUMBER="$(gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+[[ "$EXPECTED_PROJECT_NUMBER" =~ ^[0-9]+$ ]]
+test "$MEDIA_PROJECT_NUMBER" = "$EXPECTED_PROJECT_NUMBER" || {
+  echo "ERROR: Media bucket belongs to a different Google Cloud project." >&2
+  exit 1
+}
 gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format=json > "$MEDIA_BUCKET_JSON"
 jq -e --arg bucket "$GCS_MEDIA_BUCKET" --arg location "${GCS_MEDIA_LOCATION^^}" '
   .name == $bucket and .location == $location and
