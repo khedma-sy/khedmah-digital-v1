@@ -48,6 +48,11 @@ gcloud iam service-accounts describe "$BUILD_SERVICE_ACCOUNT" --project "$GOOGLE
   exit 1
 }
 gcloud iam service-accounts describe "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
+[[ "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo "ERROR: Runtime service account is outside the approved project." >&2
+  exit 1
+}
+gcloud iam service-accounts describe "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
 test "$GCS_MEDIA_BUCKET" != "$SOURCE_BUCKET" || {
   echo "ERROR: Media bucket must not reuse the Cloud Build source bucket." >&2
@@ -102,9 +107,6 @@ if [[ "$SQL_INSTANCE_REGION" != "$GOOGLE_CLOUD_REGION" ]]; then
   echo "ERROR: Cloud SQL instance region does not match GOOGLE_CLOUD_REGION." >&2
   exit 1
 fi
-gcloud iam service-accounts describe "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
-  --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
-
 required_secrets=(
   DATABASE_URL
   DATABASE_MIGRATION_URL
