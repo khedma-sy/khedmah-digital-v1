@@ -47,7 +47,7 @@ test('fresh account verifies an absent root state instead of manufacturing an em
   assert.doesNotMatch(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT|INITIALIZE_EMPTY_ROOT/);
   assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
   assert.ok(
-    workflow.indexOf('gcloud storage objects describe "$root_state_uri"') <
+    workflow.indexOf('assert_gcs_object_absent "$root_state_uri" ROOT_STATE_ALREADY_EXISTS') <
       workflow.indexOf('terraform -chdir=infra/iac init'),
   );
 });
