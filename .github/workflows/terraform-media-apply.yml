@@ -16,19 +16,19 @@ on:
         required: true
         type: string
       expected_root_lineage:
-        description: Exact root-state lineage
+        description: Exact root-state lineage, or ABSENT for the new-account root
         required: true
         type: string
       expected_root_serial:
-        description: Exact root-state serial
+        description: Exact root-state serial, or 0 when root lineage is ABSENT
         required: true
         type: string
       expected_media_lineage:
-        description: Exact media-state lineage
+        description: Exact media-state lineage, or ABSENT for the reviewed first apply
         required: true
         type: string
       expected_media_serial:
-        description: Exact media-state serial
+        description: Exact media-state serial, or 0 with ABSENT for the reviewed first apply
         required: true
         type: string
       confirmation:
@@ -96,8 +96,22 @@ jobs:
           test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
           test "$EXPECTED_ROOT_LINEAGE" = "$APPROVED_ROOT_LINEAGE"
           test "$EXPECTED_ROOT_SERIAL" = "$APPROVED_ROOT_SERIAL"
+          if [[ "$APPROVED_ROOT_LINEAGE" == "ABSENT" ]]; then
+            test "$APPROVED_ROOT_SERIAL" = "0"
+            echo "ROOT_STATE_ABSENT=true" >> "$GITHUB_ENV"
+          else
+            test "$APPROVED_ROOT_LINEAGE" != "ABSENT"
+            echo "ROOT_STATE_ABSENT=false" >> "$GITHUB_ENV"
+          fi
           test "$EXPECTED_MEDIA_LINEAGE" = "$APPROVED_MEDIA_LINEAGE"
           test "$EXPECTED_MEDIA_SERIAL" = "$APPROVED_MEDIA_SERIAL"
+          if [[ "$APPROVED_MEDIA_LINEAGE" == "ABSENT" ]]; then
+            test "$APPROVED_MEDIA_SERIAL" = "0"
+            echo "FIRST_MEDIA_APPLY=true" >> "$GITHUB_ENV"
+          else
+            test "$APPROVED_MEDIA_LINEAGE" != "ABSENT"
+            echo "FIRST_MEDIA_APPLY=false" >> "$GITHUB_ENV"
+          fi
           SHA7="${APPROVED_SHA:0:7}"
           EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MEDIA_${SHA7^^}"
           test "$REQUESTED_CONFIRMATION" = "$EXPECTED_CONFIRMATION"
@@ -157,6 +171,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local describe_err versions_out versions_err
+            describe_err="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$describe_err"; then
+              rm -f "$describe_err"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if ! grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$describe_err"; then
+              echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+              cat "$describe_err" >&2
+              rm -f "$describe_err"
+              return 1
+            fi
+            rm -f "$describe_err"
+
+            versions_out="$(mktemp)"
+            versions_err="$(mktemp)"
+            if gcloud storage ls --all-versions "$object_uri" >"$versions_out" 2>"$versions_err"; then
+              if [[ -s "$versions_out" ]]; then
+                rm -f "$versions_out" "$versions_err"
+                echo "ERROR: ${error_label}_ARCHIVED_GENERATIONS_PRESENT" >&2
+                return 1
+              fi
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            if grep -Eiq '(matched no objects|NOT_FOUND|not found|404|does not exist)' "$versions_err"; then
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_VERSIONS_LOOKUP_FAILED" >&2
+            cat "$versions_err" >&2
+            rm -f "$versions_out" "$versions_err"
+            return 1
+          }
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           test "$REQUESTED_STATE_BUCKET" != "$GCS_MEDIA_BUCKET"
           test -s "$PLAN_FILE"
@@ -168,20 +220,33 @@ jobs:
           media_state="$(mktemp)"
           trap 'rm -rf "$root_data" "$media_data"; rm -f "$root_state" "$media_state" /tmp/apply-plan.json' EXIT
 
-          TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
-            -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
-            -backend-config="prefix=khedmah/production/root"
-          TF_DATA_DIR="$root_data" terraform -chdir=infra/iac state pull > "$root_state"
-          jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
-            '.lineage == $lineage and .serial == $serial' "$root_state"
+          root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
+          if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_UNEXPECTEDLY_EXISTS
+          else
+            TF_DATA_DIR="$root_data" terraform -chdir=infra/iac init -input=false -reconfigure \
+              -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
+              -backend-config="prefix=khedmah/production/root"
+            TF_DATA_DIR="$root_data" terraform -chdir=infra/iac state pull > "$root_state"
+            jq -e --arg lineage "$EXPECTED_ROOT_LINEAGE" --argjson serial "$EXPECTED_ROOT_SERIAL" \
+              '.lineage == $lineage and .serial == $serial' "$root_state"
+          fi
 
+          media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
           export TF_DATA_DIR="$media_data"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_ALREADY_EXISTS
+          fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
-          terraform -chdir=infra/iac/media state pull > "$media_state"
-          jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
-            '.lineage == $lineage and .serial == $serial' "$media_state"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_CREATED_DURING_REVIEW
+          else
+            terraform -chdir=infra/iac/media state pull > "$media_state"
+            jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
+              '.lineage == $lineage and .serial == $serial' "$media_state"
+          fi
 
           test -z "$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
 
@@ -211,9 +276,55 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local describe_err versions_out versions_err
+            describe_err="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$describe_err"; then
+              rm -f "$describe_err"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if ! grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$describe_err"; then
+              echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+              cat "$describe_err" >&2
+              rm -f "$describe_err"
+              return 1
+            fi
+            rm -f "$describe_err"
+
+            versions_out="$(mktemp)"
+            versions_err="$(mktemp)"
+            if gcloud storage ls --all-versions "$object_uri" >"$versions_out" 2>"$versions_err"; then
+              if [[ -s "$versions_out" ]]; then
+                rm -f "$versions_out" "$versions_err"
+                echo "ERROR: ${error_label}_ARCHIVED_GENERATIONS_PRESENT" >&2
+                return 1
+              fi
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            if grep -Eiq '(matched no objects|NOT_FOUND|not found|404|does not exist)' "$versions_err"; then
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_VERSIONS_LOOKUP_FAILED" >&2
+            cat "$versions_err" >&2
+            rm -f "$versions_out" "$versions_err"
+            return 1
+          }
+          root_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/root/default.tfstate"
+          media_state_uri="gs://${REQUESTED_STATE_BUCKET}/khedmah/production/media/default.tfstate"
+          if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY
+          fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY
+          fi
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
       - name: Verify created private media bucket
@@ -235,4 +346,25 @@ jobs:
             any(.bindings[]?; .role == "roles/storage.objectAdmin" and any(.members[]?; . == $member)) and
             ([.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers"))
           ' "$policy_json"
+          state_data="$(mktemp -d)"
+          state_file="$(mktemp)"
+          trap 'rm -rf "$state_data"; rm -f "$state_file" "$bucket_json" "$policy_json"' EXIT
+          TF_DATA_DIR="$state_data" terraform -chdir=infra/iac/media init -input=false -reconfigure \
+            -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
+            -backend-config="prefix=khedmah/production/media" >/dev/null
+          TF_DATA_DIR="$state_data" terraform -chdir=infra/iac/media state pull > "$state_file"
+          new_lineage="$(jq -er '.lineage' "$state_file")"
+          new_serial="$(jq -er '.serial' "$state_file")"
+          [[ "$new_serial" =~ ^[0-9]+$ ]]
+          jq -e '
+            [.resources[]? | select(
+              (.type == "google_storage_bucket" and .name == "media") or
+              (.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects")
+            )] | length == 2
+          ' "$state_file" >/dev/null
+          {
+            echo "MEDIA_STATE_LINEAGE=$new_lineage"
+            echo "MEDIA_STATE_SERIAL=$new_serial"
+            echo "MEDIA_BUCKET_APPLY_VERIFIED"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo MEDIA_BUCKET_APPLY_VERIFIED

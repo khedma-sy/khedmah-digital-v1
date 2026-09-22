@@ -22,7 +22,9 @@ test('new-account production operator is manual and locked to latest main', () =
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
   assert.match(workflow, /default: VERIFY_ONLY/);
   assert.match(workflow, /inputs\.mode == 'DEPLOY_PRODUCTION'/);
+  assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
   assert.match(workflow, /git fetch origin main/);
+  assert.match(workflow, /git rev-parse HEAD/);
   assert.match(workflow, /git rev-parse origin\/main/);
 });
 
@@ -101,6 +103,17 @@ test('Production operator restores the previous revision pair after a failed dep
   assert.match(workflow, /EMERGENCY_ROLLBACK=SUCCESS/);
 });
 
+test('Production deployment capture distinguishes first deploy from lookup failure', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const capture = workflow.split('Capture currently serving Production revision pair')[1]
+    ?.split('\n      - name: Deploy exact main commit')[0] ?? '';
+  assert.match(capture, /capture_revision\(\)/);
+  assert.match(capture, /NOT_FOUND\|not found\|404/);
+  assert.match(capture, /rollback safety cannot be established/);
+  assert.doesNotMatch(capture, /2>\/dev\/null \|\| true/);
+  assert.match(workflow, /Production service pair is inconsistent before deployment/);
+});
+
 
 test('Production operator verifies hardened database roles before Cloud Build deployment', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
@@ -132,4 +145,16 @@ test('DB preflight is SHA-locked before any mutation', () => {
   assert.match(block, /COMMIT_SHA=\$REQUESTED_SHA/);
   assert.match(block, /database-role-bootstrap:\$REQUESTED_SHA/);
   assert.ok(block.indexOf('test "$GITHUB_SHA" = "$REQUESTED_SHA"') < block.indexOf('gcloud builds submit'));
+});
+
+
+test('Production deploy workflow keeps exactly one capture/deploy/verify/rollback sequence', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const count = (needle) => workflow.split(needle).length - 1;
+  assert.equal(count('Capture currently serving Production revision pair'), 1);
+  assert.equal(count('Deploy exact main commit through account-neutral Cloud Build'), 1);
+  assert.equal(count('Verify live revisions and Maps readiness'), 1);
+  assert.equal(count('Emergency rollback after failed Production deployment or certification'), 1);
+  assert.match(workflow, /IFS=\$'\\t' read -r backend_state backend_revision/);
+  assert.match(workflow, /IFS=\$'\\t' read -r frontend_state frontend_revision/);
 });

@@ -54,3 +54,49 @@ test('media apply uses only saved plan and verifies private post-apply state', (
   assert.ok(workflow.includes('GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}'));
   assert.doesNotMatch(workflow, /gcloud builds submit|run deploy|DEPLOY_PRODUCTION|build-android/);
 });
+
+
+test('fresh-account media apply has an explicit absent-state handshake and publishes the created state identity', () => {
+  assert.match(workflow, /expected_media_lineage:.*ABSENT/s);
+  assert.match(workflow, /APPROVED_MEDIA_LINEAGE.*ABSENT/s);
+  assert.match(workflow, /FIRST_MEDIA_APPLY=true/);
+  assert.match(workflow, /MEDIA_STATE_ALREADY_EXISTS/);
+  assert.match(workflow, /MEDIA_STATE_CREATED_DURING_REVIEW/);
+  assert.match(workflow, /MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY/);
+  assert.match(workflow, /MEDIA_STATE_LINEAGE=/);
+  assert.match(workflow, /MEDIA_STATE_SERIAL=/);
+});
+
+test('existing media state still requires exact lineage and serial', () => {
+  assert.match(workflow, /terraform -chdir=infra\/iac\/media state pull/);
+  assert.match(workflow, /\.lineage == \$lineage and \.serial == \$serial/);
+  assert.match(workflow, /test "\$EXPECTED_MEDIA_LINEAGE" = "\$APPROVED_MEDIA_LINEAGE"/);
+  assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "\$APPROVED_MEDIA_SERIAL"/);
+});
+
+
+test('fresh account may prove root state absence with ABSENT/0 without creating a root state', () => {
+  assert.match(workflow, /expected_root_lineage:.*ABSENT/s);
+  assert.match(workflow, /APPROVED_ROOT_LINEAGE.*ABSENT/s);
+  assert.match(workflow, /ROOT_STATE_ABSENT=true/);
+  assert.match(workflow, /ROOT_STATE_UNEXPECTEDLY_EXISTS/);
+  assert.match(workflow, /ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY/);
+  assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
+});
+
+
+test('fresh-account media apply rejects ambiguous object lookup failures', () => {
+  assert.match(workflow, /gcloud storage objects describe/);
+  assert.match(workflow, /\$\{error_label\}_LOOKUP_FAILED/);
+  assert.match(workflow, /gcloud storage ls --all-versions/);
+  assert.match(workflow, /\$\{error_label\}_ARCHIVED_GENERATIONS_PRESENT/);
+  assert.match(workflow, /\$\{error_label\}_VERSIONS_LOOKUP_FAILED/);
+  for (const label of [
+    'ROOT_STATE_UNEXPECTEDLY_EXISTS',
+    'MEDIA_STATE_ALREADY_EXISTS',
+    'MEDIA_STATE_CREATED_DURING_REVIEW',
+    'ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY',
+    'MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY'
+  ]) assert.ok(workflow.includes(label), `missing fail-closed label ${label}`);
+  assert.doesNotMatch(workflow, /gcloud storage ls --all-versions "\$(?:root|media)_state_uri" >\/dev\/null 2>&1/);
+});

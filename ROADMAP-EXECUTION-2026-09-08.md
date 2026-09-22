@@ -2,6 +2,17 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
+آخر تحديث: **2026-09-22 — Gate A أُغلق بدمج PR #198؛ رأس Production المرجعي أصبح `6f9c580e1faa78cf1496ff306b5dde0287695882` وGate B/PR #200 متزامن معه وينتظر CI/Preview فقط، دون أي نشر Production.**
+
+- **قفل المصدر الحالي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، ومرجع Production هو `main`. الرأس الحالي المثبت هو `6f9c580e1faa78cf1496ff306b5dde0287695882`. فرع `develop` متشعب وليس مصدر إصدار Production.
+- **Gate A مكتمل / PR #198:** دُمج `chore(firebase): ignore Android services configuration` بعد نجاح Test & Verify وNode CI وPreview quality/deploy/review evidence و32/32 mobile interactions. أصبح `apps/android/app/google-services.json` مستبعدًا من Git على `main`.
+- **خارطة التنفيذ:** Issue #199 `Production New-Account Gates` هو متتبع البوابات A–I: Source lock، Cloud/IAM drift، secret matrix، protected readiness، database foundation، VERIFY_ONLY، deploy، bootstrap admin، Android certification. لا تُسجل فيه قيم أسرار.
+- **Gate B / PR #200 Draft:** الفرع متزامن مع `main` (behind=0) ويضيف fail-closed checks فقط: فحص حي لصلاحيات `BOOTSTRAP_ADMIN_SECRET` قبل أي Cloud Run mutation، التحقق من runtime/build/migration identities، توسيع metadata/state checks للأسرار الدائمة، وفحص Media bucket قبل النشر (الموقع، UBLA، منع الوصول العام، versioning، و`roles/storage.objectAdmin` للـruntime). قراءة IAM للـbucket تتم عبر custom role يحوي `storage.buckets.getIamPolicy` فقط؛ لا Owner/Editor ولا Storage Admin ولا قراءة secret payloads عامة.
+- **سبب الإصلاح:** تشغيل Production Bootstrap Admin السابق أنشأ/وجد bootstrap مكتملاً ثم فشل في cleanup بسبب `secretmanager.versions.list`. Terraform كان يصرح `secretVersionManager` بالفعل؛ لذلك السبب التشغيلي هو drift بين IaC والحساب الفعلي، ويجب إثبات live IAM قبل mutation لا الاكتفاء بوجود الكود.
+- **الحساب الجديد في Google:** لا توجد حتى الآن شهادة `workflow_dispatch` ناجحة لـ`Google production readiness` على protected `production` ضمن آخر التشغيلات المفحوصة. نجاح PR-only لا يثبت حقن أسرار الحساب الجديد. التحقق سيكون بوجود/حالة/IAM/تنسيق الأسرار دون إظهار القيم.
+- **حدود الإصدار:** `TAXI_TRIPS_ENABLED=false` باقٍ fail-closed حتى تفويض منفصل. الدفع الإلكتروني غير معتمد قبل provider/webhook/settlement؛ التدفقات النقدية/اليدوية فقط تخضع لقبولها الخاص.
+- **الخطوة التالية المسموحة:** إكمال CI/Preview على PR #200 بعد إصلاحات IAM/Secrets/Media، ثم مراجعة الأدلة ودمج Gate B فقط إذا كانت كل البوابات خضراء. بعد ذلك فقط يبدأ التحقق المحمي من الحساب الجديد؛ لا Terraform apply ولا migration ولا Production deploy قبل دمج Gate B.
+
 آخر تحديث: **2026-09-15 — دُمج إصلاح استرداد checkout وربط KORA فوق دفعة المطاعم والخصومات والمندوب الأحدث؛ التحقق المحلي النهائي ناجح والدفعة جاهزة للرفع العادي المصرح به إلى PR175.**
 
 - **حالة المصدر:** رأس الدمج السابق للفرع `recovery/restore-complete-services-2026-09-14` هو `9c8393430424b6a40c33c92269ad7bd110282073`. أُعيد تطبيق إصلاحي checkout وKORA والتشديد الختامي فوقه، ولا يشمل التفويض دمج `develop/main` أو النشر إلى Production.

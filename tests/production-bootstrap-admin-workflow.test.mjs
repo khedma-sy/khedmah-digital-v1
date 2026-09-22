@@ -20,8 +20,11 @@ test('bootstrap secret is bound temporarily, masked, removed and disabled only a
   assert.match(workflow, /--update-secrets=BOOTSTRAP_ADMIN_SECRET=BOOTSTRAP_ADMIN_SECRET:latest/);
   assert.match(workflow, /gcloud secrets versions access latest/);
   assert.match(workflow, /::add-mask::\$bootstrap_secret/);
+  assert.match(workflow, /id: cleanup/);
   assert.match(workflow, /--remove-secrets=BOOTSTRAP_ADMIN_SECRET/);
+  assert.match(workflow, /steps\.cleanup\.outcome == 'success'/);
   assert.match(workflow, /gcloud secrets versions disable/);
+  assert.ok(workflow.indexOf('--remove-secrets=BOOTSTRAP_ADMIN_SECRET') < workflow.indexOf('gcloud secrets versions disable'));
   assert.match(workflow, /created_email_failed/);
   assert.match(workflow, /already_complete/);
   assert.doesNotMatch(workflow, /echo\s+["']?\$bootstrap_secret/);

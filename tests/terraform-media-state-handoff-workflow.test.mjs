@@ -38,26 +38,20 @@ test('handoff verifies protected root state and exact reviewed state identity', 
   assert.match(workflow, /test \"\$bucket_name\" = \"\$iam_bucket\"/);
 });
 
-test('fresh root initialization requires absence, explicit confirmation and zero resources', () => {
+test('fresh account verifies an absent root state instead of manufacturing an empty state', () => {
   assert.match(workflow, /VERIFY_EMPTY_ROOT/);
-  assert.match(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT/);
-  assert.match(workflow, /INITIALIZE_EMPTY_ROOT/);
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
-  assert.match(workflow, /gcloud storage ls --all-versions \"\$root_state_uri\"/);
-  assert.match(workflow, /test \"\$CONFIRMATION\" = INITIALIZE_EMPTY_ROOT_STATE/);
+  assert.match(workflow, /assert_gcs_object_absent\(\)/);
+  assert.match(workflow, /assert_gcs_object_absent "\$root_state_uri" ROOT_STATE_ALREADY_EXISTS/);
+  assert.match(workflow, /lineage=ABSENT/);
+  assert.match(workflow, /serial=0/);
+  assert.doesNotMatch(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT|INITIALIZE_EMPTY_ROOT/);
   assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
-  assert.match(workflow, /\.resources \| length == 0/);
   assert.ok(
-    workflow.indexOf('gcloud storage ls --all-versions "$root_state_uri"') <
+    workflow.indexOf('assert_gcs_object_absent "$root_state_uri" ROOT_STATE_ALREADY_EXISTS') <
       workflow.indexOf('terraform -chdir=infra/iac init'),
   );
-  assert.ok(
-    workflow.indexOf('test "$CONFIRMATION" = INITIALIZE_EMPTY_ROOT_STATE') <
-      workflow.indexOf('terraform -chdir=infra/iac init'),
-  );
-  assert.match(workflow, /ROOT_STATE_NOT_FOUND/);
 });
-
 test('handoff backs up and removes both addresses atomically, then stops', () => {
   const backup = workflow.indexOf('gcloud storage cp "$state_file" "$backup_uri"');
   const removal = workflow.indexOf(
@@ -69,4 +63,15 @@ test('handoff backs up and removes both addresses atomically, then stops', () =>
   assert.match(workflow, /no import, plan, apply, or deployment performed/);
   assert.doesNotMatch(workflow, /terraform[^\n]*\b(?:import|plan|apply)\b/);
   assert.doesNotMatch(workflow, /upload-artifact|gcloud builds submit|run deploy/);
+});
+
+
+test('fresh-root verification rejects IAM/API lookup failures instead of claiming absence', () => {
+  assert.match(workflow, /gcloud storage objects describe/);
+  assert.match(workflow, /NOT_FOUND\|not found\|404\|matched no objects\|does not exist/);
+  assert.match(workflow, /gcloud storage ls --all-versions/);
+  assert.match(workflow, /ARCHIVED_GENERATIONS_PRESENT/);
+  assert.match(workflow, /VERSIONS_LOOKUP_FAILED/);
+  assert.match(workflow, /\$\{error_label\}_LOOKUP_FAILED/);
+  assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
 });

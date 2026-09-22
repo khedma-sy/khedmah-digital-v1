@@ -11,8 +11,6 @@ on:
         options:
           - VERIFY_ONLY
           - VERIFY_EMPTY_ROOT
-          - VERIFY_INITIALIZED_EMPTY_ROOT
-          - INITIALIZE_EMPTY_ROOT
           - HANDOFF_STATE
       commit_sha:
         description: Exact latest main commit SHA
@@ -94,6 +92,44 @@ jobs:
         id: verify
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local describe_err versions_out versions_err
+            describe_err="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$describe_err"; then
+              rm -f "$describe_err"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if ! grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$describe_err"; then
+              echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+              cat "$describe_err" >&2
+              rm -f "$describe_err"
+              return 1
+            fi
+            rm -f "$describe_err"
+
+            versions_out="$(mktemp)"
+            versions_err="$(mktemp)"
+            if gcloud storage ls --all-versions "$object_uri" >"$versions_out" 2>"$versions_err"; then
+              if [[ -s "$versions_out" ]]; then
+                rm -f "$versions_out" "$versions_err"
+                echo "ERROR: ${error_label}_ARCHIVED_GENERATIONS_PRESENT" >&2
+                return 1
+              fi
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            if grep -Eiq '(matched no objects|NOT_FOUND|not found|404|does not exist)' "$versions_err"; then
+              rm -f "$versions_out" "$versions_err"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_VERSIONS_LOOKUP_FAILED" >&2
+            cat "$versions_err" >&2
+            rm -f "$versions_out" "$versions_err"
+            return 1
+          }
           test -n "$GOOGLE_CLOUD_PROJECT"
           STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
           if [[ -n "$REQUESTED_STATE_BUCKET" && -n "$CONFIGURED_STATE_BUCKET" ]]; then
@@ -152,40 +188,14 @@ jobs:
 
           root_state_uri="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
           if [[ "$MODE" == VERIFY_EMPTY_ROOT ]]; then
-            if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-              printf '%s\n' 'ERROR: ROOT_STATE_ALREADY_EXISTS' >&2
-              exit 3
-            fi
-            printf 'state_bucket=%s\n' "$STATE_BUCKET" >>"$GITHUB_OUTPUT"
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_ALREADY_EXISTS
+            printf 'state_bucket=%s\nlineage=ABSENT\nserial=0\n' "$STATE_BUCKET" >>"$GITHUB_OUTPUT"
             exit 0
-          fi
-          if [[ "$MODE" == INITIALIZE_EMPTY_ROOT ]] &&
-            gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-            printf '%s\n' 'ERROR: ROOT_STATE_ALREADY_EXISTS' >&2
-            exit 3
-          fi
-          if [[ "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
-            test "$CONFIRMATION" = INITIALIZE_EMPTY_ROOT_STATE
-          fi
-          if [[ "$MODE" == VERIFY_INITIALIZED_EMPTY_ROOT ]] &&
-            ! gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-            printf '%s\n' 'ERROR: ROOT_STATE_NOT_FOUND' >&2
-            exit 4
           fi
 
           terraform -chdir=infra/iac init -input=false -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/root" >/dev/null
-
-          if [[ "$MODE" == VERIFY_INITIALIZED_EMPTY_ROOT || "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
-            terraform -chdir=infra/iac state pull >"$state_file"
-            jq -e '.resources | length == 0' "$state_file" >/dev/null
-            lineage="$(jq -er '.lineage' "$state_file")"
-            serial="$(jq -er '.serial' "$state_file")"
-            printf 'state_bucket=%s\nlineage=%s\nserial=%s\n' \
-              "$STATE_BUCKET" "$lineage" "$serial" >>"$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           terraform -chdir=infra/iac state pull >"$state_file"
 
@@ -275,13 +285,8 @@ jobs:
               printf -- '- Protected backup: `%s`\n' "$BACKUP_URI"
               printf -- '- New root serial: `%s`\n' "$NEW_SERIAL"
               printf -- '- Result: media addresses removed; no import, plan, apply, or deployment performed.\n'
-            elif [[ "$MODE" == INITIALIZE_EMPTY_ROOT ]]; then
-              printf -- '- Result: new empty root state initialized with zero resources.\n'
-              printf -- '- No import, plan, apply, or deployment performed.\n'
             elif [[ "$MODE" == VERIFY_EMPTY_ROOT ]]; then
-              printf -- '- Result: protected bucket verified and root state is absent.\n'
-            elif [[ "$MODE" == VERIFY_INITIALIZED_EMPTY_ROOT ]]; then
-              printf -- '- Result: initialized root state verified with zero resources.\n'
+              printf -- '- Result: protected bucket verified and root state is absent (ABSENT / serial 0).\n'
             else
               printf -- '- Result: verification only; state was not changed.\n'
             fi

@@ -29,11 +29,76 @@ if [[ "$STATE_PREFIX" != "$EXPECTED_STATE_PREFIX" ]]; then
   exit 1
 fi
 
+classify_absent_gcs_object() {
+  local object_uri="$1"
+  local describe_err versions_out versions_err
+  describe_err="$(mktemp)"
+  if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$describe_err"; then
+    rm -f "$describe_err"
+    return 1
+  fi
+  if ! grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$describe_err"; then
+    cat "$describe_err" >&2
+    rm -f "$describe_err"
+    return 2
+  fi
+  rm -f "$describe_err"
+
+  versions_out="$(mktemp)"
+  versions_err="$(mktemp)"
+  if gcloud storage ls --all-versions "$object_uri" >"$versions_out" 2>"$versions_err"; then
+    if [[ -s "$versions_out" ]]; then
+      rm -f "$versions_out" "$versions_err"
+      return 1
+    fi
+    rm -f "$versions_out" "$versions_err"
+    return 0
+  fi
+  if grep -Eiq '(matched no objects|NOT_FOUND|not found|404|does not exist)' "$versions_err"; then
+    rm -f "$versions_out" "$versions_err"
+    return 0
+  fi
+  cat "$versions_err" >&2
+  rm -f "$versions_out" "$versions_err"
+  return 2
+}
+
 assert_legacy_root_released() {
   local failure_marker="${1:-NO_TERRAFORM_PLAN_CREATED}"
   local legacy_state_identity
   local legacy_state_lineage
   local legacy_state_serial
+  local root_state_uri="gs://${STATE_BUCKET}/${EXPECTED_LEGACY_ROOT_STATE_PREFIX}/default.tfstate"
+
+  if [[ "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" == "ABSENT" ]]; then
+    if [[ "$EXPECTED_LEGACY_ROOT_STATE_SERIAL" != "0" ]]; then
+      printf 'ERROR: ABSENT_ROOT_REQUIRES_SERIAL_0 ACTUAL=%s\n' "$EXPECTED_LEGACY_ROOT_STATE_SERIAL" >&2
+      printf '%s\n' "$failure_marker" >&2
+      exit 1
+    fi
+    if classify_absent_gcs_object "$root_state_uri"; then
+      :
+    else
+      case "$?" in
+        1)
+          printf 'ERROR: ROOT_STATE_UNEXPECTEDLY_EXISTS=%s\n' "$root_state_uri" >&2
+          ;;
+        *)
+          printf 'ERROR: ROOT_STATE_ABSENCE_CHECK_FAILED=%s\n' "$root_state_uri" >&2
+          ;;
+      esac
+      printf '%s\n' "$failure_marker" >&2
+      exit 1
+    fi
+    if [[ -z "$observed_legacy_root_state_serial" ]]; then
+      observed_legacy_root_state_serial="ABSENT"
+    elif [[ "$observed_legacy_root_state_serial" != "ABSENT" ]]; then
+      printf '%s\n' 'ERROR: ROOT_STATE_IDENTITY_CHANGED_DURING_PLAN' >&2
+      printf '%s\n' "$failure_marker" >&2
+      exit 1
+    fi
+    return
+  fi
 
   if ! root_terraform state pull > "$legacy_state_json"; then
     printf '%s\n' 'ERROR: LEGACY_ROOT_STATE_QUERY_FAILED' >&2
@@ -125,11 +190,13 @@ media_terraform() {
     terraform -chdir=infra/iac/media "$@"
 }
 
-root_terraform init \
-  -input=false \
-  -reconfigure \
-  -backend-config="bucket=${STATE_BUCKET}" \
-  -backend-config="prefix=${EXPECTED_LEGACY_ROOT_STATE_PREFIX}"
+if [[ "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" != "ABSENT" ]]; then
+  root_terraform init \
+    -input=false \
+    -reconfigure \
+    -backend-config="bucket=${STATE_BUCKET}" \
+    -backend-config="prefix=${EXPECTED_LEGACY_ROOT_STATE_PREFIX}"
+fi
 
 assert_legacy_root_released
 

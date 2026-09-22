@@ -68,6 +68,7 @@ locals {
     "roles/identitytoolkit.viewer",
     "roles/browser",
     "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountViewer",
     "roles/run.admin",
     "roles/secretmanager.viewer",
     "roles/serviceusage.apiKeysAdmin",
@@ -218,6 +219,25 @@ resource "google_project_iam_custom_role" "database_user_role_manager" {
 resource "google_project_iam_member" "deployer_database_user_role_manager" {
   project = var.project_id
   role    = google_project_iam_custom_role.database_user_role_manager.name
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_custom_role" "storage_bucket_policy_viewer" {
+  project     = var.project_id
+  role_id     = "khedmahStorageBucketPolicyViewer"
+  title       = "Khedmah Storage Bucket Policy Viewer"
+  description = "Minimal read-only permission used to verify the Production media bucket IAM policy."
+
+  permissions = [
+    "storage.buckets.getIamPolicy",
+  ]
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_member" "deployer_storage_bucket_policy_viewer" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.storage_bucket_policy_viewer.name
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 

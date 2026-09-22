@@ -19,6 +19,8 @@ test('manual Production deployment is explicitly approved, project-bound and loc
   assert.match(deploy, /gcloud auth list/);
   assert.match(deploy, /OPERATIONS_DEPLOYER_SERVICE_ACCOUNT/);
   assert.match(deploy, /OPERATIONS_BUILD_SERVICE_ACCOUNT/);
+  assert.match(deploy, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
+  assert.match(deploy, /GCS_MEDIA_LOCATION/);
   assert.match(deploy, /BUILD_SERVICE_ACCOUNT="projects\/\$\{GOOGLE_CLOUD_PROJECT\}\/serviceAccounts\/\$\{OPERATIONS_BUILD_SERVICE_ACCOUNT\}"/);
   assert.doesNotMatch(deploy, /gcloud builds get-default-service-account/);
   assert.match(deploy, /--gcs-source-staging-dir/);

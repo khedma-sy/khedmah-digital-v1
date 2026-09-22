@@ -12,11 +12,11 @@ on:
         required: false
         type: string
       expected_root_lineage:
-        description: Exact reviewed root-state lineage
+        description: Exact reviewed root-state lineage, or ABSENT for a new-account root with no state
         required: true
         type: string
       expected_root_serial:
-        description: Exact reviewed root-state serial
+        description: Exact reviewed root-state serial, or 0 when root lineage is ABSENT
         required: true
         type: string
 
@@ -86,6 +86,9 @@ jobs:
           test -n "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
           test -n "$LEGACY_ROOT_STATE_LINEAGE"
           [[ "$LEGACY_ROOT_STATE_SERIAL" =~ ^[0-9]+$ ]]
+          if [[ "$LEGACY_ROOT_STATE_LINEAGE" == "ABSENT" ]]; then
+            test "$LEGACY_ROOT_STATE_SERIAL" = "0"
+          fi
 
           TF_STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
           test -n "$TF_STATE_BUCKET"
