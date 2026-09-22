@@ -121,7 +121,11 @@ test('manual Production deploy supplies every newly required live-readiness inpu
     assert.ok(deploy.includes(name), `manual deploy is missing ${name}`);
   }
   assert.match(deploy, /Migration service account must belong to the active Production project/);
-  assert.match(deploy, /Media bucket location must match the active Production region/);
+  assert.doesNotMatch(deploy, /GCS_MEDIA_LOCATION\"?\s*==\s*\"?\$GOOGLE_CLOUD_REGION/);
+  assert.doesNotMatch(deploy, /Media bucket location must match the active Production region/);
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  assert.match(readiness, /--arg location \"\$\{GCS_MEDIA_LOCATION\^\^\}\"/);
+  assert.match(readiness, /\.location == \$location/);
 });
 
 
