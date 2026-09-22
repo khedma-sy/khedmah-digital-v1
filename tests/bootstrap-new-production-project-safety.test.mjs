@@ -139,11 +139,23 @@ test('saved bootstrap plan is bound to the active project region repository and 
   assert.match(apply, /verify_plan_target "\$plan_json"/);
 });
 
+test('bootstrap requires origin itself to be the canonical GitHub repository', () => {
+  assert.match(script, /git remote get-url origin/);
+  assert.match(script, /origin must point to the canonical GitHub repository/);
+  assert.match(script, /git@github\.com:\$CANONICAL_GITHUB_REPOSITORY\.git/);
+  assert.match(script, /https:\/\/github\.com\/\$CANONICAL_GITHUB_REPOSITORY\.git/);
+});
+
 test('bootstrap rejects any non-canonical GitHub repository before planning WIF trust', () => {
   assert.match(script, /CANONICAL_GITHUB_REPOSITORY="khedma-sy\/khedmah-digital-v1"/);
   assert.match(script, /test "\$GITHUB_REPOSITORY" = "\$CANONICAL_GITHUB_REPOSITORY"/);
   assert.match(script, /bootstrap repository must be \$CANONICAL_GITHUB_REPOSITORY/);
   assert.match(script, /--arg repository "\$CANONICAL_GITHUB_REPOSITORY"/);
+});
+
+test('saved bootstrap plan must be complete and non-errored', () => {
+  assert.match(script, /\.complete == true/);
+  assert.match(script, /\.errored == false/);
 });
 
 test('saved bootstrap plan is cryptographically bound to the current main commit through Terraform input', () => {
