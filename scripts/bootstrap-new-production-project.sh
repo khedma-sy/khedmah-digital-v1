@@ -69,7 +69,8 @@ bootstrap_configuration_sha256() {
     infra/iac/bootstrap/main.tf \
     infra/iac/bootstrap/variables.tf \
     infra/iac/bootstrap/outputs.tf \
-    infra/iac/bootstrap/versions.tf; do
+    infra/iac/bootstrap/versions.tf \
+    infra/iac/bootstrap/.terraform.lock.hcl; do
     test -f "$file"
     sha256sum "$file" >>"$digest_input"
   done
@@ -192,7 +193,7 @@ verify_bootstrap_services() {
 }
 
 terraform_init() {
-  terraform -chdir=infra/iac/bootstrap init     -input=false     -lock=false     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
+  terraform -chdir=infra/iac/bootstrap init     -input=false     -lock=false     -lockfile=readonly     -reconfigure     -backend-config="bucket=$TF_STATE_BUCKET"     -backend-config="prefix=$TF_STATE_PREFIX"
 }
 
 terraform_vars=(
