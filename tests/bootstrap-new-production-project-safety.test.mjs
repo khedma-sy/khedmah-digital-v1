@@ -13,6 +13,18 @@ test('bootstrap shell is syntactically valid', () => {
   execFileSync('bash', ['-n', 'scripts/bootstrap-new-production-project.sh'], { stdio: 'pipe' });
 });
 
+test('bootstrap requires Terraform 1.8+ both declaratively and at runtime', async () => {
+  const versions = await readFile(new URL('../infra/iac/bootstrap/versions.tf', import.meta.url), 'utf8');
+  assert.match(versions, /required_version\s*=\s*">= 1\.8\.0"/);
+  assert.match(script, /terraform version -json/);
+  assert.match(script, /Terraform 1\.8\.0 or newer is required/);
+  assert.match(script, /terraform_major == 1 && terraform_minor < 8/);
+  assert.ok(
+    script.indexOf('Terraform 1.8.0 or newer is required') <
+      script.indexOf('case "$BOOTSTRAP_MODE"'),
+  );
+});
+
 const section = (start, end) => {
   const s = script.indexOf(start);
   const e = script.indexOf(end, s + start.length);
