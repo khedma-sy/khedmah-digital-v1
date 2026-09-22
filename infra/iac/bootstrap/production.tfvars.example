@@ -1,22 +1,30 @@
 # Production new-account bootstrap inputs. Never place secret values in this file.
 # Copy outside the repository or pass TF_VAR_* values from the authenticated operator.
+# Canonical production execution is scripts/bootstrap-new-production-project.sh.
+# Replace every provenance placeholder below with values derived from the exact locked main commit.
 
 project_id = "REPLACE_WITH_NEW_PRODUCTION_PROJECT_ID"
 region     = "me-central1"
+
+# Required bootstrap provenance/state inputs. These intentionally have no defaults.
+source_commit_sha           = "REPLACE_WITH_EXACT_40_CHAR_MAIN_COMMIT_SHA"
+configuration_sha256        = "REPLACE_WITH_EXACT_64_CHAR_BOOTSTRAP_CONFIG_SHA256"
+terraform_state_bucket_name = "REPLACE_WITH_PROTECTED_TERRAFORM_STATE_BUCKET"
 
 artifact_registry_repository_id = "khedmah-digital"
 cloud_sql_instance_id            = "khedmah-v1-db"
 cloud_sql_database_name          = "khedmah"
 cloud_sql_tier                   = "db-custom-1-3840"
 
-runtime_service_account_id  = "khedmah-v1-runtime"
-deployer_service_account_id = "khedmah-v1-deployer"
+runtime_service_account_id   = "khedmah-v1-runtime"
+deployer_service_account_id  = "khedmah-v1-deployer"
 
 github_repository    = "khedma-sy/khedmah-digital-v1"
 github_workflow_path = ".github/workflows/production-operator-new-account.yml"
 github_ref           = "refs/heads/main"
 
 github_additional_workflow_paths = [
+  ".github/workflows/google-production-readiness.yml",
   ".github/workflows/production-migrations-025-034.yml",
   ".github/workflows/terraform-media-plan.yml",
   ".github/workflows/terraform-media-apply.yml",
