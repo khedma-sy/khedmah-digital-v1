@@ -69,6 +69,9 @@ test('handoff backs up and removes both addresses atomically, then stops', () =>
 test('fresh-root verification rejects IAM/API lookup failures instead of claiming absence', () => {
   assert.match(workflow, /gcloud storage objects describe/);
   assert.match(workflow, /NOT_FOUND\|not found\|404\|matched no objects\|does not exist/);
+  assert.match(workflow, /gcloud storage ls --all-versions/);
+  assert.match(workflow, /ARCHIVED_GENERATIONS_PRESENT/);
+  assert.match(workflow, /VERSIONS_LOOKUP_FAILED/);
   assert.match(workflow, /\$\{error_label\}_LOOKUP_FAILED/);
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
 });
