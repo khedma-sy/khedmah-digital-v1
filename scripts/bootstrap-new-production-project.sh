@@ -169,7 +169,7 @@ verify_state_bucket_policy() {
         .role == "roles/storage.objectAdmin" and
         any(.members[]?; . == $member) and
         (.condition.title == "Khedmah production Terraform state only") and
-        (.condition.expression == ("resource.name.startsWith(\\\"" + $prefix + "\\\")"))
+        (.condition.expression == ("resource.name.startsWith(\"" + $prefix + "\")"))
       )
     ' "$policy_json" >/dev/null || {
       echo 'ERROR: Terraform state bucket is missing the prefix-scoped deployer objectAdmin binding.' >&2
