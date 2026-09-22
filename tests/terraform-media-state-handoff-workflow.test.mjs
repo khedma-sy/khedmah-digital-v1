@@ -47,7 +47,7 @@ test('fresh account verifies an absent root state instead of manufacturing an em
   assert.doesNotMatch(workflow, /VERIFY_INITIALIZED_EMPTY_ROOT|INITIALIZE_EMPTY_ROOT/);
   assert.doesNotMatch(workflow, /terraform -chdir=infra\/iac state push/);
   assert.ok(
-    workflow.indexOf('gcloud storage ls --all-versions "$root_state_uri"') <
+    workflow.indexOf('gcloud storage objects describe "$root_state_uri"') <
       workflow.indexOf('terraform -chdir=infra/iac init'),
   );
 });
@@ -62,4 +62,11 @@ test('handoff backs up and removes both addresses atomically, then stops', () =>
   assert.match(workflow, /no import, plan, apply, or deployment performed/);
   assert.doesNotMatch(workflow, /terraform[^\n]*\b(?:import|plan|apply)\b/);
   assert.doesNotMatch(workflow, /upload-artifact|gcloud builds submit|run deploy/);
+});
+
+
+test('fresh-root verification rejects IAM/API lookup failures instead of claiming absence', () => {
+  assert.match(workflow, /gcloud storage objects describe/);
+  assert.match(workflow, /NOT_FOUND\|not found\|404\|matched no objects\|does not exist/);
+  assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS_LOOKUP_FAILED/);
 });
