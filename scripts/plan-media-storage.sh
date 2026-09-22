@@ -31,18 +31,35 @@ fi
 
 classify_absent_gcs_object() {
   local object_uri="$1"
-  local stderr_file
-  stderr_file="$(mktemp)"
-  if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$stderr_file"; then
-    rm -f "$stderr_file"
+  local describe_err versions_out versions_err
+  describe_err="$(mktemp)"
+  if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$describe_err"; then
+    rm -f "$describe_err"
     return 1
   fi
-  if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$stderr_file"; then
-    rm -f "$stderr_file"
+  if ! grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$describe_err"; then
+    cat "$describe_err" >&2
+    rm -f "$describe_err"
+    return 2
+  fi
+  rm -f "$describe_err"
+
+  versions_out="$(mktemp)"
+  versions_err="$(mktemp)"
+  if gcloud storage ls --all-versions "$object_uri" >"$versions_out" 2>"$versions_err"; then
+    if [[ -s "$versions_out" ]]; then
+      rm -f "$versions_out" "$versions_err"
+      return 1
+    fi
+    rm -f "$versions_out" "$versions_err"
     return 0
   fi
-  cat "$stderr_file" >&2
-  rm -f "$stderr_file"
+  if grep -Eiq '(matched no objects|NOT_FOUND|not found|404|does not exist)' "$versions_err"; then
+    rm -f "$versions_out" "$versions_err"
+    return 0
+  fi
+  cat "$versions_err" >&2
+  rm -f "$versions_out" "$versions_err"
   return 2
 }
 
