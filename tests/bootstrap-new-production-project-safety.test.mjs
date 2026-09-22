@@ -80,6 +80,7 @@ test('state bucket lookup distinguishes confirmed absence from IAM or API errors
 test('canonical infrastructure values are passed explicitly into Terraform plan', () => {
   for (const assignment of [
     'source_commit_sha=$CURRENT_SHA',
+    'configuration_sha256=$CONFIGURATION_SHA256',
     'terraform_state_bucket_name=$TF_STATE_BUCKET',
     'artifact_registry_repository_id=khedmah-digital',
     'cloud_sql_instance_id=khedmah-v1-db',
@@ -111,6 +112,7 @@ test('saved bootstrap plan is bound to the active project region repository and 
     'project_id',
     'region',
     'source_commit_sha',
+    'configuration_sha256',
     'terraform_state_bucket_name',
     'github_repository',
     'github_ref',
@@ -156,6 +158,25 @@ test('bootstrap rejects any non-canonical GitHub repository before planning WIF 
 test('saved bootstrap plan must be complete and non-errored', () => {
   assert.match(script, /\.complete == true/);
   assert.match(script, /\.errored == false/);
+});
+
+test('bootstrap computes a fingerprint from the canonical Terraform configuration files', () => {
+  assert.match(script, /bootstrap_configuration_sha256\(\)/);
+  for (const file of ['main.tf', 'variables.tf', 'outputs.tf', 'versions.tf']) {
+    assert.ok(script.includes(`infra/iac/bootstrap/${file}`), `missing fingerprint input ${file}`);
+  }
+  assert.match(script, /CONFIGURATION_SHA256="\$\(bootstrap_configuration_sha256\)"/);
+  assert.match(script, /-var=configuration_sha256=\$CONFIGURATION_SHA256/);
+});
+
+test('saved plan must contain matching provenance resource and configuration fingerprint', async () => {
+  const bootstrap = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
+  assert.match(bootstrap, /terraform_data" "bootstrap_provenance/);
+  assert.match(bootstrap, /configuration_sha256\s+= var\.configuration_sha256/);
+  assert.match(script, /\.variables\.configuration_sha256\.value == \$configuration_sha256/);
+  assert.match(script, /terraform_data\.bootstrap_provenance/);
+  assert.match(script, /\.values\.input\.configuration_sha256 == \$configuration_sha256/);
+  assert.match(script, /\.values\.input\.source_commit_sha == \$source_commit/);
 });
 
 test('saved bootstrap plan is cryptographically bound to the current main commit through Terraform input', () => {
