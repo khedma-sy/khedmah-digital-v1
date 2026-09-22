@@ -68,13 +68,23 @@ test('PREPARE_STATE is the only phase allowed to mutate prerequisite APIs or sta
   }
 });
 
-test('state bucket IAM rejects unexpected bucket-level principals', () => {
-  assert.match(script, /projectOwner:/);
-  assert.match(script, /projectEditor:/);
+test('state bucket IAM allowlists exact convenience-role/member pairs and deployer objectAdmin only', () => {
+  for (const role of [
+    'roles/storage.legacyBucketReader',
+    'roles/storage.legacyObjectReader',
+    'roles/storage.legacyBucketOwner',
+    'roles/storage.legacyObjectOwner',
+    'roles/storage.objectAdmin',
+  ]) assert.ok(script.includes(role), `missing allowed bucket role ${role}`);
   assert.match(script, /projectViewer:/);
+  assert.match(script, /projectEditor:/);
+  assert.match(script, /projectOwner:/);
   assert.match(script, /serviceAccount:/);
-  assert.match(script, /Terraform state bucket contains an unexpected IAM principal/);
+  assert.match(script, /Terraform state bucket contains an unexpected IAM role\/member binding/);
   assert.match(script, /khedmah-v1-deployer@\$\{GOOGLE_CLOUD_PROJECT\}\.iam\.gserviceaccount\.com/);
+  assert.match(script, /\$binding\.role == "roles\/storage\.objectAdmin"/);
+  assert.match(script, /\$member == \("serviceAccount:" \+ \$deployer\)/);
+  assert.match(script, /\(\(\$binding\.condition \/\/ null\) == null\)/);
 });
 
 test('state bucket IAM must remain private and gains only the scoped deployer object binding', () => {
