@@ -146,3 +146,15 @@ test('DB preflight is SHA-locked before any mutation', () => {
   assert.match(block, /database-role-bootstrap:\$REQUESTED_SHA/);
   assert.ok(block.indexOf('test "$GITHUB_SHA" = "$REQUESTED_SHA"') < block.indexOf('gcloud builds submit'));
 });
+
+
+test('Production deploy workflow keeps exactly one capture/deploy/verify/rollback sequence', () => {
+  const workflow = readFileSync(operatorPath, 'utf8');
+  const count = (needle) => workflow.split(needle).length - 1;
+  assert.equal(count('Capture currently serving Production revision pair'), 1);
+  assert.equal(count('Deploy exact main commit through account-neutral Cloud Build'), 1);
+  assert.equal(count('Verify live revisions and Maps readiness'), 1);
+  assert.equal(count('Emergency rollback after failed Production deployment or certification'), 1);
+  assert.match(workflow, /IFS=\$'\\t' read -r backend_state backend_revision/);
+  assert.match(workflow, /IFS=\$'\\t' read -r frontend_state frontend_revision/);
+});
