@@ -180,6 +180,12 @@ resource "google_storage_bucket_iam_member" "deployer_terraform_state_objects" {
   bucket = var.terraform_state_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.deployer.email}"
+
+  condition {
+    title       = "Khedmah production Terraform state only"
+    description = "Restrict the GitHub deployer to the governed production Terraform state prefixes."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.terraform_state_bucket_name}/objects/khedmah/production/\")"
+  }
 }
 
 resource "google_service_account" "build" {
