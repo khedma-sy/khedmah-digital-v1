@@ -6,6 +6,8 @@ set -euo pipefail
 : "${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"
 : "${OPERATIONS_BUILD_SERVICE_ACCOUNT:?OPERATIONS_BUILD_SERVICE_ACCOUNT is required}"
 : "${OPERATIONS_MIGRATION_SERVICE_ACCOUNT:?OPERATIONS_MIGRATION_SERVICE_ACCOUNT is required}"
+: "${GCS_MEDIA_BUCKET:?GCS_MEDIA_BUCKET is required}"
+: "${GCS_MEDIA_LOCATION:?GCS_MEDIA_LOCATION is required}"
 
 AR_REPOSITORY="${OPERATIONS_ARTIFACT_REPOSITORY:-khedmah-digital}"
 BACKEND_SERVICE="${OPERATIONS_BACKEND_SERVICE:-backend}"
@@ -47,6 +49,31 @@ gcloud iam service-accounts describe "$BUILD_SERVICE_ACCOUNT" --project "$GOOGLE
 }
 gcloud iam service-accounts describe "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
 gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
+test "$GCS_MEDIA_BUCKET" != "$SOURCE_BUCKET" || {
+  echo "ERROR: Media bucket must not reuse the Cloud Build source bucket." >&2
+  exit 1
+}
+MEDIA_BUCKET_JSON="$(mktemp)"
+MEDIA_POLICY_JSON="$(mktemp)"
+trap 'rm -f "$MEDIA_BUCKET_JSON" "$MEDIA_POLICY_JSON"' EXIT
+gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" --project "$GOOGLE_CLOUD_PROJECT" --format=json > "$MEDIA_BUCKET_JSON"
+jq -e --arg bucket "$GCS_MEDIA_BUCKET" --arg location "${GCS_MEDIA_LOCATION^^}" '
+  .name == $bucket and .location == $location and
+  ((.uniform_bucket_level_access == true) or (.iamConfiguration.uniformBucketLevelAccess.enabled == true)) and
+  ((.public_access_prevention == "enforced") or (.iamConfiguration.publicAccessPrevention == "enforced")) and
+  ((.versioning_enabled == true) or (.versioning.enabled == true))
+' "$MEDIA_BUCKET_JSON" >/dev/null || {
+  echo "ERROR: Media bucket metadata does not match the approved private Production contract." >&2
+  exit 1
+}
+gcloud storage buckets get-iam-policy "gs://${GCS_MEDIA_BUCKET}" --format=json > "$MEDIA_POLICY_JSON"
+jq -e --arg member "serviceAccount:$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" '
+  any(.bindings[]?; .role == "roles/storage.objectAdmin" and any(.members[]?; . == $member)) and
+  ([.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers"))
+' "$MEDIA_POLICY_JSON" >/dev/null || {
+  echo "ERROR: Media bucket IAM is public or missing the runtime objectAdmin binding." >&2
+  exit 1
+}
 gcloud artifacts repositories describe "$AR_REPOSITORY" \
   --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" \
   --format='value(name)' >/dev/null
@@ -109,5 +136,6 @@ done
 
 echo "READY: DEPLOYMENT_PREREQUISITES=${GOOGLE_CLOUD_PROJECT}/${GOOGLE_CLOUD_REGION}"
 echo "READY: CLOUD_BUILD_SERVICE_ACCOUNT=${BUILD_SERVICE_ACCOUNT}"
+echo "READY: MEDIA_BUCKET=${GCS_MEDIA_BUCKET}/${GCS_MEDIA_LOCATION}"
 echo "READY: CLOUD_RUN_SERVICES=${BACKEND_SERVICE},${FRONTEND_SERVICE}"
 echo "READY: SECRET_METADATA_COUNT=${#required_secrets[@]}"
