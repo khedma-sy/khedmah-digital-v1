@@ -6,6 +6,8 @@ locals {
     ) : "${var.github_repository}/${path}@${var.github_ref}"
   ]
 
+  github_readiness_workflow_ref = "${var.github_repository}/.github/workflows/google-production-readiness.yml@${var.github_ref}"
+
   google_apis = toset([
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
@@ -196,6 +198,39 @@ resource "google_service_account" "migration" {
   display_name = "Khedmah V1 database migrator"
 
   depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_service_account" "readiness_verifier" {
+  project      = var.project_id
+  account_id   = var.readiness_verifier_service_account_id
+  display_name = "Khedmah V1 Production readiness verifier"
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_custom_role" "readiness_project_policy_viewer" {
+  project     = var.project_id
+  role_id     = "khedmahReadinessProjectPolicyViewer"
+  title       = "Khedmah Readiness Project Policy Viewer"
+  description = "Single read-only permission used by Production readiness to detect project IAM drift."
+
+  permissions = [
+    "resourcemanager.projects.getIamPolicy",
+  ]
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_member" "readiness_project_policy_viewer" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.readiness_project_policy_viewer.name
+  member  = "serviceAccount:${google_service_account.readiness_verifier.email}"
+}
+
+resource "google_project_iam_member" "readiness_secret_metadata_viewer" {
+  project = var.project_id
+  role    = "roles/secretmanager.viewer"
+  member  = "serviceAccount:${google_service_account.readiness_verifier.email}"
 }
 
 resource "google_project_iam_member" "runtime_cloud_sql_client" {
@@ -448,4 +483,45 @@ resource "google_service_account_iam_member" "github_deployer" {
   service_account_id = google_service_account.deployer.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+}
+
+resource "google_iam_workload_identity_pool" "github_readiness" {
+  project                   = var.project_id
+  workload_identity_pool_id = "khedmah-github-readiness"
+  display_name              = "Khedmah GitHub Readiness"
+  description               = "Isolated keyless authentication for the read-only Production readiness verifier."
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_iam_workload_identity_pool_provider" "github_readiness" {
+  project                            = var.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_readiness.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-readiness"
+  display_name                       = "GitHub Production Readiness"
+
+  attribute_mapping = {
+    "google.subject"             = "assertion.sub"
+    "attribute.repository"       = "assertion.repository"
+    "attribute.repository_owner" = "assertion.repository_owner"
+    "attribute.ref"              = "assertion.ref"
+    "attribute.workflow_ref"     = "assertion.workflow_ref"
+  }
+
+  attribute_condition = <<-EOT
+    assertion.repository_owner == "${split("/", var.github_repository)[0]}" &&
+    assertion.repository == "${var.github_repository}" &&
+    assertion.ref == "${var.github_ref}" &&
+    assertion.workflow_ref == local.github_readiness_workflow_ref
+  EOT
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+resource "google_service_account_iam_member" "github_readiness_verifier" {
+  service_account_id = google_service_account.readiness_verifier.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_readiness.name}/attribute.repository/${var.github_repository}"
 }
