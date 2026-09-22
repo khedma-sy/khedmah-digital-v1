@@ -86,6 +86,15 @@ resource "google_project_service" "bootstrap" {
   disable_on_destroy = false
 }
 
+resource "terraform_data" "bootstrap_provenance" {
+  input = {
+    source_commit_sha      = var.source_commit_sha
+    configuration_sha256   = var.configuration_sha256
+    github_repository      = var.github_repository
+    terraform_state_bucket = var.terraform_state_bucket_name
+  }
+}
+
 resource "google_storage_bucket" "cloudbuild_source" {
   project                     = var.project_id
   name                        = "${var.project_id}-cloudbuild-source"
