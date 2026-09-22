@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 set +x
+umask 077
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
@@ -110,6 +111,39 @@ verify_state_bucket() {
   rm -f "$bucket_json"
 }
 
+verify_state_bucket_policy() {
+  local expected_deployer="${1:-}"
+  local policy_json
+  policy_json="$(mktemp)"
+  if ! gcloud storage buckets get-iam-policy "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$policy_json"; then
+    echo 'ERROR: unable to read Terraform state bucket IAM policy.' >&2
+    rm -f "$policy_json"
+    return 1
+  fi
+
+  jq -e '
+    [.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers")
+  ' "$policy_json" >/dev/null || {
+    echo 'ERROR: Terraform state bucket must not grant public IAM principals.' >&2
+    rm -f "$policy_json"
+    return 1
+  }
+
+  if [[ -n "$expected_deployer" ]]; then
+    jq -e --arg member "serviceAccount:$expected_deployer" '
+      any(.bindings[]?;
+        .role == "roles/storage.objectAdmin" and
+        any(.members[]?; . == $member)
+      )
+    ' "$policy_json" >/dev/null || {
+      echo 'ERROR: Terraform state bucket is missing the deployer objectAdmin binding.' >&2
+      rm -f "$policy_json"
+      return 1
+    }
+  fi
+  rm -f "$policy_json"
+}
+
 verify_bootstrap_services() {
   local enabled_apis
   enabled_apis="$(gcloud services list --enabled --project "$GOOGLE_CLOUD_PROJECT" --format='value(config.name)')"
@@ -128,6 +162,7 @@ terraform_init() {
 terraform_vars=(
   "-var=project_id=$GOOGLE_CLOUD_PROJECT"
   "-var=region=$GOOGLE_CLOUD_REGION"
+  "-var=terraform_state_bucket_name=$TF_STATE_BUCKET"
   "-var=artifact_registry_repository_id=khedmah-digital"
   "-var=cloud_sql_instance_id=khedmah-v1-db"
   "-var=cloud_sql_database_name=khedmah"
@@ -145,9 +180,10 @@ terraform_vars=(
 
 verify_plan_target() {
   local plan_json="$1"
-  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg repository "$GITHUB_REPOSITORY" '
+  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$GITHUB_REPOSITORY" '
       .variables.project_id.value == $project and
       .variables.region.value == $region and
+      .variables.terraform_state_bucket_name.value == $state_bucket and
       .variables.github_repository.value == $repository and
       .variables.github_ref.value == "refs/heads/main" and
       .variables.github_workflow_path.value == ".github/workflows/production-operator-new-account.yml" and
@@ -253,6 +289,7 @@ case "$BOOTSTRAP_MODE" in
 
     verify_bootstrap_services
     verify_state_bucket
+    verify_state_bucket_policy
     echo "PREPARED: TF_STATE_BUCKET=$TF_STATE_BUCKET"
     echo "PREPARED: TF_STATE_PREFIX=$TF_STATE_PREFIX"
     echo 'NEXT: run BOOTSTRAP_MODE=PLAN from the same exact main commit.'
@@ -261,6 +298,7 @@ case "$BOOTSTRAP_MODE" in
   PLAN)
     verify_bootstrap_services
     verify_state_bucket
+    verify_state_bucket_policy
     terraform_init
     terraform -chdir=infra/iac/bootstrap validate
 
@@ -295,6 +333,7 @@ case "$BOOTSTRAP_MODE" in
   APPLY)
     verify_bootstrap_services
     verify_state_bucket
+    verify_state_bucket_policy
     terraform_init
     terraform -chdir=infra/iac/bootstrap validate
 
@@ -334,6 +373,10 @@ case "$BOOTSTRAP_MODE" in
 
     terraform -chdir=infra/iac/bootstrap apply       -input=false       -lock-timeout=60s       "$BOOTSTRAP_PLAN_FILE"
 
+    deployer_email="$(terraform -chdir=infra/iac/bootstrap output -raw deployer_service_account_email)"
+    [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+    verify_state_bucket_policy "$deployer_email"
+
     publish_outputs
     echo 'APPLIED: bootstrap infrastructure exists in the new Google project.'
     echo 'NEXT: inject secret VALUES as enabled Secret Manager versions; Terraform creates secret containers only.'
@@ -343,10 +386,14 @@ case "$BOOTSTRAP_MODE" in
   VERIFY)
     verify_bootstrap_services
     verify_state_bucket
+    verify_state_bucket_policy
     terraform_init
     terraform -chdir=infra/iac/bootstrap validate
+    deployer_email="$(terraform -chdir=infra/iac/bootstrap output -raw deployer_service_account_email)"
+    [[ "$deployer_email" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
+    verify_state_bucket_policy "$deployer_email"
     publish_outputs
-    echo 'VERIFIED: bootstrap state and sanitized outputs are readable from the exact latest main commit.'
+    echo 'VERIFIED: bootstrap state, IAM and sanitized outputs are readable from the exact latest main commit.'
     ;;
 
   *)
