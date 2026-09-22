@@ -22,7 +22,9 @@ test('new-account production operator is manual and locked to latest main', () =
   assert.doesNotMatch(workflow, /push:|schedule:|pull_request:/);
   assert.match(workflow, /default: VERIFY_ONLY/);
   assert.match(workflow, /inputs\.mode == 'DEPLOY_PRODUCTION'/);
+  assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
   assert.match(workflow, /git fetch origin main/);
+  assert.match(workflow, /git rev-parse HEAD/);
   assert.match(workflow, /git rev-parse origin\/main/);
 });
 
