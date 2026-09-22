@@ -19,8 +19,10 @@ for name in \
   OPERATIONS_FRONTEND_SERVICE \
   OPERATIONS_RUNTIME_SERVICE_ACCOUNT \
   OPERATIONS_BUILD_SERVICE_ACCOUNT \
+  OPERATIONS_MIGRATION_SERVICE_ACCOUNT \
   CLOUD_SQL_INSTANCE_CONNECTION_NAME \
   GCS_MEDIA_BUCKET \
+  GCS_MEDIA_LOCATION \
   CORS_ORIGIN \
   NEXT_PUBLIC_SITE_URL \
   EMAIL_FROM \
@@ -46,6 +48,7 @@ for value in \
   "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT" \
   "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT" \
   "$OPERATIONS_BUILD_SERVICE_ACCOUNT" \
+  "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
   "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
   "$GCS_MEDIA_BUCKET" \
   "$CORS_ORIGIN" \
@@ -62,6 +65,14 @@ done
 }
 [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
   echo 'Build service account must belong to the active Production project.' >&2
+  exit 6
+}
+[[ "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || {
+  echo 'Migration service account must belong to the active Production project.' >&2
+  exit 6
+}
+[[ "$GCS_MEDIA_LOCATION" == "$GOOGLE_CLOUD_REGION" ]] || {
+  echo 'Media bucket location must match the active Production region.' >&2
   exit 6
 }
 [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]] || {
