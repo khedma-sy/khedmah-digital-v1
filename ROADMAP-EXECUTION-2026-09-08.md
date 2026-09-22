@@ -2,16 +2,16 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-آخر تحديث: **2026-09-22 — تثبيت مسار Production للحساب الجديد في Google؛ Gate A ينتظر اكتمال Preview لـPR #198 وGate B قيد CI في PR #200 دون أي نشر Production.**
+آخر تحديث: **2026-09-22 — Gate A أُغلق بدمج PR #198؛ رأس Production المرجعي أصبح `6f9c580e1faa78cf1496ff306b5dde0287695882` وGate B/PR #200 متزامن معه وينتظر CI/Preview فقط، دون أي نشر Production.**
 
-- **قفل المصدر الحالي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، ومرجع Production هو `main`. الرأس الحالي قبل دمج #198 هو `5ec3a741953af2045257e7d3af11cf60969cb612`. فرع `develop` متشعب وليس مصدر إصدار Production.
-- **Gate A / PR #198:** الرأس `2425101d9e8edb9206f6af965062ca83a7464d2b` يضيف تجاهل `apps/android/app/google-services.json` فقط. Test & Verify وNode CI وPreview quality gates ناجحة؛ deploy-preview ما زال قيد التنفيذ. ممنوع الدمج حتى اكتمال Preview كاملاً ثم تثبيت SHA الجديد لـ`main`.
+- **قفل المصدر الحالي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`، ومرجع Production هو `main`. الرأس الحالي المثبت هو `6f9c580e1faa78cf1496ff306b5dde0287695882`. فرع `develop` متشعب وليس مصدر إصدار Production.
+- **Gate A مكتمل / PR #198:** دُمج `chore(firebase): ignore Android services configuration` بعد نجاح Test & Verify وNode CI وPreview quality/deploy/review evidence و32/32 mobile interactions. أصبح `apps/android/app/google-services.json` مستبعدًا من Git على `main`.
 - **خارطة التنفيذ:** Issue #199 `Production New-Account Gates` هو متتبع البوابات A–I: Source lock، Cloud/IAM drift، secret matrix، protected readiness، database foundation، VERIFY_ONLY، deploy، bootstrap admin، Android certification. لا تُسجل فيه قيم أسرار.
-- **Gate B / PR #200 Draft:** الفرع `fix/new-account-production-gates-2026-09-22` مبني من `main@5ec3a741` ويضيف fail-closed checks فقط: `roles/iam.serviceAccountViewer` لمعاينة مفاتيح service accounts بلا إدارتها، preflight حي لصلاحيات `BOOTSTRAP_ADMIN_SECRET` قبل أي Cloud Run mutation، اشتراط migration service account، وتوسيع metadata/state checks للأسرار الدائمة بما فيها `DATABASE_MIGRATION_URL` وMaps Android/Server وOAuth Server وFirebase App ID. لا Owner/Editor ولا قراءة secret payloads عامة.
+- **Gate B / PR #200 Draft:** الرأس المتزامن `74953fbaa1e8ff6ade3b0c536b731373fcf84a5e` أصبح ahead من `main` وbehind=0 بعد merge commit غير قسري مع #198. يضيف fail-closed checks فقط: `roles/iam.serviceAccountViewer` لمعاينة مفاتيح service accounts بلا إدارتها، preflight حي لصلاحيات `BOOTSTRAP_ADMIN_SECRET` قبل أي Cloud Run mutation، اشتراط migration service account، وتوسيع metadata/state checks للأسرار الدائمة بما فيها `DATABASE_MIGRATION_URL` وMaps Android/Server وOAuth Server وFirebase App ID. لا Owner/Editor ولا قراءة secret payloads عامة.
 - **سبب الإصلاح:** تشغيل Production Bootstrap Admin السابق أنشأ/وجد bootstrap مكتملاً ثم فشل في cleanup بسبب `secretmanager.versions.list`. Terraform كان يصرح `secretVersionManager` بالفعل؛ لذلك السبب التشغيلي هو drift بين IaC والحساب الفعلي، ويجب إثبات live IAM قبل mutation لا الاكتفاء بوجود الكود.
 - **الحساب الجديد في Google:** لا توجد حتى الآن شهادة `workflow_dispatch` ناجحة لـ`Google production readiness` على protected `production` ضمن آخر التشغيلات المفحوصة. نجاح PR-only لا يثبت حقن أسرار الحساب الجديد. التحقق سيكون بوجود/حالة/IAM/تنسيق الأسرار دون إظهار القيم.
 - **حدود الإصدار:** `TAXI_TRIPS_ENABLED=false` باقٍ fail-closed حتى تفويض منفصل. الدفع الإلكتروني غير معتمد قبل provider/webhook/settlement؛ التدفقات النقدية/اليدوية فقط تخضع لقبولها الخاص.
-- **الخطوة التالية المسموحة:** انتظر نتيجة Preview لـ#198. إن نجحت: دمج #198 وتثبيت SHA `main` الجديد، ثم إعادة تقييم/تحديث PR #200 على ذلك الرأس وإكمال CI/Preview. لا Terraform apply ولا Production workflow ولا migration قبل إغلاق هاتين البوابتين.
+- **الخطوة التالية المسموحة:** إكمال CI/Preview على PR #200 المتزامن، ثم مراجعة الأدلة ودمج Gate B فقط إذا كانت كل البوابات خضراء. بعد ذلك فقط يبدأ التحقق المحمي من الحساب الجديد؛ لا Terraform apply ولا migration ولا Production deploy قبل دمج Gate B.
 
 آخر تحديث: **2026-09-15 — دُمج إصلاح استرداد checkout وربط KORA فوق دفعة المطاعم والخصومات والمندوب الأحدث؛ التحقق المحلي النهائي ناجح والدفعة جاهزة للرفع العادي المصرح به إلى PR175.**
 
