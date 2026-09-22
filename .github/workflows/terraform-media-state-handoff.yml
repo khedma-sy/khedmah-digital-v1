@@ -92,6 +92,25 @@ jobs:
         id: verify
         run: |
           set -euo pipefail
+          assert_gcs_object_absent() {
+            local object_uri="$1"
+            local error_label="$2"
+            local stderr_file
+            stderr_file="$(mktemp)"
+            if gcloud storage objects describe "$object_uri" --format='value(name)' >/dev/null 2>"$stderr_file"; then
+              rm -f "$stderr_file"
+              echo "ERROR: ${error_label}" >&2
+              return 1
+            fi
+            if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$stderr_file"; then
+              rm -f "$stderr_file"
+              return 0
+            fi
+            echo "ERROR: ${error_label}_LOOKUP_FAILED" >&2
+            cat "$stderr_file" >&2
+            rm -f "$stderr_file"
+            return 1
+          }
           test -n "$GOOGLE_CLOUD_PROJECT"
           STATE_BUCKET="${REQUESTED_STATE_BUCKET:-$CONFIGURED_STATE_BUCKET}"
           if [[ -n "$REQUESTED_STATE_BUCKET" && -n "$CONFIGURED_STATE_BUCKET" ]]; then
@@ -150,10 +169,7 @@ jobs:
 
           root_state_uri="gs://${STATE_BUCKET}/khedmah/production/root/default.tfstate"
           if [[ "$MODE" == VERIFY_EMPTY_ROOT ]]; then
-            if gcloud storage ls --all-versions "$root_state_uri" >/dev/null 2>&1; then
-              printf '%s\n' 'ERROR: ROOT_STATE_ALREADY_EXISTS' >&2
-              exit 3
-            fi
+            assert_gcs_object_absent "$root_state_uri" ROOT_STATE_ALREADY_EXISTS
             printf 'state_bucket=%s\nlineage=ABSENT\nserial=0\n' "$STATE_BUCKET" >>"$GITHUB_OUTPUT"
             exit 0
           fi
