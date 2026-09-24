@@ -275,7 +275,7 @@ resource "google_project_iam_member" "build" {
 resource "google_service_account_iam_member" "build_runtime_user" {
   service_account_id = google_service_account.runtime.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.build.email}"
+  member             = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 resource "google_storage_bucket_iam_member" "build_cloudbuild_source_reader" {
@@ -298,10 +298,10 @@ resource "google_secret_manager_secret" "runtime" {
 }
 
 resource "google_secret_manager_secret_iam_member" "runtime" {
-  for_each = google_secret_manager_secret.runtime
+  for_each = var.runtime_secret_names
 
   project   = var.project_id
-  secret_id = each.value.secret_id
+  secret_id = google_secret_manager_secret.runtime[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.runtime.email}"
 }
