@@ -15,7 +15,7 @@ terraform_state_bucket_name = "REPLACE_WITH_PROTECTED_TERRAFORM_STATE_BUCKET"
 artifact_registry_repository_id = "khedmah-digital"
 cloud_sql_instance_id            = "khedmah-v1-db"
 cloud_sql_database_name          = "khedmah"
-cloud_sql_tier                   = "db-custom-1-3840"
+cloud_sql_tier                   = "db-f1-micro"
 
 runtime_service_account_id   = "khedmah-v1-runtime"
 deployer_service_account_id  = "khedmah-v1-deployer"
