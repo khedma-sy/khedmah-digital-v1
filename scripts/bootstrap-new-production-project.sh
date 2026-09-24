@@ -270,7 +270,7 @@ terraform_vars=(
   "-var=artifact_registry_repository_id=khedmah-digital"
   "-var=cloud_sql_instance_id=khedmah-v1-db"
   "-var=cloud_sql_database_name=khedmah"
-  "-var=cloud_sql_tier=db-custom-1-3840"
+  "-var=cloud_sql_tier=db-f1-micro"
   "-var=runtime_service_account_id=khedmah-v1-runtime"
   "-var=deployer_service_account_id=khedmah-v1-deployer"
   "-var=build_service_account_id=khedmah-v1-build"
@@ -298,7 +298,7 @@ verify_plan_target() {
       .variables.artifact_registry_repository_id.value == "khedmah-digital" and
       .variables.cloud_sql_instance_id.value == "khedmah-v1-db" and
       .variables.cloud_sql_database_name.value == "khedmah" and
-      .variables.cloud_sql_tier.value == "db-custom-1-3840" and
+      .variables.cloud_sql_tier.value == "db-f1-micro" and
       .variables.runtime_service_account_id.value == "khedmah-v1-runtime" and
       .variables.deployer_service_account_id.value == "khedmah-v1-deployer" and
       .variables.build_service_account_id.value == "khedmah-v1-build" and
