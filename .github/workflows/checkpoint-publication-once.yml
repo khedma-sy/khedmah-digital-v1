@@ -1,0 +1,98 @@
+name: Prepare checkpoint blob once
+on:
+  push:
+    branches: [fix/bootstrap-runtime-secret-import-keys-2026-09-24]
+    paths: [.github/workflows/checkpoint-publication-once.yml]
+permissions:
+  contents: write
+concurrency:
+  group: checkpoint-publication-once-pr204
+  cancel-in-progress: false
+jobs:
+  prepare-blob:
+    if: github.repository == 'khedma-sy/khedmah-digital-v1' && github.ref == 'refs/heads/fix/bootstrap-runtime-secret-import-keys-2026-09-24' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assemble verified checkpoint blob without moving any branch
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          python3 - <<'PY_CHECKPOINT'
+          import base64, hashlib, json, os, re, urllib.error, urllib.request
+          REPO = 'khedma-sy/khedmah-digital-v1'
+          BRANCH = 'fix/bootstrap-runtime-secret-import-keys-2026-09-24'
+          OLD = '15ec738f02ae81bab2b4c5797ba20a068e9b826f'
+          PREFIX = '47f94df84d41546d09916f0f9ea34fcd9a4bcdb3'
+          RESULT = 'b99364f43920564db64b5c92800c008d79d5d0b2'
+          PATH = 'ROADMAP-EXECUTION-2026-09-08.md'
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl): return None
+          opener = urllib.request.build_opener(NoRedirect())
+          def require(value, code):
+              if not value: raise RuntimeError(code)
+          def digest(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          def combine(old, prefix):
+              require(digest(old) == OLD, 'OLD_BLOB_MISMATCH')
+              require(digest(prefix) == PREFIX, 'PREFIX_BLOB_MISMATCH')
+              marker = 'آخر تحديث: **2026-09-15'.encode()
+              require(marker in old, 'HISTORY_MARKER_MISSING')
+              suffix = old[old.index(marker):]
+              require(len(suffix) == 109810 and hashlib.sha256(suffix).hexdigest() ==
+                  'f4c638135f06dea1c9a2819033c7faf543d1269a5fd32f61b96dd5ef193a4d22', 'HISTORY_MISMATCH')
+              result = prefix + suffix
+              require(digest(result) == RESULT and len(result) == 121559, 'RESULT_MISMATCH')
+              result.decode('utf-8', errors='strict')
+              return result
+          
+          def request(path, payload=None):
+              allowed = {'/git/blobs/' + OLD, '/git/blobs/' + PREFIX,
+                  '/contents/' + PATH + '?ref=' + os.environ['GITHUB_SHA']}
+              require((payload is None and path in allowed) or (payload is not None and path == '/git/blobs'), 'PATH_NOT_ALLOWED')
+              req = urllib.request.Request('https://api.github.com/repos/' + REPO + path,
+                  data=None if payload is None else json.dumps(payload).encode(),
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json',
+                           'X-GitHub-Api-Version': '2022-11-28'}, method='GET' if payload is None else 'POST')
+              try:
+                  with opener.open(req, timeout=60) as response:
+                      raw = response.read(2000001)
+                  require(len(raw) <= 2000000, 'RESPONSE_TOO_LARGE')
+                  return json.loads(raw)
+              except urllib.error.HTTPError as error:
+                  raise RuntimeError('GITHUB_HTTP_' + str(error.code)) from None
+          
+          def blob(sha):
+              data = request('/git/blobs/' + sha)
+              require(data.get('sha') == sha and data.get('encoding') == 'base64', 'BLOB_RESPONSE_INVALID')
+              raw = base64.b64decode(''.join(data['content'].split()), validate=True)
+              require(digest(raw) == sha, 'BLOB_BYTES_MISMATCH')
+              return raw
+          
+          def main():
+              require(os.environ.get('GITHUB_REPOSITORY') == REPO and
+                  os.environ.get('GITHUB_REF') == 'refs/heads/' + BRANCH and
+                  os.environ.get('GITHUB_EVENT_NAME') == 'push' and
+                  re.fullmatch('[0-9a-f]{40}', os.environ.get('GITHUB_SHA', '')), 'RUN_CONTEXT_MISMATCH')
+              current = request('/contents/' + PATH + '?ref=' + os.environ['GITHUB_SHA'])
+              require(current.get('sha') == OLD, 'CHECKPOINT_CHANGED_NO_WRITE')
+              result = combine(blob(OLD), blob(PREFIX))
+              response = request('/git/blobs', {'content': base64.b64encode(result).decode(), 'encoding': 'base64'})
+              require(response.get('sha') == RESULT, 'CREATED_BLOB_UNVERIFIED')
+              print('CHECKPOINT_BLOB=' + RESULT)
+              print('HISTORY_SUFFIX_PRESERVED=true')
+              print('NO_BRANCH_UPDATE_NO_CLOUD_SQL_SECRETS_OR_DEPLOYMENT')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as stream: stream.write('blob=' + RESULT + '\n')
+          
+          if __name__ == '__main__':
+              try: main()
+              except Exception as error:
+                  code = str(error) if isinstance(error, RuntimeError) else type(error).__name__
+                  print('STOP=' + code)
+                  raise SystemExit(1)
+          PY_CHECKPOINT
