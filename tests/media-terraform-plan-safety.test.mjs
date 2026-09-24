@@ -152,6 +152,7 @@ esac
       GOOGLE_CLOUD_REGION: 'europe-west1',
       GCS_MEDIA_LOCATION: 'europe-west1',
       TF_STATE_BUCKET: 'state-bucket',
+      TF_STATE_LOCATION: 'europe-west1',
       TF_PLAN_FILE: relative(join(repoRoot, '..'), publishedPlan),
       GCS_MEDIA_BUCKET: 'requested-media-bucket',
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT:
@@ -165,7 +166,7 @@ esac
         '{"version":4,"terraform_version":"1.6.6","serial":42,"lineage":"reviewed-lineage","outputs":{},"resources":[]}',
       MOCK_LEGACY_READ_COUNT: legacyReadCount,
       MOCK_STATE_BUCKET_JSON:
-        '{"iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}',
+        '{"location":"EUROPE-WEST1","iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},"versioning":{"enabled":true}}',
       MOCK_STATE_RESOURCES: 'google_storage_bucket.media\n',
       MOCK_MEDIA_IDENTITY: 'requested-media-bucket\tkhedmah-test-project\teurope-west1',
       MOCK_RUNTIME_IDENTITY:
@@ -350,7 +351,7 @@ test('fresh-account media plan rejects archived-version lookup permission errors
 test('media plan accepts the flat gcloud bucket protection schema used in production', async (t) => {
   const result = await runPlanWithMocks(t, {
     MOCK_STATE_BUCKET_JSON:
-      '{"uniform_bucket_level_access":true,"public_access_prevention":"enforced","versioning_enabled":true}',
+      '{"location":"EUROPE-WEST1","uniform_bucket_level_access":true,"public_access_prevention":"enforced","versioning_enabled":true}',
   });
 
   assert.equal(result.code, 0, result.stderr);

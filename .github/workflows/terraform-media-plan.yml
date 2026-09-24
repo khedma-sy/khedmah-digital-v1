@@ -40,6 +40,7 @@ jobs:
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
       OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
       CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_LOCATION: ${{ vars.TF_STATE_LOCATION }}
       REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       LEGACY_ROOT_STATE_LINEAGE: ${{ inputs.expected_root_lineage }}
@@ -66,10 +67,16 @@ jobs:
         shell: bash
         env:
           GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+          TF_STATE_LOCATION: ${{ vars.TF_STATE_LOCATION }}
         run: |
           set -euo pipefail
           if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
             echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
+          if [[ "${TF_STATE_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: TF_STATE_LOCATION must be europe-west1 for approved Production operations." >&2
             exit 64
           fi
 

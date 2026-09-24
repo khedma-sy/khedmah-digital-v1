@@ -117,7 +117,7 @@ for (const file of readdirSync(join(root, '.github/workflows')).filter(f => f.en
       assert.doesNotMatch(guard, /continue-on-error|\bif:|\|\|\s*true/);
       const variables = [...guard.matchAll(/^          ([A-Z_]+): \$\{\{ vars\.\1 \}\}\s*$/gm)].map(m => m[1]);
       const expectedVariables = file.startsWith('terraform-media-')
-        ? ['GCS_MEDIA_LOCATION']
+        ? ['GCS_MEDIA_LOCATION', 'TF_STATE_LOCATION']
         : file === 'production-operator-new-account.yml'
           ? ['GOOGLE_CLOUD_REGION', 'GCS_MEDIA_LOCATION']
           : ['GOOGLE_CLOUD_REGION'];
