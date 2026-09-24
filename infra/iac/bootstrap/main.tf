@@ -253,7 +253,7 @@ resource "google_project_iam_custom_role" "storage_bucket_policy_viewer" {
 resource "google_project_iam_member" "deployer_storage_bucket_policy_viewer" {
   project = var.project_id
   role    = google_project_iam_custom_role.storage_bucket_policy_viewer.name
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  member = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_project_iam_member" "deployer" {
@@ -275,7 +275,7 @@ resource "google_project_iam_member" "build" {
 resource "google_service_account_iam_member" "build_runtime_user" {
   service_account_id = google_service_account.runtime.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.runtime.email}"
+  member             = "serviceAccount:${google_service_account.build.email}"
 }
 
 resource "google_storage_bucket_iam_member" "build_cloudbuild_source_reader" {
