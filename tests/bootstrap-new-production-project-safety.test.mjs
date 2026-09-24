@@ -118,7 +118,7 @@ test('canonical infrastructure values are passed explicitly into Terraform plan'
     'artifact_registry_repository_id=khedmah-digital',
     'cloud_sql_instance_id=khedmah-v1-db',
     'cloud_sql_database_name=khedmah',
-    'cloud_sql_tier=db-custom-1-3840',
+    'cloud_sql_tier=db-f1-micro',
     'runtime_service_account_id=khedmah-v1-runtime',
     'deployer_service_account_id=khedmah-v1-deployer',
     'build_service_account_id=khedmah-v1-build',
@@ -170,7 +170,7 @@ test('saved bootstrap plan is bound to the active project region repository and 
   assert.doesNotMatch(script, /google-production-readiness\.yml/);
   assert.match(script, /terraform-media-state-handoff\.yml/);
   assert.match(script, /GOOGLE_MAPS_SERVER_API_KEY/);
-  assert.match(script, /db-custom-1-3840/);
+  assert.match(script, /db-f1-micro/);
   assert.match(script, /bootstrap plan target does not match the canonical project\/infrastructure\/WIF\/secret contract/);
   const plan = section('  PLAN)', '\n  APPLY)');
   const apply = section('  APPLY)', '\n  VERIFY)');
