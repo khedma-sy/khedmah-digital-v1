@@ -118,7 +118,7 @@ test('live evidence collection refuses missing tooling without changing its pare
     try {
       execFileSync('/bin/bash', ['scripts/collect-live-production-evidence.sh', output], {
         encoding: 'utf8',
-        env: { PATH: bin },
+        env: { PATH: bin, GOOGLE_CLOUD_REGION: 'europe-west1' },
       });
     } catch (error) {
       stderr = String(error.stderr ?? '');

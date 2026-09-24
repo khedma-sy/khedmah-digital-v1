@@ -65,7 +65,7 @@ test "$fresh" = fresh || {
   exit 1
 }
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-production-schema-baseline-001-020', 0));
 \ir /migrations/001_core_identity_accounts.sql

@@ -15,7 +15,7 @@ steps:
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/database-baseline-001-020:$COMMIT_SHA'
 
 substitutions:
-  _REGION: me-central1
+  _REGION: europe-west1
   _AR_REPOSITORY: khedmah-digital
 
 options:

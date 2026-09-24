@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${TF_STATE_LOCATION:-}" != "europe-west1" ]]; then
+  echo "ERROR: TF_STATE_LOCATION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 MEDIA_LOCATION="${GCS_MEDIA_LOCATION:?GCS_MEDIA_LOCATION is required}"
 STATE_BUCKET="${TF_STATE_BUCKET:?TF_STATE_BUCKET is required}"
@@ -12,8 +17,8 @@ EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
 EXPECTED_LEGACY_ROOT_STATE_PREFIX="khedmah/production/root"
 
-if [[ "$MEDIA_LOCATION" != "me-central1" ]]; then
-  printf 'ERROR: EXPECTED_MEDIA_LOCATION=me-central1 ACTUAL_MEDIA_LOCATION=%s\n' \
+if [[ "$MEDIA_LOCATION" != "europe-west1" ]]; then
+  printf 'ERROR: EXPECTED_MEDIA_LOCATION=europe-west1 ACTUAL_MEDIA_LOCATION=%s\n' \
     "$MEDIA_LOCATION" >&2
   exit 1
 fi
@@ -190,21 +195,13 @@ media_terraform() {
     terraform -chdir=infra/iac/media "$@"
 }
 
-if [[ "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" != "ABSENT" ]]; then
-  root_terraform init \
-    -input=false \
-    -reconfigure \
-    -backend-config="bucket=${STATE_BUCKET}" \
-    -backend-config="prefix=${EXPECTED_LEGACY_ROOT_STATE_PREFIX}"
-fi
-
-assert_legacy_root_released
-
 gcloud storage buckets describe "gs://${STATE_BUCKET}" \
   --project="$PROJECT_ID" \
   --format=json > "$state_json"
 
 if ! jq -e '
+    (.location | type == "string") and
+    (.location | ascii_downcase == "europe-west1") and
     (
       (.uniform_bucket_level_access == true) or
       (.iamConfiguration.uniformBucketLevelAccess.enabled == true)
@@ -222,6 +219,16 @@ if ! jq -e '
   printf '%s\n' 'NO_TERRAFORM_PLAN_CREATED' >&2
   exit 1
 fi
+
+if [[ "$EXPECTED_LEGACY_ROOT_STATE_LINEAGE" != "ABSENT" ]]; then
+  root_terraform init \
+    -input=false \
+    -reconfigure \
+    -backend-config="bucket=${STATE_BUCKET}" \
+    -backend-config="prefix=${EXPECTED_LEGACY_ROOT_STATE_PREFIX}"
+fi
+
+assert_legacy_root_released
 
 gcloud iam service-accounts describe "$RUNTIME_SA" \
   --project="$PROJECT_ID" \

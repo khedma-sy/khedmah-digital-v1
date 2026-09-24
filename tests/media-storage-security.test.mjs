@@ -30,7 +30,7 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.doesNotMatch(terraform, /allUsers/);
   assert.match(versions, /backend "gcs"/);
   assert.match(versions, /region\s+= var\.location/);
-  assert.match(variables, /var\.location == "me-central1"/);
+  assert.match(variables, /var\.location == "europe-west1"/);
   assert.doesNotMatch(variables, /variable "region"/);
   assert.match(plan, /GCS_MEDIA_LOCATION:\?GCS_MEDIA_LOCATION is required/);
   assert.match(plan, /NO_TERRAFORM_APPLY/);
@@ -38,7 +38,7 @@ test('Terraform governs a private uniform-access media bucket and least-privileg
   assert.doesNotMatch(plan, /terraform[^\n]*apply/);
   assert.match(readiness, /allUsers/);
   assert.match(readiness, /PRIVATE_MEDIA_BUCKET/);
-  assert.match(readiness, /EXPECTED_MEDIA_LOCATION=me-central1/);
+  assert.match(readiness, /EXPECTED_MEDIA_LOCATION=europe-west1/);
 });
 
 test('Android resolves protected media proxy paths against the configured backend', async () => {

@@ -52,6 +52,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
       - name: Authenticate to Production Google Cloud
         uses: google-github-actions/auth@v3
         with:
@@ -111,6 +122,17 @@ jobs:
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
           EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MIGRATION_${MIGRATION_NUMBER}_${REQUESTED_SHA:0:7}"
           test "$CONFIRMATION" = "$EXPECTED_CONFIRMATION"
+
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
 
       - name: Authenticate to Production Google Cloud
         uses: google-github-actions/auth@v3

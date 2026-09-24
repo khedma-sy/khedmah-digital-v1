@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 : "${GOOGLE_CLOUD_REGION:?GOOGLE_CLOUD_REGION is required}"
 : "${OPERATIONS_RUNTIME_SERVICE_ACCOUNT:?OPERATIONS_RUNTIME_SERVICE_ACCOUNT is required}"

@@ -50,6 +50,7 @@ jobs:
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_LOCATION: ${{ vars.TF_STATE_LOCATION }}
       REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       EXPECTED_LINEAGE: ${{ inputs.expected_lineage }}
@@ -72,6 +73,23 @@ jobs:
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+          TF_STATE_LOCATION: ${{ vars.TF_STATE_LOCATION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
+          if [[ "${TF_STATE_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: TF_STATE_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
         uses: google-github-actions/auth@v3
@@ -161,6 +179,13 @@ jobs:
             rm -f "$bucket_inventory"
             state_candidates=()
             for project_bucket in "${project_buckets[@]}"; do
+              # Discover state objects only in buckets whose actual region is approved.
+              candidate_metadata="$(gcloud storage buckets describe "gs://${project_bucket}" \
+                --project="$GOOGLE_CLOUD_PROJECT" --format=json)"
+              jq -e '(.location | type == "string") and (.location | length > 0)' <<<"$candidate_metadata" >/dev/null
+              if ! jq -e '(.location | ascii_downcase) == "europe-west1"' <<<"$candidate_metadata" >/dev/null; then
+                continue
+              fi
               if gcloud storage ls \
                 "gs://${project_bucket}/khedmah/production/root/default.tfstate" \
                 >/dev/null 2>&1; then
@@ -172,7 +197,9 @@ jobs:
           fi
           test -n "$STATE_BUCKET"
 
-          protections="$(gcloud storage buckets describe "gs://${STATE_BUCKET}" --format=json)"
+          protections="$(gcloud storage buckets describe "gs://${STATE_BUCKET}" --project="$GOOGLE_CLOUD_PROJECT" --format=json)"
+          jq -e '(.location | type == "string") and
+            (.location | ascii_downcase == "europe-west1")' <<<"$protections" >/dev/null
           jq -e '(.uniform_bucket_level_access == true) or
             (.iamConfiguration.uniformBucketLevelAccess.enabled == true)' <<<"$protections" >/dev/null
           jq -e '(.public_access_prevention == "enforced") or
@@ -224,7 +251,7 @@ jobs:
           iam_member="$(jq -er '.resources[] | select(.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects") | .instances[0].attributes.member' "$state_file")"
           test "$bucket_project" = "$GOOGLE_CLOUD_PROJECT"
           test "$bucket_name" = "$iam_bucket"
-          test "${bucket_location,,}" = me-central1
+          test "${bucket_location,,}" = europe-west1
 
           {
             printf 'state_bucket=%s\n' "$STATE_BUCKET"
