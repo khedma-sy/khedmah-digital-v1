@@ -365,16 +365,16 @@ resource "google_secret_manager_secret_iam_member" "maps_android_deployer_versio
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "oauth_server_deployer_accessor" {
+resource "google_secret_manager_secret_iam_member" "maps_android_deployer_accessor" {
   project   = var.project_id
-  secret_id = google_secret_manager_secret.runtime["GOOGLE_OAUTH_SERVER_CLIENT_ID"].secret_id
+  secret_id = google_secret_manager_secret.maps_android.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "maps_android_deployer_accessor" {
+resource "google_secret_manager_secret_iam_member" "oauth_server_deployer_accessor" {
   project   = var.project_id
-  secret_id = google_secret_manager_secret.maps_android.secret_id
+  secret_id = google_secret_manager_secret.runtime["GOOGLE_OAUTH_SERVER_CLIENT_ID"].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
