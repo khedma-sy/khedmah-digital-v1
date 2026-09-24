@@ -5,7 +5,7 @@
 # Never place secret values in this file.
 
 project_id = "REPLACE_WITH_NEW_PRODUCTION_PROJECT_ID"
-region     = "me-central1"
+region     = "europe-west1"
 
 # Required bootstrap provenance/state inputs. These intentionally have no defaults.
 source_commit_sha           = "REPLACE_WITH_EXACT_40_CHAR_MAIN_COMMIT_SHA"

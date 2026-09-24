@@ -11,7 +11,7 @@ variable "project_id" {
 variable "region" {
   description = "Region for regional bootstrap resources."
   type        = string
-  default     = "me-central1"
+  default     = "europe-west1"
 }
 
 variable "source_commit_sha" {

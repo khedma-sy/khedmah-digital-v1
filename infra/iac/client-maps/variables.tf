@@ -11,7 +11,7 @@ variable "project_id" {
 variable "region" {
   description = "Production region used to validate deterministic Cloud Run referrers."
   type        = string
-  default     = "me-central1"
+  default     = "europe-west1"
 }
 
 variable "browser_allowed_referrers" {

@@ -224,7 +224,7 @@ jobs:
           iam_member="$(jq -er '.resources[] | select(.type == "google_storage_bucket_iam_member" and .name == "runtime_media_objects") | .instances[0].attributes.member' "$state_file")"
           test "$bucket_project" = "$GOOGLE_CLOUD_PROJECT"
           test "$bucket_name" = "$iam_bucket"
-          test "${bucket_location,,}" = me-central1
+          test "${bucket_location,,}" = europe-west1
 
           {
             printf 'state_bucket=%s\n' "$STATE_BUCKET"

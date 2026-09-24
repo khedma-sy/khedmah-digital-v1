@@ -4,7 +4,7 @@ variable "project_id" {
 
 variable "region" {
   type    = string
-  default = "me-central1"
+  default = "europe-west1"
 }
 
 variable "production_web_origins" {

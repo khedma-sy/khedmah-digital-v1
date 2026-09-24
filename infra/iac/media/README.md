@@ -7,7 +7,7 @@ Safety rules:
 
 - State must use a pre-existing, private GCS state bucket.
 - The plan script validates the state bucket before Terraform initialization.
-- Production media remains in `me-central1`, supplied independently through `GCS_MEDIA_LOCATION`; `GOOGLE_CLOUD_REGION` remains the Cloud Run and Cloud Build region.
+- Production media remains in `europe-west1`, supplied independently through `GCS_MEDIA_LOCATION`; `GOOGLE_CLOUD_REGION` remains the Cloud Run and Cloud Build region.
 - Public access prevention and uniform bucket-level access are enforced.
 - Deleted media remains recoverable for 30 days through an explicit soft-delete policy.
 - There is no automated apply command. Applying requires a separately reviewed saved plan and explicit approval.
@@ -17,7 +17,7 @@ Safety rules:
 - `LEGACY_ROOT_STATE_LINEAGE` and `LEGACY_ROOT_STATE_SERIAL` must match the reviewed identity of that authoritative state. The script reads the latest GCS object before and after planning, requires an unchanged serial, and rejects either legacy media resource.
 - The isolated state may contain only `google_storage_bucket.media` and `google_storage_bucket_iam_member.runtime_media_objects`; any other address stops before planning.
 - If state already tracks the media bucket, its recorded name must exactly match `GCS_MEDIA_BUCKET` before planning.
-- The tracked bucket project and location must match the requested production project and `GCS_MEDIA_LOCATION` (`me-central1`).
+- The tracked bucket project and location must match the requested production project and `GCS_MEDIA_LOCATION` (`europe-west1`).
 - Any tracked runtime IAM member must match the requested bucket and runtime service account.
 - The production state prefix is fixed at `khedmah/production/media`; alternate prefixes fail closed.
 - An inconclusive project bucket lookup stops before planning instead of treating the bucket as absent.

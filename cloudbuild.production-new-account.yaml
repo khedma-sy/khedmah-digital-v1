@@ -196,7 +196,7 @@ steps:
         printf 'PRODUCTION_FRONTEND_URL=%s\n' "$$FRONTEND_URL"
 
 substitutions:
-  _REGION: me-central1
+  _REGION: europe-west1
   _AR_REPOSITORY: khedmah-digital
   _BACKEND_SERVICE: backend
   _FRONTEND_SERVICE: frontend

@@ -12,8 +12,8 @@ EXPECTED_STATE_PREFIX="khedmah/production/media"
 STATE_PREFIX="${TF_STATE_PREFIX:-$EXPECTED_STATE_PREFIX}"
 EXPECTED_LEGACY_ROOT_STATE_PREFIX="khedmah/production/root"
 
-if [[ "$MEDIA_LOCATION" != "me-central1" ]]; then
-  printf 'ERROR: EXPECTED_MEDIA_LOCATION=me-central1 ACTUAL_MEDIA_LOCATION=%s\n' \
+if [[ "$MEDIA_LOCATION" != "europe-west1" ]]; then
+  printf 'ERROR: EXPECTED_MEDIA_LOCATION=europe-west1 ACTUAL_MEDIA_LOCATION=%s\n' \
     "$MEDIA_LOCATION" >&2
   exit 1
 fi
