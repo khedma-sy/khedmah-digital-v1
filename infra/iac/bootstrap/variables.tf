@@ -75,7 +75,7 @@ variable "cloud_sql_database_name" {
 variable "cloud_sql_tier" {
   description = "Cloud SQL machine tier. Changing this changes recurring cost."
   type        = string
-  default     = "db-custom-1-3840"
+  default     = "db-f1-micro"
 }
 
 variable "runtime_service_account_id" {
