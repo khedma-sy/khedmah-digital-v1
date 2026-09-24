@@ -17,6 +17,9 @@ class ReadOnlyAuditTests(unittest.TestCase):
     def reply(self, data, code=0, err=""):
         return subprocess.CompletedProcess([], code, json.dumps(data), err)
 
+    def sdk_context(self):
+        return {"core": {"account": module.ACCOUNT, "project": module.PROJECT}}
+
     def test_mutations_and_payload_access_are_refused_without_subprocess(self):
         audit = module.Audit()
         for args in (["services", "enable", "x"], ["secrets", "versions", "access", "latest"],
@@ -86,7 +89,7 @@ class ReadOnlyAuditTests(unittest.TestCase):
         def execute(cmd, **kwargs):
             calls.append(cmd)
             args = cmd[1:]
-            if args[:2] == ["config", "list"]: return self.reply({})
+            if args[:2] == ["config", "list"]: return self.reply(self.sdk_context())
             if args[:2] == ["auth", "list"]: return self.reply([{"account": module.ACCOUNT}])
             if args[:2] == ["projects", "describe"]: return self.reply({"projectId": module.PROJECT, "projectNumber": module.NUMBER, "lifecycleState": "ACTIVE"})
             if args[:2] == ["services", "list"]: return self.reply([{"config": {"name": x + ".googleapis.com"}} for x in apis])
@@ -109,11 +112,115 @@ class ReadOnlyAuditTests(unittest.TestCase):
         self.assertTrue(any("--region=global" in cmd for cmd in calls))
 
     def test_wrong_project_number_stops_before_service_queries(self):
-        replies = [self.reply({}), self.reply([{"account": module.ACCOUNT}]),
+        replies = [self.reply(self.sdk_context()), self.reply([{"account": module.ACCOUNT}]),
                    self.reply({"projectId": module.PROJECT, "projectNumber": "999", "lifecycleState": "ACTIVE"})]
         with patch.dict(os.environ, {}, clear=True), patch.object(module.subprocess, "run", side_effect=replies) as runner:
             with self.assertRaises(RuntimeError): module.Audit().collect()
             self.assertEqual(runner.call_count, 3)
+
+
+    def test_identity_projection_reproduces_and_fixes_cloud_shell_null(self):
+        fields = ("core.account", "core.project", "auth.impersonate_service_account",
+                  "auth.credential_file_override", "auth.access_token_file")
+        expected = "--format=json(" + ",".join(fields) + ")"
+
+        def execute(cmd, **kwargs):
+            if cmd[1:3] == ["config", "list"]:
+                # Observed CLI behavior: auth-only projection produced JSON null.
+                return self.reply(self.sdk_context() if expected in cmd else None)
+            self.assertEqual(cmd[1:3], ["auth", "list"])
+            return self.reply([])  # Stop after the second LOCAL query.
+
+        with patch.dict(os.environ, {}, clear=True), patch.object(module.subprocess, "run", side_effect=execute) as runner:
+            audit = module.Audit()
+            with self.assertRaisesRegex(RuntimeError, "Expected owner account"):
+                audit.collect()
+            self.assertEqual(runner.call_count, 2)
+            self.assertEqual(audit.results["sdk_credential_context"]["status"], "COLLECTED")
+
+    def test_absent_null_or_unset_auth_requires_verified_core_identity(self):
+        contexts = [self.sdk_context()]
+        for auth in (None, {}, {"impersonate_service_account": None,
+                               "credential_file_override": "", "access_token_file": None}):
+            contexts.append(dict(self.sdk_context(), auth=auth))
+        for context in contexts:
+            with self.subTest(context=context), patch.dict(os.environ, {}, clear=True), patch.object(
+                    module.subprocess, "run", side_effect=[self.reply(context), self.reply([])]) as runner:
+                audit = module.Audit()
+                with self.assertRaisesRegex(RuntimeError, "Expected owner account"):
+                    audit.collect()
+                self.assertEqual(runner.call_count, 2)
+                self.assertEqual(audit.results["sdk_credential_context"]["status"], "COLLECTED")
+
+    def test_null_empty_and_malformed_context_never_become_success(self):
+        for context in (None, [], "", False, 0, {}, {"auth": None}, {"core": None}, {"core": []}):
+            with self.subTest(context=context), patch.dict(os.environ, {}, clear=True), patch.object(
+                    module.subprocess, "run", return_value=self.reply(context)) as runner:
+                audit = module.Audit()
+                with self.assertRaisesRegex(RuntimeError, "SDK credential context"):
+                    audit.collect()
+                self.assertEqual(runner.call_count, 1)
+                self.assertNotEqual(audit.results["sdk_credential_context"]["status"], "COLLECTED")
+                self.assertNotIn("data", audit.results["sdk_credential_context"])
+
+    def test_mismatched_or_incomplete_core_stops_before_account_or_cloud_reads(self):
+        for core in ({}, {"account": module.ACCOUNT}, {"project": module.PROJECT},
+                     {"account": "other@example.invalid", "project": module.PROJECT},
+                     {"account": module.ACCOUNT, "project": "other-project"}):
+            with self.subTest(core=core), patch.dict(os.environ, {}, clear=True), patch.object(
+                    module.subprocess, "run", return_value=self.reply({"core": core})) as runner:
+                audit = module.Audit()
+                with self.assertRaisesRegex(RuntimeError, "SDK credential context"):
+                    audit.collect()
+                self.assertEqual(runner.call_count, 1)
+                self.assertEqual(audit.results["sdk_credential_context"]["status"], "UNVERIFIED_CREDENTIAL_CONTEXT")
+
+    def test_every_auth_override_and_invalid_auth_shape_stays_blocked_and_redacted(self):
+        auths = [[], "", False, 0]
+        for key in ("impersonate_service_account", "credential_file_override", "access_token_file"):
+            for value in ("/private/test-sentinel", [], {}, False, 0):
+                auths.append({key: value})
+        for auth in auths:
+            with self.subTest(auth=auth), patch.dict(os.environ, {}, clear=True), patch.object(
+                    module.subprocess, "run", return_value=self.reply(dict(self.sdk_context(), auth=auth))) as runner:
+                audit = module.Audit()
+                with self.assertRaisesRegex(RuntimeError, "SDK credential context"):
+                    audit.collect()
+                self.assertEqual(runner.call_count, 1)
+                self.assertEqual(audit.results["sdk_credential_context"]["status"], "UNVERIFIED_CREDENTIAL_CONTEXT")
+                self.assertNotIn("data", audit.results["sdk_credential_context"])
+                self.assertNotIn("test-sentinel", json.dumps(audit.results))
+
+    def test_sdk_command_failure_timeout_or_invalid_json_is_never_normalized(self):
+        cases = [(self.reply(self.sdk_context(), 1, "PERMISSION_DENIED private-sentinel"), "PERMISSION_DENIED"),
+                 (subprocess.CompletedProcess([], 0, "NOT_JSON", ""), "INVALID_OR_UNAVAILABLE_RESPONSE"),
+                 (subprocess.TimeoutExpired("gcloud", 45), "TIMEOUT")]
+        for result, status in cases:
+            kwargs = {"side_effect": result} if isinstance(result, Exception) else {"return_value": result}
+            with self.subTest(status=status), patch.dict(os.environ, {}, clear=True), patch.object(
+                    module.subprocess, "run", **kwargs) as runner:
+                audit = module.Audit()
+                with self.assertRaisesRegex(RuntimeError, "SDK credential context"):
+                    audit.collect()
+                self.assertEqual(runner.call_count, 1)
+                self.assertEqual(audit.results["sdk_credential_context"]["status"], status)
+                self.assertNotIn("private-sentinel", json.dumps(audit.results))
+
+    def test_null_non_context_response_remains_unresolved(self):
+        for args in (["projects", "describe", module.PROJECT], ["secrets", "list"]):
+            with self.subTest(args=args), patch.object(module.subprocess, "run", return_value=self.reply(None)):
+                audit = module.Audit()
+                self.assertIsNone(audit.query("query", args, "json"))
+                self.assertEqual(audit.results["query"]["status"], "INVALID_OR_UNAVAILABLE_RESPONSE")
+
+    def test_all_environment_credential_overrides_still_stop_before_sdk(self):
+        for key in ("CLOUDSDK_AUTH_ACCESS_TOKEN", "CLOUDSDK_AUTH_ACCESS_TOKEN_FILE",
+                    "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE", "CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT"):
+            with self.subTest(key=key), patch.dict(os.environ, {key: "private-sentinel"}, clear=True), patch.object(
+                    module.subprocess, "run") as runner:
+                with self.assertRaisesRegex(RuntimeError, "Credential override detected"):
+                    module.Audit().collect()
+                runner.assert_not_called()
 
 
 if __name__ == "__main__":

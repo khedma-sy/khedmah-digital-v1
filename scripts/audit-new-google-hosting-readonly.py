@@ -105,12 +105,25 @@ class Audit:
             "CLOUDSDK_AUTH_ACCESS_TOKEN", "CLOUDSDK_AUTH_ACCESS_TOKEN_FILE",
             "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE", "CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT")):
             raise RuntimeError("Credential override detected; inventory stopped without cloud calls")
+        # An auth-only projection can serialize to JSON null when all selected
+        # properties are unset. Include core identity instead of treating a null
+        # command response (or any other failed query) as an empty success.
         context = self.query("sdk_credential_context", ["config", "list"],
-                             "json(auth.impersonate_service_account,auth.credential_file_override,auth.access_token_file)", local=True)
-        auth = context.get("auth", {}) if isinstance(context, dict) else None
-        if not isinstance(auth, dict) or any(auth.get(key) for key in (
-                "impersonate_service_account", "credential_file_override", "access_token_file")):
-            self.results["sdk_credential_context"].pop("data", None)
+                             "json(core.account,core.project,auth.impersonate_service_account,auth.credential_file_override,auth.access_token_file)", local=True)
+        core = context.get("core") if isinstance(context, dict) else None
+        auth = context.get("auth") if isinstance(context, dict) else None
+        # Only the optional auth section may be omitted/null. The top-level
+        # result must be an object with the expected account AND project.
+        if auth is None:
+            auth = {}
+        if (not isinstance(core, dict) or core.get("account") != ACCOUNT or
+                core.get("project") != PROJECT or not isinstance(auth, dict) or
+                any(auth.get(key) not in (None, "") for key in (
+                    "impersonate_service_account", "credential_file_override", "access_token_file"))):
+            result = self.results["sdk_credential_context"]
+            result.pop("data", None)
+            if result["status"] == "COLLECTED":
+                result["status"] = "UNVERIFIED_CREDENTIAL_CONTEXT"
             raise RuntimeError("SDK credential context is unverified; inventory stopped")
         accounts = self.query("accounts", ["auth", "list"], "json(account,status)", local=True)
         if not isinstance(accounts, list) or not any(x.get("account") == ACCOUNT for x in accounts):
