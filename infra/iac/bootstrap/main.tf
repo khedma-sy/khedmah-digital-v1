@@ -6,6 +6,24 @@ locals {
     ) : "${var.github_repository}/${path}@${var.github_ref}"
   ]
 
+  github_repository_parts              = split("/", var.github_repository)
+  github_repository_owner              = local.github_repository_parts[0]
+  github_repository_name               = local.github_repository_parts[1]
+  github_repository_id_condition       = var.github_repository_id == "" ? "true" : format("assertion.repository_id == \"%s\"", var.github_repository_id)
+  github_repository_owner_id_condition = var.github_repository_owner_id == "" ? "true" : format("assertion.repository_owner_id == \"%s\"", var.github_repository_owner_id)
+  github_subject_condition = (
+    var.github_environment == "" || var.github_repository_id == "" || var.github_repository_owner_id == ""
+    ? "true"
+    : format(
+      "google.subject == \"repo:%s@%s/%s@%s:environment:%s\"",
+      local.github_repository_owner,
+      var.github_repository_owner_id,
+      local.github_repository_name,
+      var.github_repository_id,
+      var.github_environment
+    )
+  )
+
   google_apis = toset([
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
@@ -427,15 +445,20 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   display_name                       = "GitHub Actions"
 
   attribute_mapping = {
-    "google.subject"         = "assertion.sub"
-    "attribute.repository"   = "assertion.repository"
-    "attribute.ref"          = "assertion.ref"
-    "attribute.workflow_ref" = "assertion.workflow_ref"
+    "google.subject"                = "assertion.sub"
+    "attribute.repository"          = "assertion.repository"
+    "attribute.repository_id"       = "assertion.repository_id"
+    "attribute.repository_owner_id" = "assertion.repository_owner_id"
+    "attribute.ref"                 = "assertion.ref"
+    "attribute.workflow_ref"        = "assertion.workflow_ref"
   }
 
   attribute_condition = <<-EOT
     assertion.repository == "${var.github_repository}" &&
+    ${local.github_repository_id_condition} &&
+    ${local.github_repository_owner_id_condition} &&
     assertion.ref == "${var.github_ref}" &&
+    ${local.github_subject_condition} &&
     assertion.workflow_ref in ${jsonencode(local.github_workflow_refs)}
   EOT
 
