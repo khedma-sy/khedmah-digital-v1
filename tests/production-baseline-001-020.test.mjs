@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 const workflow = await readFile(new URL('../.github/workflows/production-baseline-001-020.yml', import.meta.url), 'utf8');
@@ -54,3 +57,65 @@ test('baseline uses the dedicated migration identity and elevated database secre
   assert.doesNotMatch(workflow, /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_URL:latest/);
 });
+
+
+// Execute the unchanged SQL-delivery tail from the real runner. The psql double
+// captures stdin only; it never connects to PostgreSQL or reads secret values.
+// Unlike a source regex alone, these tests detect shell expansion before psql.
+const sqlDelivery = runner.slice(runner.indexOf('psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'));
+assert.ok(sqlDelivery.startsWith('psql '), 'The real baseline SQL-delivery block must exist');
+
+async function executeSqlDelivery(shell, { variable, exitCode = '0' } = {}) {
+  const directory = await mkdtemp(join(tmpdir(), 'khedmah-baseline-delivery-'));
+  try {
+    const capture = join(directory, 'sql-input.txt');
+    await writeFile(join(directory, 'psql'), `#!/bin/sh
+set -eu
+cat > "$CAPTURE_SQL"
+exit "$PSQL_TEST_EXIT"
+`, { mode: 0o700 });
+    const env = { ...process.env, PATH: `${directory}:${process.env.PATH}`,
+      CAPTURE_SQL: capture, PSQL_TEST_EXIT: exitCode };
+    delete env.baseline_verify;
+    delete env.BASH_ENV;
+    delete env.ENV;
+    if (variable !== undefined) env.baseline_verify = variable;
+    const result = spawnSync(shell, ['-c',
+      'set -eu\nDATABASE_URL=postgresql://baseline-test.invalid/never-connect\n' + sqlDelivery],
+      { env, encoding: 'utf8', timeout: 5000 });
+    assert.ifError(result.error);
+    let input = '';
+    try { input = await readFile(capture, 'utf8'); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    return { ...result, input };
+  } finally { await rm(directory, { recursive: true, force: true }); }
+}
+
+for (const shell of ['sh', 'bash']) {
+  test(`baseline passes literal PostgreSQL dollar quotes with unset variable under ${shell}`, async () => {
+    const result = await executeSqlDelivery(shell);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.input, /^BEGIN;/);
+    assert.match(result.input, /DO \$baseline_verify\$/);
+    assert.match(result.input, /\$baseline_verify\$;\nCOMMIT;/);
+    assert.equal((result.input.match(/^\\ir \/migrations\/\d{3}_[a-z0-9_]+\.sql$/gm) ?? []).length, 20);
+    assert.match(result.input, /RAISE EXCEPTION 'BASELINE_001_020_POSTCONDITION_FAILED'/);
+    assert.match(result.input, /RAISE EXCEPTION 'BASELINE_019_SCOPE_RECONCILIATION_FAILED'/);
+    assert.match(result.stdout, /BASELINE_001_020_APPLIED_AND_VERIFIED/);
+  });
+
+  test(`baseline ignores a same-named environment variable under ${shell}`, async () => {
+    const result = await executeSqlDelivery(shell, { variable: 'SHOULD_NOT_ENTER_SQL' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.input, /DO \$baseline_verify\$/);
+    assert.doesNotMatch(result.input, /SHOULD_NOT_ENTER_SQL/);
+  });
+
+  test(`baseline propagates psql failure without announcing success under ${shell}`, async () => {
+    const result = await executeSqlDelivery(shell, { exitCode: '3' });
+    assert.equal(result.status, 3, result.stderr);
+    assert.match(result.input, /DO \$baseline_verify\$/);
+    assert.doesNotMatch(result.stdout, /BASELINE_001_020_APPLIED_AND_VERIFIED/);
+  });
+}
