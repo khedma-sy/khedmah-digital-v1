@@ -73,6 +73,17 @@ jobs:
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
 
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
       - name: Authenticate to Google Cloud with Workload Identity Federation
         uses: google-github-actions/auth@v3
         with:

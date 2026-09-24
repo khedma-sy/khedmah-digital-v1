@@ -47,6 +47,17 @@ jobs:
           [[ "${{ inputs.version_code }}" =~ ^[1-9][0-9]*$ ]]
           test -n "${{ inputs.version_name }}"
 
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
       - name: Authenticate to Production Google Cloud
         uses: google-github-actions/auth@v3
         with:

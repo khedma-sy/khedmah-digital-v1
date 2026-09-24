@@ -5,10 +5,21 @@ umask 077
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-europe-west1}"
+
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 CANONICAL_GITHUB_REPOSITORY="khedma-sy/khedmah-digital-v1"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$CANONICAL_GITHUB_REPOSITORY}"
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-${GOOGLE_CLOUD_PROJECT}-khedmah-tfstate}"
 TF_STATE_LOCATION="${TF_STATE_LOCATION:-$GOOGLE_CLOUD_REGION}"
+if [[ "${TF_STATE_LOCATION:-}" != "europe-west1" ]]; then
+  echo "ERROR: TF_STATE_LOCATION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
 TF_STATE_PREFIX="${TF_STATE_PREFIX:-khedmah/production/bootstrap}"
 BOOTSTRAP_MODE="${BOOTSTRAP_MODE:-PLAN}"
 BOOTSTRAP_PLAN_FILE="${BOOTSTRAP_PLAN_FILE:-}"

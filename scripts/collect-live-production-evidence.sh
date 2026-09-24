@@ -2,6 +2,12 @@
 set -euo pipefail
 set +x
 
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 output="${1:-artifacts/live-certification/evidence}"
 mkdir -p "$output"
 chmod 700 "$output"

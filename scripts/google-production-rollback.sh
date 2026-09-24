@@ -2,6 +2,12 @@
 set -euo pipefail
 set +x
 
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 backend_revision="${1:?usage: google-production-rollback.sh BACKEND_REVISION FRONTEND_REVISION}"
 frontend_revision="${2:?usage: google-production-rollback.sh BACKEND_REVISION FRONTEND_REVISION}"
 

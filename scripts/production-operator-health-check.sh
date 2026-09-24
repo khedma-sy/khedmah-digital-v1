@@ -2,6 +2,12 @@
 set -euo pipefail
 set +x
 
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 backend_url="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 frontend_url="$(gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 [[ -n "$backend_url" && -n "$frontend_url" ]] || { echo 'Cloud Run service URL unavailable.' >&2; exit 40; }

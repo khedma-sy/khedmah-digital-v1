@@ -2,6 +2,12 @@
 set -euo pipefail
 set +x
 
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 for command_name in gcloud firebase terraform gh node npm docker jq; do
   command -v "$command_name" >/dev/null || { echo "Missing required operator command: $command_name" >&2; exit 20; }
 done

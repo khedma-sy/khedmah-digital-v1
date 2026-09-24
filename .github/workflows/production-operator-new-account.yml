@@ -96,6 +96,22 @@ jobs:
             exit 1
           }
 
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+          if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
@@ -192,6 +208,22 @@ jobs:
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
+
+      - name: Reject unapproved Production hosting region
+        shell: bash
+        env:
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
+        run: |
+          set -euo pipefail
+          if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
+          if [[ "${GCS_MEDIA_LOCATION:-}" != "europe-west1" ]]; then
+            echo "ERROR: GCS_MEDIA_LOCATION must be europe-west1 for approved Production operations." >&2
+            exit 64
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3

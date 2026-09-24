@@ -4,6 +4,13 @@ set +x
 
 : "${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-europe-west1}"
+
+# Reject stale hosting configuration before any cloud call.
+if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
+  echo "ERROR: GOOGLE_CLOUD_REGION must be europe-west1 for approved Production operations." >&2
+  exit 64
+fi
+
 CLOUD_SQL_INSTANCE_ID="${CLOUD_SQL_INSTANCE_ID:-khedmah-v1-db}"
 DATABASE_NAME="${DATABASE_NAME:-khedmah}"
 DATABASE_USER="${DATABASE_USER:-khedmah_app}"
