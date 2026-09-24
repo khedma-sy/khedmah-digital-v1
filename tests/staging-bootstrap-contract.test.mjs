@@ -33,6 +33,11 @@ test('bootstrap provider uses a bounded workflow_ref allowlist on the configured
     'assertion.workflow_ref in ${jsonencode(local.github_workflow_refs)}'
   ]) assert.ok(bootstrap.includes(claim), `missing WIF claim boundary: ${claim}`);
   assert.match(bootstrap, /"attribute\.workflow_ref"\s*=\s*"assertion\.workflow_ref"/);
+  assert.match(bootstrap, /"attribute\.repository_id"\s*=\s*"assertion\.repository_id"/);
+  assert.match(bootstrap, /"attribute\.repository_owner_id"\s*=\s*"assertion\.repository_owner_id"/);
+  assert.match(bootstrap, /github_repository_id_condition/);
+  assert.match(bootstrap, /github_repository_owner_id_condition/);
+  assert.match(bootstrap, /github_subject_condition/);
   assert.match(bootstrap, /github_additional_workflow_paths/);
   assert.doesNotMatch(bootstrap, /job_workflow_ref/);
   assert.match(productionWif, /production-operator-new-account\.yml@refs\/heads\/main/);
