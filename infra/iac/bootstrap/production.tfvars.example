@@ -15,14 +15,17 @@ terraform_state_bucket_name = "REPLACE_WITH_PROTECTED_TERRAFORM_STATE_BUCKET"
 artifact_registry_repository_id = "khedmah-digital"
 cloud_sql_instance_id            = "khedmah-v1-db"
 cloud_sql_database_name          = "khedmah"
-cloud_sql_tier                   = "db-custom-1-3840"
+cloud_sql_tier                   = "db-f1-micro"
 
 runtime_service_account_id   = "khedmah-v1-runtime"
 deployer_service_account_id  = "khedmah-v1-deployer"
 
-github_repository    = "khedma-sy/khedmah-digital-v1"
-github_workflow_path = ".github/workflows/production-operator-new-account.yml"
-github_ref           = "refs/heads/main"
+github_repository          = "khedma-sy/khedmah-digital-v1"
+github_repository_id       = "1307435925"
+github_repository_owner_id = "307214577"
+github_environment         = "production"
+github_workflow_path       = ".github/workflows/production-operator-new-account.yml"
+github_ref                 = "refs/heads/main"
 
 github_additional_workflow_paths = [
   ".github/workflows/production-migrations-025-034.yml",

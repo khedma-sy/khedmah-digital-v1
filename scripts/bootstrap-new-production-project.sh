@@ -13,6 +13,9 @@ if [[ "${GOOGLE_CLOUD_REGION:-}" != "europe-west1" ]]; then
 fi
 
 CANONICAL_GITHUB_REPOSITORY="khedma-sy/khedmah-digital-v1"
+CANONICAL_GITHUB_REPOSITORY_ID="1307435925"
+CANONICAL_GITHUB_REPOSITORY_OWNER_ID="307214577"
+CANONICAL_GITHUB_ENVIRONMENT="production"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$CANONICAL_GITHUB_REPOSITORY}"
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-${GOOGLE_CLOUD_PROJECT}-khedmah-tfstate}"
 TF_STATE_LOCATION="${TF_STATE_LOCATION:-$GOOGLE_CLOUD_REGION}"
@@ -270,12 +273,15 @@ terraform_vars=(
   "-var=artifact_registry_repository_id=khedmah-digital"
   "-var=cloud_sql_instance_id=khedmah-v1-db"
   "-var=cloud_sql_database_name=khedmah"
-  "-var=cloud_sql_tier=db-custom-1-3840"
+  "-var=cloud_sql_tier=db-f1-micro"
   "-var=runtime_service_account_id=khedmah-v1-runtime"
   "-var=deployer_service_account_id=khedmah-v1-deployer"
   "-var=build_service_account_id=khedmah-v1-build"
   "-var=migration_service_account_id=khedmah-v1-migrator"
   "-var=github_repository=$GITHUB_REPOSITORY"
+  "-var=github_repository_id=$CANONICAL_GITHUB_REPOSITORY_ID"
+  "-var=github_repository_owner_id=$CANONICAL_GITHUB_REPOSITORY_OWNER_ID"
+  "-var=github_environment=$CANONICAL_GITHUB_ENVIRONMENT"
   "-var=github_workflow_path=.github/workflows/production-operator-new-account.yml"
   '-var=github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/production-database-role-bootstrap.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml",".github/workflows/android-release-certification.yml"]'
   '-var=github_ref=refs/heads/main'
@@ -284,7 +290,7 @@ terraform_vars=(
 
 verify_plan_target() {
   local plan_json="$1"
-  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg source_commit "$CURRENT_SHA"     --arg configuration_sha256 "$CONFIGURATION_SHA256" '
+  jq -e     --arg project "$GOOGLE_CLOUD_PROJECT"     --arg region "$GOOGLE_CLOUD_REGION"     --arg state_bucket "$TF_STATE_BUCKET"     --arg repository "$CANONICAL_GITHUB_REPOSITORY"     --arg repository_id "$CANONICAL_GITHUB_REPOSITORY_ID"     --arg repository_owner_id "$CANONICAL_GITHUB_REPOSITORY_OWNER_ID"     --arg github_environment "$CANONICAL_GITHUB_ENVIRONMENT"     --arg source_commit "$CURRENT_SHA"     --arg configuration_sha256 "$CONFIGURATION_SHA256" '
       .complete == true and
       .errored == false and
       .variables.project_id.value == $project and
@@ -293,12 +299,15 @@ verify_plan_target() {
       .variables.configuration_sha256.value == $configuration_sha256 and
       .variables.terraform_state_bucket_name.value == $state_bucket and
       .variables.github_repository.value == $repository and
+      .variables.github_repository_id.value == $repository_id and
+      .variables.github_repository_owner_id.value == $repository_owner_id and
+      .variables.github_environment.value == $github_environment and
       .variables.github_ref.value == "refs/heads/main" and
       .variables.github_workflow_path.value == ".github/workflows/production-operator-new-account.yml" and
       .variables.artifact_registry_repository_id.value == "khedmah-digital" and
       .variables.cloud_sql_instance_id.value == "khedmah-v1-db" and
       .variables.cloud_sql_database_name.value == "khedmah" and
-      .variables.cloud_sql_tier.value == "db-custom-1-3840" and
+      .variables.cloud_sql_tier.value == "db-f1-micro" and
       .variables.runtime_service_account_id.value == "khedmah-v1-runtime" and
       .variables.deployer_service_account_id.value == "khedmah-v1-deployer" and
       .variables.build_service_account_id.value == "khedmah-v1-build" and

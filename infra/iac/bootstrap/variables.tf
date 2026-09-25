@@ -139,6 +139,39 @@ variable "github_repository" {
   }
 }
 
+variable "github_repository_id" {
+  description = "Immutable GitHub repository numeric ID used to harden Production OIDC trust. Leave empty only for legacy/non-production bootstrap paths."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_repository_id == "" || can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "github_repository_id must be empty or a numeric GitHub repository ID."
+  }
+}
+
+variable "github_repository_owner_id" {
+  description = "Immutable GitHub repository owner numeric ID used to harden Production OIDC trust. Leave empty only for legacy/non-production bootstrap paths."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_repository_owner_id == "" || can(regex("^[0-9]+$", var.github_repository_owner_id))
+    error_message = "github_repository_owner_id must be empty or a numeric GitHub owner ID."
+  }
+}
+
+variable "github_environment" {
+  description = "Protected GitHub Environment name encoded into the immutable OIDC subject. Leave empty only for bootstrap paths that do not use an Environment subject."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.github_environment == "" || can(regex("^[A-Za-z0-9_.-]+$", var.github_environment))
+    error_message = "github_environment must be empty or a valid GitHub Environment name."
+  }
+}
+
 variable "github_workflow_path" {
   description = "Repository-relative workflow path permitted by the initial Workload Identity provider."
   type        = string

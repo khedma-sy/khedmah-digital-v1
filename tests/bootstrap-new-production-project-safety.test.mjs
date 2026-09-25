@@ -118,11 +118,14 @@ test('canonical infrastructure values are passed explicitly into Terraform plan'
     'artifact_registry_repository_id=khedmah-digital',
     'cloud_sql_instance_id=khedmah-v1-db',
     'cloud_sql_database_name=khedmah',
-    'cloud_sql_tier=db-custom-1-3840',
+    'cloud_sql_tier=db-f1-micro',
     'runtime_service_account_id=khedmah-v1-runtime',
     'deployer_service_account_id=khedmah-v1-deployer',
     'build_service_account_id=khedmah-v1-build',
     'migration_service_account_id=khedmah-v1-migrator',
+    'github_repository_id=$CANONICAL_GITHUB_REPOSITORY_ID',
+    'github_repository_owner_id=$CANONICAL_GITHUB_REPOSITORY_OWNER_ID',
+    'github_environment=$CANONICAL_GITHUB_ENVIRONMENT',
     'runtime_secret_names=['
   ]) assert.ok(script.includes(assignment), `missing explicit Terraform variable ${assignment}`);
 });
@@ -151,6 +154,9 @@ test('saved bootstrap plan is bound to the active project region repository and 
     'configuration_sha256',
     'terraform_state_bucket_name',
     'github_repository',
+    'github_repository_id',
+    'github_repository_owner_id',
+    'github_environment',
     'github_ref',
     'github_workflow_path',
     'artifact_registry_repository_id',
@@ -166,11 +172,14 @@ test('saved bootstrap plan is bound to the active project region repository and 
   ]) {
     assert.ok(script.includes(`.variables.${field}.value`), `missing plan target field ${field}`);
   }
+  assert.match(script, /CANONICAL_GITHUB_REPOSITORY_ID="1307435925"/);
+  assert.match(script, /CANONICAL_GITHUB_REPOSITORY_OWNER_ID="307214577"/);
+  assert.match(script, /CANONICAL_GITHUB_ENVIRONMENT="production"/);
   assert.match(script, /production-operator-new-account\.yml/);
   assert.doesNotMatch(script, /google-production-readiness\.yml/);
   assert.match(script, /terraform-media-state-handoff\.yml/);
   assert.match(script, /GOOGLE_MAPS_SERVER_API_KEY/);
-  assert.match(script, /db-custom-1-3840/);
+  assert.match(script, /db-f1-micro/);
   assert.match(script, /bootstrap plan target does not match the canonical project\/infrastructure\/WIF\/secret contract/);
   const plan = section('  PLAN)', '\n  APPLY)');
   const apply = section('  APPLY)', '\n  VERIFY)');
@@ -311,5 +320,8 @@ test('bootstrap tfvars examples declare every required provenance input', async 
   assert.match(production, /REFERENCE INVENTORY ONLY/);
   assert.match(production, /DO NOT run Terraform plan\/apply directly/);
   assert.match(production, /MUST run only through scripts\/bootstrap-new-production-project\.sh/);
+  assert.match(production, /github_repository_id\s*=\s*"1307435925"/);
+  assert.match(production, /github_repository_owner_id\s*=\s*"307214577"/);
+  assert.match(production, /github_environment\s*=\s*"production"/);
   assert.doesNotMatch(production, /google-production-readiness\.yml/);
 });

@@ -26,6 +26,14 @@ test('staging bootstrap example is locked to the isolated staging workflow trust
   assert.doesNotMatch(vars, /refs\/heads\/main/);
 });
 
+
+test('staging retains its shared Cloud SQL tier default while Production sets its tier explicitly', () => {
+  const tier = bootstrapVariables.match(/variable "cloud_sql_tier" \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(tier, 'missing shared Cloud SQL tier variable');
+  assert.match(tier, /default\s*=\s*"db-custom-1-3840"/);
+  assert.doesNotMatch(vars, /^\s*cloud_sql_tier\s*=/m);
+});
+
 test('bootstrap provider uses a bounded workflow_ref allowlist on the configured ref', () => {
   for (const claim of [
     'assertion.repository == "${var.github_repository}"',
@@ -33,6 +41,11 @@ test('bootstrap provider uses a bounded workflow_ref allowlist on the configured
     'assertion.workflow_ref in ${jsonencode(local.github_workflow_refs)}'
   ]) assert.ok(bootstrap.includes(claim), `missing WIF claim boundary: ${claim}`);
   assert.match(bootstrap, /"attribute\.workflow_ref"\s*=\s*"assertion\.workflow_ref"/);
+  assert.match(bootstrap, /"attribute\.repository_id"\s*=\s*"assertion\.repository_id"/);
+  assert.match(bootstrap, /"attribute\.repository_owner_id"\s*=\s*"assertion\.repository_owner_id"/);
+  assert.match(bootstrap, /github_repository_id_condition/);
+  assert.match(bootstrap, /github_repository_owner_id_condition/);
+  assert.match(bootstrap, /github_subject_condition/);
   assert.match(bootstrap, /github_additional_workflow_paths/);
   assert.doesNotMatch(bootstrap, /job_workflow_ref/);
   assert.match(productionWif, /production-operator-new-account\.yml@refs\/heads\/main/);
