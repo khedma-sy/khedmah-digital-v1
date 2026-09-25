@@ -38,13 +38,19 @@ variable "android_package_name" {
   }
 }
 
+variable "enable_android_key" {
+  description = "Whether to create the Android Maps key; false permits web-only setup before release signing exists."
+  type        = bool
+  default     = true
+}
+
 variable "android_sha1" {
   description = "Release signing certificate SHA-1 fingerprint."
   type        = string
   sensitive   = true
 
   validation {
-    condition     = can(regex("^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$", var.android_sha1))
+    condition     = !var.enable_android_key || can(regex("^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$", var.android_sha1))
     error_message = "android_sha1 must be a colon-delimited SHA-1 fingerprint."
   }
 }
