@@ -19,6 +19,7 @@ resource "google_apikeys_key" "browser" {
 }
 
 resource "google_apikeys_key" "android" {
+  count        = var.enable_android_key ? 1 : 0
   project      = var.project_id
   name         = "khedmah-v1-maps-android"
   display_name = "Khedmah V1 Maps Android"
