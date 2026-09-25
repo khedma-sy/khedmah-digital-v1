@@ -2,7 +2,7 @@ name: Google production readiness
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "tests/android-apk-artifact.test.mjs", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production-new-account.yaml", ".github/workflows/production-operator-new-account.yml", ".github/workflows/android-release-certification.yml", "package.json", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml"]
+    paths: ["apps/android/**", "apps/frontend/lib/firebase/**", "apps/frontend/tests/firebase-integration.test.ts", "scripts/build-android.sh", "tests/android-apk-artifact.test.mjs", "scripts/validate-firebase-integration.mjs", "config/google/**", "infra/google/**", "infra/firebase/**", "infra/iac/**", "infra/secrets/**", "scripts/google-production-*.sh", "scripts/validate-operations-readiness.mjs", "cloudbuild.production-new-account.yaml", ".github/workflows/production-operator-new-account.yml", ".github/workflows/android-release-certification.yml", "package.json", "docs/reports/operations-product-production-readiness/**", ".env.production", ".github/workflows/google-production-readiness.yml", "scripts/validate-production-live-secret-certification.sh", "tests/google-production-readiness-live-certification.test.mjs"]
 
 permissions: { contents: read }
 concurrency:
@@ -62,9 +62,31 @@ jobs:
             apps/android/app/build/outputs/apk/debug/README.txt
           if-no-files-found: error
           retention-days: 14
+  lock-production-readiness-source:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact official latest main source before OIDC is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
+    needs: lock-production-readiness-source
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -121,6 +143,21 @@ jobs:
           node scripts/validate-google-config.mjs --production
           npm run validate:firebase:production
           npm run validate:operations:production
+      - name: Authenticate to Production Google Cloud for read-only certification
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PRODUCTION_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Certify live new-account Secret Manager metadata, direct IAM and inherited access
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          OPERATIONS_DEPLOYER_SERVICE_ACCOUNT: ${{ secrets.OPERATIONS_DEPLOYER_SERVICE_ACCOUNT }}
+          OPERATIONS_RUNTIME_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_RUNTIME_SERVICE_ACCOUNT }}
+          OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
+          OPERATIONS_MIGRATION_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_MIGRATION_SERVICE_ACCOUNT }}
+        run: bash scripts/validate-production-live-secret-certification.sh
       - name: Build Web with protected Firebase configuration
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
