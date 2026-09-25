@@ -62,28 +62,12 @@ jobs:
             apps/android/app/build/outputs/apk/debug/README.txt
           if-no-files-found: error
           retention-days: 14
-  lock-production-readiness-source:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify exact official latest main source before OIDC is available
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"
-          test "$GITHUB_REF" = "refs/heads/main"
-          git fetch origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
     environment: production
-    needs: lock-production-readiness-source
+    permissions:
+      contents: read
+      id-token: write
     permissions:
       contents: read
       id-token: write
@@ -143,6 +127,15 @@ jobs:
           node scripts/validate-google-config.mjs --production
           npm run validate:firebase:production
           npm run validate:operations:production
+      - name: Revalidate exact official latest main after Production approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
       - name: Reject unapproved Production hosting region
         shell: bash
         env:
