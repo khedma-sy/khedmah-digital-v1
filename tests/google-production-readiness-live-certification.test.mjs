@@ -26,6 +26,19 @@ test('manual readiness revalidates exact latest main after Production approval a
   assert.ok(bootstrap.includes('github_additional_workflow_paths.value'));
 });
 
+test('canonical bootstrap enables and narrowly grants project-scoped Cloud Asset certification', async () => {
+  const bootstrap = await read('infra/iac/bootstrap/main.tf');
+  assert.match(bootstrap, /"cloudasset.googleapis.com"/);
+  for (const permission of [
+    'cloudasset.assets.analyzeIamPolicy',
+    'cloudasset.assets.searchAllIamPolicies',
+    'cloudasset.assets.searchAllResources',
+    'iam.roles.get',
+  ]) assert.ok(bootstrap.includes(permission), `missing analyzer permission ${permission}`);
+  assert.match(bootstrap, /google_project_iam_custom_role" "cloud_asset_policy_analyzer"/);
+  assert.match(bootstrap, /google_project_iam_member" "deployer_cloud_asset_policy_analyzer"/);
+});
+
 test('live certification pins exact distinct Terraform-created service accounts', async () => {
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   for (const id of ['khedmah-v1-deployer', 'khedmah-v1-runtime', 'khedmah-v1-build', 'khedmah-v1-migrator']) {
@@ -41,6 +54,8 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /gcloud asset analyze-iam-policy/);
   assert.ok(script.includes('--full-resource-name="$resource"'));
   assert.match(script, /--permissions=secretmanager\.versions\.access/);
+  assert.match(script, /--expand-roles --expand-resources/);
+  assert.doesNotMatch(script, /--expand-groups|--output-group-edges/);
   assert.match(script, /--folder=/);
   assert.match(script, /--organization=/);
   assert.match(script, /analysis_scope="project:\$GOOGLE_CLOUD_PROJECT"/);
