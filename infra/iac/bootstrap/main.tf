@@ -28,6 +28,7 @@ locals {
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
+    "cloudasset.googleapis.com",
     "analyticsadmin.googleapis.com",
     "firebasestorage.googleapis.com",
     "firebaseremoteconfig.googleapis.com",
@@ -54,6 +55,13 @@ locals {
     "sqladmin.googleapis.com",
     "storage.googleapis.com",
     "sts.googleapis.com",
+  ])
+
+  cloud_asset_analyzer_permissions = toset([
+    "cloudasset.assets.analyzeIamPolicy",
+    "cloudasset.assets.searchAllIamPolicies",
+    "cloudasset.assets.searchAllResources",
+    "iam.roles.get",
   ])
 
   build_roles = toset([
@@ -271,6 +279,23 @@ resource "google_project_iam_custom_role" "storage_bucket_policy_viewer" {
 resource "google_project_iam_member" "deployer_storage_bucket_policy_viewer" {
   project = var.project_id
   role    = google_project_iam_custom_role.storage_bucket_policy_viewer.name
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_custom_role" "cloud_asset_policy_analyzer" {
+  project     = var.project_id
+  role_id     = "khedmahCloudAssetPolicyAnalyzer"
+  title       = "Khedmah Cloud Asset Policy Analyzer"
+  description = "Minimal read-only IAM analysis permissions for production secret access certification."
+  permissions = sort(tolist(local.cloud_asset_analyzer_permissions))
+  stage       = "GA"
+
+  depends_on = [google_project_service.bootstrap]
+}
+
+resource "google_project_iam_member" "deployer_cloud_asset_policy_analyzer" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.cloud_asset_policy_analyzer.name
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
