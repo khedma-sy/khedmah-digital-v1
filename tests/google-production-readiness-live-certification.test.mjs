@@ -43,6 +43,12 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /--permissions=secretmanager\.versions\.access/);
   assert.match(script, /--folder=/);
   assert.match(script, /--organization=/);
+  assert.match(script, /analysis_scope="project:\$GOOGLE_CLOUD_PROJECT"/);
+  assert.match(script, /organization\) analysis_scope="organization:/);
+  assert.match(script, /folder\) analysis_scope="folder:/);
+  assert.equal((script.match(/gcloud asset analyze-iam-policy/g) ?? []).length, 1);
+  assert.doesNotMatch(script, /for scope in "\$\{scopes\[@\]\}"/);
+  assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
   assert.ok(script.includes("attachedResourceFullName != $resource"));
