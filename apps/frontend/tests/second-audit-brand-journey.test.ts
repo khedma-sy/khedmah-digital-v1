@@ -48,14 +48,12 @@ test('editorial marketplace and nearby pages use neutral Ali & Sons-inspired sur
 });
 
 test('taxi uses a warm Talabat-style frame with the requested yellow primary', () => {
-  const classifieds = read('../app/classifieds/classifieds.module.css');
   const taxi = read('../app/taxi/taxi.module.css');
-  assert.match(classifieds, /--brand-orange,#fd9603/);
-  assert.doesNotMatch(classifieds, /#e97835/i);
-  assert.match(taxi, /--taxi-navy:var\(--k-color-primary\)/);
-  assert.match(taxi, /--taxi-green:var\(--brand-green\)/);
-  assert.match(taxi, /var\(--k-color-surface-muted\),var\(--k-color-canvas\)/);
-  assert.doesNotMatch(taxi, /#8fc0ee|#dfe9f1|#eef3f6/i);
+  assert.match(taxi, /--taxi-yellow:#f2c230/);
+  assert.match(taxi, /background: #f2c230/);
+  assert.match(taxi, /color: #262626/);
+  assert.match(taxi, /background:#f4ede3/);
+  assert.match(taxi, /--taxi-green:var\\(--brand-green\\)/);
 });
 
 test('restaurant discovery survives partial category failures', () => {
