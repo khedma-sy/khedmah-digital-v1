@@ -148,7 +148,7 @@ jobs:
           terraform -chdir=infra/iac/client-maps show -json "$PLAN" > "$RUNNER_TEMP/client-maps-plan.json"
           jq -e '
             all((.resource_changes // [])[];
-              (.address == "google_apikeys_key.browser" or .address == "google_apikeys_key.android") and
+              (.address == "google_apikeys_key.browser" or .address == "google_apikeys_key.android[0]") and
               ((.change.actions | index("delete")) == null)
             )
           ' "$RUNNER_TEMP/client-maps-plan.json" >/dev/null
