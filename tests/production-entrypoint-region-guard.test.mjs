@@ -118,7 +118,7 @@ for (const file of readdirSync(join(root, '.github/workflows')).filter(f => f.en
       const variables = [...guard.matchAll(/^          ([A-Z_]+): \$\{\{ vars\.\1 \}\}\s*$/gm)].map(m => m[1]);
       const expectedVariables = file.startsWith('terraform-media-')
         ? ['GCS_MEDIA_LOCATION', 'TF_STATE_LOCATION']
-        : file === 'production-operator-new-account.yml'
+        : file === 'production-operator-new-account.yml' || file === 'google-production-readiness.yml'
           ? ['GOOGLE_CLOUD_REGION', 'GCS_MEDIA_LOCATION']
           : ['GOOGLE_CLOUD_REGION'];
       assert.deepEqual(variables, expectedVariables, 'all required protected regions must be independently bound');
@@ -141,5 +141,5 @@ for (const file of readdirSync(join(root, '.github/workflows')).filter(f => f.en
   }
 }
 test('all currently protected cloud-authentication jobs were discovered', () => {
-  assert.equal(protectedJobs, 14);
+  assert.equal(protectedJobs, 15);
 });
