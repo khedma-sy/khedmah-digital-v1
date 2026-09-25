@@ -33,7 +33,6 @@ test('production deployment readiness verifies migration identity and all perman
     'DATABASE_MIGRATION_URL',
     'FIREBASE_API_KEY',
     'FIREBASE_APP_ID',
-    'GOOGLE_MAPS_ANDROID_API_KEY',
     'GOOGLE_MAPS_BROWSER_API_KEY',
     'GOOGLE_OAUTH_SERVER_CLIENT_ID',
     'NEXT_PUBLIC_FIREBASE_API_KEY',
@@ -47,6 +46,16 @@ test('production deployment readiness verifies migration identity and all perman
     'RESEND_API_KEY'
   ]) assert.ok(readiness.includes(secret), `missing readiness secret ${secret}`);
   assert.doesNotMatch(readiness, /secrets versions access/);
+});
+
+test('web deployment readiness does not require an Android Maps key before Android release signing exists', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  const requiredBlock = readiness.split('required_secrets=(')[1]?.split(')')[0] ?? '';
+  assert.doesNotMatch(requiredBlock, /GOOGLE_MAPS_ANDROID_API_KEY/);
+  assert.match(readiness, /ANDROID_RELEASE_CONFIG=DEFERRED_TO_ANDROID_RELEASE_CERTIFICATION/);
+  const androidRelease = await read('.github/workflows/android-release-certification.yml');
+  assert.match(androidRelease, /GOOGLE_MAPS_ANDROID_API_KEY/);
+  assert.match(androidRelease, /EXPECTED_ANDROID_SHA1/);
 });
 
 test('new-account secret contract retains the Maps server key required by production Google config', async () => {
