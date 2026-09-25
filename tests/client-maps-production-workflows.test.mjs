@@ -33,6 +33,11 @@ test('client Maps stack owns only restricted browser and Android API keys', asyn
 test('client Maps plan is manual, exact-main and checks canonical plus Cloud Run referrers', async () => {
   const plan = await read('.github/workflows/terraform-client-maps-plan.yml');
   assert.match(plan, /workflow_dispatch:/);
+  assert.match(plan, /include_android:/);
+  assert.match(plan, /default: false/);
+  assert.match(plan, /if \\[\\[ "\\$INCLUDE_ANDROID" == true \\]\\]/);
+  assert.match(plan, /enable_android_key=\\$INCLUDE_ANDROID/);
+  assert.match(plan, /includeAndroid/);
   assert.match(plan, /environment: production/);
   assert.doesNotMatch(plan, /pull_request:|push:|schedule:/);
   assert.match(plan, /git rev-parse origin\/main/);
