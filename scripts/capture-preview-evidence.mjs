@@ -266,6 +266,24 @@ async function capture(browser, origin, target, route, viewport, directory, them
   return record;
 }
 
+
+async function captureViewportSet(browser, origin, route, theme, directory) {
+  const captureOne = (viewport) => capture(browser, origin, 'after', route, viewport, directory, theme);
+  // Google Maps initializes third-party scripts and tiles independently per browser context.
+  // Keep every map viewport in the evidence set, but avoid four simultaneous Maps loads.
+  if (route.key !== 'map' && route.key !== 'taxi') {
+    return Promise.allSettled(evidenceViewports.map(captureOne));
+  }
+  const results = [];
+  // Two contexts at a time reduces Maps contention while keeping the worst-case
+  // capture duration well below the review-evidence job timeout.
+  for (let index = 0; index < evidenceViewports.length; index += 2) {
+    const batch = evidenceViewports.slice(index, index + 2);
+    results.push(...await Promise.allSettled(batch.map(captureOne)));
+  }
+  return results;
+}
+
 function readOrigin(env, key) {
   if (typeof env[key] !== 'string' || !env[key].trim()) {
     return { failure: `${key}_MISSING` };
@@ -313,7 +331,7 @@ export async function main(env = process.env, { launchBrowser = launchChromium }
       }
       for (const route of evidenceRoutes) {
         for (const theme of evidenceThemes) {
-          const results = await Promise.allSettled(evidenceViewports.map((viewport) => capture(browser, after.origin, 'after', route, viewport, directory, theme)));
+          const results = await captureViewportSet(browser, after.origin, route, theme, directory);
           report.after.push(...results.map((result, index) => result.status === 'fulfilled' ? result.value : {
             target: 'after', route: route.path, viewport: evidenceViewports[index].key, theme,
             status: 'failed', failures: ['CAPTURE_SETUP_OR_CLEANUP_FAILED'], pageErrorCount: 0
