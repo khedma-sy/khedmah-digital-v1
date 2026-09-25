@@ -33,7 +33,7 @@ test('live certification fails closed when inherited Secret Manager access is fo
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud projects get-ancestors/);
   assert.match(script, /gcloud asset analyze-iam-policy/);
-  assert.match(script, /--full-resource-name="$resource"/);
+  assert.ok(script.includes('--full-resource-name="$resource"'));
   assert.match(script, /--permissions=secretmanager\.versions\.access/);
   assert.match(script, /--folder=/);
   assert.match(script, /--organization=/);
