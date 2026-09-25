@@ -198,7 +198,7 @@ verify_no_inherited_secret_access() {
   if ! gcloud asset analyze-iam-policy "${scope_arg[@]}" \
     --full-resource-name="$resource" \
     --permissions=secretmanager.versions.access \
-    --expand-groups --expand-roles --expand-resources --output-group-edges \
+    --expand-roles --expand-resources \
     --execution-timeout=60s --format=json >"$analysis_file"; then
     rm -f "$analysis_file"
     echo 'ERROR: Effective Secret Manager IAM analysis failed; refusing certification.' >&2
