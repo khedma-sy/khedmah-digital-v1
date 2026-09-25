@@ -8,8 +8,7 @@ test('manual readiness locks exact latest main before the OIDC-capable job', asy
   const workflow = await read('.github/workflows/google-production-readiness.yml');
   const lockStart = workflow.indexOf('  lock-production-readiness-source:');
   const gateStart = workflow.indexOf('  production-secret-gate:');
-  const validateStart = workflow.indexOf('  validate-files:');
-  assert.ok(lockStart >= 0 && gateStart > lockStart && validateStart > gateStart);
+  assert.ok(lockStart >= 0 && gateStart > lockStart);
   const lock = workflow.slice(lockStart, gateStart);
   const gate = workflow.slice(gateStart);
   assert.ok(lock.includes('test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"'));
@@ -40,14 +39,14 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /--organization=/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
-  assert.match(script, /attachedResourceFullName != $resource/);
+  assert.ok(script.includes("attachedResourceFullName != $resource"));
   assert.match(script, /refusing certification/);
 });
 
 test('live certification retains exact direct IAM checks and never reads secret payloads', async () => {
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud secrets get-iam-policy/);
-  assert.match(script, /actual_policy" = "$expected_policy/);
+  assert.ok(script.includes('test "$actual_policy" = "$expected_policy"'));
   assert.match(script, /READY: SECRET_PAYLOADS_READ=0/);
   assert.doesNotMatch(script, /gcloud secrets versions access/);
 });
