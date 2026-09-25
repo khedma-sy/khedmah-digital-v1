@@ -129,18 +129,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for secret_name in GOOGLE_MAPS_BROWSER_API_KEY GOOGLE_MAPS_ANDROID_API_KEY; do
+          metadata="$RUNNER_TEMP/client-maps-plan/metadata.json"
+          include_android="$(jq -er '.includeAndroid | if type == "boolean" then tostring else empty end' "$metadata")"
+          secret_names=(GOOGLE_MAPS_BROWSER_API_KEY)
+          if [[ "$include_android" == true ]]; then
+            secret_names+=(GOOGLE_MAPS_ANDROID_API_KEY)
+          fi
+          for secret_name in "${secret_names[@]}"; do
             gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)' >/dev/null
           done
           browser_key="$(terraform -chdir=infra/iac/client-maps output -raw browser_key_string)"
-          android_key="$(terraform -chdir=infra/iac/client-maps output -raw android_key_string)"
-          test -n "$browser_key"; test -n "$android_key"
+          test -n "$browser_key"
           echo "::add-mask::$browser_key"
-          echo "::add-mask::$android_key"
           printf '%s' "$browser_key" | gcloud secrets versions add GOOGLE_MAPS_BROWSER_API_KEY             --project "$GOOGLE_CLOUD_PROJECT" --data-file=- --quiet >/dev/null
-          printf '%s' "$android_key" | gcloud secrets versions add GOOGLE_MAPS_ANDROID_API_KEY             --project "$GOOGLE_CLOUD_PROJECT" --data-file=- --quiet >/dev/null
-          unset browser_key android_key
-          for secret_name in GOOGLE_MAPS_BROWSER_API_KEY GOOGLE_MAPS_ANDROID_API_KEY; do
+          if [[ "$include_android" == true ]]; then
+            android_key="$(terraform -chdir=infra/iac/client-maps output -raw android_key_string)"
+            test -n "$android_key"
+            echo "::add-mask::$android_key"
+            printf '%s' "$android_key" | gcloud secrets versions add GOOGLE_MAPS_ANDROID_API_KEY             --project "$GOOGLE_CLOUD_PROJECT" --data-file=- --quiet >/dev/null
+            unset android_key
+          fi
+          unset browser_key
+          for secret_name in "${secret_names[@]}"; do
             test "$(gcloud secrets versions describe latest --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
           done
 
@@ -151,5 +161,9 @@ jobs:
             echo '### Restricted client Maps keys'
             echo "- Commit: `$REQUESTED_SHA`"
             echo '- Browser key: restrictions applied; value stored in Secret Manager.'
-            echo '- Android key: package/SHA-1 restriction applied; value stored in Secret Manager.'
+            if jq -e '.includeAndroid == true' "$RUNNER_TEMP/client-maps-plan/metadata.json" >/dev/null; then
+              echo '- Android key: package/SHA-1 restriction applied; value stored in Secret Manager.'
+            else
+              echo '- Android key: deferred until the real release signing SHA-1 is available.'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
