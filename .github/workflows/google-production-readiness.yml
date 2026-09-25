@@ -82,8 +82,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
   production-secret-gate:
     if: github.event_name == 'workflow_dispatch'
-    needs: lock-production-readiness-source
     environment: production
+    needs: lock-production-readiness-source
     permissions:
       contents: read
       id-token: write
