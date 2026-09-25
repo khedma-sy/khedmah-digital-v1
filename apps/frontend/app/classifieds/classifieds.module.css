@@ -2,6 +2,17 @@
   min-height:100svh;
   --ads-accent:var(--brand-orange,#fd9603);
   --ads-accent-soft:color-mix(in srgb,var(--ads-accent) 10%,var(--k-color-surface));
+  --section-gradient: #f4f4f4;
+  --k-color-text: #101820;
+  --k-color-text-muted: #595959;
+  --k-color-canvas: #f4f4f4;
+  --k-color-canvas-soft: #f4f4f4;
+  --k-color-surface: #fff;
+  --k-color-surface-muted: #f4f4f4;
+  --k-color-border: #ddd;
+  --k-glass-strong: #fff;
+  --k-glass-border: #ddd;
+  --k-glass-shadow: none;
 }
 .page :global(.ui-action-primary){color:var(--k-color-text);background:var(--k-color-orange-tint)}
 .page :global(.ui-action-primary:hover){color:var(--k-color-text);background:var(--k-color-orange-fade)}

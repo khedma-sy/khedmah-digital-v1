@@ -1,4 +1,4 @@
-.page{display:grid;gap:1rem;--taxi-yellow:#f2c230;--taxi-yellow-hover:#e3af1e;--taxi-ink:#262626;--taxi-navy:var(--taxi-yellow);--taxi-green:var(--brand-green);background:#f4ede3;color:var(--taxi-ink)}
+.page{display:grid;gap:1rem;--taxi-yellow:#f2c230;--taxi-yellow-hover:#e3af1e;--taxi-ink:#262626;--taxi-navy:var(--taxi-yellow);--taxi-green:var(--brand-green);--section-gradient:#f4ede3;--k-color-text:#262626;--k-color-text-muted:#5f5f5f;--k-color-canvas:#f4ede3;--k-color-canvas-soft:#fffaf0;--k-color-surface:#fff;--k-color-surface-muted:#fffaf0;--k-color-border:#e5ded3;--k-color-primary:#f2c230;--k-color-on-primary:#262626;--k-color-primary-hover:#e3af1e;--k-color-primary-soft:#fff4cf;background:#f4ede3;color:var(--taxi-ink)}
 .hero{display:grid;gap:.5rem}
 .switcher{display:flex;gap:.5rem;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(18rem,.9fr);gap:1rem;align-items:start}

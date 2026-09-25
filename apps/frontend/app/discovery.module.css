@@ -107,3 +107,17 @@
 .provider { border: 1px solid #ddd; border-radius: .25rem; color: #101820; background: #fff; box-shadow: none; }
 .provider:hover { border-color: #101820; }
 .mapFallback { color: #101820; background: rgb(244 244 244 / 96%); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Keep editorial discovery surfaces legible even when the global theme is dark. */
+.mapPage {
+  --k-color-text: #101820;
+  --k-color-text-muted: #595959;
+  --k-color-canvas: #f4f4f4;
+  --k-color-canvas-soft: #f4f4f4;
+  --k-color-surface: #fff;
+  --k-color-surface-muted: #f4f4f4;
+  --k-color-border: #ddd;
+  --k-glass-strong: #fff;
+  --k-glass-border: #ddd;
+  --k-glass-shadow: none;
+}

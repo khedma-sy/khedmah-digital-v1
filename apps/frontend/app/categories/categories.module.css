@@ -3,6 +3,16 @@
   --brand-navy: #07427c;
   --brand-green: #81be49;
   --brand-orange: #fd9603;
+  --k-color-text: #101820;
+  --k-color-text-muted: #595959;
+  --k-color-canvas: #f4f4f4;
+  --k-color-canvas-soft: #f4f4f4;
+  --k-color-surface: #fff;
+  --k-color-surface-muted: #f4f4f4;
+  --k-color-border: #ddd;
+  --k-glass-strong: #fff;
+  --k-glass-border: #ddd;
+  --k-glass-shadow: none;
 }
 
 .toneScope :global(.catalog-category-icon[data-category-tone='navy']),
