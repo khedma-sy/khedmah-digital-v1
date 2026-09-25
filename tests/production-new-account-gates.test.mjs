@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -175,5 +176,5 @@ test('Cloud Run first-deploy detection distinguishes not-found from lookup failu
 
 test('live Secret Manager certification script parses as valid Bash', async () => {
   const scriptPath = new URL('../scripts/validate-production-live-secret-certification.sh', import.meta.url);
-  assert.doesNotThrow(() => execFileSync('bash', ['-n', scriptPath]));
+  assert.doesNotThrow(() => execFileSync('bash', ['-n', fileURLToPath(scriptPath)]));
 });
