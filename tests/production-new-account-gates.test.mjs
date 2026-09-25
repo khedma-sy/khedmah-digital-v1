@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -169,4 +170,10 @@ test('Cloud Run first-deploy detection distinguishes not-found from lookup failu
   assert.match(readiness, /NOT_FOUND\|not found\|Cannot find service\|404/);
   assert.match(readiness, /Cloud Run service identity mismatch/);
   assert.doesNotMatch(readiness, /--format='value\(metadata\.name\)' >\/dev\/null 2>&1/);
+});
+
+
+test('live Secret Manager certification script parses as valid Bash', async () => {
+  const scriptPath = new URL('../scripts/validate-production-live-secret-certification.sh', import.meta.url);
+  assert.doesNotThrow(() => execFileSync('bash', ['-n', scriptPath]));
 });
