@@ -45,6 +45,9 @@ test('editorial marketplace and nearby pages use neutral Ali & Sons-inspired sur
   }
   assert.match(nearby, /\.mapPage\s*\{\s*background:\s*#f4f4f4/);
   assert.match(nearby, /\.mapBrand\s*\{\s*color:\s*#101820/);
+  assert.ok(store.includes('--k-color-text: #101820'));
+  assert.ok(classifieds.includes('--k-color-text: #101820'));
+  assert.ok(nearby.includes('--k-color-text: #101820'));
 });
 
 test('taxi uses a warm Talabat-style frame with the requested yellow primary', () => {
@@ -52,7 +55,8 @@ test('taxi uses a warm Talabat-style frame with the requested yellow primary', (
   assert.match(taxi, /--taxi-yellow:#f2c230/);
   assert.match(taxi, /background: #f2c230/);
   assert.match(taxi, /color: #262626/);
-  assert.match(taxi, /background:#f4ede3/);\n  assert.match(taxi, /--k-color-text:#262626/);
+  assert.match(taxi, /background:#f4ede3/);
+  assert.match(taxi, /--k-color-text:#262626/);
   assert.ok(taxi.includes('--taxi-green:var(--brand-green)'));
 });
 
