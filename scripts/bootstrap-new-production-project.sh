@@ -283,7 +283,7 @@ terraform_vars=(
   "-var=github_repository_owner_id=$CANONICAL_GITHUB_REPOSITORY_OWNER_ID"
   "-var=github_environment=$CANONICAL_GITHUB_ENVIRONMENT"
   "-var=github_workflow_path=.github/workflows/production-operator-new-account.yml"
-  '-var=github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/production-database-role-bootstrap.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml",".github/workflows/android-release-certification.yml"]'
+  '-var=github_additional_workflow_paths=[".github/workflows/production-operator.yml",".github/workflows/production-baseline-001-020.yml",".github/workflows/production-bootstrap-admin.yml",".github/workflows/production-migrations-025-034.yml",".github/workflows/production-database-role-bootstrap.yml",".github/workflows/terraform-media-apply.yml",".github/workflows/terraform-media-plan.yml",".github/workflows/terraform-media-state-handoff.yml",".github/workflows/terraform-client-maps-plan.yml",".github/workflows/terraform-client-maps-apply.yml",".github/workflows/android-release-certification.yml",".github/workflows/google-production-readiness.yml"]'
   '-var=github_ref=refs/heads/main'
   '-var=runtime_secret_names=["DATABASE_URL","FIREBASE_API_KEY","FIREBASE_APP_ID","GOOGLE_MAPS_BROWSER_API_KEY","GOOGLE_MAPS_SERVER_API_KEY","GOOGLE_OAUTH_SERVER_CLIENT_ID","NEXT_PUBLIC_FIREBASE_API_KEY","NEXT_PUBLIC_FIREBASE_APP_ID","NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN","NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID","NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID","NEXT_PUBLIC_FIREBASE_PROJECT_ID","NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET","OPERATIONS_PRODUCT_ROLE_BINDINGS","RESEND_API_KEY"]'
 )
@@ -314,6 +314,7 @@ verify_plan_target() {
       .variables.migration_service_account_id.value == "khedmah-v1-migrator" and
       ((.variables.github_additional_workflow_paths.value | sort) == ([
         ".github/workflows/android-release-certification.yml",
+        ".github/workflows/google-production-readiness.yml",
         ".github/workflows/production-baseline-001-020.yml",
         ".github/workflows/production-bootstrap-admin.yml",
         ".github/workflows/production-database-role-bootstrap.yml",
