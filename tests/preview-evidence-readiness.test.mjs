@@ -186,11 +186,12 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   return { report, visits, launches, directory, maxActiveMapNavigations };
 }
 
-test('map and taxi viewport captures run sequentially while retaining all evidence scenarios', async (t) => {
+test('map and taxi viewport captures use bounded concurrency while retaining all evidence scenarios', async (t) => {
   const { report, maxActiveMapNavigations } = await exerciseMain(t);
   assert.equal(report.after.length, expectedCaptureCount);
   assert.equal(report.previewStatus, 'passed');
-  assert.equal(maxActiveMapNavigations, 1);
+  assert.equal(maxActiveMapNavigations, 2);
+  assert.ok(maxActiveMapNavigations <= 2);
 });
 
 test('orchestration captures all sixty-four Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
