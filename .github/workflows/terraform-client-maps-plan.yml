@@ -11,6 +11,11 @@ on:
         description: Protected Terraform state bucket
         required: true
         type: string
+      include_android:
+        description: Also create the Android Maps key (requires the real release SHA-1)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -29,6 +34,7 @@ jobs:
       GOOGLE_MAPS_ALLOWED_WEB_ORIGINS: ${{ vars.GOOGLE_MAPS_ALLOWED_WEB_ORIGINS }}
       GOOGLE_MAPS_ANDROID_PACKAGE: ${{ vars.GOOGLE_MAPS_ANDROID_PACKAGE }}
       GOOGLE_MAPS_ANDROID_SHA1: ${{ secrets.GOOGLE_MAPS_ANDROID_SHA1 }}
+      INCLUDE_ANDROID: ${{ inputs.include_android }}
       CONFIGURED_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
       REQUESTED_SHA: ${{ inputs.commit_sha }}
@@ -49,12 +55,17 @@ jobs:
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
-          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_FRONTEND_SERVICE NEXT_PUBLIC_SITE_URL GOOGLE_MAPS_ALLOWED_WEB_ORIGINS GOOGLE_MAPS_ANDROID_PACKAGE GOOGLE_MAPS_ANDROID_SHA1 CONFIGURED_STATE_BUCKET REQUESTED_STATE_BUCKET; do
+          for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_FRONTEND_SERVICE NEXT_PUBLIC_SITE_URL GOOGLE_MAPS_ALLOWED_WEB_ORIGINS GOOGLE_MAPS_ANDROID_PACKAGE CONFIGURED_STATE_BUCKET REQUESTED_STATE_BUCKET; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
           test "$CONFIGURED_STATE_BUCKET" = "$REQUESTED_STATE_BUCKET"
           test "$GOOGLE_MAPS_ANDROID_PACKAGE" = "com.khedmah.digital"
-          [[ "$GOOGLE_MAPS_ANDROID_SHA1" =~ ^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$ ]]
+          if [[ "$INCLUDE_ANDROID" == true ]]; then
+            [[ "$GOOGLE_MAPS_ANDROID_SHA1" =~ ^([0-9A-Fa-f]{2}:){19}[0-9A-Fa-f]{2}$ ]] || {
+              echo "Android Maps key requires a valid release signing SHA-1." >&2
+              exit 1
+            }
+          fi
           [[ "$NEXT_PUBLIC_SITE_URL" == https://* ]]
           [[ "$NEXT_PUBLIC_SITE_URL" != *","* ]]
 
@@ -133,7 +144,7 @@ jobs:
           terraform -chdir=infra/iac/client-maps init -input=false -reconfigure             -backend-config="bucket=$REQUESTED_STATE_BUCKET"             -backend-config="prefix=khedmah/production/client-maps"
           terraform -chdir=infra/iac/client-maps validate
           PLAN="$RUNNER_TEMP/client-maps.tfplan"
-          terraform -chdir=infra/iac/client-maps plan -input=false -lock-timeout=60s -out="$PLAN"             -var="project_id=$GOOGLE_CLOUD_PROJECT"             -var="region=$GOOGLE_CLOUD_REGION"             -var="browser_allowed_referrers=$REFERRERS_JSON"             -var="android_package_name=$GOOGLE_MAPS_ANDROID_PACKAGE"             -var="android_sha1=$GOOGLE_MAPS_ANDROID_SHA1"
+          terraform -chdir=infra/iac/client-maps plan -input=false -lock-timeout=60s -out="$PLAN"             -var="project_id=$GOOGLE_CLOUD_PROJECT"             -var="region=$GOOGLE_CLOUD_REGION"             -var="browser_allowed_referrers=$REFERRERS_JSON"             -var="android_package_name=$GOOGLE_MAPS_ANDROID_PACKAGE"             -var="enable_android_key=$INCLUDE_ANDROID"             -var="android_sha1=$GOOGLE_MAPS_ANDROID_SHA1"
           terraform -chdir=infra/iac/client-maps show -json "$PLAN" > "$RUNNER_TEMP/client-maps-plan.json"
           jq -e '
             all((.resource_changes // [])[];
@@ -143,7 +154,7 @@ jobs:
           ' "$RUNNER_TEMP/client-maps-plan.json" >/dev/null
           mkdir -p "$RUNNER_TEMP/client-maps-evidence"
           cp "$PLAN" "$RUNNER_TEMP/client-maps-evidence/client-maps.tfplan"
-          printf '{"commit":"%s","canonicalReferrer":"%s","cloudRunReferrer":"%s"}\n'             "$REQUESTED_SHA" "${{ steps.refs.outputs.canonical_ref }}" "${{ steps.refs.outputs.cloud_run_ref }}"             > "$RUNNER_TEMP/client-maps-evidence/metadata.json"
+          printf '{"commit":"%s","canonicalReferrer":"%s","cloudRunReferrer":"%s","includeAndroid":%s}\n'             "$REQUESTED_SHA" "${{ steps.refs.outputs.canonical_ref }}" "${{ steps.refs.outputs.cloud_run_ref }}" "$INCLUDE_ANDROID"             > "$RUNNER_TEMP/client-maps-evidence/metadata.json"
           (cd "$RUNNER_TEMP/client-maps-evidence" && sha256sum client-maps.tfplan metadata.json > SHA256SUMS)
 
       - uses: actions/upload-artifact@v7
