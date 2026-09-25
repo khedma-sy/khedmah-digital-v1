@@ -4,22 +4,26 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('manual readiness locks exact latest main before the OIDC-capable job', async () => {
+test('manual readiness revalidates exact latest main after Production approval and before OIDC', async () => {
   const workflow = await read('.github/workflows/google-production-readiness.yml');
-  const lockStart = workflow.indexOf('  lock-production-readiness-source:');
   const gateStart = workflow.indexOf('  production-secret-gate:');
-  assert.ok(lockStart >= 0 && gateStart > lockStart);
-  const lock = workflow.slice(lockStart, gateStart);
+  assert.ok(gateStart >= 0);
   const gate = workflow.slice(gateStart);
-  assert.ok(lock.includes('test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"'));
-  assert.ok(lock.includes('test "$GITHUB_REF" = "refs/heads/main"'));
-  assert.ok(lock.includes('git fetch origin main'));
-  assert.ok(lock.includes('git rev-parse origin/main'));
-  assert.doesNotMatch(lock, /id-token/);
-  assert.ok(gate.includes('needs: lock-production-readiness-source'));
+  const sourceCheck = gate.indexOf('Revalidate exact official latest main after Production approval');
+  const auth = gate.indexOf('Authenticate to Production Google Cloud for read-only certification');
+  assert.ok(sourceCheck >= 0 && auth > sourceCheck);
+  assert.ok(gate.includes('test "$GITHUB_REPOSITORY" = "khedma-sy/khedmah-digital-v1"'));
+  assert.ok(gate.includes('test "$GITHUB_REF" = "refs/heads/main"'));
+  assert.ok(gate.includes('git fetch origin main'));
+  assert.ok(gate.includes('git rev-parse origin/main'));
+  assert.doesNotMatch(workflow, /lock-production-readiness-source|needs: lock-production-readiness-source/);
   assert.ok(gate.includes('id-token: write'));
+
   const productionWif = await read('infra/iac/production_operator.tf');
   assert.ok(productionWif.includes('google-production-readiness.yml@refs/heads/main'));
+  const bootstrap = await read('scripts/bootstrap-new-production-project.sh');
+  assert.ok(bootstrap.includes('.github/workflows/google-production-readiness.yml'));
+  assert.ok(bootstrap.includes('github_additional_workflow_paths.value'));
 });
 
 test('live certification pins exact distinct Terraform-created service accounts', async () => {
@@ -36,7 +40,7 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /gcloud projects get-ancestors/);
   assert.match(script, /gcloud asset analyze-iam-policy/);
   assert.ok(script.includes('--full-resource-name="$resource"'));
-  assert.match(script, /--permissions=secretmanager\.versions\.access/);
+  assert.match(script, /--permissions=secretmanager\\.versions\\.access/);
   assert.match(script, /--folder=/);
   assert.match(script, /--organization=/);
   assert.match(script, /fullyExplored == true/);
