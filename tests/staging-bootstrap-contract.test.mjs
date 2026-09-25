@@ -28,10 +28,10 @@ test('staging bootstrap example is locked to the isolated staging workflow trust
 
 
 test('staging retains its shared Cloud SQL tier default while Production sets its tier explicitly', () => {
-  const tier = bootstrapVariables.match(/variable "cloud_sql_tier" \\{[\\s\\S]*?\\n\\}/)?.[0];
+  const tier = bootstrapVariables.match(/variable "cloud_sql_tier" \{[\s\S]*?\n\}/)?.[0];
   assert.ok(tier, 'missing shared Cloud SQL tier variable');
-  assert.match(tier, /default\\s*=\\s*"db-custom-1-3840"/);
-  assert.doesNotMatch(vars, /^\\s*cloud_sql_tier\\s*=/m);
+  assert.match(tier, /default\s*=\s*"db-custom-1-3840"/);
+  assert.doesNotMatch(vars, /^\s*cloud_sql_tier\s*=/m);
 });
 
 test('bootstrap provider uses a bounded workflow_ref allowlist on the configured ref', () => {
