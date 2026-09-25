@@ -18,6 +18,8 @@ test('manual readiness locks exact latest main before the OIDC-capable job', asy
   assert.doesNotMatch(lock, /id-token/);
   assert.ok(gate.includes('needs: lock-production-readiness-source'));
   assert.ok(gate.includes('id-token: write'));
+  const productionWif = await read('infra/iac/production_operator.tf');
+  assert.ok(productionWif.includes('google-production-readiness.yml@refs/heads/main'));
 });
 
 test('live certification pins exact distinct Terraform-created service accounts', async () => {
