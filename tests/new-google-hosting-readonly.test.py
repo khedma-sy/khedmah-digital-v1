@@ -60,6 +60,7 @@ class ReadOnlyAuditTests(unittest.TestCase):
             (["iam", "service-accounts", "get-iam-policy",
               "firebase-adminsdk-fbsvc@khedma-dl.iam.gserviceaccount.com"], "iam.googleapis.com"),
             (["secrets", "get-iam-policy", "BOOTSTRAP_ADMIN_SECRET"], "secretmanager.googleapis.com"),
+            (["storage", "buckets", "get-iam-policy", "gs://khedma-dl-khedmah-tfstate"], "storage.googleapis.com"),
         ]
         for args, api in cases:
             for empty_response in ([], None):
