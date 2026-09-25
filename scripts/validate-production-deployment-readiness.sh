@@ -111,7 +111,7 @@ for service in "$BACKEND_SERVICE" "$FRONTEND_SERVICE"; do
       exit 1
     }
     rm -f "$describe_err"
-  elif grep -Eiq '(NOT_FOUND|not found|404)' "$describe_err"; then
+  elif grep -Eiq '(NOT_FOUND|not found|Cannot find service|404)' "$describe_err"; then
     missing_services+=("$service")
     rm -f "$describe_err"
   else
