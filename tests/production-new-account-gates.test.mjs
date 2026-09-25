@@ -166,7 +166,7 @@ test('root-state absence accepts only confirmed not-found and rejects lookup err
 test('Cloud Run first-deploy detection distinguishes not-found from lookup failures', async () => {
   const readiness = await read('scripts/validate-production-deployment-readiness.sh');
   assert.match(readiness, /Cloud Run service lookup failed for \$service; refusing to classify it as missing/);
-  assert.match(readiness, /NOT_FOUND\|not found\|404/);
+  assert.match(readiness, /NOT_FOUND\|not found\|Cannot find service\|404/);
   assert.match(readiness, /Cloud Run service identity mismatch/);
   assert.doesNotMatch(readiness, /--format='value\(metadata\.name\)' >\/dev\/null 2>&1/);
 });
