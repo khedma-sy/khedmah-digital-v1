@@ -35,8 +35,8 @@ test('client Maps plan is manual, exact-main and checks canonical plus Cloud Run
   assert.match(plan, /workflow_dispatch:/);
   assert.match(plan, /include_android:/);
   assert.match(plan, /default: false/);
-  assert.match(plan, /if \\[\\[ "\\$INCLUDE_ANDROID" == true \\]\\]/);
-  assert.match(plan, /enable_android_key=\\$INCLUDE_ANDROID/);
+  assert.ok(plan.includes('if [[ "$INCLUDE_ANDROID" == true ]]'));
+  assert.ok(plan.includes("enable_android_key=$INCLUDE_ANDROID"));
   assert.match(plan, /includeAndroid/);
   assert.match(plan, /environment: production/);
   assert.doesNotMatch(plan, /pull_request:|push:|schedule:/);
