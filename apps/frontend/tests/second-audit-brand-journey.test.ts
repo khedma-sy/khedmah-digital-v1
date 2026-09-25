@@ -12,7 +12,7 @@ test('home hero follows launch priority food then delivery then taxi', () => {
   assert.doesNotMatch(actions, /href="\/store"/);
 });
 
-test('categories render all three canonical semantic brand tones', () => {
+test('categories retain all three canonical semantic Khedmah icon tones', () => {
   const css = read('../app/categories/categories.module.css');
   for (const [tone, token, text] of [
     ['navy', '--brand-navy', '#fff'],
@@ -33,7 +33,21 @@ test('near-me map uses the canonical Khedmah green for service radii', () => {
   assert.doesNotMatch(map, /#7fc63b/i);
 });
 
-test('classifieds and taxi inherit canonical brand/theme tokens', () => {
+test('editorial marketplace and nearby pages use neutral Ali & Sons-inspired surfaces', () => {
+  const categories = read('../app/categories/categories.module.css');
+  const store = read('../app/store/store.module.css');
+  const classifieds = read('../app/classifieds/classifieds.module.css');
+  const nearby = read('../app/discovery.module.css');
+  for (const css of [categories, store, classifieds]) {
+    assert.match(css, /#101820/);
+    assert.match(css, /#f4f4f4/);
+    assert.match(css, /#ddd/);
+  }
+  assert.match(nearby, /\.mapPage\s*\{\s*background:\s*#f4f4f4/);
+  assert.match(nearby, /\.mapBrand\s*\{\s*color:\s*#101820/);
+});
+
+test('taxi uses a warm Talabat-style frame with the requested yellow primary', () => {
   const classifieds = read('../app/classifieds/classifieds.module.css');
   const taxi = read('../app/taxi/taxi.module.css');
   assert.match(classifieds, /--brand-orange,#fd9603/);

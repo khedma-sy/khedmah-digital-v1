@@ -22,3 +22,60 @@
   background: var(--brand-orange);
   color: var(--k-color-on-accent);
 }
+
+
+/* Owner-approved Ali & Sons-inspired editorial treatment: neutral canvas and typography.
+   Keep Khedmah category swatches and all directory behavior intact. */
+.toneScope :global(.catalog-experience) {
+  --section-accent: #101820;
+  --section-label: #101820;
+  color: #101820;
+  background: #f4f4f4;
+}
+.toneScope :global(.catalog-phone) {
+  color: #101820;
+  background: transparent;
+  box-shadow: none;
+}
+.toneScope :global(.catalog-header h1) {
+  color: #101820;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 750;
+  letter-spacing: -.025em;
+}
+.toneScope :global(.catalog-category-grid button),
+.toneScope :global(.catalog-service),
+.toneScope :global(.catalog-state) {
+  border: 1px solid #ddd;
+  border-radius: .25rem;
+  color: #101820;
+  background: #fff;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.toneScope :global(.catalog-category-grid button) {
+  min-height: 8.5rem;
+  padding: 1.25rem;
+}
+.toneScope :global(.catalog-category-grid button:hover) {
+  border-color: #101820;
+  background: #f4f4f4;
+  transform: none;
+}
+.toneScope :global(.catalog-category-grid strong) {
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+  font-weight: 750;
+}
+.toneScope :global(.catalog-category-icon) {
+  border-radius: .25rem;
+}
+.toneScope :global(.catalog-filters button.active) {
+  border-color: #101820;
+  color: #fff;
+  background: #101820;
+}
+.toneScope :global(.catalog-service-icon),
+.toneScope :global(.catalog-service small) {
+  color: #101820;
+}

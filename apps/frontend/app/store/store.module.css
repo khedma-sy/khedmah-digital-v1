@@ -91,3 +91,25 @@
   .gallery .image:first-child{min-height:18rem}
 }
 @media(prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}
+
+
+/* Ali & Sons-inspired editorial store surfaces. Product imagery and flows remain unchanged. */
+.page { --store-accent: #101820; --store-accent-soft: #f4f4f4; color: #101820; }
+.page :global(.ui-page) { background: #f4f4f4; color: #101820; }
+.page :global(.ui-page-header) { border-block-end: 1px solid #ddd; }
+.page :global(.ui-eyebrow) { color: #222; }
+.page :global(.ui-action-primary) { border-color: #101820; color: #fff; background: #101820; box-shadow: none; }
+.page :global(.ui-action-primary:hover) { color: #fff; background: #222; }
+.page :global(.ui-surface),
+.toolbar,.card,.form,.detailBody,.quota {
+  border-color: #ddd;
+  border-radius: .25rem;
+  background: #fff;
+  box-shadow: none;
+}
+.toolbar { border-color: #ddd; }
+.field input,.field select,.form input,.form select,.form textarea { border-radius: .25rem; border-color: #b6b6b6; }
+.field input:focus,.field select:focus,.form input:focus,.form select:focus,.form textarea:focus { outline-color: #101820; border-color: #101820; }
+.card:hover { box-shadow: 0 .5rem 1.5rem rgb(16 24 32 / 10%); }
+.image { border-radius: 0; background: #f4f4f4; }
+.price,.status { color: #101820; }
