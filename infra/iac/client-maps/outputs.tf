@@ -5,7 +5,7 @@ output "browser_key_resource" {
 
 output "android_key_resource" {
   description = "Android API key resource name."
-  value       = google_apikeys_key.android.id
+  value       = var.enable_android_key ? google_apikeys_key.android[0].id : null
 }
 
 output "browser_key_uid" {
@@ -15,7 +15,7 @@ output "browser_key_uid" {
 
 output "android_key_uid" {
   description = "Android API key UID for post-apply verification."
-  value       = google_apikeys_key.android.uid
+  value       = var.enable_android_key ? google_apikeys_key.android[0].uid : null
 }
 
 output "browser_key_string" {
@@ -26,6 +26,6 @@ output "browser_key_string" {
 
 output "android_key_string" {
   description = "Android API key value; publish only to Secret Manager."
-  value       = google_apikeys_key.android.key_string
+  value       = var.enable_android_key ? google_apikeys_key.android[0].key_string : null
   sensitive   = true
 }
