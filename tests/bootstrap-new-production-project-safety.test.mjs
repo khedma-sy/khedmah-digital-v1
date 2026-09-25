@@ -176,7 +176,7 @@ test('saved bootstrap plan is bound to the active project region repository and 
   assert.match(script, /CANONICAL_GITHUB_REPOSITORY_OWNER_ID="307214577"/);
   assert.match(script, /CANONICAL_GITHUB_ENVIRONMENT="production"/);
   assert.match(script, /production-operator-new-account\.yml/);
-  assert.doesNotMatch(script, /google-production-readiness\.yml/);
+  assert.match(script, /google-production-readiness\.yml/);
   assert.match(script, /terraform-media-state-handoff\.yml/);
   assert.match(script, /GOOGLE_MAPS_SERVER_API_KEY/);
   assert.match(script, /db-f1-micro/);
@@ -187,8 +187,9 @@ test('saved bootstrap plan is bound to the active project region repository and 
   assert.match(apply, /verify_plan_target "\$plan_json"/);
 });
 
-test('bootstrap deployer WIF allowlist excludes Google production readiness', () => {
-  assert.doesNotMatch(script, /\.github\/workflows\/google-production-readiness\.yml/);
+test('bootstrap deployer WIF allowlist includes Google production readiness in input and plan contract', () => {
+  const occurrences = [...script.matchAll(/\.github\/workflows\/google-production-readiness\.yml/g)];
+  assert.ok(occurrences.length >= 2, 'workflow path must be present in both bootstrap input and exact plan allowlist');
 });
 
 test('bootstrap requires origin itself to be the canonical GitHub repository', () => {
