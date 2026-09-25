@@ -275,12 +275,11 @@ async function captureViewportSet(browser, origin, route, theme, directory) {
     return Promise.allSettled(evidenceViewports.map(captureOne));
   }
   const results = [];
-  for (const viewport of evidenceViewports) {
-    try {
-      results.push({ status: 'fulfilled', value: await captureOne(viewport) });
-    } catch (reason) {
-      results.push({ status: 'rejected', reason });
-    }
+  // Two contexts at a time reduces Maps contention while keeping the worst-case
+  // capture duration well below the review-evidence job timeout.
+  for (let index = 0; index < evidenceViewports.length; index += 2) {
+    const batch = evidenceViewports.slice(index, index + 2);
+    results.push(...await Promise.allSettled(batch.map(captureOne)));
   }
   return results;
 }
