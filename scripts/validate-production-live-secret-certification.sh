@@ -214,6 +214,7 @@ for secret_name in "${permanent_secret_names[@]}"; do
     echo 'ERROR: Secret-level IAM differs from the exact canonical role/member allowlist.' >&2
     exit 1
   }
+  verify_no_inherited_secret_access "$secret_name"
 done
 
 echo "READY: LIVE_SECRET_METADATA_COUNT=${#permanent_secret_names[@]}"
