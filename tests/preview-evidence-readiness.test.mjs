@@ -110,6 +110,8 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'khedmah-evidence-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const visits = [];
+  let activeMapNavigations = 0;
+  let maxActiveMapNavigations = 0;
   let launches = 0;
   let contextFailures = options.contextFailures ?? 0;
   const browser = {
@@ -125,6 +127,13 @@ async function exerciseMain(t, overrides = {}, options = {}) {
           goto: async (url) => {
             currentUrl = url;
             visits.push(url);
+            const mapPage = ['/map', '/taxi'].includes(new URL(url).pathname);
+            if (mapPage) {
+              activeMapNavigations += 1;
+              maxActiveMapNavigations = Math.max(maxActiveMapNavigations, activeMapNavigations);
+              await new Promise((resolve) => setTimeout(resolve, 5));
+              activeMapNavigations -= 1;
+            }
             if (options.baselineFails && url.startsWith('https://staging.example.test')) throw new Error('navigation failed');
             return { status: () => 200 };
           },
@@ -174,8 +183,15 @@ async function exerciseMain(t, overrides = {}, options = {}) {
   const report = await main(env, options.realLauncher ? {} : { launchBrowser });
   assert.equal(process.exitCode, originalExitCode, 'imported main must not modify the test process exit status');
   assert.deepEqual(JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')), report);
-  return { report, visits, launches, directory };
+  return { report, visits, launches, directory, maxActiveMapNavigations };
 }
+
+test('map and taxi viewport captures run sequentially while retaining all evidence scenarios', async (t) => {
+  const { report, maxActiveMapNavigations } = await exerciseMain(t);
+  assert.equal(report.after.length, expectedCaptureCount);
+  assert.equal(report.previewStatus, 'passed');
+  assert.equal(maxActiveMapNavigations, 1);
+});
 
 test('orchestration captures all sixty-four Preview scenarios when BEFORE_URL is empty but fails comparison', async (t) => {
   const { report, visits } = await exerciseMain(t, { BEFORE_URL: '' });
