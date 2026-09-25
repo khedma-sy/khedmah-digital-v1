@@ -53,7 +53,7 @@ test('taxi uses a warm Talabat-style frame with the requested yellow primary', (
   assert.match(taxi, /background: #f2c230/);
   assert.match(taxi, /color: #262626/);
   assert.match(taxi, /background:#f4ede3/);
-  assert.match(taxi, /--taxi-green:var\\(--brand-green\\)/);
+  assert.ok(taxi.includes('--taxi-green:var(--brand-green)'));
 });
 
 test('restaurant discovery survives partial category failures', () => {
