@@ -47,7 +47,7 @@ test('client Maps plan is manual, exact-main and checks canonical plus Cloud Run
   assert.match(plan, /client-maps\.tfplan/);
   assert.match(plan, /sha256sum client-maps\.tfplan metadata\.json/);
   assert.match(plan, /index\("delete"\)/);
-  assert.match(plan, /google_apikeys_key\\.android\\[0\\]/);
+  assert.ok(plan.includes('"google_apikeys_key.android[0]"'));
 });
 
 test('client Maps apply consumes only reviewed plan and publishes masked keys to Secret Manager', async () => {
