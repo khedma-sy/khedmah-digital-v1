@@ -91,6 +91,7 @@ class Audit:
                 tuple(args[:3]) == ("iam", "service-accounts", "get-iam-policy")
                 or tuple(args[:2]) == ("secrets", "get-iam-policy")
                 or tuple(args[:3]) == ("storage", "buckets", "get-iam-policy")
+                or tuple(args[:2]) == ("projects", "get-iam-policy")
             )
             # gcloud's json(bindings) projection can serialize a successful policy
             # with no direct bindings as [] or null. Preserve that as an explicit
