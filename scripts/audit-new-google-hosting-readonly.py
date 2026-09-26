@@ -87,6 +87,17 @@ class Audit:
                                        "exitCode": process.returncode, "executed": True}
                 return None
             data = json.loads(process.stdout)
+            policy_read = (
+                tuple(args[:3]) == ("iam", "service-accounts", "get-iam-policy")
+                or tuple(args[:2]) == ("secrets", "get-iam-policy")
+                or tuple(args[:3]) == ("storage", "buckets", "get-iam-policy")
+                or tuple(args[:2]) == ("projects", "get-iam-policy")
+            )
+            # gcloud's json(bindings) projection can serialize a successful policy
+            # with no direct bindings as [] or null. Preserve that as an explicit
+            # empty policy; callers must still verify any required bindings.
+            if policy_read and data in (None, []):
+                data = {"bindings": []}
             prefix = next(p for p in READS if tuple(args[:len(p)]) == p)
             list_result = prefix[-1] == "list" and prefix != ("config", "list")
             if not isinstance(data, list if list_result else dict):

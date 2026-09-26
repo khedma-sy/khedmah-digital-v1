@@ -55,6 +55,24 @@ class ReadOnlyAuditTests(unittest.TestCase):
         self.assertNotIn("test-sentinel", json.dumps(audit.results))
         self.assertNotIn("data", audit.results["secrets"])
 
+    def test_empty_iam_policy_projections_are_collected_as_empty_binding_sets(self):
+        cases = [
+            (["iam", "service-accounts", "get-iam-policy",
+              "firebase-adminsdk-fbsvc@khedma-dl.iam.gserviceaccount.com"], "iam.googleapis.com"),
+            (["secrets", "get-iam-policy", "BOOTSTRAP_ADMIN_SECRET"], "secretmanager.googleapis.com"),
+            (["projects", "get-iam-policy", "khedma-dl"], None),
+            (["storage", "buckets", "get-iam-policy", "gs://khedma-dl-khedmah-tfstate"], "storage.googleapis.com"),
+        ]
+        for args, api in cases:
+            for empty_response in ([], None):
+                with self.subTest(args=args, empty_response=empty_response):
+                    audit = module.Audit()
+                    audit.enabled.add(api)
+                    with patch.object(module.subprocess, "run", return_value=self.reply(empty_response)):
+                        result = audit.query("empty_policy", args, "json(bindings)", api)
+                    self.assertEqual(result, {"bindings": []})
+                    self.assertEqual(audit.results["empty_policy"]["status"], "COLLECTED")
+
     def test_timeouts_remain_unresolved(self):
         audit = module.Audit()
         with patch.object(module.subprocess, "run", side_effect=subprocess.TimeoutExpired("gcloud", 45)):
