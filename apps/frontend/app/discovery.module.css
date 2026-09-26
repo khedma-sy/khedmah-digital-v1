@@ -88,3 +88,36 @@
 .provider:hover{border-color:color-mix(in srgb,var(--brand-navy,#07427c) 35%,var(--k-color-border))}
 .mapFallback{background:color-mix(in srgb,var(--k-color-surface) 92%,transparent)}
 @media(prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}
+
+
+/* Editorial neutral framing for "اكتشف بالقرب مني"; map data and map controls are unchanged. */
+.mapPage { background: #f4f4f4; color: #101820; }
+.mapPanel {
+  border-inline-end-color: #ddd;
+  color: #101820;
+  background: #fff;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.mapBrand { color: #101820; }
+.mapPanel form input { border-color: #b6b6b6; border-radius: .25rem; background: #fff; }
+.viewSwitch { gap: .5rem; }
+.viewSwitch button { border-radius: .25rem; }
+.provider { border: 1px solid #ddd; border-radius: .25rem; color: #101820; background: #fff; box-shadow: none; }
+.provider:hover { border-color: #101820; }
+.mapFallback { color: #101820; background: rgb(244 244 244 / 96%); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Keep editorial discovery surfaces legible even when the global theme is dark. */
+.mapPage {
+  --k-color-text: #101820;
+  --k-color-text-muted: #595959;
+  --k-color-canvas: #f4f4f4;
+  --k-color-canvas-soft: #f4f4f4;
+  --k-color-surface: #fff;
+  --k-color-surface-muted: #f4f4f4;
+  --k-color-border: #ddd;
+  --k-glass-strong: #fff;
+  --k-glass-border: #ddd;
+  --k-glass-shadow: none;
+}

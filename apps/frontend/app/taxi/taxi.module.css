@@ -1,4 +1,4 @@
-.page{display:grid;gap:1rem;--taxi-navy:var(--k-color-primary);--taxi-green:var(--brand-green);background:var(--k-gradient-blue)}
+.page{display:grid;gap:1rem;--taxi-yellow:#f2c230;--taxi-yellow-hover:#e3af1e;--taxi-ink:#262626;--taxi-navy:var(--taxi-yellow);--taxi-green:var(--brand-green);--section-gradient:#f4ede3;--k-color-text:#262626;--k-color-text-muted:#5f5f5f;--k-color-canvas:#f4ede3;--k-color-canvas-soft:#fffaf0;--k-color-surface:#fff;--k-color-surface-muted:#fffaf0;--k-color-border:#e5ded3;--k-color-primary:#f2c230;--k-color-on-primary:#262626;--k-color-primary-hover:#e3af1e;--k-color-primary-soft:#fff4cf;background:#f4ede3;color:var(--taxi-ink)}
 .hero{display:grid;gap:.5rem}
 .switcher{display:flex;gap:.5rem;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(18rem,.9fr);gap:1rem;align-items:start}
@@ -56,3 +56,31 @@
 @media(max-width:52rem){.grid{grid-template-columns:1fr}.fields,.compactFields{grid-template-columns:1fr 1fr}}
 @media(max-width:38rem){.fields,.compactFields,.journey{grid-template-columns:1fr}.summary dl{grid-template-columns:1fr}.actions>*{width:100%}.mapToolbar{display:grid;grid-template-columns:1fr 1fr}.mapToolbar button{justify-content:center}.mapCanvas{height:20rem}}
 @media(max-width:38rem){.guestIntro .actions{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}.guestIntro .actions>a{width:100%}}
+
+
+/* Talabat-style warm, high-contrast taxi interface with the owner's yellow primary. */
+.page :global(.ui-page-header) { border-block-end: 1px solid #e5ded3; }
+.page :global(.ui-page-header h1) { color: #262626; }
+.page :global(.ui-eyebrow) { color: #5b4700; }
+.page :global(.ui-action-primary) {
+  border-color: #f2c230;
+  color: #262626;
+  background: #f2c230;
+  box-shadow: none;
+}
+.page :global(.ui-action-primary:hover) { border-color: #e3af1e; color: #262626; background: #e3af1e; }
+.page :global(.ui-action-primary:focus-visible) { outline: 3px solid #262626; outline-offset: 2px; }
+.panel,.offer,.trip,.summary div,.mapPanel {
+  border-color: #e5ded3;
+  border-radius: .65rem;
+  background: #fff;
+  box-shadow: 0 .2rem .8rem rgb(38 38 38 / 7%);
+}
+.addressBlock,.journeyStep { border-color: #e5ded3; background: #fffaf0; }
+.addressBlock h3,.phase { color: #5b4700; }
+.phase { background: #fff0bd; }
+.mapToolbar button.mapPointActive { border-color: #f2c230; color: #262626; background: #f2c230; }
+.journeyStep[data-step-state='current'] { border-color: #f2c230; background: #fff4cf; }
+.stepNumber { color: #262626; background: #f2c230; }
+.journeyStep small { color: #5b4700; }
+.mapCanvas { border-color: #e5ded3; background: #f4ede3; }

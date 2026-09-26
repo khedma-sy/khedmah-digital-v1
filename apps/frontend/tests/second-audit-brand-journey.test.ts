@@ -12,7 +12,7 @@ test('home hero follows launch priority food then delivery then taxi', () => {
   assert.doesNotMatch(actions, /href="\/store"/);
 });
 
-test('categories render all three canonical semantic brand tones', () => {
+test('categories retain all three canonical semantic Khedmah icon tones', () => {
   const css = read('../app/categories/categories.module.css');
   for (const [tone, token, text] of [
     ['navy', '--brand-navy', '#fff'],
@@ -33,15 +33,31 @@ test('near-me map uses the canonical Khedmah green for service radii', () => {
   assert.doesNotMatch(map, /#7fc63b/i);
 });
 
-test('classifieds and taxi inherit canonical brand/theme tokens', () => {
+test('editorial marketplace and nearby pages use neutral Ali & Sons-inspired surfaces', () => {
+  const categories = read('../app/categories/categories.module.css');
+  const store = read('../app/store/store.module.css');
   const classifieds = read('../app/classifieds/classifieds.module.css');
+  const nearby = read('../app/discovery.module.css');
+  for (const css of [categories, store, classifieds]) {
+    assert.match(css, /#101820/);
+    assert.match(css, /#f4f4f4/);
+    assert.match(css, /#ddd/);
+  }
+  assert.match(nearby, /\.mapPage\s*\{\s*background:\s*#f4f4f4/);
+  assert.match(nearby, /\.mapBrand\s*\{\s*color:\s*#101820/);
+  assert.ok(store.includes('--k-color-text: #101820'));
+  assert.ok(classifieds.includes('--k-color-text: #101820'));
+  assert.ok(nearby.includes('--k-color-text: #101820'));
+});
+
+test('taxi uses a warm Talabat-style frame with the requested yellow primary', () => {
   const taxi = read('../app/taxi/taxi.module.css');
-  assert.match(classifieds, /--brand-orange,#fd9603/);
-  assert.doesNotMatch(classifieds, /#e97835/i);
-  assert.match(taxi, /--taxi-navy:var\(--k-color-primary\)/);
-  assert.match(taxi, /--taxi-green:var\(--brand-green\)/);
-  assert.match(taxi, /var\(--k-color-surface-muted\),var\(--k-color-canvas\)/);
-  assert.doesNotMatch(taxi, /#8fc0ee|#dfe9f1|#eef3f6/i);
+  assert.match(taxi, /--taxi-yellow:#f2c230/);
+  assert.match(taxi, /background: #f2c230/);
+  assert.match(taxi, /color: #262626/);
+  assert.match(taxi, /background:#f4ede3/);
+  assert.match(taxi, /--k-color-text:#262626/);
+  assert.ok(taxi.includes('--taxi-green:var(--brand-green)'));
 });
 
 test('restaurant discovery survives partial category failures', () => {
