@@ -85,5 +85,5 @@ test('Taxi approval table updates stay column-scoped in production hardening', a
 test('database role preparation relies on PostgreSQL non-superuser defaults', async () => {
   const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
   const prepare = script.split('  prepare)')[1].split('  verify)')[0];
-  assert.doesNotMatch(prepare, /\\bNOSUPERUSER\\b/);
+  assert.doesNotMatch(prepare, /\bNOSUPERUSER\b/);
 });
