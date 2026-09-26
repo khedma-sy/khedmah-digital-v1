@@ -58,23 +58,25 @@ test('web deployment readiness does not require an Android Maps key before Andro
   assert.match(androidRelease, /EXPECTED_ANDROID_SHA1/);
 });
 
-test('new-account secret contract retains the Maps server key required by production Google config', async () => {
+test('web deployment does not require a server Maps key when no server Maps consumer is configured', async () => {
+  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
+  const requiredBlock = readiness.split('required_secrets=(')[1]?.split(')')[0] ?? '';
   const inventory = await read('infra/secrets/required-secrets.yaml');
   const bootstrapVars = await read('infra/iac/bootstrap/variables.tf');
-  const readiness = await read('scripts/validate-production-deployment-readiness.sh');
   const googleGate = await read('.github/workflows/google-production-readiness.yml');
   const live = await read('scripts/production-operator-live-validation.sh');
   const maps = await read('config/google/maps.ts');
   const productionEnv = await read('.env.production');
-  assert.match(inventory, /DATABASE_MIGRATION_URL/);
+
+  assert.doesNotMatch(requiredBlock, /GOOGLE_MAPS_SERVER_API_KEY/);
+  assert.match(requiredBlock, /GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(inventory, /- GOOGLE_MAPS_SERVER_API_KEY/);
+  assert.match(bootstrapVars, /"GOOGLE_MAPS_SERVER_API_KEY"/);
+  assert.match(googleGate, /GOOGLE_MAPS_SERVER_API_KEY/);
+  assert.match(live, /GOOGLE_MAPS_SERVER_API_KEY/);
+  assert.match(maps, /serverApiKey: requireEnvironment\("GOOGLE_MAPS_SERVER_API_KEY"/);
   assert.match(productionEnv, /^GOOGLE_MAPS_SERVER_API_KEY=$/m);
-  assert.match(maps, /requireEnvironment\("GOOGLE_MAPS_SERVER_API_KEY"/);
-  for (const source of [inventory, bootstrapVars, readiness, googleGate, live]) {
-    assert.match(source, /GOOGLE_MAPS_SERVER_API_KEY/);
-  }
 });
-
-
 test('new-account deployer gets only the custom permission needed to read media bucket IAM', async () => {
   const bootstrap = await read('infra/iac/bootstrap/main.tf');
   assert.match(bootstrap, /storage_bucket_policy_viewer/);
