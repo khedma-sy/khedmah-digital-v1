@@ -81,3 +81,9 @@ test('Taxi approval table updates stay column-scoped in production hardening', a
   assert.match(script, /NOT has_column_privilege\('\$RUNTIME_USER','khedmah_taxi\.driver_approvals','user_id','UPDATE'\)/);
   assert.match(script, /NOT has_column_privilege\('\$RUNTIME_USER','khedmah_taxi\.vehicle_approvals','id','UPDATE'\)/);
 });
+
+test('database role preparation relies on PostgreSQL non-superuser defaults', async () => {
+  const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
+  const prepare = script.split('  prepare)')[1].split('  verify)')[0];
+  assert.doesNotMatch(prepare, /\\bNOSUPERUSER\\b/);
+});
