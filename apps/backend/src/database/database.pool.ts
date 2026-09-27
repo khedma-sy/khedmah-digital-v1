@@ -34,6 +34,9 @@ export class DatabasePool implements OnModuleInit {
         user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
         password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
         database: parsed.pathname ? parsed.pathname.replace(/^\//, '') : undefined,
+        // Resolve built-ins from the trusted catalog before the application
+        // schema, and never allow the default "$user" schema to shadow it.
+        options: '-c role=none -c search_path=pg_catalog,public',
         ssl: false,
         max: 10,
         idleTimeoutMillis: 30_000,

@@ -82,4 +82,5 @@ echo "READY: DATABASE_NAME=$DATABASE_NAME"
 echo "READY: CLOUD_SQL_INSTANCE_CONNECTION_NAME=${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:${CLOUD_SQL_INSTANCE_ID}"
 echo 'READY: runtime and migration database secrets have enabled latest versions; values were not printed.'
 echo 'SECURITY_BLOCKER: built-in users may still carry Cloud SQL default elevated database privileges until the protected database-role bootstrap workflow succeeds.'
-echo 'NEXT: run Production Database Role Bootstrap / PREPARE_AND_ISOLATE before any schema migration.'
+echo 'NEXT: run Production Database Role Bootstrap / INVENTORY, manually review every canonical manifest record, and set the protected Production variable DATABASE_SYSTEM_ROLE_MANIFEST_SHA256 to the reviewed candidate.'
+echo 'NEXT: run PREPARE to probe and commit the DATABASE_MIGRATION_URL active alias, then the baseline, then the remaining migrations, and finally HARDEN followed by VERIFY.'

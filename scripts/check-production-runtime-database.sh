@@ -4,6 +4,10 @@ set -eu
 test -n "${DATABASE_URL:-}" || { echo 'ERROR: DATABASE_URL is required.' >&2; exit 1; }
 test -n "${EXPECTED_RUNTIME_USER:-}" || { echo 'ERROR: EXPECTED_RUNTIME_USER is required.' >&2; exit 1; }
 
+# Ignore mutable role defaults even on this retired diagnostic path.
+PGOPTIONS='-c role=none -c search_path=pg_catalog,public'
+export PGOPTIONS
+
 verified="$(psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -At   -v expected_user="$EXPECTED_RUNTIME_USER" <<'SQL'
 SELECT CASE WHEN
   current_user = :'expected_user'

@@ -38,8 +38,6 @@ test('baseline image and runner bind the exact 001-020 lineage by aggregate SHA-
 
 test('baseline refuses any existing Khedmah schema and verifies 019 scope reconciliation', () => {
   assert.match(runner, /BASELINE_REQUIRES_FRESH_DATABASE/);
-  assert.match(runner, /core_user_accounts/);
-  assert.match(runner, /food_promo_codes/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /BEGIN;/);
   assert.match(runner, /COMMIT;/);
@@ -53,16 +51,101 @@ test('baseline refuses any existing Khedmah schema and verifies 019 scope reconc
 test('baseline uses the dedicated migration identity and elevated database secret only', () => {
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
-  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.match(workflow, /gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.doesNotMatch(workflow, /gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.doesNotMatch(workflow, /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_URL:latest/);
+});
+
+test('baseline verifies the committed migration secret alias before backup evidence and build mutation', () => {
+  const alias = workflow.indexOf('gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL');
+  const backup = workflow.indexOf('gcloud sql backups describe');
+  const build = workflow.indexOf('gcloud builds submit');
+  assert.ok(alias >= 0 && backup > alias && build > backup);
+});
+
+test('baseline freshness probe accepts only an empty public-only database', () => {
+  const probeStart = runner.indexOf('fresh="$(psql');
+  const probeEnd = runner.indexOf('test "$fresh" = fresh', probeStart);
+  assert.ok(probeStart >= 0 && probeEnd > probeStart);
+  const probe = runner.slice(probeStart, probeEnd);
+
+  assert.match(probe, /THEN 'fresh' ELSE 'dirty' END/);
+  assert.match(probe, /FROM pg_catalog\.pg_namespace namespace\s+WHERE namespace\.nspname = 'public'/);
+  assert.match(probe, /namespace\.nspname <> 'public'\s+AND namespace\.nspname <> 'information_schema'\s+AND namespace\.nspname !~ '\^pg_'/);
+  assert.match(probe, /FROM pg_catalog\.pg_namespace namespace\s+WHERE namespace\.nspname = 'khedmah_taxi'/);
+
+  for (const [catalog, object, namespaceColumn] of [
+    ['pg_class', 'relation', 'relnamespace'],
+    ['pg_proc', 'routine', 'pronamespace'],
+    ['pg_type', 'data_type', 'typnamespace'],
+  ]) {
+    assert.match(probe, new RegExp(
+      `FROM pg_catalog\\.${catalog} ${object}\\s+` +
+      `JOIN pg_catalog\\.pg_namespace namespace ON namespace\\.oid = ${object}\\.${namespaceColumn}\\s+` +
+      "WHERE namespace\\.nspname IN \\('public','khedmah_taxi'\\)",
+    ));
+  }
+
+  for (const catalog of [
+    'pg_largeobject_metadata',
+    'pg_foreign_data_wrapper',
+    'pg_foreign_server',
+    'pg_user_mappings',
+    'pg_event_trigger',
+    'pg_publication',
+    'pg_subscription',
+    'pg_prepared_xacts',
+  ]) {
+    assert.match(probe, new RegExp(`NOT EXISTS \\(SELECT 1 FROM pg_catalog\\.${catalog}\\)`));
+  }
+  assert.match(probe, /FROM pg_catalog\.pg_extension installed_extension\s+WHERE installed_extension\.extname <> 'plpgsql'/);
+  assert.match(probe, /FROM pg_catalog\.pg_cast user_cast\s+WHERE user_cast\.oid >= 16384/);
+});
+
+test('baseline repeats its freshness guard while holding the shared schema lock', () => {
+  const lockIndex = runner.indexOf("pg_advisory_xact_lock(hashtextextended('khedmah-production-schema-change', 0))");
+  const lockedBlockIndex = runner.indexOf('DO \\$baseline_fresh\\$', lockIndex);
+  const lockedGuardIndex = runner.indexOf('IF NOT (', lockedBlockIndex);
+  const lockedGuardEnd = runner.indexOf('\n  ) THEN', lockedGuardIndex);
+  const lockedExceptionIndex = runner.indexOf("RAISE EXCEPTION 'BASELINE_REQUIRES_FRESH_DATABASE'", lockedGuardEnd);
+  const firstMigrationIndex = runner.indexOf('\\ir /migrations/001_core_identity_accounts.sql', lockIndex);
+  assert.ok(
+    lockIndex >= 0 &&
+    lockedBlockIndex > lockIndex &&
+    lockedGuardIndex > lockedBlockIndex &&
+    lockedGuardEnd > lockedGuardIndex &&
+    lockedExceptionIndex > lockedGuardEnd &&
+    firstMigrationIndex > lockedExceptionIndex,
+  );
+
+  const probeStart = runner.indexOf('SELECT CASE WHEN', runner.indexOf('fresh="$(psql'));
+  const probePredicateStart = probeStart + 'SELECT CASE WHEN'.length;
+  const probePredicateEnd = runner.indexOf("THEN 'fresh' ELSE 'dirty' END", probePredicateStart);
+  assert.ok(probeStart >= 0 && probePredicateEnd > probePredicateStart);
+
+  const normalizeSql = (sql) => sql.replace(/\s+/g, ' ').trim();
+  const probePredicate = runner.slice(probePredicateStart, probePredicateEnd);
+  const lockedPredicate = runner.slice(lockedGuardIndex + 'IF NOT ('.length, lockedGuardEnd);
+  assert.equal(normalizeSql(lockedPredicate), normalizeSql(probePredicate));
+});
+
+test('baseline evidence renders Markdown code spans without shell command substitution', () => {
+  const summary = workflow.split('- name: Publish baseline evidence')[1] ?? '';
+  assert.match(summary, /printf -- '- Commit: `%s`\\n' "\$REQUESTED_SHA"/);
+  assert.match(summary, /printf -- '- Manifest SHA-256: `%s`\\n' "\$\{BASELINE_MANIFEST_SHA256:-unresolved\}"/);
+  assert.match(summary, /printf -- '- Backup: `%s`\\n' "\$EXPECTED_BACKUP_ID"/);
+  assert.match(summary, /printf -- '- Result: `%s`\\n' "\$RESULT"/);
+  assert.doesNotMatch(summary, /echo "-[^"]*`\$/);
 });
 
 
 // Execute the unchanged SQL-delivery tail from the real runner. The psql double
 // captures stdin only; it never connects to PostgreSQL or reads secret values.
 // Unlike a source regex alone, these tests detect shell expansion before psql.
-const sqlDelivery = runner.slice(runner.indexOf('psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'));
+const sqlDelivery = runner.slice(runner.indexOf('psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'));
 assert.ok(sqlDelivery.startsWith('psql '), 'The real baseline SQL-delivery block must exist');
 
 async function executeSqlDelivery(shell, { variable, exitCode = '0' } = {}) {
@@ -81,7 +164,7 @@ exit "$PSQL_TEST_EXIT"
     delete env.ENV;
     if (variable !== undefined) env.baseline_verify = variable;
     const result = spawnSync(shell, ['-c',
-      'set -eu\nDATABASE_URL=postgresql://baseline-test.invalid/never-connect\n' + sqlDelivery],
+      'set -eu\nPSQL_DATABASE_URL=postgresql://baseline-test.invalid/never-connect\nDATABASE_ROLE_ISOLATION_SAFE_SQL=TRUE\n' + sqlDelivery],
       { env, encoding: 'utf8', timeout: 5000 });
     assert.ifError(result.error);
     let input = '';

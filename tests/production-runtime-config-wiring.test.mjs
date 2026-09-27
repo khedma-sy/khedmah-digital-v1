@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const build = await readFile(new URL('../cloudbuild.production-new-account.yaml', import.meta.url), 'utf8');
 const operator = await readFile(new URL('../.github/workflows/production-operator-new-account.yml', import.meta.url), 'utf8');
+const databasePool = await readFile(new URL('../apps/backend/src/database/database.pool.ts', import.meta.url), 'utf8');
+const classifiedsSchemaGuard = await readFile(new URL('../apps/backend/src/classifieds/ad-schema.guard.ts', import.meta.url), 'utf8');
 
 test('new-account Production injects runtime project, Firebase identity and telemetry state', () => {
   assert.match(build, /GOOGLE_CLOUD_PROJECT=\$PROJECT_ID/);
@@ -12,6 +14,32 @@ test('new-account Production injects runtime project, Firebase identity and tele
   assert.match(build, /GOOGLE_LOGGING_ENABLED=\$\{_GOOGLE_LOGGING_ENABLED\}/);
   assert.match(build, /GOOGLE_MONITORING_ENABLED=\$\{_GOOGLE_MONITORING_ENABLED\}/);
   assert.match(build, /GOOGLE_ERROR_REPORTING_ENABLED=\$\{_GOOGLE_ERROR_REPORTING_ENABLED\}/);
+});
+
+test('new-account Production replaces Cloud SQL attachments with the canonical instance', () => {
+  const deployBackend = build.split('id: deploy-backend')[1]?.split('id: deploy-frontend')[0] ?? '';
+  assert.match(deployBackend, /--set-cloudsql-instances '\$\{_CLOUD_SQL_INSTANCE\}'/);
+  assert.doesNotMatch(deployBackend, /--add-cloudsql-instances/);
+  assert.match(deployBackend, /CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$\{_CLOUD_SQL_INSTANCE\}/);
+  assert.equal((deployBackend.match(/--set-cloudsql-instances/g) ?? []).length, 1);
+});
+
+test('Production Cloud SQL sessions use a deterministic catalog-first search path', () => {
+  const cloudSqlBranch = databasePool.split('if (cloudSqlInstance) {')[1]?.split('} else {')[0] ?? '';
+  assert.match(cloudSqlBranch, /options: '-c role=none -c search_path=pg_catalog,public'/);
+  assert.doesNotMatch(cloudSqlBranch, /search_path=(?:"?\$user"?|public),/);
+});
+
+test('Production Classifieds readiness targets the canonical schema independently of current_schema', () => {
+  assert.doesNotMatch(classifiedsSchemaGuard, /current_schema\s*\(/);
+  for (const relation of ['ad_listings', 'ad_free_slots', 'ad_request_receipts', 'ad_moderation_events']) {
+    assert.ok(classifiedsSchemaGuard.includes(`to_regclass('public.${relation}')`));
+  }
+  for (const routine of ['enforce_ad_free_slot_limit', 'protect_ad_listing_identity', 'reject_ad_audit_mutation']) {
+    assert.ok(classifiedsSchemaGuard.includes(`to_regprocedure('public.${routine}()')`));
+  }
+  assert.match(classifiedsSchemaGuard, /schemaname='public'/);
+  assert.match(classifiedsSchemaGuard, /n\.nspname='public'/);
 });
 
 test('Production telemetry flags fail closed and are passed from protected variables', () => {
