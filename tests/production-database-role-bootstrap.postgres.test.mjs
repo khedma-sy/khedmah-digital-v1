@@ -13,17 +13,27 @@ const forbiddenDatabases = new Set(['postgres', 'template0', 'template1', 'khedm
 test('production database role bootstrap enforces PostgreSQL 16 role isolation', {
   skip: destructiveTestsEnabled ? false : 'ALLOW_DESTRUCTIVE_DB_TESTS is not true',
 }, async (t) => {
-  const adminUrl = connectionUrl();
-  const adminDatabase = decodeURIComponent(adminUrl.pathname.replace(/^\//, ''));
+  const providedAdminUrl = connectionUrl();
+  const providedDatabase = decodeURIComponent(providedAdminUrl.pathname.replace(/^\//, ''));
 
-  assertSafeDisposableDatabase(adminDatabase);
-  assert.equal(adminUrl.search, '', 'DESTRUCTIVE_DB_TESTS_REFUSE_CONNECTION_QUERY_OVERRIDES');
-  assert.equal(adminUrl.hash, '', 'DESTRUCTIVE_DB_TESTS_REFUSE_CONNECTION_FRAGMENT');
-  assert.ok(['postgres:', 'postgresql:'].includes(adminUrl.protocol),
-    `DESTRUCTIVE_DB_TESTS_REQUIRE_POSTGRESQL_URI: ${adminUrl.protocol}`);
-  assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(adminUrl.hostname),
-    `DESTRUCTIVE_DB_TESTS_REQUIRE_LOOPBACK: ${adminUrl.hostname || '<missing>'}`);
+  assertSafeDisposableDatabase(providedDatabase);
+  assert.equal(providedAdminUrl.search, '', 'DESTRUCTIVE_DB_TESTS_REFUSE_CONNECTION_QUERY_OVERRIDES');
+  assert.equal(providedAdminUrl.hash, '', 'DESTRUCTIVE_DB_TESTS_REFUSE_CONNECTION_FRAGMENT');
+  assert.ok(['postgres:', 'postgresql:'].includes(providedAdminUrl.protocol),
+    `DESTRUCTIVE_DB_TESTS_REQUIRE_POSTGRESQL_URI: ${providedAdminUrl.protocol}`);
+  assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(providedAdminUrl.hostname),
+    `DESTRUCTIVE_DB_TESTS_REQUIRE_LOOPBACK: ${providedAdminUrl.hostname || '<missing>'}`);
   assertCommandAvailable('psql', ['--version']);
+
+  // The repository test workflows share a service database with many other
+  // suites and intentionally name its superuser `khedmah`. The production
+  // bootstrap must keep rejecting that login, so run this cluster-wide
+  // acceptance suite in its own PostgreSQL 16 container whenever the runner
+  // exposes Docker. A caller without Docker may still provide a dedicated,
+  // exact production-shaped cluster through the guarded connection variables.
+  const adminUrl = await isolatedPostgresAdminUrl(t, providedAdminUrl);
+  const adminDatabase = decodeURIComponent(adminUrl.pathname.replace(/^\//, ''));
+  assertSafeDisposableDatabase(adminDatabase);
   assert.equal(query(adminUrl, "SELECT current_setting('server_version_num')::integer / 10000"), '16');
   assert.equal(query(adminUrl, 'SELECT rolsuper FROM pg_roles WHERE rolname=current_user'), 't',
     'The disposable PostgreSQL acceptance user must be a superuser so the test can construct unsafe role fixtures.');
@@ -79,6 +89,7 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
             `${systemDatabase} must retain a zero-default-ACL fresh catalog.`);
         }
         assert.equal(query(connectionUrl({
+          baseUrl: fixture.adminUrl,
           databaseName: fixture.databaseName,
           username: fixture.runtimeUser,
           password: fixture.runtimePassword,
@@ -572,6 +583,7 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         assert.match(wrongDatabase.stderr, /CI DATABASE_URL database does not match DATABASE_NAME/);
 
         const wrongLoginOnFixtureDatabase = connectionUrl({
+          baseUrl: fixture.adminUrl,
           databaseName: fixture.databaseName,
           username: fixture.runtimeUser,
           password: fixture.runtimePassword,
@@ -590,6 +602,80 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
     if (!cloudSqlRoleExisted) execute(adminUrl, 'DROP ROLE IF EXISTS cloudsqlsuperuser');
   }
 });
+
+async function isolatedPostgresAdminUrl(t, fallbackUrl) {
+  const dockerVersion = spawnSync('docker', ['version', '--format', '{{.Server.Version}}'], {
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  if (dockerVersion.status !== 0) return fallbackUrl;
+
+  const suffix = `${process.pid.toString(36)}${randomBytes(4).toString('hex')}`;
+  const containerName = `kdrb-pg16-${suffix}`;
+  const databaseName = `kdrb_harness_${suffix}_ci`;
+  const password = randomBytes(32).toString('hex');
+  assertSafeDisposableDatabase(databaseName);
+
+  const started = spawnSync('docker', [
+    'run', '--detach', '--pull', 'never',
+    '--name', containerName,
+    '--publish', '127.0.0.1::5432',
+    '--env', 'POSTGRES_USER=postgres',
+    '--env', `POSTGRES_PASSWORD=${password}`,
+    '--env', `POSTGRES_DB=${databaseName}`,
+    'postgres:16',
+  ], { encoding: 'utf8', timeout: 60_000 });
+  if (started.status !== 0) {
+    // docker may have created the named container before the client was
+    // interrupted. Remove only this random, exact test container best-effort.
+    spawnSync('docker', ['rm', '--force', containerName], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+  }
+  assert.equal(started.status, 0,
+    diagnostic('failed to start the isolated PostgreSQL 16 acceptance container', started));
+
+  t.after(() => {
+    const removed = spawnSync('docker', ['rm', '--force', containerName], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    assert.equal(removed.status, 0,
+      diagnostic('failed to remove the isolated PostgreSQL acceptance container', removed));
+  });
+
+  const published = spawnSync('docker', ['port', containerName, '5432/tcp'], {
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  assert.equal(published.status, 0,
+    diagnostic('failed to resolve the isolated PostgreSQL port', published));
+  const portMatch = published.stdout.trim().match(/^127\.0\.0\.1:(\d+)$/);
+  assert.ok(portMatch, `ISOLATED_POSTGRES_PORT_NOT_LOOPBACK: ${published.stdout.trim()}`);
+
+  const url = new URL('postgresql://postgres@127.0.0.1');
+  url.password = password;
+  url.port = portMatch[1];
+  url.pathname = `/${databaseName}`;
+
+  let ready = false;
+  let lastReadiness = null;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    // Probe through the published loopback TCP port. The image entrypoint also
+    // starts a temporary socket-only server, which is not sufficient evidence
+    // that the isolated endpoint used by the test is ready.
+    lastReadiness = runPsql(url, 'SELECT 1', { PGCONNECT_TIMEOUT: '1' });
+    if (lastReadiness.status === 0) {
+      ready = true;
+      break;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+  }
+  assert.equal(ready, true,
+    diagnostic('isolated PostgreSQL 16 did not become ready', lastReadiness ?? {}));
+  return url;
+}
 
 async function withFixture(adminUrl, options, work) {
   const suffix = `${process.pid.toString(36)}${randomBytes(4).toString('hex')}`;
@@ -625,7 +711,10 @@ async function withFixture(adminUrl, options, work) {
     execute(adminUrl,
       `CREATE DATABASE ${identifier(fixture.databaseName)} OWNER cloudsqlsuperuser`);
 
-    fixture.adminDatabaseUrl = connectionUrl({ databaseName: fixture.databaseName });
+    fixture.adminDatabaseUrl = connectionUrl({
+      baseUrl: fixture.adminUrl,
+      databaseName: fixture.databaseName,
+    });
 
     if (options.runtimeGlobalSetting) {
       execute(adminUrl,
@@ -715,6 +804,7 @@ async function withFixture(adminUrl, options, work) {
     }
 
     fixture.migrationUrl = connectionUrl({
+      baseUrl: fixture.adminUrl,
       databaseName: fixture.databaseName,
       username: fixture.migrationUser,
       password: fixture.migrationPassword,
@@ -802,6 +892,7 @@ function rotateMigrationPassword(fixture) {
     ALTER ROLE ${identifier(fixture.migrationUser)} PASSWORD ${literal(fixture.migrationPassword)}
   `);
   fixture.migrationUrl = connectionUrl({
+    baseUrl: fixture.adminUrl,
     databaseName: fixture.databaseName,
     username: fixture.migrationUser,
     password: fixture.migrationPassword,
@@ -1134,6 +1225,7 @@ async function openPrivilegedSession(fixture, username, password) {
   const applicationNamePrefix = `kdrb_live_${randomBytes(6).toString('hex')}`;
   const applicationName = `${applicationNamePrefix}:cloudsqlsuperuser`;
   const databaseUrl = connectionUrl({
+    baseUrl: fixture.adminUrl,
     databaseName: fixture.databaseName,
     username,
     password,
@@ -1371,12 +1463,14 @@ function runPsql(databaseUrl, sql, environment = {}) {
   });
 }
 
-function connectionUrl({ databaseName, username, password } = {}) {
-  const url = process.env.DATABASE_URL
+function connectionUrl({ baseUrl, databaseName, username, password } = {}) {
+  const url = baseUrl
+    ? new URL(baseUrl)
+    : process.env.DATABASE_URL
     ? new URL(process.env.DATABASE_URL)
     : new URL('postgresql://localhost');
 
-  if (!process.env.DATABASE_URL) {
+  if (!baseUrl && !process.env.DATABASE_URL) {
     url.hostname = process.env.PGHOST ?? '127.0.0.1';
     url.port = process.env.PGPORT ?? '5432';
     url.username = process.env.PGUSER ?? '';
