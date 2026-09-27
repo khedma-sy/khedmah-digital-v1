@@ -364,8 +364,8 @@ global_persistence_safe_sql="
       AND namespace.nspname <> 'information_schema'
   )
   AND NOT EXISTS (
-    SELECT 1 FROM pg_collation collation
-    JOIN pg_namespace namespace ON namespace.oid=collation.collnamespace
+    SELECT 1 FROM pg_collation catalog_collation
+    JOIN pg_namespace namespace ON namespace.oid=catalog_collation.collnamespace
     WHERE namespace.nspname !~ '^pg_'
       AND namespace.nspname <> 'information_schema'
   )

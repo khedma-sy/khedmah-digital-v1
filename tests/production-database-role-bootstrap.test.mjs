@@ -76,6 +76,16 @@ test('ACL inspection never passes a zero-dimensional empty array to aclexplode',
   assert.match(roleBootstrap, /aclexplode\(data_type\.typacl\)/);
 });
 
+test('PostgreSQL catalog queries never use COLLATION as an unquoted alias', async () => {
+  const roleBootstrap = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
+  const baseline = await readFile(new URL('../scripts/run-production-baseline-001-020.sh', import.meta.url), 'utf8');
+
+  for (const source of [roleBootstrap, baseline]) {
+    assert.doesNotMatch(source, /\bpg_collation\s+collation\b/i);
+    assert.match(source, /\bpg_collation\s+catalog_collation\b/i);
+  }
+});
+
 test('prepare and harden require explicit commit-bound confirmations', () => {
   assert.match(workflow, /PREPARE_KHEDMAH_DATABASE_ROLES_/);
   assert.match(workflow, /HARDEN_KHEDMAH_DATABASE_ROLES_/);
