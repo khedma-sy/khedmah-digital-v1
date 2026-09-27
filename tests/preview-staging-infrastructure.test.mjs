@@ -41,6 +41,16 @@ test('preview cleanup refuses the production project before invoking gcloud', ()
 });
 
 
+test('preview cleanup restores twenty-job headroom before deployment', () => {
+  const workflow = readFileSync('.github/workflows/preview-deployment.yml', 'utf8');
+  assert.match(workflow, /candidate_count != cleanup_budget/);
+  assert.match(workflow, /cleanup_target=\$\(\( job_count - candidate_count \)\)/);
+  assert.match(workflow, /job_count <= cleanup_target/);
+  assert.match(workflow, /job_count > cleanup_target \|\| job_count > 980/);
+  assert.match(workflow, /exact fail-closed target at or below 980 jobs/);
+});
+
+
 test('staging Cloud Build uses the project-owned source bucket without changing Preview staging', () => {
   const script = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
   assert.match(script, /if \[\[ "\$environment" == "staging" \]\]; then/);
