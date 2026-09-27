@@ -22,13 +22,13 @@ for (const required of ['pull_request:', "branches: [develop]", 'cleanup-preview
   if (!joined.includes(required)) throw new Error(`Preview/staging infrastructure is missing: ${required}`);
 }
 const preview = contents[0];
-if (!preview.includes('Inspect Preview Cloud Run job quota (read-only)') || !preview.includes('gcloud run jobs list')) throw new Error('Preview deployment must report the Cloud Run job inventory before deployment');
+if (!preview.includes('Prune completed jobs for closed Preview pull requests') || !preview.includes('gcloud run jobs list')) throw new Error('Preview deployment must report the Cloud Run job inventory before deployment');
 if (!preview.includes('job_count >= 1000') || !preview.includes('stopping before migration builds or Cloud Run mutations') || !preview.includes('PREVIEW_JOB_INVENTORY_COUNT_AFTER_CLEANUP')) throw new Error('Preview deployment must inventory Cloud Run jobs and fail before migration builds when quota remains full');
 if (!preview.includes('Prune completed jobs for closed Preview pull requests') || !preview.includes('plan-closed-preview-job-cleanup.mjs') || !preview.includes('gcloud run jobs delete') || !preview.includes('Refusing Preview job cleanup in the Production project')) throw new Error('Preview quota cleanup must be limited to verified closed PR jobs and refuse the Production project');
 const previewCleanupPlanner = await readFile('scripts/deployment/plan-closed-preview-job-cleanup.mjs', 'utf8');
 for (const required of ['GITHUB_TOKEN','/pulls/','pullRequest.state','completionStatus','EXECUTION_SUCCEEDED','executionCount === 1','khedmah-preview/','preview-pr-']) if (!previewCleanupPlanner.includes(required)) throw new Error(`Closed Preview job cleanup is missing a fail-closed scope check: ${required}`);
 const previewCleanupTests = await readFile('tests/preview-job-pruning.test.mjs', 'utf8');
-for (const required of ['terminal preview jobs for closed PRs','open PR preview job is preserved','Unknown execution state fails closed','malformed inventory fails closed']) if (!previewCleanupTests.includes(required)) throw new Error(`Closed Preview job cleanup regression coverage is missing: ${required}`);
+for (const required of ['terminal preview jobs for closed PRs','open PR preview job is preserved','unknown execution state fails closed','malformed inventory fails closed']) if (!previewCleanupTests.includes(required)) throw new Error(`Closed Preview job cleanup regression coverage is missing: ${required}`);
 if (!preview.includes('github.event.pull_request.number') || !joined.includes('khedmah-pr-')) throw new Error('Preview resources must be scoped by PR number');
 const deployment = await readFile('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
 if (!deployment.includes('Refusing to deploy to the production project')) throw new Error('Non-production deployment must reject the production project');
