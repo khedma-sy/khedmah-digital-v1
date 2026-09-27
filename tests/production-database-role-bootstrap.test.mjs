@@ -112,6 +112,14 @@ test('migration secret repair is migration-only, fail-closed and resumable', () 
   assert.match(operationLock, /0\|0\*\|\*\[!0-9\]\*/);
   assert.match(repair, /gcloud sql users describe "\$DATABASE_MIGRATION_USER"/);
   assert.match(repair, /\.versionAliases\.active \/\/ empty/);
+  assert.match(repair, /REPAIR_CHECKPOINT:secret-metadata-read/);
+  assert.match(repair, /REPAIR_CHECKPOINT:active-alias-(?:absent|numeric)/);
+  assert.match(repair, /REPAIR_CHECKPOINT:migration-user-built-in/);
+  assert.match(repair, /REPAIR_CHECKPOINT:candidate-created/);
+  assert.match(repair, /REPAIR_CHECKPOINT:candidate-enabled/);
+  assert.match(repair, /ERROR: DATABASE_MIGRATION_URL active alias is not a positive numeric version\./);
+  assert.match(repair, /ERROR: Cloud SQL migration user is not BUILT_IN\./);
+  assert.match(repair, /ERROR: Secret Manager did not return a positive numeric candidate version\./);
   assert.doesNotMatch(repair, /secrets versions access/);
   assert.doesNotMatch(repair, /set-password "\$DATABASE_RUNTIME_USER"|assign-roles|sql instances restart|terraform/);
 
