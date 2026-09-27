@@ -59,6 +59,9 @@ jobs:
   deploy-preview:
     if: github.event.action != 'closed'
     needs: quality-gates
+    concurrency:
+      group: preview-cloudrun-jobs-${{ vars.GOOGLE_CLOUD_REGION }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: preview
     outputs:
@@ -99,20 +102,39 @@ jobs:
           STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
         run: node scripts/validate-environment-separation.mjs
-      - name: Inspect Preview Cloud Run job quota (read-only)
+      - name: Prune completed jobs for closed Preview pull requests
         if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          jobs_json="$(gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json)"
-          job_count="$(jq 'length' <<<"$jobs_json")"
-          printf 'PREVIEW_JOB_INVENTORY_COUNT=%s\n' "$job_count"
-          printf '%s' "$jobs_json" | jq -r '.[] | [((.name // .metadata.name // "") | tostring), ((.createTime // .metadata.creationTimestamp // "") | tostring), ((.updateTime // "") | tostring), ([.template.template.containers[]?.image, .spec.template.spec.containers[]?.image, .spec.template.spec.template.spec.containers[]?.image] | map(select(type == "string")) | unique | join(","))] | @tsv'
+          test -n "$GOOGLE_CLOUD_PROJECT" && test -n "$GOOGLE_CLOUD_REGION" && test -n "$PRODUCTION_GOOGLE_CLOUD_PROJECT"
+          if [[ "$GOOGLE_CLOUD_PROJECT" == "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]]; then
+            echo "::error::Refusing Preview job cleanup in the Production project."
+            exit 43
+          fi
+          jobs_file="$RUNNER_TEMP/preview-jobs.json"
+          cleanup_plan="$RUNNER_TEMP/closed-preview-jobs.tsv"
+          gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json > "$jobs_file"
+          job_count="$(jq 'length' "$jobs_file")"
+          printf 'PREVIEW_JOB_INVENTORY_COUNT_BEFORE_CLEANUP=%s\n' "$job_count"
+          node scripts/deployment/plan-closed-preview-job-cleanup.mjs "$jobs_file" > "$cleanup_plan"
+          candidate_count="$(wc -l < "$cleanup_plan")"
+          printf 'PREVIEW_JOB_CLEANUP_CANDIDATE_COUNT=%s\n' "$candidate_count"
+          if (( candidate_count > 0 )); then
+            cut -f1 "$cleanup_plan" | xargs -r -P 8 -I '{}' gcloud run jobs delete '{}' \
+              --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --quiet
+          fi
+          gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json > "$jobs_file"
+          job_count="$(jq 'length' "$jobs_file")"
+          printf 'PREVIEW_JOB_INVENTORY_COUNT_AFTER_CLEANUP=%s\n' "$job_count"
           if (( job_count >= 1000 )); then
-            echo "::error::Preview Cloud Run JobsPerProject quota is at the verified 1000-job limit in $GOOGLE_CLOUD_REGION. Inventory printed above; stopping before migration builds or Cloud Run mutations."
+            echo "::error::Preview Cloud Run JobsPerProject quota remains at the 1000-job limit after pruning only completed jobs for closed Preview pull requests. Stopping before migration builds or Cloud Run mutations."
             exit 42
           fi
       - id: classifieds-stage
