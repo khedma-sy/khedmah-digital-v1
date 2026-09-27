@@ -89,7 +89,8 @@ async function main() {
   const project = process.env.GOOGLE_CLOUD_PROJECT;
   const region = process.env.GOOGLE_CLOUD_REGION;
   const repository = process.env.GITHUB_REPOSITORY;
-  const token = process.env.GITHUB_TOKEN;\n  const maxCandidates = Number(process.argv[3]);
+  const token = process.env.GITHUB_TOKEN;
+  const maxCandidates = Number(process.argv[3]);
   if (!inventoryPath || !project || !region || !repository || !token || !Number.isSafeInteger(maxCandidates) || maxCandidates < 0) {
     throw new Error('Preview cleanup requires inventory, project, region, repository, and GitHub token.');
   }
