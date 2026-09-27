@@ -60,7 +60,7 @@ jobs:
     if: github.event.action != 'closed'
     needs: quality-gates
     concurrency:
-      group: preview-cloudrun-jobs-${{ vars.GOOGLE_CLOUD_REGION }}
+      group: preview-cloudrun-jobs
       cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: preview
