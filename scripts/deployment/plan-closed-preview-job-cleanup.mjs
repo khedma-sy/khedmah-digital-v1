@@ -5,6 +5,7 @@ const TERMINAL_EXECUTIONS = new Set([
   'EXECUTION_FAILED',
   'EXECUTION_CANCELLED'
 ]);
+const MAX_CLEANUP_CANDIDATES = 20;
 
 function jobName(job) {
   const raw = job?.name ?? job?.metadata?.name ?? '';
@@ -25,7 +26,8 @@ function executionInfo(job) {
   const latest = job?.latestCreatedExecution ?? job?.status?.latestCreatedExecution;
   return {
     executionCount,
-    completionStatus: latest?.completionStatus ?? latest?.status?.completionStatus ?? null
+    completionStatus: latest?.completionStatus ?? latest?.status?.completionStatus ?? null,
+    reconciling: job?.reconciling ?? job?.status?.reconciling
   };
 }
 
@@ -34,18 +36,17 @@ function isPreviewJobForPullRequest(job, project, region) {
   if (!/^khedmah-(?:preview|pr)-[a-z0-9-]+$/.test(name)) return null;
 
   const artifactPrefix = `${region}-docker.pkg.dev/${project}/khedmah-preview/`;
-  const tags = jobImages(job)
-    .filter(image => image.startsWith(artifactPrefix))
-    .map(image => image.match(/:preview-pr-(\d+)-[a-f0-9]{7,40}$/i))
-    .filter(Boolean);
-  const prNumbers = [...new Set(tags.map(match => Number(match[1])))];
-  if (prNumbers.length !== 1 || !Number.isSafeInteger(prNumbers[0])) return null;
-  return prNumbers[0];
+  const images = jobImages(job);
+  if (images.length !== 1 || !images[0].startsWith(artifactPrefix)) return null;
+  const tag = images[0].match(/:preview-pr-(\d+)-[a-f0-9]{7,40}$/i);
+  const pullRequest = Number(tag?.[1]);
+  if (!Number.isSafeInteger(pullRequest) || pullRequest <= 0) return null;
+  return pullRequest;
 }
 
-export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers, { project, region, maxCandidates = Infinity }) {
-  if (!(maxCandidates === Infinity || (Number.isSafeInteger(maxCandidates) && maxCandidates >= 0))) {
-    throw new TypeError('Cleanup candidate limit must be a non-negative safe integer.');
+export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers, { project, region, maxCandidates = MAX_CLEANUP_CANDIDATES }) {
+  if (!Number.isSafeInteger(maxCandidates) || maxCandidates < 0 || maxCandidates > MAX_CLEANUP_CANDIDATES) {
+    throw new TypeError(`Cleanup candidate limit must be an integer from 0 through ${MAX_CLEANUP_CANDIDATES}.`);
   }
   if (!Array.isArray(jobs)) throw new TypeError('Cloud Run job inventory must be an array.');
   const closed = closedPullRequestNumbers instanceof Set
@@ -58,10 +59,11 @@ export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers,
     const pullRequest = isPreviewJobForPullRequest(job, project, region);
     if (!pullRequest || !closed.has(pullRequest)) continue;
 
-    const { executionCount, completionStatus } = executionInfo(job);
-    const neverExecuted = executionCount === 0 && completionStatus === null;
-    const finishedOnce = executionCount === 1 && TERMINAL_EXECUTIONS.has(completionStatus);
-    if (!neverExecuted && !finishedOnce) continue;
+    const { executionCount, completionStatus, reconciling } = executionInfo(job);
+    const safelyTerminal = executionCount === 1
+      && TERMINAL_EXECUTIONS.has(completionStatus)
+      && reconciling === false;
+    if (!safelyTerminal) continue;
 
     candidates.push({ name, pullRequest });
   }
@@ -91,8 +93,9 @@ async function main() {
   const repository = process.env.GITHUB_REPOSITORY;
   const token = process.env.GITHUB_TOKEN;
   const maxCandidates = Number(process.argv[3]);
-  if (!inventoryPath || !project || !region || !repository || !token || !Number.isSafeInteger(maxCandidates) || maxCandidates < 0) {
-    throw new Error('Preview cleanup requires inventory, project, region, repository, and GitHub token.');
+  if (!inventoryPath || !project || !region || !repository || !token
+      || !Number.isSafeInteger(maxCandidates) || maxCandidates < 0 || maxCandidates > MAX_CLEANUP_CANDIDATES) {
+    throw new Error(`Preview cleanup requires inventory, project, region, repository, GitHub token, and a candidate limit from 0 through ${MAX_CLEANUP_CANDIDATES}.`);
   }
   if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(region) || !/^[^/]+\/[^/]+$/.test(repository)) {
     throw new Error('Preview cleanup scope is malformed.');
