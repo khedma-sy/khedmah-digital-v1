@@ -119,6 +119,11 @@ test('inventory publishes canonical manifest records and an unreviewed candidate
   assert.match(inventory, /--order=asc/);
   assert.match(inventory, /sed -n 's\/\^DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=\/\/p'/);
   assert.match(inventory, /sed -n 's\/\^DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=\/\/p'/);
+  assert.match(inventory, /manifest_is_complete\(\)/);
+  assert.match(inventory, /if manifest_is_complete; then\n\s+break/);
+  assert.match(inventory, /test "\$computed_sha256" = "\$manifest_sha256"/);
+  assert.match(inventory, /done\n\s+manifest_is_complete/);
+  assert.doesNotMatch(inventory, /test -z "\$manifest_sha256" \|\| test -z "\$manifest_records" \|\| break/);
   assert.match(inventory, /\^\[DMRS\]\\\|\[A-Za-z0-9\\\|\+\._:-\]\+\$/);
   assert.match(inventory, /computed_sha256=.*sha256sum/);
   assert.match(inventory, /Canonical records for manual review/);
@@ -126,6 +131,23 @@ test('inventory publishes canonical manifest records and an unreviewed candidate
   assert.match(inventory, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256/);
   assert.doesNotMatch(inventory, /Reviewed system-role manifest candidate/);
   assert.doesNotMatch(inventory, /gcloud run jobs logs read/);
+
+  const manifestFunction = inventory.match(/\n {10}(manifest_is_complete\(\) \{[\s\S]*?\n {10}\})/);
+  assert.ok(manifestFunction);
+  const manifestRetryProbe = spawnSync('bash', ['-c', `
+    set -euo pipefail
+${manifestFunction[1]}
+    complete_records='R|one
+R|two'
+    manifest_sha256="$(printf '%s\n' "$complete_records" | sha256sum | awk '{print $1}')"
+    manifest_records='R|one'
+    if manifest_is_complete; then
+      exit 91
+    fi
+    manifest_records="$complete_records"
+    manifest_is_complete
+  `], { encoding: 'utf8' });
+  assert.equal(manifestRetryProbe.status, 0, manifestRetryProbe.stderr);
 });
 
 test('non-prepare role execution preserves failure and emits only bounded redacted diagnostics', () => {

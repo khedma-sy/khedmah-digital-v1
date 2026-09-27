@@ -341,6 +341,17 @@ jobs:
           inventory_logs=''
           manifest_sha256=''
           manifest_records=''
+          computed_sha256=''
+          manifest_is_complete() {
+            test "${#manifest_sha256}" -eq 64 || return 1
+            case "$manifest_sha256" in *[!0-9a-f]*) return 1 ;; esac
+            test -n "$manifest_records" || return 1
+            while IFS= read -r manifest_record; do
+              [[ "$manifest_record" =~ ^[DMRS]\|[A-Za-z0-9\|+._:-]+$ ]] || return 1
+            done <<< "$manifest_records"
+            computed_sha256="$(printf '%s\n' "$manifest_records" | sha256sum | awk '{print $1}')"
+            test "$computed_sha256" = "$manifest_sha256"
+          }
           for attempt in 1 2 3 4 5 6; do
             inventory_logs="$(
               gcloud logging read "$log_filter" \
@@ -358,17 +369,12 @@ jobs:
               printf '%s\n' "$inventory_logs" \
                 | sed -n 's/^DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=//p'
             )"
-            test -z "$manifest_sha256" || test -z "$manifest_records" || break
+            if manifest_is_complete; then
+              break
+            fi
             sleep 5
           done
-          test "${#manifest_sha256}" -eq 64
-          case "$manifest_sha256" in *[!0-9a-f]*) exit 1 ;; esac
-          test -n "$manifest_records"
-          while IFS= read -r manifest_record; do
-            [[ "$manifest_record" =~ ^[DMRS]\|[A-Za-z0-9\|+._:-]+$ ]]
-          done <<< "$manifest_records"
-          computed_sha256="$(printf '%s\n' "$manifest_records" | sha256sum | awk '{print $1}')"
-          test "$computed_sha256" = "$manifest_sha256"
+          manifest_is_complete
           {
             printf '%s\n' '### System-role manifest candidate'
             printf -- '- Candidate SHA-256 (not reviewed): `%s`\n' "$manifest_sha256"
