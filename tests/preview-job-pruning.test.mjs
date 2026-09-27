@@ -21,7 +21,7 @@ test('only terminal preview jobs for closed PRs are cleanup candidates', () => {
     job('khedmah-preview-active', 201, { completionStatus: null }),
     job('khedmah-preview-multiple-runs', 202, { executionCount: 2 }),
     job('khedmah-preview-wrong-project', 207, { imageUrl: image(207).replace(scope.project, 'other-project') }),
-    job('khedmah-preview-wrong-name', 208, { imageUrl: image(208) }),
+    job('khedmah-staging-wrong-name', 208, { imageUrl: image(208) }),
     job('khedmah-preview-wrong-tag', 209, { imageUrl: image(209, 'not-a-sha') }),
     job('khedmah-preview-unrelated-repo', 210, { imageUrl: image(210).replace('/khedmah-preview/', '/other-repo/') })
   ];
@@ -47,7 +47,7 @@ test('an open PR preview job is preserved', () => {
 test('unknown execution state fails closed', () => {
   const jobs = [
     job('khedmah-preview-unknown', 214, { completionStatus: 'EXECUTION_COMPLETION_STATUS_UNSPECIFIED' }),
-    job('khedmah-preview-missing-count', 215, { executionCount: undefined })
+    job('khedmah-preview-missing-count', 215, { executionCount: null })
   ];
   assert.deepEqual(selectClosedPreviewJobCandidates(jobs, new Set([214, 215]), scope), []);
 });
