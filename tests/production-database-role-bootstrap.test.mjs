@@ -125,12 +125,14 @@ test('non-prepare role execution preserves failure and emits only bounded redact
   assert.ok(execution.indexOf('gcloud run jobs deploy') < execution.indexOf('ROLE_JOB_STARTED_AT='));
   assert.ok(execution.indexOf('ROLE_JOB_STARTED_AT=') < execution.indexOf('gcloud run jobs execute'));
   assert.match(execution, /set \+e/);
-  assert.match(execution, /execution_status=0/);
-  assert.match(execution, /--wait\n\s+execution_status="\$\?"\n\s+set -e/);
-  assert.match(execution, /gcloud run jobs executions list/);
-  assert.match(execution, /metadata\.creationTimestamp>=\\"\$ROLE_JOB_STARTED_AT\\"/);
-  assert.match(execution, /--sort-by='~metadata\.creationTimestamp'/);
-  assert.match(execution, /labels\.execution_name=\\"\$execution_name\\"/);
+  assert.match(execution, /execution_output="\$\([\s\S]*gcloud run jobs execute "\$JOB"/);
+  assert.match(execution, /--wait \\\n\s+--format='value\(metadata\.name\)' 2>&1/);
+  assert.match(execution, /execution_status="\$\?"\n\s+set -e/);
+  assert.match(execution, /gcloud run jobs executions describe \(\$\{JOB\}-\[a-z0-9\]\+\)/);
+  assert.match(execution, /executions\/\(\$\{JOB\}-\[a-z0-9\]\+\)\\\$#/);
+  assert.match(execution, /executions\/details\/\[\^\/\]\+\/\(\$\{JOB\}-\[a-z0-9\]\+\)\(\\\\\?\.\*\)\?\\\$#/);
+  assert.match(execution, /DATABASE_ROLE_FAILED_EXECUTION_UNRESOLVED/);
+  assert.match(execution, /labels\.\\"run\.googleapis\.com\/execution_name\\"=\\"\$execution_name\\"/);
   assert.match(execution, /DATABASE_ROLE_FAILED_EXECUTION=%s/);
   assert.match(execution, /gcloud run jobs executions describe "\$execution_name"/);
   assert.match(execution, /status\.conditions\.type,status\.conditions\.status,status\.conditions\.reason,status\.conditions\.message/);
@@ -145,12 +147,28 @@ test('non-prepare role execution preserves failure and emits only bounded redact
   assert.match(execution, /\[REDACTED\]/);
   assert.match(execution, /\[REDACTED_64_HEX\]/);
   assert.match(execution, /database_url\|pgpassword\|password\|token\|secret\|credential/);
+  assert.match(execution, /printf '%s\\n' "\$execution_output" \\\n\s+\| redact_failure_diagnostics \\\n\s+\| tail -n 40 >&2 \|\| true/);
   assert.match(execution, /tail -n 80/);
   assert.match(execution, /DATABASE_ROLE_JOB_FAILED_WITHOUT_APPROVED_DIAGNOSTIC/);
   assert.match(execution, /exit "\$execution_status"/);
+  assert.doesNotMatch(execution, /gcloud run jobs executions list|labels\.execution_name/);
   assert.doesNotMatch(execution, /set -x|printenv|secrets versions access|--format=(?:json|yaml)|status\.spec|containers|\.env/);
   assert.doesNotMatch(execution, /DATABASE_SYSTEM_ROLE_MANIFEST_RECORD/);
   assert.doesNotMatch(execution, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=.*printf/);
+
+  const extraction = execution.match(/\n {12}execution_name="\$\(\n([\s\S]*?)\n {12}\)"/);
+  assert.ok(extraction);
+  const extractionProbe = spawnSync('bash', ['-c', `
+    set -euo pipefail
+    JOB='khedmah-database-role-inventory'
+    execution_output='https://console.cloud.google.com/run/jobs/executions/details/europe-west1/khedmah-database-role-inventory-abc123?project=example'
+    execution_name="$(
+${extraction[1]}
+    )"
+    printf '%s\\n' "$execution_name"
+  `], { encoding: 'utf8' });
+  assert.equal(extractionProbe.status, 0, extractionProbe.stderr);
+  assert.equal(extractionProbe.stdout.trim(), 'khedmah-database-role-inventory-abc123');
 });
 
 test('production WIF and bootstrap trust include the database role workflow on main', () => {
