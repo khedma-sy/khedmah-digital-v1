@@ -951,7 +951,7 @@ function directPublicSchemaCreateAclCountQuery(roleName) {
   return `
     SELECT count(*)
     FROM pg_namespace namespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
     WHERE namespace.nspname='public'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname=${literal(roleName)})
       AND privilege.privilege_type='CREATE'
@@ -990,7 +990,7 @@ function canonicalPrebaselineDefaultAclQuery(fixture) {
           AND defaults.defaclobjtype='f'
           AND 1=(
             SELECT count(*)
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=defaults.defaclrole
               AND privilege.grantor=defaults.defaclrole
               AND privilege.privilege_type='EXECUTE'
@@ -998,7 +998,7 @@ function canonicalPrebaselineDefaultAclQuery(fixture) {
           )
           AND NOT EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee<>defaults.defaclrole
               OR privilege.grantor<>defaults.defaclrole
               OR privilege.privilege_type<>'EXECUTE'
@@ -1022,11 +1022,11 @@ function canonicalHardenedDefaultAclQuery(fixture) {
           AND defaults.defaclobjtype='f'
           AND 1=(
             SELECT count(*)
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
           )
           AND NOT EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantor<>defaults.defaclrole
               OR privilege.grantee<>defaults.defaclrole
               OR privilege.privilege_type<>'EXECUTE'
@@ -1044,11 +1044,11 @@ function canonicalHardenedDefaultAclQuery(fixture) {
           AND defaults.defaclobjtype='S'
           AND 2=(
             SELECT count(*)
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
           )
           AND EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=(
               SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeRole)}
             )
@@ -1058,7 +1058,7 @@ function canonicalHardenedDefaultAclQuery(fixture) {
           )
           AND EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=(
               SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeRole)}
             )
@@ -1068,7 +1068,7 @@ function canonicalHardenedDefaultAclQuery(fixture) {
           )
           AND NOT EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee<>(
               SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeRole)}
             )
@@ -1104,7 +1104,7 @@ function runtimeConnectGrantorQuery(fixture) {
   return `
     SELECT count(DISTINCT privilege.grantor)
     FROM pg_database database
-    CROSS JOIN LATERAL aclexplode(COALESCE(database.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
     WHERE database.datname=${literal(fixture.databaseName)}
       AND privilege.grantee=(
         SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeRole)}
@@ -1121,7 +1121,7 @@ function publicRuntimeAclCountQuery(fixture) {
         SELECT count(*)
         FROM pg_class relation
         JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-        CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+        CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
         WHERE namespace.nspname IN ('public','khedmah_taxi')
           AND relation.relkind IN ('r','p','v','m','f','S')
           AND privilege.grantee=0
@@ -1131,7 +1131,7 @@ function publicRuntimeAclCountQuery(fixture) {
         FROM pg_attribute attribute
         JOIN pg_class relation ON relation.oid=attribute.attrelid
         JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-        CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+        CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
         WHERE namespace.nspname IN ('public','khedmah_taxi')
           AND attribute.attnum > 0 AND NOT attribute.attisdropped
           AND privilege.grantee=0
@@ -1150,7 +1150,7 @@ function publicRuntimeAclCountQuery(fixture) {
         SELECT count(*)
         FROM pg_default_acl defaults
         LEFT JOIN pg_namespace namespace ON namespace.oid=defaults.defaclnamespace
-        CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+        CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
         WHERE defaults.defaclrole=(
           SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.migrationUser)}
         )

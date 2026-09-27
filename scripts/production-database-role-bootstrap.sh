@@ -453,7 +453,7 @@ prebaseline_fresh_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_database database
-    CROSS JOIN LATERAL aclexplode(COALESCE(database.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
     WHERE database.datname=current_database()
       AND privilege.grantee=0
       AND privilege.privilege_type='CREATE'
@@ -479,7 +479,7 @@ prebaseline_fresh_sql="
       AND NOT EXISTS (
         SELECT 1
         FROM pg_database database
-        CROSS JOIN LATERAL aclexplode(COALESCE(database.datacl, '{}'::aclitem[])) privilege
+        CROSS JOIN LATERAL aclexplode(database.datacl) privilege
         WHERE database.datname=current_database()
           AND privilege.grantee IN (
             SELECT oid FROM pg_roles
@@ -503,7 +503,7 @@ prebaseline_fresh_sql="
       AND NOT EXISTS (
         SELECT 1
         FROM pg_namespace namespace
-        CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+        CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
         WHERE namespace.nspname='public'
           AND privilege.grantee IN (
             SELECT oid FROM pg_roles
@@ -553,7 +553,7 @@ prebaseline_fresh_sql="
           AND defaults.defaclobjtype='f'
           AND 1=(
             SELECT count(*)
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=defaults.defaclrole
               AND privilege.grantor=defaults.defaclrole
               AND privilege.privilege_type='EXECUTE'
@@ -561,7 +561,7 @@ prebaseline_fresh_sql="
           )
           AND NOT EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee<>defaults.defaclrole
               OR privilege.grantor<>defaults.defaclrole
               OR privilege.privilege_type<>'EXECUTE'
@@ -711,7 +711,7 @@ transitional_database_access_safe_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_database database
-    CROSS JOIN LATERAL aclexplode(COALESCE(database.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
     WHERE database.datname='$DATABASE_NAME'
       AND privilege.grantee=0
   )
@@ -772,39 +772,39 @@ runtime_prebaseline_footprint_safe_sql="
         OR EXISTS (
           SELECT 1
           FROM pg_namespace namespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_class relation
-          CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_attribute attribute
           JOIN pg_class relation ON relation.oid=attribute.attrelid
-          CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
           WHERE attribute.attnum > 0 AND NOT attribute.attisdropped
             AND privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_proc routine
-          CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_type data_type
-          CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_default_acl defaults
-          CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
       )
@@ -824,11 +824,11 @@ default_acl_isolation_safe_sql="
       AND defaults.defaclobjtype='f'
       AND 1=(
         SELECT count(*)
-        FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+        FROM aclexplode(defaults.defaclacl) privilege
       )
       AND NOT EXISTS (
         SELECT 1
-        FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+        FROM aclexplode(defaults.defaclacl) privilege
         WHERE privilege.grantor<>defaults.defaclrole
           OR privilege.grantee<>defaults.defaclrole
           OR privilege.privilege_type<>'EXECUTE'
@@ -858,11 +858,11 @@ default_acl_isolation_safe_sql="
           AND defaults.defaclobjtype='S'
           AND 2=(
             SELECT count(*)
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
           )
           AND EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
               AND privilege.grantor=defaults.defaclrole
               AND privilege.privilege_type='USAGE'
@@ -870,7 +870,7 @@ default_acl_isolation_safe_sql="
           )
           AND EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
               AND privilege.grantor=defaults.defaclrole
               AND privilege.privilege_type='SELECT'
@@ -878,7 +878,7 @@ default_acl_isolation_safe_sql="
           )
           AND NOT EXISTS (
             SELECT 1
-            FROM aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+            FROM aclexplode(defaults.defaclacl) privilege
             WHERE privilege.grantee<>(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
               OR privilege.grantor<>defaults.defaclrole
               OR privilege.privilege_type NOT IN ('USAGE','SELECT')
@@ -1066,7 +1066,7 @@ runtime_hardening_ready_sql="
   AND EXISTS (
     SELECT 1
     FROM pg_database db
-    CROSS JOIN LATERAL aclexplode(COALESCE(db.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(db.datacl) privilege
     WHERE db.datname='$DATABASE_NAME'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND privilege.privilege_type='CONNECT'
@@ -1075,7 +1075,7 @@ runtime_hardening_ready_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_database db
-    CROSS JOIN LATERAL aclexplode(COALESCE(db.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(db.datacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT (
         db.datname='$DATABASE_NAME'
@@ -1089,7 +1089,7 @@ runtime_hardening_ready_sql="
     WHERE NOT EXISTS (
       SELECT 1
       FROM pg_namespace namespace
-      CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+      CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
       WHERE namespace.nspname=expected_schema.nspname
         AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
         AND privilege.privilege_type='USAGE'
@@ -1099,7 +1099,7 @@ runtime_hardening_ready_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_namespace namespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT (
         namespace.nspname IN ('public','khedmah_taxi')
@@ -1111,7 +1111,7 @@ runtime_hardening_ready_sql="
     SELECT 1
     FROM pg_class relation
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT (
         (
@@ -1152,7 +1152,7 @@ runtime_hardening_ready_sql="
       AND relation.relkind IN ('r','p')
       AND 4 <> (
         SELECT count(DISTINCT privilege.privilege_type)
-        FROM aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+        FROM aclexplode(relation.relacl) privilege
         WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
           AND privilege.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')
           AND NOT privilege.is_grantable
@@ -1166,7 +1166,7 @@ runtime_hardening_ready_sql="
       AND relation.relkind='S'
       AND (
         SELECT count(DISTINCT privilege.privilege_type)
-        FROM aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+        FROM aclexplode(relation.relacl) privilege
         WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
           AND privilege.privilege_type IN ('USAGE','SELECT')
           AND NOT privilege.is_grantable
@@ -1176,7 +1176,7 @@ runtime_hardening_ready_sql="
     SELECT count(DISTINCT (relation.oid, privilege.privilege_type))
     FROM pg_class relation
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
     WHERE namespace.nspname='khedmah_taxi'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT privilege.is_grantable
@@ -1196,7 +1196,7 @@ runtime_hardening_ready_sql="
     FROM pg_attribute attribute
     JOIN pg_class relation ON relation.oid=attribute.attrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT (
         namespace.nspname='khedmah_taxi'
@@ -1225,7 +1225,7 @@ runtime_hardening_ready_sql="
     FROM pg_attribute attribute
     JOIN pg_class relation ON relation.oid=attribute.attrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
     WHERE namespace.nspname='khedmah_taxi'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND privilege.privilege_type='UPDATE'
@@ -1251,7 +1251,7 @@ runtime_hardening_ready_sql="
     SELECT 1
     FROM pg_proc routine
     JOIN pg_namespace namespace ON namespace.oid=routine.pronamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
     WHERE routine.oid=to_regprocedure('khedmah_taxi.resolve_actor_locked(text,boolean)')
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND privilege.privilege_type='EXECUTE'
@@ -1260,7 +1260,7 @@ runtime_hardening_ready_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_proc routine
-    CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND NOT (
         routine.oid=to_regprocedure('khedmah_taxi.resolve_actor_locked(text,boolean)')
@@ -1271,14 +1271,14 @@ runtime_hardening_ready_sql="
   AND NOT EXISTS (
     SELECT 1
     FROM pg_type data_type
-    CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
     WHERE privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
   )
   AND NOT EXISTS (
     SELECT 1
     FROM pg_class relation
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
     WHERE namespace.nspname IN ('public','khedmah_taxi')
       AND relation.relkind IN ('r','p','v','m','f','S')
       AND privilege.grantee=0
@@ -1288,7 +1288,7 @@ runtime_hardening_ready_sql="
     FROM pg_attribute attribute
     JOIN pg_class relation ON relation.oid=attribute.attrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
     WHERE namespace.nspname IN ('public','khedmah_taxi')
       AND attribute.attnum > 0 AND NOT attribute.attisdropped
       AND privilege.grantee=0
@@ -1307,7 +1307,7 @@ runtime_hardening_ready_sql="
     SELECT 1
     FROM pg_default_acl defaults
     LEFT JOIN pg_namespace namespace ON namespace.oid=defaults.defaclnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
     WHERE defaults.defaclrole=(SELECT oid FROM pg_roles WHERE rolname='$MIGRATION_USER')
       AND defaults.defaclobjtype IN ('r','S','f')
       AND (defaults.defaclnamespace=0 OR namespace.nspname IN ('public','khedmah_taxi'))
@@ -1358,46 +1358,46 @@ runtime_hardening_ready_sql="
         OR EXISTS (
           SELECT 1
           FROM pg_database db
-          CROSS JOIN LATERAL aclexplode(COALESCE(db.datacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(db.datacl) privilege
           WHERE db.datname='$DATABASE_NAME' AND privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_namespace namespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_class relation
-          CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_attribute attribute
           JOIN pg_class relation ON relation.oid=attribute.attrelid
-          CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
           WHERE attribute.attnum > 0 AND NOT attribute.attisdropped
             AND privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_proc routine
-          CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_type data_type
-          CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_default_acl defaults
           LEFT JOIN pg_namespace namespace ON namespace.oid=defaults.defaclnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee=runtime_identity.oid
             OR (
               privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
@@ -1414,7 +1414,7 @@ runtime_hardening_ready_sql="
           SELECT count(DISTINCT (defaults.defaclobjtype, privilege.privilege_type))
           FROM pg_default_acl defaults
           JOIN pg_namespace namespace ON namespace.oid=defaults.defaclnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
           WHERE defaults.defaclrole=(SELECT oid FROM pg_roles WHERE rolname='$MIGRATION_USER')
             AND namespace.nspname='public'
             AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
@@ -1508,33 +1508,33 @@ $instance_database_inventory_safe_sql
         EXISTS (
           SELECT 1
           FROM pg_class relation
-          CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
           WHERE privilege.grantee=grantee.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_attribute attribute
           JOIN pg_class relation ON relation.oid=attribute.attrelid
-          CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
           WHERE attribute.attnum > 0 AND NOT attribute.attisdropped
             AND privilege.grantee=grantee.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_proc routine
-          CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
           WHERE privilege.grantee=grantee.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_type data_type
-          CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
           WHERE privilege.grantee=grantee.oid
         )
         OR EXISTS (
           SELECT 1
           FROM pg_default_acl defaults
-          CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee=grantee.oid
         )
       )
@@ -1626,7 +1626,7 @@ $instance_database_inventory_safe_sql
         EXISTS (
           SELECT 1
           FROM pg_namespace namespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(namespace.nspacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
           WHERE namespace.nspname NOT IN ('public','khedmah_taxi')
             AND privilege.grantee=grantee.oid
         )
@@ -1634,7 +1634,7 @@ $instance_database_inventory_safe_sql
           SELECT 1
           FROM pg_class relation
           JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(relation.relacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(relation.relacl) privilege
           WHERE namespace.nspname NOT IN ('public','khedmah_taxi')
             AND privilege.grantee=grantee.oid
         )
@@ -1643,7 +1643,7 @@ $instance_database_inventory_safe_sql
           FROM pg_attribute attribute
           JOIN pg_class relation ON relation.oid=attribute.attrelid
           JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
           WHERE namespace.nspname NOT IN ('public','khedmah_taxi')
             AND attribute.attnum > 0 AND NOT attribute.attisdropped
             AND privilege.grantee=grantee.oid
@@ -1652,7 +1652,7 @@ $instance_database_inventory_safe_sql
           SELECT 1
           FROM pg_proc routine
           JOIN pg_namespace namespace ON namespace.oid=routine.pronamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(routine.proacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(routine.proacl) privilege
           WHERE namespace.nspname NOT IN ('public','khedmah_taxi')
             AND privilege.grantee=grantee.oid
         )
@@ -1660,7 +1660,7 @@ $instance_database_inventory_safe_sql
           SELECT 1
           FROM pg_type data_type
           JOIN pg_namespace namespace ON namespace.oid=data_type.typnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
           WHERE namespace.nspname NOT IN ('public','khedmah_taxi')
             AND privilege.grantee=grantee.oid
         )
@@ -1668,7 +1668,7 @@ $instance_database_inventory_safe_sql
           SELECT 1
           FROM pg_default_acl defaults
           LEFT JOIN pg_namespace namespace ON namespace.oid=defaults.defaclnamespace
-          CROSS JOIN LATERAL aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee=grantee.oid
             AND NOT (
               grantee.rolname='$RUNTIME_ROLE'
@@ -1769,7 +1769,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_database db
-    CROSS JOIN LATERAL aclexplode(COALESCE(db.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(db.datacl) privilege
     WHERE db.datname='$DATABASE_NAME'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND privilege.privilege_type='CONNECT'
@@ -2023,7 +2023,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_database db
-    CROSS JOIN LATERAL aclexplode(COALESCE(db.datacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(db.datacl) privilege
     WHERE db.datname='$DATABASE_NAME'
       AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
       AND privilege.privilege_type='CONNECT'
@@ -2138,7 +2138,7 @@ BEGIN
     FROM pg_attribute attribute
     JOIN pg_class relation ON relation.oid=attribute.attrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(attribute.attacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(attribute.attacl) privilege
     LEFT JOIN pg_roles grantee ON grantee.oid=privilege.grantee
     WHERE namespace.nspname IN ('public','khedmah_taxi')
       AND attribute.attnum > 0 AND NOT attribute.attisdropped
@@ -2180,7 +2180,7 @@ BEGIN
     SELECT namespace.nspname, data_type.typname, grantee.rolname
     FROM pg_type data_type
     JOIN pg_namespace namespace ON namespace.oid=data_type.typnamespace
-    CROSS JOIN LATERAL aclexplode(COALESCE(data_type.typacl, '{}'::aclitem[])) privilege
+    CROSS JOIN LATERAL aclexplode(data_type.typacl) privilege
     JOIN pg_roles grantee ON grantee.oid=privilege.grantee
     WHERE namespace.nspname IN ('public','khedmah_taxi')
       AND grantee.rolname IN ('$RUNTIME_USER','$RUNTIME_ROLE')

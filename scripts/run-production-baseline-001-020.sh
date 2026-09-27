@@ -330,7 +330,7 @@ SELECT CASE WHEN
     SELECT 1
     FROM pg_catalog.pg_database database
     CROSS JOIN LATERAL pg_catalog.aclexplode(
-      COALESCE(database.datacl, '{}'::aclitem[])
+      database.datacl
     ) privilege
     WHERE database.datname=current_database()
       AND privilege.grantee=0
@@ -375,7 +375,7 @@ SELECT CASE WHEN
       AND defaults.defaclobjtype='f'
       AND 1=(
         SELECT count(*)
-        FROM pg_catalog.aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+        FROM pg_catalog.aclexplode(defaults.defaclacl) privilege
         WHERE privilege.grantee=defaults.defaclrole
           AND privilege.grantor=defaults.defaclrole
           AND privilege.privilege_type='EXECUTE'
@@ -383,7 +383,7 @@ SELECT CASE WHEN
       )
       AND NOT EXISTS (
         SELECT 1
-        FROM pg_catalog.aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+        FROM pg_catalog.aclexplode(defaults.defaclacl) privilege
         WHERE privilege.grantee<>defaults.defaclrole
           OR privilege.grantor<>defaults.defaclrole
           OR privilege.privilege_type<>'EXECUTE'
@@ -497,7 +497,7 @@ BEGIN
       SELECT 1
       FROM pg_catalog.pg_database database
       CROSS JOIN LATERAL pg_catalog.aclexplode(
-        COALESCE(database.datacl, '{}'::aclitem[])
+        database.datacl
       ) privilege
       WHERE database.datname=current_database()
         AND privilege.grantee=0
@@ -542,7 +542,7 @@ BEGIN
         AND defaults.defaclobjtype='f'
         AND 1=(
           SELECT count(*)
-          FROM pg_catalog.aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          FROM pg_catalog.aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee=defaults.defaclrole
             AND privilege.grantor=defaults.defaclrole
             AND privilege.privilege_type='EXECUTE'
@@ -550,7 +550,7 @@ BEGIN
         )
         AND NOT EXISTS (
           SELECT 1
-          FROM pg_catalog.aclexplode(COALESCE(defaults.defaclacl, '{}'::aclitem[])) privilege
+          FROM pg_catalog.aclexplode(defaults.defaclacl) privilege
           WHERE privilege.grantee<>defaults.defaclrole
             OR privilege.grantor<>defaults.defaclrole
             OR privilege.privilege_type<>'EXECUTE'

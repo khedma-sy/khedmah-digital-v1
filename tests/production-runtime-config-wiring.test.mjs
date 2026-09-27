@@ -5,6 +5,7 @@ import test from 'node:test';
 const build = await readFile(new URL('../cloudbuild.production-new-account.yaml', import.meta.url), 'utf8');
 const operator = await readFile(new URL('../.github/workflows/production-operator-new-account.yml', import.meta.url), 'utf8');
 const databasePool = await readFile(new URL('../apps/backend/src/database/database.pool.ts', import.meta.url), 'utf8');
+const classifiedsSchemaGuard = await readFile(new URL('../apps/backend/src/classifieds/ad-schema.guard.ts', import.meta.url), 'utf8');
 
 test('new-account Production injects runtime project, Firebase identity and telemetry state', () => {
   assert.match(build, /GOOGLE_CLOUD_PROJECT=\$PROJECT_ID/);
@@ -27,6 +28,18 @@ test('Production Cloud SQL sessions use a deterministic catalog-first search pat
   const cloudSqlBranch = databasePool.split('if (cloudSqlInstance) {')[1]?.split('} else {')[0] ?? '';
   assert.match(cloudSqlBranch, /options: '-c role=none -c search_path=pg_catalog,public'/);
   assert.doesNotMatch(cloudSqlBranch, /search_path=(?:"?\$user"?|public),/);
+});
+
+test('Production Classifieds readiness targets the canonical schema independently of current_schema', () => {
+  assert.doesNotMatch(classifiedsSchemaGuard, /current_schema\s*\(/);
+  for (const relation of ['ad_listings', 'ad_free_slots', 'ad_request_receipts', 'ad_moderation_events']) {
+    assert.ok(classifiedsSchemaGuard.includes(`to_regclass('public.${relation}')`));
+  }
+  for (const routine of ['enforce_ad_free_slot_limit', 'protect_ad_listing_identity', 'reject_ad_audit_mutation']) {
+    assert.ok(classifiedsSchemaGuard.includes(`to_regprocedure('public.${routine}()')`));
+  }
+  assert.match(classifiedsSchemaGuard, /schemaname='public'/);
+  assert.match(classifiedsSchemaGuard, /n\.nspname='public'/);
 });
 
 test('Production telemetry flags fail closed and are passed from protected variables', () => {
