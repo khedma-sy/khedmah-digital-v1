@@ -253,14 +253,24 @@ jobs:
               *) return 0 ;;
             esac
           }
+          repair_checkpoint() {
+            printf 'REPAIR_CHECKPOINT:%s\n' "$1" >&2
+          }
           assert_enabled_version() {
-            local selector="$1"
-            test "$(
+            local selector="$1" version_state
+            version_state="$(
               gcloud secrets versions describe "$selector" \
                 --secret DATABASE_MIGRATION_URL \
                 --project "$GOOGLE_CLOUD_PROJECT" \
                 --format='value(state)'
-            )" = ENABLED
+            )" || {
+              echo 'ERROR: repair could not describe the requested migration secret version.' >&2
+              return 1
+            }
+            test "$version_state" = ENABLED || {
+              echo 'ERROR: requested migration secret version is not ENABLED.' >&2
+              return 1
+            }
           }
           deploy_and_probe() {
             local selector="$1"
@@ -294,18 +304,36 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
-          initial_description="$(describe_secret)"
+          initial_description="$(describe_secret)" || {
+            echo 'ERROR: repair could not describe DATABASE_MIGRATION_URL metadata.' >&2
+            exit 1
+          }
+          repair_checkpoint secret-metadata-read
           initial_active_version="$(active_version_from_description "$initial_description")"
           case "$initial_active_version" in
-            '') ;;
-            *) assert_numeric_version "$initial_active_version" ;;
+            '') repair_checkpoint active-alias-absent ;;
+            *)
+              assert_numeric_version "$initial_active_version" || {
+                echo 'ERROR: DATABASE_MIGRATION_URL active alias is not a positive numeric version.' >&2
+                exit 1
+              }
+              repair_checkpoint active-alias-numeric
+              ;;
           esac
-          test "$(
+          migration_user_type="$(
             gcloud sql users describe "$DATABASE_MIGRATION_USER" \
               --project "$GOOGLE_CLOUD_PROJECT" \
               --instance "$SQL_INSTANCE_NAME" \
               --format='value(type)'
-          )" = BUILT_IN
+          )" || {
+            echo 'ERROR: repair could not describe the Cloud SQL migration user.' >&2
+            exit 1
+          }
+          test "$migration_user_type" = BUILT_IN || {
+            echo 'ERROR: Cloud SQL migration user is not BUILT_IN.' >&2
+            exit 1
+          }
+          repair_checkpoint migration-user-built-in
 
           candidate_version="$REQUESTED_REPAIR_CANDIDATE_VERSION"
           if test -z "$candidate_version"; then
@@ -332,8 +360,13 @@ jobs:
               sleep "$((attempt * 3))"
             done
             candidate_version="${candidate_version##*/}"
-            assert_numeric_version "$candidate_version"
+            assert_numeric_version "$candidate_version" || {
+              echo 'ERROR: Secret Manager did not return a positive numeric candidate version.' >&2
+              exit 1
+            }
+            repair_checkpoint candidate-created
             assert_enabled_version "$candidate_version"
+            repair_checkpoint candidate-enabled
             record_candidate "$candidate_version"
 
             password_verified=false
