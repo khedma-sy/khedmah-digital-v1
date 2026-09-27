@@ -23,7 +23,7 @@ for (const required of ['pull_request:', "branches: [develop]", 'cleanup-preview
 }
 const preview = contents[0];
 if (!preview.includes('Inspect Preview Cloud Run job quota (read-only)') || !preview.includes('gcloud run jobs list')) throw new Error('Preview deployment must report the Cloud Run job inventory before deployment');
-if (!preview.includes('split("/")[-1]') || !preview.includes('job_count >= 1000') || !preview.includes('stopping before migration builds or Cloud Run mutations')) throw new Error('Preview deployment must normalize Cloud Run job resource names and fail before mutation at the verified quota limit');
+if (!preview.includes('tostring | split("/")[-1]') || !preview.includes('job_count >= 1000') || !preview.includes('stopping before migration builds or Cloud Run mutations')) throw new Error('Preview deployment must normalize Cloud Run job resource names and fail before mutation at the verified quota limit');
 if (!preview.includes('github.event.pull_request.number') || !joined.includes('khedmah-pr-')) throw new Error('Preview resources must be scoped by PR number');
 const deployment = await readFile('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
 if (!deployment.includes('Refusing to deploy to the production project')) throw new Error('Non-production deployment must reject the production project');
