@@ -92,6 +92,7 @@ test('database role preparation never alters pre-existing roles and verifies lea
   assert.match(prepare, /CREATE ROLE "\$MIGRATION_ROLE" NOLOGIN NOCREATEDB NOCREATEROLE/);
   assert.match(prepare, /DATABASE_ROLE_CUSTOM_ROLE_ATTRIBUTES_NOT_SAFE/);
   assert.match(prepare, /DATABASE_ROLE_LOGIN_PRIVILEGES_NOT_SAFE/);
+  assert.match(prepare, /NOT rolinherit OR rolcreatedb OR rolcreaterole/);
   assert.match(isolationQuery, /rolcanlogin FROM pg_roles WHERE rolname='\$RUNTIME_ROLE'/);
   assert.match(isolationQuery, /rolcanlogin FROM pg_roles WHERE rolname='\$MIGRATION_ROLE'/);
   assert.doesNotMatch(prepare, /\bNOSUPERUSER\b/);
