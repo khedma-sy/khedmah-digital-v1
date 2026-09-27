@@ -282,32 +282,7 @@ jobs:
             if (existing) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
             else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
 
-  cleanup-preview:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    environment: preview
-    steps:
-      - uses: actions/checkout@v7
-      - name: Check GCP credentials
-        id: gcp-check
-        env:
-          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-        run: |
-          if [ -n "$GCP_WI" ]; then echo "has_gcp=true" >> "$GITHUB_OUTPUT"; else echo "has_gcp=false" >> "$GITHUB_OUTPUT"; fi
-      - uses: google-github-actions/auth@v3
-        if: steps.gcp-check.outputs.has_gcp == 'true'
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v3
-        if: steps.gcp-check.outputs.has_gcp == 'true'
-      - name: Delete PR Cloud Run services
-        if: steps.gcp-check.outputs.has_gcp == 'true'
-        env:
-          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
-          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
-        run: scripts/deployment/cleanup-preview.sh "${{ github.event.pull_request.number }}"
+
       - id: classifieds-stage
         name: Resolve Classifieds Preview rollout stage
         if: steps.gcp-check.outputs.has_gcp == 'true'
@@ -437,6 +412,33 @@ jobs:
             const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
             if (existing) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
             else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+
+  cleanup-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check GCP credentials
+        id: gcp-check
+        env:
+          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [ -n "$GCP_WI" ]; then echo "has_gcp=true" >> "$GITHUB_OUTPUT"; else echo "has_gcp=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: google-github-actions/auth@v3
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+      - name: Delete PR Cloud Run services
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: scripts/deployment/cleanup-preview.sh "${{ github.event.pull_request.number }}"
 
   cleanup-preview:
     if: github.event.action == 'closed'
