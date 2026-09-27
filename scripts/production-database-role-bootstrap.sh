@@ -27,6 +27,10 @@ SELECT CASE WHEN
   AND NOT (SELECT rolcreaterole FROM pg_roles WHERE rolname='$RUNTIME_USER')
   AND NOT (SELECT rolcreatedb FROM pg_roles WHERE rolname='$MIGRATION_USER')
   AND NOT (SELECT rolcreaterole FROM pg_roles WHERE rolname='$MIGRATION_USER')
+  AND (SELECT rolinherit FROM pg_roles WHERE rolname='$RUNTIME_USER')
+  AND (SELECT rolinherit FROM pg_roles WHERE rolname='$MIGRATION_USER')
+  AND (SELECT rolinherit FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
+  AND (SELECT rolinherit FROM pg_roles WHERE rolname='$MIGRATION_ROLE')
   AND NOT (SELECT rolcanlogin FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
   AND NOT (SELECT rolcreatedb FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
   AND NOT (SELECT rolcreaterole FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
@@ -55,7 +59,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_roles
     WHERE rolname IN ('$RUNTIME_ROLE', '$MIGRATION_ROLE')
-      AND (rolcanlogin OR rolcreatedb OR rolcreaterole)
+      AND (NOT rolinherit OR rolcanlogin OR rolcreatedb OR rolcreaterole)
   ) THEN
     RAISE EXCEPTION 'DATABASE_ROLE_CUSTOM_ROLE_ATTRIBUTES_NOT_SAFE';
   END IF;
