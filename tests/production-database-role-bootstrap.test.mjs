@@ -112,6 +112,16 @@ test('migration secret repair is migration-only, fail-closed and resumable', () 
   assert.match(operationLock, /0\|0\*\|\*\[!0-9\]\*/);
   assert.match(repair, /gcloud sql users describe "\$DATABASE_MIGRATION_USER"/);
   assert.match(repair, /\.versionAliases\.active \/\/ empty/);
+  assert.match(repair, /REPAIR_PREFLIGHT_SECRET_DESCRIBE_FAILED/);
+  assert.match(repair, /REPAIR_PREFLIGHT_ACTIVE_ALIAS=missing/);
+  assert.match(repair, /REPAIR_PREFLIGHT_ACTIVE_ALIAS=present_numeric/);
+  assert.match(repair, /REPAIR_PREFLIGHT_ACTIVE_ALIAS_INVALID/);
+  assert.match(repair, /REPAIR_PREFLIGHT_MIGRATION_USER_DESCRIBE_FAILED/);
+  assert.match(repair, /REPAIR_PREFLIGHT_MIGRATION_USER_TYPE=BUILT_IN/);
+  assert.match(repair, /REPAIR_PREFLIGHT_MIGRATION_USER_TYPE_EMPTY/);
+  assert.match(repair, /REPAIR_PREFLIGHT_MIGRATION_USER_TYPE_UNEXPECTED:/);
+  assert.ok(repair.indexOf('REPAIR_PREFLIGHT_MIGRATION_USER_TYPE=BUILT_IN')
+    < repair.indexOf('gcloud secrets versions add DATABASE_MIGRATION_URL'));
   assert.doesNotMatch(repair, /secrets versions access/);
   assert.doesNotMatch(repair, /set-password "\$DATABASE_RUNTIME_USER"|assign-roles|sql instances restart|terraform/);
 
