@@ -27,13 +27,13 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
   assert.doesNotMatch(workflow, /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
   assert.match(workflow, /--max-retries 0/);
-  assert.equal((workflow.match(/--set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,/g) || []).length, 6);
+  assert.equal((workflow.match(/--set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,/g) || []).length, 7);
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.match(workflow, /is_lower_hex "\$REQUESTED_SHA" 40/);
   assert.match(workflow, /is_lower_hex "\$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64/);
-  assert.match(workflow, /if test "\$REQUESTED_MODE" = INVENTORY; then\n\s+DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''/);
+  assert.match(workflow, /INVENTORY\|REPAIR_MIGRATION_SECRET\) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''/);
   assert.match(workflow, /is_cloud_sql_connection_name "\$CLOUD_SQL_INSTANCE_CONNECTION_NAME"/);
-  assert.match(workflow, /if test "\$REQUESTED_MODE" != PREPARE; then[\s\S]*versions describe "\$DATABASE_MIGRATION_SECRET_SELECTOR"/);
+  assert.match(workflow, /if test "\$REQUESTED_MODE" != PREPARE && test "\$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then[\s\S]*versions describe "\$DATABASE_MIGRATION_SECRET_SELECTOR"/);
   assert.match(operationLock, /VERIFY\)\n\s+DATABASE_ROLE_PHASE=verify\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=active/);
   assert.match(operationLock, /INVENTORY\)\n\s+DATABASE_ROLE_PHASE=inventory\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=inventory/);
   assert.match(operationLock, /HARDEN\)[\s\S]*DATABASE_ROLE_PHASE=harden\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=active/);
@@ -86,12 +86,63 @@ test('PostgreSQL catalog queries never use COLLATION as an unquoted alias', asyn
   }
 });
 
-test('prepare and harden require explicit commit-bound confirmations', () => {
+test('mutating database role modes require explicit commit-bound confirmations', () => {
   assert.match(workflow, /PREPARE_KHEDMAH_DATABASE_ROLES_/);
   assert.match(workflow, /HARDEN_KHEDMAH_DATABASE_ROLES_/);
+  assert.match(workflow, /REPAIR_MIGRATION_SECRET_KHEDMAH_DATABASE_ROLES_/);
   assert.match(workflow, /DATABASE_ROLE_PHASE=prepare/);
   assert.match(workflow, /DATABASE_ROLE_PHASE=harden/);
   assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
+});
+
+test('migration secret repair is migration-only, fail-closed and resumable', () => {
+  const operationLock = workflow
+    .split('      - name: Lock operation to exact latest main')[1]
+    .split('      - name: Reject unapproved Production hosting region')[0];
+  const repair = workflow
+    .split('      - name: Repair migration secret with verified canonical credential')[1]
+    .split('      - name: Execute database role phase once')[0];
+  const fresh = repair.split('# New repair:')[1].split('# Resume repair:')[0];
+  const resume = repair.split('# Resume repair:')[1].split('          precommit_description=')[0];
+
+  assert.match(workflow, /options: \[VERIFY, INVENTORY, PREPARE, HARDEN, REPAIR_MIGRATION_SECRET\]/);
+  assert.match(workflow, /repair_candidate_version:/);
+  assert.match(operationLock, /REPAIR_MIGRATION_SECRET\)[\s\S]*REPAIR_MIGRATION_SECRET_KHEDMAH_DATABASE_ROLES_\$\{REQUESTED_SHA:0:7\}[\s\S]*DATABASE_ROLE_PHASE=probe/);
+  assert.match(operationLock, /REQUESTED_MODE" != REPAIR_MIGRATION_SECRET[\s\S]*test -z "\$REQUESTED_REPAIR_CANDIDATE_VERSION"/);
+  assert.match(operationLock, /0\|0\*\|\*\[!0-9\]\*/);
+  assert.match(repair, /gcloud sql users describe "\$DATABASE_MIGRATION_USER"/);
+  assert.match(repair, /\.versionAliases\.active \/\/ empty/);
+  assert.doesNotMatch(repair, /secrets versions access/);
+  assert.doesNotMatch(repair, /set-password "\$DATABASE_RUNTIME_USER"|assign-roles|sql instances restart|terraform/);
+
+  assert.ok(fresh.indexOf('gcloud secrets versions add DATABASE_MIGRATION_URL') < fresh.indexOf('record_candidate "$candidate_version"'));
+  assert.ok(fresh.indexOf('record_candidate "$candidate_version"') < fresh.indexOf('gcloud sql users set-password "$DATABASE_MIGRATION_USER"'));
+  assert.ok(fresh.indexOf('gcloud sql users set-password "$DATABASE_MIGRATION_USER"') < fresh.indexOf('deploy_and_probe "$candidate_version"'));
+  assert.match(fresh, /postgresql:\/\/\$\{DATABASE_MIGRATION_USER\}:\$\{migration_password\}@localhost\/\$\{DATABASE_NAME\}/);
+  assert.equal((fresh.match(/::add-mask::/g) || []).length, 2);
+
+  assert.doesNotMatch(resume, /openssl rand|versions add DATABASE_MIGRATION_URL|sql users set-password|secrets versions access/);
+  assert.match(resume, /assert_enabled_version "\$candidate_version"/);
+  assert.match(resume, /deploy_and_probe "\$candidate_version"/);
+
+  const numericProbe = repair.indexOf('deploy_and_probe "$candidate_version"');
+  const aliasCommit = repair.indexOf('gcloud secrets update DATABASE_MIGRATION_URL');
+  const aliasProbe = repair.lastIndexOf('deploy_and_probe active');
+  assert.ok(numericProbe >= 0 && numericProbe < aliasCommit && aliasCommit < aliasProbe);
+  assert.match(repair, /--update-version-aliases=active="\$candidate_version"/);
+  assert.match(repair, /--etag="\$precommit_etag"/);
+  assert.match(repair, /active alias changed during repair; refusing cutover/);
+  assert.match(repair, /active alias CAS update failed/);
+  assert.match(repair, /test "\$final_active_version" = "\$candidate_version"/);
+  assert.match(repair, /DATABASE_ROLE_PHASE=probe/);
+  assert.match(repair, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=/);
+
+  const probeFunction = repair
+    .split('          deploy_and_probe() {')[1]
+    .split('          record_candidate() {')[0];
+  assert.match(probeFunction, /assert_numeric_version "\$selector" \|\| return 1/);
+  assert.match(probeFunction, /gcloud run jobs deploy "\$PROBE_JOB"[\s\S]*--quiet \\\n\s+\|\| return 1/);
+  assert.match(probeFunction, /gcloud run jobs execute "\$PROBE_JOB"[\s\S]*--quiet >\/dev\/null \\\n\s+\|\| return 1/);
 });
 
 test('inventory publishes canonical manifest records and an unreviewed candidate hash', async () => {
@@ -301,7 +352,7 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
     .split('      - name: Commit verified migration secret active alias')[1]
     .split('      - name: Publish non-secret role-bootstrap evidence')[0];
 
-  assert.match(requestedPhase, /if: inputs\.mode != 'PREPARE'/);
+  assert.match(requestedPhase, /if: inputs\.mode != 'PREPARE' && inputs\.mode != 'REPAIR_MIGRATION_SECRET'/);
   assert.match(requestedPhase, /DATABASE_URL=DATABASE_MIGRATION_URL:\$DATABASE_MIGRATION_SECRET_SELECTOR/);
 
   assert.match(roleState, /gcloud sql users list/);
@@ -423,8 +474,8 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
 
   assert.equal((workflow.match(/--revoke-existing-roles/g) || []).length, 3);
   assert.equal((workflow.match(/gcloud sql instances restart "\$SQL_INSTANCE_NAME"/g) || []).length, 2);
-  assert.equal((workflow.match(/DATABASE_ROLE_PHASE=probe/g) || []).length, 2);
-  assert.equal((workflow.match(/gcloud secrets update DATABASE_MIGRATION_URL/g) || []).length, 1);
+  assert.equal((workflow.match(/DATABASE_ROLE_PHASE=probe/g) || []).length, 4);
+  assert.equal((workflow.match(/gcloud secrets update DATABASE_MIGRATION_URL/g) || []).length, 2);
   assert.doesNotMatch(workflow, /gcloud secrets versions (?:disable|destroy)/);
   assert.doesNotMatch(workflow, /gcloud secrets versions describe latest/);
   assert.match(bootstrapTerraform, /cloudsql\.users\.update/);
