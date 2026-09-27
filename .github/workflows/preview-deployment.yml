@@ -308,28 +308,6 @@ jobs:
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
         run: scripts/deployment/cleanup-preview.sh "${{ github.event.pull_request.number }}"
-\t' read -r job_name pull_number; do
-            [[ -n "$job_name" ]] || continue
-            [[ "$job_name" =~ ^khedmah-(preview|pr)-[a-z0-9-]+$ && "$pull_number" =~ ^[0-9]+$ ]] || {
-              echo "::error::Refusing an invalid Preview cleanup plan entry."
-              exit 44
-            }
-            gcloud run jobs delete "$job_name" --project "$GOOGLE_CLOUD_PROJECT" \
-              --region "$GOOGLE_CLOUD_REGION" --quiet --async
-            sleep 2
-          done < "$cleanup_plan"
-          job_count=1000
-          for attempt in {1..12}; do
-            gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json > "$jobs_file"
-            job_count="$(jq 'length' "$jobs_file")"
-            if (( job_count < 1000 )); then break; fi
-            sleep 10
-          done
-          printf 'PREVIEW_JOB_INVENTORY_COUNT_AFTER_CLEANUP=%s\n' "$job_count"
-          if (( job_count >= 1000 )); then
-            echo "::error::Preview Cloud Run JobsPerProject quota remains at the 1000-job limit after pruning only completed jobs for closed Preview pull requests. Stopping before migration builds or Cloud Run mutations."
-            exit 42
-          fi
       - id: classifieds-stage
         name: Resolve Classifieds Preview rollout stage
         if: steps.gcp-check.outputs.has_gcp == 'true'
