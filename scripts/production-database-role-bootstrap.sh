@@ -346,7 +346,7 @@ global_persistence_safe_sql="
   AND current_setting('max_prepared_transactions')::integer=0
   AND NOT EXISTS (SELECT 1 FROM pg_foreign_server)
   AND NOT EXISTS (SELECT 1 FROM pg_foreign_data_wrapper)
-  AND NOT EXISTS (SELECT 1 FROM pg_user_mapping)
+  AND NOT EXISTS (SELECT 1 FROM pg_user_mappings)
   AND NOT EXISTS (SELECT 1 FROM pg_event_trigger)
   AND NOT EXISTS (SELECT 1 FROM pg_publication)
   AND NOT EXISTS (SELECT 1 FROM pg_subscription)
@@ -1570,7 +1570,7 @@ $instance_database_inventory_safe_sql
   ) OR EXISTS (SELECT 1 FROM pg_largeobject_metadata)
     OR EXISTS (SELECT 1 FROM pg_foreign_server)
     OR EXISTS (SELECT 1 FROM pg_foreign_data_wrapper)
-    OR EXISTS (SELECT 1 FROM pg_user_mapping)
+    OR EXISTS (SELECT 1 FROM pg_user_mappings)
     OR EXISTS (SELECT 1 FROM pg_event_trigger)
     OR EXISTS (SELECT 1 FROM pg_publication)
     OR EXISTS (SELECT 1 FROM pg_subscription)

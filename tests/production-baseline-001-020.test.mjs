@@ -93,7 +93,7 @@ test('baseline freshness probe accepts only an empty public-only database', () =
     'pg_largeobject_metadata',
     'pg_foreign_data_wrapper',
     'pg_foreign_server',
-    'pg_user_mapping',
+    'pg_user_mappings',
     'pg_event_trigger',
     'pg_publication',
     'pg_subscription',

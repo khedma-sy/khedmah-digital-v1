@@ -67,6 +67,8 @@ test('ACL inspection never passes a zero-dimensional empty array to aclexplode',
 
   for (const source of [roleBootstrap, baseline]) {
     assert.doesNotMatch(source, /aclexplode\(\s*COALESCE\([^)]*'\{\}'::aclitem\[\]\)/s);
+    assert.doesNotMatch(source, /\bpg_user_mapping\b/);
+    assert.match(source, /\bpg_user_mappings\b/);
   }
   assert.match(roleBootstrap, /aclexplode\(relation\.relacl\)/);
   assert.match(roleBootstrap, /aclexplode\(attribute\.attacl\)/);
