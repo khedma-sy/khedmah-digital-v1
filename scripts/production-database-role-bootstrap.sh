@@ -62,7 +62,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_roles
     WHERE rolname IN ('$RUNTIME_USER', '$MIGRATION_USER')
-      AND (rolcreatedb OR rolcreaterole)
+      AND (NOT rolinherit OR rolcreatedb OR rolcreaterole)
   ) THEN
     RAISE EXCEPTION 'DATABASE_ROLE_LOGIN_PRIVILEGES_NOT_SAFE';
   END IF;
