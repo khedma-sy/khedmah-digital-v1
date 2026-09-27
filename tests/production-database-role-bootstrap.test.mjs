@@ -130,7 +130,7 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
     'Arm runtime cutover recovery',
     'Enforce runtime cutover containment',
     'Recover ambiguous runtime containment',
-    'Terminate pre-cutover runtime sessions and audit the fresh database',
+    'Audit the restarted runtime cutover and fresh database',
     'Replace migration Cloud SQL superuser role after the cutover audit',
     'Finalize migration password after role cutover',
     'Verify role isolation immediately after prepare',
@@ -160,9 +160,9 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
     .split('      - name: Recover ambiguous runtime containment')[0];
   const recoveryContainment = workflow
     .split('      - name: Recover ambiguous runtime containment')[1]
-    .split('      - name: Terminate pre-cutover runtime sessions and audit the fresh database')[0];
+    .split('      - name: Audit the restarted runtime cutover and fresh database')[0];
   const cutover = workflow
-    .split('      - name: Terminate pre-cutover runtime sessions and audit the fresh database')[1]
+    .split('      - name: Audit the restarted runtime cutover and fresh database')[1]
     .split('      - name: Replace migration Cloud SQL superuser role after the cutover audit')[0];
   const migrationDemotion = workflow
     .split('      - name: Replace migration Cloud SQL superuser role after the cutover audit')[1]
@@ -227,7 +227,13 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
     assert.match(containment, /\.databaseRoles == \[\$expected\]/);
     assert.match(containment, /gcloud sql instances restart "\$SQL_INSTANCE_NAME"/);
     assert.match(containment, /test "\$instance_ready" = true/);
+    assert.match(containment, /restart_not_before_millis="\$\(date -u \+%s%3N\)"/);
+    assert.match(containment, /echo "restart_not_before_millis=\$restart_not_before_millis" >> "\$GITHUB_OUTPUT"/);
     assert.match(containment, /contained=true/);
+    assert.ok(containment.indexOf('restart_not_before_millis="$(date -u +%s%3N)"')
+      < containment.indexOf('gcloud sql instances restart "$SQL_INSTANCE_NAME"'));
+    assert.ok(containment.indexOf('gcloud sql instances restart "$SQL_INSTANCE_NAME"')
+      < containment.indexOf('echo "restart_not_before_millis=$restart_not_before_millis"'));
   }
   assert.match(runtimeContainment, /continue-on-error: true/);
   assert.match(runtimeContainment, /steps\.arm_runtime_cutover\.outputs\.armed == 'true'/);
@@ -238,6 +244,13 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(cutover, /steps\.runtime_containment\.outcome == 'success'.*steps\.recover_runtime_containment\.outputs\.contained == 'true'/);
   assert.match(cutover, /DATABASE_URL=DATABASE_MIGRATION_URL:\$CANDIDATE_SECRET_VERSION/);
   assert.match(cutover, /CANDIDATE_SECRET_VERSION: \$\{\{ steps\.rotate_transition_password\.outputs\.version \}\}/);
+  assert.match(cutover, /PRIMARY_CONTAINMENT_OUTCOME: \$\{\{ steps\.runtime_containment\.outcome \}\}/);
+  assert.match(cutover, /PRIMARY_RESTART_NOT_BEFORE_MILLIS: \$\{\{ steps\.runtime_containment\.outputs\.restart_not_before_millis \}\}/);
+  assert.match(cutover, /RECOVERY_CONTAINED: \$\{\{ steps\.recover_runtime_containment\.outputs\.contained \}\}/);
+  assert.match(cutover, /RECOVERY_RESTART_NOT_BEFORE_MILLIS: \$\{\{ steps\.recover_runtime_containment\.outputs\.restart_not_before_millis \}\}/);
+  assert.match(cutover, /if test "\$PRIMARY_CONTAINMENT_OUTCOME" = success; then[\s\S]*cutover_restart_not_before_millis="\$PRIMARY_RESTART_NOT_BEFORE_MILLIS"[\s\S]*test "\$RECOVERY_CONTAINED" = true[\s\S]*cutover_restart_not_before_millis="\$RECOVERY_RESTART_NOT_BEFORE_MILLIS"/);
+  assert.match(cutover, /test "\$\{#cutover_restart_not_before_millis\}" -eq 13/);
+  assert.match(cutover, /DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS=\$cutover_restart_not_before_millis/);
 
   assert.match(migrationDemotion, /if: always\(\).*steps\.cutover_audit\.outcome == 'success'/);
   assert.doesNotMatch(migrationDemotion, /recover_runtime_containment/);
@@ -337,6 +350,7 @@ test('Taxi approval table updates stay column-scoped in production hardening', a
 test('database role preparation is transition-safe and verification is fail-closed', async () => {
   const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
   const prepare = script.split('  prepare)')[1].split('  cutover-audit)')[0];
+  const cutover = script.split('  cutover-audit)')[1].split('  verify)')[0];
   const isolationQuery = script.split('verify_isolation_sql="')[1].split('"')[0];
   const loginBaseGuard = prepare
     .split("RAISE EXCEPTION 'DATABASE_ROLE_CUSTOM_ROLE_ATTRIBUTES_NOT_SAFE';")[1]
@@ -373,6 +387,11 @@ test('database role preparation is transition-safe and verification is fail-clos
   assert.match(prepare, /DATABASE_ROLE_RUNTIME_SCHEMA_NOT_SAFE/);
   assert.match(prepare, /DATABASE_ROLE_RUNTIME_CONFIG_NOT_SAFE/);
   assert.match(prepare, /DATABASE_ROLE_DELEGATION_NOT_READY/);
+  assert.match(prepare, /\$prepared_runtime_acl_safe_sql/);
+  assert.doesNotMatch(prepare, /\$transitional_database_access_safe_sql/);
+  assert.match(prepare, /pg_has_role\('\$RUNTIME_USER','cloudsqlsuperuser','usage'\)/);
+  assert.match(prepare, /pg_has_role\('\$MIGRATION_USER','cloudsqlsuperuser','usage'\)/);
+  assert.match(script, /prepared_runtime_acl_safe_sql="[\s\S]*privilege\.grantee=0[\s\S]*rolname='\$RUNTIME_USER'[\s\S]*privilege\.privilege_type='CONNECT'[\s\S]*NOT privilege\.is_grantable/);
   assert.match(isolationQuery, /pg_has_role\('\$RUNTIME_USER','\$RUNTIME_ROLE','usage'\)/);
   assert.match(isolationQuery, /pg_has_role\('\$MIGRATION_USER','\$MIGRATION_ROLE','usage'\)/);
   assert.match(isolationQuery, /member with admin option/);
@@ -393,12 +412,19 @@ test('database role preparation is transition-safe and verification is fail-clos
   assert.match(isolationQuery, /namespace\.nspname='\$RUNTIME_USER'/);
   assert.equal((isolationQuery.match(/SELECT count\(\*\)[\s\S]*?member_role\.rolname=/g) || []).length, 2);
   assert.doesNotMatch(prepare, /\bNOSUPERUSER\b/);
+  assert.match(cutover, /pg_postmaster_start_time\(\) > restart_fence\.not_before/);
+  assert.match(cutover, /restart_fence\.not_before >= clock_timestamp\(\) - interval '1 hour'/);
+  assert.match(cutover, /WHERE activity\.usename='\$MIGRATION_USER'/);
+  assert.doesNotMatch(cutover, /activity\.usename IN \('\$RUNTIME_USER','\$MIGRATION_USER'\)/);
+  assert.doesNotMatch(script, /pg_signal_backend/);
 });
 
 test('runtime hardening uses exact sequence and de-duplicated column ACL policy', async () => {
   const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
   const harden = script.split('  harden)')[1];
 
+  assert.match(script, /isolation_default_acl_safe_sql="\$default_acl_isolation_safe_sql"[\s\S]*if test "\$PHASE" = harden; then[\s\S]*isolation_default_acl_safe_sql='true'/);
+  assert.match(script, /verify_isolation_sql="[\s\S]*AND \$isolation_default_acl_safe_sql/);
   assert.match(harden, /GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "\$RUNTIME_ROLE"/);
   assert.doesNotMatch(harden, /GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES/);
   assert.match(harden, /string_agg\(\s*DISTINCT quote_ident\(attribute\.attname\)/);
@@ -407,6 +433,7 @@ test('runtime hardening uses exact sequence and de-duplicated column ACL policy'
   assert.match(harden, /ALTER DEFAULT PRIVILEGES REVOKE ALL ON ROUTINES FROM PUBLIC/);
   assert.match(script, /COALESCE\(routine\.proacl, acldefault\('f', routine\.proowner\)\)/);
   assert.match(script, /IF NOT EXISTS \([\s\S]*privilege\.privilege_type='CONNECT'[\s\S]*EXECUTE 'GRANT CONNECT ON DATABASE/);
+  assert.ok(harden.indexOf('$runtime_hardening_ready_sql') < harden.indexOf('COMMIT;'));
 });
 
 test('database role evidence summary renders values without shell command substitution', () => {

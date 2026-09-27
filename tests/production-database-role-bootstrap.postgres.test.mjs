@@ -34,6 +34,12 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
   const adminUrl = await isolatedPostgresAdminUrl(t, providedAdminUrl);
   const adminDatabase = decodeURIComponent(adminUrl.pathname.replace(/^\//, ''));
   assertSafeDisposableDatabase(adminDatabase);
+  if (!adminUrl.isolatedContainerName) {
+    assert.equal(query(adminUrl, `
+      SELECT pg_postmaster_start_time() >= clock_timestamp() - interval '50 minutes'
+    `), 't',
+    'DEDICATED_POSTGRES_RESTART_REQUIRED: restart the dedicated PostgreSQL 16 server immediately before this acceptance suite.');
+  }
   assert.equal(query(adminUrl, "SELECT current_setting('server_version_num')::integer / 10000"), '16');
   assert.equal(query(adminUrl, 'SELECT rolsuper FROM pg_roles WHERE rolname=current_user'), 't',
     'The disposable PostgreSQL acceptance user must be a superuser so the test can construct unsafe role fixtures.');
@@ -73,8 +79,10 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           GRANT CREATE ON SCHEMA public TO ${identifier(fixture.runtimeUser)};
         `);
         setMigrationLoginSettings(fixture);
-        assert.equal(query(fixture.adminDatabaseUrl, runtimeCreatePrivilegeQuery(fixture)), 't|t',
-          'The fixture must expose direct runtime-user CREATE privileges before prepare.');
+        assert.equal(query(fixture.adminDatabaseUrl, runtimePrebaselinePrivilegeQuery(fixture)), 't|t|t',
+          'The fixture must expose inherited database-owner privileges before prepare.');
+        assert.equal(query(fixture.adminDatabaseUrl, directRuntimeAclCountQuery(fixture)), '1|1',
+          'The fixture must expose direct runtime-user CREATE ACLs before prepare.');
 
         assertBootstrapSuccess(runBootstrap(fixture, 'prepare'), 'first prepare');
         assertBootstrapSuccess(runBootstrap(fixture, 'prepare'), 'repeated prepare');
@@ -97,8 +105,12 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           PGOPTIONS: '-c role=none -c search_path=pg_catalog,public',
         }), `${fixture.runtimeUser}|pg_catalog,public`,
         'The runtime client must supply role=none and its safe search_path at startup.');
-        assert.equal(query(fixture.adminDatabaseUrl, runtimeCreatePrivilegeQuery(fixture)), 'f|f',
-          'Prepare must remove direct runtime-user CREATE privileges before isolation verification.');
+        assert.equal(query(fixture.adminDatabaseUrl, runtimePrebaselinePrivilegeQuery(fixture)), 't|t|t',
+          'Prepare cannot remove privileges inherited from the database-owning legacy role before containment.');
+        assert.equal(query(fixture.adminDatabaseUrl, directRuntimeAclCountQuery(fixture)), '0|0',
+          'Prepare must remove direct runtime-user ACLs before containment.');
+        assert.equal(query(fixture.adminDatabaseUrl, preparedRuntimeRoleAclQuery(fixture)), '1|1|0',
+          'Prepare must stage only non-grantable CONNECT for the runtime role.');
         assert.equal(query(fixture.adminDatabaseUrl, `
           SELECT count(*)
           FROM pg_roles
@@ -109,6 +121,7 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         `), '2');
 
         const stalePrivilegedSessions = [];
+        const postRestartSessions = [];
         try {
           setMigrationLoginSettings(fixture);
           stalePrivilegedSessions.push(
@@ -130,22 +143,57 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           `);
           assert.notEqual(jobMigrationPasswordHash, '');
           replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+          assert.equal(query(fixture.adminDatabaseUrl, runtimePrebaselinePrivilegeQuery(fixture)), 'f|f|f',
+            'Runtime containment must remove effective owner privileges before cutover-audit.');
           assert.equal(query(adminUrl, membershipQuery(fixture)), [
             `cloudsqlsuperuser|${fixture.migrationUser}|t|t|f`,
+            `${fixture.migrationRole}|${fixture.migrationUser}|f|f|t`,
+            `${fixture.runtimeRole}|${fixture.migrationUser}|f|f|t`,
             `${fixture.runtimeRole}|${fixture.runtimeUser}|t|t|f`,
-          ].join('\n'), 'Only the runtime login may be demoted before cutover-audit.');
+          ].join('\n'),
+          'The runtime login is contained while PostgreSQL retains the creator ADMIN memberships until migration demotion.');
 
-          assertBootstrapSuccess(runBootstrap(fixture, 'cutover-audit'), 'cutover audit');
-          const terminatedSessions = await waitForPrivilegedSessionTermination(stalePrivilegedSessions);
-          for (const [index, outcome] of terminatedSessions.entries()) {
-            assert.notEqual(outcome.code, 0,
-              diagnostic('cutover-audit did not terminate a stale privileged session', outcome));
-            assert.equal(outcome.signal, null,
-              diagnostic('the stale psql client should observe a server-side termination', outcome));
-            assert.match(stalePrivilegedSessions[index].applicationName, /:cloudsqlsuperuser$/);
+          const restartNotBeforeMillis = await restartIsolatedPostgres(adminUrl);
+          if (restartNotBeforeMillis === null) {
+            // A caller that supplied a dedicated cluster instead of Docker is
+            // responsible for platform restart semantics. End the synthetic
+            // pre-cutover clients and use that server's already-started fence.
+            await terminateSessionsFromAdmin(adminUrl, stalePrivilegedSessions);
+            fixture.cutoverRestartNotBeforeMillis = testRestartFenceMillis(adminUrl);
+          } else {
+            fixture.cutoverRestartNotBeforeMillis = restartNotBeforeMillis;
+            const restartedSessions = await waitForPrivilegedSessionTermination(stalePrivilegedSessions);
+            for (const outcome of restartedSessions) {
+              assert.notEqual(outcome.code, 0,
+                diagnostic('the instance restart left a stale privileged session alive', outcome));
+              assert.equal(outcome.signal, null,
+                diagnostic('the stale psql client should observe a server-side restart', outcome));
+            }
           }
-          assert.equal(query(adminUrl, activeSessionCountQuery(stalePrivilegedSessions)), '0',
-            'Cutover-audit must leave no pre-cutover runtime or migration session alive.');
+          await waitForNoActiveSessions(adminUrl, stalePrivilegedSessions,
+            'The mandatory restart must leave no pre-cutover privileged session alive.');
+
+          postRestartSessions.push(
+            await openPrivilegedSession(fixture, fixture.migrationUser, fixture.migrationPassword),
+          );
+          postRestartSessions.push(
+            await openPrivilegedSession(
+              fixture, fixture.runtimeUser, fixture.runtimePassword, null,
+            ),
+          );
+          assertBootstrapSuccess(runBootstrap(fixture, 'cutover-audit'), 'cutover audit');
+          const terminatedMigrationSession = await waitForPrivilegedSessionTermination([
+            postRestartSessions[0],
+          ]);
+          assert.notEqual(terminatedMigrationSession[0].code, 0,
+            diagnostic('cutover-audit did not terminate its sibling migration session',
+              terminatedMigrationSession[0]));
+          assert.equal(terminatedMigrationSession[0].signal, null,
+            diagnostic('the sibling migration client should observe server-side termination',
+              terminatedMigrationSession[0]));
+          assert.equal(query(adminUrl, activeSessionCountQuery([postRestartSessions[1]])), '1',
+            'Cutover-audit must not require cross-user signaling for a new confined runtime session.');
+          await stopPrivilegedSessions([postRestartSessions[1]]);
           assert.equal(query(adminUrl, applicationLoginSettingCountQuery(fixture)), '0|0|0',
             'Cutover-audit must RESET ALL global and database-scoped migration settings.');
           assert.equal(query(fixture.adminDatabaseUrl, canonicalPrebaselineDefaultAclQuery(fixture)), 't',
@@ -162,6 +210,7 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           assert.notEqual(disconnectedCredential.status, 0,
             diagnostic('the pre-cutover migration credential still authenticated', disconnectedCredential));
         } finally {
+          await stopPrivilegedSessions(postRestartSessions);
           await stopPrivilegedSessions(stalePrivilegedSessions);
         }
 
@@ -255,6 +304,8 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           ALTER DEFAULT PRIVILEGES IN SCHEMA khedmah_taxi
             GRANT DELETE ON TABLES TO PUBLIC;
         `);
+        assertBootstrapRejected(runBootstrap(fixture, 'verify'), 7,
+          'repairable default ACL drift outside harden');
         assert.equal(query(fixture.adminDatabaseUrl, `
           SELECT
             has_table_privilege(
@@ -293,6 +344,19 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         assert.equal(rogueDefaultAcl.status, 7,
           diagnostic('hardened verification accepted a rogue default ACL grantee', rogueDefaultAcl));
         assert.match(rogueDefaultAcl.stderr, /DATABASE_ROLE_ISOLATION_NOT_READY/);
+        const unrepairableDefaultAcl = runBootstrap(fixture, 'harden');
+        assert.notEqual(unrepairableDefaultAcl.status, 0,
+          diagnostic('harden committed an unrepairable rogue default ACL', unrepairableDefaultAcl));
+        assert.match(unrepairableDefaultAcl.stderr,
+          /RUNTIME_DATABASE_HARDENING_POSTCONDITION_FAILED/);
+        assert.equal(query(fixture.adminDatabaseUrl, `
+          SELECT count(*)
+          FROM pg_default_acl defaults
+          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
+          WHERE privilege.grantee=(
+            SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.rogueUser)}
+          )
+        `), '1', 'A failed harden must roll back every attempted ACL repair.');
         execute(fixture.migrationUrl, `
           ALTER DEFAULT PRIVILEGES IN SCHEMA public
             REVOKE ALL ON SEQUENCES FROM ${identifier(fixture.rogueUser)}
@@ -453,6 +517,46 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         'The non-target direct CREATE ACL must be removed before retrying cutover.');
         assertBootstrapSuccess(runBootstrap(fixture, 'cutover-audit'),
           'cutover after non-target ACL cleanup');
+      });
+    });
+
+    await t.test('cutover rejects missing, malformed, future, and stale restart fences', async () => {
+      await withFixture(adminUrl, {}, async (fixture) => {
+        assertBootstrapSuccess(runBootstrap(fixture, 'prepare'), 'restart-fence fixture prepare');
+        replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+        rotateMigrationPassword(fixture);
+
+        for (const [name, overrides, status, error] of [
+          [
+            'missing',
+            { omitCutoverRestartMarker: true },
+            2,
+            /DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS is required/,
+          ],
+          [
+            'malformed',
+            { cutoverRestartNotBeforeMillis: 'not-an-epoch' },
+            2,
+            /DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS is required/,
+          ],
+          [
+            'future',
+            { cutoverRestartNotBeforeMillis: String(Date.now() + 3_600_000) },
+            10,
+            /DATABASE_CUTOVER_RESTART_NOT_PROVEN/,
+          ],
+          [
+            'stale',
+            { cutoverRestartNotBeforeMillis: String(Date.now() - 7_200_000) },
+            10,
+            /DATABASE_CUTOVER_RESTART_NOT_PROVEN/,
+          ],
+        ]) {
+          const result = runBootstrap(fixture, 'cutover-audit', overrides);
+          assert.equal(result.status, status,
+            diagnostic(`cutover accepted a ${name} restart fence`, result));
+          assert.match(result.stderr, error);
+        }
       });
     });
 
@@ -674,7 +778,41 @@ async function isolatedPostgresAdminUrl(t, fallbackUrl) {
   }
   assert.equal(ready, true,
     diagnostic('isolated PostgreSQL 16 did not become ready', lastReadiness ?? {}));
+  Object.defineProperty(url, 'isolatedContainerName', {
+    configurable: false,
+    enumerable: false,
+    value: containerName,
+    writable: false,
+  });
   return url;
+}
+
+async function restartIsolatedPostgres(adminUrl) {
+  const containerName = adminUrl.isolatedContainerName;
+  if (!containerName) return null;
+
+  const restartNotBeforeMillis = String(Date.now());
+  assert.match(restartNotBeforeMillis, /^\d{13}$/);
+  const restarted = spawnSync('docker', ['restart', containerName], {
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+  assert.equal(restarted.status, 0,
+    diagnostic('failed to restart the isolated PostgreSQL acceptance container', restarted));
+
+  let ready = false;
+  let lastReadiness = null;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    lastReadiness = runPsql(adminUrl, 'SELECT 1', { PGCONNECT_TIMEOUT: '1' });
+    if (lastReadiness.status === 0) {
+      ready = true;
+      break;
+    }
+    await delay(250);
+  }
+  assert.equal(ready, true,
+    diagnostic('restarted PostgreSQL acceptance container did not become ready', lastReadiness ?? {}));
+  return restartNotBeforeMillis;
 }
 
 async function withFixture(adminUrl, options, work) {
@@ -919,7 +1057,7 @@ function membershipQuery(fixture) {
     JOIN pg_roles granted_role ON granted_role.oid=membership.roleid
     JOIN pg_roles member_role ON member_role.oid=membership.member
     WHERE member_role.rolname IN (${literal(fixture.runtimeUser)}, ${literal(fixture.migrationUser)})
-    ORDER BY granted_role.rolname
+    ORDER BY granted_role.rolname, member_role.rolname
   `;
 }
 
@@ -939,11 +1077,49 @@ function runtimePrivilegeSnapshotQuery(fixture) {
   `;
 }
 
-function runtimeCreatePrivilegeQuery(fixture) {
+function runtimePrebaselinePrivilegeQuery(fixture) {
   return `
     SELECT
       has_database_privilege(${literal(fixture.runtimeUser)}, ${literal(fixture.databaseName)}, 'CREATE'),
+      has_database_privilege(${literal(fixture.runtimeUser)}, ${literal(fixture.databaseName)}, 'TEMPORARY'),
       has_schema_privilege(${literal(fixture.runtimeUser)}, 'public', 'CREATE')
+  `;
+}
+
+function directRuntimeAclCountQuery(fixture) {
+  return `
+    SELECT
+      (
+        SELECT count(*)
+        FROM pg_database database
+        CROSS JOIN LATERAL aclexplode(database.datacl) privilege
+        WHERE database.datname=${literal(fixture.databaseName)}
+          AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeUser)})
+      ),
+      (
+        SELECT count(*)
+        FROM pg_namespace namespace
+        CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
+        WHERE namespace.nspname='public'
+          AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeUser)})
+      )
+  `;
+}
+
+function preparedRuntimeRoleAclQuery(fixture) {
+  return `
+    SELECT
+      count(*) FILTER (
+        WHERE privilege.privilege_type='CONNECT' AND NOT privilege.is_grantable
+      ),
+      count(*),
+      count(*) FILTER (
+        WHERE privilege.privilege_type<>'CONNECT' OR privilege.is_grantable
+      )
+    FROM pg_database database
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
+    WHERE database.datname=${literal(fixture.databaseName)}
+      AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname=${literal(fixture.runtimeRole)})
   `;
 }
 
@@ -1221,9 +1397,10 @@ function decodeManifestHex(value) {
   return Buffer.from(value, 'hex').toString('utf8');
 }
 
-async function openPrivilegedSession(fixture, username, password) {
+async function openPrivilegedSession(fixture, username, password, roleName = 'cloudsqlsuperuser') {
   const applicationNamePrefix = `kdrb_live_${randomBytes(6).toString('hex')}`;
-  const applicationName = `${applicationNamePrefix}:cloudsqlsuperuser`;
+  const expectedCurrentRole = roleName ?? username;
+  const applicationName = `${applicationNamePrefix}:${expectedCurrentRole}`;
   const databaseUrl = connectionUrl({
     baseUrl: fixture.adminUrl,
     databaseName: fixture.databaseName,
@@ -1242,7 +1419,7 @@ async function openPrivilegedSession(fixture, username, password) {
     '-At',
     '--dbname', databaseUrl.toString(),
     '--command', `
-      SET ROLE cloudsqlsuperuser;
+      ${roleName === null ? '' : `SET ROLE ${identifier(roleName)};`}
       SELECT set_config(
         'application_name',
         ${literal(applicationNamePrefix)} || ':' || current_role::text,
@@ -1330,17 +1507,52 @@ async function stopPrivilegedSessions(sessions) {
 
 async function waitForPrivilegedSessionTermination(sessions) {
   const timeout = Symbol('privileged-session-termination-timeout');
+  let timeoutHandle;
+  const timeoutPromise = new Promise((resolveTimeout) => {
+    timeoutHandle = setTimeout(() => resolveTimeout(timeout), 10_000);
+  });
   const outcome = await Promise.race([
-    Promise.all(sessions.map((session) => session.completion)),
-    delay(10_000).then(() => timeout),
-  ]);
+    Promise.all(sessions.map((session) => session.completion)), timeoutPromise,
+  ]).finally(() => clearTimeout(timeoutHandle));
   assert.notEqual(outcome, timeout,
     'Timed out waiting for cutover-audit to disconnect stale privileged sessions.');
   return outcome;
 }
 
+async function terminateSessionsFromAdmin(adminUrl, sessions) {
+  const terminated = runPsql(adminUrl, `
+    SELECT COALESCE(bool_and(pg_terminate_backend(pid, 5000)), true)
+    FROM pg_stat_activity
+    WHERE application_name IN (${sessions.map((session) => literal(session.applicationName)).join(', ')})
+  `);
+  assert.equal(terminated.status, 0,
+    diagnostic('failed to terminate dedicated-server session fixtures', terminated));
+  assert.equal(terminated.stdout.trim(), 't',
+    diagnostic('dedicated-server session fixtures resisted termination', terminated));
+  await waitForPrivilegedSessionTermination(sessions);
+  await waitForNoActiveSessions(adminUrl, sessions,
+    'Dedicated-server session fixtures remained active after termination.');
+}
+
+async function waitForNoActiveSessions(adminUrl, sessions, message) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (query(adminUrl, activeSessionCountQuery(sessions)) === '0') return;
+    await delay(50);
+  }
+  assert.equal(query(adminUrl, activeSessionCountQuery(sessions)), '0', message);
+}
+
 function delay(milliseconds) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+}
+
+function testRestartFenceMillis(adminUrl) {
+  const marker = query(adminUrl, `
+    SELECT (floor(extract(epoch FROM pg_postmaster_start_time()) * 1000) - 1)::bigint
+  `);
+  assert.match(marker, /^\d{13}$/);
+  return marker;
 }
 
 function runBootstrap(fixture, phase, overrides = {}) {
@@ -1350,6 +1562,7 @@ function runBootstrap(fixture, phase, overrides = {}) {
   }
   delete environment.CLOUD_SQL_INSTANCE_CONNECTION_NAME;
   delete environment.DATABASE_SYSTEM_ROLE_MANIFEST_SHA256;
+  delete environment.DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS;
 
   Object.assign(environment, {
     CI: 'true',
@@ -1369,6 +1582,12 @@ function runBootstrap(fixture, phase, overrides = {}) {
     assert.match(manifest, /^[0-9a-f]{64}$/,
       'Every mutating or verification phase requires a trusted inventory manifest.');
     environment.DATABASE_SYSTEM_ROLE_MANIFEST_SHA256 = manifest;
+  }
+  if (phase === 'cutover-audit' && !overrides.omitCutoverRestartMarker) {
+    environment.DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS =
+      overrides.cutoverRestartNotBeforeMillis
+      ?? fixture.cutoverRestartNotBeforeMillis
+      ?? testRestartFenceMillis(fixture.adminUrl);
   }
 
   return spawnSync('sh', [bootstrapPath], {

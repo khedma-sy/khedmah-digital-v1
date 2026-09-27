@@ -542,6 +542,9 @@ jobs:
           done
           test "$runtime_role_ready" = true
 
+          restart_not_before_millis="$(date -u +%s%3N)"
+          test "${#restart_not_before_millis}" -eq 13
+          case "$restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
           gcloud sql instances restart "$SQL_INSTANCE_NAME" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --quiet
@@ -574,6 +577,7 @@ jobs:
             sleep 5
           done
           test "$runtime_role_ready" = true
+          echo "restart_not_before_millis=$restart_not_before_millis" >> "$GITHUB_OUTPUT"
           echo 'contained=true' >> "$GITHUB_OUTPUT"
 
       - name: Recover ambiguous runtime containment
@@ -649,6 +653,9 @@ jobs:
           done
           test "$runtime_role_ready" = true
 
+          restart_not_before_millis="$(date -u +%s%3N)"
+          test "${#restart_not_before_millis}" -eq 13
+          case "$restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
           gcloud sql instances restart "$SQL_INSTANCE_NAME" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --quiet
@@ -681,17 +688,30 @@ jobs:
             sleep 5
           done
           test "$runtime_role_ready" = true
+          echo "restart_not_before_millis=$restart_not_before_millis" >> "$GITHUB_OUTPUT"
           echo 'contained=true' >> "$GITHUB_OUTPUT"
 
-      - name: Terminate pre-cutover runtime sessions and audit the fresh database
+      - name: Audit the restarted runtime cutover and fresh database
         id: cutover_audit
         if: always() && inputs.mode == 'PREPARE' && steps.arm_runtime_cutover.outputs.armed == 'true' && (steps.runtime_containment.outcome == 'success' || steps.recover_runtime_containment.outputs.contained == 'true')
         shell: bash
         env:
           CANDIDATE_SECRET_VERSION: ${{ steps.rotate_transition_password.outputs.version }}
+          PRIMARY_CONTAINMENT_OUTCOME: ${{ steps.runtime_containment.outcome }}
+          PRIMARY_RESTART_NOT_BEFORE_MILLIS: ${{ steps.runtime_containment.outputs.restart_not_before_millis }}
+          RECOVERY_CONTAINED: ${{ steps.recover_runtime_containment.outputs.contained }}
+          RECOVERY_RESTART_NOT_BEFORE_MILLIS: ${{ steps.recover_runtime_containment.outputs.restart_not_before_millis }}
         run: |
           set -euo pipefail
           case "$CANDIDATE_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
+          if test "$PRIMARY_CONTAINMENT_OUTCOME" = success; then
+            cutover_restart_not_before_millis="$PRIMARY_RESTART_NOT_BEFORE_MILLIS"
+          else
+            test "$RECOVERY_CONTAINED" = true
+            cutover_restart_not_before_millis="$RECOVERY_RESTART_NOT_BEFORE_MILLIS"
+          fi
+          test "${#cutover_restart_not_before_millis}" -eq 13
+          case "$cutover_restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
           IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
           JOB="khedmah-database-role-cutover-audit"
           CUTOVER_JOB_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
@@ -702,7 +722,7 @@ jobs:
             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
             --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$CANDIDATE_SECRET_VERSION" \
-            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=cutover-audit,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=cutover-audit,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256,DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS=$cutover_restart_not_before_millis" \
             --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
           gcloud run jobs execute "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \

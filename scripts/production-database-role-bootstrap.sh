@@ -30,6 +30,13 @@ is_tcp_port() {
   test "$1" -ge 1 && test "$1" -le 65535
 }
 
+is_restart_millis_marker() {
+  case "$1" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  test "${#1}" -eq 13
+}
+
 is_cloud_sql_connection_name() {
   connection_name="$1"
   case "$connection_name" in
@@ -194,6 +201,14 @@ case "$PHASE" in
     exit 2
     ;;
 esac
+
+CUTOVER_RESTART_NOT_BEFORE_MILLIS="${DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS:-}"
+if test "$PHASE" = cutover-audit; then
+  is_restart_millis_marker "$CUTOVER_RESTART_NOT_BEFORE_MILLIS" || {
+    echo 'ERROR: DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS is required and must be a Unix epoch in milliseconds.' >&2
+    exit 2
+  }
+fi
 
 connection_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
 SELECT CASE WHEN
@@ -666,8 +681,9 @@ case "${CI:-}:${ALLOW_DESTRUCTIVE_DB_TESTS:-}:$DATABASE_NAME" in
 esac
 
 # The exact non-application role/attribute/membership manifest is hashed above
-# before every phase. It is re-hashed after legacy runtime sessions are killed
-# in cutover-audit, when no untrusted principal can still change it. Reject any
+# before every phase. It is re-hashed after the mandatory instance restart and
+# same-login migration-session containment in cutover-audit, when no untrusted
+# principal can still change it. Reject any
 # login outside the two application identities, PostgreSQL's default admin, and
 # Google's documented Cloud SQL system users; a non-login role cannot reconnect
 # after the mandatory control-plane restart.
@@ -714,6 +730,53 @@ transitional_database_access_safe_sql="
     CROSS JOIN LATERAL aclexplode(database.datacl) privilege
     WHERE database.datname='$DATABASE_NAME'
       AND privilege.grantee=0
+  )
+"
+
+# PREPARE runs before the control plane replaces the runtime login's inherited
+# cloudsqlsuperuser membership. At that point effective owner privileges are
+# intentionally still present, so inspect the staged direct ACLs instead. The
+# post-containment phases continue to use transitional_database_access_safe_sql
+# and therefore require the effective privileges themselves to be gone.
+prepared_runtime_acl_safe_sql="
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_database database
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
+    WHERE database.datname='$DATABASE_NAME'
+      AND (
+        privilege.grantee=0
+        OR privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_USER')
+      )
+  )
+  AND 1=(
+    SELECT count(*)
+    FROM pg_database database
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
+    WHERE database.datname='$DATABASE_NAME'
+      AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
+      AND privilege.privilege_type='CONNECT'
+      AND NOT privilege.is_grantable
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_database database
+    CROSS JOIN LATERAL aclexplode(database.datacl) privilege
+    WHERE database.datname='$DATABASE_NAME'
+      AND privilege.grantee=(SELECT oid FROM pg_roles WHERE rolname='$RUNTIME_ROLE')
+      AND (privilege.privilege_type<>'CONNECT' OR privilege.is_grantable)
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_namespace namespace
+    CROSS JOIN LATERAL aclexplode(namespace.nspacl) privilege
+    WHERE namespace.nspname='public'
+      AND (
+        privilege.grantee=0
+        OR privilege.grantee IN (
+          SELECT oid FROM pg_roles WHERE rolname IN ('$RUNTIME_USER','$RUNTIME_ROLE')
+        )
+      )
   )
 "
 
@@ -894,6 +957,16 @@ hardened_default_acl_safe_sql="
   AND 2=(SELECT count(*) FROM pg_default_acl)
 "
 
+# HARDEN is the only phase allowed to enter with default-ACL drift, and it may
+# commit only if that drift is fully repaired.
+# PostgreSQL applies the ACL DDL transactionally, and the strict
+# runtime_hardening_ready_sql predicate below still gates COMMIT. Every
+# read-only verification phase keeps the exact isolation predicate here.
+isolation_default_acl_safe_sql="$default_acl_isolation_safe_sql"
+if test "$PHASE" = harden; then
+  isolation_default_acl_safe_sql='true'
+fi
+
 verify_isolation_sql="
 SELECT CASE WHEN
   $instance_role_inventory_safe_sql
@@ -991,7 +1064,7 @@ SELECT CASE WHEN
     WHERE namespace.nspname='$RUNTIME_USER'
   )
   AND $application_login_settings_safe_sql
-  AND $default_acl_isolation_safe_sql
+  AND $isolation_default_acl_safe_sql
   AND $public_persistence_safe_sql
   AND has_database_privilege('$RUNTIME_ROLE','$DATABASE_NAME','CONNECT')
   AND has_database_privilege('$MIGRATION_ROLE','$DATABASE_NAME','CONNECT WITH GRANT OPTION')
@@ -1790,8 +1863,10 @@ $instance_role_inventory_safe_sql
 $instance_database_inventory_safe_sql
     )
     OR NOT (
-$transitional_database_access_safe_sql
+$prepared_runtime_acl_safe_sql
     )
+    OR NOT pg_has_role('$RUNTIME_USER','cloudsqlsuperuser','usage')
+    OR NOT pg_has_role('$MIGRATION_USER','cloudsqlsuperuser','usage')
     OR has_database_privilege('$RUNTIME_ROLE', '$DATABASE_NAME', 'CREATE')
     OR has_schema_privilege('$RUNTIME_ROLE', 'public', 'CREATE')
     OR NOT has_database_privilege('$MIGRATION_ROLE', '$DATABASE_NAME', 'CONNECT WITH GRANT OPTION')
@@ -1820,15 +1895,33 @@ SQL
     ;;
   cutover-audit)
     # A role-membership update does not change current_role in an already-open
-    # backend. The workflow rotates the migration password before this phase,
-    # so only this trusted job knows a credential that can reconnect. Kill all
-    # earlier runtime and migration backends before consulting the untrusted
-    # role manifest or database catalogs.
+    # backend. The workflow therefore demotes runtime first and then restarts
+    # the instance. Prove that this postmaster started after a fresh workflow
+    # marker before trusting catalog state. A completed restart takes much
+    # longer than ordinary clock skew, and the marker must also be recent.
+    restart_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
+WITH restart_fence AS (
+  SELECT to_timestamp($CUTOVER_RESTART_NOT_BEFORE_MILLIS::numeric / 1000) AS not_before
+)
+SELECT CASE WHEN restart_fence.not_before <= clock_timestamp()
+  AND restart_fence.not_before >= clock_timestamp() - interval '1 hour'
+  AND pg_postmaster_start_time() > restart_fence.not_before
+THEN 'ready' ELSE 'blocked' END
+FROM restart_fence")"
+    test "$restart_state" = ready || {
+      echo 'ERROR: DATABASE_CUTOVER_RESTART_NOT_PROVEN' >&2
+      exit 10
+    }
+
+    # The transition credential was rotated before containment, so this job
+    # can safely terminate other backends owned by its own migration login.
+    # Runtime may reconnect after the restart, but catalog checks below prove
+    # that every such new session is already confined to the runtime role.
     termination_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
 SELECT CASE WHEN COALESCE(bool_and(pg_terminate_backend(activity.pid, 5000)), true)
   THEN 'ready' ELSE 'blocked' END
 FROM pg_stat_activity activity
-WHERE activity.usename IN ('$RUNTIME_USER','$MIGRATION_USER')
+WHERE activity.usename='$MIGRATION_USER'
   AND activity.backend_type='client backend'
   AND activity.pid <> pg_backend_pid()")"
     test "$termination_state" = ready || {
@@ -1840,7 +1933,7 @@ WHERE activity.usename IN ('$RUNTIME_USER','$MIGRATION_USER')
 SELECT CASE WHEN NOT EXISTS (
   SELECT 1
   FROM pg_stat_activity activity
-  WHERE activity.usename IN ('$RUNTIME_USER','$MIGRATION_USER')
+  WHERE activity.usename='$MIGRATION_USER'
     AND activity.backend_type='client backend'
     AND activity.pid <> pg_backend_pid()
 ) THEN 'ready' ELSE 'blocked' END")"
