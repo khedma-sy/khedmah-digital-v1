@@ -99,6 +99,17 @@ jobs:
           STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
         run: node scripts/validate-environment-separation.mjs
+      - name: Inspect Preview Cloud Run job quota (read-only)
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jobs_json="$(gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json)"
+          printf '%s' "$jobs_json" | jq -r 'length as $count | "PREVIEW_JOB_INVENTORY_COUNT=\\($count)"'
+          printf '%s' "$jobs_json" | jq -r '.[] | select((.name // "") | startswith("khedmah-preview-")) | [(.name // ""), (.createTime // ""), (.updateTime // "")] | @tsv'
       - id: classifieds-stage
         name: Resolve Classifieds Preview rollout stage
         if: steps.gcp-check.outputs.has_gcp == 'true'
