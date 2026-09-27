@@ -55,3 +55,22 @@ test('unknown execution state fails closed', () => {
 test('malformed inventory fails closed', () => {
   assert.throws(() => selectClosedPreviewJobCandidates({}, new Set([220]), scope), /inventory must be an array/);
 });
+
+test('cleanup candidate limit bounds Cloud Run write requests', () => {
+  const jobs = [
+    job('khedmah-preview-first', 214),
+    job('khedmah-preview-second', 215),
+    job('khedmah-preview-third', 216)
+  ];
+  assert.deepEqual(
+    selectClosedPreviewJobCandidates(jobs, new Set([214, 215, 216]), { ...scope, maxCandidates: 2 }),
+    [
+      { name: 'khedmah-preview-first', pullRequest: 214 },
+      { name: 'khedmah-preview-second', pullRequest: 215 }
+    ]
+  );
+  assert.throws(
+    () => selectClosedPreviewJobCandidates(jobs, new Set([214]), { ...scope, maxCandidates: -1 }),
+    /candidate limit/
+  );
+});
