@@ -136,6 +136,13 @@ test('migration secret repair is migration-only, fail-closed and resumable', () 
   assert.match(repair, /test "\$final_active_version" = "\$candidate_version"/);
   assert.match(repair, /DATABASE_ROLE_PHASE=probe/);
   assert.match(repair, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=/);
+
+  const probeFunction = repair
+    .split('          deploy_and_probe() {')[1]
+    .split('          record_candidate() {')[0];
+  assert.match(probeFunction, /assert_numeric_version "\$selector" \|\| return 1/);
+  assert.match(probeFunction, /gcloud run jobs deploy "\$PROBE_JOB"[\s\S]*--quiet \\\n\s+\|\| return 1/);
+  assert.match(probeFunction, /gcloud run jobs execute "\$PROBE_JOB"[\s\S]*--quiet >\/dev\/null \\\n\s+\|\| return 1/);
 });
 
 test('inventory publishes canonical manifest records and an unreviewed candidate hash', async () => {
