@@ -102,17 +102,52 @@ test('inventory publishes canonical manifest records and an unreviewed candidate
 
   assert.ok(inventory);
   assert.match(script, /DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=%s/);
+  assert.match(script, /DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=%s\\n' "\$manifest_line" >&2/);
   assert.match(script, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=%s/);
   assert.match(script, /'\|', 'D', database\.oid::text/);
+  assert.match(inventory, /case "\$ROLE_EXECUTION_NAME" in "\$JOB"-\*/);
+  assert.match(inventory, /gcloud logging read "\$log_filter"/);
+  assert.match(inventory, /resource\.type=\\"cloud_run_job\\"/);
+  assert.match(inventory, /resource\.labels\.project_id=\\"\$GOOGLE_CLOUD_PROJECT\\"/);
+  assert.match(inventory, /resource\.labels\.job_name=\\"\$JOB\\"/);
+  assert.match(inventory, /resource\.labels\.location=\\"\$GOOGLE_CLOUD_REGION\\"/);
+  assert.match(inventory, /labels\.\\"run\.googleapis\.com\/execution_name\\"=\\"\$ROLE_EXECUTION_NAME\\"/);
+  assert.match(inventory, /run\.googleapis\.com%2Fstdout/);
+  assert.match(inventory, /run\.googleapis\.com%2Fstderr/);
+  assert.match(inventory, /AND \(logName=\\"projects\/\$GOOGLE_CLOUD_PROJECT\/logs\/run\.googleapis\.com%2Fstdout\\" OR logName=\\"projects\/\$GOOGLE_CLOUD_PROJECT\/logs\/run\.googleapis\.com%2Fstderr\\"\)/);
+  assert.match(inventory, /--format='value\(textPayload\)'/);
   assert.match(inventory, /--order=asc/);
   assert.match(inventory, /sed -n 's\/\^DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=\/\/p'/);
   assert.match(inventory, /sed -n 's\/\^DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=\/\/p'/);
+  assert.match(inventory, /manifest_is_complete\(\)/);
+  assert.match(inventory, /if manifest_is_complete; then\n\s+break/);
+  assert.match(inventory, /test "\$computed_sha256" = "\$manifest_sha256"/);
+  assert.match(inventory, /done\n\s+manifest_is_complete/);
+  assert.doesNotMatch(inventory, /test -z "\$manifest_sha256" \|\| test -z "\$manifest_records" \|\| break/);
   assert.match(inventory, /\^\[DMRS\]\\\|\[A-Za-z0-9\\\|\+\._:-\]\+\$/);
   assert.match(inventory, /computed_sha256=.*sha256sum/);
   assert.match(inventory, /Canonical records for manual review/);
   assert.match(inventory, /Candidate SHA-256 \(not reviewed\)/);
   assert.match(inventory, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256/);
   assert.doesNotMatch(inventory, /Reviewed system-role manifest candidate/);
+  assert.doesNotMatch(inventory, /gcloud run jobs logs read/);
+
+  const manifestFunction = inventory.match(/\n {10}(manifest_is_complete\(\) \{[\s\S]*?\n {10}\})/);
+  assert.ok(manifestFunction);
+  const manifestRetryProbe = spawnSync('bash', ['-c', `
+    set -euo pipefail
+${manifestFunction[1]}
+    complete_records='R|one
+R|two'
+    manifest_sha256="$(printf '%s\n' "$complete_records" | sha256sum | awk '{print $1}')"
+    manifest_records='R|one'
+    if manifest_is_complete; then
+      exit 91
+    fi
+    manifest_records="$complete_records"
+    manifest_is_complete
+  `], { encoding: 'utf8' });
+  assert.equal(manifestRetryProbe.status, 0, manifestRetryProbe.stderr);
 });
 
 test('non-prepare role execution preserves failure and emits only bounded redacted diagnostics', () => {
@@ -121,9 +156,7 @@ test('non-prepare role execution preserves failure and emits only bounded redact
     .split('      - name: Publish clean-instance system-role manifest candidate')[0];
 
   assert.ok(execution);
-  assert.match(execution, /ROLE_JOB_STARTED_AT=.*date -u/);
-  assert.ok(execution.indexOf('gcloud run jobs deploy') < execution.indexOf('ROLE_JOB_STARTED_AT='));
-  assert.ok(execution.indexOf('ROLE_JOB_STARTED_AT=') < execution.indexOf('gcloud run jobs execute'));
+  assert.ok(execution.indexOf('gcloud run jobs deploy') < execution.indexOf('gcloud run jobs execute'));
   assert.match(execution, /set \+e/);
   assert.match(execution, /execution_output="\$\([\s\S]*gcloud run jobs execute "\$JOB"/);
   assert.match(execution, /--wait \\\n\s+--format='value\(metadata\.name\)' 2>&1/);
@@ -132,17 +165,28 @@ test('non-prepare role execution preserves failure and emits only bounded redact
   assert.match(execution, /executions\/\(\$\{JOB\}-\[a-z0-9\]\+\)\\\$#/);
   assert.match(execution, /executions\/details\/\[\^\/\]\+\/\(\$\{JOB\}-\[a-z0-9\]\+\)\(\\\\\?\.\*\)\?\\\$#/);
   assert.match(execution, /DATABASE_ROLE_FAILED_EXECUTION_UNRESOLVED/);
+  assert.match(execution, /DATABASE_ROLE_SUCCESSFUL_EXECUTION_UNRESOLVED/);
+  assert.match(execution, /ROLE_EXECUTION_NAME=\$execution_name/);
   assert.match(execution, /labels\.\\"run\.googleapis\.com\/execution_name\\"=\\"\$execution_name\\"/);
+  assert.match(execution, /resource\.type=\\"cloud_run_job\\"/);
+  assert.match(execution, /resource\.labels\.project_id=\\"\$GOOGLE_CLOUD_PROJECT\\"/);
+  assert.match(execution, /resource\.labels\.job_name=\\"\$JOB\\"/);
+  assert.match(execution, /resource\.labels\.location=\\"\$GOOGLE_CLOUD_REGION\\"/);
+  assert.match(execution, /run\.googleapis\.com%2Fstderr/);
   assert.match(execution, /DATABASE_ROLE_FAILED_EXECUTION=%s/);
   assert.match(execution, /gcloud run jobs executions describe "\$execution_name"/);
   assert.match(execution, /status\.conditions\.type,status\.conditions\.status,status\.conditions\.reason,status\.conditions\.message/);
   assert.match(execution, /DATABASE_ROLE_EXECUTION_STATUS:/);
   assert.match(execution, /sed -n '1,20p' >&2 \|\| true/);
   assert.doesNotMatch(execution, /status\.conditions\.state/);
-  assert.match(execution, /gcloud run jobs logs read "\$JOB"/);
-  assert.match(execution, /--log-filter="\$log_filter"/);
+  assert.match(execution, /gcloud logging read "\$log_filter"/);
+  assert.match(execution, /--format='value\(textPayload\)'/);
   assert.match(execution, /--order=asc/);
   assert.match(execution, /--limit=200/);
+  assert.match(execution, /raw_diagnostics=/);
+  assert.match(execution, /log_read_status="\$\?"/);
+  assert.match(execution, /log_read_succeeded=true/);
+  assert.match(execution, /DATABASE_ROLE_LOG_READ_FAILED/);
   assert.match(execution, /\^\(ERROR:\|psql: error:\|FATAL:\|DETAIL:\|HINT:\)/);
   assert.match(execution, /\[REDACTED\]/);
   assert.match(execution, /\[REDACTED_64_HEX\]/);
@@ -151,12 +195,12 @@ test('non-prepare role execution preserves failure and emits only bounded redact
   assert.match(execution, /tail -n 80/);
   assert.match(execution, /DATABASE_ROLE_JOB_FAILED_WITHOUT_APPROVED_DIAGNOSTIC/);
   assert.match(execution, /exit "\$execution_status"/);
-  assert.doesNotMatch(execution, /gcloud run jobs executions list|labels\.execution_name/);
+  assert.doesNotMatch(execution, /gcloud run jobs executions list|gcloud run jobs logs read|labels\.execution_name|run\.googleapis\.com%2Fstdout/);
   assert.doesNotMatch(execution, /set -x|printenv|secrets versions access|--format=(?:json|yaml)|status\.spec|containers|\.env/);
   assert.doesNotMatch(execution, /DATABASE_SYSTEM_ROLE_MANIFEST_RECORD/);
   assert.doesNotMatch(execution, /DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=.*printf/);
 
-  const extraction = execution.match(/\n {12}execution_name="\$\(\n([\s\S]*?)\n {12}\)"/);
+  const extraction = execution.match(/\n {10}execution_name="\$\(\n([\s\S]*?)\n {10}\)"/);
   assert.ok(extraction);
   const extractionProbe = spawnSync('bash', ['-c', `
     set -euo pipefail
@@ -169,6 +213,30 @@ ${extraction[1]}
   `], { encoding: 'utf8' });
   assert.equal(extractionProbe.status, 0, extractionProbe.stderr);
   assert.equal(extractionProbe.stdout.trim(), 'khedmah-database-role-inventory-abc123');
+
+  const redactor = execution.match(/\n {10}(redact_failure_diagnostics\(\) \{[\s\S]*?\n {10}\})/);
+  const approvedExtraction = execution.match(/\n {14}approved_diagnostics="\$\(\n([\s\S]*?)\n {14}\)"/);
+  assert.ok(redactor);
+  assert.ok(approvedExtraction);
+  const secretHex = 'a'.repeat(64);
+  const diagnosticProbe = spawnSync('bash', ['-c', `
+    set -euo pipefail
+${redactor[1]}
+    raw_diagnostics='ERROR: DATABASE_URL=postgresql://migration:${secretHex}@localhost/khedmah
+INFO: ignore this line
+DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=R|must|not|leak
+psql: error: password=plain-secret'
+    approved_diagnostics="$(
+${approvedExtraction[1]}
+    )"
+    printf '%s\n' "$approved_diagnostics"
+  `], { encoding: 'utf8' });
+  assert.equal(diagnosticProbe.status, 0, diagnosticProbe.stderr);
+  assert.equal(
+    diagnosticProbe.stdout.trim(),
+    'ERROR: DATABASE_URL=[REDACTED]\npsql: error: password=[REDACTED]',
+  );
+  assert.doesNotMatch(diagnosticProbe.stdout, /plain-secret|DATABASE_SYSTEM_ROLE_MANIFEST_RECORD|[a-f0-9]{64}/);
 });
 
 test('production WIF and bootstrap trust include the database role workflow on main', () => {
@@ -307,6 +375,14 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(cutover, /if test "\$PRIMARY_CONTAINMENT_OUTCOME" = success; then[\s\S]*cutover_restart_not_before_millis="\$PRIMARY_RESTART_NOT_BEFORE_MILLIS"[\s\S]*test "\$RECOVERY_CONTAINED" = true[\s\S]*cutover_restart_not_before_millis="\$RECOVERY_RESTART_NOT_BEFORE_MILLIS"/);
   assert.match(cutover, /test "\$\{#cutover_restart_not_before_millis\}" -eq 13/);
   assert.match(cutover, /DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS=\$cutover_restart_not_before_millis/);
+  assert.match(cutover, /cutover_execution_name="\$\(/);
+  assert.match(cutover, /--format='value\(metadata\.name\)'/);
+  assert.match(cutover, /case "\$cutover_execution_name" in "\$JOB"-\*/);
+  assert.match(cutover, /gcloud logging read "\$cutover_log_filter"/);
+  assert.match(cutover, /labels\.\\"run\.googleapis\.com\/execution_name\\"=\\"\$cutover_execution_name\\"/);
+  assert.match(cutover, /run\.googleapis\.com%2Fstdout/);
+  assert.match(cutover, /textPayload=\\"DATABASE_RUNTIME_CUTOVER_AUDITED\\"/);
+  assert.doesNotMatch(cutover, /gcloud run jobs logs read|run\.googleapis\.com%2Fstderr/);
 
   assert.match(migrationDemotion, /if: always\(\).*steps\.cutover_audit\.outcome == 'success'/);
   assert.doesNotMatch(migrationDemotion, /recover_runtime_containment/);
