@@ -108,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           jobs_json="$(gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json)"
-          printf '%s' "$jobs_json" | jq -r 'length as $count | "PREVIEW_JOB_INVENTORY_COUNT=\\($count)"'
+          printf '%s' "$jobs_json" | jq -r 'length as $count | "PREVIEW_JOB_INVENTORY_COUNT=\($count)"'
           printf '%s' "$jobs_json" | jq -r '.[] | select((.name // "") | startswith("khedmah-preview-")) | [(.name // ""), (.createTime // ""), (.updateTime // "")] | @tsv'
       - id: classifieds-stage
         name: Resolve Classifieds Preview rollout stage
