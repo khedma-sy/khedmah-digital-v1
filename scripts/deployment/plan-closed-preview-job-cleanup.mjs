@@ -43,7 +43,10 @@ function isPreviewJobForPullRequest(job, project, region) {
   return prNumbers[0];
 }
 
-export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers, { project, region }) {
+export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers, { project, region, maxCandidates = Infinity }) {
+  if (!(maxCandidates === Infinity || (Number.isSafeInteger(maxCandidates) && maxCandidates >= 0))) {
+    throw new TypeError('Cleanup candidate limit must be a non-negative safe integer.');
+  }
   if (!Array.isArray(jobs)) throw new TypeError('Cloud Run job inventory must be an array.');
   const closed = closedPullRequestNumbers instanceof Set
     ? closedPullRequestNumbers
@@ -62,7 +65,7 @@ export function selectClosedPreviewJobCandidates(jobs, closedPullRequestNumbers,
 
     candidates.push({ name, pullRequest });
   }
-  return candidates.sort((left, right) => left.name.localeCompare(right.name));
+  return candidates.sort((left, right) => left.name.localeCompare(right.name)).slice(0, maxCandidates);
 }
 
 async function readPullRequestState(repository, number, token) {
@@ -86,8 +89,8 @@ async function main() {
   const project = process.env.GOOGLE_CLOUD_PROJECT;
   const region = process.env.GOOGLE_CLOUD_REGION;
   const repository = process.env.GITHUB_REPOSITORY;
-  const token = process.env.GITHUB_TOKEN;
-  if (!inventoryPath || !project || !region || !repository || !token) {
+  const token = process.env.GITHUB_TOKEN;\n  const maxCandidates = Number(process.argv[3]);
+  if (!inventoryPath || !project || !region || !repository || !token || !Number.isSafeInteger(maxCandidates) || maxCandidates < 0) {
     throw new Error('Preview cleanup requires inventory, project, region, repository, and GitHub token.');
   }
   if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(region) || !/^[^/]+\/[^/]+$/.test(repository)) {
@@ -111,7 +114,7 @@ async function main() {
   await Promise.all(workers);
 
   const closed = new Set([...states].filter(([, state]) => state === 'closed').map(([number]) => number));
-  const candidates = selectClosedPreviewJobCandidates(inventory, closed, { project, region });
+  const candidates = selectClosedPreviewJobCandidates(inventory, closed, { project, region, maxCandidates });
   console.error(`PREVIEW_JOB_CLEANUP_CANDIDATES=${candidates.length} CLOSED_PREVIEW_PRS=${closed.size} VERIFIED_PRS=${states.size}`);
   for (const candidate of candidates) {
     process.stdout.write(`${candidate.name}\t${candidate.pullRequest}\n`);
