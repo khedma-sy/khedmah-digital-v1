@@ -110,7 +110,7 @@ jobs:
           jobs_json="$(gcloud run jobs list --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json)"
           job_count="$(jq 'length' <<<"$jobs_json")"
           printf 'PREVIEW_JOB_INVENTORY_COUNT=%s\n' "$job_count"
-          printf '%s' "$jobs_json" | jq -r '.[] | [((.name // .metadata.name // "") | tostring), ((.createTime // .metadata.creationTimestamp // "") | tostring), ((.updateTime // "") | tostring), ([.template.template.containers[]?.image, .spec.template.spec.containers[]?.image] | map(select(type == "string")) | unique | join(","))] | @tsv'
+          printf '%s' "$jobs_json" | jq -r '.[] | [((.name // .metadata.name // "") | tostring), ((.createTime // .metadata.creationTimestamp // "") | tostring), ((.updateTime // "") | tostring), ([.template.template.containers[]?.image, .spec.template.spec.containers[]?.image, .spec.template.spec.template.spec.containers[]?.image] | map(select(type == "string")) | unique | join(","))] | @tsv'
           if (( job_count >= 1000 )); then
             echo "::error::Preview Cloud Run JobsPerProject quota is at the verified 1000-job limit in $GOOGLE_CLOUD_REGION. Inventory printed above; stopping before migration builds or Cloud Run mutations."
             exit 42
