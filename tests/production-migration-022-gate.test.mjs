@@ -28,7 +28,10 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
   assert.doesNotMatch(workflow.split('  migrate:')[1] ?? '', /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
-  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.match(workflow, /gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.doesNotMatch(workflow, /gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.match(workflow, /gcloud run jobs execute/);
   assert.match(runner, /APPROVED_MIGRATION_021='021_provider_reports'/);
   assert.match(runner, /APPROVED_SHA256_021='61817e4c0c4e2830eb1fb64de8fbcd98c5d1469b60b1cd8dcfc800683bbab698'/);
@@ -55,6 +58,11 @@ test('production migrations 021 and 022 remain sequential, backed up, checksum-b
   assert.match(rollback, /DROP TABLE category_taxonomy_022_before_image/);
   assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN.*organization_id/);
   assert.match(runner, /pg_advisory_xact_lock/);
+  assert.match(runner, /DATABASE_ROLE_ISOLATION_SAFE_SQL=/);
+  assert.match(runner, /PRODUCTION_DATABASE_ROLE_ISOLATION_NOT_READY/);
+  assert.match(runner, /membership\.inherit_option/);
+  assert.match(runner, /membership\.set_option/);
+  assert.match(runner, /NOT membership\.admin_option/);
   assert.match(runner, /BEGIN;/);
   assert.match(runner, /COMMIT;/);
   assert.match(runner, /MIGRATION_021_APPLIED_AND_VERIFIED/);

@@ -75,7 +75,25 @@ test('Classifieds shell and startup schema gates reject pre-025 and verify post-
     const after = runProbe(disposableDatabaseUrl());
     assert.equal(after.status, 0, `post-025 probe failed unexpectedly: ${after.stderr || after.stdout}`);
     assert.match(after.stdout, /MIGRATION_025_ALREADY_APPLIED_AND_VERIFIED/);
-    await assert.doesNotReject(() => withClassifiedsEnabled(() => new AdSchemaGuard(db).onModuleInit()));
+
+    const runtimeClient = await rawPool.connect();
+    try {
+      await runtimeClient.query('SET search_path TO pg_catalog, public');
+      const currentSchema = await runtimeClient.query<{ current_schema: string }>(
+        'SELECT current_schema() AS current_schema'
+      );
+      assert.equal(currentSchema.rows[0]?.current_schema, 'pg_catalog');
+
+      const runtimeDb = {
+        query: async <T extends Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> =>
+          (await runtimeClient.query<T>(sql, params)).rows
+      } as unknown as DatabasePool;
+      await assert.doesNotReject(() =>
+        withClassifiedsEnabled(() => new AdSchemaGuard(runtimeDb).onModuleInit())
+      );
+    } finally {
+      runtimeClient.release();
+    }
   } finally {
     await db.end();
   }

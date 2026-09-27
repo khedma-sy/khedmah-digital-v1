@@ -12,6 +12,14 @@ test('new-account bootstrap grants the reader role required to inspect user-mana
   assert.doesNotMatch(bootstrap, /"roles\/(owner|editor)"/);
 });
 
+test('new-account database verification consumes only the committed migration secret alias', async () => {
+  const workflow = await read('.github/workflows/production-operator-new-account.yml');
+  assert.match(workflow, /gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.doesNotMatch(workflow, /gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+});
+
 test('bootstrap admin proves live secret IAM before any Cloud Run secret mutation', async () => {
   const workflow = await read('.github/workflows/production-bootstrap-admin.yml');
   const preflight = workflow.indexOf('Verify bootstrap secret IAM before mutation');

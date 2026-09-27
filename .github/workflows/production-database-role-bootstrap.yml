@@ -8,7 +8,7 @@ on:
         required: true
         default: VERIFY
         type: choice
-        options: [VERIFY, PREPARE, HARDEN]
+        options: [VERIFY, INVENTORY, PREPARE, HARDEN]
       commit_sha:
         description: Exact latest main commit SHA
         required: true
@@ -23,14 +23,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: production-database-role-bootstrap
+  group: production-database-change
   cancel-in-progress: false
 
 jobs:
   database-roles:
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
@@ -46,6 +46,7 @@ jobs:
       DATABASE_RUNTIME_ROLE: ${{ vars.DATABASE_RUNTIME_ROLE || 'khedmah_runtime_role' }}
       DATABASE_MIGRATION_ROLE: ${{ vars.DATABASE_MIGRATION_ROLE || 'khedmah_migration_role' }}
       DATABASE_NAME: ${{ vars.DATABASE_NAME || 'khedmah' }}
+      DATABASE_SYSTEM_ROLE_MANIFEST_SHA256: ${{ vars.DATABASE_SYSTEM_ROLE_MANIFEST_SHA256 }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,29 +58,89 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          is_lower_hex() {
+            local value="$1" expected_length="$2"
+            test "${#value}" -eq "$expected_length" || return 1
+            case "$value" in *[!0-9a-f]*) return 1 ;; esac
+          }
+          is_postgres_identifier() {
+            local value="$1"
+            test "${#value}" -le 63 || return 1
+            case "$value" in ''|[0-9]*|*[!A-Za-z0-9_]*) return 1 ;; esac
+          }
+          is_service_account_email() {
+            local value="$1" account_id suffix
+            suffix="@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com"
+            case "$value" in *"$suffix") ;; *) return 1 ;; esac
+            account_id="${value%"$suffix"}"
+            test "${#account_id}" -ge 6 && test "${#account_id}" -le 30 || return 1
+            case "$account_id" in ''|-*|*-|*[!a-z0-9-]*) return 1 ;; esac
+          }
+          is_cloud_sql_connection_name() {
+            local value="$1" project region instance remainder
+            case "$value" in ''|*[!a-z0-9:-]*) return 1 ;; esac
+            project="${value%%:*}"
+            remainder="${value#*:}"
+            test "$remainder" != "$value" || return 1
+            region="${remainder%%:*}"
+            instance="${remainder#*:}"
+            test "$instance" != "$remainder" || return 1
+            case "$instance" in *:*) return 1 ;; esac
+            test "$project" = "$GOOGLE_CLOUD_PROJECT"
+            test "$region" = "$GOOGLE_CLOUD_REGION"
+            for component in "$project" "$region" "$instance"; do
+              case "$component" in ''|-*|*[!a-z0-9-]*) return 1 ;; esac
+            done
+          }
+          is_lower_hex "$REQUESTED_SHA" 40
           git fetch origin main
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
           test "$(git rev-parse origin/main)" = "$REQUESTED_SHA"
           for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_ARTIFACT_REPOSITORY OPERATIONS_BUILD_SERVICE_ACCOUNT OPERATIONS_MIGRATION_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME DATABASE_RUNTIME_USER DATABASE_MIGRATION_USER DATABASE_RUNTIME_ROLE DATABASE_MIGRATION_ROLE DATABASE_NAME; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
-          [[ "$OPERATIONS_BUILD_SERVICE_ACCOUNT" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
-          [[ "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" == *"@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" ]]
-          [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "$GOOGLE_CLOUD_PROJECT:$GOOGLE_CLOUD_REGION:"* ]]
+          case "$OPERATIONS_ARTIFACT_REPOSITORY" in ''|-*|*[!a-z0-9_-]*) exit 1 ;; esac
+          is_service_account_email "$OPERATIONS_BUILD_SERVICE_ACCOUNT"
+          is_service_account_email "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"
+          is_cloud_sql_connection_name "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
+          for identifier in DATABASE_RUNTIME_USER DATABASE_MIGRATION_USER DATABASE_RUNTIME_ROLE DATABASE_MIGRATION_ROLE DATABASE_NAME; do
+            is_postgres_identifier "${!identifier}"
+          done
+          test "$DATABASE_RUNTIME_USER" != postgres
+          test "$DATABASE_MIGRATION_USER" != postgres
+          test "$DATABASE_RUNTIME_USER" != "$DATABASE_MIGRATION_USER"
+          test "$DATABASE_RUNTIME_ROLE" != cloudsqlsuperuser
+          test "$DATABASE_MIGRATION_ROLE" != cloudsqlsuperuser
+          test "$DATABASE_RUNTIME_ROLE" != "$DATABASE_MIGRATION_ROLE"
           case "$REQUESTED_MODE" in
-            VERIFY) DATABASE_ROLE_PHASE=verify ;;
+            VERIFY)
+              DATABASE_ROLE_PHASE=verify
+              DATABASE_MIGRATION_SECRET_SELECTOR=active
+              ;;
+            INVENTORY)
+              DATABASE_ROLE_PHASE=inventory
+              DATABASE_MIGRATION_SECRET_SELECTOR=inventory
+              ;;
             PREPARE)
               test "$REQUESTED_CONFIRMATION" = "PREPARE_KHEDMAH_DATABASE_ROLES_${REQUESTED_SHA:0:7}"
               DATABASE_ROLE_PHASE=prepare
+              DATABASE_MIGRATION_SECRET_SELECTOR=''
               ;;
             HARDEN)
               test "$REQUESTED_CONFIRMATION" = "HARDEN_KHEDMAH_DATABASE_ROLES_${REQUESTED_SHA:0:7}"
               DATABASE_ROLE_PHASE=harden
+              DATABASE_MIGRATION_SECRET_SELECTOR=active
               ;;
             *) echo "Unsupported mode" >&2; exit 1 ;;
           esac
+          if test "$REQUESTED_MODE" = INVENTORY; then
+            DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''
+          else
+            is_lower_hex "$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64
+          fi
           echo "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE" >> "$GITHUB_ENV"
+          echo "DATABASE_MIGRATION_SECRET_SELECTOR=$DATABASE_MIGRATION_SECRET_SELECTOR" >> "$GITHUB_ENV"
+          echo "DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" >> "$GITHUB_ENV"
 
       - name: Reject unapproved Production hosting region
         shell: bash
@@ -107,7 +168,31 @@ jobs:
           gcloud config set project "$GOOGLE_CLOUD_PROJECT"
           gcloud iam service-accounts describe "$OPERATIONS_BUILD_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
           gcloud iam service-accounts describe "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
-          test "$(gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
+          secret_description="$(
+            gcloud secrets describe DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --format=json
+          )"
+          active_version="$(
+            printf '%s' "$secret_description" | jq -r '.versionAliases.active // empty'
+          )"
+          if test "$REQUESTED_MODE" != PREPARE; then
+            case "$REQUESTED_MODE:$DATABASE_MIGRATION_SECRET_SELECTOR" in
+              INVENTORY:inventory)
+                case "$active_version" in
+                  '') DATABASE_MIGRATION_SECRET_SELECTOR=latest ;;
+                  *[!0-9]*) exit 1 ;;
+                  *) DATABASE_MIGRATION_SECRET_SELECTOR=active ;;
+                esac
+                echo "DATABASE_MIGRATION_SECRET_SELECTOR=$DATABASE_MIGRATION_SECRET_SELECTOR" >> "$GITHUB_ENV"
+                ;;
+              VERIFY:active|HARDEN:active)
+                case "$active_version" in ''|*[!0-9]*) exit 1 ;; esac
+                ;;
+              *) exit 1 ;;
+            esac
+            test "$(gcloud secrets versions describe "$DATABASE_MIGRATION_SECRET_SELECTOR" --secret DATABASE_MIGRATION_URL --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
+          fi
           SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
           test "$(gcloud sql instances describe "$SQL_INSTANCE_NAME" --project "$GOOGLE_CLOUD_PROJECT" --format='value(region)')" = "$GOOGLE_CLOUD_REGION"
 
@@ -126,19 +211,22 @@ jobs:
             --quiet
 
       - name: Execute database role phase once
+        if: inputs.mode != 'PREPARE'
         shell: bash
         run: |
           set -euo pipefail
           IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
           JOB="khedmah-database-role-${DATABASE_ROLE_PHASE}"
+          ROLE_JOB_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+          echo "ROLE_JOB_STARTED_AT=$ROLE_JOB_STARTED_AT" >> "$GITHUB_ENV"
           gcloud run jobs deploy "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
             --image "$IMAGE" \
             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
-            --set-env-vars "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$DATABASE_MIGRATION_SECRET_SELECTOR" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
             --tasks 1 \
             --parallelism 1 \
             --max-retries 0 \
@@ -149,32 +237,658 @@ jobs:
             --region "$GOOGLE_CLOUD_REGION" \
             --wait
 
-      - name: Replace Cloud SQL built-in superuser roles with custom least-privilege roles
+      - name: Publish clean-instance system-role manifest candidate
+        if: inputs.mode == 'INVENTORY'
+        shell: bash
+        run: |
+          set -euo pipefail
+          JOB="khedmah-database-role-inventory"
+          inventory_logs=''
+          manifest_sha256=''
+          manifest_records=''
+          for attempt in 1 2 3 4 5 6; do
+            inventory_logs="$(
+              gcloud run jobs logs read "$JOB" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --region "$GOOGLE_CLOUD_REGION" \
+                --log-filter="timestamp>=\"$ROLE_JOB_STARTED_AT\"" \
+                --order=asc \
+                --limit=10000 \
+                --format='value(textPayload)' || true
+            )"
+            manifest_sha256="$(
+              printf '%s\n' "$inventory_logs" \
+                | sed -n 's/^DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=//p' \
+                | tail -n 1
+            )"
+            manifest_records="$(
+              printf '%s\n' "$inventory_logs" \
+                | sed -n 's/^DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=//p'
+            )"
+            test -z "$manifest_sha256" || test -z "$manifest_records" || break
+            sleep 5
+          done
+          test "${#manifest_sha256}" -eq 64
+          case "$manifest_sha256" in *[!0-9a-f]*) exit 1 ;; esac
+          test -n "$manifest_records"
+          while IFS= read -r manifest_record; do
+            [[ "$manifest_record" =~ ^[DMRS]\|[A-Za-z0-9\|+._:-]+$ ]]
+          done <<< "$manifest_records"
+          computed_sha256="$(printf '%s\n' "$manifest_records" | sha256sum | awk '{print $1}')"
+          test "$computed_sha256" = "$manifest_sha256"
+          {
+            printf '%s\n' '### System-role manifest candidate'
+            printf -- '- Candidate SHA-256 (not reviewed): `%s`\n' "$manifest_sha256"
+            printf '%s\n' '- Canonical records for manual review:'
+            printf '%s\n' '```text'
+            printf '%s\n' "$manifest_records"
+            printf '%s\n' '```'
+            printf '%s\n' '- After manual review, set the protected Production variable `DATABASE_SYSTEM_ROLE_MANIFEST_SHA256` to the candidate SHA-256.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Classify resumable prepare role state
+        id: prepare_role_state
         if: inputs.mode == 'PREPARE'
         shell: bash
         run: |
           set -euo pipefail
           SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
-          gcloud sql users assign-roles "$DATABASE_RUNTIME_USER" \
-            --project "$GOOGLE_CLOUD_PROJECT" \
-            --instance "$SQL_INSTANCE_NAME" \
-            --type BUILT_IN \
-            --database-roles "$DATABASE_RUNTIME_ROLE" \
-            --revoke-existing-roles \
-            --quiet
-          gcloud sql users assign-roles "$DATABASE_MIGRATION_USER" \
-            --project "$GOOGLE_CLOUD_PROJECT" \
-            --instance "$SQL_INSTANCE_NAME" \
-            --type BUILT_IN \
-            --database-roles "$DATABASE_MIGRATION_ROLE" \
-            --revoke-existing-roles \
-            --quiet
+          users_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users list \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e \
+                  --arg runtime "$DATABASE_RUNTIME_USER" \
+                  --arg migration "$DATABASE_MIGRATION_USER" \
+                  'length == 3
+                    and all(.[]; .type == "BUILT_IN")
+                    and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
+                  >/dev/null; then
+              users_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$users_ready" = true
+          describe_database_user() {
+            local user="$1" description=''
+            for attempt in 1 2 3 4 5 6; do
+              if description="$(
+                gcloud sql users describe "$user" \
+                  --project "$GOOGLE_CLOUD_PROJECT" \
+                  --instance "$SQL_INSTANCE_NAME" \
+                  --format=json
+              )" && printf '%s' "$description" \
+                | jq -e --arg expected "$user" \
+                    '.name == $expected and .type == "BUILT_IN"' >/dev/null; then
+                printf '%s' "$description"
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+          classify_database_roles() {
+            local description="$1" custom_role="$2"
+            printf '%s' "$description" \
+              | jq -er --arg custom "$custom_role" '
+                  if .databaseRoles == ["cloudsqlsuperuser"] then "cloudsqlsuperuser"
+                  elif .databaseRoles == [$custom] then "custom"
+                  else "invalid"
+                  end'
+          }
+          runtime_description="$(describe_database_user "$DATABASE_RUNTIME_USER")"
+          migration_description="$(describe_database_user "$DATABASE_MIGRATION_USER")"
+          runtime_state="$(classify_database_roles "$runtime_description" "$DATABASE_RUNTIME_ROLE")"
+          migration_state="$(classify_database_roles "$migration_description" "$DATABASE_MIGRATION_ROLE")"
+          case "$runtime_state:$migration_state" in
+            cloudsqlsuperuser:cloudsqlsuperuser) prepare_state=initial ;;
+            custom:cloudsqlsuperuser) prepare_state=resume ;;
+            custom:custom) prepare_state=completed ;;
+            *)
+              echo 'ERROR: Cloud SQL database role state is not a resumable PREPARE state.' >&2
+              exit 1
+              ;;
+          esac
+          echo "state=$prepare_state" >> "$GITHUB_OUTPUT"
 
-      - name: Verify role isolation immediately after prepare
+      - name: Rotate migration password before runtime cutover
+        id: rotate_transition_password
         if: inputs.mode == 'PREPARE'
         shell: bash
         run: |
           set -euo pipefail
+          set +x
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          migration_password="$(openssl rand -hex 32)"
+          test "${#migration_password}" -eq 64
+          case "$migration_password" in *[!0-9a-f]*) exit 1 ;; esac
+          migration_url="postgresql://${DATABASE_MIGRATION_USER}:${migration_password}@localhost/${DATABASE_NAME}"
+          printf '::add-mask::%s\n' "$migration_password"
+          printf '::add-mask::%s\n' "$migration_url"
+          trap 'unset migration_password migration_url' EXIT
+          transition_version=''
+          for attempt in 1 2 3 4 5; do
+            if transition_version="$(
+              printf '%s' "$migration_url" \
+                | gcloud secrets versions add DATABASE_MIGRATION_URL \
+                    --project "$GOOGLE_CLOUD_PROJECT" \
+                    --data-file=- \
+                    --format='value(name)' \
+                    --quiet
+            )"; then
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          transition_version="${transition_version##*/}"
+          case "$transition_version" in ''|*[!0-9]*) exit 1 ;; esac
+          transition_state=''
+          for attempt in 1 2 3 4 5 6; do
+            transition_state="$(
+              gcloud secrets versions describe "$transition_version" \
+                --secret DATABASE_MIGRATION_URL \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format='value(state)' || true
+            )"
+            test "$transition_state" != ENABLED || break
+            sleep 5
+          done
+          test "$transition_state" = ENABLED
+
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          PROBE_JOB="khedmah-database-role-probe"
+          gcloud run jobs deploy "$PROBE_JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$transition_version" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=probe,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
+            --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+
+          password_verified=false
+          for attempt in 1 2 3 4 5; do
+            if ! gcloud sql users set-password "$DATABASE_MIGRATION_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --password "$migration_password" \
+              --quiet; then
+              echo 'Cloud SQL password update returned nonzero; probing candidate authentication.' >&2
+            fi
+            if gcloud run jobs execute "$PROBE_JOB" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --wait; then
+              password_verified=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$password_verified" = true
+          echo "version=$transition_version" >> "$GITHUB_OUTPUT"
+
+      - name: Execute prepare database role phase once
+        id: prepare_database_roles
+        if: inputs.mode == 'PREPARE' && steps.prepare_role_state.outputs.state == 'initial'
+        shell: bash
+        env:
+          CANDIDATE_SECRET_VERSION: ${{ steps.rotate_transition_password.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$CANDIDATE_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          JOB="khedmah-database-role-prepare"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$CANDIDATE_SECRET_VERSION" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=prepare,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
+            --tasks 1 \
+            --parallelism 1 \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --quiet
+          gcloud run jobs execute "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --wait
+
+      - name: Arm runtime cutover recovery
+        id: arm_runtime_cutover
+        if: inputs.mode == 'PREPARE' && (steps.prepare_role_state.outputs.state == 'resume' || (steps.prepare_role_state.outputs.state == 'initial' && steps.prepare_database_roles.outcome == 'success'))
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'DATABASE_RUNTIME_CUTOVER_ARMED=true' >> "$GITHUB_ENV"
+          echo 'armed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Enforce runtime cutover containment
+        id: runtime_containment
+        if: inputs.mode == 'PREPARE' && steps.arm_runtime_cutover.outputs.armed == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          assert_database_user_allowlist() {
+            gcloud sql users list \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e \
+                  --arg runtime "$DATABASE_RUNTIME_USER" \
+                  --arg migration "$DATABASE_MIGRATION_USER" \
+                  'length == 3
+                    and all(.[]; .type == "BUILT_IN")
+                    and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
+                  >/dev/null
+          }
+          assert_database_user_allowlist
+
+          postgres_password="$(openssl rand -hex 32)"
+          test "${#postgres_password}" -eq 64
+          case "$postgres_password" in *[!0-9a-f]*) exit 1 ;; esac
+          printf '::add-mask::%s\n' "$postgres_password"
+          trap 'unset postgres_password' EXIT
+          postgres_password_updated=false
+          for attempt in 1 2 3 4 5; do
+            if gcloud sql users set-password postgres \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --password "$postgres_password" \
+              --quiet; then
+              postgres_password_updated=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$postgres_password_updated" = true
+
+          runtime_role_assigned=false
+          for attempt in 1 2 3 4 5; do
+            if gcloud sql users assign-roles "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --type BUILT_IN \
+              --database-roles "$DATABASE_RUNTIME_ROLE" \
+              --revoke-existing-roles \
+              --quiet; then
+              runtime_role_assigned=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$runtime_role_assigned" = true
+          runtime_role_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users describe "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
+                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+              runtime_role_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$runtime_role_ready" = true
+
+          restart_not_before_millis="$(date -u +%s%3N)"
+          test "${#restart_not_before_millis}" -eq 13
+          case "$restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
+          gcloud sql instances restart "$SQL_INSTANCE_NAME" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --quiet
+          instance_ready=false
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if test "$(
+              gcloud sql instances describe "$SQL_INSTANCE_NAME" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format='value(state)' || true
+            )" = RUNNABLE; then
+              instance_ready=true
+              break
+            fi
+            sleep 10
+          done
+          test "$instance_ready" = true
+          assert_database_user_allowlist
+
+          runtime_role_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users describe "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
+                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+              runtime_role_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$runtime_role_ready" = true
+          echo "restart_not_before_millis=$restart_not_before_millis" >> "$GITHUB_OUTPUT"
+          echo 'contained=true' >> "$GITHUB_OUTPUT"
+
+      - name: Recover ambiguous runtime containment
+        id: recover_runtime_containment
+        if: always() && inputs.mode == 'PREPARE' && steps.arm_runtime_cutover.outputs.armed == 'true' && steps.runtime_containment.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          assert_database_user_allowlist() {
+            gcloud sql users list \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e \
+                  --arg runtime "$DATABASE_RUNTIME_USER" \
+                  --arg migration "$DATABASE_MIGRATION_USER" \
+                  'length == 3
+                    and all(.[]; .type == "BUILT_IN")
+                    and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
+                  >/dev/null
+          }
+          assert_database_user_allowlist
+
+          postgres_password="$(openssl rand -hex 32)"
+          test "${#postgres_password}" -eq 64
+          case "$postgres_password" in *[!0-9a-f]*) exit 1 ;; esac
+          printf '::add-mask::%s\n' "$postgres_password"
+          trap 'unset postgres_password' EXIT
+          postgres_password_updated=false
+          for attempt in 1 2 3 4 5; do
+            if gcloud sql users set-password postgres \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --password "$postgres_password" \
+              --quiet; then
+              postgres_password_updated=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$postgres_password_updated" = true
+
+          runtime_role_assigned=false
+          for attempt in 1 2 3 4 5; do
+            if gcloud sql users assign-roles "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --type BUILT_IN \
+              --database-roles "$DATABASE_RUNTIME_ROLE" \
+              --revoke-existing-roles \
+              --quiet; then
+              runtime_role_assigned=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$runtime_role_assigned" = true
+
+          runtime_role_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users describe "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
+                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+              runtime_role_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$runtime_role_ready" = true
+
+          restart_not_before_millis="$(date -u +%s%3N)"
+          test "${#restart_not_before_millis}" -eq 13
+          case "$restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
+          gcloud sql instances restart "$SQL_INSTANCE_NAME" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --quiet
+          instance_ready=false
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if test "$(
+              gcloud sql instances describe "$SQL_INSTANCE_NAME" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format='value(state)' || true
+            )" = RUNNABLE; then
+              instance_ready=true
+              break
+            fi
+            sleep 10
+          done
+          test "$instance_ready" = true
+          assert_database_user_allowlist
+
+          runtime_role_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users describe "$DATABASE_RUNTIME_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
+                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+              runtime_role_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$runtime_role_ready" = true
+          echo "restart_not_before_millis=$restart_not_before_millis" >> "$GITHUB_OUTPUT"
+          echo 'contained=true' >> "$GITHUB_OUTPUT"
+
+      - name: Audit the restarted runtime cutover and fresh database
+        id: cutover_audit
+        if: always() && inputs.mode == 'PREPARE' && steps.arm_runtime_cutover.outputs.armed == 'true' && (steps.runtime_containment.outcome == 'success' || steps.recover_runtime_containment.outputs.contained == 'true')
+        shell: bash
+        env:
+          CANDIDATE_SECRET_VERSION: ${{ steps.rotate_transition_password.outputs.version }}
+          PRIMARY_CONTAINMENT_OUTCOME: ${{ steps.runtime_containment.outcome }}
+          PRIMARY_RESTART_NOT_BEFORE_MILLIS: ${{ steps.runtime_containment.outputs.restart_not_before_millis }}
+          RECOVERY_CONTAINED: ${{ steps.recover_runtime_containment.outputs.contained }}
+          RECOVERY_RESTART_NOT_BEFORE_MILLIS: ${{ steps.recover_runtime_containment.outputs.restart_not_before_millis }}
+        run: |
+          set -euo pipefail
+          case "$CANDIDATE_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
+          if test "$PRIMARY_CONTAINMENT_OUTCOME" = success; then
+            cutover_restart_not_before_millis="$PRIMARY_RESTART_NOT_BEFORE_MILLIS"
+          else
+            test "$RECOVERY_CONTAINED" = true
+            cutover_restart_not_before_millis="$RECOVERY_RESTART_NOT_BEFORE_MILLIS"
+          fi
+          test "${#cutover_restart_not_before_millis}" -eq 13
+          case "$cutover_restart_not_before_millis" in *[!0-9]*) exit 1 ;; esac
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          JOB="khedmah-database-role-cutover-audit"
+          CUTOVER_JOB_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$CANDIDATE_SECRET_VERSION" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=cutover-audit,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256,DATABASE_CUTOVER_RESTART_NOT_BEFORE_MILLIS=$cutover_restart_not_before_millis" \
+            --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+          gcloud run jobs execute "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --wait
+          cutover_marker=''
+          for attempt in 1 2 3 4 5 6; do
+            cutover_marker="$(
+              gcloud run jobs logs read "$JOB" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --region "$GOOGLE_CLOUD_REGION" \
+                --log-filter="timestamp>=\"$CUTOVER_JOB_STARTED_AT\" AND textPayload=\"DATABASE_RUNTIME_CUTOVER_AUDITED\"" \
+                --order=asc \
+                --limit=10 \
+                --format='value(textPayload)' \
+                | tail -n 1 || true
+            )"
+            test "$cutover_marker" != DATABASE_RUNTIME_CUTOVER_AUDITED || break
+            sleep 5
+          done
+          test "$cutover_marker" = DATABASE_RUNTIME_CUTOVER_AUDITED
+
+      - name: Replace migration Cloud SQL superuser role after the cutover audit
+        id: demote_migration
+        if: always() && inputs.mode == 'PREPARE' && steps.cutover_audit.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          migration_role_assigned=false
+          for attempt in 1 2 3 4 5; do
+            if gcloud sql users assign-roles "$DATABASE_MIGRATION_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --type BUILT_IN \
+              --database-roles "$DATABASE_MIGRATION_ROLE" \
+              --revoke-existing-roles \
+              --quiet; then
+              migration_role_assigned=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$migration_role_assigned" = true
+          migration_role_ready=false
+          for attempt in 1 2 3 4 5 6; do
+            if gcloud sql users describe "$DATABASE_MIGRATION_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format=json \
+              | jq -e --arg expected "$DATABASE_MIGRATION_ROLE" \
+                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+              migration_role_ready=true
+              break
+            fi
+            sleep 5
+          done
+          test "$migration_role_ready" = true
+
+      - name: Finalize migration password after role cutover
+        id: finalize_migration_password
+        if: always() && inputs.mode == 'PREPARE' && steps.prepare_role_state.outcome == 'success' && steps.rotate_transition_password.outcome == 'success' && (steps.prepare_role_state.outputs.state == 'completed' || ((steps.prepare_role_state.outputs.state == 'initial' || steps.prepare_role_state.outputs.state == 'resume') && steps.demote_migration.outcome == 'success'))
+        shell: bash
+        env:
+          PREPARE_STATE: ${{ steps.prepare_role_state.outputs.state }}
+          MIGRATION_DEMOTION_OUTCOME: ${{ steps.demote_migration.outcome }}
+          TRANSITION_SECRET_VERSION: ${{ steps.rotate_transition_password.outputs.version }}
+        run: |
+          set -euo pipefail
+          set +x
+          case "$TRANSITION_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
+          assert_enabled_secret_version() {
+            local expected_version="$1" version_state=''
+            for attempt in 1 2 3 4 5 6; do
+              version_state="$(
+                gcloud secrets versions describe "$expected_version" \
+                  --secret DATABASE_MIGRATION_URL \
+                  --project "$GOOGLE_CLOUD_PROJECT" \
+                  --format='value(state)' || true
+              )"
+              test "$version_state" != ENABLED || return 0
+              sleep 5
+            done
+            return 1
+          }
+          case "$PREPARE_STATE" in
+            completed)
+              final_version="$TRANSITION_SECRET_VERSION"
+              ;;
+            initial|resume)
+              test "$MIGRATION_DEMOTION_OUTCOME" = success
+              SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+              migration_password="$(openssl rand -hex 32)"
+              test "${#migration_password}" -eq 64
+              case "$migration_password" in *[!0-9a-f]*) exit 1 ;; esac
+              migration_url="postgresql://${DATABASE_MIGRATION_USER}:${migration_password}@localhost/${DATABASE_NAME}"
+              printf '::add-mask::%s\n' "$migration_password"
+              printf '::add-mask::%s\n' "$migration_url"
+              trap 'unset migration_password migration_url' EXIT
+
+              final_version=''
+              for attempt in 1 2 3 4 5; do
+                if final_version="$(
+                  printf '%s' "$migration_url" \
+                    | gcloud secrets versions add DATABASE_MIGRATION_URL \
+                        --project "$GOOGLE_CLOUD_PROJECT" \
+                        --data-file=- \
+                        --format='value(name)' \
+                        --quiet
+                )"; then
+                  break
+                fi
+                sleep "$((attempt * 3))"
+              done
+              final_version="${final_version##*/}"
+              case "$final_version" in ''|*[!0-9]*) exit 1 ;; esac
+              assert_enabled_secret_version "$final_version"
+
+              IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+              PROBE_JOB="khedmah-database-role-probe"
+              gcloud run jobs deploy "$PROBE_JOB" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --region "$GOOGLE_CLOUD_REGION" \
+                --image "$IMAGE" \
+                --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+                --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+                --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$final_version" \
+                --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=probe,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
+                --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+
+              password_verified=false
+              for attempt in 1 2 3 4 5; do
+                if ! gcloud sql users set-password "$DATABASE_MIGRATION_USER" \
+                  --project "$GOOGLE_CLOUD_PROJECT" \
+                  --instance "$SQL_INSTANCE_NAME" \
+                  --password "$migration_password" \
+                  --quiet; then
+                  echo 'Cloud SQL password update returned nonzero; probing candidate authentication.' >&2
+                fi
+                if gcloud run jobs execute "$PROBE_JOB" \
+                  --project "$GOOGLE_CLOUD_PROJECT" \
+                  --region "$GOOGLE_CLOUD_REGION" \
+                  --wait; then
+                  password_verified=true
+                  break
+                fi
+                sleep "$((attempt * 3))"
+              done
+              test "$password_verified" = true
+              assert_enabled_secret_version "$final_version"
+              ;;
+            *) exit 1 ;;
+          esac
+
+          assert_enabled_secret_version "$final_version"
+          echo "version=$final_version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify role isolation immediately after prepare
+        id: verify_database_roles
+        if: success() && inputs.mode == 'PREPARE' && steps.finalize_migration_password.outcome == 'success'
+        shell: bash
+        env:
+          FINAL_SECRET_VERSION: ${{ steps.finalize_migration_password.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$FINAL_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
           IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
           JOB="khedmah-database-role-verify"
           gcloud run jobs deploy "$JOB" \
@@ -183,13 +897,55 @@ jobs:
             --image "$IMAGE" \
             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
-            --set-env-vars "DATABASE_ROLE_PHASE=verify,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$FINAL_SECRET_VERSION" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=verify,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" \
             --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
           gcloud run jobs execute "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
             --wait
+
+      - name: Commit verified migration secret active alias
+        if: success() && inputs.mode == 'PREPARE' && steps.verify_database_roles.outcome == 'success'
+        shell: bash
+        env:
+          FINAL_SECRET_VERSION: ${{ steps.finalize_migration_password.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$FINAL_SECRET_VERSION" in ''|*[!0-9]*) exit 1 ;; esac
+          test "$(
+            gcloud secrets versions describe "$FINAL_SECRET_VERSION" \
+              --secret DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --format='value(state)'
+          )" = ENABLED
+          active_alias_committed=false
+          for attempt in 1 2 3 4 5 6; do
+            if ! gcloud secrets update DATABASE_MIGRATION_URL \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --update-version-aliases=active="$FINAL_SECRET_VERSION" \
+                --quiet >/dev/null; then
+              echo 'Secret Manager alias update returned nonzero; verifying committed metadata.' >&2
+            fi
+            active_version="$(
+              gcloud secrets describe DATABASE_MIGRATION_URL \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format=json \
+                | jq -r '.versionAliases.active // empty' || true
+            )"
+            active_state="$(
+              gcloud secrets versions describe active \
+                --secret DATABASE_MIGRATION_URL \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format='value(state)' || true
+            )"
+            if test "$active_version" = "$FINAL_SECRET_VERSION" && test "$active_state" = ENABLED; then
+              active_alias_committed=true
+              break
+            fi
+            sleep 5
+          done
+          test "$active_alias_committed" = true
 
       - name: Publish non-secret role-bootstrap evidence
         if: always()
@@ -198,8 +954,8 @@ jobs:
         shell: bash
         run: |
           {
-            echo '### Production database role bootstrap'
-            echo "- Commit: `$REQUESTED_SHA`"
-            echo "- Mode: `$REQUESTED_MODE`"
-            echo "- Result: `$RESULT`"
+            printf '%s\n' '### Production database role bootstrap'
+            printf -- '- Commit: `%s`\n' "$REQUESTED_SHA"
+            printf -- '- Mode: `%s`\n' "$REQUESTED_MODE"
+            printf -- '- Result: `%s`\n' "$RESULT"
           } >> "$GITHUB_STEP_SUMMARY"

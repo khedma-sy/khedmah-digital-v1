@@ -118,17 +118,20 @@ test('Production deployment capture distinguishes first deploy from lookup failu
 test('Production operator verifies hardened database roles before Cloud Build deployment', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT: \$\{\{ vars\.OPERATIONS_MIGRATION_SERVICE_ACCOUNT \}\}/);
-  assert.match(workflow, /Verify production database role isolation before deployment/);
+  assert.match(workflow, /Verify hardened production database roles before deployment/);
   assert.match(workflow, /cloudbuild\.database-role-bootstrap\.yaml/);
-  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
-  assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
+  assert.match(workflow, /gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL/);
+  assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.doesNotMatch(workflow, /gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL/);
+  assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
+  assert.match(workflow, /DATABASE_ROLE_PHASE=verify-hardened/);
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
 });
 
 
 test('VERIFY_ONLY never creates database verification jobs', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
-  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+  const block = workflow.split('- name: Verify hardened production database roles before deployment')[1]
     ?.split('\n      - name:')[0] ?? '';
   assert.match(block, /if: inputs\.mode == 'DEPLOY_PRODUCTION'/);
   assert.match(block, /gcloud run jobs deploy/);
@@ -137,7 +140,7 @@ test('VERIFY_ONLY never creates database verification jobs', () => {
 
 test('DB preflight is SHA-locked before any mutation', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
-  const block = workflow.split('- name: Verify production database role isolation before deployment')[1]
+  const block = workflow.split('- name: Verify hardened production database roles before deployment')[1]
     ?.split('\n  deploy:')[0] ?? '';
   assert.match(block, /git fetch origin main/);
   assert.match(block, /git rev-parse origin\/main/);
