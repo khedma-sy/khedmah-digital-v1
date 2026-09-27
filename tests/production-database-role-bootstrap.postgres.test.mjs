@@ -153,7 +153,7 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           ].join('\n'),
           'The runtime login is contained while PostgreSQL retains the creator ADMIN memberships until migration demotion.');
 
-          const restartNotBeforeMillis = await restartIsolatedPostgres(adminUrl);
+          const restartNotBeforeMillis = await restartIsolatedPostgres(fixture);
           if (restartNotBeforeMillis === null) {
             // A caller that supplied a dedicated cluster instead of Docker is
             // responsible for platform restart semantics. End the synthetic
@@ -749,18 +749,9 @@ async function isolatedPostgresAdminUrl(t, fallbackUrl) {
       diagnostic('failed to remove the isolated PostgreSQL acceptance container', removed));
   });
 
-  const published = spawnSync('docker', ['port', containerName, '5432/tcp'], {
-    encoding: 'utf8',
-    timeout: 15_000,
-  });
-  assert.equal(published.status, 0,
-    diagnostic('failed to resolve the isolated PostgreSQL port', published));
-  const portMatch = published.stdout.trim().match(/^127\.0\.0\.1:(\d+)$/);
-  assert.ok(portMatch, `ISOLATED_POSTGRES_PORT_NOT_LOOPBACK: ${published.stdout.trim()}`);
-
   const url = new URL('postgresql://postgres@127.0.0.1');
   url.password = password;
-  url.port = portMatch[1];
+  url.port = isolatedPostgresPort(containerName);
   url.pathname = `/${databaseName}`;
 
   let ready = false;
@@ -787,7 +778,8 @@ async function isolatedPostgresAdminUrl(t, fallbackUrl) {
   return url;
 }
 
-async function restartIsolatedPostgres(adminUrl) {
+async function restartIsolatedPostgres(fixture) {
+  const { adminUrl } = fixture;
   const containerName = adminUrl.isolatedContainerName;
   if (!containerName) return null;
 
@@ -799,6 +791,19 @@ async function restartIsolatedPostgres(adminUrl) {
   });
   assert.equal(restarted.status, 0,
     diagnostic('failed to restart the isolated PostgreSQL acceptance container', restarted));
+
+  // Docker may allocate a new host port after restarting a container whose
+  // loopback publication used an ephemeral host port. Re-resolve it before
+  // probing readiness, then refresh every fixture URL derived before restart.
+  const publishedPort = isolatedPostgresPort(containerName);
+  adminUrl.port = publishedPort;
+  fixture.adminDatabaseUrl.port = publishedPort;
+  fixture.migrationUrl = connectionUrl({
+    baseUrl: adminUrl,
+    databaseName: fixture.databaseName,
+    username: fixture.migrationUser,
+    password: fixture.migrationPassword,
+  }).toString();
 
   let ready = false;
   let lastReadiness = null;
@@ -813,6 +818,18 @@ async function restartIsolatedPostgres(adminUrl) {
   assert.equal(ready, true,
     diagnostic('restarted PostgreSQL acceptance container did not become ready', lastReadiness ?? {}));
   return restartNotBeforeMillis;
+}
+
+function isolatedPostgresPort(containerName) {
+  const published = spawnSync('docker', ['port', containerName, '5432/tcp'], {
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  assert.equal(published.status, 0,
+    diagnostic('failed to resolve the isolated PostgreSQL port', published));
+  const portMatch = published.stdout.trim().match(/^127\.0\.0\.1:(\d+)$/);
+  assert.ok(portMatch, `ISOLATED_POSTGRES_PORT_NOT_LOOPBACK: ${published.stdout.trim()}`);
+  return portMatch[1];
 }
 
 async function withFixture(adminUrl, options, work) {
@@ -833,6 +850,7 @@ async function withFixture(adminUrl, options, work) {
 
   assertSafeDisposableDatabase(fixture.databaseName);
 
+  let primaryFailure;
   try {
     execute(adminUrl, `
       CREATE ROLE ${identifier(fixture.runtimeUser)}
@@ -950,8 +968,20 @@ async function withFixture(adminUrl, options, work) {
     fixture.systemRoleManifestSha256 = captureSystemRoleManifest(fixture);
 
     await work(fixture);
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
   } finally {
-    cleanupFixture(adminUrl, fixture);
+    try {
+      cleanupFixture(adminUrl, fixture);
+    } catch (cleanupFailure) {
+      if (!primaryFailure) throw cleanupFailure;
+      primaryFailure.message = [
+        primaryFailure.message,
+        'Disposable fixture cleanup also failed:',
+        cleanupFailure.message,
+      ].join('\n');
+    }
   }
 }
 
