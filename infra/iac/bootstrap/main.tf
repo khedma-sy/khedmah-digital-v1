@@ -246,11 +246,12 @@ resource "google_project_iam_custom_role" "database_user_role_manager" {
   project     = var.project_id
   role_id     = "khedmahDatabaseUserRoleManager"
   title       = "Khedmah Database User Role Manager"
-  description = "Minimal permission set used only to replace Cloud SQL built-in database role assignments."
+  description = "Minimal permissions for Cloud SQL database-user role changes and emergency cutover session eviction by instance restart."
 
   permissions = [
     "cloudsql.instances.get",
     "cloudsql.instances.list",
+    "cloudsql.instances.restart",
     "cloudsql.users.get",
     "cloudsql.users.list",
     "cloudsql.users.update",
@@ -369,6 +370,20 @@ resource "google_secret_manager_secret" "database_migration" {
   depends_on = [google_project_service.bootstrap]
 }
 
+resource "google_project_iam_custom_role" "database_migration_alias_manager" {
+  project     = var.project_id
+  role_id     = "khedmahDatabaseMigrationAliasManager"
+  title       = "Khedmah Database Migration Alias Manager"
+  description = "Minimal permissions to read and commit version aliases on the Production database migration secret."
+
+  permissions = [
+    "secretmanager.secrets.get",
+    "secretmanager.secrets.update",
+  ]
+
+  depends_on = [google_project_service.bootstrap]
+}
+
 resource "google_secret_manager_secret_iam_member" "database_migration_accessor" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.database_migration.secret_id
@@ -380,6 +395,13 @@ resource "google_secret_manager_secret_iam_member" "database_migration_deployer_
   project   = var.project_id
   secret_id = google_secret_manager_secret.database_migration.secret_id
   role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "database_migration_deployer_alias_manager" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.database_migration.secret_id
+  role      = google_project_iam_custom_role.database_migration_alias_manager.name
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 

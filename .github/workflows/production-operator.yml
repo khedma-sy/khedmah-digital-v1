@@ -31,7 +31,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: production-schema-operator
+  group: production-database-change
   cancel-in-progress: false
 
 env:
@@ -41,6 +41,11 @@ env:
   OPERATIONS_ARTIFACT_REPOSITORY: ${{ vars.OPERATIONS_ARTIFACT_REPOSITORY || 'khedmah-digital' }}
   OPERATIONS_BUILD_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_BUILD_SERVICE_ACCOUNT }}
   OPERATIONS_MIGRATION_SERVICE_ACCOUNT: ${{ vars.OPERATIONS_MIGRATION_SERVICE_ACCOUNT }}
+  DATABASE_RUNTIME_USER: ${{ vars.DATABASE_RUNTIME_USER || 'khedmah_app' }}
+  DATABASE_MIGRATION_USER: ${{ vars.DATABASE_MIGRATION_USER || 'khedmah_migrator' }}
+  DATABASE_RUNTIME_ROLE: ${{ vars.DATABASE_RUNTIME_ROLE || 'khedmah_runtime_role' }}
+  DATABASE_MIGRATION_ROLE: ${{ vars.DATABASE_MIGRATION_ROLE || 'khedmah_migration_role' }}
+  DATABASE_NAME: ${{ vars.DATABASE_NAME || 'khedmah' }}
   CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
 
 jobs:
@@ -75,7 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in GOOGLE_CLOUD_PROJECT PRODUCTION_GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_ARTIFACT_REPOSITORY OPERATIONS_BUILD_SERVICE_ACCOUNT OPERATIONS_MIGRATION_SERVICE_ACCOUNT CLOUD_SQL_INSTANCE_CONNECTION_NAME; do
+          for name in GOOGLE_CLOUD_PROJECT PRODUCTION_GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION OPERATIONS_ARTIFACT_REPOSITORY OPERATIONS_BUILD_SERVICE_ACCOUNT OPERATIONS_MIGRATION_SERVICE_ACCOUNT DATABASE_RUNTIME_USER DATABASE_MIGRATION_USER DATABASE_RUNTIME_ROLE DATABASE_MIGRATION_ROLE DATABASE_NAME CLOUD_SQL_INSTANCE_CONNECTION_NAME; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
           test "$GOOGLE_CLOUD_PROJECT" = "$PRODUCTION_GOOGLE_CLOUD_PROJECT"
@@ -87,7 +92,7 @@ jobs:
           gcloud iam service-accounts describe "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" --project "$GOOGLE_CLOUD_PROJECT" --format='value(email)' >/dev/null
           SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
           test "$(gcloud sql instances describe "$SQL_INSTANCE_NAME" --project "$GOOGLE_CLOUD_PROJECT" --format='value(region)')" = "$GOOGLE_CLOUD_REGION"
-          test "$(gcloud secrets versions describe latest --secret DATABASE_MIGRATION_URL --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
+          test "$(gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')" = ENABLED
 
   migrate:
     name: Apply reviewed database migration
@@ -187,8 +192,8 @@ jobs:
             --image "$IMAGE" \
             --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:latest' \
-            --set-env-vars "MIGRATION_VERSION=$MIGRATION_VERSION,MIGRATION_SHA256=$MIGRATION_SHA256" \
+            --set-secrets 'DATABASE_URL=DATABASE_MIGRATION_URL:active' \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,MIGRATION_VERSION=$MIGRATION_VERSION,MIGRATION_SHA256=$MIGRATION_SHA256" \
             --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
           gcloud run jobs execute "$JOB" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait
 
