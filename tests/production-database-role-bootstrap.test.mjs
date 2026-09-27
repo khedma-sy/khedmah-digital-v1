@@ -82,8 +82,17 @@ test('Taxi approval table updates stay column-scoped in production hardening', a
   assert.match(script, /NOT has_column_privilege\('\$RUNTIME_USER','khedmah_taxi\.vehicle_approvals','id','UPDATE'\)/);
 });
 
-test('database role preparation relies on PostgreSQL non-superuser defaults', async () => {
+test('database role preparation never alters pre-existing roles and verifies least privilege', async () => {
   const script = await readFile(new URL('../scripts/production-database-role-bootstrap.sh', import.meta.url), 'utf8');
   const prepare = script.split('  prepare)')[1].split('  verify)')[0];
+  const isolationQuery = script.split('verify_isolation_sql="')[1].split('"')[0];
+
+  assert.doesNotMatch(prepare, /^\s*ALTER\s+ROLE\b/im);
+  assert.match(prepare, /CREATE ROLE "\$RUNTIME_ROLE" NOLOGIN NOCREATEDB NOCREATEROLE/);
+  assert.match(prepare, /CREATE ROLE "\$MIGRATION_ROLE" NOLOGIN NOCREATEDB NOCREATEROLE/);
+  assert.match(prepare, /DATABASE_ROLE_CUSTOM_ROLE_ATTRIBUTES_NOT_SAFE/);
+  assert.match(prepare, /DATABASE_ROLE_LOGIN_PRIVILEGES_NOT_SAFE/);
+  assert.match(isolationQuery, /rolcanlogin FROM pg_roles WHERE rolname='\$RUNTIME_ROLE'/);
+  assert.match(isolationQuery, /rolcanlogin FROM pg_roles WHERE rolname='\$MIGRATION_ROLE'/);
   assert.doesNotMatch(prepare, /\bNOSUPERUSER\b/);
 });
