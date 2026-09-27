@@ -8,13 +8,17 @@ on:
         required: true
         default: VERIFY
         type: choice
-        options: [VERIFY, INVENTORY, PREPARE, HARDEN]
+        options: [VERIFY, INVENTORY, PREPARE, HARDEN, REPAIR_MIGRATION_SECRET]
       commit_sha:
         description: Exact latest main commit SHA
         required: true
         type: string
+      repair_candidate_version:
+        description: Optional numeric candidate version for resuming REPAIR_MIGRATION_SECRET
+        required: false
+        type: string
       confirmation:
-        description: 'Required for PREPARE/HARDEN: <MODE>_KHEDMAH_DATABASE_ROLES_<sha7>'
+        description: 'Required for PREPARE/HARDEN/REPAIR_MIGRATION_SECRET: <MODE>_KHEDMAH_DATABASE_ROLES_<sha7>'
         required: false
         type: string
 
@@ -41,6 +45,7 @@ jobs:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
       REQUESTED_MODE: ${{ inputs.mode }}
       REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+      REQUESTED_REPAIR_CANDIDATE_VERSION: ${{ inputs.repair_candidate_version }}
       DATABASE_RUNTIME_USER: ${{ vars.DATABASE_RUNTIME_USER || 'khedmah_app' }}
       DATABASE_MIGRATION_USER: ${{ vars.DATABASE_MIGRATION_USER || 'khedmah_migrator' }}
       DATABASE_RUNTIME_ROLE: ${{ vars.DATABASE_RUNTIME_ROLE || 'khedmah_runtime_role' }}
@@ -126,6 +131,18 @@ jobs:
               DATABASE_ROLE_PHASE=prepare
               DATABASE_MIGRATION_SECRET_SELECTOR=''
               ;;
+            REPAIR_MIGRATION_SECRET)
+              test "$REQUESTED_CONFIRMATION" = "REPAIR_MIGRATION_SECRET_KHEDMAH_DATABASE_ROLES_${REQUESTED_SHA:0:7}"
+              DATABASE_ROLE_PHASE=probe
+              DATABASE_MIGRATION_SECRET_SELECTOR=''
+              case "$REQUESTED_REPAIR_CANDIDATE_VERSION" in
+                '') ;;
+                0|0*|*[!0-9]*)
+                  echo 'ERROR: repair_candidate_version must be an existing positive numeric Secret Manager version.' >&2
+                  exit 1
+                  ;;
+              esac
+              ;;
             HARDEN)
               test "$REQUESTED_CONFIRMATION" = "HARDEN_KHEDMAH_DATABASE_ROLES_${REQUESTED_SHA:0:7}"
               DATABASE_ROLE_PHASE=harden
@@ -133,11 +150,13 @@ jobs:
               ;;
             *) echo "Unsupported mode" >&2; exit 1 ;;
           esac
-          if test "$REQUESTED_MODE" = INVENTORY; then
-            DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''
-          else
-            is_lower_hex "$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64
+          if test "$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then
+            test -z "$REQUESTED_REPAIR_CANDIDATE_VERSION"
           fi
+          case "$REQUESTED_MODE" in
+            INVENTORY|REPAIR_MIGRATION_SECRET) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256='' ;;
+            *) is_lower_hex "$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64 ;;
+          esac
           echo "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE" >> "$GITHUB_ENV"
           echo "DATABASE_MIGRATION_SECRET_SELECTOR=$DATABASE_MIGRATION_SECRET_SELECTOR" >> "$GITHUB_ENV"
           echo "DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" >> "$GITHUB_ENV"
@@ -176,7 +195,7 @@ jobs:
           active_version="$(
             printf '%s' "$secret_description" | jq -r '.versionAliases.active // empty'
           )"
-          if test "$REQUESTED_MODE" != PREPARE; then
+          if test "$REQUESTED_MODE" != PREPARE && test "$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then
             case "$REQUESTED_MODE:$DATABASE_MIGRATION_SECRET_SELECTOR" in
               INVENTORY:inventory)
                 case "$active_version" in
@@ -210,8 +229,201 @@ jobs:
             --substitutions "COMMIT_SHA=$REQUESTED_SHA,_REGION=$GOOGLE_CLOUD_REGION,_AR_REPOSITORY=$OPERATIONS_ARTIFACT_REPOSITORY" \
             --quiet
 
+      - name: Repair migration secret with verified canonical credential
+        if: inputs.mode == 'REPAIR_MIGRATION_SECRET'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          PROBE_JOB="khedmah-database-role-repair-probe"
+
+          describe_secret() {
+            gcloud secrets describe DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --format=json
+          }
+          active_version_from_description() {
+            printf '%s' "$1" | jq -r '.versionAliases.active // empty'
+          }
+          assert_numeric_version() {
+            case "$1" in
+              ''|0|0*|*[!0-9]*) return 1 ;;
+              *) return 0 ;;
+            esac
+          }
+          assert_enabled_version() {
+            local selector="$1"
+            test "$(
+              gcloud secrets versions describe "$selector" \
+                --secret DATABASE_MIGRATION_URL \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --format='value(state)'
+            )" = ENABLED
+          }
+          deploy_and_probe() {
+            local selector="$1"
+            case "$selector" in
+              active) ;;
+              *) assert_numeric_version "$selector" ;;
+            esac
+            gcloud run jobs deploy "$PROBE_JOB" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --image "$IMAGE" \
+              --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+              --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+              --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$selector" \
+              --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=probe,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=" \
+              --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+            gcloud run jobs execute "$PROBE_JOB" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --wait \
+              --format='value(metadata.name)' \
+              --quiet >/dev/null
+          }
+          record_candidate() {
+            {
+              printf '%s\n' '### Migration secret repair candidate'
+              printf -- '- Candidate version (non-secret): `%s`\n' "$1"
+              printf -- '- Resume input: `repair_candidate_version=%s`\n' "$1"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          initial_description="$(describe_secret)"
+          initial_active_version="$(active_version_from_description "$initial_description")"
+          case "$initial_active_version" in
+            '') ;;
+            *) assert_numeric_version "$initial_active_version" ;;
+          esac
+          test "$(
+            gcloud sql users describe "$DATABASE_MIGRATION_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format='value(type)'
+          )" = BUILT_IN
+
+          candidate_version="$REQUESTED_REPAIR_CANDIDATE_VERSION"
+          if test -z "$candidate_version"; then
+            # New repair: publish one resumable canonical candidate before rotating only the migration login.
+            migration_password="$(openssl rand -hex 32)"
+            test "${#migration_password}" -eq 64
+            case "$migration_password" in *[!0-9a-f]*) exit 1 ;; esac
+            migration_url="postgresql://${DATABASE_MIGRATION_USER}:${migration_password}@localhost/${DATABASE_NAME}"
+            printf '::add-mask::%s\n' "$migration_password"
+            printf '::add-mask::%s\n' "$migration_url"
+            trap 'unset migration_password migration_url' EXIT
+            candidate_version=''
+            for attempt in 1 2 3 4 5; do
+              if candidate_version="$(
+                printf '%s' "$migration_url" \
+                  | gcloud secrets versions add DATABASE_MIGRATION_URL \
+                      --project "$GOOGLE_CLOUD_PROJECT" \
+                      --data-file=- \
+                      --format='value(name)' \
+                      --quiet
+              )"; then
+                break
+              fi
+              sleep "$((attempt * 3))"
+            done
+            candidate_version="${candidate_version##*/}"
+            assert_numeric_version "$candidate_version"
+            assert_enabled_version "$candidate_version"
+            record_candidate "$candidate_version"
+
+            password_verified=false
+            for attempt in 1 2 3 4 5; do
+              set +e
+              gcloud sql users set-password "$DATABASE_MIGRATION_USER" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --instance "$SQL_INSTANCE_NAME" \
+                --password "$migration_password" \
+                --quiet
+              password_update_status="$?"
+              set -e
+              if test "$password_update_status" -ne 0; then
+                echo 'Cloud SQL migration password update returned nonzero; probing the published candidate version.' >&2
+              fi
+              if deploy_and_probe "$candidate_version"; then
+                password_verified=true
+                break
+              fi
+              sleep "$((attempt * 3))"
+            done
+            test "$password_verified" = true
+            unset migration_password migration_url
+            trap - EXIT
+          else
+            # Resume repair: never generate, read, or rewrite a credential; verify the supplied candidate only.
+            assert_numeric_version "$candidate_version"
+            assert_enabled_version "$candidate_version"
+            record_candidate "$candidate_version"
+            candidate_verified=false
+            for attempt in 1 2 3 4 5; do
+              if deploy_and_probe "$candidate_version"; then
+                candidate_verified=true
+                break
+              fi
+              sleep "$((attempt * 3))"
+            done
+            test "$candidate_verified" = true
+          fi
+
+          precommit_description="$(describe_secret)"
+          precommit_active_version="$(active_version_from_description "$precommit_description")"
+          case "$precommit_active_version" in
+            '') ;;
+            *) assert_numeric_version "$precommit_active_version" ;;
+          esac
+          precommit_etag="$(printf '%s' "$precommit_description" | jq -er '.etag | select(type == "string" and length > 0)')"
+
+          if test "$precommit_active_version" != "$candidate_version"; then
+            test "$precommit_active_version" = "$initial_active_version" || {
+              echo 'ERROR: DATABASE_MIGRATION_URL active alias changed during repair; refusing cutover.' >&2
+              exit 1
+            }
+            set +e
+            gcloud secrets update DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --update-version-aliases=active="$candidate_version" \
+              --etag="$precommit_etag" \
+              --quiet >/dev/null
+            alias_update_status="$?"
+            set -e
+            committed_description="$(describe_secret)"
+            committed_active_version="$(active_version_from_description "$committed_description")"
+            if test "$alias_update_status" -ne 0 && test "$committed_active_version" != "$candidate_version"; then
+              echo 'ERROR: DATABASE_MIGRATION_URL active alias CAS update failed.' >&2
+              exit "$alias_update_status"
+            fi
+            test "$committed_active_version" = "$candidate_version"
+          fi
+
+          assert_enabled_version active
+          alias_verified=false
+          for attempt in 1 2 3 4 5; do
+            if deploy_and_probe active; then
+              alias_verified=true
+              break
+            fi
+            sleep "$((attempt * 3))"
+          done
+          test "$alias_verified" = true
+          final_description="$(describe_secret)"
+          final_active_version="$(active_version_from_description "$final_description")"
+          test "$final_active_version" = "$candidate_version"
+          {
+            printf '%s\n' '### Migration secret repair verified'
+            printf -- '- Active alias version: `%s`\n' "$candidate_version"
+            printf '%s\n' '- Numeric-version probe: passed'
+            printf '%s\n' '- Active-alias probe: passed'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Execute database role phase once
-        if: inputs.mode != 'PREPARE'
+        if: inputs.mode != 'PREPARE' && inputs.mode != 'REPAIR_MIGRATION_SECRET'
         shell: bash
         run: |
           set -euo pipefail
