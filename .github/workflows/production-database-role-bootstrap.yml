@@ -217,8 +217,6 @@ jobs:
           set -euo pipefail
           IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
           JOB="khedmah-database-role-${DATABASE_ROLE_PHASE}"
-          ROLE_JOB_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
-          echo "ROLE_JOB_STARTED_AT=$ROLE_JOB_STARTED_AT" >> "$GITHUB_ENV"
           gcloud run jobs deploy "$JOB" \
             --project "$GOOGLE_CLOUD_PROJECT" \
             --region "$GOOGLE_CLOUD_REGION" \
@@ -232,10 +230,87 @@ jobs:
             --max-retries 0 \
             --task-timeout 10m \
             --quiet
-          gcloud run jobs execute "$JOB" \
-            --project "$GOOGLE_CLOUD_PROJECT" \
-            --region "$GOOGLE_CLOUD_REGION" \
-            --wait
+          ROLE_JOB_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+          echo "ROLE_JOB_STARTED_AT=$ROLE_JOB_STARTED_AT" >> "$GITHUB_ENV"
+          set +e
+          execution_output="$(
+            gcloud run jobs execute "$JOB" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --wait \
+              --format='value(metadata.name)' 2>&1
+          )"
+          execution_status="$?"
+          set -e
+          if test "$execution_status" -ne 0; then
+            redact_failure_diagnostics() {
+              sed -E \
+                -e 's#(postgres(ql)?://[^:/[:space:]]+:)[^@[:space:]]+@#\1[REDACTED]@#gI' \
+                -e 's#((database_url|pgpassword|password|token|secret|credential)[=:])[^[:space:]]+#\1[REDACTED]#gI' \
+                -e 's/[0-9a-fA-F]{64}/[REDACTED_64_HEX]/g'
+            }
+            printf '%s\n' "$execution_output" \
+              | redact_failure_diagnostics \
+              | tail -n 40 >&2 || true
+            execution_name="$(
+              printf '%s\n' "$execution_output" \
+                | sed -n -E \
+                    -e "s/^(${JOB}-[a-z0-9]+)$/\\1/p" \
+                    -e "s#^.*/executions/(${JOB}-[a-z0-9]+)\$#\\1#p" \
+                    -e "s/^.*gcloud run jobs executions describe (${JOB}-[a-z0-9]+).*$/\\1/p" \
+                    -e "s#^.*executions/details/[^/]+/(${JOB}-[a-z0-9]+)(\\?.*)?\$#\\1#p" \
+                | tail -n 1
+            )"
+            execution_name="${execution_name##*/}"
+            case "$execution_name" in "$JOB"-*) ;; *) execution_name='' ;; esac
+            case "$execution_name" in *[!a-z0-9-]*) execution_name='' ;; esac
+            if test -z "$execution_name"; then
+              echo 'ERROR: DATABASE_ROLE_FAILED_EXECUTION_UNRESOLVED' >&2
+              exit "$execution_status"
+            fi
+            log_filter="timestamp>=\"$ROLE_JOB_STARTED_AT\" AND labels.\"run.googleapis.com/execution_name\"=\"$execution_name\""
+            printf 'DATABASE_ROLE_FAILED_EXECUTION=%s\n' "$execution_name" >&2
+            execution_diagnostic="$(
+              gcloud run jobs executions describe "$execution_name" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --region "$GOOGLE_CLOUD_REGION" \
+                --format='value(status.conditions.type,status.conditions.status,status.conditions.reason,status.conditions.message,status.failedCount,status.succeededCount,status.startTime,status.completionTime)' \
+                2>/dev/null \
+                || true
+            )"
+            if test -n "$execution_diagnostic"; then
+              printf '%s\n' "$execution_diagnostic" \
+                | redact_failure_diagnostics \
+                | sed 's/^/DATABASE_ROLE_EXECUTION_STATUS: /' \
+                | sed -n '1,20p' >&2 || true
+            fi
+            approved_diagnostics=''
+            for attempt in 1 2 3 4 5 6; do
+              approved_diagnostics="$(
+                gcloud run jobs logs read "$JOB" \
+                  --project "$GOOGLE_CLOUD_PROJECT" \
+                  --region "$GOOGLE_CLOUD_REGION" \
+                  --log-filter="$log_filter" \
+                  --order=asc \
+                  --limit=200 \
+                  --format='value(textPayload)' 2>/dev/null \
+                  | sed -n -E '/^(ERROR:|psql: error:|FATAL:|DETAIL:|HINT:)/p' \
+                  | redact_failure_diagnostics \
+                  | tail -n 80 \
+                  || true
+              )"
+              test -z "$approved_diagnostics" || break
+              sleep 5
+            done
+            if test -n "$approved_diagnostics"; then
+              printf '%s\n' 'Approved database-role failure diagnostics:' >&2
+              printf '%s\n' "$approved_diagnostics" >&2
+            else
+              echo 'ERROR: DATABASE_ROLE_JOB_FAILED_WITHOUT_APPROVED_DIAGNOSTIC' >&2
+            fi
+            exit "$execution_status"
+          fi
+          printf '%s\n' "$execution_output"
 
       - name: Publish clean-instance system-role manifest candidate
         if: inputs.mode == 'INVENTORY'
