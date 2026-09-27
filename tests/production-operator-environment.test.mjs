@@ -108,7 +108,7 @@ test('Production deployment capture distinguishes first deploy from lookup failu
   const capture = workflow.split('Capture currently serving Production revision pair')[1]
     ?.split('\n      - name: Deploy exact main commit')[0] ?? '';
   assert.match(capture, /capture_revision\(\)/);
-  assert.match(capture, /NOT_FOUND\|not found\|404/);
+  assert.match(capture, /NOT_FOUND\|not found\|Cannot find service\|404/);
   assert.match(capture, /rollback safety cannot be established/);
   assert.doesNotMatch(capture, /2>\/dev\/null \|\| true/);
   assert.match(workflow, /Production service pair is inconsistent before deployment/);

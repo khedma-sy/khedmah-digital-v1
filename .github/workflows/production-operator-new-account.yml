@@ -259,7 +259,7 @@ jobs:
               printf 'present\t%s\n' "$revision"
               return 0
             fi
-            if grep -Eiq '(NOT_FOUND|not found|404)' "$error_file"; then
+            if grep -Eiq '(NOT_FOUND|not found|Cannot find service|404)' "$error_file"; then
               rm -f "$output_file" "$error_file"
               printf 'missing\t\n'
               return 0
