@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { selectClosedPreviewJobCandidates } from '../scripts/deployment/plan-closed-preview-job-cleanup.mjs';
 
-const scope = { project: 'khedmah-preview-774201339973', region: 'europe-west1' };
+const scope = { project: 'preview-test-project', region: 'europe-west1' };
 const image = (pr, sha = 'a'.repeat(40)) =>
   `europe-west1-docker.pkg.dev/${scope.project}/khedmah-preview/database-migrations:preview-pr-${pr}-${sha}`;
 const job = (name, pr, { executionCount = 1, completionStatus = 'EXECUTION_SUCCEEDED', imageUrl = image(pr) } = {}) => ({
