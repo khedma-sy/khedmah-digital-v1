@@ -294,18 +294,45 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
-          initial_description="$(describe_secret)"
+          if ! initial_description="$(describe_secret)"; then
+            echo 'ERROR: REPAIR_PREFLIGHT_SECRET_DESCRIBE_FAILED' >&2
+            exit 1
+          fi
           initial_active_version="$(active_version_from_description "$initial_description")"
           case "$initial_active_version" in
-            '') ;;
-            *) assert_numeric_version "$initial_active_version" ;;
+            '')
+              echo 'REPAIR_PREFLIGHT_ACTIVE_ALIAS=missing'
+              ;;
+            *)
+              if ! assert_numeric_version "$initial_active_version"; then
+                echo 'ERROR: REPAIR_PREFLIGHT_ACTIVE_ALIAS_INVALID' >&2
+                exit 1
+              fi
+              echo 'REPAIR_PREFLIGHT_ACTIVE_ALIAS=present_numeric'
+              ;;
           esac
-          test "$(
+          if ! migration_user_type="$(
             gcloud sql users describe "$DATABASE_MIGRATION_USER" \
               --project "$GOOGLE_CLOUD_PROJECT" \
               --instance "$SQL_INSTANCE_NAME" \
               --format='value(type)'
-          )" = BUILT_IN
+          )"; then
+            echo 'ERROR: REPAIR_PREFLIGHT_MIGRATION_USER_DESCRIBE_FAILED' >&2
+            exit 1
+          fi
+          case "$migration_user_type" in
+            BUILT_IN)
+              echo 'REPAIR_PREFLIGHT_MIGRATION_USER_TYPE=BUILT_IN'
+              ;;
+            '')
+              echo 'ERROR: REPAIR_PREFLIGHT_MIGRATION_USER_TYPE_EMPTY' >&2
+              exit 1
+              ;;
+            *)
+              echo "ERROR: REPAIR_PREFLIGHT_MIGRATION_USER_TYPE_UNEXPECTED:$migration_user_type" >&2
+              exit 1
+              ;;
+          esac
 
           candidate_version="$REQUESTED_REPAIR_CANDIDATE_VERSION"
           if test -z "$candidate_version"; then
