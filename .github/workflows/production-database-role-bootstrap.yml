@@ -266,7 +266,7 @@ jobs:
             local selector="$1"
             case "$selector" in
               active) ;;
-              *) assert_numeric_version "$selector" ;;
+              *) assert_numeric_version "$selector" || return 1 ;;
             esac
             gcloud run jobs deploy "$PROBE_JOB" \
               --project "$GOOGLE_CLOUD_PROJECT" \
@@ -276,13 +276,15 @@ jobs:
               --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
               --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:$selector" \
               --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=probe,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=" \
-              --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+              --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet \
+              || return 1
             gcloud run jobs execute "$PROBE_JOB" \
               --project "$GOOGLE_CLOUD_PROJECT" \
               --region "$GOOGLE_CLOUD_REGION" \
               --wait \
               --format='value(metadata.name)' \
-              --quiet >/dev/null
+              --quiet >/dev/null \
+              || return 1
           }
           record_candidate() {
             {
