@@ -391,7 +391,7 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
     .split('      - name: Commit verified migration secret active alias')[1]
     .split('      - name: Publish non-secret role-bootstrap evidence')[0];
 
-  assert.match(requestedPhase, /if: inputs\.mode != 'PREPARE' && inputs\.mode != 'REPAIR_MIGRATION_SECRET'/);
+  assert.match(requestedPhase, /if: inputs\.mode != 'PREPARE' && inputs\.mode != 'DIAGNOSE_MIGRATION_SECRET' && inputs\.mode != 'REPAIR_MIGRATION_SECRET'/);
   assert.match(requestedPhase, /DATABASE_URL=DATABASE_MIGRATION_URL:\$DATABASE_MIGRATION_SECRET_SELECTOR/);
 
   assert.match(roleState, /gcloud sql users list/);
