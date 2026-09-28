@@ -31,9 +31,9 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.match(workflow, /is_lower_hex "\$REQUESTED_SHA" 40/);
   assert.match(workflow, /is_lower_hex "\$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64/);
-  assert.match(workflow, /INVENTORY\|REPAIR_MIGRATION_SECRET\) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''/);
+  assert.match(workflow, /INVENTORY\|DIAGNOSE_MIGRATION_SECRET\|REPAIR_MIGRATION_SECRET\) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=''/);
   assert.match(workflow, /is_cloud_sql_connection_name "\$CLOUD_SQL_INSTANCE_CONNECTION_NAME"/);
-  assert.match(workflow, /if test "\$REQUESTED_MODE" != PREPARE && test "\$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then[\s\S]*versions describe "\$DATABASE_MIGRATION_SECRET_SELECTOR"/);
+  assert.match(workflow, /if test "\$REQUESTED_MODE" != PREPARE && test "\$REQUESTED_MODE" != DIAGNOSE_MIGRATION_SECRET && test "\$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then[\s\S]*versions describe "\$DATABASE_MIGRATION_SECRET_SELECTOR"/);
   assert.match(operationLock, /VERIFY\)\n\s+DATABASE_ROLE_PHASE=verify\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=active/);
   assert.match(operationLock, /INVENTORY\)\n\s+DATABASE_ROLE_PHASE=inventory\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=inventory/);
   assert.match(operationLock, /HARDEN\)[\s\S]*DATABASE_ROLE_PHASE=harden\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=active/);
@@ -95,6 +95,35 @@ test('mutating database role modes require explicit commit-bound confirmations',
   assert.match(workflow, /DATABASE_ROLE_PHASE=verify/);
 });
 
+
+test('migration secret diagnostic is metadata-only and cannot mutate production', () => {
+  const operationLock = workflow
+    .split('      - name: Lock operation to exact latest main')[1]
+    .split('      - name: Reject unapproved Production hosting region')[0];
+  const diagnostic = workflow
+    .split('      - name: Diagnose migration secret metadata without reading payload')[1]
+    .split('      - name: Build immutable database role bootstrap image')[0];
+  const build = workflow
+    .split('      - name: Build immutable database role bootstrap image')[1]
+    .split('      - name: Repair migration secret with verified canonical credential')[0];
+  const requestedPhase = workflow
+    .split('      - name: Execute database role phase once')[1]
+    .split('      - name: Publish clean-instance system-role manifest candidate')[0];
+
+  assert.match(operationLock, /DIAGNOSE_MIGRATION_SECRET\)\n\s+DATABASE_ROLE_PHASE=diagnose\n\s+DATABASE_MIGRATION_SECRET_SELECTOR=''/);
+  assert.match(diagnostic, /if: inputs\.mode == 'DIAGNOSE_MIGRATION_SECRET'/);
+  assert.match(diagnostic, /gcloud secrets describe DATABASE_MIGRATION_URL/);
+  assert.match(diagnostic, /gcloud secrets versions list DATABASE_MIGRATION_URL/);
+  assert.match(diagnostic, /gcloud sql users describe "\$DATABASE_MIGRATION_USER"/);
+  assert.match(diagnostic, /--format='json\(name,state,createTime\)'/);
+  assert.match(diagnostic, /REPAIR_DIAGNOSTIC_ACTIVE_VERSION/);
+  assert.match(diagnostic, /REPAIR_DIAGNOSTIC_MIGRATION_USER_TYPE/);
+  assert.match(diagnostic, /REPAIR_DIAGNOSTIC_VERSION/);
+  assert.doesNotMatch(diagnostic, /secrets versions access|secrets versions add|sql users set-password|secrets update|update-version-aliases|run jobs deploy|run jobs execute|terraform|DATABASE_URL=/);
+  assert.match(build, /if: inputs\.mode != 'DIAGNOSE_MIGRATION_SECRET'/);
+  assert.match(requestedPhase, /inputs\.mode != 'DIAGNOSE_MIGRATION_SECRET'/);
+});
+
 test('migration secret repair is migration-only, fail-closed and resumable', () => {
   const operationLock = workflow
     .split('      - name: Lock operation to exact latest main')[1]
@@ -105,7 +134,7 @@ test('migration secret repair is migration-only, fail-closed and resumable', () 
   const fresh = repair.split('# New repair:')[1].split('# Resume repair:')[0];
   const resume = repair.split('# Resume repair:')[1].split('          precommit_description=')[0];
 
-  assert.match(workflow, /options: \[VERIFY, INVENTORY, PREPARE, HARDEN, REPAIR_MIGRATION_SECRET\]/);
+  assert.match(workflow, /options: \[VERIFY, INVENTORY, PREPARE, HARDEN, DIAGNOSE_MIGRATION_SECRET, REPAIR_MIGRATION_SECRET\]/);
   assert.match(workflow, /repair_candidate_version:/);
   assert.match(operationLock, /REPAIR_MIGRATION_SECRET\)[\s\S]*REPAIR_MIGRATION_SECRET_KHEDMAH_DATABASE_ROLES_\$\{REQUESTED_SHA:0:7\}[\s\S]*DATABASE_ROLE_PHASE=probe/);
   assert.match(operationLock, /REQUESTED_MODE" != REPAIR_MIGRATION_SECRET[\s\S]*test -z "\$REQUESTED_REPAIR_CANDIDATE_VERSION"/);
