@@ -8,7 +8,7 @@ on:
         required: true
         default: VERIFY
         type: choice
-        options: [VERIFY, INVENTORY, PREPARE, HARDEN, REPAIR_MIGRATION_SECRET]
+        options: [VERIFY, INVENTORY, PREPARE, HARDEN, DIAGNOSE_MIGRATION_SECRET, REPAIR_MIGRATION_SECRET]
       commit_sha:
         description: Exact latest main commit SHA
         required: true
@@ -131,6 +131,10 @@ jobs:
               DATABASE_ROLE_PHASE=prepare
               DATABASE_MIGRATION_SECRET_SELECTOR=''
               ;;
+            DIAGNOSE_MIGRATION_SECRET)
+              DATABASE_ROLE_PHASE=diagnose
+              DATABASE_MIGRATION_SECRET_SELECTOR=''
+              ;;
             REPAIR_MIGRATION_SECRET)
               test "$REQUESTED_CONFIRMATION" = "REPAIR_MIGRATION_SECRET_KHEDMAH_DATABASE_ROLES_${REQUESTED_SHA:0:7}"
               DATABASE_ROLE_PHASE=probe
@@ -154,7 +158,7 @@ jobs:
             test -z "$REQUESTED_REPAIR_CANDIDATE_VERSION"
           fi
           case "$REQUESTED_MODE" in
-            INVENTORY|REPAIR_MIGRATION_SECRET) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256='' ;;
+            INVENTORY|DIAGNOSE_MIGRATION_SECRET|REPAIR_MIGRATION_SECRET) DATABASE_SYSTEM_ROLE_MANIFEST_SHA256='' ;;
             *) is_lower_hex "$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64 ;;
           esac
           echo "DATABASE_ROLE_PHASE=$DATABASE_ROLE_PHASE" >> "$GITHUB_ENV"
@@ -195,7 +199,7 @@ jobs:
           active_version="$(
             printf '%s' "$secret_description" | jq -r '.versionAliases.active // empty'
           )"
-          if test "$REQUESTED_MODE" != PREPARE && test "$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then
+          if test "$REQUESTED_MODE" != PREPARE && test "$REQUESTED_MODE" != DIAGNOSE_MIGRATION_SECRET && test "$REQUESTED_MODE" != REPAIR_MIGRATION_SECRET; then
             case "$REQUESTED_MODE:$DATABASE_MIGRATION_SECRET_SELECTOR" in
               INVENTORY:inventory)
                 case "$active_version" in
@@ -215,7 +219,84 @@ jobs:
           SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
           test "$(gcloud sql instances describe "$SQL_INSTANCE_NAME" --project "$GOOGLE_CLOUD_PROJECT" --format='value(region)')" = "$GOOGLE_CLOUD_REGION"
 
+      - name: Diagnose migration secret metadata without reading payload
+        if: inputs.mode == 'DIAGNOSE_MIGRATION_SECRET'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          SQL_INSTANCE_NAME="${CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+
+          active_version="$(
+            gcloud secrets describe DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --format='value(versionAliases.active)'
+          )"
+          case "$active_version" in
+            '') active_version_label=NONE ;;
+            0|0*|*[!0-9]*)
+              echo 'ERROR: DATABASE_MIGRATION_URL active alias is not an empty or positive numeric version.' >&2
+              exit 1
+              ;;
+            *) active_version_label="$active_version" ;;
+          esac
+
+          migration_user_type="$(
+            gcloud sql users describe "$DATABASE_MIGRATION_USER" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --instance "$SQL_INSTANCE_NAME" \
+              --format='value(type)'
+          )"
+          case "$migration_user_type" in
+            BUILT_IN) ;;
+            '')
+              echo 'ERROR: migration Cloud SQL user metadata is missing.' >&2
+              exit 1
+              ;;
+            *)
+              echo "ERROR: migration Cloud SQL user type is unexpected: $migration_user_type" >&2
+              exit 1
+              ;;
+          esac
+
+          versions_json="$(
+            gcloud secrets versions list DATABASE_MIGRATION_URL \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --limit=5 \
+              --sort-by='~createTime' \
+              --format='json(name,state,createTime)'
+          )"
+          recent_versions="$(
+            printf '%s' "$versions_json" \
+              | jq -r '.[] | [(.name | split("/")[-1]), .state, .createTime] | @tsv'
+          )"
+
+          printf 'REPAIR_DIAGNOSTIC_ACTIVE_VERSION=%s\n' "$active_version_label"
+          printf 'REPAIR_DIAGNOSTIC_MIGRATION_USER_TYPE=%s\n' "$migration_user_type"
+          while IFS=$'\t' read -r version state created_at; do
+            test -n "$version" || continue
+            case "$version" in
+              0|0*|*[!0-9]*)
+                echo 'ERROR: Secret Manager returned a non-numeric version identifier.' >&2
+                exit 1
+                ;;
+            esac
+            case "$state" in
+              ENABLED|DISABLED|DESTROYED) ;;
+              *)
+                echo 'ERROR: Secret Manager returned an unexpected version state.' >&2
+                exit 1
+                ;;
+            esac
+            test -n "$created_at" || {
+              echo 'ERROR: Secret Manager version metadata is missing createTime.' >&2
+              exit 1
+            }
+            printf 'REPAIR_DIAGNOSTIC_VERSION=%s|%s|%s\n' "$version" "$state" "$created_at"
+          done <<< "$recent_versions"
+
       - name: Build immutable database role bootstrap image
+        if: inputs.mode != 'DIAGNOSE_MIGRATION_SECRET'
         shell: bash
         run: |
           set -euo pipefail
@@ -458,7 +539,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Execute database role phase once
-        if: inputs.mode != 'PREPARE' && inputs.mode != 'REPAIR_MIGRATION_SECRET'
+        if: inputs.mode != 'PREPARE' && inputs.mode != 'DIAGNOSE_MIGRATION_SECRET' && inputs.mode != 'REPAIR_MIGRATION_SECRET'
         shell: bash
         run: |
           set -euo pipefail
