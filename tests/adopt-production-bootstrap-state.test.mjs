@@ -60,6 +60,45 @@ test('Batch A imports only the reviewed eight existing resources', () => {
   }
 });
 
+test('resume guard tolerates only exact reviewed pre-adopted secret containers', () => {
+  assert.match(script, /reviewed_pre_adopted_secret_ids/);
+  for (const secret of [
+    'DATABASE_URL',
+    'FIREBASE_API_KEY',
+    'FIREBASE_APP_ID',
+    'GOOGLE_MAPS_BROWSER_API_KEY',
+    'GOOGLE_MAPS_SERVER_API_KEY',
+    'GOOGLE_OAUTH_SERVER_CLIENT_ID',
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_APP_ID',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    'OPERATIONS_PRODUCT_ROLE_BINDINGS',
+    'RESEND_API_KEY',
+  ]) {
+    assert.ok(script.includes(`projects/khedma-dl/secrets/${secret}`), `missing reviewed secret id ${secret}`);
+  }
+  for (const secret of [
+    'DATABASE_MIGRATION_URL',
+    'GOOGLE_MAPS_ANDROID_API_KEY',
+    'BOOTSTRAP_ADMIN_SECRET',
+  ]) {
+    assert.ok(script.includes(`projects/khedma-dl/secrets/${secret}`), `missing reviewed special secret id ${secret}`);
+  }
+  assert.match(script, /state contains an unreviewed address or secret identity/);
+  assert.match(script, /startsWith|startswith/);
+});
+
+test('Cloud SQL imported instance uses the provider-normalized state id', () => {
+  assert.match(script, /google_sql_database_instance normalizes its imported state id/);
+  const expectedIds = script.split('declare -a expected_state_ids=(')[1]?.split(')')[0] ?? '';
+  assert.match(expectedIds, /"khedmah-v1-db"/);
+  assert.doesNotMatch(expectedIds, /"projects\/khedma-dl\/instances\/khedmah-v1-db"\s*$/m);
+});
+
 test('adoption never applies, deletes, or rewrites live cloud resources', () => {
   assert.doesNotMatch(script, /^\s*terraform\b[^\n]*\bapply\b/m);
   assert.doesNotMatch(script, /^\s*terraform\b[^\n]*state\s+(rm|mv|push)\b/m);
