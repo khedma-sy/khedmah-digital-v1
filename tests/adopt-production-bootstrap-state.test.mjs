@@ -72,6 +72,11 @@ test('Batch A imports only the reviewed eight existing resources', () => {
   }
 });
 
+test('WIF pool state ID uses the configured project ID while resource name may use project number', () => {
+  assert.match(script, /"google_iam_workload_identity_pool\.github": "projects\/khedma-dl\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
+  assert.doesNotMatch(script, /"google_iam_workload_identity_pool\.github": "projects\/311026134906\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
+});
+
 test('resume guard requires exact reviewed identities for every pre-adopted Batch A resource', () => {
   const match = script.match(/reviewed_batch_a_ids='(\{[\s\S]*?\})'\n\nreviewed_pre_adopted_secret_ids=/);
   assert.ok(match, 'reviewed_batch_a_ids JSON block is required');
@@ -85,7 +90,7 @@ test('resume guard requires exact reviewed identities for every pre-adopted Batc
     'google_sql_database_instance.postgres': 'khedmah-v1-db',
     'google_sql_database.application': 'projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah',
     'google_project_iam_custom_role.storage_bucket_policy_viewer': 'projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer',
-    'google_iam_workload_identity_pool.github': 'projects/311026134906/locations/global/workloadIdentityPools/khedmah-github',
+    'google_iam_workload_identity_pool.github': 'projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github',
   });
   assert.match(script, /--argjson reviewed_batch "\$reviewed_batch_a_ids"/);
   assert.match(script, /\(\$reviewed_batch\[\$x\.address\] \/\/ null\) == \$x\.id/);
