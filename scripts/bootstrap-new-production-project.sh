@@ -364,6 +364,8 @@ verify_plan_target() {
         "google_project_iam_member.deployer_database_user_role_manager",
         "google_project_iam_custom_role.storage_bucket_policy_viewer",
         "google_project_iam_member.deployer_storage_bucket_policy_viewer",
+        "google_project_iam_custom_role.cloud_asset_policy_analyzer",
+        "google_project_iam_member.deployer_cloud_asset_policy_analyzer",
         "google_project_iam_member.deployer",
         "google_project_iam_member.build",
         "google_service_account_iam_member.build_runtime_user",
