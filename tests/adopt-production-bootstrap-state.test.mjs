@@ -16,13 +16,25 @@ test('production bootstrap adoption is exact-main and exact-project locked', () 
   assert.match(script, /test "\$CURRENT_SHA" = "\$MAIN_SHA"/);
 });
 
-test('adoption is state-authority locked to the reviewed empty bootstrap state', () => {
+test('adoption is state-authority locked to the reviewed bootstrap state lineage and bucket owner', () => {
   assert.match(script, /khedma-dl-khedmah-tfstate/);
   assert.match(script, /khedmah\/production\/bootstrap/);
   assert.match(script, /6025674e-1a29-7134-7794-5f106421f6fd/);
   assert.match(script, /1790067677438796/);
   assert.match(script, /unexpected bootstrap state lineage/);
   assert.match(script, /initial bootstrap state generation changed unexpectedly/);
+  assert.match(script, /gcloud storage buckets describe/);
+  assert.match(script, /projectNumber \/\/ \.project_number \/\/ empty/);
+  assert.match(script, /Terraform state bucket belongs to an unexpected Google Cloud project/);
+  assert.match(script, /STATE_BUCKET_PROJECT_NUMBER/);
+});
+
+test('adoption requires a real supported Terraform CLI and a read-only dependency lockfile', () => {
+  assert.match(script, /TERRAFORM_BIN="\$\(command -v terraform\)"/);
+  assert.match(script, /test "\$TERRAFORM_BIN" != "\/google\/bin\/terraform"/);
+  assert.match(script, /terraform version -json/);
+  assert.match(script, /Terraform >= 1\.8\.0 is required/);
+  assert.match(script, /-lockfile=readonly/);
 });
 
 test('VERIFY is read-only and import mode requires a SHA-bound confirmation', () => {
@@ -60,6 +72,27 @@ test('Batch A imports only the reviewed eight existing resources', () => {
   }
 });
 
+test('resume guard requires exact reviewed identities for every pre-adopted Batch A resource', () => {
+  const match = script.match(/reviewed_batch_a_ids='(\{[\s\S]*?\})'\n\nreviewed_pre_adopted_secret_ids=/);
+  assert.ok(match, 'reviewed_batch_a_ids JSON block is required');
+  const ids = JSON.parse(match[1]);
+
+  assert.deepEqual(ids, {
+    'google_service_account.build': 'projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com',
+    'google_service_account.migration': 'projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com',
+    'google_storage_bucket.cloudbuild_source': 'khedma-dl-cloudbuild-source',
+    'google_artifact_registry_repository.docker': 'projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital',
+    'google_sql_database_instance.postgres': 'khedmah-v1-db',
+    'google_sql_database.application': 'projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah',
+    'google_project_iam_custom_role.storage_bucket_policy_viewer': 'projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer',
+    'google_iam_workload_identity_pool.github': 'projects/311026134906/locations/global/workloadIdentityPools/khedmah-github',
+  });
+  assert.match(script, /--argjson reviewed_batch "\$reviewed_batch_a_ids"/);
+  assert.match(script, /\(\$reviewed_batch\[\$x\.address\] \/\/ null\) == \$x\.id/);
+  assert.match(script, /\.mode \/\/ "managed"/);
+  assert.match(script, /\.module \/\/ ""/);
+});
+
 test('resume guard tolerates only exact reviewed pre-adopted secret containers', () => {
   assert.match(script, /reviewed_pre_adopted_secret_ids/);
   for (const secret of [
@@ -88,7 +121,7 @@ test('resume guard tolerates only exact reviewed pre-adopted secret containers',
   ]) {
     assert.ok(script.includes(`projects/khedma-dl/secrets/${secret}`), `missing reviewed special secret id ${secret}`);
   }
-  assert.match(script, /state contains an unreviewed address or secret identity/);
+  assert.match(script, /state contains an unreviewed address, non-root resource, or unexpected resource identity/);
   assert.match(script, /startsWith|startswith/);
 });
 
