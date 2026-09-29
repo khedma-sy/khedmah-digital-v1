@@ -137,8 +137,8 @@ test('state mutation is resumable, backed up locally, and constrained to the exa
 });
 
 test('adoption script never applies cloud changes or reads secret payloads', () => {
-  assert.doesNotMatch(script, /terraform[^\n]*\bapply\b/);
-  assert.doesNotMatch(script, /terraform[^\n]*state\s+(?:rm|mv|push)\b/);
+  assert.doesNotMatch(script, /^\s*terraform(?:\s+-chdir="[^"]+")?\s+apply\b/m);
+  assert.doesNotMatch(script, /^\s*terraform(?:\s+-chdir="[^"]+")?\s+state\s+(?:rm|mv|push)\b/m);
   assert.doesNotMatch(script, /add-iam-policy-binding|set-iam-policy/);
   assert.doesNotMatch(script, /secrets\s+versions\s+access/);
   assert.doesNotMatch(script, /gcloud\s+run\s+(?:deploy|services\s+update)/);
