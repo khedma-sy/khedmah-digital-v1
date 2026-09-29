@@ -102,6 +102,8 @@ test('state bucket IAM remains exact-role allowlisted and requires the scoped de
 
 test('state bucket lookup distinguishes confirmed absence from IAM or API errors', () => {
   assert.match(script, /bucket_status\(\)/);
+  assert.match(script, /gcloud storage buckets describe "gs:\/\/\$TF_STATE_BUCKET"[\s\S]*--raw[\s\S]*--format=json/);
+  assert.match(script, /\.projectNumber \/\/ \.project_number \/\/ empty/);
   assert.match(script, /NOT_FOUND\|not found\|404\|does not exist/);
   assert.match(script, /refusing to classify it as absent/);
   assert.match(script, /Terraform state bucket belongs to a different Google Cloud project/);
