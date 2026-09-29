@@ -111,6 +111,8 @@ test('migration secret repair is migration-only, fail-closed and resumable', () 
   assert.match(operationLock, /REQUESTED_MODE" != REPAIR_MIGRATION_SECRET[\s\S]*test -z "\$REQUESTED_REPAIR_CANDIDATE_VERSION"/);
   assert.match(operationLock, /0\|0\*\|\*\[!0-9\]\*/);
   assert.match(repair, /gcloud sql users describe "\$DATABASE_MIGRATION_USER"/);
+  assert.match(repair, /jq -er '\(\.type \/\/ "BUILT_IN"\)'/);
+  assert.doesNotMatch(repair, /value\(type\)/);
   assert.match(repair, /\.versionAliases\.active \/\/ empty/);
   assert.match(repair, /repair_checkpoint\(\) \{[\s\S]*REPAIR_CHECKPOINT:%s\\n/);
   assert.match(repair, /repair_checkpoint secret-metadata-read/);
@@ -367,9 +369,9 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
 
   assert.match(roleState, /gcloud sql users list/);
   assert.match(roleState, /length == 3/);
-  assert.match(roleState, /all\(\.\[\]; \.type == "BUILT_IN"\)/);
+  assert.match(roleState, /all\(\.\[\]; \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"\)/);
   assert.match(roleState, /\["postgres", \$runtime, \$migration\]/);
-  assert.match(roleState, /\.name == \$expected and \.type == "BUILT_IN"/);
+  assert.match(roleState, /\.name == \$expected and \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"/);
   assert.match(roleState, /cloudsqlsuperuser:cloudsqlsuperuser\) prepare_state=initial/);
   assert.match(roleState, /custom:cloudsqlsuperuser\) prepare_state=resume/);
   assert.match(roleState, /custom:custom\) prepare_state=completed/);
@@ -404,7 +406,7 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
 
   for (const containment of [runtimeContainment, recoveryContainment]) {
     assert.match(containment, /length == 3/);
-    assert.match(containment, /all\(\.\[\]; \.type == "BUILT_IN"\)/);
+    assert.match(containment, /all\(\.\[\]; \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"\)/);
     assert.match(containment, /gcloud sql users set-password postgres/);
     assert.match(containment, /openssl rand -hex 32/);
     assert.match(containment, /::add-mask::/);
@@ -423,6 +425,8 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(runtimeContainment, /continue-on-error: true/);
   assert.match(runtimeContainment, /steps\.arm_runtime_cutover\.outputs\.armed == 'true'/);
   assert.match(recoveryContainment, /if: always\(\).*steps\.runtime_containment\.outcome != 'success'/);
+  assert.equal((workflow.match(/\.type \/\/ "BUILT_IN"/g) || []).length, 10);
+  assert.doesNotMatch(workflow, /\.type == "BUILT_IN"/);
 
   assert.match(cutover, /DATABASE_ROLE_PHASE=cutover-audit/);
   assert.match(cutover, /DATABASE_RUNTIME_CUTOVER_AUDITED/);
