@@ -136,7 +136,7 @@ bucket_status() {
   local output_file error_file
   output_file="$(mktemp)"
   error_file="$(mktemp)"
-  if gcloud storage buckets describe "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --format=json >"$output_file" 2>"$error_file"; then
+  if gcloud storage buckets describe "gs://$TF_STATE_BUCKET"     --project "$GOOGLE_CLOUD_PROJECT" --raw --format=json >"$output_file" 2>"$error_file"; then
     rm -f "$error_file"
     cat "$output_file"
     rm -f "$output_file"
