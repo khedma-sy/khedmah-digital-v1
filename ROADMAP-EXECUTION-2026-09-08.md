@@ -10,7 +10,7 @@
 - **حماية partial state:** runner يسمح فقط بعناوين Batch A وحاويات الأسرار الـ18 المراجعة، ويتحقق من IDs الحرفية للأسرار. Cloud SQL state ID المتوقع بعد normalization هو `khedmah-v1-db`.
 - **المحظورات مستمرة:** لا runtime/deployer canonical adoption، لا استيراد WIF provider، لا IAM adoption/cutover، لا Cloud SQL configuration apply، لا `terraform apply`، ولا `state rm/mv/push`. الحسابان التاريخيان `khedma-v1-runtime` و`khedma-v1-deployer` لا يُعاد تفسيرهما كموارد `khedmah-*`.
 - **Cloud SQL drift المعروف:** Production backup window بقي `20:00` مقابل Terraform `02:00`، وPITR غير مثبت كـenabled من الجرد السابق؛ لذلك أي PLAN لاحق للمراجعة فقط ولا يبرر APPLY.
-- **الخطوة التالية الوحيدة:** من checkout نظيف يساوي `origin/main=ba0ed1f13a5f64642a80700b66edb3636881b529` والمشروع `khedma-dl`، شغّل `ADOPTION_MODE=VERIFY bash scripts/adopt-production-bootstrap-state.sh` فقط. ثبّت `STATE_SERIAL` و`STATE_GENERATION` ونتيجة guard أولًا؛ لا تنفذ `IMPORT_BATCH_A` أو PLAN قبل مراجعة ذلك الخرج.
+- **الخطوة التالية الوحيدة:** بعد دمج هذا checkpoint، اجلب `origin/main` من جديد واستخدم checkout نظيفًا يكون فيه `HEAD == origin/main` الحالي (لا تثبّت SHA هذا checkpoint يدويًا) مع المشروع `khedma-dl`، ثم شغّل `ADOPTION_MODE=VERIFY bash scripts/adopt-production-bootstrap-state.sh` فقط. ثبّت `LOCKED_MAIN_SHA` و`STATE_SERIAL` و`STATE_GENERATION` ونتيجة guard أولًا؛ لا تنفذ `IMPORT_BATCH_A` أو PLAN قبل مراجعة ذلك الخرج.
 - **تنظيف المسارات القديمة:** PRs #233/#234/#235 سبقت runner المدمج؛ لا تُستخدم كمرجع تنفيذ. تُراجع/تغلق كسلاسل superseded بدل دمجها فوق `main` الحالي.
 
 آخر تحديث: **2026-09-27 — دُمج PR #223، وأعاد INVENTORY إنتاج فشل الحاوية بأمان؛ إصلاح القراءة الخام واكتمال manifest مرفوع في PR #224.**
