@@ -21,6 +21,19 @@ for cmd in git gcloud terraform jq sha256sum; do
   command -v "$cmd" >/dev/null || die "$cmd is required"
 done
 
+TERRAFORM_BIN="$(command -v terraform)"
+test "$TERRAFORM_BIN" != "/google/bin/terraform" || die "refusing Cloud Shell /google/bin/terraform shim; put a real Terraform binary first in PATH"
+terraform_version_json="$(terraform version -json 2>/dev/null)" || die "terraform version -json failed"
+TERRAFORM_VERSION="$(
+  printf '%s' "$terraform_version_json" |
+    jq -er '.terraform_version | select(type == "string" and length > 0)' 2>/dev/null
+)" || die "terraform version -json did not return a valid terraform_version"
+tf_major="${TERRAFORM_VERSION%%.*}"
+tf_minor_patch="${TERRAFORM_VERSION#*.}"
+tf_minor="${tf_minor_patch%%.*}"
+[[ "$tf_major" =~ ^[0-9]+$ && "$tf_minor" =~ ^[0-9]+$ ]] || die "unable to parse Terraform version: $TERRAFORM_VERSION"
+(( tf_major > 1 || (tf_major == 1 && tf_minor >= 8) )) || die "Terraform >= 1.8.0 is required"
+
 case "$MODE" in
   VERIFY|IMPORT_BATCH_A) ;;
   *) die "ADOPTION_MODE must be VERIFY or IMPORT_BATCH_A" ;;
@@ -48,17 +61,25 @@ project_number="$(gcloud projects describe "$CANONICAL_PROJECT" --format='value(
 test "$project_number" = "$CANONICAL_PROJECT_NUMBER" || die "unexpected Google Cloud project number"
 
 state_uri="gs://$CANONICAL_STATE_BUCKET/$CANONICAL_STATE_PREFIX/default.tfstate"
+bucket_meta="$(mktemp)"
 state_meta="$(mktemp)"
 state_json="$(mktemp)"
 TF_DATA_DIR=""
 
 cleanup() {
-  rm -f "$state_meta" "$state_json"
+  rm -f "$bucket_meta" "$state_meta" "$state_json"
   if [[ -n "$TF_DATA_DIR" && -d "$TF_DATA_DIR" ]]; then
     rm -rf "$TF_DATA_DIR"
   fi
 }
 trap cleanup EXIT
+
+gcloud storage buckets describe "gs://$CANONICAL_STATE_BUCKET" \
+  --project="$CANONICAL_PROJECT" \
+  --raw \
+  --format=json >"$bucket_meta"
+bucket_project_number="$(jq -r '.projectNumber // .project_number // empty' "$bucket_meta")"
+test "$bucket_project_number" = "$CANONICAL_PROJECT_NUMBER" || die "Terraform state bucket belongs to an unexpected Google Cloud project"
 
 gcloud storage objects describe "$state_uri" --project="$CANONICAL_PROJECT" --raw --format=json >"$state_meta"
 gcloud storage cat "$state_uri" >"$state_json"
@@ -83,6 +104,17 @@ batch_a_addresses='[
   "google_project_iam_custom_role.storage_bucket_policy_viewer",
   "google_iam_workload_identity_pool.github"
 ]'
+
+reviewed_batch_a_ids='{
+  "google_service_account.build": "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_service_account.migration": "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com",
+  "google_storage_bucket.cloudbuild_source": "khedma-dl-cloudbuild-source",
+  "google_artifact_registry_repository.docker": "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital",
+  "google_sql_database_instance.postgres": "khedmah-v1-db",
+  "google_sql_database.application": "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah",
+  "google_project_iam_custom_role.storage_bucket_policy_viewer": "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer",
+  "google_iam_workload_identity_pool.github": "projects/311026134906/locations/global/workloadIdentityPools/khedmah-github"
+}'
 
 reviewed_pre_adopted_secret_ids='{
   "google_secret_manager_secret.runtime[\"DATABASE_URL\"]": "projects/khedma-dl/secrets/DATABASE_URL",
@@ -114,8 +146,13 @@ allowed_addresses="$(
 
 jq -e \
   --argjson allowed "$allowed_addresses" \
+  --argjson reviewed_batch "$reviewed_batch_a_ids" \
   --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" '
-  [ .resources[]? as $r
+  (all(
+    .resources[]?;
+    (.mode // "managed") == "managed" and ((.module // "") == "")
+  )) as $root_managed_only
+  | [ .resources[]? as $r
     | ($r.instances // [])[] as $i
     | {
         address: (
@@ -127,14 +164,22 @@ jq -e \
         id: ($i.attributes.id // "")
       }
   ] as $instances
-  | all($instances[]?; . as $x | $allowed | index($x.address) != null)
+  | $root_managed_only
+    and all($instances[]?; . as $x | $allowed | index($x.address) != null)
+    and all(
+      $instances[]? | select((.address | startswith("google_secret_manager_secret.")) | not);
+      . as $x | ($reviewed_batch[$x.address] // null) == $x.id
+    )
     and all(
       $instances[]? | select(.address | startswith("google_secret_manager_secret."));
       . as $x | ($reviewed_secrets[$x.address] // null) == $x.id
     )
-' "$state_json" >/dev/null || die "bootstrap state contains an unreviewed address or secret identity"
+' "$state_json" >/dev/null || die "bootstrap state contains an unreviewed address, non-root resource, or unexpected resource identity"
 
 printf 'LOCKED_MAIN_SHA=%s\n' "$CURRENT_SHA"
+printf 'TERRAFORM_BIN=%s\n' "$TERRAFORM_BIN"
+printf 'TERRAFORM_VERSION=%s\n' "$TERRAFORM_VERSION"
+printf 'STATE_BUCKET_PROJECT_NUMBER=%s\n' "$bucket_project_number"
 printf 'STATE_URI=%s\n' "$state_uri"
 printf 'STATE_LINEAGE=%s\n' "$lineage"
 printf 'STATE_SERIAL=%s\n' "$serial"
@@ -171,7 +216,12 @@ CONFIGURATION_SHA256="$(
 
 TF_DATA_DIR="$(mktemp -d)"
 export TF_DATA_DIR
-terraform -chdir="$BOOTSTRAP_TF_DIR" init -input=false -reconfigure   -backend-config="bucket=$CANONICAL_STATE_BUCKET"   -backend-config="prefix=$CANONICAL_STATE_PREFIX" >/dev/null
+terraform -chdir="$BOOTSTRAP_TF_DIR" init \
+  -input=false \
+  -lockfile=readonly \
+  -reconfigure \
+  -backend-config="bucket=$CANONICAL_STATE_BUCKET" \
+  -backend-config="prefix=$CANONICAL_STATE_PREFIX" >/dev/null
 
 terraform_vars=(
   "-var=project_id=$CANONICAL_PROJECT"
