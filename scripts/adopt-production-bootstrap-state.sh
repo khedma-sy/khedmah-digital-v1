@@ -73,7 +73,7 @@ if [[ "$serial" = "1" ]]; then
   test "$generation" = "$CANONICAL_INITIAL_GENERATION" || die "initial bootstrap state generation changed unexpectedly"
 fi
 
-allowed_addresses='[
+batch_a_addresses='[
   "google_service_account.build",
   "google_service_account.migration",
   "google_storage_bucket.cloudbuild_source",
@@ -84,16 +84,55 @@ allowed_addresses='[
   "google_iam_workload_identity_pool.github"
 ]'
 
-jq -e --argjson allowed "$allowed_addresses" '
+reviewed_pre_adopted_secret_ids='{
+  "google_secret_manager_secret.runtime[\"DATABASE_URL\"]": "projects/khedma-dl/secrets/DATABASE_URL",
+  "google_secret_manager_secret.runtime[\"FIREBASE_API_KEY\"]": "projects/khedma-dl/secrets/FIREBASE_API_KEY",
+  "google_secret_manager_secret.runtime[\"FIREBASE_APP_ID\"]": "projects/khedma-dl/secrets/FIREBASE_APP_ID",
+  "google_secret_manager_secret.runtime[\"GOOGLE_MAPS_BROWSER_API_KEY\"]": "projects/khedma-dl/secrets/GOOGLE_MAPS_BROWSER_API_KEY",
+  "google_secret_manager_secret.runtime[\"GOOGLE_MAPS_SERVER_API_KEY\"]": "projects/khedma-dl/secrets/GOOGLE_MAPS_SERVER_API_KEY",
+  "google_secret_manager_secret.runtime[\"GOOGLE_OAUTH_SERVER_CLIENT_ID\"]": "projects/khedma-dl/secrets/GOOGLE_OAUTH_SERVER_CLIENT_ID",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_API_KEY\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_API_KEY",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_APP_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_APP_ID",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_PROJECT_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+  "google_secret_manager_secret.runtime[\"NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  "google_secret_manager_secret.runtime[\"OPERATIONS_PRODUCT_ROLE_BINDINGS\"]": "projects/khedma-dl/secrets/OPERATIONS_PRODUCT_ROLE_BINDINGS",
+  "google_secret_manager_secret.runtime[\"RESEND_API_KEY\"]": "projects/khedma-dl/secrets/RESEND_API_KEY",
+  "google_secret_manager_secret.database_migration": "projects/khedma-dl/secrets/DATABASE_MIGRATION_URL",
+  "google_secret_manager_secret.maps_android": "projects/khedma-dl/secrets/GOOGLE_MAPS_ANDROID_API_KEY",
+  "google_secret_manager_secret.bootstrap_admin": "projects/khedma-dl/secrets/BOOTSTRAP_ADMIN_SECRET"
+}'
+
+allowed_addresses="$(
+  jq -cn \
+    --argjson batch "$batch_a_addresses" \
+    --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" \
+    '$batch + ($reviewed_secrets | keys)'
+)"
+
+jq -e \
+  --argjson allowed "$allowed_addresses" \
+  --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" '
   [ .resources[]? as $r
-    | ($r.instances // [])[]
-    | if ($r.index_key? != null)
-      then ($r.type + "." + $r.name + "[" + ($r.index_key|tojson) + "]")
-      else ($r.type + "." + $r.name)
-      end
-  ] as $addresses
-  | all($addresses[]?; . as $a | $allowed | index($a) != null)
-' "$state_json" >/dev/null || die "bootstrap state contains an address outside Batch A"
+    | ($r.instances // [])[] as $i
+    | {
+        address: (
+          if ($i.index_key? != null)
+          then ($r.type + "." + $r.name + "[" + ($i.index_key|tojson) + "]")
+          else ($r.type + "." + $r.name)
+          end
+        ),
+        id: ($i.attributes.id // "")
+      }
+  ] as $instances
+  | all($instances[]?; . as $x | $allowed | index($x.address) != null)
+    and all(
+      $instances[]? | select(.address | startswith("google_secret_manager_secret."));
+      . as $x | ($reviewed_secrets[$x.address] // null) == $x.id
+    )
+' "$state_json" >/dev/null || die "bootstrap state contains an unreviewed address or secret identity"
 
 printf 'LOCKED_MAIN_SHA=%s\n' "$CURRENT_SHA"
 printf 'STATE_URI=%s\n' "$state_uri"
@@ -175,12 +214,13 @@ declare -a import_ids=(
   "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
   "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
 )
+# google_sql_database_instance normalizes its imported state id to the instance name on the pinned provider.
 declare -a expected_state_ids=(
   "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
   "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
   "khedma-dl-cloudbuild-source"
   "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
-  "projects/khedma-dl/instances/khedmah-v1-db"
+  "khedmah-v1-db"
   "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
   "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
   "projects/$CANONICAL_PROJECT_NUMBER/locations/global/workloadIdentityPools/khedmah-github"
