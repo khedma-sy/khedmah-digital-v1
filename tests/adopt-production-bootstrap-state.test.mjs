@@ -61,9 +61,9 @@ test('Batch A imports only the reviewed eight existing resources', () => {
 });
 
 test('adoption never applies, deletes, or rewrites live cloud resources', () => {
-  assert.doesNotMatch(script, /terraform[^\n]*\bapply\b/);
-  assert.doesNotMatch(script, /terraform[^\n]*state\s+(rm|mv|push)\b/);
-  assert.doesNotMatch(script, /gcloud[^\n]*(delete|remove-iam-policy-binding|add-iam-policy-binding|update|deploy)\b/);
+  assert.doesNotMatch(script, /^\s*terraform\b[^\n]*\bapply\b/m);
+  assert.doesNotMatch(script, /^\s*terraform\b[^\n]*state\s+(rm|mv|push)\b/m);
+  assert.doesNotMatch(script, /^\s*gcloud\b[^\n]*(delete|remove-iam-policy-binding|add-iam-policy-binding|update|deploy)\b/m);
   assert.match(script, /NO_APPLY: do not run terraform apply/);
 });
 
