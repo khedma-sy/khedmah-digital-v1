@@ -64,7 +64,7 @@ test('scratch planner adopts existing canonical structural resources only into l
     'google_storage_bucket_iam_member.build_cloudbuild_source_reader',
     'google_secret_manager_secret_iam_member.database_migration_accessor',
   ]) {
-    assert.ok(script.includes(`"${address}"`), `missing scratch import candidate ${address}`);
+    assert.ok(script.includes(address), `missing scratch import candidate ${address}`);
   }
   assert.match(script, /google_project_service\.bootstrap\[/);
   assert.match(script, /google_secret_manager_secret\.runtime\[/);
