@@ -320,15 +320,19 @@ jobs:
               repair_checkpoint active-alias-numeric
               ;;
           esac
-          migration_user_type="$(
+          migration_user_description="$(
             gcloud sql users describe "$DATABASE_MIGRATION_USER" \
               --project "$GOOGLE_CLOUD_PROJECT" \
               --instance "$SQL_INSTANCE_NAME" \
-              --format='value(type)'
+              --format=json
           )" || {
             echo 'ERROR: repair could not describe the Cloud SQL migration user.' >&2
             exit 1
           }
+          migration_user_type="$(
+            printf '%s' "$migration_user_description" \
+              | jq -er '(.type // "BUILT_IN")'
+          )"
           test "$migration_user_type" = BUILT_IN || {
             echo 'ERROR: Cloud SQL migration user is not BUILT_IN.' >&2
             exit 1
@@ -649,7 +653,7 @@ jobs:
                   --arg runtime "$DATABASE_RUNTIME_USER" \
                   --arg migration "$DATABASE_MIGRATION_USER" \
                   'length == 3
-                    and all(.[]; .type == "BUILT_IN")
+                    and all(.[]; (.type // "BUILT_IN") == "BUILT_IN")
                     and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
                   >/dev/null; then
               users_ready=true
@@ -668,7 +672,7 @@ jobs:
                   --format=json
               )" && printf '%s' "$description" \
                 | jq -e --arg expected "$user" \
-                    '.name == $expected and .type == "BUILT_IN"' >/dev/null; then
+                    '.name == $expected and (.type // "BUILT_IN") == "BUILT_IN"' >/dev/null; then
                 printf '%s' "$description"
                 return 0
               fi
@@ -833,7 +837,7 @@ jobs:
                   --arg runtime "$DATABASE_RUNTIME_USER" \
                   --arg migration "$DATABASE_MIGRATION_USER" \
                   'length == 3
-                    and all(.[]; .type == "BUILT_IN")
+                    and all(.[]; (.type // "BUILT_IN") == "BUILT_IN")
                     and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
                   >/dev/null
           }
@@ -880,7 +884,7 @@ jobs:
               --instance "$SQL_INSTANCE_NAME" \
               --format=json \
               | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
-                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+                  '(.type // "BUILT_IN") == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
               runtime_role_ready=true
               break
             fi
@@ -916,7 +920,7 @@ jobs:
               --instance "$SQL_INSTANCE_NAME" \
               --format=json \
               | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
-                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+                  '(.type // "BUILT_IN") == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
               runtime_role_ready=true
               break
             fi
@@ -943,7 +947,7 @@ jobs:
                   --arg runtime "$DATABASE_RUNTIME_USER" \
                   --arg migration "$DATABASE_MIGRATION_USER" \
                   'length == 3
-                    and all(.[]; .type == "BUILT_IN")
+                    and all(.[]; (.type // "BUILT_IN") == "BUILT_IN")
                     and (([.[].name] | sort) == (["postgres", $runtime, $migration] | sort))' \
                   >/dev/null
           }
@@ -991,7 +995,7 @@ jobs:
               --instance "$SQL_INSTANCE_NAME" \
               --format=json \
               | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
-                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+                  '(.type // "BUILT_IN") == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
               runtime_role_ready=true
               break
             fi
@@ -1027,7 +1031,7 @@ jobs:
               --instance "$SQL_INSTANCE_NAME" \
               --format=json \
               | jq -e --arg expected "$DATABASE_RUNTIME_ROLE" \
-                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+                  '(.type // "BUILT_IN") == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
               runtime_role_ready=true
               break
             fi
@@ -1124,7 +1128,7 @@ jobs:
               --instance "$SQL_INSTANCE_NAME" \
               --format=json \
               | jq -e --arg expected "$DATABASE_MIGRATION_ROLE" \
-                  '.type == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
+                  '(.type // "BUILT_IN") == "BUILT_IN" and .databaseRoles == [$expected]' >/dev/null; then
               migration_role_ready=true
               break
             fi
