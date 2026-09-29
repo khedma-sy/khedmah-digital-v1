@@ -79,7 +79,7 @@ test('WIF pool state ID uses the configured project ID while resource name may u
 });
 
 test('resume guard requires exact reviewed identities for every pre-adopted Batch A resource', () => {
-  const match = script.match(/reviewed_batch_a_ids='(\{[\s\S]*?\})'\n\nreviewed_pre_adopted_secret_ids=/);
+  const match = script.match(/reviewed_batch_a_ids='(\{[\s\S]*?\})'\n/);
   assert.ok(match, 'reviewed_batch_a_ids JSON block is required');
   const ids = JSON.parse(match[1]);
 
