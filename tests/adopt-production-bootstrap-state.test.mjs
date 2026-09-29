@@ -37,10 +37,11 @@ test('adoption requires a real supported Terraform CLI and a read-only dependenc
   assert.match(script, /-lockfile=readonly/);
 });
 
-test('VERIFY is read-only and import mode requires a SHA-bound confirmation', () => {
+test('VERIFY is read-only and both import modes require SHA-bound confirmations', () => {
   assert.match(script, /ADOPTION_MODE:-VERIFY/);
   assert.match(script, /VERIFY_OK: guarded Batch A adoption preflight passed; no state mutation performed/);
   assert.match(script, /IMPORT_KHEDMAH_BOOTSTRAP_BATCH_A_\$\{SHA7\^\^\}/);
+  assert.match(script, /IMPORT_KHEDMAH_BOOTSTRAP_BATCH_B_\$\{SHA7\^\^\}/);
   assert.match(script, /ADOPTION_CONFIRMATION/);
 });
 
@@ -92,8 +93,8 @@ test('resume guard requires exact reviewed identities for every pre-adopted Batc
     'google_project_iam_custom_role.storage_bucket_policy_viewer': 'projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer',
     'google_iam_workload_identity_pool.github': 'projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github',
   });
-  assert.match(script, /--argjson reviewed_batch "\$reviewed_batch_a_ids"/);
-  assert.match(script, /\(\$reviewed_batch\[\$x\.address\] \/\/ null\) == \$x\.id/);
+  assert.match(script, /--argjson reviewed_managed "\$reviewed_managed_ids"/);
+  assert.match(script, /\(\$reviewed_managed\[\$x\.address\] \/\/ null\) == \$x\.id/);
   assert.match(script, /\.mode \/\/ "managed"/);
   assert.match(script, /\.module \/\/ ""/);
 });
@@ -130,11 +131,11 @@ test('resume guard tolerates only exact reviewed pre-adopted secret containers',
   assert.match(script, /startsWith|startswith/);
 });
 
-test('Cloud SQL imported instance uses the provider-normalized state id', () => {
-  assert.match(script, /google_sql_database_instance normalizes its imported state id/);
-  const expectedIds = script.split('declare -a expected_state_ids=(')[1]?.split(')')[0] ?? '';
-  assert.match(expectedIds, /"khedmah-v1-db"/);
-  assert.doesNotMatch(expectedIds, /"projects\/khedma-dl\/instances\/khedmah-v1-db"\s*$/m);
+test('Batch A uses provider-normalized state IDs for Cloud SQL and WIF pool', () => {
+  const batchA = script.split('if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then')[1]?.split('else')[0] ?? '';
+  assert.match(batchA, /"khedmah-v1-db"/);
+  assert.match(batchA, /"projects\/khedma-dl\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
+  assert.doesNotMatch(batchA, /"projects\/311026134906\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
 });
 
 test('adoption never applies, deletes, or rewrites live cloud resources', () => {
@@ -165,4 +166,87 @@ test('reviewed import IDs are pinned to the canonical live resources', () => {
   ]) {
     assert.ok(script.includes(`"${id}"`), `missing import ID ${id}`);
   }
+});
+
+
+test('Batch B is limited to the reviewed live WIF provider and already-enabled APIs', () => {
+  const expectedServices = [
+    'apikeys.googleapis.com',
+    'artifactregistry.googleapis.com',
+    'cloudasset.googleapis.com',
+    'cloudbuild.googleapis.com',
+    'clouderrorreporting.googleapis.com',
+    'compute.googleapis.com',
+    'fcm.googleapis.com',
+    'firebase.googleapis.com',
+    'firebasehosting.googleapis.com',
+    'firebaseremoteconfig.googleapis.com',
+    'firebasestorage.googleapis.com',
+    'iamcredentials.googleapis.com',
+    'iam.googleapis.com',
+    'identitytoolkit.googleapis.com',
+    'logging.googleapis.com',
+    'maps-backend.googleapis.com',
+    'monitoring.googleapis.com',
+    'run.googleapis.com',
+    'secretmanager.googleapis.com',
+    'sqladmin.googleapis.com',
+    'storage.googleapis.com',
+    'sts.googleapis.com',
+  ];
+  const serviceBlock = script.match(/batch_b_services=\(([\s\S]*?)\n\)/)?.[1] ?? '';
+  const actualServices = [...serviceBlock.matchAll(/"([^"]+\.googleapis\.com)"/g)].map((match) => match[1]);
+  assert.deepEqual(actualServices, expectedServices);
+
+  for (const forbidden of [
+    'analyticsadmin.googleapis.com',
+    'certificatemanager.googleapis.com',
+    'dns.googleapis.com',
+    'firebaseappcheck.googleapis.com',
+    'firebaseauth.googleapis.com',
+    'firebasecrashlytics.googleapis.com',
+    'maps-android-backend.googleapis.com',
+    'places-backend.googleapis.com',
+  ]) {
+    assert.ok(!actualServices.includes(forbidden), `disabled/unreviewed API must not be Batch B adopted: ${forbidden}`);
+  }
+
+  assert.match(
+    script,
+    /google_iam_workload_identity_pool_provider\.github": "projects\/khedma-dl\/locations\/global\/workloadIdentityPools\/khedmah-github\/providers\/github-actions"/,
+  );
+});
+
+test('Batch B fails closed unless every reviewed API is still enabled live', () => {
+  assert.match(script, /gcloud services list/);
+  assert.match(script, /--enabled/);
+  assert.match(script, /grep -Fxq "\$service" "\$enabled_services_file"/);
+  assert.match(script, /Batch B service is no longer enabled live/);
+  assert.doesNotMatch(script, /gcloud services enable/);
+});
+
+test('Batch B verifies the live WIF provider before import', () => {
+  assert.match(script, /workload-identity-pools providers describe github-actions/);
+  assert.match(script, /live WIF provider identity\/mapping\/condition is outside the reviewed Batch B contract/);
+  assert.match(script, /"attribute\.repository": "assertion\.repository"/);
+  assert.match(script, /issuerUri == "https:\/\/token\.actions\.githubusercontent\.com"/);
+  assert.match(script, /\.state == "ACTIVE"/);
+  assert.match(script, /BATCH_B_LIVE_PREFLIGHT_OK/);
+});
+
+test('Batch B import IDs use provider-supported project-id state identities', () => {
+  assert.match(
+    script,
+    /projects\/khedma-dl\/locations\/global\/workloadIdentityPools\/khedmah-github\/providers\/github-actions/,
+  );
+  assert.match(script, /import_ids\+=\("\$CANONICAL_PROJECT\/\$service"\)/);
+  assert.match(script, /expected_state_ids\+=\("\$CANONICAL_PROJECT\/\$service"\)/);
+  assert.match(script, /google_project_service\.bootstrap\[\\"\$service\\"\]/);
+});
+
+test('state guard accepts only exact reviewed Batch A, Batch B, and secret identities', () => {
+  assert.match(script, /reviewed_managed_ids=/);
+  assert.match(script, /'\$batch_a \+ \$batch_b'/);
+  assert.match(script, /'\$batch_a \+ \(\$batch_b \| keys\) \+ \(\$reviewed_secrets \| keys\)'/);
+  assert.match(script, /\(\$reviewed_managed\[\$x\.address\] \/\/ null\) == \$x\.id/);
 });
