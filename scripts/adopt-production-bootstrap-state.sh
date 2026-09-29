@@ -113,7 +113,7 @@ reviewed_batch_a_ids='{
   "google_sql_database_instance.postgres": "khedmah-v1-db",
   "google_sql_database.application": "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah",
   "google_project_iam_custom_role.storage_bucket_policy_viewer": "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer",
-  "google_iam_workload_identity_pool.github": "projects/311026134906/locations/global/workloadIdentityPools/khedmah-github"
+  "google_iam_workload_identity_pool.github": "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
 }'
 
 reviewed_pre_adopted_secret_ids='{
