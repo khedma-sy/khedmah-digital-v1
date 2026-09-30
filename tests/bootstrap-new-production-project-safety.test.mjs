@@ -351,12 +351,13 @@ test('create-only bootstrap stage ignores only reviewed live operational drift',
   assert.doesNotMatch(pool, /ignore_changes\s*=\s*all/);
 
   const provider = bootstrap.split('resource "google_iam_workload_identity_pool_provider" "github" {')[1]?.split('resource "google_service_account_iam_member" "github_deployer" {')[0] ?? '';
-  assert.match(provider, /ignore_changes\s*=\s*\[/);
-  assert.match(provider, /display_name/);
-  assert.match(provider, /attribute_condition/);
-  assert.doesNotMatch(provider, /attribute_mapping/);
-  assert.doesNotMatch(provider, /oidc/);
-  assert.doesNotMatch(provider, /ignore_changes\s*=\s*all/);
+  const providerLifecycle = provider.match(/lifecycle\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
+  assert.match(providerLifecycle, /ignore_changes\s*=\s*\[/);
+  assert.match(providerLifecycle, /display_name/);
+  assert.match(providerLifecycle, /attribute_condition/);
+  assert.doesNotMatch(providerLifecycle, /attribute_mapping/);
+  assert.doesNotMatch(providerLifecycle, /issuer_uri|oidc/);
+  assert.doesNotMatch(providerLifecycle, /ignore_changes\s*=\s*all/);
 
   const forbiddenBlocks = [
     bootstrap.split('resource "google_project_service" "bootstrap" {')[1]?.split('resource "terraform_data" "bootstrap_provenance" {')[0] ?? '',
