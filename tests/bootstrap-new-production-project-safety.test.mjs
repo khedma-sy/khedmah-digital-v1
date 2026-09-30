@@ -330,3 +330,45 @@ test('bootstrap tfvars examples declare every required provenance input', async 
   assert.match(production, /github_environment\s*=\s*"production"/);
   assert.doesNotMatch(production, /google-production-readiness\.yml/);
 });
+
+
+test('create-only bootstrap stage ignores only reviewed live operational drift', async () => {
+  const bootstrap = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
+
+  const sql = bootstrap.split('resource "google_sql_database_instance" "postgres" {')[1]?.split('resource "google_sql_database" "application" {')[0] ?? '';
+  assert.match(sql, /ignore_changes\s*=\s*\[/);
+  assert.match(sql, /point_in_time_recovery_enabled/);
+  assert.match(sql, /start_time/);
+  assert.match(sql, /location/);
+  assert.doesNotMatch(sql, /ignore_changes\s*=\s*all/);
+
+  const artifact = bootstrap.split('resource "google_artifact_registry_repository" "docker" {')[1]?.split('resource "google_service_account" "runtime" {')[0] ?? '';
+  assert.match(artifact, /ignore_changes\s*=\s*\[description\]/);
+  assert.doesNotMatch(artifact, /ignore_changes\s*=\s*all/);
+
+  const pool = bootstrap.split('resource "google_iam_workload_identity_pool" "github" {')[1]?.split('resource "google_iam_workload_identity_pool_provider" "github" {')[0] ?? '';
+  assert.match(pool, /ignore_changes\s*=\s*\[description\]/);
+  assert.doesNotMatch(pool, /ignore_changes\s*=\s*all/);
+
+  const provider = bootstrap.split('resource "google_iam_workload_identity_pool_provider" "github" {')[1]?.split('resource "google_service_account_iam_member" "github_deployer" {')[0] ?? '';
+  assert.match(provider, /ignore_changes\s*=\s*\[/);
+  assert.match(provider, /display_name/);
+  assert.match(provider, /attribute_condition/);
+  assert.doesNotMatch(provider, /attribute_mapping/);
+  assert.doesNotMatch(provider, /oidc/);
+  assert.doesNotMatch(provider, /ignore_changes\s*=\s*all/);
+
+  for (const forbidden of [
+    'google_project_service',
+    'google_service_account" "runtime',
+    'google_service_account" "deployer',
+    'google_project_iam_member" "deployer',
+    'google_secret_manager_secret_iam_member" "runtime',
+  ]) {
+    const idx = bootstrap.indexOf(forbidden);
+    if (idx >= 0) {
+      const slice = bootstrap.slice(idx, idx + 1200);
+      assert.doesNotMatch(slice, /ignore_changes\s*=/, `unexpected ignore_changes near ${forbidden}`);
+    }
+  }
+});
