@@ -340,6 +340,8 @@ test('create-only bootstrap stage ignores only reviewed live operational drift',
   assert.match(sql, /point_in_time_recovery_enabled/);
   assert.match(sql, /start_time/);
   assert.match(sql, /location/);
+  assert.match(sql, /settings\[0\]\.deletion_protection_enabled/);
+  assert.match(sql, /settings\[0\]\.enable_dataplex_integration/);
   assert.doesNotMatch(sql, /ignore_changes\s*=\s*all/);
 
   const artifact = bootstrap.split('resource "google_artifact_registry_repository" "docker" {')[1]?.split('resource "google_service_account" "runtime" {')[0] ?? '';
