@@ -35,8 +35,8 @@ tf_minor="${tf_minor_patch%%.*}"
 (( tf_major > 1 || (tf_major == 1 && tf_minor >= 8) )) || die "Terraform >= 1.8.0 is required"
 
 case "$MODE" in
-  VERIFY|IMPORT_BATCH_A|IMPORT_BATCH_B) ;;
-  *) die "ADOPTION_MODE must be VERIFY, IMPORT_BATCH_A, or IMPORT_BATCH_B" ;;
+  VERIFY|IMPORT_BATCH_A|IMPORT_BATCH_B|IMPORT_BATCH_C) ;;
+  *) die "ADOPTION_MODE must be VERIFY, IMPORT_BATCH_A, IMPORT_BATCH_B, or IMPORT_BATCH_C" ;;
 esac
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -153,6 +153,27 @@ for service in "${batch_b_services[@]}"; do
   )"
 done
 
+reviewed_batch_c_ids='{
+  "google_project_iam_member.build[\"roles/artifactregistry.writer\"]": "khedma-dl/roles/artifactregistry.writer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/certificatemanager.viewer\"]": "khedma-dl/roles/certificatemanager.viewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/cloudsql.viewer\"]": "khedma-dl/roles/cloudsql.viewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/dns.reader\"]": "khedma-dl/roles/dns.reader/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/logging.logWriter\"]": "khedma-dl/roles/logging.logWriter/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/run.admin\"]": "khedma-dl/roles/run.admin/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.build[\"roles/serviceusage.serviceUsageConsumer\"]": "khedma-dl/roles/serviceusage.serviceUsageConsumer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_project_iam_member.migration_cloud_sql_client": "khedma-dl/roles/cloudsql.client/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"GOOGLE_MAPS_BROWSER_API_KEY\"]": "projects/khedma-dl/secrets/GOOGLE_MAPS_BROWSER_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_API_KEY\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_APP_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_PROJECT_ID\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\"]": "projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com",
+  "google_secret_manager_secret_iam_member.database_migration_accessor": "projects/khedma-dl/secrets/DATABASE_MIGRATION_URL/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com",
+  "google_storage_bucket_iam_member.build_cloudbuild_source_reader": "b/khedma-dl-cloudbuild-source/roles/storage.objectViewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+}'
+
 reviewed_pre_adopted_secret_ids='{
   "google_secret_manager_secret.runtime[\"DATABASE_URL\"]": "projects/khedma-dl/secrets/DATABASE_URL",
   "google_secret_manager_secret.runtime[\"FIREBASE_API_KEY\"]": "projects/khedma-dl/secrets/FIREBASE_API_KEY",
@@ -178,14 +199,16 @@ reviewed_managed_ids="$(
   jq -cn \
     --argjson batch_a "$reviewed_batch_a_ids" \
     --argjson batch_b "$reviewed_batch_b_ids" \
-    '$batch_a + $batch_b'
+    --argjson batch_c "$reviewed_batch_c_ids" \
+    '$batch_a + $batch_b + $batch_c'
 )"
 allowed_addresses="$(
   jq -cn \
     --argjson batch_a "$batch_a_addresses" \
     --argjson batch_b "$reviewed_batch_b_ids" \
+    --argjson batch_c "$reviewed_batch_c_ids" \
     --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" \
-    '$batch_a + ($batch_b | keys) + ($reviewed_secrets | keys)'
+    '$batch_a + ($batch_b | keys) + ($batch_c | keys) + ($reviewed_secrets | keys)'
 )"
 
 jq -e \
@@ -230,7 +253,7 @@ printf 'STATE_SERIAL=%s\n' "$serial"
 printf 'STATE_GENERATION=%s\n' "$generation"
 
 if [[ "$MODE" = "VERIFY" ]]; then
-  printf 'VERIFY_OK: guarded Batch A adoption preflight passed; no state mutation performed.\n'
+  printf 'VERIFY_OK: guarded bootstrap adoption preflight passed; no state mutation performed.\n'
   exit 0
 fi
 
@@ -240,6 +263,9 @@ case "$MODE" in
     ;;
   IMPORT_BATCH_B)
     expected_confirmation="IMPORT_KHEDMAH_BOOTSTRAP_BATCH_B_${SHA7^^}"
+    ;;
+  IMPORT_BATCH_C)
+    expected_confirmation="IMPORT_KHEDMAH_BOOTSTRAP_BATCH_C_${SHA7^^}"
     ;;
   *)
     die "unexpected adoption mode after VERIFY gate: $MODE"
@@ -306,6 +332,77 @@ attribute.workflow_ref in ["khedma-sy/khedmah-digital-v1/.github/workflows/produ
   printf 'BATCH_B_LIVE_PREFLIGHT_OK: WIF provider and %s already-enabled APIs match the reviewed adoption set.\n' "${#batch_b_services[@]}"
 fi
 
+if [[ "$MODE" = "IMPORT_BATCH_C" ]]; then
+  BUILD_MEMBER="serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+  MIGRATOR_MEMBER="serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
+
+  project_policy="$(gcloud projects get-iam-policy "$CANONICAL_PROJECT" --format=json)"
+  require_project_binding() {
+    local role="$1"
+    local member="$2"
+    jq -e --arg role "$role" --arg member "$member" '
+      any(.bindings[]?;
+        .role == $role
+        and ((.condition.title? // "") == "")
+        and any(.members[]?; . == $member)
+      )
+    ' <<<"$project_policy" >/dev/null || die "Batch C project IAM binding is no longer present live: $role $member"
+  }
+
+  for role in \
+    roles/artifactregistry.writer \
+    roles/certificatemanager.viewer \
+    roles/cloudsql.viewer \
+    roles/dns.reader \
+    roles/logging.logWriter \
+    roles/run.admin \
+    roles/serviceusage.serviceUsageConsumer
+  do
+    require_project_binding "$role" "$BUILD_MEMBER"
+  done
+  require_project_binding roles/cloudsql.client "$MIGRATOR_MEMBER"
+
+  require_secret_binding() {
+    local secret="$1"
+    local role="$2"
+    local member="$3"
+    local policy
+    policy="$(gcloud secrets get-iam-policy "$secret" --project="$CANONICAL_PROJECT" --format=json)"
+    jq -e --arg role "$role" --arg member "$member" '
+      any(.bindings[]?;
+        .role == $role
+        and ((.condition.title? // "") == "")
+        and any(.members[]?; . == $member)
+      )
+    ' <<<"$policy" >/dev/null || die "Batch C secret IAM binding is no longer present live: $secret $role $member"
+  }
+
+  for secret in \
+    GOOGLE_MAPS_BROWSER_API_KEY \
+    NEXT_PUBLIC_FIREBASE_API_KEY \
+    NEXT_PUBLIC_FIREBASE_APP_ID \
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID \
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID \
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+  do
+    require_secret_binding "$secret" roles/secretmanager.secretAccessor "$BUILD_MEMBER"
+  done
+  require_secret_binding DATABASE_MIGRATION_URL roles/secretmanager.secretAccessor "$MIGRATOR_MEMBER"
+
+  bucket_policy="$(gcloud storage buckets get-iam-policy "gs://khedma-dl-cloudbuild-source" --format=json)"
+  jq -e --arg member "$BUILD_MEMBER" '
+    any(.bindings[]?;
+      .role == "roles/storage.objectViewer"
+      and ((.condition.title? // "") == "")
+      and any(.members[]?; . == $member)
+    )
+  ' <<<"$bucket_policy" >/dev/null || die "Batch C Cloud Build source bucket reader binding is no longer present live"
+
+  printf 'BATCH_C_LIVE_PREFLIGHT_OK: 18 reviewed existing IAM bindings are still present live.\n'
+fi
+
 snapshot="$HOME/khedmah-bootstrap-state-preimport-${CURRENT_SHA}-serial${serial}-gen${generation}.tfstate"
 cp "$state_json" "$snapshot"
 chmod 600 "$snapshot"
@@ -361,49 +458,106 @@ declare -a addresses=()
 declare -a import_ids=()
 declare -a expected_state_ids=()
 
-if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then
-  addresses=(
-    "google_service_account.build"
-    "google_service_account.migration"
-    "google_storage_bucket.cloudbuild_source"
-    "google_artifact_registry_repository.docker"
-    "google_sql_database_instance.postgres"
-    "google_sql_database.application"
-    "google_project_iam_custom_role.storage_bucket_policy_viewer"
-    "google_iam_workload_identity_pool.github"
-  )
-  import_ids=(
-    "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
-    "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
-    "khedma-dl/khedma-dl-cloudbuild-source"
-    "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
-    "projects/khedma-dl/instances/khedmah-v1-db"
-    "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
-    "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
-    "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
-  )
-  # Google provider normalizes these imported IDs to the project-id/state forms below.
-  expected_state_ids=(
-    "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
-    "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
-    "khedma-dl-cloudbuild-source"
-    "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
-    "khedmah-v1-db"
-    "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
-    "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
-    "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
-  )
-else
-  addresses+=("google_iam_workload_identity_pool_provider.github")
-  import_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
-  expected_state_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
-
-  for service in "${batch_b_services[@]}"; do
-    addresses+=("google_project_service.bootstrap[\"$service\"]")
-    import_ids+=("$CANONICAL_PROJECT/$service")
-    expected_state_ids+=("$CANONICAL_PROJECT/$service")
-  done
-fi
+case "$MODE" in
+  IMPORT_BATCH_A)
+    addresses=(
+      "google_service_account.build"
+      "google_service_account.migration"
+      "google_storage_bucket.cloudbuild_source"
+      "google_artifact_registry_repository.docker"
+      "google_sql_database_instance.postgres"
+      "google_sql_database.application"
+      "google_project_iam_custom_role.storage_bucket_policy_viewer"
+      "google_iam_workload_identity_pool.github"
+    )
+    import_ids=(
+      "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+      "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
+      "khedma-dl/khedma-dl-cloudbuild-source"
+      "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
+      "projects/khedma-dl/instances/khedmah-v1-db"
+      "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
+      "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
+      "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
+    )
+    expected_state_ids=(
+      "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+      "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
+      "khedma-dl-cloudbuild-source"
+      "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
+      "khedmah-v1-db"
+      "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
+      "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
+      "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
+    )
+    ;;
+  IMPORT_BATCH_B)
+    addresses+=("google_iam_workload_identity_pool_provider.github")
+    import_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
+    expected_state_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
+    for service in "${batch_b_services[@]}"; do
+      addresses+=("google_project_service.bootstrap[\"$service\"]")
+      import_ids+=("$CANONICAL_PROJECT/$service")
+      expected_state_ids+=("$CANONICAL_PROJECT/$service")
+    done
+    ;;
+  IMPORT_BATCH_C)
+    addresses+=("google_project_iam_member.build[\"roles/artifactregistry.writer\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/artifactregistry.writer serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/artifactregistry.writer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/certificatemanager.viewer\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/certificatemanager.viewer serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/certificatemanager.viewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/cloudsql.viewer\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/cloudsql.viewer serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/cloudsql.viewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/dns.reader\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/dns.reader serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/dns.reader/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/logging.logWriter\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/logging.logWriter serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/logging.logWriter/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/run.admin\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/run.admin serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/run.admin/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.build[\"roles/serviceusage.serviceUsageConsumer\"]")
+    import_ids+=("$CANONICAL_PROJECT roles/serviceusage.serviceUsageConsumer serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/serviceusage.serviceUsageConsumer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_project_iam_member.migration_cloud_sql_client")
+    import_ids+=("$CANONICAL_PROJECT roles/cloudsql.client serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("$CANONICAL_PROJECT/roles/cloudsql.client/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"GOOGLE_MAPS_BROWSER_API_KEY\"]")
+    import_ids+=("projects/khedma-dl/secrets/GOOGLE_MAPS_BROWSER_API_KEY roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/GOOGLE_MAPS_BROWSER_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_API_KEY\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_API_KEY roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_APP_ID\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_APP_ID roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_PROJECT_ID\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.build[\"NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\"]")
+    import_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_secret_manager_secret_iam_member.database_migration_accessor")
+    import_ids+=("projects/khedma-dl/secrets/DATABASE_MIGRATION_URL roles/secretmanager.secretAccessor serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("projects/khedma-dl/secrets/DATABASE_MIGRATION_URL/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com")
+    addresses+=("google_storage_bucket_iam_member.build_cloudbuild_source_reader")
+    import_ids+=("b/khedma-dl-cloudbuild-source roles/storage.objectViewer serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    expected_state_ids+=("b/khedma-dl-cloudbuild-source/roles/storage.objectViewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com")
+    ;;
+esac
 
 state_id_for() {
   local address="$1"
@@ -437,9 +591,9 @@ done
 
 printf '%s\n' "--- ${MODE} STATE ADDRESSES ---"
 terraform -chdir="$BOOTSTRAP_TF_DIR" state list | sort
-if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then
-  printf 'IMPORT_BATCH_A_OK: state adoption completed for guarded Batch A only.\n'
-else
-  printf 'IMPORT_BATCH_B_OK: state adoption completed for reviewed live WIF provider and already-enabled Google APIs only.\n'
-fi
+case "$MODE" in
+  IMPORT_BATCH_A) printf 'IMPORT_BATCH_A_OK: state adoption completed for guarded Batch A only.\n' ;;
+  IMPORT_BATCH_B) printf 'IMPORT_BATCH_B_OK: state adoption completed for reviewed live WIF provider and already-enabled Google APIs only.\n' ;;
+  IMPORT_BATCH_C) printf 'IMPORT_BATCH_C_OK: state adoption completed for 18 reviewed existing IAM bindings only.\n' ;;
+esac
 printf 'NO_APPLY: do not run terraform apply; run a reviewed PLAN next.\n'
