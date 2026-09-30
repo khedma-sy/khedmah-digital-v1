@@ -341,7 +341,11 @@ if [[ "$MODE" = "IMPORT_BATCH_C" ]]; then
     local role="$1"
     local member="$2"
     jq -e --arg role "$role" --arg member "$member" '
-      any(.bindings[]?; .role == $role and any(.members[]?; . == $member))
+      any(.bindings[]?;
+        .role == $role
+        and ((.condition.title? // "") == "")
+        and any(.members[]?; . == $member)
+      )
     ' <<<"$project_policy" >/dev/null || die "Batch C project IAM binding is no longer present live: $role $member"
   }
 
@@ -365,7 +369,11 @@ if [[ "$MODE" = "IMPORT_BATCH_C" ]]; then
     local policy
     policy="$(gcloud secrets get-iam-policy "$secret" --project="$CANONICAL_PROJECT" --format=json)"
     jq -e --arg role "$role" --arg member "$member" '
-      any(.bindings[]?; .role == $role and any(.members[]?; . == $member))
+      any(.bindings[]?;
+        .role == $role
+        and ((.condition.title? // "") == "")
+        and any(.members[]?; . == $member)
+      )
     ' <<<"$policy" >/dev/null || die "Batch C secret IAM binding is no longer present live: $secret $role $member"
   }
 
@@ -385,7 +393,11 @@ if [[ "$MODE" = "IMPORT_BATCH_C" ]]; then
 
   bucket_policy="$(gcloud storage buckets get-iam-policy "gs://khedma-dl-cloudbuild-source" --format=json)"
   jq -e --arg member "$BUILD_MEMBER" '
-    any(.bindings[]?; .role == "roles/storage.objectViewer" and any(.members[]?; . == $member))
+    any(.bindings[]?;
+      .role == "roles/storage.objectViewer"
+      and ((.condition.title? // "") == "")
+      and any(.members[]?; . == $member)
+    )
   ' <<<"$bucket_policy" >/dev/null || die "Batch C Cloud Build source bucket reader binding is no longer present live"
 
   printf 'BATCH_C_LIVE_PREFLIGHT_OK: 18 reviewed existing IAM bindings are still present live.\n'
