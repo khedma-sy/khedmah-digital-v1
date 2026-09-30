@@ -35,8 +35,8 @@ tf_minor="${tf_minor_patch%%.*}"
 (( tf_major > 1 || (tf_major == 1 && tf_minor >= 8) )) || die "Terraform >= 1.8.0 is required"
 
 case "$MODE" in
-  VERIFY|IMPORT_BATCH_A) ;;
-  *) die "ADOPTION_MODE must be VERIFY or IMPORT_BATCH_A" ;;
+  VERIFY|IMPORT_BATCH_A|IMPORT_BATCH_B) ;;
+  *) die "ADOPTION_MODE must be VERIFY, IMPORT_BATCH_A, or IMPORT_BATCH_B" ;;
 esac
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -116,6 +116,43 @@ reviewed_batch_a_ids='{
   "google_iam_workload_identity_pool.github": "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
 }'
 
+batch_b_services=(
+  "apikeys.googleapis.com"
+  "artifactregistry.googleapis.com"
+  "cloudasset.googleapis.com"
+  "cloudbuild.googleapis.com"
+  "clouderrorreporting.googleapis.com"
+  "compute.googleapis.com"
+  "fcm.googleapis.com"
+  "firebase.googleapis.com"
+  "firebasehosting.googleapis.com"
+  "firebaseremoteconfig.googleapis.com"
+  "firebasestorage.googleapis.com"
+  "iamcredentials.googleapis.com"
+  "iam.googleapis.com"
+  "identitytoolkit.googleapis.com"
+  "logging.googleapis.com"
+  "maps-backend.googleapis.com"
+  "monitoring.googleapis.com"
+  "run.googleapis.com"
+  "secretmanager.googleapis.com"
+  "sqladmin.googleapis.com"
+  "storage.googleapis.com"
+  "sts.googleapis.com"
+)
+
+reviewed_batch_b_ids='{
+  "google_iam_workload_identity_pool_provider.github": "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions"
+}'
+for service in "${batch_b_services[@]}"; do
+  reviewed_batch_b_ids="$(
+    jq -c \
+      --arg address "google_project_service.bootstrap[\"$service\"]" \
+      --arg id "$CANONICAL_PROJECT/$service" \
+      '. + {($address): $id}' <<<"$reviewed_batch_b_ids"
+  )"
+done
+
 reviewed_pre_adopted_secret_ids='{
   "google_secret_manager_secret.runtime[\"DATABASE_URL\"]": "projects/khedma-dl/secrets/DATABASE_URL",
   "google_secret_manager_secret.runtime[\"FIREBASE_API_KEY\"]": "projects/khedma-dl/secrets/FIREBASE_API_KEY",
@@ -137,16 +174,23 @@ reviewed_pre_adopted_secret_ids='{
   "google_secret_manager_secret.bootstrap_admin": "projects/khedma-dl/secrets/BOOTSTRAP_ADMIN_SECRET"
 }'
 
+reviewed_managed_ids="$(
+  jq -cn \
+    --argjson batch_a "$reviewed_batch_a_ids" \
+    --argjson batch_b "$reviewed_batch_b_ids" \
+    '$batch_a + $batch_b'
+)"
 allowed_addresses="$(
   jq -cn \
-    --argjson batch "$batch_a_addresses" \
+    --argjson batch_a "$batch_a_addresses" \
+    --argjson batch_b "$reviewed_batch_b_ids" \
     --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" \
-    '$batch + ($reviewed_secrets | keys)'
+    '$batch_a + ($batch_b | keys) + ($reviewed_secrets | keys)'
 )"
 
 jq -e \
   --argjson allowed "$allowed_addresses" \
-  --argjson reviewed_batch "$reviewed_batch_a_ids" \
+  --argjson reviewed_managed "$reviewed_managed_ids" \
   --argjson reviewed_secrets "$reviewed_pre_adopted_secret_ids" '
   (all(
     .resources[]?;
@@ -168,7 +212,7 @@ jq -e \
     and all($instances[]?; . as $x | $allowed | index($x.address) != null)
     and all(
       $instances[]? | select((.address | startswith("google_secret_manager_secret.")) | not);
-      . as $x | ($reviewed_batch[$x.address] // null) == $x.id
+      . as $x | ($reviewed_managed[$x.address] // null) == $x.id
     )
     and all(
       $instances[]? | select(.address | startswith("google_secret_manager_secret."));
@@ -190,8 +234,77 @@ if [[ "$MODE" = "VERIFY" ]]; then
   exit 0
 fi
 
-expected_confirmation="IMPORT_KHEDMAH_BOOTSTRAP_BATCH_A_${SHA7^^}"
+case "$MODE" in
+  IMPORT_BATCH_A)
+    expected_confirmation="IMPORT_KHEDMAH_BOOTSTRAP_BATCH_A_${SHA7^^}"
+    ;;
+  IMPORT_BATCH_B)
+    expected_confirmation="IMPORT_KHEDMAH_BOOTSTRAP_BATCH_B_${SHA7^^}"
+    ;;
+  *)
+    die "unexpected adoption mode after VERIFY gate: $MODE"
+    ;;
+esac
 test "$CONFIRMATION" = "$expected_confirmation" || die "confirmation must equal $expected_confirmation"
+
+if [[ "$MODE" = "IMPORT_BATCH_B" ]]; then
+  enabled_services_file="$(mktemp)"
+  provider_json="$(mktemp)"
+  trap 'rm -f "$bucket_meta" "$state_meta" "$state_json" "$enabled_services_file" "$provider_json"; if [[ -n "$TF_DATA_DIR" && -d "$TF_DATA_DIR" ]]; then rm -rf "$TF_DATA_DIR"; fi' EXIT
+
+  gcloud services list \
+    --enabled \
+    --project="$CANONICAL_PROJECT" \
+    --format='value(config.name)' | sort -u >"$enabled_services_file"
+  for service in "${batch_b_services[@]}"; do
+    grep -Fxq "$service" "$enabled_services_file" || die "Batch B service is no longer enabled live: $service"
+  done
+
+  gcloud iam workload-identity-pools providers describe github-actions \
+    --workload-identity-pool=khedmah-github \
+    --project="$CANONICAL_PROJECT" \
+    --location=global \
+    --format=json >"$provider_json"
+
+  expected_live_condition_attribute='attribute.repository == "khedma-sy/khedmah-digital-v1" &&
+attribute.repository_id == "1307435925" &&
+attribute.repository_owner_id == "307214577" &&
+attribute.ref == "refs/heads/main" &&
+google.subject == "repo:khedma-sy@307214577/khedmah-digital-v1@1307435925:environment:production" &&
+attribute.workflow_ref in ["khedma-sy/khedmah-digital-v1/.github/workflows/production-operator-new-account.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/production-operator.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/production-baseline-001-020.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/production-bootstrap-admin.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/production-migrations-025-034.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/production-database-role-bootstrap.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/terraform-media-apply.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/terraform-media-plan.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/terraform-media-state-handoff.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/terraform-client-maps-plan.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/terraform-client-maps-apply.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/android-release-certification.yml@refs/heads/main","khedma-sy/khedmah-digital-v1/.github/workflows/google-production-readiness.yml@refs/heads/main"]'
+  expected_live_condition_assertion="${expected_live_condition_attribute//attribute.repository/assertion.repository}"
+  expected_live_condition_assertion="${expected_live_condition_assertion//attribute.repository_id/assertion.repository_id}"
+  expected_live_condition_assertion="${expected_live_condition_assertion//attribute.repository_owner_id/assertion.repository_owner_id}"
+  expected_live_condition_assertion="${expected_live_condition_assertion//attribute.ref/assertion.ref}"
+  expected_live_condition_assertion="${expected_live_condition_assertion//attribute.workflow_ref/assertion.workflow_ref}"
+
+  jq -e \
+    --arg expected_name "projects/$CANONICAL_PROJECT_NUMBER/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions" \
+    --arg current_condition "$expected_live_condition_attribute" \
+    --arg canonical_condition "$expected_live_condition_assertion" '
+      .name == $expected_name
+      and .state == "ACTIVE"
+      and ((.disabled // false) == false)
+      and .attributeMapping == {
+        "attribute.ref": "assertion.ref",
+        "attribute.repository": "assertion.repository",
+        "attribute.repository_id": "assertion.repository_id",
+        "attribute.repository_owner_id": "assertion.repository_owner_id",
+        "attribute.workflow_ref": "assertion.workflow_ref",
+        "google.subject": "assertion.sub"
+      }
+      and .oidc.issuerUri == "https://token.actions.githubusercontent.com"
+      and (
+        ((.attributeCondition // "") | gsub("\\s+"; ""))
+        == (($current_condition | gsub("\\s+"; "")))
+        or
+        ((.attributeCondition // "") | gsub("\\s+"; ""))
+        == (($canonical_condition | gsub("\\s+"; "")))
+      )
+    ' "$provider_json" >/dev/null || die "live WIF provider identity/mapping/condition is outside the reviewed Batch B contract"
+
+  printf 'BATCH_B_LIVE_PREFLIGHT_OK: WIF provider and %s already-enabled APIs match the reviewed adoption set.\n' "${#batch_b_services[@]}"
+fi
 
 snapshot="$HOME/khedmah-bootstrap-state-preimport-${CURRENT_SHA}-serial${serial}-gen${generation}.tfstate"
 cp "$state_json" "$snapshot"
@@ -244,37 +357,53 @@ terraform_vars=(
   "-var=github_ref=refs/heads/main"
 )
 
-declare -a addresses=(
-  "google_service_account.build"
-  "google_service_account.migration"
-  "google_storage_bucket.cloudbuild_source"
-  "google_artifact_registry_repository.docker"
-  "google_sql_database_instance.postgres"
-  "google_sql_database.application"
-  "google_project_iam_custom_role.storage_bucket_policy_viewer"
-  "google_iam_workload_identity_pool.github"
-)
-declare -a import_ids=(
-  "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
-  "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
-  "khedma-dl/khedma-dl-cloudbuild-source"
-  "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
-  "projects/khedma-dl/instances/khedmah-v1-db"
-  "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
-  "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
-  "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
-)
-# google_sql_database_instance normalizes its imported state id to the instance name on the pinned provider.
-declare -a expected_state_ids=(
-  "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
-  "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
-  "khedma-dl-cloudbuild-source"
-  "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
-  "khedmah-v1-db"
-  "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
-  "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
-  "projects/$CANONICAL_PROJECT_NUMBER/locations/global/workloadIdentityPools/khedmah-github"
-)
+declare -a addresses=()
+declare -a import_ids=()
+declare -a expected_state_ids=()
+
+if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then
+  addresses=(
+    "google_service_account.build"
+    "google_service_account.migration"
+    "google_storage_bucket.cloudbuild_source"
+    "google_artifact_registry_repository.docker"
+    "google_sql_database_instance.postgres"
+    "google_sql_database.application"
+    "google_project_iam_custom_role.storage_bucket_policy_viewer"
+    "google_iam_workload_identity_pool.github"
+  )
+  import_ids=(
+    "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+    "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
+    "khedma-dl/khedma-dl-cloudbuild-source"
+    "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
+    "projects/khedma-dl/instances/khedmah-v1-db"
+    "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
+    "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
+    "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
+  )
+  # Google provider normalizes these imported IDs to the project-id/state forms below.
+  expected_state_ids=(
+    "projects/khedma-dl/serviceAccounts/khedmah-v1-build@khedma-dl.iam.gserviceaccount.com"
+    "projects/khedma-dl/serviceAccounts/khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com"
+    "khedma-dl-cloudbuild-source"
+    "projects/khedma-dl/locations/europe-west1/repositories/khedmah-digital"
+    "khedmah-v1-db"
+    "projects/khedma-dl/instances/khedmah-v1-db/databases/khedmah"
+    "projects/khedma-dl/roles/khedmahStorageBucketPolicyViewer"
+    "projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github"
+  )
+else
+  addresses+=("google_iam_workload_identity_pool_provider.github")
+  import_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
+  expected_state_ids+=("projects/khedma-dl/locations/global/workloadIdentityPools/khedmah-github/providers/github-actions")
+
+  for service in "${batch_b_services[@]}"; do
+    addresses+=("google_project_service.bootstrap[\"$service\"]")
+    import_ids+=("$CANONICAL_PROJECT/$service")
+    expected_state_ids+=("$CANONICAL_PROJECT/$service")
+  done
+fi
 
 state_id_for() {
   local address="$1"
@@ -306,7 +435,11 @@ for i in "${!addresses[@]}"; do
   printf 'IMPORTED_OK: %s = %s\n' "$address" "$actual_id"
 done
 
-printf '%s\n' '--- BATCH A STATE ADDRESSES ---'
+printf '%s\n' "--- ${MODE} STATE ADDRESSES ---"
 terraform -chdir="$BOOTSTRAP_TF_DIR" state list | sort
-printf 'IMPORT_BATCH_A_OK: state adoption completed for guarded Batch A only.\n'
+if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then
+  printf 'IMPORT_BATCH_A_OK: state adoption completed for guarded Batch A only.\n'
+else
+  printf 'IMPORT_BATCH_B_OK: state adoption completed for reviewed live WIF provider and already-enabled Google APIs only.\n'
+fi
 printf 'NO_APPLY: do not run terraform apply; run a reviewed PLAN next.\n'
