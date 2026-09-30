@@ -330,3 +330,44 @@ test('bootstrap tfvars examples declare every required provenance input', async 
   assert.match(production, /github_environment\s*=\s*"production"/);
   assert.doesNotMatch(production, /google-production-readiness\.yml/);
 });
+
+
+test('create-only bootstrap stage ignores only reviewed live operational drift', async () => {
+  const bootstrap = await readFile(new URL('../infra/iac/bootstrap/main.tf', import.meta.url), 'utf8');
+
+  const sql = bootstrap.split('resource "google_sql_database_instance" "postgres" {')[1]?.split('resource "google_sql_database" "application" {')[0] ?? '';
+  assert.match(sql, /ignore_changes\s*=\s*\[/);
+  assert.match(sql, /point_in_time_recovery_enabled/);
+  assert.match(sql, /start_time/);
+  assert.match(sql, /location/);
+  assert.doesNotMatch(sql, /ignore_changes\s*=\s*all/);
+
+  const artifact = bootstrap.split('resource "google_artifact_registry_repository" "docker" {')[1]?.split('resource "google_service_account" "runtime" {')[0] ?? '';
+  assert.match(artifact, /ignore_changes\s*=\s*\[description\]/);
+  assert.doesNotMatch(artifact, /ignore_changes\s*=\s*all/);
+
+  const pool = bootstrap.split('resource "google_iam_workload_identity_pool" "github" {')[1]?.split('resource "google_iam_workload_identity_pool_provider" "github" {')[0] ?? '';
+  assert.match(pool, /ignore_changes\s*=\s*\[description\]/);
+  assert.doesNotMatch(pool, /ignore_changes\s*=\s*all/);
+
+  const provider = bootstrap.split('resource "google_iam_workload_identity_pool_provider" "github" {')[1]?.split('resource "google_service_account_iam_member" "github_deployer" {')[0] ?? '';
+  const providerLifecycle = provider.match(/lifecycle\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
+  assert.match(providerLifecycle, /ignore_changes\s*=\s*\[/);
+  assert.match(providerLifecycle, /display_name/);
+  assert.match(providerLifecycle, /attribute_condition/);
+  assert.doesNotMatch(providerLifecycle, /attribute_mapping/);
+  assert.doesNotMatch(providerLifecycle, /issuer_uri|oidc/);
+  assert.doesNotMatch(providerLifecycle, /ignore_changes\s*=\s*all/);
+
+  const forbiddenBlocks = [
+    bootstrap.split('resource "google_project_service" "bootstrap" {')[1]?.split('resource "terraform_data" "bootstrap_provenance" {')[0] ?? '',
+    bootstrap.split('resource "google_service_account" "runtime" {')[1]?.split('resource "google_service_account" "deployer" {')[0] ?? '',
+    bootstrap.split('resource "google_service_account" "deployer" {')[1]?.split('resource "google_storage_bucket_iam_member" "deployer_terraform_state_objects" {')[0] ?? '',
+    bootstrap.split('resource "google_project_iam_member" "deployer" {')[1]?.split('resource "google_project_iam_member" "build" {')[0] ?? '',
+    bootstrap.split('resource "google_secret_manager_secret_iam_member" "runtime" {')[1]?.split('resource "google_secret_manager_secret_iam_member" "build" {')[0] ?? '',
+  ];
+  for (const block of forbiddenBlocks) {
+    assert.ok(block.length > 0, 'expected canonical resource block');
+    assert.doesNotMatch(block, /ignore_changes\s*=/);
+  }
+});
