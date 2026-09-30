@@ -358,17 +358,15 @@ test('create-only bootstrap stage ignores only reviewed live operational drift',
   assert.doesNotMatch(provider, /oidc/);
   assert.doesNotMatch(provider, /ignore_changes\s*=\s*all/);
 
-  for (const forbidden of [
-    'google_project_service',
-    'google_service_account" "runtime',
-    'google_service_account" "deployer',
-    'google_project_iam_member" "deployer',
-    'google_secret_manager_secret_iam_member" "runtime',
-  ]) {
-    const idx = bootstrap.indexOf(forbidden);
-    if (idx >= 0) {
-      const slice = bootstrap.slice(idx, idx + 1200);
-      assert.doesNotMatch(slice, /ignore_changes\s*=/, `unexpected ignore_changes near ${forbidden}`);
-    }
+  const forbiddenBlocks = [
+    bootstrap.split('resource "google_project_service" "bootstrap" {')[1]?.split('resource "terraform_data" "bootstrap_provenance" {')[0] ?? '',
+    bootstrap.split('resource "google_service_account" "runtime" {')[1]?.split('resource "google_service_account" "deployer" {')[0] ?? '',
+    bootstrap.split('resource "google_service_account" "deployer" {')[1]?.split('resource "google_storage_bucket_iam_member" "deployer_terraform_state_objects" {')[0] ?? '',
+    bootstrap.split('resource "google_project_iam_member" "deployer" {')[1]?.split('resource "google_project_iam_member" "build" {')[0] ?? '',
+    bootstrap.split('resource "google_secret_manager_secret_iam_member" "runtime" {')[1]?.split('resource "google_secret_manager_secret_iam_member" "build" {')[0] ?? '',
+  ];
+  for (const block of forbiddenBlocks) {
+    assert.ok(block.length > 0, 'expected canonical resource block');
+    assert.doesNotMatch(block, /ignore_changes\s*=/);
   }
 });
