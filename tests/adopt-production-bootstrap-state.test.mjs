@@ -133,7 +133,7 @@ test('resume guard tolerates only exact reviewed pre-adopted secret containers',
 });
 
 test('Batch A uses provider-normalized state IDs for Cloud SQL and WIF pool', () => {
-  const batchA = script.split('if [[ "$MODE" = "IMPORT_BATCH_A" ]]; then')[1]?.split('else')[0] ?? '';
+  const batchA = script.match(/IMPORT_BATCH_A\)\n([\s\S]*?)\n\s*;;\n\s*IMPORT_BATCH_B\)/)?.[1] ?? '';
   assert.match(batchA, /"khedmah-v1-db"/);
   assert.match(batchA, /"projects\/khedma-dl\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
   assert.doesNotMatch(batchA, /"projects\/311026134906\/locations\/global\/workloadIdentityPools\/khedmah-github"/);
