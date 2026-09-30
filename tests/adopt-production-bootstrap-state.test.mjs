@@ -37,11 +37,12 @@ test('adoption requires a real supported Terraform CLI and a read-only dependenc
   assert.match(script, /-lockfile=readonly/);
 });
 
-test('VERIFY is read-only and both import modes require SHA-bound confirmations', () => {
+test('VERIFY is read-only and all import modes require SHA-bound confirmations', () => {
   assert.match(script, /ADOPTION_MODE:-VERIFY/);
-  assert.match(script, /VERIFY_OK: guarded Batch A adoption preflight passed; no state mutation performed/);
+  assert.match(script, /VERIFY_OK: guarded bootstrap adoption preflight passed; no state mutation performed/);
   assert.match(script, /IMPORT_KHEDMAH_BOOTSTRAP_BATCH_A_\$\{SHA7\^\^\}/);
   assert.match(script, /IMPORT_KHEDMAH_BOOTSTRAP_BATCH_B_\$\{SHA7\^\^\}/);
+  assert.match(script, /IMPORT_KHEDMAH_BOOTSTRAP_BATCH_C_\$\{SHA7\^\^\}/);
   assert.match(script, /ADOPTION_CONFIRMATION/);
 });
 
@@ -244,9 +245,103 @@ test('Batch B import IDs use provider-supported project-id state identities', ()
   assert.match(script, /google_project_service\.bootstrap\[\\"\$service\\"\]/);
 });
 
-test('state guard accepts only exact reviewed Batch A, Batch B, and secret identities', () => {
+test('state guard accepts only exact reviewed Batch A, Batch B, Batch C, and secret identities', () => {
   assert.match(script, /reviewed_managed_ids=/);
-  assert.match(script, /'\$batch_a \+ \$batch_b'/);
-  assert.match(script, /'\$batch_a \+ \(\$batch_b \| keys\) \+ \(\$reviewed_secrets \| keys\)'/);
+  assert.match(script, /'\$batch_a \+ \$batch_b \+ \$batch_c'/);
+  assert.match(script, /'\$batch_a \+ \(\$batch_b \| keys\) \+ \(\$batch_c \| keys\) \+ \(\$reviewed_secrets \| keys\)'/);
   assert.match(script, /\(\$reviewed_managed\[\$x\.address\] \/\/ null\) == \$x\.id/);
+});
+
+
+test('Batch C contains exactly the 18 live-existing IAM members and excludes runtime/deployer grants', () => {
+  const match = script.match(/reviewed_batch_c_ids='(\{[\s\S]*?\})'\n\nreviewed_pre_adopted_secret_ids=/);
+  assert.ok(match, 'reviewed_batch_c_ids JSON block is required');
+  const ids = JSON.parse(match[1]);
+
+  assert.equal(Object.keys(ids).length, 18);
+  assert.equal(
+    ids['google_project_iam_member.migration_cloud_sql_client'],
+    'khedma-dl/roles/cloudsql.client/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com',
+  );
+  assert.equal(
+    ids['google_storage_bucket_iam_member.build_cloudbuild_source_reader'],
+    'b/khedma-dl-cloudbuild-source/roles/storage.objectViewer/serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com',
+  );
+  assert.equal(
+    ids['google_secret_manager_secret_iam_member.database_migration_accessor'],
+    'projects/khedma-dl/secrets/DATABASE_MIGRATION_URL/roles/secretmanager.secretAccessor/serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com',
+  );
+
+  for (const role of [
+    'roles/artifactregistry.writer',
+    'roles/certificatemanager.viewer',
+    'roles/cloudsql.viewer',
+    'roles/dns.reader',
+    'roles/logging.logWriter',
+    'roles/run.admin',
+    'roles/serviceusage.serviceUsageConsumer',
+  ]) {
+    assert.ok(ids[`google_project_iam_member.build["${role}"]`]);
+  }
+
+  for (const secret of [
+    'GOOGLE_MAPS_BROWSER_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_APP_ID',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+  ]) {
+    assert.ok(ids[`google_secret_manager_secret_iam_member.build["${secret}"]`]);
+  }
+
+  const serialized = JSON.stringify(ids);
+  assert.doesNotMatch(serialized, /khedmah-v1-runtime/);
+  assert.doesNotMatch(serialized, /khedmah-v1-deployer/);
+});
+
+test('Batch C live preflight verifies exact unconditional IAM bindings without mutations', () => {
+  assert.match(script, /gcloud projects get-iam-policy/);
+  assert.match(script, /gcloud secrets get-iam-policy/);
+  assert.match(script, /gcloud storage buckets get-iam-policy/);
+  assert.match(script, /\.condition\.title\? \/\/ ""/);
+  assert.match(script, /BATCH_C_LIVE_PREFLIGHT_OK: 18 reviewed existing IAM bindings are still present live/);
+  assert.doesNotMatch(script, /gcloud projects add-iam-policy-binding/);
+  assert.doesNotMatch(script, /gcloud secrets add-iam-policy-binding/);
+  assert.doesNotMatch(script, /gcloud storage buckets add-iam-policy-binding/);
+});
+
+test('Batch C import IDs use provider canonical parent slash role slash member state IDs', () => {
+  assert.match(
+    script,
+    /import_ids\+=\("\$CANONICAL_PROJECT roles\/cloudsql\.client serviceAccount:khedmah-v1-migrator@khedma-dl\.iam\.gserviceaccount\.com"\)/,
+  );
+  assert.match(
+    script,
+    /expected_state_ids\+=\("\$CANONICAL_PROJECT\/roles\/cloudsql\.client\/serviceAccount:khedmah-v1-migrator@khedma-dl\.iam\.gserviceaccount\.com"\)/,
+  );
+  assert.match(
+    script,
+    /projects\/khedma-dl\/secrets\/DATABASE_MIGRATION_URL roles\/secretmanager\.secretAccessor serviceAccount:khedmah-v1-migrator@khedma-dl\.iam\.gserviceaccount\.com/,
+  );
+  assert.match(
+    script,
+    /projects\/khedma-dl\/secrets\/DATABASE_MIGRATION_URL\/roles\/secretmanager\.secretAccessor\/serviceAccount:khedmah-v1-migrator@khedma-dl\.iam\.gserviceaccount\.com/,
+  );
+  assert.match(
+    script,
+    /b\/khedma-dl-cloudbuild-source roles\/storage\.objectViewer serviceAccount:khedmah-v1-build@khedma-dl\.iam\.gserviceaccount\.com/,
+  );
+  assert.match(
+    script,
+    /b\/khedma-dl-cloudbuild-source\/roles\/storage\.objectViewer\/serviceAccount:khedmah-v1-build@khedma-dl\.iam\.gserviceaccount\.com/,
+  );
+});
+
+test('Batch C remains adoption-only and produces a separate completion marker', () => {
+  assert.match(script, /IMPORT_BATCH_C_OK: state adoption completed for 18 reviewed existing IAM bindings only/);
+  assert.doesNotMatch(script, /^\s*terraform\b[^\n]*\bapply\b/m);
+  assert.doesNotMatch(script, /^\s*gcloud\b[^\n]*(add-iam-policy-binding|remove-iam-policy-binding|services enable)\b/m);
 });
