@@ -150,6 +150,17 @@ resource "google_sql_database_instance" "postgres" {
   database_version    = "POSTGRES_16"
   deletion_protection = true
 
+  # The adopted Production database has a live backup policy that must not be
+  # mutated during bootstrap creation. PITR/time/location hardening is reviewed
+  # and executed as a separate operational change with fresh backup evidence.
+  lifecycle {
+    ignore_changes = [
+      settings[0].backup_configuration[0].point_in_time_recovery_enabled,
+      settings[0].backup_configuration[0].start_time,
+      settings[0].backup_configuration[0].location,
+    ]
+  }
+
   settings {
     tier              = var.cloud_sql_tier
     availability_type = "ZONAL"
@@ -182,6 +193,11 @@ resource "google_artifact_registry_repository" "docker" {
   repository_id = var.artifact_registry_repository_id
   description   = "Khedmah Digital container images"
   format        = "DOCKER"
+
+  # Preserve adopted live metadata during the create-only bootstrap stage.
+  lifecycle {
+    ignore_changes = [description]
+  }
 
   depends_on = [google_project_service.bootstrap]
 }
@@ -482,6 +498,12 @@ resource "google_iam_workload_identity_pool" "github" {
   display_name              = "Khedmah GitHub Actions"
   description               = "Keyless authentication for the approved Khedmah repository workflow."
 
+  # Metadata on the adopted live pool is intentionally preserved until a
+  # dedicated WIF hardening review authorizes changing it.
+  lifecycle {
+    ignore_changes = [description]
+  }
+
   depends_on = [google_project_service.bootstrap]
 }
 
@@ -490,6 +512,16 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-actions"
   display_name                       = "GitHub Actions"
+
+  # The live provider is already active with the reviewed repository/workflow
+  # allowlist. Preserve its display metadata and condition during create-only
+  # bootstrap; condition canonicalization is a separate WIF hardening change.
+  lifecycle {
+    ignore_changes = [
+      display_name,
+      attribute_condition,
+    ]
+  }
 
   attribute_mapping = {
     "google.subject"                = "assertion.sub"
