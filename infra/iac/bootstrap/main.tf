@@ -158,6 +158,8 @@ resource "google_sql_database_instance" "postgres" {
       settings[0].backup_configuration[0].point_in_time_recovery_enabled,
       settings[0].backup_configuration[0].start_time,
       settings[0].backup_configuration[0].location,
+      settings[0].deletion_protection_enabled,
+      settings[0].enable_dataplex_integration,
     ]
   }
 
