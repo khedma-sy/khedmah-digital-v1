@@ -34,7 +34,6 @@ locals {
     "firebaseremoteconfig.googleapis.com",
     "firebasehosting.googleapis.com",
     "firebasecrashlytics.googleapis.com",
-    "firebaseauth.googleapis.com",
     "firebaseappcheck.googleapis.com",
     "firebase.googleapis.com",
     "fcm.googleapis.com",
