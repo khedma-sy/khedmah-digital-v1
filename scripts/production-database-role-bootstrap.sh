@@ -695,7 +695,7 @@ instance_role_inventory_safe_sql="
       AND role.rolname NOT IN (
         '$RUNTIME_USER', '$MIGRATION_USER', 'postgres',
         'cloudsqladmin', 'cloudsqlagent', 'cloudsqlconnpooladmin',
-        'cloudsqlimportexport', 'cloudsqllogical',
+        'cloudsqlimportexport', 'cloudsqllogical', 'cloudsqlsuperuser',
         'cloudsqlobservability', 'cloudsqlreplica'
       )
   )

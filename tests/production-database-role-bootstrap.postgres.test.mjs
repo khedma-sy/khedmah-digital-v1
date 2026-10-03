@@ -51,7 +51,8 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
     WHERE rolcanlogin
       AND rolname NOT IN (
         'postgres', 'cloudsqladmin', 'cloudsqlagent', 'cloudsqlconnpooladmin',
-        'cloudsqlimportexport', 'cloudsqllogical', 'cloudsqlobservability', 'cloudsqlreplica'
+        'cloudsqlimportexport', 'cloudsqllogical', 'cloudsqlsuperuser',
+        'cloudsqlobservability', 'cloudsqlreplica'
       )
   `), '', 'The disposable cluster must begin with no login outside the production allowlist.');
 
@@ -59,8 +60,11 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
     "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='cloudsqlsuperuser')") === 't';
   if (!cloudSqlRoleExisted) {
     execute(adminUrl,
-      'CREATE ROLE cloudsqlsuperuser NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS');
+      'CREATE ROLE cloudsqlsuperuser LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS');
   }
+  assert.equal(query(adminUrl,
+    "SELECT rolcanlogin FROM pg_roles WHERE rolname='cloudsqlsuperuser'"), 't',
+    'The Cloud SQL superuser system role must be accepted as a login in the production inventory model.');
 
   try {
     await t.test('prepare, cutover, verify, and harden preserve exact safe state', async () => {
