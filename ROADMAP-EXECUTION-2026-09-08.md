@@ -2,6 +2,19 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
+
+آخر تحديث: **2026-10-03 — اكتمل bootstrap على zero drift، أُصلح مسار DATABASE_MIGRATION_URL، ونجح INVENTORY؛ PR #246 يعالج توافق cloudsqlsuperuser LOGIN قبل أي PREPARE.**
+- **قفل المصدر:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`؛ `main` المحمي ما زال عند `f63127b79db998698526391cd191724989ee611a`. PR #246 على الفرع `fix/database-role-cloudsqlsuperuser-login-2026-10-03`، ورأس التنفيذ المراجع قبل تحديث هذا checkpoint هو `c9cc8e37a3506376202fad64a44b380d40595c66`، مبني مباشرة فوق `main`.
+- **bootstrap infrastructure:** APPLY المحروس أضاف **52** موردًا وغيّر provenance فقط مع **0 destroyed**؛ post-apply VERIFY نجح، والـstate أصبح serial **77** / instances **128** / Terraform **1.16.4**. PLAN اللاحق أعاد **No changes**، لذلك bootstrap مغلق على zero drift. لا Cloud SQL configuration apply ولا WIF/Artifact drift change نُفذ في هذه المرحلة.
+- **DATABASE_MIGRATION_URL:** النسخة 1 كانت credential صحيحة لكن بصيغة Unix-socket قديمة `?host=` لا يقبلها bootstrap الحالي. أُنشئت النسخة **2** بنفس credential وURI canonical `@localhost/khedmah` دون تغيير كلمة المرور، وثُبت alias `active -> 2`. تشغيل الإصلاح `37124044042` نجح في numeric-version probe وactive-alias probe؛ لا PREPARE/HARDEN/migrations نُفذت.
+- **INVENTORY الحي:** تشغيل `37124296876` نجح بالكامل؛ execution `khedmah-database-role-inventory-wmw6q` نشر manifest متكامل ببصمة المرشح `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`. لا تُضبط هذه البصمة كمتغير Production قبل إعادة INVENTORY بعد دمج #246.
+- **الـblocker المكتشف:** manifest الإنتاج الحقيقي يثبت أن system role `cloudsqlsuperuser` لديه `LOGIN`. guard الحالي على `main` يستبعده من login allowlist، بينما test fixture القديمة أنشأته `NOLOGIN`؛ لذلك PREPARE على `main` الحالي سيغلق آمنًا بـ`DATABASE_INSTANCE_IDENTITY_INVENTORY_NOT_SAFE`.
+- **إصلاح PR #246:** commit `c425a71ed157c74f33f40ed289e4082d468f7904` يضيف `cloudsqlsuperuser` فقط إلى system-login allowlist، وcommit `c9cc8e37a3506376202fad64a44b380d40595c66` يجعل PostgreSQL fixture تحاكي الإنتاج بـ`LOGIN` ويضيف regression assertion. اختبار rogue login ما زال يثبت الرفض. لا Terraform/Secret/Cloud SQL mutation داخل PR.
+- **التحقق على رأس #246 قبل checkpoint:** Node.js CI `37125242250` = success، Khedmah - Test & Verify `37125242277` = success، PR Preview `37125242240` = success. مراجعة Codex لم تجد عيبًا في منطق الإصلاح لكنها فتحت P1 لأن هذا checkpoint كان متقادمًا؛ يعالج هذا التحديث تلك الملاحظة.
+- **الخطوة التالية الوحيدة:** ادفع تحديث هذا checkpoint على **نفس فرع PR #246**، انتظر إعادة CI/Preview ومراجعة Codex على الرأس الجديد وأغلق thread فقط بعد تحققها. بعد الدمج اجلب `main` الجديد وأعد `INVENTORY` read-only؛ راجع manifest الجديد، ثم فقط اضبط `DATABASE_SYSTEM_ROLE_MANIFEST_SHA256` إلى البصمة الجديدة وشغّل `VERIFY`. لا `PREPARE` أو `HARDEN` أو migrations أو Production deploy قبل ذلك.
+- **الملفات ذات الصلة:** `scripts/production-database-role-bootstrap.sh`، `tests/production-database-role-bootstrap.postgres.test.mjs`، `.github/workflows/production-database-role-bootstrap.yml`، `infra/iac/bootstrap/main.tf`، وهذا الملف.
+
+
 آخر تحديث: **2026-10-03 — bootstrap أصبح zero-drift، أصلح مسار DATABASE_MIGRATION_URL إلى النسخة canonical، نجح INVENTORY الحي، وPR #246 يصلح توافق حارس أدوار Cloud SQL مع `cloudsqlsuperuser LOGIN`.**
 - **قفل المصدر:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`؛ `main` المحمي ما زال عند `f63127b79db998698526391cd191724989ee611a`. فرع الإصلاح الوحيد `fix/database-role-cloudsqlsuperuser-login-2026-10-03` وPR #246. التزاما التنفيذ البرمجيان هما `c425a71ed157c74f33f40ed289e4082d468f7904` و`c9cc8e37a3506376202fad64a44b380d40595c66`; لا توجد تغييرات Terraform أو schema في هذا PR.
 - **Terraform/bootstrap:** اكتمل bootstrap create-only السابق ثم نجح VERIFY؛ آخر zero-drift PLAN على `main=f63127b...` انتهى `No changes`. لا Cloud SQL/WIF/Artifact Registry drift apply ضمن هذا المسار.
