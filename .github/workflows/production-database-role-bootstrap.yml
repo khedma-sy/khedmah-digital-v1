@@ -180,6 +180,17 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v3
 
+      - name: Verify canonical Production deployer identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_deployer="khedmah-v1-deployer@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com"
+          active_account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)"
+          test "$active_account" = "$expected_deployer" || {
+            echo 'ERROR: authenticated Production deployer identity is not canonical.' >&2
+            exit 65
+          }
+
       - name: Verify migration identity and secret readiness
         shell: bash
         run: |
