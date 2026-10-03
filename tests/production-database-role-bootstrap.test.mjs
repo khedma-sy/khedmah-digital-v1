@@ -21,6 +21,14 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.doesNotMatch(workflow, /pull_request:|push:|schedule:/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /ref: \$\{\{ inputs\.commit_sha \}\}/);
+  const deployerIdentityGuard = workflow
+    .split('      - name: Verify canonical Production deployer identity')[1]
+    .split('      - name: Verify migration identity and secret readiness')[0];
+  assert.ok(deployerIdentityGuard);
+  assert.match(deployerIdentityGuard, /expected_deployer="khedmah-v1-deployer@\$GOOGLE_CLOUD_PROJECT\.iam\.gserviceaccount\.com"/);
+  assert.match(deployerIdentityGuard, /gcloud auth list --filter=status:ACTIVE --format='value\(account\)'/);
+  assert.match(deployerIdentityGuard, /test "\$active_account" = "\$expected_deployer"/);
+  assert.match(deployerIdentityGuard, /authenticated Production deployer identity is not canonical/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
   assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:\$DATABASE_MIGRATION_SECRET_SELECTOR/);
