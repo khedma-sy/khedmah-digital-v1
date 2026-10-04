@@ -438,7 +438,7 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(runtimeContainment, /continue-on-error: true/);
   assert.match(runtimeContainment, /steps\.arm_runtime_cutover\.outputs\.armed == 'true'/);
   assert.match(recoveryContainment, /if: always\(\).*steps\.runtime_containment\.outcome != 'success'/);
-  assert.equal((workflow.match(/\.type \/\/ "BUILT_IN"/g) || []).length, 10);
+  assert.equal((workflow.match(/\.type \/\/ "BUILT_IN"/g) || []).length, 9);
   assert.doesNotMatch(workflow, /\.type == "BUILT_IN"/);
 
   assert.match(cutover, /DATABASE_ROLE_PHASE=cutover-audit/);
