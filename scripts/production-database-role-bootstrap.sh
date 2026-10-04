@@ -226,8 +226,8 @@ if test "$PHASE" = role-state; then
   prepare_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
 WITH memberships AS (
   SELECT
-    member_role.rolname AS member_name,
-    granted_role.rolname AS granted_name
+    member_role.rolname::text AS member_name,
+    granted_role.rolname::text AS granted_name
   FROM pg_auth_members membership
   JOIN pg_roles granted_role ON granted_role.oid=membership.roleid
   JOIN pg_roles member_role ON member_role.oid=membership.member
