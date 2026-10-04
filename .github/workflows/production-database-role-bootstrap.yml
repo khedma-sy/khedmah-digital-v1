@@ -673,46 +673,81 @@ jobs:
             sleep 5
           done
           test "$users_ready" = true
-          describe_database_user() {
-            local user="$1" description=''
-            for attempt in 1 2 3 4 5 6; do
-              if description="$(
-                gcloud sql users describe "$user" \
-                  --project "$GOOGLE_CLOUD_PROJECT" \
-                  --instance "$SQL_INSTANCE_NAME" \
-                  --format=json
-              )" && printf '%s' "$description" \
-                | jq -e --arg expected "$user" \
-                    '.name == $expected and (.type // "BUILT_IN") == "BUILT_IN"' >/dev/null; then
-                printf '%s' "$description"
-                return 0
-              fi
-              sleep 5
-            done
-            return 1
+          test "$(gcloud secrets versions describe active \
+            --secret DATABASE_MIGRATION_URL \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --format='value(state)')" = ENABLED
+
+          IMAGE="$GOOGLE_CLOUD_REGION-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/$OPERATIONS_ARTIFACT_REPOSITORY/database-role-bootstrap:$REQUESTED_SHA"
+          JOB="khedmah-database-role-state"
+          gcloud run jobs deploy "$JOB" \
+            --project "$GOOGLE_CLOUD_PROJECT" \
+            --region "$GOOGLE_CLOUD_REGION" \
+            --image "$IMAGE" \
+            --service-account "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT" \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
+            --set-secrets "DATABASE_URL=DATABASE_MIGRATION_URL:active" \
+            --set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=$CLOUD_SQL_INSTANCE_CONNECTION_NAME,DATABASE_ROLE_PHASE=role-state,DATABASE_RUNTIME_USER=$DATABASE_RUNTIME_USER,DATABASE_MIGRATION_USER=$DATABASE_MIGRATION_USER,DATABASE_RUNTIME_ROLE=$DATABASE_RUNTIME_ROLE,DATABASE_MIGRATION_ROLE=$DATABASE_MIGRATION_ROLE,DATABASE_NAME=$DATABASE_NAME,DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=" \
+            --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
+
+          set +e
+          execution_output="$(
+            gcloud run jobs execute "$JOB" \
+              --project "$GOOGLE_CLOUD_PROJECT" \
+              --region "$GOOGLE_CLOUD_REGION" \
+              --wait \
+              --format='value(metadata.name)' 2>&1
+          )"
+          execution_status="$?"
+          set -e
+          execution_name="$(
+            printf '%s\n' "$execution_output" \
+              | sed -n -E \
+                  -e "s/^(${JOB}-[a-z0-9]+)$/\\1/p" \
+                  -e "s#^.*/executions/(${JOB}-[a-z0-9]+)\$#\\1#p" \
+                  -e "s/^.*gcloud run jobs executions describe (${JOB}-[a-z0-9]+).*$/\\1/p" \
+                  -e "s#^.*executions/details/[^/]+/(${JOB}-[a-z0-9]+)(\\?.*)?\$#\\1#p" \
+              | tail -n 1
+          )"
+          execution_name="${execution_name##*/}"
+          case "$execution_name" in "$JOB"-*) ;; *) execution_name='' ;; esac
+          case "$execution_name" in *[!a-z0-9-]*) execution_name='' ;; esac
+          test -n "$execution_name" || {
+            printf '%s\n' "$execution_output" | tail -n 40 >&2 || true
+            echo 'ERROR: DATABASE_ROLE_STATE_EXECUTION_UNRESOLVED' >&2
+            exit 1
           }
-          classify_database_roles() {
-            local description="$1" custom_role="$2"
-            printf '%s' "$description" \
-              | jq -er --arg custom "$custom_role" '
-                  if .databaseRoles == ["cloudsqlsuperuser"] then "cloudsqlsuperuser"
-                  elif .databaseRoles == [$custom] then "custom"
-                  else "invalid"
-                  end'
-          }
-          runtime_description="$(describe_database_user "$DATABASE_RUNTIME_USER")"
-          migration_description="$(describe_database_user "$DATABASE_MIGRATION_USER")"
-          runtime_state="$(classify_database_roles "$runtime_description" "$DATABASE_RUNTIME_ROLE")"
-          migration_state="$(classify_database_roles "$migration_description" "$DATABASE_MIGRATION_ROLE")"
-          case "$runtime_state:$migration_state" in
-            cloudsqlsuperuser:cloudsqlsuperuser) prepare_state=initial ;;
-            custom:cloudsqlsuperuser) prepare_state=resume ;;
-            custom:custom) prepare_state=completed ;;
+
+          log_filter="resource.type=\"cloud_run_job\" AND resource.labels.project_id=\"$GOOGLE_CLOUD_PROJECT\" AND resource.labels.job_name=\"$JOB\" AND resource.labels.location=\"$GOOGLE_CLOUD_REGION\" AND labels.\"run.googleapis.com/execution_name\"=\"$execution_name\" AND (logName=\"projects/$GOOGLE_CLOUD_PROJECT/logs/run.googleapis.com%2Fstdout\" OR logName=\"projects/$GOOGLE_CLOUD_PROJECT/logs/run.googleapis.com%2Fstderr\")"
+          prepare_state=''
+          state_logs=''
+          for attempt in 1 2 3 4 5 6; do
+            state_logs="$(
+              gcloud logging read "$log_filter" \
+                --project "$GOOGLE_CLOUD_PROJECT" \
+                --order=asc \
+                --limit=100 \
+                --format='value(textPayload)' || true
+            )"
+            prepare_state="$(
+              printf '%s\n' "$state_logs" \
+                | sed -n 's/^DATABASE_ROLE_PREPARE_STATE=//p' \
+                | tail -n 1
+            )"
+            test -z "$prepare_state" || break
+            sleep 5
+          done
+          case "$prepare_state" in
+            initial|resume|completed) ;;
             *)
+              printf '%s\n' "$state_logs" \
+                | sed -n -E '/^(ERROR:|DATABASE_ROLE_PREPARE_STATE=)/p' \
+                | tail -n 20 >&2 || true
               echo 'ERROR: Cloud SQL database role state is not a resumable PREPARE state.' >&2
               exit 1
               ;;
           esac
+          test "$execution_status" -eq 0
           echo "state=$prepare_state" >> "$GITHUB_OUTPUT"
 
       - name: Rotate migration password before runtime cutover
