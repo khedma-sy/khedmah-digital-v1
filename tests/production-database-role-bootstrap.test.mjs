@@ -373,15 +373,22 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(roleState, /length == 3/);
   assert.match(roleState, /all\(\.\[\]; \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"\)/);
   assert.match(roleState, /\["postgres", \$runtime, \$migration\]/);
-  assert.match(roleState, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.match(roleState, /gcloud secrets describe DATABASE_MIGRATION_URL/);
+  assert.match(roleState, /gcloud secrets versions list DATABASE_MIGRATION_URL/);
+  assert.match(roleState, /--filter='state=ENABLED'/);
+  assert.match(roleState, /enabled_selectors\+=\(active\)/);
+  assert.match(roleState, /enabled_selectors\+=\("\$version"\)/);
+  assert.match(roleState, /DATABASE_URL=DATABASE_MIGRATION_URL:\$selector/);
   assert.match(roleState, /DATABASE_ROLE_PHASE=role-state/);
   assert.match(roleState, /gcloud run jobs deploy "\$JOB"/);
   assert.match(roleState, /gcloud run jobs execute "\$JOB"/);
   assert.match(roleState, /gcloud logging read "\$log_filter"/);
   assert.match(roleState, /DATABASE_ROLE_PREPARE_STATE=/);
   assert.match(roleState, /initial\|resume\|completed/);
+  assert.match(roleState, /no enabled migration credential could authenticate for read-only PREPARE state classification/);
   assert.match(roleState, /Cloud SQL database role state is not a resumable PREPARE state/);
   assert.doesNotMatch(roleState, /databaseRoles == \["cloudsqlsuperuser"\]/);
+  assert.doesNotMatch(roleState, /gcloud sql users assign-roles|gcloud sql users set-password|gcloud secrets versions add/);
 
   assert.ok(transition.indexOf('gcloud secrets versions add DATABASE_MIGRATION_URL') < transition.indexOf('gcloud sql users set-password'));
   assert.ok(transition.indexOf('gcloud sql users set-password') < transition.indexOf('gcloud run jobs execute "$PROBE_JOB"'));
