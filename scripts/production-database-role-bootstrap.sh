@@ -195,9 +195,9 @@ test "$RUNTIME_USER" != "$MIGRATION_USER" \
 }
 
 case "$PHASE" in
-  probe|inventory|prepare|cutover-audit|verify|harden|verify-hardened) ;;
+  probe|role-state|inventory|prepare|cutover-audit|verify|harden|verify-hardened) ;;
   *)
-    echo 'ERROR: DATABASE_ROLE_PHASE must be probe, inventory, prepare, cutover-audit, verify, harden, or verify-hardened.' >&2
+    echo 'ERROR: DATABASE_ROLE_PHASE must be probe, role-state, inventory, prepare, cutover-audit, verify, harden, or verify-hardened.' >&2
     exit 2
     ;;
 esac
@@ -221,6 +221,53 @@ test "$connection_state" = ready || {
   echo 'ERROR: DATABASE_ROLE_CONNECTION_IDENTITY_NOT_READY' >&2
   exit 6
 }
+
+if test "$PHASE" = role-state; then
+  prepare_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
+WITH memberships AS (
+  SELECT
+    member_role.rolname AS member_name,
+    granted_role.rolname AS granted_name
+  FROM pg_auth_members membership
+  JOIN pg_roles granted_role ON granted_role.oid=membership.roleid
+  JOIN pg_roles member_role ON member_role.oid=membership.member
+  WHERE member_role.rolname IN ('$RUNTIME_USER', '$MIGRATION_USER')
+), states AS (
+  SELECT
+    COALESCE(
+      array_agg(granted_name ORDER BY granted_name)
+        FILTER (WHERE member_name='$RUNTIME_USER'),
+      ARRAY[]::text[]
+    ) AS runtime_roles,
+    COALESCE(
+      array_agg(granted_name ORDER BY granted_name)
+        FILTER (WHERE member_name='$MIGRATION_USER'),
+      ARRAY[]::text[]
+    ) AS migration_roles
+  FROM memberships
+)
+SELECT CASE
+  WHEN runtime_roles=ARRAY['cloudsqlsuperuser']::text[]
+    AND migration_roles=ARRAY['cloudsqlsuperuser']::text[]
+    THEN 'initial'
+  WHEN runtime_roles=ARRAY['$RUNTIME_ROLE']::text[]
+    AND migration_roles=ARRAY['cloudsqlsuperuser']::text[]
+    THEN 'resume'
+  WHEN runtime_roles=ARRAY['$RUNTIME_ROLE']::text[]
+    AND migration_roles=ARRAY['$MIGRATION_ROLE']::text[]
+    THEN 'completed'
+  ELSE 'invalid'
+END
+FROM states")"
+  printf 'DATABASE_ROLE_PREPARE_STATE=%s\n' "$prepare_state"
+  case "$prepare_state" in
+    initial|resume|completed) exit 0 ;;
+    *)
+      echo 'ERROR: DATABASE_ROLE_PREPARE_STATE_INVALID' >&2
+      exit 12
+      ;;
+  esac
+fi
 
 if test "$PHASE" = probe; then
   echo 'DATABASE_MIGRATION_CREDENTIAL_VERIFIED'
