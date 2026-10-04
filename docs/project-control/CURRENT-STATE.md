@@ -61,3 +61,32 @@ Then:
 2. If the live state is valid but represented differently than the classifier expects, fix the classifier + regression tests on a branch.
 3. If the live state shows unexpected/custom/multiple privileges, stop and investigate provenance before any mutation.
 4. Do not retry PREPARE until this is resolved.
+
+
+## Live Cloud SQL role metadata result — 2026-10-04
+Read-only Cloud Shell evidence:
+
+```text
+khedmah_app      BUILT_IN   databaseRoles: empty
+khedmah_migrator BUILT_IN   databaseRoles: empty
+postgres          BUILT_IN   databaseRoles: empty
+```
+
+This explains why PREPARE run `37183178537` failed at the old metadata-only classifier: it expected explicit `["cloudsqlsuperuser"]` or the custom role. Google Cloud documents that newly created built-in PostgreSQL users receive `cloudsqlsuperuser` automatically when no explicit database roles are supplied, while the API also supports explicitly revoking all roles. Therefore an empty metadata field is ambiguous and must not be treated as either superuser or zero-role state without a live PostgreSQL membership probe.
+
+Draft PR #250 (`fix/database-role-prep-state-probe-2026-10-04`) is the active remediation. It moves PREPARE state classification to a read-only PostgreSQL membership probe and is being hardened to preserve resume behavior by trying enabled migration-secret versions without changing database roles/passwords.
+
+## Mobile-only operating mode
+The user is temporarily following from mobile and cannot execute Cloud Shell commands.
+
+Rules until the user explicitly says they are back at a computer:
+- Do not request Cloud Shell execution.
+- Do not dispatch PREPARE, HARDEN, migrations, Terraform APPLY, or Production deploy.
+- Continue GitHub-only work: code review, CI diagnosis, tests, documentation, PR hygiene, and non-production planning.
+- Queue any necessary Google Cloud read-only commands under **Queued Cloud Shell Actions** instead of asking for immediate execution.
+
+## Queued Cloud Shell Actions
+None currently required. The previous role metadata query has already been completed and its result is recorded above.
+
+## Immediate next safe action
+Finish PR #250 through CI/review only. Do not merge or run PREPARE until the PostgreSQL-backed classifier is proven by tests and reviewed for resumability and fail-closed behavior.
