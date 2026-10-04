@@ -67,6 +67,42 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
     'The Cloud SQL superuser system role must be accepted as a login in the production inventory model.');
 
   try {
+    await t.test('role-state probe classifies initial, resume, completed, and invalid membership sets without mutation', async () => {
+      await withFixture(adminUrl, { createRogueUser: true }, async (fixture) => {
+        const initial = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(initial, 'initial role-state probe');
+        assert.equal(initial.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=initial');
+        assert.equal(query(adminUrl, `
+          SELECT count(*) FROM pg_roles
+          WHERE rolname IN (${literal(fixture.runtimeRole)}, ${literal(fixture.migrationRole)})
+        `), '0', 'The role-state probe must not create custom roles.');
+
+        assertBootstrapSuccess(runBootstrap(fixture, 'prepare'), 'role-state fixture prepare');
+        const stillInitial = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(stillInitial, 'post-prepare role-state probe');
+        assert.equal(stillInitial.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=initial');
+
+        replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+        const resume = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(resume, 'resume role-state probe');
+        assert.equal(resume.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=resume');
+
+        demoteMigrationMembership(fixture);
+        const completed = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(completed, 'completed role-state probe');
+        assert.equal(completed.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=completed');
+
+        execute(adminUrl, `
+          GRANT ${identifier(fixture.rogueUser)} TO ${identifier(fixture.runtimeUser)}
+            WITH INHERIT TRUE, SET TRUE, ADMIN FALSE
+        `);
+        const invalid = runBootstrap(fixture, 'role-state');
+        assert.equal(invalid.status, 12, diagnostic('role-state accepted an unexpected membership', invalid));
+        assert.equal(invalid.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=invalid');
+        assert.match(invalid.stderr, /DATABASE_ROLE_PREPARE_STATE_INVALID/);
+      });
+    });
+
     await t.test('prepare, cutover, verify, and harden preserve exact safe state', async () => {
       await withFixture(adminUrl, { createRogueUser: true }, async (fixture) => {
         assert.equal(query(adminUrl, `
