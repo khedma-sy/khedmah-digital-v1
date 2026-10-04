@@ -60,11 +60,13 @@ Completed repository-only preparation, pinned to main `5a961be...`:
 - [Errors, personal profile and Operations Product access](../floot-migration/ERROR-PROFILE-ACCESS-CONTRACT.md): shared error envelope/decoder, two personal-profile routes, six Operations Product routes, eight operational roles and their seven permission names.
 - The second contract explicitly distinguishes pending change/rollback requests from executed infrastructure actions; configuration summaries from live cloud health; and in-process Operations Product queues from a proved durable approval system. It does not claim all audit storage is memory-only.
 - Twelve targeted decoder cases passed locally against the exact source blob `1a29eecfbad616c567bf0278b6004a2b0ddea4da`, using Node.js v22.16.0 and no network/cloud/database. This is not a backend/RBAC/HTTP/Floot acceptance test.
+- [Category and public discovery contract](../floot-migration/DISCOVERY-API-CONTRACT.md): database category authority, six public list/detail/search routes, unified query fields, distinct professional endpoint, independent collection pagination, capped map behavior, URL state and open validation-parity findings.
+- Twenty-four pure frontend discovery/search helper tests passed locally on exact blobs `772e1bd5f4dc1133ba7efe60ab4fd8f2a33c1b57` and `0b87ad933ae827f614c453557fafb1a705c5968d`, with Node.js v22.16.0 and TypeScript 5.8.3 transpilation. This is not backend, database, React/browser or Floot acceptance.
 - Floot routing/header compatibility, domain authorization, browser acceptance and any new credential requirement remain open; the documents do not claim an integration is live.
 
-Before this grouped update, PR #249 head `dd04d5fc1c438cfc59a14ffda4cdffa774207a2e` had Node.js CI `37195917470` and Test & Verify `37195917486` successful. PR Preview `37195917504` was still in progress; quality-gates and resolve-staging-baseline had succeeded, while deploy-preview was running. These are prior-head observations, not approval of the new documentation head. Let the new checks finish rather than repeatedly committing status-only notes.
+Pre-update documentation head `18d1408ff0b5a8741ef2d3aadfb55532f5bff426` has now passed all three workflows: Node.js CI `37196579216`, Test & Verify `37196579238`, PR Preview `37196579220`. The current grouped discovery documentation update creates a newer head and requires its own results. Let those checks finish rather than repeatedly committing status-only notes.
 
-The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md). No executable repository file is changed by this documentation slice.
+The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md). No executable repository file is changed by this documentation slice. The tested discovery helpers are preserved unchanged; documented backend/frontend parsing differences are not silently repaired or claimed closed.
 
 ## Other PRs
 - #247: closed as superseded by #248; not merged.
