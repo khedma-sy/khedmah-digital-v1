@@ -21,6 +21,8 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.doesNotMatch(workflow, /pull_request:|push:|schedule:/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /ref: \$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(workflow, /- name: Reject legacy Production deployer identity[\s\S]*EXPECTED_DEPLOYER="khedmah-v1-deployer@\$\{GOOGLE_CLOUD_PROJECT\}\.iam\.gserviceaccount\.com"[\s\S]*gcloud auth list --filter=status:ACTIVE[\s\S]*test "\$ACTIVE_ACCOUNT" = "\$EXPECTED_DEPLOYER"/);
+  assert.doesNotMatch(workflow, /khedma-v1-deployer@/);
   assert.match(workflow, /git rev-parse origin\/main/);
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
   assert.match(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:\$DATABASE_MIGRATION_SECRET_SELECTOR/);
