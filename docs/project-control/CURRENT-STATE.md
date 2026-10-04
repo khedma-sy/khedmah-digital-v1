@@ -42,7 +42,7 @@ Head: `d053350c095877e5c693acd7cc9f512be763577a`.
 
 The current head captures the probe execution exit code without changing the caller's errexit mode and adds nine isolated Bash-runner regressions. Earlier local targeted evidence was 5 passed / 4 failed before the fix and 9 passed / 0 failed after it; these mocks are not live Google validation.
 
-The current-head workflows have now been re-read as SUCCESS, including all nine required contexts:
+The current-head workflows have been re-read as SUCCESS, including the previously verified nine required contexts:
 - Node.js CI `37193917916`: Source inventory (read-only), build (24.x).
 - Test & Verify `37193917877`: Run Tests & Verification (24.x), PR Validation, Code Quality Checks.
 - PR Preview `37193917959`: quality-gates, resolve-staging-baseline, deploy-preview, review-evidence.
@@ -53,13 +53,18 @@ A bounded COMMENT review was submitted for this exact head (review ID `540553008
 Previous head `2311bdca6fcc0b368104475263e588fd121e22f2` also had green results, but those are not used to certify the current head. The current evidence above is separately verified.
 
 ## PR #249 — source-backed control and integration preparation
-This PR holds the execution plan, schema gates, Google/Floot boundaries and next action. Pre-update head `082a7118d3b9a3b8d473872906a9379c9cfd0e83` contains the full schema-lineage correction. Any new documentation commit requires its own CI check; do not reuse an earlier documentation head's green results.
+This PR holds the execution plan, schema gates, Google/Floot boundaries and next action. Its documents are not on main yet. Any new documentation commit requires its own CI check; do not reuse an earlier documentation head's green results.
 
-New repository-only preparation: [authentication transport contract](../floot-migration/AUTH-API-CONTRACT.md), pinned to main `5a961be...`.
-- Existing browser requests use the frontend-origin `/api/v1` rewrite, not a certified direct Floot-to-API session flow.
-- Social sign-in exchanges a Firebase ID token for a Khedmah session cookie.
-- Cookie/origin requirements and eight current authentication endpoints are recorded from source.
-- Floot routing/header compatibility, domain authorization, browser acceptance and any new credential requirement remain open; the document does not claim an integration is live.
+Completed repository-only preparation, pinned to main `5a961be...`:
+- [Authentication transport contract](../floot-migration/AUTH-API-CONTRACT.md): eight current authentication endpoints, frontend-origin `/api/v1` rewrite, Firebase ID token to Khedmah cookie exchange, and cookie/origin requirements.
+- [Errors, personal profile and Operations Product access](../floot-migration/ERROR-PROFILE-ACCESS-CONTRACT.md): shared error envelope/decoder, two personal-profile routes, six Operations Product routes, eight operational roles and their seven permission names.
+- The second contract explicitly distinguishes pending change/rollback requests from executed infrastructure actions; configuration summaries from live cloud health; and in-process Operations Product queues from a proved durable approval system. It does not claim all audit storage is memory-only.
+- Twelve targeted decoder cases passed locally against the exact source blob `1a29eecfbad616c567bf0278b6004a2b0ddea4da`, using Node.js v22.16.0 and no network/cloud/database. This is not a backend/RBAC/HTTP/Floot acceptance test.
+- Floot routing/header compatibility, domain authorization, browser acceptance and any new credential requirement remain open; the documents do not claim an integration is live.
+
+Before this grouped update, PR #249 head `dd04d5fc1c438cfc59a14ffda4cdffa774207a2e` had Node.js CI `37195917470` and Test & Verify `37195917486` successful. PR Preview `37195917504` was still in progress; quality-gates and resolve-staging-baseline had succeeded, while deploy-preview was running. These are prior-head observations, not approval of the new documentation head. Let the new checks finish rather than repeatedly committing status-only notes.
+
+The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md). No executable repository file is changed by this documentation slice.
 
 ## Other PRs
 - #247: closed as superseded by #248; not merged.
@@ -70,7 +75,7 @@ New repository-only preparation: [authentication transport contract](../floot-mi
 - Handoff recorded PITR enabled and a successful on-demand backup. This is not proof of a fresh backup or a tested restore today.
 - INVENTORY run `37179237640` succeeded. Previously approved system-role manifest: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`.
 - Latest execution-specific manifest comparison, Secret Manager IAM, current alias/version metadata, recovery evidence, and actual schema prerequisites must be checked before any cutover.
-- Do not assume baseline 001–020 or retained migrations 021/022/024 are complete because a later workflow is named 025–034. Follow [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md), including the intentional 023 gap.
+- Do not assume baseline 001–020 or retained migrations 021/022/024 are complete because a later workflow is named 025–034. Follow SCHEMA-RELEASE-GATES.md, including the intentional 023 gap.
 
 ## Product and migration boundaries
 - Keep GitHub/GCP backend, database, identities, and infrastructure; Floot is the proposed experience-layer migration, not a certified completed integration.
