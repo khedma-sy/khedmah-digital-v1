@@ -227,7 +227,13 @@ if test "$PHASE" = role-state; then
 WITH memberships AS (
   SELECT
     member_role.rolname::text AS member_name,
-    granted_role.rolname::text AS granted_name
+    concat_ws(
+      '|',
+      granted_role.rolname::text,
+      membership.inherit_option::integer::text,
+      membership.set_option::integer::text,
+      membership.admin_option::integer::text
+    ) AS membership_line
   FROM pg_auth_members membership
   JOIN pg_roles granted_role ON granted_role.oid=membership.roleid
   JOIN pg_roles member_role ON member_role.oid=membership.member
@@ -235,26 +241,37 @@ WITH memberships AS (
 ), states AS (
   SELECT
     COALESCE(
-      array_agg(granted_name ORDER BY granted_name)
+      array_agg(membership_line ORDER BY membership_line)
         FILTER (WHERE member_name='$RUNTIME_USER'),
       ARRAY[]::text[]
-    ) AS runtime_roles,
+    ) AS runtime_memberships,
     COALESCE(
-      array_agg(granted_name ORDER BY granted_name)
+      array_agg(membership_line ORDER BY membership_line)
         FILTER (WHERE member_name='$MIGRATION_USER'),
       ARRAY[]::text[]
-    ) AS migration_roles
+    ) AS migration_memberships
   FROM memberships
 )
 SELECT CASE
-  WHEN runtime_roles=ARRAY['cloudsqlsuperuser']::text[]
-    AND migration_roles=ARRAY['cloudsqlsuperuser']::text[]
+  WHEN runtime_memberships=ARRAY['cloudsqlsuperuser|1|1|0']::text[]
+    AND migration_memberships IN (
+      ARRAY['cloudsqlsuperuser|1|1|0']::text[],
+      ARRAY[
+        '$MIGRATION_ROLE|0|0|1',
+        '$RUNTIME_ROLE|0|0|1',
+        'cloudsqlsuperuser|1|1|0'
+      ]::text[]
+    )
     THEN 'initial'
-  WHEN runtime_roles=ARRAY['$RUNTIME_ROLE']::text[]
-    AND migration_roles=ARRAY['cloudsqlsuperuser']::text[]
+  WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
+    AND migration_memberships=ARRAY[
+      '$MIGRATION_ROLE|0|0|1',
+      '$RUNTIME_ROLE|0|0|1',
+      'cloudsqlsuperuser|1|1|0'
+    ]::text[]
     THEN 'resume'
-  WHEN runtime_roles=ARRAY['$RUNTIME_ROLE']::text[]
-    AND migration_roles=ARRAY['$MIGRATION_ROLE']::text[]
+  WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
+    AND migration_memberships=ARRAY['$MIGRATION_ROLE|1|1|0']::text[]
     THEN 'completed'
   ELSE 'invalid'
 END
