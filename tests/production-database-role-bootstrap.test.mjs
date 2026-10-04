@@ -29,7 +29,7 @@ test('production database role bootstrap is manual, exact-main and migration-ide
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
   assert.doesNotMatch(workflow, /--service-account "\$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"/);
   assert.match(workflow, /--max-retries 0/);
-  assert.equal((workflow.match(/--set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,/g) || []).length, 7);
+  assert.equal((workflow.match(/--set-env-vars "CLOUD_SQL_INSTANCE_CONNECTION_NAME=\$CLOUD_SQL_INSTANCE_CONNECTION_NAME,/g) || []).length, 8);
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_MIGRATION_URL:latest/);
   assert.match(workflow, /is_lower_hex "\$REQUESTED_SHA" 40/);
   assert.match(workflow, /is_lower_hex "\$DATABASE_SYSTEM_ROLE_MANIFEST_SHA256" 64/);
@@ -373,11 +373,15 @@ test('prepare is resumable and rotates credentials around a fail-closed role cut
   assert.match(roleState, /length == 3/);
   assert.match(roleState, /all\(\.\[\]; \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"\)/);
   assert.match(roleState, /\["postgres", \$runtime, \$migration\]/);
-  assert.match(roleState, /\.name == \$expected and \(\.type \/\/ "BUILT_IN"\) == "BUILT_IN"/);
-  assert.match(roleState, /cloudsqlsuperuser:cloudsqlsuperuser\) prepare_state=initial/);
-  assert.match(roleState, /custom:cloudsqlsuperuser\) prepare_state=resume/);
-  assert.match(roleState, /custom:custom\) prepare_state=completed/);
+  assert.match(roleState, /DATABASE_URL=DATABASE_MIGRATION_URL:active/);
+  assert.match(roleState, /DATABASE_ROLE_PHASE=role-state/);
+  assert.match(roleState, /gcloud run jobs deploy "\$JOB"/);
+  assert.match(roleState, /gcloud run jobs execute "\$JOB"/);
+  assert.match(roleState, /gcloud logging read "\$log_filter"/);
+  assert.match(roleState, /DATABASE_ROLE_PREPARE_STATE=/);
+  assert.match(roleState, /initial\|resume\|completed/);
   assert.match(roleState, /Cloud SQL database role state is not a resumable PREPARE state/);
+  assert.doesNotMatch(roleState, /databaseRoles == \["cloudsqlsuperuser"\]/);
 
   assert.ok(transition.indexOf('gcloud secrets versions add DATABASE_MIGRATION_URL') < transition.indexOf('gcloud sql users set-password'));
   assert.ok(transition.indexOf('gcloud sql users set-password') < transition.indexOf('gcloud run jobs execute "$PROBE_JOB"'));
