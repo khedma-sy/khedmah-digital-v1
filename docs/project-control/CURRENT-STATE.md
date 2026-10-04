@@ -34,9 +34,11 @@ This is a fail-closed pre-mutation failure. Do not retry PREPARE until the actua
 - Terraform bootstrap is zero-drift and must not be re-applied casually.
 - PITR is enabled and an on-demand backup was proven successful earlier.
 
-## Open PR disposition
-- #247: older deployer-guard implementation, based on pre-#248 main. Treat as superseded candidate; do not merge without explicit reconciliation.
-- #172: old draft AI-admin control plane based on develop and heavily diverged from current main. Do not merge or rebase blindly; salvage by feature-level review only if still wanted.
+## PR disposition
+- #247: **closed as superseded** by merged PR #248. Do not reopen unless new evidence requires it.
+- #172: **closed after requirements salvage**. Retained AI-control concepts are documented in `docs/floot-migration/AI-ADMIN-SALVAGE.md`; do not reuse the legacy code/migration wholesale.
+- #249: active documentation/control-plane PR for current-state, Google readiness, and Floot migration governance.
+- #250: active database-role PREPARE classifier fix. No Production execution until its CI/review is green and it is explicitly promoted from draft.
 
 ## Operating rule
 GitHub live state is the source of truth. Conversation text and dated handoff files are supporting evidence only and must not override a newer main SHA, workflow result, or live Production observation.
