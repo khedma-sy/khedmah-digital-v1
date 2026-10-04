@@ -180,6 +180,17 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v3
 
+      - name: Reject legacy Production deployer identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_DEPLOYER="khedmah-v1-deployer@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+          ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' --limit=1)"
+          test "$ACTIVE_ACCOUNT" = "$EXPECTED_DEPLOYER" || {
+            echo 'ERROR: active Production deployer identity is not the canonical bootstrap deployer.' >&2
+            exit 65
+          }
+
       - name: Verify migration identity and secret readiness
         shell: bash
         run: |
