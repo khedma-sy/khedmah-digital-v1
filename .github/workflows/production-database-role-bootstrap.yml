@@ -727,16 +727,19 @@ jobs:
               >/dev/null \
               || return 20
 
-            set +e
-            execution_output="$(
+            # Capture the failure without changing the caller's errexit mode.
+            # A stale credential must return to the selector loop, not exit Bash.
+            if execution_output="$(
               gcloud run jobs execute "$JOB" \
                 --project "$GOOGLE_CLOUD_PROJECT" \
                 --region "$GOOGLE_CLOUD_REGION" \
                 --wait \
                 --format='value(metadata.name)' 2>&1
-            )"
-            execution_status="$?"
-            set -e
+            )"; then
+              execution_status=0
+            else
+              execution_status="$?"
+            fi
             execution_name="$(
               printf '%s\n' "$execution_output" \
                 | sed -n -E \
