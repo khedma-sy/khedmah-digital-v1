@@ -2,17 +2,17 @@
 
 Snapshot: 2026-10-04. Re-read live refs before acting.
 
-## Execute now: verify the grouped food/order-entry documentation update
-1. Re-read main and PR #249/#250. PR #250 remains Ready for Review at `d053350c095877e5c693acd7cc9f512be763577a`, not merged. Its three exact-head workflows were re-read as successful. Do not reset that evidence with unnecessary edits or retries.
-2. Check the latest PR #249 head after the grouped update adding `docs/floot-migration/FOOD-CART-ORDER-CONTRACT.md`. Pre-update head `56da06ba9b7fb2f2fb25ccb7c94f1ff640b45076` passed Node.js CI `37210281922`, Test & Verify `37210281938`, and PR Preview `37210281926`; that evidence cannot certify a newer head.
-3. Inspect failures and review findings separately from CI success. Avoid status-only commits while checks are running. Do not auto-merge or dispatch Production under the owner's mobile hold.
-4. Preserve quote/placed/confirmed/payment distinctions, server-owned basket prices and user/key retries. The product cap and storage/category/account-switch findings remain open, not silently repaired during documentation.
-5. After this documentation review, the next bounded repository-only mapping is the customer/merchant/courier fulfillment lifecycle: transitions, role/ownership checks, notification and tracking contracts. Review complete relevant source before claiming durable notifications or successful cash collection. Keep business logic in the existing backend.
+## Execute now: verify the grouped lifecycle review
+1. Re-read main and PR #249/#250. PR #250 remains Ready for Review at `d053350c095877e5c693acd7cc9f512be763577a`, not merged. Its three exact-head workflows were re-read as successful. Do not reset this evidence with unnecessary edits or retries.
+2. Check the newest PR #249 head after the grouped update adding `docs/floot-migration/FULFILLMENT-LIFECYCLE-CONTRACT.md`. Prior head `d68261c9a0c027057b0ed49ab9aae604e7e1a41a` had successful Node.js CI `37212409867` and Test & Verify `37212409859`; PR Preview `37212409862` was still deploying. Do not reuse prior-head results for a new head.
+3. Inspect failures/review findings separately from CI success. Avoid status-only commits while checks run. No auto-merge or Production dispatch under the mobile hold.
+4. Preserve lifecycle distinctions: customer quote acceptance; server-resolved merchant/courier authority; guarded reassignment; stored notification versus actual device receipt; current versus stale location; and reported cash collection versus reconciliation.
+5. Consolidate open findings from the completed contract slices into prioritized implementation/acceptance work rather than treating documentation as a resolved defect. Then map media and Classifieds ownership/moderation boundaries in a bounded source-backed slice. Do not silently change existing disclosure, pricing, identity or role behavior.
 
 ## Completed bounded local checks
-- Earlier slices: twelve shared error-decoder cases and 24 discovery/search helper cases. Exact blobs/runtimes are in their contracts.
-- Food slice: 24 local cart tests on `8f33c668d77a1051d7c53662e065da753015401d`; 20 current-behavior checks and four explicitly labeled limitation-characterization checks, all passed. These do not endorse the limitations.
-- No live browser, HTTP backend, database, Google or Floot acceptance was performed. Executable repository source was left unchanged.
+- Earlier slices: 12 shared error-decoder cases, 24 discovery/search helper cases and 24 cart cases. Exact blobs/runtimes are in their contracts.
+- Current lifecycle slice: 52 tests passed, zero failed, using three byte-verified backend source files, Node.js v22.16.0 and TypeScript 5.8.3 transpilation. Thirty tests exercise 300 transition combinations; one characterization explicitly records pre-accept address/note/coordinate disclosure.
+- Identity/session extraction, Nest wrappers and repositories were test doubles. No PostgreSQL/HTTP/browser/Floot acceptance or cash reconciliation was performed. Executable repository source remains unchanged.
 
 ## Deferred until the owner returns — no command to run now
 Read-only reconciliation first: main/PR/run status; latest execution-specific manifest; canonical deployer and relevant IAM; secret alias/version metadata without payloads; backup/PITR metadata; schema ledger and prerequisites using SCHEMA-RELEASE-GATES.md.
