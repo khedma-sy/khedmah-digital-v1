@@ -1,94 +1,82 @@
 # Khedmah Digital — Current State
 
-Updated: 2026-10-04
+Updated: 2026-10-04. This is a dated evidence checkpoint, not permission to execute a Production operation.
 
-## Authority
-- Repository: `khedma-sy/khedmah-digital-v1`
-- Production GCP project: `khedma-dl`
-- Approved region: `europe-west1`
-- Protected main: `5a961be5035dce1197ba2d0c65519e86f65ca4c6`
-- Current main origin: merged PR #248, canonical Production deployer guard.
+## Authority and branch location
+- Repository: `khedma-sy/khedmah-digital-v1`.
+- Production project: `khedma-dl`; approved region: `europe-west1`.
+- Last re-read protected main: `5a961be5035dce1197ba2d0c65519e86f65ca4c6` (merged PR #248).
+- These control documents are on `chore/project-control-floot-readiness-2026-10-04`, Draft PR #249. They are NOT yet merged into main.
+- Active fix: `fix/database-role-prep-state-probe-2026-10-04`, Draft PR #250.
+- Re-read main, both PR heads, and their exact-SHA checks before acting. Never use a previous SHA's green checks to certify a newer head.
 
-## Current critical production state
-Latest Production Database Role Bootstrap run:
-- Run: `37183178537`
-- Requested mode: `PREPARE`
-- Requested confirmation matched main.
-- Canonical deployer identity guard: passed.
-- Secret readiness: passed.
-- Immutable bootstrap image build: passed.
-- Failure point: `Classify resumable prepare role state`
-- Error: `Cloud SQL database role state is not a resumable PREPARE state.`
+## Mobile-only operating mode — active
+The owner is following from a phone and cannot execute Cloud Shell commands.
+- No Cloud Shell request is due now.
+- Do not dispatch PREPARE, HARDEN, migrations, Terraform APPLY, Production deployment, password rotation, IAM/secret changes, or DNS changes while this hold is active.
+- Continue bounded repository review, code fixes, isolated tests, and documentation on the existing PR branches.
+- The owner saying they are back at a computer permits resuming read-only checks; it is not blanket approval for Production mutations.
+- Any later Cloud Shell work must be revalidated against live state and given one short command at a time.
 
-All subsequent mutation steps were skipped, including password rotation, PREPARE execution, runtime cutover, Cloud SQL restart/containment, migration role replacement, final password rotation, isolation verification, and active-alias commit.
+## Production database state — not yet cut over
+Last known Production role workflow: run `37183178537`, requested mode PREPARE on `5a961be...`.
+- Identity guard and image build succeeded.
+- Failed at `Classify resumable prepare role state`.
+- Password rotation, role PREPARE/cutover, restart/containment, final credential rotation, isolation verification, and active-alias commit were skipped.
+- This failure was before database/secret cutover, NOT before all cloud activity: the bootstrap image was built.
+- Do not rerun this failed Production workflow as a retry shortcut.
 
-### Interpretation
-This is a fail-closed pre-mutation failure. Do not retry PREPARE until the actual Cloud SQL user databaseRoles state is read and reconciled with the workflow's allowed state machine.
+## Completed read-only owner observation
+The owner already ran the Cloud SQL user-list query. Do not ask for the same table again as though it were missing.
 
-## Recent proven good state
-- PR #248 merged to main.
-- INVENTORY run `37179237640` succeeded on current main.
-- Canonical deployer guard passed.
-- Previous approved system-role manifest:
-  `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`
-- Terraform bootstrap is zero-drift and must not be re-applied casually.
-- PITR is enabled and an on-demand backup was proven successful earlier.
+| User | Type | Displayed databaseRoles |
+| --- | --- | --- |
+| khedmah_app | BUILT_IN | blank |
+| khedmah_migrator | BUILT_IN | blank |
+| postgres | BUILT_IN | blank |
 
-## PR disposition
-- #247: **closed as superseded** by merged PR #248. Do not reopen unless new evidence requires it.
-- #172: **closed after requirements salvage**. Retained AI-control concepts are documented in `docs/floot-migration/INTELLIGENCE-CONTROL-SALVAGE.md`; do not reuse the legacy code/migration wholesale.
-- #249: active documentation/control-plane PR for current-state, Google readiness, and Floot migration governance.
-- #250: active database-role PREPARE classifier fix. No Production execution until its CI/review is green and it is explicitly promoted from draft.
+Blank Admin API metadata does not prove PostgreSQL membership or absence of privileges. Actual Production PostgreSQL memberships remain unverified in this session. PR #250 introduces a database-read-only membership probe; deploying/executing its Cloud Run job would still be cloud activity and remains held.
 
-## Operating rule
-GitHub live state is the source of truth. Conversation text and dated handoff files are supporting evidence only and must not override a newer main SHA, workflow result, or live Production observation.
+## PR #250 — current exact head
+Head: `d053350c095877e5c693acd7cc9f512be763577a`.
 
-## Read-only diagnosis progress
-Historical workflow review found no earlier PREPARE before run `37183178537`. Earlier runs on this workflow were INVENTORY, VERIFY, and REPAIR_MIGRATION_SECRET. Therefore the invalid classifier state is not explained by a previous PREPARE attempt in the reviewed GitHub Actions history.
+Previous head `2311bdca6fcc0b368104475263e588fd121e22f2` passed Node.js CI, Test & Verify, and PR Preview. The Preview report recorded mobile interactions 32/32. That evidence belongs to the previous head only.
 
-Run `37183178537` also proved before failure that:
-- exactly three Cloud SQL users were present: `postgres`, `khedmah_app`, and `khedmah_migrator`;
-- all three were reported as `BUILT_IN`;
-- the failure occurred only when classifying the runtime and migration users' `databaseRoles`.
+A subsequent review found a reproducible shell-control bug: `read_role_state` enabled `errexit` inside a helper invoked with errors temporarily allowed. A stale credential then terminated Bash on return 20 before the selector loop could try an enabled numeric version.
 
-The repository's original user-creation script creates the runtime and migration built-in users without an explicit `--database-roles` argument. Current Google Cloud documentation states such built-in PostgreSQL users are automatically granted `cloudsqlsuperuser`. The live API response still must be inspected because the classifier uses the exact `databaseRoles` field and will reject omitted, empty, multi-role, or otherwise unexpected shapes.
+The current head:
+- captures the execution exit code using an `if` without changing the helper caller's shell mode;
+- adds `tests/production-role-state-runner.test.mjs` with nine isolated tests;
+- preserves the SQL membership classifier, identity allowlist, Production confirmations, and existing cutover guards;
+- was committed and pushed as one atomic change to the existing PR branch, not main.
 
-## Immediate next action
-Perform one read-only live Cloud SQL query and capture the API-reported role lists:
+Local targeted evidence: 5 passed / 4 failed before the fix; 9 passed / 0 failed after the fix. These are mocked Bash-runner tests, not a live Google/Cloud SQL validation or the full CI matrix.
 
-`gcloud sql users list --instance=khedmah-v1-db --project=khedma-dl --format='table(name,type,databaseRoles)'`
+CI runs dispatched for the current head (last observed in progress):
+- Node.js CI: `37193917916`.
+- Khedmah - Test & Verify: `37193917877`.
+- PR Preview: `37193917959`.
 
-Then:
-1. Map `khedmah_app` and `khedmah_migrator` to the intended state-machine states.
-2. If the live state is valid but represented differently than the classifier expects, fix the classifier + regression tests on a branch.
-3. If the live state shows unexpected/custom/multiple privileges, stop and investigate provenance before any mutation.
-4. Do not retry PREPARE until this is resolved.
+## Other PRs
+- #249: control/Google/Floot documentation. Head `9af4fda1c770d07c262817da3a3e6656f819c8f1` previously passed all three workflows. This checkpoint update creates a newer documentation head, so recheck its CI.
+- #247: closed as superseded by #248; not merged.
+- #172: closed after requirements salvage; old code/migration must not be merged wholesale. Retained requirements: `docs/floot-migration/INTELLIGENCE-CONTROL-SALVAGE.md`.
 
+## Earlier infrastructure evidence — revalidate when needed
+- Handoff recorded successful Terraform bootstrap, post-apply verification, and a no-change plan. Do not repeat bootstrap APPLY.
+- Handoff recorded PITR enabled and a successful on-demand backup. This is not proof of a fresh backup or a tested restore today.
+- INVENTORY run `37179237640` succeeded. Previously approved system-role manifest: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`.
+- Latest execution-specific manifest comparison, Secret Manager IAM, current alias/version metadata, recovery evidence, and actual schema prerequisites must be checked before any cutover.
+- Do not assume baseline 001–020 or migrations 021–024 are complete merely because the later workflow is named 025–034.
 
-## Live Cloud SQL role metadata result — 2026-10-04
-Read-only Cloud Shell evidence:
+## Product and migration boundaries
+- Keep GitHub/GCP backend, database, identities, and infrastructure; Floot is the proposed experience-layer migration, not a certified completed integration.
+- No Floot migration or custom-domain cutover was executed in this work session.
+- Taxi trips and electronic payments remain behind their existing approval/readiness gates.
+- The approved visual identity is existing input, not a request for a redesign.
 
-```text
-khedmah_app      BUILT_IN   databaseRoles: empty
-khedmah_migrator BUILT_IN   databaseRoles: empty
-postgres          BUILT_IN   databaseRoles: empty
-```
+## Progress reporting
+Carry forward the owner's last planning indicator: `10 / 160` estimated work units expressed as hours. This is not measured elapsed labor, and 6.25% is not a verified percentage of the whole product. Do not increment it merely for waiting, chatting, or rerunning CI. Report exact completed gates/tests alongside it.
 
-This explains why PREPARE run `37183178537` failed at the old metadata-only classifier: it expected explicit `["cloudsqlsuperuser"]` or the custom role. Google Cloud documents that newly created built-in PostgreSQL users receive `cloudsqlsuperuser` automatically when no explicit database roles are supplied, while the API also supports explicitly revoking all roles. Therefore an empty metadata field is ambiguous and must not be treated as either superuser or zero-role state without a live PostgreSQL membership probe.
-
-Draft PR #250 (`fix/database-role-prep-state-probe-2026-10-04`) is the active remediation. It moves PREPARE state classification to a read-only PostgreSQL membership probe and is being hardened to preserve resume behavior by trying enabled migration-secret versions without changing database roles/passwords.
-
-## Mobile-only operating mode
-The user is temporarily following from mobile and cannot execute Cloud Shell commands.
-
-Rules until the user explicitly says they are back at a computer:
-- Do not request Cloud Shell execution.
-- Do not dispatch PREPARE, HARDEN, migrations, Terraform APPLY, or Production deploy.
-- Continue GitHub-only work: code review, CI diagnosis, tests, documentation, PR hygiene, and non-production planning.
-- Queue any necessary Google Cloud read-only commands under **Queued Cloud Shell Actions** instead of asking for immediate execution.
-
-## Queued Cloud Shell Actions
-None currently required. The previous role metadata query has already been completed and its result is recorded above.
-
-## Immediate next safe action
-Finish PR #250 through CI/review only. Do not merge or run PREPARE until the PostgreSQL-backed classifier is proven by tests and reviewed for resumability and fail-closed behavior.
+## One next action
+See [NEXT-ACTION.md](NEXT-ACTION.md). There is no owner command pending now. Further Production work is blocked by the mobile hold and explicit readiness gates.
