@@ -36,7 +36,7 @@ This is a fail-closed pre-mutation failure. Do not retry PREPARE until the actua
 
 ## PR disposition
 - #247: **closed as superseded** by merged PR #248. Do not reopen unless new evidence requires it.
-- #172: **closed after requirements salvage**. Retained AI-control concepts are documented in `docs/floot-migration/AI-ADMIN-SALVAGE.md`; do not reuse the legacy code/migration wholesale.
+- #172: **closed after requirements salvage**. Retained AI-control concepts are documented in `docs/floot-migration/INTELLIGENCE-CONTROL-SALVAGE.md`; do not reuse the legacy code/migration wholesale.
 - #249: active documentation/control-plane PR for current-state, Google readiness, and Floot migration governance.
 - #250: active database-role PREPARE classifier fix. No Production execution until its CI/review is green and it is explicitly promoted from draft.
 
