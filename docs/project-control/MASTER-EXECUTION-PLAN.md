@@ -13,7 +13,7 @@ Finish the existing GitHub/Google Cloud Production path first, prepare Google se
 ## Phase 0 — Production incident/state reconciliation
 Exit criteria:
 - Failed PREPARE run `37183178537` is fully explained.
-- Current Cloud SQL runtime/migration `databaseRoles` are known.
+- Distinguish the observed blank Cloud SQL `databaseRoles` metadata from the still-unverified live PostgreSQL memberships; blank is not proof of any privilege state.
 - Workflow state machine accurately models the valid live state.
 - Regression tests cover the discovered state.
 - No Production mutation is performed during diagnosis.
@@ -24,29 +24,35 @@ Exit criteria:
 - Reconfirm latest system-role manifest.
 - Reconfirm Secret Manager IAM for canonical deployer.
 - Create/verify fresh on-demand backup immediately before mutation.
-- Run PREPARE only after the above gates are green.
+- Run PREPARE only after the above gates are green and explicit owner authorization is present.
 - Verify isolation.
 - Re-run INVENTORY and compare manifest.
 - Confirm migration secret active alias points to the final verified version.
 
 ### 1B Schema production
-- Execute migrations 025 through 034 in strict order.
+- First establish the installed Production schema and prior execution evidence. Repository files and successful Preview tests do not prove Production application.
+- For a proven fresh database only, initialize the governed 001–020 baseline after role isolation; never rerun initialization against an already populated database as a shortcut.
+- Establish completion of 021 (`021_provider_reports`), 022 (`022_expand_category_taxonomy`), and 024 (`024_product_store`) through the separate Production Schema Operator.
+- Version 023 is intentionally unused. Do not invent a 023 migration or interpret its absence as an error.
+- Only after those prerequisites are proven, execute the missing migrations 025 through 034 in the governed order, one approved migration per operation.
 - Respect each migration's exact SHA/confirmation/backup gates.
 - Verify canonical schema after 034.
+- Detailed source mapping and unresolved live gates: [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md).
 
 ### 1C Hardening and release
 - HARDEN only after schema prerequisites are satisfied.
-- Production readiness / operator VERIFY_ONLY.
-- DEPLOY_PRODUCTION only after all gates close.
+- Select verification by exact workflow and mode: schema-operator `VERIFY_ONLY` is not a database-schema certificate; new-account `VERIFY_ONLY` is not the `verify-hardened` predeploy job.
+- Production readiness / new-account operator VERIFY_ONLY, plus separately proven role/schema hardening evidence.
+- DEPLOY_PRODUCTION only after all gates close and explicit owner authorization; retain the built-in predeploy `verify-hardened` job.
 - Bootstrap admin.
 - Smoke, acceptance, security, and rollback verification.
 
 ### 1D Repository hygiene
-- Resolve/close superseded PR #247.
-- Audit old draft #172; salvage only still-relevant feature concepts into a fresh branch if required.
+- PR #247 closed as superseded by #248; preserve the decision record.
+- PR #172 closed after requirements salvage; do not restore its obsolete migration number or merge the old branch wholesale.
 - Remove stale execution assumptions from handoff docs.
 - Maintain `CURRENT-STATE.md` as the compact live checkpoint.
-- Full root/backend/frontend test matrix green.
+- Full root/backend/frontend test matrix green on the exact candidate SHA.
 
 ## Phase 2 — Google readiness for the new experience layer
 Exit criteria: Google services are ready for `khedmah.uk`, the Floot frontend, and the existing backend without weakening current IAM.
@@ -89,7 +95,7 @@ Floot may receive only credentials required for services it directly calls, such
 - unrestricted Google API keys.
 
 ## Phase 4 — Floot finalization
-- Apply final visual identity from centralized brand tokens/assets.
+- Apply the existing approved visual identity from centralized brand tokens/assets; this is not a redesign request.
 - Responsive/mobile QA.
 - Accessibility/RTL QA.
 - Performance and Core Web Vitals.
