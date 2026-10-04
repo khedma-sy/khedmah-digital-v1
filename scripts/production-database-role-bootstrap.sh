@@ -257,17 +257,17 @@ SELECT CASE
     AND migration_memberships IN (
       ARRAY['cloudsqlsuperuser|1|1|0']::text[],
       ARRAY[
+        'cloudsqlsuperuser|1|1|0',
         '$MIGRATION_ROLE|0|0|1',
-        '$RUNTIME_ROLE|0|0|1',
-        'cloudsqlsuperuser|1|1|0'
+        '$RUNTIME_ROLE|0|0|1'
       ]::text[]
     )
     THEN 'initial'
   WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
     AND migration_memberships=ARRAY[
+      'cloudsqlsuperuser|1|1|0',
       '$MIGRATION_ROLE|0|0|1',
-      '$RUNTIME_ROLE|0|0|1',
-      'cloudsqlsuperuser|1|1|0'
+      '$RUNTIME_ROLE|0|0|1'
     ]::text[]
     THEN 'resume'
   WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
