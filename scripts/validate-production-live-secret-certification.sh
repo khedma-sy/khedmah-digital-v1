@@ -47,6 +47,30 @@ project_number="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='val
   exit 1
 }
 
+migration_alias_role_id='khedmahDatabaseMigrationAliasManager'
+expected_migration_alias_role="projects/$GOOGLE_CLOUD_PROJECT/roles/$migration_alias_role_id"
+if ! migration_alias_role_json="$(gcloud iam roles describe "$migration_alias_role_id" --project "$GOOGLE_CLOUD_PROJECT" --format=json)"; then
+  echo 'ERROR: Could not read the canonical migration alias role definition; refusing certification.' >&2
+  exit 1
+fi
+# A custom role name alone cannot prove its permissions. The IAM Role API omits
+# stage for ALPHA and deleted for false; explicit malformed values fail closed.
+jq -se --arg role "$expected_migration_alias_role" '
+  length == 1 and (.[0] |
+    type == "object" and .name == $role and
+    (if has("deleted") then .deleted == false else true end) and
+    (if has("stage") then
+      (.stage | type == "string") and
+      (.stage as $stage | ["ALPHA", "BETA", "GA", "DEPRECATED", "EAP"] | index($stage) != null)
+    else true end) and
+    (.includedPermissions | type == "array") and
+    (.includedPermissions | sort == ["secretmanager.secrets.get", "secretmanager.secrets.update"])
+  )
+' <<<"$migration_alias_role_json" >/dev/null || {
+  echo 'ERROR: Migration alias role definition differs from the exact canonical permissions or usable lifecycle.' >&2
+  exit 1
+}
+
 ancestor_json="$(gcloud projects get-ancestors "$GOOGLE_CLOUD_PROJECT" --format=json)"
 ancestor_scopes="$(jq -r '.[] | select(.type == "folder" or .type == "organization") | [.type, .id] | @tsv' <<<"$ancestor_json")"
 analysis_scope="project:$GOOGLE_CLOUD_PROJECT"
@@ -114,6 +138,7 @@ expected_policy_lines() {
     DATABASE_MIGRATION_URL)
       printf 'roles/secretmanager.secretAccessor\tserviceAccount:%s\n' "$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"
       printf 'roles/secretmanager.secretVersionManager\tserviceAccount:%s\n' "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT"
+      printf '%s\tserviceAccount:%s\n' "$expected_migration_alias_role" "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT"
       ;;
     GOOGLE_MAPS_BROWSER_API_KEY)
       printf 'roles/secretmanager.secretVersionManager\tserviceAccount:%s\n' "$OPERATIONS_DEPLOYER_SERVICE_ACCOUNT"
