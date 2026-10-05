@@ -1,3 +1,5 @@
+import { readApiError } from './api-errors';
+
 const API_BASE = '';
 
 export type AdKind = 'sale' | 'service' | 'wanted' | 'rent';
@@ -78,11 +80,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = (data as { message?: string | string[] }).message ?? `خطأ في الخادم (${response.status})`;
-    const text = Array.isArray(message) ? message.join('. ') : message;
-    throw Object.assign(new Error(text), {
+    const { message, code } = readApiError(data, response.status);
+    throw Object.assign(new Error(message), {
       statusCode: response.status,
-      code: (data as { code?: string }).code
+      code
     });
   }
   return data as T;
