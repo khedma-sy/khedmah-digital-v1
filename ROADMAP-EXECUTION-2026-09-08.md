@@ -1,5 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-05 بعد #256
+
+- `main` الحي هو `84857464bf0293ed496faefad5e171b6a75386b2` بعد دمج PR #256.
+- اكتمل إثبات GitHub/WIF للحسابات canonical، وتم تصحيح `OPERATIONS_RUNTIME_SERVICE_ACCOUNT` إلى `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
+- انتقل العائق من الهوية إلى **Secret Manager direct IAM drift**.
+- القراءة الحية لـ `DATABASE_URL` أثبتت أن binding `roles/secretmanager.secretAccessor` يحتوي الحساب التاريخي `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` والحساب canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` معًا.
+- المصدر canonical يتوقع الحساب الجديد فقط على هذا السر. حذف الحساب التاريخي هو تغيير Production IAM ولا يتم بدون تفويض صريح ومراجعة محددة للعملية.
+- أثناء متابعة المالك من الهاتف: تستمر أعمال GitHub/CI/التوثيق فقط، وتؤجل أوامر Cloud Shell وأي Production mutation.
+- ترتيب المراحل غير قابل للتجاوز: Phase 1 → Phase 2 Google readiness → Phase 3 Floot. Floot طبقة تجربة، وليس بديلاً لقاعدة البيانات أو IAM أو Secret Manager.
+
+
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
 ### Live checkpoint — 2026-10-05 after PR #254 and owner cloud reads
