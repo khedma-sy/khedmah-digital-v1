@@ -2,6 +2,19 @@
 
 Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation. Live GitHub refs, run results and source were re-read for this update.
 
+## Live reconciliation supplement — 2026-10-05 after PR #254
+
+This supplement supersedes stale "pending historical service-account metadata" wording below while preserving the earlier evidence trail.
+
+- Live protected `main` is `57af4a86c83f00116ac3447daac62b7c4a104e14`, the guarded merge of PR #254. Its source inventory, build, code-quality and test/verification push checks succeeded; there are no open pull requests at this checkpoint.
+- Historical service-account metadata is no longer pending. Both `khedma-v1-deployer@khedma-dl.iam.gserviceaccount.com` and `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` exist and returned `disabled=false`; unique IDs were captured in the owner-supplied read.
+- Cloud Run service inventory in `europe-west1` returned no services. Cloud Run job inventory returned four database-role jobs, all configured with canonical `khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com`.
+- Cloud Asset IAM search proves the historical identities still have live bindings. In particular, the historical deployer retains project/build/run/Secret Manager/service-account attachment privileges and the historical runtime retains project-level runtime/secret access. This is evidence to reconcile, not authorization to remove those bindings.
+- Audit Logs prove `khedma-v1-deployer` was actively used through 2026-10-04 for token generation, Cloud Build, Cloud Run job replacement and `iam.serviceAccounts.actAs`; on 2026-10-03 it also updated/added versions to `DATABASE_MIGRATION_URL`. Do not classify this identity as retired.
+- The roadmap already records the causal diagnosis: GitHub Production environment secret `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT` was misconfigured to the historical missing-`h` deployer. The canonical target is `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`. Source contains an active-identity guard; the remaining control-plane requirement is to verify/correct the protected GitHub environment value, then obtain canonical-WIF proof before PREPARE.
+- Existing recovery evidence is preserved: on-demand backup `1791086677995` succeeded, PITR was enabled with 7-day transaction-log retention, and the post-restart INVENTORY retained manifest SHA `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`. Freshness must still be re-evaluated immediately before any mutation.
+- No Production mutation is authorized by this supplement. Floot remains Phase 3 and must not begin before Phase 1 and Phase 2 exit gates are closed.
+
 ## Authority and branch location
 - Repository: `khedma-sy/khedmah-digital-v1`.
 - Production project: `khedma-dl`; approved region: `europe-west1`.
