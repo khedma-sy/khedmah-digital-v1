@@ -47,13 +47,13 @@ Therefore historical-account retirement is **not** the next operation. The repos
 
 ## Historical first command — completed
 
-The first unresolved read is now **metadata for both historical service accounts**. The owner has already received the reviewed one-line command below; its output is pending. Both custom-role reads are complete. Review the next result before constructing another command:
+This command was the first unresolved read at the earlier checkpoint. It has now completed successfully and is retained here only as provenance; do not repeat it as a pending prerequisite:
 
 ```bash
 gcloud iam service-accounts list --project=khedma-dl --filter='email=khedma-v1-deployer@khedma-dl.iam.gserviceaccount.com OR email=khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com' --format='json(email,uniqueId,disabled)'
 ```
 
-The filter targets `khedma-v1-deployer` and `khedma-v1-runtime`, the historical missing-`h` identities observed in project IAM. Validate each returned email against the exact intended identities before accepting it as evidence. Retain the returned email, unique ID and disabled-state metadata exactly, including absent fields. This does not read keys or secret payloads. Account existence/disabled state alone cannot establish active use, complete effective access or retirement readiness; an empty/failed result is not authorization to remove IAM bindings.
+The filter targeted `khedma-v1-deployer` and `khedma-v1-runtime`, the historical missing-`h` identities observed in project IAM. The successful result established both accounts exist and are enabled. Subsequent audit evidence established active historical-deployer use, so existence metadata is no longer the retirement decision point.
 
 After this result, select one bounded read for remaining custom-role definitions/effective access and historical identity usage, then continue through secret aliases/version states, backup/PITR/recovery, actual PostgreSQL membership and installed schema evidence. Do not print secret payloads, full environment dumps or unrelated logs. No new Cloud Run execution is created by the command above.
 
