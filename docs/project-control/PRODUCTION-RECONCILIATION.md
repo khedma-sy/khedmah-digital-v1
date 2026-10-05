@@ -34,7 +34,18 @@ The project output includes `roles/secretmanager.secretAccessor` for both `servi
 
 The former source mismatch is repaired through merged #253. On prior main `e61d1142...`, [the live-secret validator](../../scripts/validate-production-live-secret-certification.sh) expected two direct migration-secret bindings while Terraform declared the three observed bindings. Implementation `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` aligns that expectation, passed 59 offline/local cases and two independent reviews, and entered main `82283464...` after its own exact-head source/Preview gates. The AliasManager live definition also matches declared permissions. [Exact source and validation scope](CURRENT-STATE.md#live-secret-certification-alignment--merged-source) do not replace inherited/effective-access evidence or authorize removing the canonical live binding.
 
-## First command
+## Live resume position after owner reconciliation
+
+The historical service-account metadata command below has been completed and is retained only as historical evidence. Both historical accounts exist and are enabled. Subsequent owner reads also established:
+
+- no Cloud Run Services in `europe-west1`;
+- four database-role Cloud Run Jobs, each attached to canonical `khedmah-v1-migrator`;
+- broad historical-account bindings from Cloud Asset IAM search;
+- direct recent use of `khedma-v1-deployer` in Audit Logs through 2026-10-04, including token generation, Cloud Build, Cloud Run job operations and service-account impersonation, plus `DATABASE_MIGRATION_URL` secret-version/alias activity on 2026-10-03.
+
+Therefore historical-account retirement is **not** the next operation. The repository roadmap identifies the controlling defect as a misconfigured protected GitHub Production environment secret `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT`. The next control-plane gate is to verify/correct that value to canonical `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`, then prove a subsequent protected WIF authentication uses that canonical principal. No PREPARE or IAM cleanup precedes this proof.
+
+## Historical first command — completed
 
 The first unresolved read is now **metadata for both historical service accounts**. The owner has already received the reviewed one-line command below; its output is pending. Both custom-role reads are complete. Review the next result before constructing another command:
 
