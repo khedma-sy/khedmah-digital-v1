@@ -99,6 +99,28 @@ This is a separate transport design, not a DNS-only substitution. It needs an ex
 
 No choice between A and B was deployed in this review. No Floot capability or browser acceptance result is inferred from repository source alone.
 
+### Floot source and platform evidence — 2026-10-05
+
+Read-only inspection identified **Khedma Business Desk**, project `5e271f43-96a6-40de-a634-ec3eae023a49`. Every inspected source owner returned version `1791086603173`. Publication metadata reported an existing published app, but no deployed-bundle/source equivalence or runtime journey was verified. Its existing B2B context does not establish it as the approved full-platform migration target.
+
+The inspected authentication chain implements its own credentials and sessions:
+
+| Floot source owners | Observed behavior |
+| --- | --- |
+| `helpers/useAuth.tsx`; `endpoints/auth/session_GET.schema.ts`; `endpoints/auth/login_with_password_POST.schema.ts` | Client requests use `/_api/auth/session` and `/_api/auth/login_with_password`, with SuperJSON responses. |
+| `endpoints/auth/login_with_password_POST.ts` | Queries `users` and `userPasswords`, checks the password with bcrypt, creates a random session ID and inserts a `sessions` row. |
+| `helpers/getSetServerSession.tsx` | Signs/verifies its own HS256 session JWT and issues `floot_built_app_session` with `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`. |
+| `helpers/getServerUserSession.tsx`; `endpoints/auth/session_GET.ts` | Resolve local session/user records and refresh that cookie. Session GET also updates activity and can delete expired sessions; it was not invoked. |
+| `helpers/db.tsx` | Uses the environment-variable name `FLOOT_DATABASE_URL`; its value, physical database host and account data were not inspected. |
+
+No Khedmah `/api/v1` forwarding or Firebase ID-token exchange exists in this inspected chain. This bounded finding does not rule out unrelated integrations elsewhere.
+
+Official Floot connector guides `floot-overview` and `primitives`, read without a project ID, specify native `/_api/<route>` endpoints, GET/POST methods and no dynamic endpoint parameters. They do not establish a transparent `/api/v1/*` rewrite. Khedmah's unchanged `Path=/api/v1` cookie would not accompany `/_api/...` browser requests. Missing routing tools do not prove platform-wide impossibility. [Official API integration documentation](https://floot.com/docs/integrations/overview) supports external HTTPS calls, not this complete transport contract.
+
+**Next compatibility proof:** establish supported `/api/v1/*` routing to a fixed upstream, preserving methods, bodies, Cookie, multiple Set-Cookie headers, status codes and the validated original browser origin, without shared caching of private responses. If unavailable, review Candidate B explicitly. Do not assume an edge workaround: [Floot's standard domain guide](https://floot.com/docs/custom-domains/how-to-add-custom-domain) specifies DNS-only Cloudflare records.
+
+Production prerequisites remain authoritative. No adapter, credential, domain or app change was made; actual browser acceptance remains open.
+
 ## 5. Configuration and credentials
 
 | Item | Source-backed observation / boundary |
@@ -127,4 +149,4 @@ These are required future tests, not completed test results:
 
 ## 7. Current scope and next work
 
-This document preserves the observed contract while Production database work is held. It adds no route, secret, OAuth client, DNS record, Floot resource or cloud deployment. The next repository-only mapping slice is the shared error envelope and protected profile/role APIs; actual adapter implementation waits for the agreed platform validation and Production prerequisites.
+This document preserves the observed contract while Production database work is held. It adds no route, secret, OAuth client, DNS record, Floot resource or cloud deployment. The shared error/profile/access, discovery, cart/order, fulfillment and media mappings are already indexed in [MIGRATION-PLAN.md](MIGRATION-PLAN.md); do not repeat them as unfinished work. Resolve the platform transport evidence above before actual adapter implementation, together with the agreed Production prerequisites and browser acceptance.

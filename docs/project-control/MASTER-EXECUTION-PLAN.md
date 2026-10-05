@@ -20,10 +20,10 @@ Exit criteria:
 
 ## Phase 1 — Complete GitHub + Production database path
 ### 1A Database role cutover gates
-- Current source prerequisite: PR #250 is merged; resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md), following [NEXT-ACTION.md](NEXT-ACTION.md).
+- Current source prerequisites: #250 and #249 are merged; main at the 2026-10-05 checkpoint is `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d`. Resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md) from the pending corrected project-IAM read, following [NEXT-ACTION.md](NEXT-ACTION.md).
 - Reconfirm current main.
-- Reconfirm latest system-role manifest.
-- Reconfirm Secret Manager IAM for canonical deployer.
+- Preserve the completed selected-execution manifest review: 47 canonical records, independently recomputed digest and current protected-value match. Revalidate only as required by subsequent changes or the intended operation's freshness needs.
+- Preserve the three reviewed direct migration-secret IAM bindings; complete project/custom-role/effective IAM for the canonical principals. Direct policy metadata alone does not establish effective access.
 - Establish actual PostgreSQL memberships and credential continuity; blank Cloud SQL role metadata and enabled versions are insufficient.
 - Create/verify fresh on-demand backup immediately before mutation.
 - Independently review backup/PITR/restore suitability. The role workflow has no automatic backup gate and rotates the transition credential before the later prepare SQL compares the actual manifest.
@@ -76,6 +76,7 @@ Workstreams:
 Use [the contract findings backlog](../floot-migration/IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) to select bounded implementation/acceptance work. [Media/Classifieds ownership and moderation](../floot-migration/MEDIA-CLASSIFIEDS-CONTRACT.md) is source mapping; its unresolved findings are not certified behavior.
 
 ### 3A Foundation
+- Current preparation includes the mapped contracts and the bounded MC-01 implementation on its own branch; new-PR/exact-head checks and integration acceptance are still required. This progress does not authorize a Floot build or Production cutover ahead of their gates.
 - Floot paid plan that supports the required build volume/custom domain.
 - Khedmah application shell, RTL, routing, design tokens, approved brand assets.
 - Environment/config contract.

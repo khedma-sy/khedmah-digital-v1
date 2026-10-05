@@ -91,7 +91,7 @@ Checkout persists an attempt key/draft in sessionStorage with a 30-minute TTL. A
 
 The current service separately handles merchant pricing/delivery fee, customer acceptance, courier assignment/acceptance, pickup and completion. In the inspected transitions the merchant moves placed to quoted with a delivery fee; the customer can then accept quoted to merchant_confirmed. Therefore `placed` must not be displayed as merchant-confirmed, dispatched, delivered or paid.
 
-The complete lifecycle, recipient notification durability, ownership changes, courier document eligibility, tracking, cancellation/reassignment and payment-status transition are the next review slice, not completed acceptance here. The UI ownership bridge uses cash fulfillment and does not authorize electronic payments or Taxi rollout.
+The lifecycle, recipient notification durability, ownership changes, courier document eligibility, tracking, cancellation/reassignment and payment-status transition are mapped separately in [FULFILLMENT-LIFECYCLE-CONTRACT.md](FULFILLMENT-LIFECYCLE-CONTRACT.md); their required acceptance is not certified by this cart/order-entry contract. The UI ownership bridge uses cash fulfillment and does not authorize electronic payments or Taxi rollout.
 
 ## 6. Local exact-source test evidence
 

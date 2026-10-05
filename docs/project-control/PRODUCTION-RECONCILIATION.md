@@ -1,6 +1,6 @@
 # Production reconciliation — evidence before an operation
 
-Reviewed source: `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`, 2026-10-05. Read live refs and run status again before using this checklist. Source review does not establish live cloud state or authorize a mutation.
+Checkpoint: 2026-10-05; protected main `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d` after merged #249. The reviewed role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
 
 ## Target and historical anchor
 
@@ -8,21 +8,36 @@ Reviewed source: `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`, 2026-10-05. Read li
 - Explicit Production project: `khedma-dl`; approved region: `europe-west1`; instance: `khedmah-v1-db`.
 - Canonical federated workflow deployer: `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`. The owner's interactive Cloud Shell account is a separate identity.
 - Latest successful GitHub inventory observed: [run 37179237640](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37179237640), old source `5a961be5035dce1197ba2d0c65519e86f65ca4c6`, [job 111368235212](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37179237640/job/111368235212), execution `khedmah-database-role-inventory-s7pck` on 2026-10-04.
-- Previously recorded approved manifest: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`. It must be compared with execution-specific records and the current reviewed protected value; copying it from this document is not revalidation.
+- Manifest re-read/recomputed on 2026-10-05: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`; it matches both the selected execution's logged digest and the protected variable read today. This is evidence for that execution, not a new database snapshot today.
+
+## Completed owner reads — preserve this resume position
+
+| Read received on 2026-10-05 | Reviewed result |
+| --- | --- |
+| Latest existing inventory execution list/metadata | `khedmah-database-role-inventory-s7pck`, start `2026-10-04T05:13:55.497181Z`, completion `2026-10-04T05:14:07.818024Z`, succeeded count 1. |
+| Canonical execution-specific log records | 47 total: D=5, M=12, R=30; zero duplicates; independent digest matches the value above. |
+| Protected `DATABASE_SYSTEM_ROLE_MANIFEST_SHA256` | Same value, read today; recorded variable update time `2026-10-03T16:12:33Z`. |
+| Direct secret IAM for `DATABASE_MIGRATION_URL` | Exactly the three expected bindings below; IAM policy version 1, etag `BwZc6oXwB6M=`, received `06:25:47 UTC`. |
+
+| Principal | Reviewed direct secret role |
+| --- | --- |
+| `serviceAccount:khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com` | `projects/khedma-dl/roles/khedmahDatabaseMigrationAliasManager` |
+| `serviceAccount:khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com` | `roles/secretmanager.secretVersionManager` |
+| `serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com` | `roles/secretmanager.secretAccessor` |
+
+These reads are complete, not missing prerequisites to repeat. IAM policy version 1 does not establish secret version state. The direct secret policy does not establish project/inherited/conditional/denied effective permissions or the current custom-role definitions. The selected inventory is still dated 2026-10-04; review later changes or operation-specific freshness before using it for mutation.
 
 ## First command
 
-Run only this metadata query in the authorized Cloud Shell session, then review the output before constructing the next command:
+The first unresolved read is now **project IAM**. The owner has the corrected command below; its output is pending. The first filter attempt contained an extra token and supplied no accepted project-IAM result. Review this output before constructing another command:
 
 ```bash
-gcloud run jobs executions list --job=khedmah-database-role-inventory --project=khedma-dl --region=europe-west1 --limit=5 --sort-by='~metadata.creationTimestamp' --format='table(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount)'
+gcloud projects get-iam-policy khedma-dl --format=json | jq '{etag,version,bindings:[.bindings[] | select(any(.members[]; .=="serviceAccount:khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com" or .=="serviceAccount:khedmah-v1-build@khedma-dl.iam.gserviceaccount.com" or .=="serviceAccount:khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com" or .=="serviceAccount:khedma-v1-deployer@khedma-dl.iam.gserviceaccount.com" or .=="allUsers" or .=="allAuthenticatedUsers"))]}'
 ```
 
-Expected output is a short execution table. A newer execution, a failed execution, an empty result or a permissions error must be investigated, not silently replaced by the old anchor. If selected columns are absent, inspect the command's returned metadata shape before assuming success. Do not repeat the earlier Cloud SQL users table as proof of memberships.
+The corrected filter was exercised synthetically with jq; that is syntax/selection evidence, not a successful query of the project. It retains selected binding conditions for review and includes the historical deployer and public principals. Its output still cannot prove complete effective IAM or actual runtime access. Do not infer an empty policy from a failed command.
 
-The command and job/region/sort/limit flags were checked against the [official gcloud executions-list reference](https://docs.cloud.google.com/sdk/gcloud/reference/run/jobs/executions/list). This documentation check is not a successful query of the owner's project.
-
-No new execution is created by this list command. Subsequent log reads must target the selected exact execution and allow only the canonical `DATABASE_SYSTEM_ROLE_MANIFEST_RECORD=` and `DATABASE_SYSTEM_ROLE_MANIFEST_SHA256=` data needed for review. Verify record completeness and independently recompute the digest. Do not expose secret payloads, full environment dumps or unrelated logs.
+After this result, select one bounded read for current custom-role definitions and effective access, then continue through secret aliases/version states, backup/PITR/recovery, actual PostgreSQL membership and installed schema evidence. Do not print secret payloads, full environment dumps or unrelated logs. No new Cloud Run execution is created by the command above.
 
 ## Gate matrix
 
@@ -30,8 +45,8 @@ No new execution is created by this list command. Subsequent log reads must targ
 | --- | --- | --- |
 | Source | Role workflow locks requested SHA, checkout and fetched main; validates project/region inputs | Live main, exact checks, operation mode, applicable approval and environment protection evidence |
 | Scope | Role workflow rejects regions other than `europe-west1` and checks the SQL target | Current project/region/instance identity; concurrent or out-of-band operation review |
-| Deployer | Canonical active account checked; build and migration SAs must exist | Current effective IAM and service-account attachment scopes; actual audit principal. Metadata existence is insufficient |
-| Manifest | Digest syntax validated early; actual digest compared later by the SQL runner | Complete canonical records from the selected execution, independent digest and reviewed protected-value comparison; no unexplained change since collection |
+| Deployer | Canonical active account checked; build and migration SAs must exist | Three direct secret bindings reviewed. Project IAM is pending; current custom-role/effective permissions, service-account attachment scopes and actual audit principal remain unverified |
+| Manifest | Digest syntax validated early; actual digest compared later by the SQL runner | Selected execution's 47 records, independent digest and current protected-value comparison are reviewed; establish no unexplained later change and suitability for the intended operation |
 | Role state | #250 checks actual memberships/flags with sorted expected values and the three-user/type allowlist | Actual current PostgreSQL membership evidence. The historical Admin API table with blank roles does not supply it |
 | Credential continuity | PREPARE tries enabled active/numeric selectors; final alias committed after verification | Current aliases/version states, which credential path is usable, and recovery plan without copying or printing payloads |
 | Backup/PITR | Role workflow has no backup input, freshness gate or PITR/restore validation | Current instance state, successful backup tied to the operation/instance, PITR metadata and reviewed restore/recovery evidence |
@@ -59,6 +74,6 @@ INVENTORY/VERIFY describe the database behavior of their phase; the full workflo
 
 ## Record one reviewed result at a time
 
-For each meaningful observation retain timestamp, source SHA where relevant, exact project/region/resource/run/execution, selected non-secret result, its limits and the next dependency. Failed or missing access leaves the gate open. Current workspace access covers GitHub and local source, not the owner's Cloud Shell session.
+For each meaningful observation retain timestamp, source SHA where relevant, exact project/region/resource/run/execution, selected non-secret result, its limits and the next dependency. Failed or missing access leaves the gate open. The owner is at a computer and supplies reviewed Cloud Shell output; workspace access itself covers GitHub and local source. Resume from project IAM, not the already completed inventory/log/variable/direct-secret-policy reads.
 
-No mutation command or old-SHA confirmation is queued by this document. Once cloud reconciliation is complete, select and review one concrete operation using its current code, backup and confirmation requirements.
+This session has performed zero Production mutations. No mutation command or old-SHA confirmation is queued by this document. Once cloud reconciliation is complete, select and review one concrete operation using its current code, backup and confirmation requirements.

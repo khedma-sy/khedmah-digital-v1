@@ -153,6 +153,11 @@ export class MediaService {
     if (!rows[0]) throw new NotFoundException('Media asset not found.');
     if (rows[0].owner_user_id !== actor.id) throw new ForbiddenException('Access denied.');
 
+    // Ad media writes belong to the revision-bound Classifieds lifecycle.
+    if (rows[0].owner_type === 'ad_listing') {
+      throw new ForbiddenException('Classifieds images must be removed through the Classifieds media endpoint.');
+    }
+
     if (rows[0].owner_type === 'product_listing') {
       const ownerId = rows[0].owner_id;
       await this.db.transaction(async (client) => {
