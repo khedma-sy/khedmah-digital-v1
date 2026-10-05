@@ -66,7 +66,7 @@ Always record workflow path, mode, exact source SHA, run ID, execution ID where 
 
 ## Operator checklist — one reviewed read-only step at a time
 
-- Re-read main and the current PR #249 head; confirm the recorded #250 merge evidence and check current exact-head CI and review findings.
+- Re-read main and the active implementation PR head; confirm the recorded #249/#250/#251 merge evidence and check the active head's own CI and review findings. Do not resume merged source prerequisites as unfinished work.
 - Resolve actual Production PostgreSQL role memberships and the latest execution-specific system-role manifest; do not repeat the already supplied blank metadata table as though it were new proof.
 - Verify canonical deployer and necessary IAM, alias/version metadata without secret payloads, current backup/PITR evidence, and restore plan.
 - Establish installed canonical schema through supported read-only catalog checks and available historical evidence. Do not assume a migration ledger exists or invent a ledger query.
@@ -74,4 +74,4 @@ Always record workflow path, mode, exact source SHA, run ID, execution ID where 
 
 ## Unresolved limits
 
-This document verifies repository contracts only. It does not establish actual Production role state, baseline completion, applied migrations, live IAM correctness, current recovery readiness, or Floot compatibility. The original review used GitHub reads; the 2026-10-05 reconciliation also has a local checkout, but no live database/Cloud Shell connection. The program's `10 / 160` progress indicator remains a planning estimate, not measured elapsed labor or a certified product completion percentage.
+This document verifies repository contracts only. It does not establish actual Production role state, baseline completion, applied migrations, live IAM correctness, current recovery readiness, or Floot compatibility. The original review used GitHub reads; the 2026-10-05 reconciliation also has a local checkout and selected owner-supplied Cloud Shell metadata, but no connected database/Cloud Shell session in this workspace. [CURRENT-STATE.md](CURRENT-STATE.md#progress-reporting) records the planning indicator and its provenance; it is not measured elapsed labor or a certified product completion percentage.

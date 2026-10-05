@@ -97,7 +97,52 @@ The adapter must use a fixed approved upstream; it must not accept an arbitrary 
 
 This is a separate transport design, not a DNS-only substitution. It needs an explicit API client/config change, credentialed requests, exact allowed origins, cookie validation, and tests on the actual preview/custom-domain combinations. It must not be declared compatible merely because a public GET endpoint works.
 
+#### Candidate B compatibility evidence
+
+Reviewed 2026-10-05: the transport owners below were read at `cf6245e934d2c3251492412c559420e2a3ea60cc` and are source-equivalent at `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d`. The local MC-04 client change retains API base, credentials and JSON-header behavior. This is conditional architecture evidence, not implementation, deployed-source equivalence or browser acceptance.
+
+| Browser context | Compatibility conclusion |
+| --- | --- |
+| Top-level HTTPS frontend and HTTPS API under the same registrable domain | Viable in principle: requests are [same-site](https://html.spec.whatwg.org/multipage/browsers.html#same-site), but cross-origin CORS remains required. No Floot endpoint proxy or method tunnel is needed. |
+| `*.floot.app` frontend calling an API on another registrable domain | Cross-site. `SameSite=None` does not bypass [WebKit's default third-party-cookie blocking](https://webkit.org/tracking-prevention/). This preview cannot establish universal authenticated acceptance. |
+| Frontend inside a cross-site editor iframe | [Ancestor context](https://httpwg.org/http-extensions/draft-ietf-httpbis-rfc6265bis.html#section-5.2.1) can make the site-for-cookies opaque. A sandboxed opaque Origin is separate; do not trust `Origin: null` as a workaround. |
+
+Khedmah's [cookie owner](../../apps/backend/src/identity/session-cookie.ts) sets host-only `khedmah_session`, `HttpOnly`, deployed-environment `Secure; SameSite=None`, `Path=/api/v1`. Direct API login creates an API-host cookie usable on that API path; existing frontend-host cookies do not transfer automatically. Business Desk's separately inspected `helpers/getSetServerSession.tsx` uses `floot_built_app_session`, `SameSite=Lax`, `Path=/` and its own JWT; it is not this transport.
+
+Required validation:
+
+- [API client](../../apps/frontend/lib/api-client.ts) and [Classifieds client](../../apps/frontend/lib/classifieds-client.ts): configure one approved API origin and retain `credentials: 'include'`. JSON Content-Type also causes cross-origin GET preflights. Verify OPTIONS, exact allowed origins, credentialed responses and required methods/headers under the [Fetch CORS rules](https://fetch.spec.whatwg.org/#cors-protocol-and-credentials).
+- Preserve [configured CORS](../../apps/backend/src/app.ts) and [unsafe cookie-authenticated Origin/Referer checks](../../apps/backend/src/middleware/csrf-origin.middleware.ts). GET/HEAD/OPTIONS exemptions and unauthenticated login behavior are not universal CSRF enforcement.
+- Resolve media paths against the API independently of JSON clients. Test protected bytes and preserve [private/no-store behavior](../../apps/backend/src/media/media.controller.ts). [Anonymous image CORS mode](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cors-settings-attributes) omits cross-origin credentials; credentialed images/fetches and effective [frontend CSP](https://www.w3.org/TR/CSP3/) need browser proof.
+- [Logout](../../apps/backend/src/identity/identity.service.ts) success alone is insufficient when no valid cookie arrived; verify subsequent session and protected-image denial. Preserve the [Firebase popup/token exchange](../../apps/frontend/lib/firebase/auth.ts), intended identity project and [authorized domain/provider configuration](https://firebase.google.com/docs/auth/web/google-signin).
+
+**Next browser proof:** on an approved same-site nonproduction origin pair, test login, reload/session, protected image, rejected foreign-origin action, then logout/denial in Safari and Chromium; repeat the login/session segment with Google. Public GET success is insufficient.
+
+Target Floot project, owner plan and validation/domain arrangement remain decisions. [Custom-domain setup](https://floot.com/docs/custom-domains/how-to-add-custom-domain) requires an owner paid plan and normally DNS-only Cloudflare records. Production prerequisites and owner acceptance remain authoritative; this finding authorizes no domain, credential, app or resource change.
+
 No choice between A and B was deployed in this review. No Floot capability or browser acceptance result is inferred from repository source alone.
+
+### Floot source and platform evidence — 2026-10-05
+
+Read-only inspection identified **Khedma Business Desk**, project `5e271f43-96a6-40de-a634-ec3eae023a49`. Every inspected source owner returned version `1791086603173`. Publication metadata reported an existing published app, but no deployed-bundle/source equivalence or runtime journey was verified. Its existing B2B context does not establish it as the approved full-platform migration target.
+
+The inspected authentication chain implements its own credentials and sessions:
+
+| Floot source owners | Observed behavior |
+| --- | --- |
+| `helpers/useAuth.tsx`; `endpoints/auth/session_GET.schema.ts`; `endpoints/auth/login_with_password_POST.schema.ts` | Client requests use `/_api/auth/session` and `/_api/auth/login_with_password`, with SuperJSON responses. |
+| `endpoints/auth/login_with_password_POST.ts` | Queries `users` and `userPasswords`, checks the password with bcrypt, creates a random session ID and inserts a `sessions` row. |
+| `helpers/getSetServerSession.tsx` | Signs/verifies its own HS256 session JWT and issues `floot_built_app_session` with `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`. |
+| `helpers/getServerUserSession.tsx`; `endpoints/auth/session_GET.ts` | Resolve local session/user records and refresh that cookie. Session GET also updates activity and can delete expired sessions; it was not invoked. |
+| `helpers/db.tsx` | Uses the environment-variable name `FLOOT_DATABASE_URL`; its value, physical database host and account data were not inspected. |
+
+No Khedmah `/api/v1` forwarding or Firebase ID-token exchange exists in this inspected chain. This bounded finding does not rule out unrelated integrations elsewhere.
+
+Official Floot connector guides `floot-overview` and `primitives`, read without a project ID, specify native `/_api/<route>` endpoints, GET/POST methods and no dynamic endpoint parameters. They do not establish a transparent `/api/v1/*` rewrite. Khedmah's unchanged `Path=/api/v1` cookie would not accompany `/_api/...` browser requests. Missing routing tools do not prove platform-wide impossibility. [Official API integration documentation](https://floot.com/docs/integrations/overview) supports external HTTPS calls, not this complete transport contract.
+
+**Next compatibility proof:** establish supported `/api/v1/*` routing to a fixed upstream, preserving methods, bodies, Cookie, multiple Set-Cookie headers, status codes and the validated original browser origin, without shared caching of private responses. If unavailable, review Candidate B explicitly. Do not assume an edge workaround: [Floot's standard domain guide](https://floot.com/docs/custom-domains/how-to-add-custom-domain) specifies DNS-only Cloudflare records.
+
+Production prerequisites remain authoritative. No adapter, credential, domain or app change was made; actual browser acceptance remains open.
 
 ## 5. Configuration and credentials
 
@@ -127,4 +172,4 @@ These are required future tests, not completed test results:
 
 ## 7. Current scope and next work
 
-This document preserves the observed contract while Production database work is held. It adds no route, secret, OAuth client, DNS record, Floot resource or cloud deployment. The next repository-only mapping slice is the shared error envelope and protected profile/role APIs; actual adapter implementation waits for the agreed platform validation and Production prerequisites.
+This document preserves the observed contract while Production database work is held. It adds no route, secret, OAuth client, DNS record, Floot resource or cloud deployment. The shared error/profile/access, discovery, cart/order, fulfillment and media mappings are already indexed in [MIGRATION-PLAN.md](MIGRATION-PLAN.md); do not repeat them as unfinished work. Resolve the platform transport evidence above before actual adapter implementation, together with the agreed Production prerequisites and browser acceptance.
