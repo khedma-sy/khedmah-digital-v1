@@ -20,10 +20,10 @@ Exit criteria:
 
 ## Phase 1 — Complete GitHub + Production database path
 ### 1A Database role cutover gates
-- Current source prerequisites: #250, #249 and #251 are merged; main at the 2026-10-05 checkpoint is `dba1b5ee94b69ffbc305ddfeff6a3b99c5661ae2`. Resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md) from the pending corrected project-IAM read, following [NEXT-ACTION.md](NEXT-ACTION.md).
+- Current source prerequisites: #250, #249, #251 and #252 are merged; main at the 2026-10-05 checkpoint is `e61d1142c3aa9d03ae63798b6b0987bc799a879d`. Accepted #252 source gates, main's own Node/Test (2442 tests, audit zero) and Preview cleanup passed. Project IAM received `08:12:04 UTC`, AliasManager at `08:27:40` and CloudAssetPolicyAnalyzer at `08:36:48` are reviewed. Resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md) from the pending historical deployer/runtime service-account metadata command already issued to the owner, following [NEXT-ACTION.md](NEXT-ACTION.md).
 - Reconfirm current main.
 - Preserve the completed selected-execution manifest review: 47 canonical records, independently recomputed digest and current protected-value match. Revalidate only as required by subsequent changes or the intended operation's freshness needs.
-- Preserve the three reviewed direct migration-secret IAM bindings; complete project/custom-role/effective IAM for the canonical principals. Direct policy metadata alone does not establish effective access.
+- Preserve the three reviewed direct migration-secret bindings, returned project IAM and both matching custom-role definitions. Complete remaining role/effective-IAM reconciliation, including historical project-level secret access, actual usage and retirement requirements. Isolated validator implementation `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` has 59 passing local cases and two completed independent reviews; candidate branch `fix/migration-alias-certification-policy-2026-10-05` requires its own final-head gates. These metadata/source checks alone do not establish effective access.
 - Establish actual PostgreSQL memberships and credential continuity; blank Cloud SQL role metadata and enabled versions are insufficient.
 - Create/verify fresh on-demand backup immediately before mutation.
 - Independently review backup/PITR/restore suitability. The role workflow has no automatic backup gate and rotates the transition credential before the later prepare SQL compares the actual manifest.
