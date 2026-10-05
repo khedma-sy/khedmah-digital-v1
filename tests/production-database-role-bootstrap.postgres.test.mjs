@@ -103,6 +103,28 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
       });
     });
 
+    await t.test('role-state probe accepts valid custom role names independent of lexical order', async () => {
+      await withFixture(adminUrl, { createRogueUser: true, lexicalRoleOrderProbe: true }, async (fixture) => {
+        assert.ok(fixture.runtimeRole < 'cloudsqlsuperuser');
+        assert.ok(fixture.migrationRole > 'cloudsqlsuperuser');
+
+        assertBootstrapSuccess(runBootstrap(fixture, 'prepare'), 'lexical-order fixture prepare');
+        const prepared = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(prepared, 'lexical-order post-prepare role-state probe');
+        assert.equal(prepared.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=initial');
+
+        replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+        const resume = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(resume, 'lexical-order resume role-state probe');
+        assert.equal(resume.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=resume');
+
+        demoteMigrationMembership(fixture);
+        const completed = runBootstrap(fixture, 'role-state');
+        assertBootstrapSuccess(completed, 'lexical-order completed role-state probe');
+        assert.equal(completed.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=completed');
+      });
+    });
+
     await t.test('prepare, cutover, verify, and harden preserve exact safe state', async () => {
       await withFixture(adminUrl, { createRogueUser: true }, async (fixture) => {
         assert.equal(query(adminUrl, `
@@ -882,8 +904,8 @@ async function withFixture(adminUrl, options, work) {
     rogueUser: `kdrb_rogue_${suffix}`,
     rogueSchema: `kdrb_schema_${suffix}`,
     secretSchema: `kdrb_secret_${suffix}`,
-    runtimeRole: `kdrb_rr_${suffix}`,
-    migrationRole: `kdrb_mr_${suffix}`,
+    runtimeRole: options.lexicalRoleOrderProbe ? `aaa_rr_${suffix}` : `kdrb_rr_${suffix}`,
+    migrationRole: options.lexicalRoleOrderProbe ? `zzz_mr_${suffix}` : `kdrb_mr_${suffix}`,
     runtimePassword: randomBytes(32).toString('hex'),
     migrationPassword: randomBytes(32).toString('hex'),
   };
