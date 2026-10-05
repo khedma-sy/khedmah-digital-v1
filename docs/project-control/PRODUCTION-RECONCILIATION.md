@@ -1,6 +1,6 @@
 # Production reconciliation — evidence before an operation
 
-Checkpoint: 2026-10-05; protected main `57af4a86c83f00116ac3447daac62b7c4a104e14` after #254 merged at `09:55:30 UTC`. Accepted #253 source gates and Preview remain preserved; #254 then merged and current main's source inventory/build/code-quality/test push checks passed. The reviewed database-role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`; live-secret alignment `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` is now merged through #253. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
+Checkpoint: 2026-10-05; protected main `b364a67c68e17c38667db652e6a3e7d3884a3b32` after PR #258. PRs #256–#258 have closed the canonical-WIF diagnostic and documentation-drift gates; main build, source inventory, code quality, and test/verification checks are green. The reviewed database-role workflow/runner remain unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`; live-secret alignment `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` remains merged through #253, and secret-name diagnostics through #256. Read live refs and run status before an operation. Source review and completed owner reads below do not authorize a mutation.
 
 ## Target and historical anchor
 
@@ -43,7 +43,7 @@ The historical service-account metadata command below has been completed and is 
 - broad historical-account bindings from Cloud Asset IAM search;
 - direct recent use of `khedma-v1-deployer` in Audit Logs through 2026-10-04, including token generation, Cloud Build, Cloud Run job operations and service-account impersonation, plus `DATABASE_MIGRATION_URL` secret-version/alias activity on 2026-10-03.
 
-Therefore historical-account retirement is **not** the next operation. The repository roadmap identifies the controlling defect as a misconfigured protected GitHub Production environment secret `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT`. The next control-plane gate is to verify/correct that value to canonical `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`, then prove a subsequent protected WIF authentication uses that canonical principal. No PREPARE or IAM cleanup precedes this proof.
+Therefore historical-account retirement is **not** an automatic cleanup operation. The earlier controlling defect was the protected GitHub Production identity path. That gate is now closed: the protected runtime/deployer identity set is canonical and protected WIF authentication has been proven to advance past the canonical identity checks. The current control-plane gate is direct/effective Secret Manager IAM reconciliation, beginning with the proven `DATABASE_URL` drift. No PREPARE or IAM mutation precedes completion of that reconciliation and the remaining Phase 1A gates.
 
 ## Historical first command — completed
 
@@ -110,7 +110,7 @@ Only after the complete drift set and continuity evidence are reviewed should an
 | --- | --- | --- |
 | Source | Role workflow locks requested SHA, checkout and fetched main; validates project/region inputs | Live main, exact checks, operation mode, applicable approval and environment protection evidence |
 | Scope | Role workflow rejects regions other than `europe-west1` and checks the SQL target | Current project/region/instance identity; concurrent or out-of-band operation review |
-| Deployer | Canonical active account checked; build and migration SAs must exist | Three direct secret bindings, returned project IAM and AliasManager/CloudAssetPolicyAnalyzer definitions reviewed. Historical account metadata, Cloud Run inventory, Cloud Asset IAM search and recent audit activity are now reviewed. The historical deployer remained active through 2026-10-04; canonical GitHub/WIF deployer proof remains required before PREPARE. Remaining role/effective permissions and retirement sequencing stay open. |
+| Deployer | Canonical active account checked; build and migration SAs must exist | Canonical GitHub/WIF deployer proof is complete. Three direct migration-secret bindings, returned project IAM and AliasManager/CloudAssetPolicyAnalyzer definitions are reviewed. Historical account metadata, Cloud Run inventory, Cloud Asset IAM search and recent audit activity are also reviewed. Remaining direct/effective Secret Manager IAM drift and retirement sequencing stay open before PREPARE. |
 | Manifest | Digest syntax validated early; actual digest compared later by the SQL runner | Selected execution's 47 records, independent digest and current protected-value comparison are reviewed; establish no unexplained later change and suitability for the intended operation |
 | Role state | #250 checks actual memberships/flags with sorted expected values and the three-user/type allowlist | Actual current PostgreSQL membership evidence. The historical Admin API table with blank roles does not supply it |
 | Credential continuity | PREPARE tries enabled active/numeric selectors; final alias committed after verification | Current aliases/version states, which credential path is usable, and recovery plan without copying or printing payloads |
