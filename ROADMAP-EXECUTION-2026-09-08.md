@@ -2,6 +2,17 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
+### Live checkpoint — 2026-10-05 after PR #254 and owner cloud reads
+
+- Protected `main` is `57af4a86c83f00116ac3447daac62b7c4a104e14`; PR #254 is merged and current push checks are green.
+- The historical service-account metadata read is complete: both missing-`h` identities exist and are enabled.
+- Cloud Run Services in `europe-west1`: none. Database-role Jobs: four, all attached to canonical `khedmah-v1-migrator`.
+- Cloud Asset IAM search confirms historical bindings remain. Audit Logs prove `khedma-v1-deployer` was still actively used through 2026-10-04.
+- This corroborates the earlier roadmap diagnosis: the protected GitHub Production `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT` value, not the Terraform naming model, caused the historical deployer path. The next gate is **canonical GitHub/WIF deployer proof**, not IAM cleanup.
+- Preserve backup/PITR/post-restart manifest evidence already recorded below. Re-establish operation-specific freshness immediately before mutation.
+- Phase order remains strict: finish Phase 1 GitHub/Production DB/schema/hardening and Phase 2 Google readiness before Phase 3 Floot.
+
+
 آخر تحديث: **2026-10-05 — دُمج #253 ونجحت اختبارات main الجديد الخاصة بـ2479 حالة وتدقيق صفر، ومعاينة #253 الكاملة وخدمات تنظيفها موثقة. إصلاح عرض 429 ثابت ومراجع واجتاز 20 اختبارًا محليًا وtypecheck؛ بوابات رأس المتابعة الخاصة منتظرة. قراءات project IAM والدورين مكتملة؛ خرج بيانات الحسابين التاريخيين المرسل في 08:39 UTC ما زال خطوة Cloud Shell المنتظرة.**
 
 - **قفل المصدر الحي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`؛ `main` عند `82283464ba860e4eed9519ad9587418f96a73510` بعد الدمج المحروس العادي لـ#253 في `2026-10-05T09:16:18Z`؛ وقت merge commit هو `09:16:17 UTC`. الأبوان `e61d1142...` و`eb5918a2...`، وtree = `c0f63df5e9869e6435e5c04ee20925dc9a452fc2` يطابق رأس #253 المقبول. #249 و#250 و#251 و#252 مدمجة سابقًا؛ وثائق [الحالة الحالية](docs/project-control/CURRENT-STATE.md) و[الخطوة التالية](docs/project-control/NEXT-ACTION.md) هي نقطة التحكم، مع إعادة قراءة GitHub حيًا قبل الفعل.
