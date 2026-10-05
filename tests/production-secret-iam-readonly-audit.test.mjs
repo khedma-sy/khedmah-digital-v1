@@ -29,14 +29,14 @@ test('read-only secret IAM audit collects metadata only with mocked gcloud', asy
   const calls = path.join(dir, 'calls.log');
   const mock = `#!/usr/bin/env bash
 set -euo pipefail
-printf '%s\\n' "$*" >>"${CALLS_LOG}"
+printf '%s\\n' "$*" >>"$CALLS_LOG"
 case "$*" in
   "projects describe khedma-dl --format=value(projectNumber)") echo 311026134906 ;;
   "projects get-ancestors khedma-dl --format=json") echo '[{"type":"project","id":"311026134906"}]' ;;
   secrets\\ describe*) name="$3"; echo "projects/khedma-dl/secrets/$name" ;;
   secrets\\ versions\\ describe*) echo ENABLED ;;
   secrets\\ get-iam-policy*) echo '{"bindings":[]}' ;;
-  asset\\ analyze-iam-policy*) echo '{"fullyExplored":true,"mainAnalysis":{"fullyExplored":true,"analysisResults":[],"nonCriticalErrors":[]}}' ;;
+  asset\\ analyze-iam-policy*--show-response*) echo '{"fullyExplored":true,"mainAnalysis":{"fullyExplored":true,"analysisResults":[],"nonCriticalErrors":[]}}' ;;
   *) echo "unexpected: $*" >&2; exit 9 ;;
 esac
 `;
