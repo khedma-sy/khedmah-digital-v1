@@ -177,7 +177,7 @@ export default function EditClassifiedPage() {
       setAd(result.ad); setForm(fromAd(result.ad)); setNotice('تم إرسال الإعلان للمراجعة.');
     } catch (cause) {
       const issue = cause instanceof Error ? cause as Error & { statusCode?: number; code?: string } : undefined;
-      setError(issue?.statusCode === 429 || issue?.code === 'AD_FREE_QUOTA_EXHAUSTED' ? 'تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.' : issue?.message || 'تعذر إرسال الإعلان للمراجعة.');
+      setError(issue?.code === 'AD_FREE_QUOTA_EXHAUSTED' ? 'تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.' : issue?.message || 'تعذر إرسال الإعلان للمراجعة.');
     } finally { operation.current = false; setSaving(false); }
   }
 

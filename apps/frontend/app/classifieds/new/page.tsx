@@ -209,8 +209,8 @@ export default function NewClassifiedPage() {
     } catch (cause) {
       if (generation !== lifecycle.current) return;
       const issue = cause instanceof Error ? cause as Error & { statusCode?: number; code?: string } : undefined;
-      if (issue?.statusCode === 429 || issue?.code === 'AD_FREE_QUOTA_EXHAUSTED') {
-        setError('تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب. المسودة محفوظة ولن تُكرر عند إعادة المحاولة.');
+      if (issue?.code === 'AD_FREE_QUOTA_EXHAUSTED') {
+        setError('تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.');
       } else if (issue?.code === 'AD_IMAGE_LIMIT_REACHED') {
         setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان.`);
       } else if (issue?.statusCode === 409) {
