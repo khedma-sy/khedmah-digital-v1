@@ -211,7 +211,7 @@ for (const stage of [undefined, 'ALPHA', 'BETA', 'DEPRECATED', 'EAP']) {
 }
 
 for (const [name, mutate, expectedError] of [
-  ['missing alias binding', (m) => m.policies.DATABASE_MIGRATION_URL.bindings.pop(), /exact canonical role\/member allowlist/],
+  ['missing alias binding', (m) => m.policies.DATABASE_MIGRATION_URL.bindings.pop(), /exact canonical role\/member allowlist for DATABASE_MIGRATION_URL/],
   ['missing migrator accessor', (m) => m.policies.DATABASE_MIGRATION_URL.bindings.shift(), /exact canonical role\/member allowlist/],
   ['missing version manager', (m) => m.policies.DATABASE_MIGRATION_URL.bindings.splice(1, 1), /exact canonical role\/member allowlist/],
   ['wrong alias role', (m) => { m.policies.DATABASE_MIGRATION_URL.bindings[2].role += 'Other'; }, /exact canonical role\/member allowlist/],
