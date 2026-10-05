@@ -1,27 +1,28 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## نقطة الاستئناف الحية — 2026-10-05 بعد #259
+## نقطة الاستئناف الحية — 2026-10-06 بعد #261
 
-- `main` الحي هو `308c0aa856943550cb565ab77e299607df1561e6` بعد دمج PR #259.
-- PR #258 أغلق handoffات التوثيق القديمة، وPR #259 أضاف مصفوفة canonical للـ IAM المباشر لجميع أسرار Production الدائمة وعددها 17.
-- اكتمل إثبات GitHub/WIF للحسابات canonical؛ العائق الحي الحالي هو **Secret Manager direct/effective IAM reconciliation**.
-- القراءة الحية لـ `DATABASE_MIGRATION_URL` تطابق الـdirect bindings المتوقعة، بينما `DATABASE_URL` ما زال يثبت drift: حساب runtime التاريخي `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` والحساب canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` موجودان معًا في `roles/secretmanager.secretAccessor`.
-- لا حذف أو تغيير لأي binding تاريخي قبل إثبات الاستمرارية/الاستخدام ومراجعة مجموعة drift كاملة؛ أي Production IAM mutation يحتاج تفويضًا صريحًا خاصًا بالعملية.
-- أثناء متابعة المالك من الهاتف: تستمر أعمال GitHub/CI/التوثيق فقط، وتؤجل أوامر Cloud Shell وأي Production mutation.
-- ترتيب المراحل: Phase 1 → Phase 2 Google readiness → Phase 3 Floot. تجهيز Floot لا يبرر تجاوز IAM/Database/Recovery gates.
+- `main` الحي هو `7c58277ac04450f9eb5fb48c04c435d070443b56` بعد دمج PR #261.
+- PR #260 حدّث نقطة التسليم بعد #259، وPR #261 أضاف أداة تدقيق Secret Manager IAM للقراءة فقط لكل أسرار Production الدائمة وعددها 17.
+- رأس #261 المقبول `254ffb564e7254efc48a15b8dd35b2c2339033df` اجتاز Node.js CI وKhedmah - Test & Verify وPR Preview؛ جميع ملاحظات المراجعة الثلاث حُلّت وأصبحت outdated قبل الدمج.
+- الأداة الجديدة لا تقرأ payloads للأسرار، وتتحقق من direct IAM وeffective/inherited IAM عبر Policy Analyzer، وتحفظ IAM conditions، وتعلن `SECRET_PAYLOADS_READ=0` و`CLOUD_MUTATIONS=0`.
+- لا توجد Pull Requests مفتوحة حاليًا. المستودع جاهز الآن لمرحلة أمر Google Cloud المجمّع للقراءة فقط من هذا الـcheckpoint؛ أي IAM/Secret/SQL/DNS/Terraform/Production mutation يبقى ممنوعًا حتى تفويض صريح خاص بالعملية.
+- العائق التشغيلي بعد القراءة المجمعة سيبقى تفسير أي drift وإثبات استمرارية الحسابات التاريخية قبل أي تغيير.
+- ترتيب المراحل يبقى: Phase 1 → Phase 2 Google readiness → Phase 3 Floot.
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-### Live checkpoint — 2026-10-05 after PR #259
+### Live checkpoint — 2026-10-06 after PR #261
 
-- Protected `main` is `308c0aa856943550cb565ab77e299607df1561e6`, the guarded merge of PR #259.
-- PR #258 accepted head `bbac69fd456a157dd0894fcf87f1cf86ed6a9e85` and merged as `b364a67c68e17c38667db652e6a3e7d3884a3b32`; it removed stale execution handoffs.
-- PR #259 accepted head `e15a372c9c6aded9a717a2ff2753a635b6f5e2ec` and merged as `308c0aa856943550cb565ab77e299607df1561e6`; it records the source-derived direct-IAM allowlist for all 17 permanent Production secrets and the bounded read-only evidence required before any IAM change.
-- Canonical GitHub/WIF proof is complete. Do not restart that diagnosis as a pending gate.
-- Current live IAM evidence: `DATABASE_MIGRATION_URL` direct IAM matches the reviewed canonical set; `DATABASE_URL` contains both historical and canonical runtime accessors and remains the first proven direct-IAM drift.
-- Direct IAM, inherited/effective IAM, historical-principal continuity, actual PostgreSQL memberships, credential continuity, operation-fresh recovery evidence and schema prerequisites remain distinct gates.
-- Phase 1D documentation drift is closed only when this roadmap, `CURRENT-STATE.md`, `MASTER-EXECUTION-PLAN.md`, and `NEXT-ACTION.md` all point to this same checkpoint.
-- While the owner is mobile, continue repository-only work and defer Cloud Shell instructions and all Production mutations.
+- Protected `main` is `7c58277ac04450f9eb5fb48c04c435d070443b56`, the merge of PR #261.
+- PR #260 merged as `fd373fe0a0cfe8fef5e7938836fc1bb5061f9ce3` and synchronized the #259 handoff.
+- PR #261 accepted head `254ffb564e7254efc48a15b8dd35b2c2339033df` and merged as `7c58277ac04450f9eb5fb48c04c435d070443b56`; it adds `scripts/audit-production-secret-iam-readonly.sh` plus regression coverage.
+- Exact-head #261 CI is green: Node.js CI `37361116663`, Khedmah - Test & Verify `37361116675`, and PR Preview `37374105967` completed successfully. A prior PR Preview run `37361116659` also succeeded.
+- All three Codex review threads on #261 are resolved and outdated.
+- There are no open PRs at this checkpoint.
+- The repository is ready for the consolidated Google Cloud **read-only** audit command. Do not convert that readiness into approval for IAM, Secret Manager, Cloud SQL, DNS, Terraform state or Production deployment changes.
+- The merge commit's separate push-status contexts were not exposed by the connector in this review; do not invent post-merge CI evidence. The accepted PR-head source gates above are the current verified CI evidence.
+- The next live evidence task is to run the merged read-only audit from Cloud Shell, review all 17 secret records, and then decide whether any drift requires a separately reviewed operation. No mutation is pre-authorized.
 
 ### Archived prior live checkpoint — PR #254
 
