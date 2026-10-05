@@ -1,8 +1,8 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## نقطة الاستئناف الحية — 2026-10-05 بعد #256
+## نقطة الاستئناف الحية — 2026-10-05 بعد #257
 
-- `main` الحي هو `84857464bf0293ed496faefad5e171b6a75386b2` بعد دمج PR #256.
+- `main` الحي هو `f0f0db84bff584edb4b7cd18a16a5833ef004c2c` بعد دمج PR #257.
 - اكتمل إثبات GitHub/WIF للحسابات canonical، وتم تصحيح `OPERATIONS_RUNTIME_SERVICE_ACCOUNT` إلى `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
 - انتقل العائق من الهوية إلى **Secret Manager direct IAM drift**.
 - القراءة الحية لـ `DATABASE_URL` أثبتت أن binding `roles/secretmanager.secretAccessor` يحتوي الحساب التاريخي `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` والحساب canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` معًا.
@@ -13,11 +13,11 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-### Live checkpoint — 2026-10-05 after PR #256 and direct Secret Manager IAM read
+### Live checkpoint — 2026-10-05 after PR #257 and direct Secret Manager IAM read
 
-- Protected `main` is `84857464bf0293ed496faefad5e171b6a75386b2`, the guarded merge of PR #256.
-- PR #256 accepted head: `3fdc48ffb93ce11a209c295ecb80b06e7eececd3`.
-- Exact-head evidence: Node.js CI run `37316553492` SUCCESS; Test & Verify `37316553688` SUCCESS; Google production readiness `37316553722` SUCCESS for PR validation scope; PR Preview `37316553723` SUCCESS including `quality-gates`, isolated `deploy-preview`, and `review-evidence`. No review threads remained.
+- Protected `main` is `f0f0db84bff584edb4b7cd18a16a5833ef004c2c`, the guarded merge of PR #257.
+- PR #256 accepted head: `3fdc48ffb93ce11a209c295ecb80b06e7eececd3`; PR #257 accepted head: `a2f262b02e97169cfb4774b1d2a87bdc65eefc49`.
+- Exact-head evidence for #256: Node.js CI run `37316553492` SUCCESS; Test & Verify `37316553688` SUCCESS; Google production readiness `37316553722` SUCCESS for PR validation scope; PR Preview `37316553723` SUCCESS. Exact-head evidence for #257: Node.js CI `37321863369` SUCCESS; Test & Verify `37321863361` SUCCESS; PR Preview `37321863214` SUCCESS after one isolated `review-evidence` retry; the first attempt failed only `restaurants/small-mobile/light` at `full_page_prepare` with 71/72, while Classifieds acceptance itself passed 200/200/200 and the retry succeeded without source changes.
 - `scripts/validate-production-live-secret-certification.sh` now reports the failing secret name on exact direct-IAM allowlist mismatch; `tests/google-production-readiness-live-certification.test.mjs` requires that diagnostic.
 - Canonical GitHub/WIF identity proof is complete. The protected runtime environment variable is canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`; the post-fix readiness path authenticated successfully through WIF and advanced past service-account identity checks.
 - The next live blocker is **Secret Manager direct IAM drift**. Owner-supplied read of `DATABASE_URL` showed one `roles/secretmanager.secretAccessor` binding containing both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
