@@ -13,20 +13,24 @@
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-### Live checkpoint — 2026-10-05 after PR #254 and owner cloud reads
+### Live checkpoint — 2026-10-05 after PR #256 and direct Secret Manager IAM read
 
-- Protected `main` is `57af4a86c83f00116ac3447daac62b7c4a104e14`; PR #254 is merged and current push checks are green.
-- The historical service-account metadata read is complete: both missing-`h` identities exist and are enabled.
-- Cloud Run Services in `europe-west1`: none. Database-role Jobs: four, all attached to canonical `khedmah-v1-migrator`.
-- Cloud Asset IAM search confirms historical bindings remain. Audit Logs prove `khedma-v1-deployer` was still actively used through 2026-10-04.
-- This corroborates the earlier roadmap diagnosis: the protected GitHub Production `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT` value, not the Terraform naming model, caused the historical deployer path. The next gate is **canonical GitHub/WIF deployer proof**, not IAM cleanup.
+- Protected `main` is `84857464bf0293ed496faefad5e171b6a75386b2`, the guarded merge of PR #256.
+- PR #256 accepted head: `3fdc48ffb93ce11a209c295ecb80b06e7eececd3`.
+- Exact-head evidence: Node.js CI run `37316553492` SUCCESS; Test & Verify `37316553688` SUCCESS; Google production readiness `37316553722` SUCCESS for PR validation scope; PR Preview `37316553723` SUCCESS including `quality-gates`, isolated `deploy-preview`, and `review-evidence`. No review threads remained.
+- `scripts/validate-production-live-secret-certification.sh` now reports the failing secret name on exact direct-IAM allowlist mismatch; `tests/google-production-readiness-live-certification.test.mjs` requires that diagnostic.
+- Canonical GitHub/WIF identity proof is complete. The protected runtime environment variable is canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`; the post-fix readiness path authenticated successfully through WIF and advanced past service-account identity checks.
+- The next live blocker is **Secret Manager direct IAM drift**. Owner-supplied read of `DATABASE_URL` showed one `roles/secretmanager.secretAccessor` binding containing both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
+- Canonical source expects only the canonical runtime member on `DATABASE_URL`. Removing the historical member is a Production IAM mutation and requires explicit owner authorization plus a reviewed operation-specific change.
 - Preserve backup/PITR/post-restart manifest evidence already recorded below. Re-establish operation-specific freshness immediately before mutation.
-- Phase order remains strict: finish Phase 1 GitHub/Production DB/schema/hardening and Phase 2 Google readiness before Phase 3 Floot.
+- While the owner is mobile, continue repository-only work and defer Cloud Shell instructions.
+- Phase order remains strict: Phase 1 → Phase 2 Google readiness → Phase 3 Floot.
 
+### Archived prior live checkpoint — PR #254
 
-آخر تحديث: **2026-10-05 — دُمج #254 وأصبح `main` عند `57af4a86c83f00116ac3447daac62b7c4a104e14` مع نجاح فحوص push الأساسية. اكتملت قراءة الحسابين التاريخيين وCloud Run وCloud Asset وAudit Logs؛ أثبتت السجلات أن `khedma-v1-deployer` ظل مستخدمًا حتى 2026-10-04. بوابة الاستئناف الوحيدة قبل PREPARE هي تصحيح/إثبات GitHub WIF على `khedmah-v1-deployer`. Floot مؤجل إلى ما بعد إغلاق Phase 1 وPhase 2.**
+The following historical entries describe the superseded #254 checkpoint and are retained only as evidence. They are **not** the current execution handoff and must not override the checkpoint above.
 
-- **قفل المصدر الحي:** المستودع الرسمي `khedma-sy/khedmah-digital-v1`؛ `main` عند `57af4a86c83f00116ac3447daac62b7c4a104e14` بعد الدمج المحروس العادي لـ#254 في `2026-10-05T09:55:30Z`. الأبوان `82283464...` و`507d90cd...`، وtree = `bae190690324abfb3e0e38d31c1c293b58bc294a`. #249–#254 مدمجة؛ وثائق [الحالة الحالية](docs/project-control/CURRENT-STATE.md) و[الخطوة التالية](docs/project-control/NEXT-ACTION.md) هي نقطة التحكم، مع إعادة قراءة GitHub حيًا قبل الفعل.
+- **Previous source lock:** PR #254 merged at `57af4a86c83f00116ac3447daac62b7c4a104e14`; its earlier next gate was canonical GitHub/WIF proof, which is now complete.
 - **#251 والرأس الذي اختُبر:** `1ca322cb9e75eb4346860ba706dae7be7ac7e51e` لإصلاح حد حذف صور الإعلانات. نجحت [Node CI 37274441964](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37274441964) و[Test & Verify 37274441985](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37274441985): جذر 1665 + خادم 609 + واجهة 141 = **2415 ناجحًا**، صفر فشل أو تخطٍّ. تبقى نتيجة كل رأس ومحاولته مستقلة.
 - **main السابق بعد #251:** نجحت [Node CI 37278400999](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37278400999) و[Test & Verify 37278401083](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37278401083) عند `07:38:37` و`07:38:30 UTC` على `dba1b5ee...`، مع **2415 اختبارًا ناجحًا**. بندا تدقيق الاعتماديات المتوسطان يخصان شجرة الاعتماديات السابقة قبل إصلاح Multer الذي دخل main عبر #252.
 - **#252 وبوابات الرأس المقبول:** الرأس `01f1a9e934b130fee613e8f65cb55743a615b333` اجتاز السياقات التسعة المطلوبة و[Node CI 37280529924](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37280529924) و[Test & Verify 37280530070](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37280530070) و[Google readiness 37280530093](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37280530093): جذر 1675 + خادم 616 + واجهة 151 = **2442 ناجحًا**، وتدقيق اعتماديات صفر. نجح [Preview 37280530060](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37280530060) في attempt 1 عند `08:23:26 UTC`؛ deploy job `111668859320` نجح عند `08:18:24`، وreview job `111674591932` سجّل **64/64 + 72/72 + 32/32** وClassifieds **200/200/200** مع fixture فارغ. لا يثبت ذلك الرحلات المعبأة أو Floot.
