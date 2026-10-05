@@ -10,13 +10,12 @@ Updated: 2026-10-04. This is a dated evidence checkpoint, not permission to exec
 - Active fix: `fix/database-role-prep-state-probe-2026-10-04`, PR #250.
 - Re-read main, both PR heads, and their exact-SHA checks before acting. Never use a previous SHA's green checks to certify a newer head.
 
-## Mobile-only operating mode — active
-The owner is following from a phone and cannot execute Cloud Shell commands. Saying they are present in the conversation is not confirmation that they returned to a computer.
-- No Cloud Shell request is due now.
-- Do not dispatch PREPARE, HARDEN, migrations, Terraform APPLY, Production deployment, password rotation, IAM/secret changes, or DNS changes while this hold is active.
-- Continue bounded repository review, code fixes, isolated tests, and documentation on the existing PR branches.
-- The owner saying they are back at a computer permits resuming read-only checks; it is not blanket approval for Production mutations.
-- Any later Cloud Shell work must be revalidated against live state and given one short command at a time.
+## Computer-available operating mode — active
+The owner confirmed on 2026-10-05 that they are back at a computer and can execute Cloud Shell commands when requested.
+- Read-only Cloud Shell checks may resume one short reviewed command at a time.
+- This is NOT blanket approval for PREPARE, HARDEN, migrations, Terraform APPLY, Production deployment, password rotation, IAM/secret changes, DNS changes, or any other mutation.
+- Re-read exact main/PR heads and live evidence before every cloud command.
+- Continue GitHub code review, CI, tests and documentation while mutation gates remain open.
 
 ## Production database state — not yet cut over
 Last known Production role workflow: run `37183178537`, requested mode PREPARE on `5a961be...`.
@@ -37,8 +36,12 @@ The owner already ran the Cloud SQL user-list query. Do not ask for the same tab
 
 Blank Admin API metadata does not prove PostgreSQL membership or absence of privileges. Actual Production PostgreSQL memberships remain unverified in this session. PR #250 introduces a database-read-only membership probe; deploying/executing its Cloud Run job would still be cloud activity and remains held.
 
-## PR #250 — current exact head and completed CI gate
-Head: `d053350c095877e5c693acd7cc9f512be763577a`.
+## PR #250 — current exact head and review gate
+The previously green head was `d053350c095877e5c693acd7cc9f512be763577a`, but it is no longer the current head.
+
+A P2 review finding identified that observed PostgreSQL memberships are sorted while the expected three-membership arrays used a fixed lexical order. This could reject a valid PREPARE state if Production overrides the custom role names with a different lexical order.
+
+The fix branch has been updated to sort expected membership arrays using the same ordering and to add a PostgreSQL regression with custom role names that sort on opposite sides of `cloudsqlsuperuser`. Re-read the latest PR #250 head and its exact-SHA checks before treating the fix as ready.
 
 The current head captures the probe execution exit code without changing the caller's errexit mode and adds nine isolated Bash-runner regressions. Earlier local targeted evidence was 5 passed / 4 failed before the fix and 9 passed / 0 failed after it; these mocks are not live Google validation.
 
@@ -95,4 +98,4 @@ The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-R
 Carry forward the owner's last planning indicator: `10 / 160` estimated work units expressed as hours. This is not measured elapsed labor, and 6.25% is not a verified percentage of the whole product. Do not increment it merely for waiting, chatting, or rerunning CI. Report exact completed gates/tests alongside it.
 
 ## One next action
-See [NEXT-ACTION.md](NEXT-ACTION.md). No owner command is pending now. Further Production work remains blocked by the mobile hold and explicit readiness gates. Review-ready PR status is separate from merge/deployment permission.
+See [NEXT-ACTION.md](NEXT-ACTION.md). Finish the P2 review fix on PR #250 and require fresh exact-head green CI before merge consideration. After that, resume read-only Production reconciliation from Cloud Shell one command at a time. Review-ready PR status is separate from merge/deployment permission.
