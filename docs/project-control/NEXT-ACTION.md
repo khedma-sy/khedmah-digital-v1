@@ -1,6 +1,6 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-05 after PR #256. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
+Snapshot: 2026-10-05 after PR #257. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
 
 ## Execute next — reconcile direct Secret Manager IAM drift
 
