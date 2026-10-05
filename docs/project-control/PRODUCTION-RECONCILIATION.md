@@ -57,6 +57,53 @@ The filter targeted `khedma-v1-deployer` and `khedma-v1-runtime`, the historical
 
 After this result, select one bounded read for remaining custom-role definitions/effective access and historical identity usage, then continue through secret aliases/version states, backup/PITR/recovery, actual PostgreSQL membership and installed schema evidence. Do not print secret payloads, full environment dumps or unrelated logs. No new Cloud Run execution is created by the command above.
 
+## Permanent Secret Manager IAM reconciliation matrix — source-derived
+
+Canonical identities:
+- runtime: `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`
+- build: `khedmah-v1-build@khedma-dl.iam.gserviceaccount.com`
+- deployer: `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`
+- migrator: `khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com`
+
+The live-secret validator certifies exactly 17 permanent secrets. The table below is derived from `scripts/validate-production-live-secret-certification.sh` and `infra/iac/bootstrap/main.tf`; it is the expected direct-IAM allowlist, not a claim that live IAM already matches it.
+
+| Secret | Expected direct IAM |
+| --- | --- |
+| `DATABASE_URL` | runtime: `roles/secretmanager.secretAccessor` |
+| `FIREBASE_API_KEY` | runtime: `roles/secretmanager.secretAccessor` |
+| `FIREBASE_APP_ID` | runtime: `roles/secretmanager.secretAccessor` |
+| `GOOGLE_MAPS_BROWSER_API_KEY` | runtime + build: `roles/secretmanager.secretAccessor`; deployer: `roles/secretmanager.secretVersionManager` |
+| `GOOGLE_MAPS_SERVER_API_KEY` | runtime: `roles/secretmanager.secretAccessor` |
+| `GOOGLE_OAUTH_SERVER_CLIENT_ID` | runtime + deployer: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | runtime + build: `roles/secretmanager.secretAccessor` |
+| `OPERATIONS_PRODUCT_ROLE_BINDINGS` | runtime: `roles/secretmanager.secretAccessor` |
+| `RESEND_API_KEY` | runtime: `roles/secretmanager.secretAccessor` |
+| `GOOGLE_MAPS_ANDROID_API_KEY` | deployer: `roles/secretmanager.secretAccessor` + `roles/secretmanager.secretVersionManager` |
+| `DATABASE_MIGRATION_URL` | migrator: `roles/secretmanager.secretAccessor`; deployer: `roles/secretmanager.secretVersionManager` + `projects/khedma-dl/roles/khedmahDatabaseMigrationAliasManager` |
+
+Current live evidence:
+- `DATABASE_MIGRATION_URL` direct IAM matched the exact three canonical bindings when read on 2026-10-05.
+- `DATABASE_URL` direct IAM does **not** match: its accessor binding contains both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
+- No live claim is made yet for the other 15 direct policies.
+- Project-level historical Secret Manager access remains separately relevant to effective access and retirement sequencing; exact direct-secret cleanup alone is not sufficient certification.
+- The validator also rejects conditional direct bindings, public principals, disabled/latest-missing permanent secrets, and inherited payload access found through Policy Analyzer.
+
+### Next read-only evidence set when Cloud Shell resumes
+
+Do not mutate IAM yet. Read one bounded set and compare it to the source-derived table:
+1. Direct IAM for the remaining permanent secrets, without payload access.
+2. Latest-version state only (`ENABLED`/other), never secret values.
+3. Effective inherited access for each permanent secret via Policy Analyzer, preserving the validator's no-inherited-payload-access requirement.
+4. Historical runtime/deployer usage/continuity evidence sufficient to decide safe retirement ordering.
+
+Only after the complete drift set and continuity evidence are reviewed should an operation-specific IAM change be proposed. Any removal remains a Production IAM mutation requiring explicit owner authorization.
+
 ## Gate matrix
 
 | Gate | Source-enforced behavior | Current evidence still required |
