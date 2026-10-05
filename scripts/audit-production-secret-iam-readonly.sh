@@ -88,7 +88,7 @@ for secret_name in "${secret_names[@]}"; do
   if ! gcloud asset analyze-iam-policy "${scope_arg[@]}" \
       --full-resource-name="//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name" \
       --permissions=secretmanager.versions.access \
-      --expand-roles --expand-resources \
+      --expand-roles --expand-resources --show-response \
       --execution-timeout=60s --format=json >"$analysis_file"; then
     rm -f "$analysis_file"
     echo "ERROR: Policy Analyzer failed for $secret_name" >&2
@@ -106,7 +106,7 @@ for secret_name in "${secret_names[@]}"; do
     exit 4
   }
 
-  direct="$(jq '[.bindings[]? as $b | $b.members[]? | {role:$b.role, member:.}] | sort_by(.role,.member)' <<<"$policy_json")"
+  direct="$(jq '[.bindings[]? as $b | $b.members[]? | {role:$b.role, member:., condition:($b.condition // null)}] | sort_by(.role,.member)' <<<"$policy_json")"
   inherited="$(jq --arg resource "//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name" '
     [.mainAnalysis.analysisResults[]?
       | select(.attachedResourceFullName != $resource)
