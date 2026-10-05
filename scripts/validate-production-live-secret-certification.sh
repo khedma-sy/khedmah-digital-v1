@@ -237,7 +237,7 @@ for secret_name in "${permanent_secret_names[@]}"; do
   actual_policy="$(jq -r '.bindings[]? as $binding | $binding.members[]? | [$binding.role, .] | @tsv' <<<"$policy_json" | LC_ALL=C sort -u)"
   test -n "$expected_policy"
   test "$actual_policy" = "$expected_policy" || {
-    echo 'ERROR: Secret-level IAM differs from the exact canonical role/member allowlist.' >&2
+    printf 'ERROR: Secret-level IAM differs from the exact canonical role/member allowlist for %s.\n' "$secret_name" >&2
     exit 1
   }
   verify_no_inherited_secret_access "$secret_name"
