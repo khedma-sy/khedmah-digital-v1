@@ -15,25 +15,11 @@ This supplement supersedes older canonical-WIF-pending wording below while prese
 - Phase order remains strict: complete Phase 1, then Phase 2 Google readiness, then Phase 3 Floot. Do not copy Cloud SQL passwords, Terraform authority, deployer/migrator credentials or unrestricted Google keys to Floot.
 
 
-Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation. Live GitHub refs, run results and source were re-read for this update.
-
-## Live reconciliation supplement — 2026-10-05 after PR #254
-
-This supplement supersedes stale "pending historical service-account metadata" wording below while preserving the earlier evidence trail.
-
-- Live protected `main` is `57af4a86c83f00116ac3447daac62b7c4a104e14`, the guarded merge of PR #254. Its source inventory, build, code-quality and test/verification push checks succeeded; there are no open pull requests at this checkpoint.
-- Historical service-account metadata is no longer pending. Both `khedma-v1-deployer@khedma-dl.iam.gserviceaccount.com` and `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` exist and returned `disabled=false`; unique IDs were captured in the owner-supplied read.
-- Cloud Run service inventory in `europe-west1` returned no services. Cloud Run job inventory returned four database-role jobs, all configured with canonical `khedmah-v1-migrator@khedma-dl.iam.gserviceaccount.com`.
-- Cloud Asset IAM search proves the historical identities still have live bindings. In particular, the historical deployer retains project/build/run/Secret Manager/service-account attachment privileges and the historical runtime retains project-level runtime/secret access. This is evidence to reconcile, not authorization to remove those bindings.
-- Audit Logs prove `khedma-v1-deployer` was actively used through 2026-10-04 for token generation, Cloud Build, Cloud Run job replacement and `iam.serviceAccounts.actAs`; on 2026-10-03 it also updated/added versions to `DATABASE_MIGRATION_URL`. Do not classify this identity as retired.
-- The roadmap already records the causal diagnosis: GitHub Production environment secret `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT` was misconfigured to the historical missing-`h` deployer. The canonical target is `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`. Source contains an active-identity guard; the remaining control-plane requirement is to verify/correct the protected GitHub environment value, then obtain canonical-WIF proof before PREPARE.
-- Existing recovery evidence is preserved: on-demand backup `1791086677995` succeeded, PITR was enabled with 7-day transaction-log retention, and the post-restart INVENTORY retained manifest SHA `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`. Freshness must still be re-evaluated immediately before any mutation.
-- No Production mutation is authorized by this supplement. Floot remains Phase 3 and must not begin before Phase 1 and Phase 2 exit gates are closed.
 
 ## Authority and branch location
 - Repository: `khedma-sy/khedmah-digital-v1`.
 - Production project: `khedma-dl`; approved region: `europe-west1`.
-- Last re-read protected main: `57af4a86c83f00116ac3447daac62b7c4a104e14`, the guarded merge of PR #254 at `2026-10-05T09:55:30Z`. Its parents are prior main `82283464ba860e4eed9519ad9587418f96a73510` and accepted #254 head `507d90cd4732a75dfda1a60e7ba5da4e6beef096`; tree `bae190690324abfb3e0e38d31c1c293b58bc294a` matches the reviewed #254 tree. Earlier #252 entered main through `e61d1142...`, #251 through `dba1b5ee...`, #249 through `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d`, and #250 through `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`.
+- Last re-read protected main: `f0f0db84bff584edb4b7cd18a16a5833ef004c2c`, the guarded merge of PR #257. PR #257 consolidated the live handoff after #256; its exact head `a2f262b02e97169cfb4774b1d2a87bdc65eefc49` passed Node CI and Test & Verify, and PR Preview passed after a single isolated review-evidence retry. The first attempt was 71/72 because `restaurants/small-mobile/light` failed at `full_page_prepare`; the retry passed without application/source changes. Current main push checks for build, source inventory, code quality and tests are green; PR Validation is skipped as expected on push.
 - The control documents and mapped contracts entered main with #249. The earlier missing-file/404 observation applied to `a2a26f8...`; it is no longer the current main state. The `AGENTS.md` entry point remains [the live roadmap checkpoint](../../ROADMAP-EXECUTION-2026-09-08.md).
 - MC-01 is merged through #251; MC-04 decoder/dependency/runner work is merged through #252; live-secret alignment is merged through #253; and the bounded MC-04 429 presentation follow-up is merged through #254. Preserve each accepted head's independent evidence and limits.
 - Main `b7b6d0aa...` Node CI [37273043005](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37273043005) and Test & Verify [37273043048](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37273043048) succeeded on their own SHA. All four substantive push checks passed; PR Validation was skipped as expected for push.
@@ -80,7 +66,7 @@ The owner is at a computer and has supplied the following results. Preserve the 
 
 The project output includes `roles/secretmanager.secretAccessor` for historical `khedma-v1-deployer` and `khedma-v1-runtime` service accounts in `khedma-dl`. Their effective access, current use and retirement requirements remain open; no binding was changed. Canonical deployer `roles/iam.serviceAccountUser` and `roles/run.admin` match [the declared bootstrap source](../../infra/iac/bootstrap/main.tf); their presence is not newly discovered source drift. Remaining custom-role definitions, attachment/impersonation scopes, inherited/denied access and actual usage still need evidence.
 
-The historical service-account metadata read is complete: both missing-`h` identities exist, returned stable unique IDs and are enabled. Subsequent Cloud Run, Cloud Asset and Audit reads established that the historical deployer remained actively used through 2026-10-04. The next gate is canonical GitHub/WIF deployer proof; do not retire historical identities yet.
+The historical service-account metadata read is complete: both missing-`h` identities exist, returned stable unique IDs and are enabled. Subsequent Cloud Run, Cloud Asset and Audit reads established that the historical deployer remained actively used through 2026-10-04. Canonical GitHub/WIF proof is now complete; the remaining live blocker is Secret Manager direct/effective IAM reconciliation. Do not retire historical identities or bindings without explicit reviewed authorization.
 
 The selected manifest review is complete for that execution. It does not prove absence of later database drift; revalidation should follow a concrete freshness/change requirement rather than repeat already reviewed evidence without cause.
 
