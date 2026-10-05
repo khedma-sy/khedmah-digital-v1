@@ -1,10 +1,10 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-05 after PR #256. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
+Snapshot: 2026-10-05 after PR #257. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
 
 ## Execute next — reconcile direct Secret Manager IAM drift
 
-1. Treat live `main` `84857464bf0293ed496faefad5e171b6a75386b2` and merged PR #256 as the current source checkpoint.
+1. Treat live `main` `f0f0db84bff584edb4b7cd18a16a5833ef004c2c` and merged PRs #256–#257 as the current source checkpoint.
 2. Canonical GitHub/WIF proof is complete. Do not repeat runtime-variable or canonical-WIF diagnosis as pending.
 3. The first live direct-IAM mismatch is `DATABASE_URL`: its `roles/secretmanager.secretAccessor` binding contains both the historical runtime `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical runtime `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
 4. Before any IAM mutation, review the historical runtime's required continuity/usage and the complete secret-level drift set. Do not remove historical bindings solely to satisfy the validator.
@@ -14,21 +14,6 @@ Snapshot: 2026-10-05 after PR #256. Re-read live refs and run status before acti
 8. While the owner is mobile, perform repository-only work; defer Cloud Shell instructions and all Production mutations.
 
 
-Snapshot: 2026-10-05. Re-read live refs and run status before acting. This is an execution dependency, not a Production mutation approval.
-
-## Completed source prerequisites
-
-PRs #249 through #254 are merged with their source/main evidence preserved. Live protected main is `57af4a86c83f00116ac3447daac62b7c4a104e14`, the guarded merge of #254. Its source inventory, build, code-quality and test/verification push checks succeeded. Earlier Preview evidence and cleanup remain scoped to their accepted heads; do not reuse retired Preview URLs or rerun the old PREPARE. Evidence and limits: [CURRENT-STATE.md](CURRENT-STATE.md).
-
-## Execute next — canonical GitHub/WIF deployer proof
-
-The historical service-account metadata, Cloud Run service/job inventory, Cloud Asset IAM search and 30-day audit-log read have now been received. Do not repeat them as pending.
-
-1. Treat live `main` `57af4a86c83f00116ac3447daac62b7c4a104e14` and merged PR #254 as the current source checkpoint.
-2. The immediate blocker is the protected GitHub Production environment value `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT`. Repository history identifies the old missing-`h` value as the cause of the historical deployer activity. Verify/correct it to canonical `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com` through the authorized GitHub environment control plane; repository source cannot prove a secret value.
-3. After the protected value is known canonical, obtain a bounded proof that WIF authenticates as `khedmah-v1-deployer` before any PREPARE. Preserve the workflow's active-account guard. Do not remove historical IAM bindings merely to make the proof pass.
-4. Then resume Phase 1A gates: current PostgreSQL memberships/credential continuity, operation-fresh recovery evidence, PREPARE only with explicit owner authorization, isolation, post-cutover INVENTORY and final alias verification.
-5. Continue Phase 1B schema, Phase 1C hardening/release, Phase 1D repository hygiene, then Phase 2 Google readiness. Floot is Phase 3 only.
 
 ## Why a workflow dispatch is not the next read-only command
 
