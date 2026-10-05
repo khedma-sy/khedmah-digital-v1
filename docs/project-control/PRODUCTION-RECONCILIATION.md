@@ -1,6 +1,6 @@
 # Production reconciliation — evidence before an operation
 
-Checkpoint: 2026-10-05; protected main `82283464ba860e4eed9519ad9587418f96a73510` after #253 merged at `09:16:18 UTC`. Accepted #253 source gates (2479 tests, audit zero), complete Preview and cleanup passed; new main's own Node/Test independently passed with 2479 cases and audit zero. The reviewed database-role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`; live-secret alignment `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` is now merged through #253. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
+Checkpoint: 2026-10-05; protected main `57af4a86c83f00116ac3447daac62b7c4a104e14` after #254 merged at `09:55:30 UTC`. Accepted #253 source gates and Preview remain preserved; #254 then merged and current main's source inventory/build/code-quality/test push checks passed. The reviewed database-role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`; live-secret alignment `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` is now merged through #253. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
 
 ## Target and historical anchor
 
@@ -34,15 +34,26 @@ The project output includes `roles/secretmanager.secretAccessor` for both `servi
 
 The former source mismatch is repaired through merged #253. On prior main `e61d1142...`, [the live-secret validator](../../scripts/validate-production-live-secret-certification.sh) expected two direct migration-secret bindings while Terraform declared the three observed bindings. Implementation `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` aligns that expectation, passed 59 offline/local cases and two independent reviews, and entered main `82283464...` after its own exact-head source/Preview gates. The AliasManager live definition also matches declared permissions. [Exact source and validation scope](CURRENT-STATE.md#live-secret-certification-alignment--merged-source) do not replace inherited/effective-access evidence or authorize removing the canonical live binding.
 
-## First command
+## Live resume position after owner reconciliation
 
-The first unresolved read is now **metadata for both historical service accounts**. The owner has already received the reviewed one-line command below; its output is pending. Both custom-role reads are complete. Review the next result before constructing another command:
+The historical service-account metadata command below has been completed and is retained only as historical evidence. Both historical accounts exist and are enabled. Subsequent owner reads also established:
+
+- no Cloud Run Services in `europe-west1`;
+- four database-role Cloud Run Jobs, each attached to canonical `khedmah-v1-migrator`;
+- broad historical-account bindings from Cloud Asset IAM search;
+- direct recent use of `khedma-v1-deployer` in Audit Logs through 2026-10-04, including token generation, Cloud Build, Cloud Run job operations and service-account impersonation, plus `DATABASE_MIGRATION_URL` secret-version/alias activity on 2026-10-03.
+
+Therefore historical-account retirement is **not** the next operation. The repository roadmap identifies the controlling defect as a misconfigured protected GitHub Production environment secret `OPERATIONS_DEPLOYER_SERVICE_ACCOUNT`. The next control-plane gate is to verify/correct that value to canonical `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`, then prove a subsequent protected WIF authentication uses that canonical principal. No PREPARE or IAM cleanup precedes this proof.
+
+## Historical first command — completed
+
+This command was the first unresolved read at the earlier checkpoint. It has now completed successfully and is retained here only as provenance; do not repeat it as a pending prerequisite:
 
 ```bash
 gcloud iam service-accounts list --project=khedma-dl --filter='email=khedma-v1-deployer@khedma-dl.iam.gserviceaccount.com OR email=khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com' --format='json(email,uniqueId,disabled)'
 ```
 
-The filter targets `khedma-v1-deployer` and `khedma-v1-runtime`, the historical missing-`h` identities observed in project IAM. Validate each returned email against the exact intended identities before accepting it as evidence. Retain the returned email, unique ID and disabled-state metadata exactly, including absent fields. This does not read keys or secret payloads. Account existence/disabled state alone cannot establish active use, complete effective access or retirement readiness; an empty/failed result is not authorization to remove IAM bindings.
+The filter targeted `khedma-v1-deployer` and `khedma-v1-runtime`, the historical missing-`h` identities observed in project IAM. The successful result established both accounts exist and are enabled. Subsequent audit evidence established active historical-deployer use, so existence metadata is no longer the retirement decision point.
 
 After this result, select one bounded read for remaining custom-role definitions/effective access and historical identity usage, then continue through secret aliases/version states, backup/PITR/recovery, actual PostgreSQL membership and installed schema evidence. Do not print secret payloads, full environment dumps or unrelated logs. No new Cloud Run execution is created by the command above.
 
@@ -52,7 +63,7 @@ After this result, select one bounded read for remaining custom-role definitions
 | --- | --- | --- |
 | Source | Role workflow locks requested SHA, checkout and fetched main; validates project/region inputs | Live main, exact checks, operation mode, applicable approval and environment protection evidence |
 | Scope | Role workflow rejects regions other than `europe-west1` and checks the SQL target | Current project/region/instance identity; concurrent or out-of-band operation review |
-| Deployer | Canonical active account checked; build and migration SAs must exist | Three direct secret bindings, returned project IAM and AliasManager/CloudAssetPolicyAnalyzer definitions reviewed. Historical deployer/runtime metadata output is pending; remaining role/effective permissions, historical project-level access/usage, service-account attachment scopes and actual audit principal remain unverified |
+| Deployer | Canonical active account checked; build and migration SAs must exist | Three direct secret bindings, returned project IAM and AliasManager/CloudAssetPolicyAnalyzer definitions reviewed. Historical account metadata, Cloud Run inventory, Cloud Asset IAM search and recent audit activity are now reviewed. The historical deployer remained active through 2026-10-04; canonical GitHub/WIF deployer proof remains required before PREPARE. Remaining role/effective permissions and retirement sequencing stay open. |
 | Manifest | Digest syntax validated early; actual digest compared later by the SQL runner | Selected execution's 47 records, independent digest and current protected-value comparison are reviewed; establish no unexplained later change and suitability for the intended operation |
 | Role state | #250 checks actual memberships/flags with sorted expected values and the three-user/type allowlist | Actual current PostgreSQL membership evidence. The historical Admin API table with blank roles does not supply it |
 | Credential continuity | PREPARE tries enabled active/numeric selectors; final alias committed after verification | Current aliases/version states, which credential path is usable, and recovery plan without copying or printing payloads |
