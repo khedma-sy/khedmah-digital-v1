@@ -97,6 +97,29 @@ The adapter must use a fixed approved upstream; it must not accept an arbitrary 
 
 This is a separate transport design, not a DNS-only substitution. It needs an explicit API client/config change, credentialed requests, exact allowed origins, cookie validation, and tests on the actual preview/custom-domain combinations. It must not be declared compatible merely because a public GET endpoint works.
 
+#### Candidate B compatibility evidence
+
+Reviewed 2026-10-05: the transport owners below were read at `cf6245e934d2c3251492412c559420e2a3ea60cc` and are source-equivalent at `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d`. The local MC-04 client change retains API base, credentials and JSON-header behavior. This is conditional architecture evidence, not implementation, deployed-source equivalence or browser acceptance.
+
+| Browser context | Compatibility conclusion |
+| --- | --- |
+| Top-level HTTPS frontend and HTTPS API under the same registrable domain | Viable in principle: requests are [same-site](https://html.spec.whatwg.org/multipage/browsers.html#same-site), but cross-origin CORS remains required. No Floot endpoint proxy or method tunnel is needed. |
+| `*.floot.app` frontend calling an API on another registrable domain | Cross-site. `SameSite=None` does not bypass [WebKit's default third-party-cookie blocking](https://webkit.org/tracking-prevention/). This preview cannot establish universal authenticated acceptance. |
+| Frontend inside a cross-site editor iframe | [Ancestor context](https://httpwg.org/http-extensions/draft-ietf-httpbis-rfc6265bis.html#section-5.2.1) can make the site-for-cookies opaque. A sandboxed opaque Origin is separate; do not trust `Origin: null` as a workaround. |
+
+Khedmah's [cookie owner](../../apps/backend/src/identity/session-cookie.ts) sets host-only `khedmah_session`, `HttpOnly`, deployed-environment `Secure; SameSite=None`, `Path=/api/v1`. Direct API login creates an API-host cookie usable on that API path; existing frontend-host cookies do not transfer automatically. Business Desk's separately inspected `helpers/getSetServerSession.tsx` uses `floot_built_app_session`, `SameSite=Lax`, `Path=/` and its own JWT; it is not this transport.
+
+Required validation:
+
+- [API client](../../apps/frontend/lib/api-client.ts) and [Classifieds client](../../apps/frontend/lib/classifieds-client.ts): configure one approved API origin and retain `credentials: 'include'`. JSON Content-Type also causes cross-origin GET preflights. Verify OPTIONS, exact allowed origins, credentialed responses and required methods/headers under the [Fetch CORS rules](https://fetch.spec.whatwg.org/#cors-protocol-and-credentials).
+- Preserve [configured CORS](../../apps/backend/src/app.ts) and [unsafe cookie-authenticated Origin/Referer checks](../../apps/backend/src/middleware/csrf-origin.middleware.ts). GET/HEAD/OPTIONS exemptions and unauthenticated login behavior are not universal CSRF enforcement.
+- Resolve media paths against the API independently of JSON clients. Test protected bytes and preserve [private/no-store behavior](../../apps/backend/src/media/media.controller.ts). [Anonymous image CORS mode](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cors-settings-attributes) omits cross-origin credentials; credentialed images/fetches and effective [frontend CSP](https://www.w3.org/TR/CSP3/) need browser proof.
+- [Logout](../../apps/backend/src/identity/identity.service.ts) success alone is insufficient when no valid cookie arrived; verify subsequent session and protected-image denial. Preserve the [Firebase popup/token exchange](../../apps/frontend/lib/firebase/auth.ts), intended identity project and [authorized domain/provider configuration](https://firebase.google.com/docs/auth/web/google-signin).
+
+**Next browser proof:** on an approved same-site nonproduction origin pair, test login, reload/session, protected image, rejected foreign-origin action, then logout/denial in Safari and Chromium; repeat the login/session segment with Google. Public GET success is insufficient.
+
+Target Floot project, owner plan and validation/domain arrangement remain decisions. [Custom-domain setup](https://floot.com/docs/custom-domains/how-to-add-custom-domain) requires an owner paid plan and normally DNS-only Cloudflare records. Production prerequisites and owner acceptance remain authoritative; this finding authorizes no domain, credential, app or resource change.
+
 No choice between A and B was deployed in this review. No Floot capability or browser acceptance result is inferred from repository source alone.
 
 ### Floot source and platform evidence — 2026-10-05

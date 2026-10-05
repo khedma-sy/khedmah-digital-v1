@@ -66,7 +66,7 @@ Always record workflow path, mode, exact source SHA, run ID, execution ID where 
 
 ## Operator checklist — one reviewed read-only step at a time
 
-- Re-read main and the active implementation PR head; confirm the recorded #249/#250 merge evidence and check the active head's own CI and review findings. Do not resume the merged documentation PR as unfinished work.
+- Re-read main and the active implementation PR head; confirm the recorded #249/#250/#251 merge evidence and check the active head's own CI and review findings. Do not resume merged source prerequisites as unfinished work.
 - Resolve actual Production PostgreSQL role memberships and the latest execution-specific system-role manifest; do not repeat the already supplied blank metadata table as though it were new proof.
 - Verify canonical deployer and necessary IAM, alias/version metadata without secret payloads, current backup/PITR evidence, and restore plan.
 - Establish installed canonical schema through supported read-only catalog checks and available historical evidence. Do not assume a migration ledger exists or invent a ledger query.

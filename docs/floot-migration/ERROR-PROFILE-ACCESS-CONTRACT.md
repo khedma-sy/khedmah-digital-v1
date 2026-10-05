@@ -137,6 +137,12 @@ Runtime: Node.js v22.16.0 with `--experimental-strip-types` and the built-in tes
 
 No network, Google command, secret, database, role update or Production operation was used. These tests certify only these decoder cases on that source blob. They do not test the backend filter, HTTP middleware, profile writes, RBAC, Floot compatibility, browser sessions or the full repository suite. No executable repository file was changed by this documentation slice.
 
+### Classifieds client follow-up — 2026-10-05
+
+Commit `5b21217bc610a656850755e9084169e56217b563` extends existing `readApiError` use to the [Classifieds client](../../apps/frontend/lib/classifieds-client.ts); the pinned filter/identity behavior above is unchanged. The wrapper retains HTTP status and uses canonical/legacy decoding without retrying rejected writes or changing request bodies, revisions or keys. Domain codes suppressed by the installed filter remain unavailable to the client. The unchanged server filter owns redaction; the decoder is not a general sanitizer of arbitrary payloads.
+
+[MC-04's source and bounded test evidence](MEDIA-CLASSIFIEDS-CONTRACT.md#mc-04-implementation-follow-up--2026-10-05) records 18 frontend + 12 backend + 11 root runner entries (41 total), including real Nest controller/filter/client HTTP with injected service failures. It is not real authentication, SQL, full middleware or browser/Floot acceptance. The unchanged new-Ad UI's treatment of every 429 as quota exhaustion is separately OPEN; final candidate-head checks and broader recovery acceptance remain required.
+
 ## 7. Future adapter acceptance gates — all still open
 
 - Preserve 401 versus 403 versus 409/429/5xx and both nested/legacy error envelopes without inventing success or a logged-out state.

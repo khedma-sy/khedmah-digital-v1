@@ -1,6 +1,6 @@
 # Production reconciliation — evidence before an operation
 
-Checkpoint: 2026-10-05; protected main `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d` after merged #249. The reviewed role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
+Checkpoint: 2026-10-05; protected main `dba1b5ee94b69ffbc305ddfeff6a3b99c5661ae2` after merged #251. The reviewed role workflow/runner are unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`. Read live refs and run status before an operation. Source review and the completed owner reads below do not authorize a mutation.
 
 ## Target and historical anchor
 

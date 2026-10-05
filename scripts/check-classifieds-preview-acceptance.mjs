@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateBaseUrl } from './capture-preview-evidence.mjs';
-import { main as captureSixthAuditEvidence } from './capture-sixth-audit-evidence.mjs';
+import { runCli as captureSixthAuditEvidence } from './capture-sixth-audit-evidence.mjs';
 
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const requireCondition = (value, code) => { if (!value) fail(code); };

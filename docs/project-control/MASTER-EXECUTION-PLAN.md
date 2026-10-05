@@ -20,7 +20,7 @@ Exit criteria:
 
 ## Phase 1 — Complete GitHub + Production database path
 ### 1A Database role cutover gates
-- Current source prerequisites: #250 and #249 are merged; main at the 2026-10-05 checkpoint is `b7b6d0aa6c06d7b9650158f5e49569656eb8aa4d`. Resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md) from the pending corrected project-IAM read, following [NEXT-ACTION.md](NEXT-ACTION.md).
+- Current source prerequisites: #250, #249 and #251 are merged; main at the 2026-10-05 checkpoint is `dba1b5ee94b69ffbc305ddfeff6a3b99c5661ae2`. Resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md) from the pending corrected project-IAM read, following [NEXT-ACTION.md](NEXT-ACTION.md).
 - Reconfirm current main.
 - Preserve the completed selected-execution manifest review: 47 canonical records, independently recomputed digest and current protected-value match. Revalidate only as required by subsequent changes or the intended operation's freshness needs.
 - Preserve the three reviewed direct migration-secret IAM bindings; complete project/custom-role/effective IAM for the canonical principals. Direct policy metadata alone does not establish effective access.
@@ -76,7 +76,7 @@ Workstreams:
 Use [the contract findings backlog](../floot-migration/IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) to select bounded implementation/acceptance work. [Media/Classifieds ownership and moderation](../floot-migration/MEDIA-CLASSIFIEDS-CONTRACT.md) is source mapping; its unresolved findings are not certified behavior.
 
 ### 3A Foundation
-- Current preparation includes the mapped contracts and the bounded MC-01 implementation on its own branch; new-PR/exact-head checks and integration acceptance are still required. This progress does not authorize a Floot build or Production cutover ahead of their gates.
+- Current preparation includes the mapped contracts and merged MC-01 source repair. The MC-04/dependency/runner follow-up requires its own final-head checks; all wider integration acceptance remains separate. Candidate B has conditional same-site browser-transport evidence, with target/domain and real Safari/Chromium proof still open. This progress does not authorize a Floot build or Production cutover ahead of their gates.
 - Floot paid plan that supports the required build volume/custom domain.
 - Khedmah application shell, RTL, routing, design tokens, approved brand assets.
 - Environment/config contract.

@@ -180,7 +180,8 @@ test('409 closes the ad decision, refreshes its snapshot, and requires a new exp
 
 test('Classifieds admin client serializes review revision, Smart Admin version and rejection reason and preserves conflicts', async () => {
   const calls = [];
-  const { adminClassifiedsApi } = loadSource(readSource('apps/frontend/lib/classifieds-client.ts'), {}, {
+  const errors = loadSource(readSource('apps/frontend/lib/api-errors.ts'), {});
+  const { adminClassifiedsApi } = loadSource(readSource('apps/frontend/lib/classifieds-client.ts'), { './api-errors': errors }, {
     fetch: async (url, init) => {
       calls.push({ url, init });
       if (calls.length === 2) return { ok: false, status: 409, json: async () => ({ message: 'changed', code: 'AD_REVIEW_CONFLICT' }) };
