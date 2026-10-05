@@ -1,14 +1,15 @@
 # Khedmah Digital — Current State
 
-Updated: 2026-10-04. This is a dated evidence checkpoint, not permission to execute a Production operation.
+Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation. Live GitHub refs, run results and source were re-read for this update.
 
 ## Authority and branch location
 - Repository: `khedma-sy/khedmah-digital-v1`.
 - Production project: `khedma-dl`; approved region: `europe-west1`.
-- Last re-read protected main: `5a961be5035dce1197ba2d0c65519e86f65ca4c6` (merged PR #248).
+- Last re-read protected main: `a2a26f8b27e63a2e041e43d5657cf2ce78700c24` (PR #250 merged at 2026-10-05 05:34:48 UTC).
 - These control documents are on `chore/project-control-floot-readiness-2026-10-04`, PR #249. They are NOT yet merged into main.
-- Active fix: `fix/database-role-prep-state-probe-2026-10-04`, PR #250.
-- Re-read main, both PR heads, and their exact-SHA checks before acting. Never use a previous SHA's green checks to certify a newer head.
+- A read of `docs/project-control/CURRENT-STATE.md` on the main SHA above returned 404; the recursive tree also confirms it is absent. Read this PR branch until it is merged. The entry point required by `AGENTS.md` remains [the live roadmap checkpoint](../../ROADMAP-EXECUTION-2026-09-08.md), synchronized in this same change.
+- PR #250 is merged; PR #249 is the only open PR observed. This documentation update incorporates the new main into #249 without changing executable source relative to that main.
+- Re-read main, the current PR head and its exact-SHA checks before acting. Never use a previous SHA's green checks to certify a newer head.
 
 ## Computer-available operating mode — active
 The owner confirmed on 2026-10-05 that they are back at a computer and can execute Cloud Shell commands when requested.
@@ -17,13 +18,14 @@ The owner confirmed on 2026-10-05 that they are back at a computer and can execu
 - Re-read exact main/PR heads and live evidence before every cloud command.
 - Continue GitHub code review, CI, tests and documentation while mutation gates remain open.
 
-## Production database state — not yet cut over
-Last known Production role workflow: run `37183178537`, requested mode PREPARE on `5a961be...`.
+## Production database state — cutover not proven
+Latest GitHub workflow dispatch re-read: [PREPARE run 37183178537](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37183178537), on `5a961be5035dce1197ba2d0c65519e86f65ca4c6`. No later dispatch was returned, including after the #250 merge. This does not rule out out-of-band cloud changes.
 - Identity guard and image build succeeded.
 - Failed at `Classify resumable prepare role state`.
 - Password rotation, role PREPARE/cutover, restart/containment, final credential rotation, isolation verification, and active-alias commit were skipped.
 - This failure was before database/secret cutover, NOT before all cloud activity: the bootstrap image was built.
 - Do not rerun this failed Production workflow as a retry shortcut.
+- GitHub returned no in-progress or waiting run at this audit. An old [Identity readiness run 34870013974](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/34870013974) is queued on a recovery-branch SHA from 2026-09-14 with no jobs returned. It is not current-main evidence and was not changed.
 
 ## Completed read-only owner observation
 The owner already ran the Cloud SQL user-list query. Do not ask for the same table again as though it were missing.
@@ -34,26 +36,30 @@ The owner already ran the Cloud SQL user-list query. Do not ask for the same tab
 | khedmah_migrator | BUILT_IN | blank |
 | postgres | BUILT_IN | blank |
 
-Blank Admin API metadata does not prove PostgreSQL membership or absence of privileges. Actual Production PostgreSQL memberships remain unverified in this session. PR #250 introduces a database-read-only membership probe; deploying/executing its Cloud Run job would still be cloud activity and remains held.
+Blank Admin API metadata does not prove PostgreSQL membership or absence of privileges. Actual Production PostgreSQL memberships remain unverified in this session. The merged #250 probe reads PostgreSQL membership, but its enclosing workflow builds an image and deploys/executes Cloud Run jobs. It is not a metadata-only cloud operation and remains held until its gates are reviewed.
 
-## PR #250 — current exact head and review gate
-The previously green head was `d053350c095877e5c693acd7cc9f512be763577a`, but it is no longer the current head.
+## PR #250 — merged source and exact-SHA evidence
+Final implementation head: `308bc00c880ce5cbc1ff7dcb04c657ae426b3f19`; merge: `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`.
 
-A P2 review finding identified that observed PostgreSQL memberships are sorted while the expected three-membership arrays used a fixed lexical order. This could reject a valid PREPARE state if Production overrides the custom role names with a different lexical order.
+The implementation classifies `initial`, `resume` and `completed` from PostgreSQL memberships, retains the exact Cloud SQL user/type allowlist, tries enabled migration credential selectors without rotating them during classification, rejects invalid memberships, and preserves the caller's errexit mode. Expected membership arrays now use the same sorting as observed arrays; the custom-role-name regression is present. The P2 review thread is resolved.
 
-The fix branch has been updated to sort expected membership arrays using the same ordering and to add a PostgreSQL regression with custom role names that sort on opposite sides of `cloudsqlsuperuser`. Re-read the latest PR #250 head and its exact-SHA checks before treating the fix as ready.
+| Source SHA | Independently re-read GitHub runs | Result |
+| --- | --- | --- |
+| Final #250 head `308bc00...` | [Node CI 37266387832](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266387832), [Test & Verify 37266387918](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266387918), [PR Preview 37266387803](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266387803) | SUCCESS |
+| Merged main `a2a26f8...` | [Node CI 37268416230](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37268416230), [Test & Verify 37268416222](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37268416222) | SUCCESS; PR Validation is skipped for the push event, not a missing PR approval |
 
-The current head captures the probe execution exit code without changing the caller's errexit mode and adds nine isolated Bash-runner regressions. Earlier local targeted evidence was 5 passed / 4 failed before the fix and 9 passed / 0 failed after it; these mocks are not live Google validation.
+On the executable source from this main, local Node.js v24.19.0 ran the 18 workflow-contract cases plus nine isolated Bash-runner cases: **27 passed, zero failed**. The runner intercepts gcloud with mocks; this is not a live PostgreSQL, IAM or recovery test.
 
-The current-head workflows have been re-read as SUCCESS, including the previously verified nine required contexts:
-- Node.js CI `37193917916`: Source inventory (read-only), build (24.x).
-- Test & Verify `37193917877`: Run Tests & Verification (24.x), PR Validation, Code Quality Checks.
-- PR Preview `37193917959`: quality-gates, resolve-staging-baseline, deploy-preview, review-evidence.
-- The head-bound Preview report records mobile interactions 32/32 and Classifieds acceptance success. Optional cleanup-preview was skipped, not a failed required check.
+The returned review history contains COMMENT reviews on older head `d053350...`, not an independent APPROVED review for `308bc00...`. The Codex P1 request to update the same live roadmap checkpoint remained relevant after merge and is addressed in this documentation change. Source merge and green CI do not certify Production cutover.
 
-A bounded COMMENT review was submitted for this exact head (review ID `5405530080`). PR #250 was moved from Draft to Ready for Review on 2026-10-04. Its head was unchanged and it was NOT merged. This COMMENT is not an independent approval and is not Production authorization.
+## Production gate audit — open
+Detailed gate requirements and the first metadata-only command are in [PRODUCTION-RECONCILIATION.md](PRODUCTION-RECONCILIATION.md).
 
-Previous head `2311bdca6fcc0b368104475263e588fd121e22f2` also had green results, but those are not used to certify the current head. The current evidence above is separately verified.
+- Current role workflow has no backup input, backup freshness check or restore/PITR validation. Its runtime-containment recovery is not a tested backup restore.
+- Canonical active-account and service-account-existence checks do not establish the current effective Secret Manager/IAM permissions.
+- PREPARE may legitimately start without an `active` alias and inspect enabled numeric versions. Metadata does not prove any selector authenticates.
+- `Rotate migration password before runtime cutover` creates a transition secret version and changes the migrator password before the later `prepare` SQL phase compares the actual system-role manifest. A syntactically valid hash is not prior proof of a match. Review the current manifest and recovery evidence before any dispatch.
+- All database role workflow modes build an image; INVENTORY/VERIFY also deploy and execute Cloud Run jobs. Read existing execution/log/secret/backup metadata first. Do not dispatch a Production workflow merely because its SQL is read-only.
 
 ## PR #249 — source-backed control and integration preparation
 This PR holds the execution plan, schema gates, Google/Floot boundaries and next action. Its documents are not on main yet. Any new documentation commit requires its own CI check; do not reuse an earlier documentation head's green results.
@@ -73,7 +79,11 @@ Completed repository-only preparation, pinned to main `5a961be...`:
 - Explicit open findings include pre-accept address/note/coordinate disclosure, 100-order caps, tracking/polling freshness, and reported versus reconciled cash. See the lifecycle contract; no silent runtime correction was made.
 - Floot routing/header compatibility, domain authorization, browser acceptance and any new credential requirement remain open; the documents do not claim an integration is live.
 
-Before this grouped lifecycle update, documentation head `d68261c9a0c027057b0ed49ab9aae604e7e1a41a` had Node.js CI `37212409867` and Test & Verify `37212409859` successful. PR Preview `37212409862` was still in progress: quality-gates and resolve-staging-baseline succeeded, deploy-preview was running. These are prior-head observations, not certification of a newer documentation head. Let new checks finish instead of repeatedly committing status-only notes.
+At the start of this reconciliation, #249 was Draft/behind main at `11cb5ac8e2b1cb2ad46e40cfc61692192a9d2c85`. [Node CI 37266433453](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266433453) and [Test & Verify 37266433477](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266433477) succeeded. [PR Preview 37266433514](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37266433514) failed in `deploy-preview`: job `111625180120` reports Cloud Build HTTP 429, `GetRequestsPerMinutePerProject`, limit 60/min. Quality gates and staging-baseline resolution passed; review-evidence was skipped. This is a recorded Preview quota failure, not current-head acceptance or a reason to waive the failed check.
+
+This grouped update also adds [the implementation/acceptance backlog](../floot-migration/IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) and [the media/Classifieds contract](../floot-migration/MEDIA-CLASSIFIEDS-CONTRACT.md). Findings remain open until the stated implementation, policy and acceptance evidence exists. No deployed behavior has been silently corrected.
+
+The updated #249 head must obtain its own Node CI, Test & Verify and complete Preview evidence. Let those checks finish; do not repeatedly commit status-only notes or reuse the old head's results. PR-triggered Preview may build/deploy isolated nonproduction resources; it is separate from Production authorization.
 
 The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-RELEASE-GATES.md). No executable repository file is changed by this documentation slice. Previously mapped contracts are preserved; documented parsing, disclosure and storage limitations are not silently repaired or claimed closed.
 
@@ -84,7 +94,7 @@ The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-R
 ## Earlier infrastructure evidence — revalidate when needed
 - Handoff recorded successful Terraform bootstrap, post-apply verification, and a no-change plan. Do not repeat bootstrap APPLY.
 - Handoff recorded PITR enabled and a successful on-demand backup. This is not proof of a fresh backup or a tested restore today.
-- INVENTORY run `37179237640` succeeded. Previously approved system-role manifest: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`.
+- [INVENTORY run 37179237640](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37179237640) succeeded on old main `5a961be...`; logs tie it to execution `khedmah-database-role-inventory-s7pck`. Previously recorded approved system-role manifest: `656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf`. This recorded value is not a newly retrieved cloud manifest.
 - Latest execution-specific manifest comparison, Secret Manager IAM, current alias/version metadata, recovery evidence, and actual schema prerequisites must be checked before any cutover.
 - Do not assume baseline 001–020 or retained migrations 021/022/024 are complete because a later workflow is named 025–034. Follow SCHEMA-RELEASE-GATES.md, including the intentional 023 gap.
 
@@ -98,4 +108,4 @@ The full schema-lineage correction remains in [SCHEMA-RELEASE-GATES.md](SCHEMA-R
 Carry forward the owner's last planning indicator: `10 / 160` estimated work units expressed as hours. This is not measured elapsed labor, and 6.25% is not a verified percentage of the whole product. Do not increment it merely for waiting, chatting, or rerunning CI. Report exact completed gates/tests alongside it.
 
 ## One next action
-See [NEXT-ACTION.md](NEXT-ACTION.md). Finish the P2 review fix on PR #250 and require fresh exact-head green CI before merge consideration. After that, resume read-only Production reconciliation from Cloud Shell one command at a time. Review-ready PR status is separate from merge/deployment permission.
+See [NEXT-ACTION.md](NEXT-ACTION.md). The #250 source step is complete. Resume metadata-only Production reconciliation by listing existing inventory executions in the explicit project/region, then review the selected execution before the next command. No Cloud Shell/GCP session is available in this workspace; current cloud evidence requires the owner's command output or an authorized cloud connection. Finish current-head #249 checks in parallel. Do not dispatch PREPARE, INVENTORY or VERIFY as a shortcut around missing metadata or recovery evidence.

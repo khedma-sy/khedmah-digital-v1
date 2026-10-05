@@ -33,3 +33,7 @@ These local results do not certify the full test suite, Google IAM, actual Cloud
 
 ## Remaining boundary
 No Production workflow was dispatched, no main merge was performed, and no database, password, Secret Manager, Terraform, DNS, or Floot configuration was changed in this work session. PR-triggered CI/Preview runs independently after the branch push and must be distinguished from Production deployment.
+
+## Subsequent resolution — 2026-10-05
+
+The sections above describe the historical 2026-10-04 review, not the current branch state. PR #250 subsequently merged at final head `308bc00c880ce5cbc1ff7dcb04c657ae426b3f19` into main `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`. The later P2 expected-membership sorting fix and custom-name regression are included, and that thread is resolved. Exact-head and merged-main evidence is in [CURRENT-STATE.md](CURRENT-STATE.md). The older COMMENT review is not a final-head independent approval. Current cloud gates remain open; the next action is [read-only reconciliation](NEXT-ACTION.md).

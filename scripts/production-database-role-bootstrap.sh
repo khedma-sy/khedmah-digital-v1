@@ -195,9 +195,9 @@ test "$RUNTIME_USER" != "$MIGRATION_USER" \
 }
 
 case "$PHASE" in
-  probe|inventory|prepare|cutover-audit|verify|harden|verify-hardened) ;;
+  probe|role-state|inventory|prepare|cutover-audit|verify|harden|verify-hardened) ;;
   *)
-    echo 'ERROR: DATABASE_ROLE_PHASE must be probe, inventory, prepare, cutover-audit, verify, harden, or verify-hardened.' >&2
+    echo 'ERROR: DATABASE_ROLE_PHASE must be probe, role-state, inventory, prepare, cutover-audit, verify, harden, or verify-hardened.' >&2
     exit 2
     ;;
 esac
@@ -221,6 +221,78 @@ test "$connection_state" = ready || {
   echo 'ERROR: DATABASE_ROLE_CONNECTION_IDENTITY_NOT_READY' >&2
   exit 6
 }
+
+if test "$PHASE" = role-state; then
+  prepare_state="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "
+WITH memberships AS (
+  SELECT
+    member_role.rolname::text AS member_name,
+    concat_ws(
+      '|',
+      granted_role.rolname::text,
+      membership.inherit_option::integer::text,
+      membership.set_option::integer::text,
+      membership.admin_option::integer::text
+    ) AS membership_line
+  FROM pg_auth_members membership
+  JOIN pg_roles granted_role ON granted_role.oid=membership.roleid
+  JOIN pg_roles member_role ON member_role.oid=membership.member
+  WHERE member_role.rolname IN ('$RUNTIME_USER', '$MIGRATION_USER')
+), states AS (
+  SELECT
+    COALESCE(
+      array_agg(membership_line ORDER BY membership_line)
+        FILTER (WHERE member_name='$RUNTIME_USER'),
+      ARRAY[]::text[]
+    ) AS runtime_memberships,
+    COALESCE(
+      array_agg(membership_line ORDER BY membership_line)
+        FILTER (WHERE member_name='$MIGRATION_USER'),
+      ARRAY[]::text[]
+    ) AS migration_memberships
+  FROM memberships
+)
+SELECT CASE
+  WHEN runtime_memberships=ARRAY['cloudsqlsuperuser|1|1|0']::text[]
+    AND migration_memberships IN (
+      ARRAY['cloudsqlsuperuser|1|1|0']::text[],
+      ARRAY(
+        SELECT expected
+        FROM unnest(ARRAY[
+          'cloudsqlsuperuser|1|1|0',
+          '$MIGRATION_ROLE|0|0|1',
+          '$RUNTIME_ROLE|0|0|1'
+        ]::text[]) AS expected
+        ORDER BY expected
+      )
+    )
+    THEN 'initial'
+  WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
+    AND migration_memberships=ARRAY(
+      SELECT expected
+      FROM unnest(ARRAY[
+        'cloudsqlsuperuser|1|1|0',
+        '$MIGRATION_ROLE|0|0|1',
+        '$RUNTIME_ROLE|0|0|1'
+      ]::text[]) AS expected
+      ORDER BY expected
+    )
+    THEN 'resume'
+  WHEN runtime_memberships=ARRAY['$RUNTIME_ROLE|1|1|0']::text[]
+    AND migration_memberships=ARRAY['$MIGRATION_ROLE|1|1|0']::text[]
+    THEN 'completed'
+  ELSE 'invalid'
+END
+FROM states")"
+  printf 'DATABASE_ROLE_PREPARE_STATE=%s\n' "$prepare_state"
+  case "$prepare_state" in
+    initial|resume|completed) exit 0 ;;
+    *)
+      echo 'ERROR: DATABASE_ROLE_PREPARE_STATE_INVALID' >&2
+      exit 12
+      ;;
+  esac
+fi
 
 if test "$PHASE" = probe; then
   echo 'DATABASE_MIGRATION_CREDENTIAL_VERIFIED'

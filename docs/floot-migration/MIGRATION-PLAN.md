@@ -24,6 +24,8 @@ This is an experience-layer migration, not a database or infrastructure replacem
 ## API-first rule
 Every migrated screen must map to an existing or explicitly approved API contract before implementation.
 
+Reviewed source maps: [authentication](AUTH-API-CONTRACT.md), [errors/profile/Operations access](ERROR-PROFILE-ACCESS-CONTRACT.md), [discovery](DISCOVERY-API-CONTRACT.md), [food/cart/order entry](FOOD-CART-ORDER-CONTRACT.md), [fulfillment](FULFILLMENT-LIFECYCLE-CONTRACT.md), and [media/Classifieds ownership and moderation](MEDIA-CLASSIFIEDS-CONTRACT.md). Each map retains its pinned-source and validation limits. [The acceptance backlog](IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) keeps unresolved findings separate from completed mapping; no live integration is certified by these documents.
+
 Required mapping fields:
 - Existing Next.js route.
 - Target Floot route.

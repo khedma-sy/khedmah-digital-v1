@@ -20,10 +20,13 @@ Exit criteria:
 
 ## Phase 1 — Complete GitHub + Production database path
 ### 1A Database role cutover gates
+- Current source prerequisite: PR #250 is merged; resume [metadata-only reconciliation](PRODUCTION-RECONCILIATION.md), following [NEXT-ACTION.md](NEXT-ACTION.md).
 - Reconfirm current main.
 - Reconfirm latest system-role manifest.
 - Reconfirm Secret Manager IAM for canonical deployer.
+- Establish actual PostgreSQL memberships and credential continuity; blank Cloud SQL role metadata and enabled versions are insufficient.
 - Create/verify fresh on-demand backup immediately before mutation.
+- Independently review backup/PITR/restore suitability. The role workflow has no automatic backup gate and rotates the transition credential before the later prepare SQL compares the actual manifest.
 - Run PREPARE only after the above gates are green and explicit owner authorization is present.
 - Verify isolation.
 - Re-run INVENTORY and compare manifest.
@@ -52,6 +55,7 @@ Exit criteria:
 - PR #172 closed after requirements salvage; do not restore its obsolete migration number or merge the old branch wholesale.
 - Remove stale execution assumptions from handoff docs.
 - Maintain `CURRENT-STATE.md` as the compact live checkpoint.
+- Synchronize the original roadmap entry point required by `AGENTS.md` with these control documents in the same change; do not leave competing next-action instructions.
 - Full root/backend/frontend test matrix green on the exact candidate SHA.
 
 ## Phase 2 — Google readiness for the new experience layer
@@ -69,6 +73,8 @@ Workstreams:
 - Google Play/Data Safety/account deletion readiness for Android when applicable.
 
 ## Phase 3 — Floot migration
+Use [the contract findings backlog](../floot-migration/IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) to select bounded implementation/acceptance work. [Media/Classifieds ownership and moderation](../floot-migration/MEDIA-CLASSIFIEDS-CONTRACT.md) is source mapping; its unresolved findings are not certified behavior.
+
 ### 3A Foundation
 - Floot paid plan that supports the required build volume/custom domain.
 - Khedmah application shell, RTL, routing, design tokens, approved brand assets.

@@ -1,8 +1,8 @@
 # Schema and release gates — repository review, not execution approval
 
-Reviewed: 2026-10-04. Source snapshot: `5a961be5035dce1197ba2d0c65519e86f65ca4c6` in `khedma-sy/khedmah-digital-v1`.
+Initial review: 2026-10-04 at `5a961be5035dce1197ba2d0c65519e86f65ca4c6`. Reconciled 2026-10-05 with main `a2a26f8b27e63a2e041e43d5657cf2ce78700c24` in `khedma-sy/khedmah-digital-v1`; the schema/release source-map files below are unchanged between those commits. #250 changed role-bootstrap classification and tests, not the schema lineage.
 
-The owner is on mobile. No Cloud Shell command, Production workflow, credential rotation, database mutation, DNS change, or Floot change is authorized by this document. Returning to a computer starts with read-only reconciliation, not a batch of production writes.
+The current operating mode allows one reviewed read-only Cloud Shell command at a time. This document does not authorize Production workflows, credential rotation, database writes, DNS changes or Floot changes. Continue [Production reconciliation](PRODUCTION-RECONCILIATION.md) before selecting an operation.
 
 ## Source-backed correction to the earlier plan
 The prior plan began schema work at 025. That is not a complete fresh-database path. The canonical source says version 023 is intentionally unused, and it lists the earlier baseline and retained versions 021, 022, and 024. Their installed Production state has NOT been established by this review.
@@ -49,6 +49,8 @@ The obsolete draft PR #172's `026_ai_admin_control_plane` is not the canonical 0
 
 ## Backup and confirmation evidence is operation-specific
 
+The database role-bootstrap workflow is different from the schema workflows below: it has no backup input, backup-age gate or PITR/restore check. Its transition secret/password writes occur before the prepare SQL compares the actual system-role manifest. Review manifest, effective IAM and recovery evidence before dispatch; do not apply the schema workflow's automatic backup guarantees to PREPARE. See [the gate matrix](PRODUCTION-RECONCILIATION.md#gate-matrix).
+
 The reviewed baseline workflow requires backup status SUCCESSFUL, description `khedmah-before-baseline-<sha7>`, and end time no more than 86,400 seconds old. Its confirmation pattern is `INITIALIZE_KHEDMAH_SCHEMA_001_020_<sha7>`.
 
 The reviewed 025–034 workflow requires backup status SUCCESSFUL, description `khedmah-before-<NNN>-<sha7>`, and end time no more than 86,400 seconds old. Its confirmation pattern is `APPLY_KHEDMAH_MIGRATION_<NNN>_<sha7>`.
@@ -62,9 +64,9 @@ These are patterns extracted from the source, not ready-to-run confirmations. Re
 
 Always record workflow path, mode, exact source SHA, run ID, execution ID where applicable, and the specific checks that actually ran. A green label without its scope is insufficient.
 
-## Deferred operator checklist — no task for the mobile owner now
+## Operator checklist — one reviewed read-only step at a time
 
-- Re-read main and both PR heads; check exact-head CI and review findings.
+- Re-read main and the current PR #249 head; confirm the recorded #250 merge evidence and check current exact-head CI and review findings.
 - Resolve actual Production PostgreSQL role memberships and the latest execution-specific system-role manifest; do not repeat the already supplied blank metadata table as though it were new proof.
 - Verify canonical deployer and necessary IAM, alias/version metadata without secret payloads, current backup/PITR evidence, and restore plan.
 - Establish installed canonical schema through supported read-only catalog checks and available historical evidence. Do not assume a migration ledger exists or invent a ledger query.
@@ -72,4 +74,4 @@ Always record workflow path, mode, exact source SHA, run ID, execution ID where 
 
 ## Unresolved limits
 
-This document verifies repository contracts only. It does not establish actual Production role state, baseline completion, applied migrations, live IAM correctness, current recovery readiness, or Floot compatibility. No live database connection or full local repository clone was available in this review; the source was read using the GitHub connector. The program's `10 / 160` progress indicator remains a planning estimate, not measured elapsed labor or a certified product completion percentage.
+This document verifies repository contracts only. It does not establish actual Production role state, baseline completion, applied migrations, live IAM correctness, current recovery readiness, or Floot compatibility. The original review used GitHub reads; the 2026-10-05 reconciliation also has a local checkout, but no live database/Cloud Shell connection. The program's `10 / 160` progress indicator remains a planning estimate, not measured elapsed labor or a certified product completion percentage.
