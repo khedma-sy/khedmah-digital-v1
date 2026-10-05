@@ -1,5 +1,20 @@
 # Khedmah Digital — Current State
 
+Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation.
+
+## Live reconciliation supplement — 2026-10-05 after PR #256
+
+This supplement supersedes older canonical-WIF-pending wording below while preserving the evidence trail.
+
+- Live protected `main` is `84857464bf0293ed496faefad5e171b6a75386b2`, the merge of PR #256.
+- PR #256 added secret-name diagnostics to the Production live-secret IAM validator without reading payloads. Its exact head `3fdc48ffb93ce11a209c295ecb80b06e7eececd3` passed Node CI, Test & Verify, Google readiness, PR Validation, Code Quality, Source Inventory, PR Preview and review-evidence; no review threads were present.
+- Canonical GitHub/WIF proof is complete. The Production runtime environment variable was corrected from historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` to canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`. The subsequent readiness run authenticated successfully through WIF and advanced past the service-account identity tuple checks.
+- The next live blocker is now direct Secret Manager IAM drift, not WIF identity. Owner-supplied read of `DATABASE_URL` shows one `roles/secretmanager.secretAccessor` binding containing both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
+- The canonical source allowlist expects the canonical runtime member only for `DATABASE_URL`. Removing the historical member is a Production IAM mutation and is NOT authorized by this document. Do not remove historical project/service-account/secret bindings merely to make certification pass without explicit operation approval and bounded review.
+- Cloud Shell commands are temporarily deferred while the owner is mobile. Continue repository-only review, CI, documentation and bounded source preparation.
+- Phase order remains strict: complete Phase 1, then Phase 2 Google readiness, then Phase 3 Floot. Do not copy Cloud SQL passwords, Terraform authority, deployer/migrator credentials or unrestricted Google keys to Floot.
+
+
 Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation. Live GitHub refs, run results and source were re-read for this update.
 
 ## Live reconciliation supplement — 2026-10-05 after PR #254
