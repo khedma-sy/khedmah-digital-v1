@@ -4,7 +4,7 @@ Snapshot: 2026-10-05. Re-read live refs and run status before acting. This is an
 
 ## Completed source prerequisites
 
-PR #250, #249, #251 and #252 are merged with their source/main evidence preserved, including #251's interrupted first Preview and isolated successful retry. PR #253 merged at `2026-10-05T09:16:18Z` into protected main `82283464ba860e4eed9519ad9587418f96a73510`, whose tree matches accepted head `eb5918a2b4ddc25d1d4580e2da82fba40b949ec6`. That head passed all nine required contexts plus Google readiness: 2479 tests, audit zero, then 64/64 primary, 72/72 supplementary, 32/32 mobile and Classifieds 200/200/200 with empty data in Preview attempt 1. New main's own Node/Test also passed, independently confirming 2479 cases and audit zero. #253 cleanup succeeded at `09:16:50 UTC`; #249/#251/#252/#253 Preview services are retired. Do not reopen merged source prerequisites or rerun the old PREPARE. Evidence and limits: [CURRENT-STATE.md](CURRENT-STATE.md).
+PRs #249 through #254 are merged with their source/main evidence preserved. Live protected main is `57af4a86c83f00116ac3447daac62b7c4a104e14`, the guarded merge of #254. Its source inventory, build, code-quality and test/verification push checks succeeded. Earlier Preview evidence and cleanup remain scoped to their accepted heads; do not reuse retired Preview URLs or rerun the old PREPARE. Evidence and limits: [CURRENT-STATE.md](CURRENT-STATE.md).
 
 ## Execute next — canonical GitHub/WIF deployer proof
 
