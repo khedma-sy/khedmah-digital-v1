@@ -1,16 +1,16 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-05 after PR #257. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
+Snapshot: 2026-10-05 after PR #259. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
 
 ## Execute next — reconcile direct Secret Manager IAM drift
 
-1. Treat live `main` `f0f0db84bff584edb4b7cd18a16a5833ef004c2c` and merged PRs #256–#257 as the current source checkpoint.
+1. Treat live `main` `308c0aa856943550cb565ab77e299607df1561e6` and merged PRs #256–#259 as the current source checkpoint. Main build, source inventory, code quality, and test/verification push checks are green.
 2. Canonical GitHub/WIF proof is complete. Do not repeat runtime-variable or canonical-WIF diagnosis as pending.
 3. The first live direct-IAM mismatch is `DATABASE_URL`: its `roles/secretmanager.secretAccessor` binding contains both the historical runtime `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical runtime `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
 4. Before any IAM mutation, review the historical runtime's required continuity/usage and the complete secret-level drift set. Do not remove historical bindings solely to satisfy the validator.
 5. Any removal/change to Production Secret Manager IAM requires explicit owner authorization and an operation-specific reviewed command/change.
 6. After direct/effective secret IAM is reconciled and re-certified, resume Phase 1A gates: actual PostgreSQL memberships and credential continuity, operation-fresh recovery evidence, PREPARE only with explicit owner authorization, isolation, post-cutover INVENTORY, and final migration alias verification.
-7. Continue Phase 1B schema, Phase 1C hardening/release, Phase 1D hygiene, then Phase 2 Google readiness. Floot remains Phase 3 only.
+7. Phase 1D documentation drift is closed on the current main checkpoint. Continue Phase 1A IAM/database gates, then Phase 1B schema, Phase 1C hardening/release, then Phase 2 Google readiness. Floot remains Phase 3 only.
 8. While the owner is mobile, perform repository-only work; defer Cloud Shell instructions and all Production mutations.
 
 

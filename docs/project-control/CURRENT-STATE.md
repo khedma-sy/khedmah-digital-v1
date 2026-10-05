@@ -2,24 +2,25 @@
 
 Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation.
 
-## Live reconciliation supplement — 2026-10-05 after PR #256
+## Live reconciliation supplement — 2026-10-05 after PR #259
 
-This supplement supersedes older canonical-WIF-pending wording below while preserving the evidence trail.
+This is the current compact execution checkpoint. Older evidence below is historical and must not override this section.
 
-- Live protected `main` is `84857464bf0293ed496faefad5e171b6a75386b2`, the merge of PR #256.
-- PR #256 added secret-name diagnostics to the Production live-secret IAM validator without reading payloads. Its exact head `3fdc48ffb93ce11a209c295ecb80b06e7eececd3` passed Node CI, Test & Verify, Google readiness, PR Validation, Code Quality, Source Inventory, PR Preview and review-evidence; no review threads were present.
-- Canonical GitHub/WIF proof is complete. The Production runtime environment variable was corrected from historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` to canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`. The subsequent readiness run authenticated successfully through WIF and advanced past the service-account identity tuple checks.
-- The next live blocker is now direct Secret Manager IAM drift, not WIF identity. Owner-supplied read of `DATABASE_URL` shows one `roles/secretmanager.secretAccessor` binding containing both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
-- The canonical source allowlist expects the canonical runtime member only for `DATABASE_URL`. Removing the historical member is a Production IAM mutation and is NOT authorized by this document. Do not remove historical project/service-account/secret bindings merely to make certification pass without explicit operation approval and bounded review.
-- Cloud Shell commands are temporarily deferred while the owner is mobile. Continue repository-only review, CI, documentation and bounded source preparation.
-- Phase order remains strict: complete Phase 1, then Phase 2 Google readiness, then Phase 3 Floot. Do not copy Cloud SQL passwords, Terraform authority, deployer/migrator credentials or unrestricted Google keys to Floot.
-
-
+- Live protected `main` is `308c0aa856943550cb565ab77e299607df1561e6`, the guarded merge of PR #259.
+- PR #258 accepted head `bbac69fd456a157dd0894fcf87f1cf86ed6a9e85` and merged as `b364a67c68e17c38667db652e6a3e7d3884a3b32`; it removed stale execution handoffs.
+- PR #259 accepted head `e15a372c9c6aded9a717a2ff2753a635b6f5e2ec` and merged as `308c0aa856943550cb565ab77e299607df1561e6`; it added the source-derived direct-IAM matrix for all 17 permanent Production secrets.
+- Main post-merge checks are green for build, source inventory, code quality, and test/verification; PR Validation is skipped on push as expected.
+- Canonical GitHub/WIF proof is complete. Do not repeat runtime-variable or WIF diagnosis as pending.
+- The live blocker is Secret Manager direct/effective IAM reconciliation. `DATABASE_MIGRATION_URL` direct IAM matches the reviewed canonical set; `DATABASE_URL` is the first proven drift and contains both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` as accessors.
+- Do not remove historical project/service-account/secret bindings merely to make certification pass. Any Production IAM mutation requires an explicit reviewed operation and owner authorization.
+- Direct IAM, inherited/effective IAM, historical-principal continuity, actual PostgreSQL memberships, credential continuity, operation-fresh recovery evidence, and schema prerequisites remain separate gates.
+- While the owner is mobile, continue repository-only work and defer Cloud Shell instructions and all Production mutations.
+- Phase order remains strict: Phase 1 → Phase 2 Google readiness → Phase 3 Floot. Floot remains the experience layer and must not receive Cloud SQL passwords, Terraform authority, Production deployer/migrator credentials, or unrestricted Google keys.
 
 ## Authority and branch location
 - Repository: `khedma-sy/khedmah-digital-v1`.
 - Production project: `khedma-dl`; approved region: `europe-west1`.
-- Last re-read protected main: `f0f0db84bff584edb4b7cd18a16a5833ef004c2c`, the guarded merge of PR #257. PR #257 consolidated the live handoff after #256; its exact head `a2f262b02e97169cfb4774b1d2a87bdc65eefc49` passed Node CI and Test & Verify, and PR Preview passed after a single isolated review-evidence retry. The first attempt was 71/72 because `restaurants/small-mobile/light` failed at `full_page_prepare`; the retry passed without application/source changes. Current main push checks for build, source inventory, code quality and tests are green; PR Validation is skipped as expected on push.
+- Last re-read protected main: `308c0aa856943550cb565ab77e299607df1561e6`, the guarded merge of PR #259. PR #258 and #259 are merged; their accepted heads and purpose are recorded above. Main build, source inventory, code quality, and test/verification push checks are green; PR Validation is skipped as expected on push.
 - The control documents and mapped contracts entered main with #249. The earlier missing-file/404 observation applied to `a2a26f8...`; it is no longer the current main state. The `AGENTS.md` entry point remains [the live roadmap checkpoint](../../ROADMAP-EXECUTION-2026-09-08.md).
 - MC-01 is merged through #251; MC-04 decoder/dependency/runner work is merged through #252; live-secret alignment is merged through #253; and the bounded MC-04 429 presentation follow-up is merged through #254. Preserve each accepted head's independent evidence and limits.
 - Main `b7b6d0aa...` Node CI [37273043005](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37273043005) and Test & Verify [37273043048](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/37273043048) succeeded on their own SHA. All four substantive push checks passed; PR Validation was skipped as expected for push.

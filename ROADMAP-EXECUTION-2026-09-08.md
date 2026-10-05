@@ -1,30 +1,27 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## نقطة الاستئناف الحية — 2026-10-05 بعد #257
+## نقطة الاستئناف الحية — 2026-10-05 بعد #259
 
-- `main` الحي هو `f0f0db84bff584edb4b7cd18a16a5833ef004c2c` بعد دمج PR #257.
-- اكتمل إثبات GitHub/WIF للحسابات canonical، وتم تصحيح `OPERATIONS_RUNTIME_SERVICE_ACCOUNT` إلى `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
-- انتقل العائق من الهوية إلى **Secret Manager direct IAM drift**.
-- القراءة الحية لـ `DATABASE_URL` أثبتت أن binding `roles/secretmanager.secretAccessor` يحتوي الحساب التاريخي `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` والحساب canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` معًا.
-- المصدر canonical يتوقع الحساب الجديد فقط على هذا السر. حذف الحساب التاريخي هو تغيير Production IAM ولا يتم بدون تفويض صريح ومراجعة محددة للعملية.
+- `main` الحي هو `308c0aa856943550cb565ab77e299607df1561e6` بعد دمج PR #259.
+- PR #258 أغلق handoffات التوثيق القديمة، وPR #259 أضاف مصفوفة canonical للـ IAM المباشر لجميع أسرار Production الدائمة وعددها 17.
+- اكتمل إثبات GitHub/WIF للحسابات canonical؛ العائق الحي الحالي هو **Secret Manager direct/effective IAM reconciliation**.
+- القراءة الحية لـ `DATABASE_MIGRATION_URL` تطابق الـdirect bindings المتوقعة، بينما `DATABASE_URL` ما زال يثبت drift: حساب runtime التاريخي `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` والحساب canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` موجودان معًا في `roles/secretmanager.secretAccessor`.
+- لا حذف أو تغيير لأي binding تاريخي قبل إثبات الاستمرارية/الاستخدام ومراجعة مجموعة drift كاملة؛ أي Production IAM mutation يحتاج تفويضًا صريحًا خاصًا بالعملية.
 - أثناء متابعة المالك من الهاتف: تستمر أعمال GitHub/CI/التوثيق فقط، وتؤجل أوامر Cloud Shell وأي Production mutation.
-- ترتيب المراحل غير قابل للتجاوز: Phase 1 → Phase 2 Google readiness → Phase 3 Floot. Floot طبقة تجربة، وليس بديلاً لقاعدة البيانات أو IAM أو Secret Manager.
-
+- ترتيب المراحل: Phase 1 → Phase 2 Google readiness → Phase 3 Floot. تجهيز Floot لا يبرر تجاوز IAM/Database/Recovery gates.
 
 ## نقطة الاستئناف الحية — المصدر الوحيد لتسليم التنفيذ
 
-### Live checkpoint — 2026-10-05 after PR #257 and direct Secret Manager IAM read
+### Live checkpoint — 2026-10-05 after PR #259
 
-- Protected `main` is `f0f0db84bff584edb4b7cd18a16a5833ef004c2c`, the guarded merge of PR #257.
-- PR #256 accepted head: `3fdc48ffb93ce11a209c295ecb80b06e7eececd3`; PR #257 accepted head: `a2f262b02e97169cfb4774b1d2a87bdc65eefc49`.
-- Exact-head evidence for #256: Node.js CI run `37316553492` SUCCESS; Test & Verify `37316553688` SUCCESS; Google production readiness `37316553722` SUCCESS for PR validation scope; PR Preview `37316553723` SUCCESS. Exact-head evidence for #257: Node.js CI `37321863369` SUCCESS; Test & Verify `37321863361` SUCCESS; PR Preview `37321863214` SUCCESS after one isolated `review-evidence` retry; the first attempt failed only `restaurants/small-mobile/light` at `full_page_prepare` with 71/72, while Classifieds acceptance itself passed 200/200/200 and the retry succeeded without source changes.
-- `scripts/validate-production-live-secret-certification.sh` now reports the failing secret name on exact direct-IAM allowlist mismatch; `tests/google-production-readiness-live-certification.test.mjs` requires that diagnostic.
-- Canonical GitHub/WIF identity proof is complete. The protected runtime environment variable is canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`; the post-fix readiness path authenticated successfully through WIF and advanced past service-account identity checks.
-- The next live blocker is **Secret Manager direct IAM drift**. Owner-supplied read of `DATABASE_URL` showed one `roles/secretmanager.secretAccessor` binding containing both historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
-- Canonical source expects only the canonical runtime member on `DATABASE_URL`. Removing the historical member is a Production IAM mutation and requires explicit owner authorization plus a reviewed operation-specific change.
-- Preserve backup/PITR/post-restart manifest evidence already recorded below. Re-establish operation-specific freshness immediately before mutation.
-- While the owner is mobile, continue repository-only work and defer Cloud Shell instructions.
-- Phase order remains strict: Phase 1 → Phase 2 Google readiness → Phase 3 Floot.
+- Protected `main` is `308c0aa856943550cb565ab77e299607df1561e6`, the guarded merge of PR #259.
+- PR #258 accepted head `bbac69fd456a157dd0894fcf87f1cf86ed6a9e85` and merged as `b364a67c68e17c38667db652e6a3e7d3884a3b32`; it removed stale execution handoffs.
+- PR #259 accepted head `e15a372c9c6aded9a717a2ff2753a635b6f5e2ec` and merged as `308c0aa856943550cb565ab77e299607df1561e6`; it records the source-derived direct-IAM allowlist for all 17 permanent Production secrets and the bounded read-only evidence required before any IAM change.
+- Canonical GitHub/WIF proof is complete. Do not restart that diagnosis as a pending gate.
+- Current live IAM evidence: `DATABASE_MIGRATION_URL` direct IAM matches the reviewed canonical set; `DATABASE_URL` contains both historical and canonical runtime accessors and remains the first proven direct-IAM drift.
+- Direct IAM, inherited/effective IAM, historical-principal continuity, actual PostgreSQL memberships, credential continuity, operation-fresh recovery evidence and schema prerequisites remain distinct gates.
+- Phase 1D documentation drift is closed only when this roadmap, `CURRENT-STATE.md`, `MASTER-EXECUTION-PLAN.md`, and `NEXT-ACTION.md` all point to this same checkpoint.
+- While the owner is mobile, continue repository-only work and defer Cloud Shell instructions and all Production mutations.
 
 ### Archived prior live checkpoint — PR #254
 
