@@ -21,7 +21,7 @@
 - All three Codex review threads on #261 are resolved and outdated.
 - There are no open PRs at this checkpoint.
 - The repository is ready for the consolidated Google Cloud **read-only** audit command. Do not convert that readiness into approval for IAM, Secret Manager, Cloud SQL, DNS, Terraform state or Production deployment changes.
-- The merge commit's separate push-status contexts were not exposed by the connector in this review; do not invent post-merge CI evidence. The accepted PR-head source gates above are the current verified CI evidence.
+- Post-merge checks on `main=7c58277ac04450f9eb5fb48c04c435d070443b56` are independently green for `build (24.x)`, `Run Tests & Verification (24.x)`, `Source inventory (read-only)`, and `Code Quality Checks`; `PR Validation` is skipped on push as expected.
 - The next live evidence task is to run the merged read-only audit from Cloud Shell, review all 17 secret records, and then decide whether any drift requires a separately reviewed operation. No mutation is pre-authorized.
 
 ### Archived prior live checkpoint — PR #254
