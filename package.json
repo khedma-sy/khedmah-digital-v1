@@ -48,6 +48,8 @@
     "qs": "6.16.0",
     "postcss": "8.5.24",
     "multer": "2.4.0",
-    "@grpc/grpc-js": "1.14.5"
+    "@grpc/grpc-js": "1.14.5",
+    "proxy-addr": "2.0.8",
+    "source-map-js": "1.2.2"
   }
 }
