@@ -116,7 +116,7 @@ jobs:
           for ref in "${REFS[@]}"; do
             [[ "$ref" == https://*/* ]] || { echo "Invalid Maps referrer: $ref" >&2; exit 1; }
           done
-          REFERRERS_JSON="$(printf '%s\n' "${REFS[@]}" | jq -R . | jq -s .)"
+          REFERRERS_JSON="$(printf '%s\n' "${REFS[@]}" | jq -R . | jq -cs .)"
           echo "referrers_json=$REFERRERS_JSON" >> "$GITHUB_OUTPUT"
           echo "canonical_ref=$CANONICAL_REF" >> "$GITHUB_OUTPUT"
           echo "cloud_run_ref=$CLOUD_RUN_REF" >> "$GITHUB_OUTPUT"
