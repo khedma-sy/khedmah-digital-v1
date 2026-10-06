@@ -44,6 +44,8 @@ test('client Maps plan is manual, exact-main and checks canonical plus Cloud Run
   assert.match(plan, /NEXT_PUBLIC_SITE_URL/);
   assert.match(plan, /PROJECT_NUMBER/);
   assert.match(plan, /\.run\.app\/\*/);
+  assert.ok(plan.includes('jq -R . | jq -cs .'));
+  assert.ok(!plan.includes('jq -s .'));
   assert.match(plan, /client-maps\.tfplan/);
   assert.match(plan, /sha256sum client-maps\.tfplan metadata\.json/);
   assert.match(plan, /index\("delete"\)/);
