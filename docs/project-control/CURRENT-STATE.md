@@ -1,5 +1,13 @@
 # Khedmah Digital — Current State
 
+## Live repository checkpoint — 2026-10-06 after PR #261
+
+- Protected `main` is `7c58277ac04450f9eb5fb48c04c435d070443b56`, the guarded merge of PR #261.
+- PR #261 adds the read-only Secret Manager IAM audit for all 17 permanent Production secrets. Exact main push checks are green for build, tests/verification, source inventory and code quality; PR Validation is skipped on push as expected.
+- No pull requests are open at this checkpoint. Superseded issues #121 and #168 are closed; issue #199 remains the cloud/Production execution tracker.
+- Repository closure now also requires the Floot/Google integration gate: one consistent domain, browser-session, OAuth/Firebase, Maps, CORS/CSRF and secret-boundary contract across GitHub, Google Cloud, Cloudflare and Floot.
+- The next cloud operation remains a bounded read-only audit. No Production mutation is authorized by repository readiness.
+
 Updated: 2026-10-05. This is a dated evidence checkpoint, not permission to execute a Production operation.
 
 ## Live reconciliation supplement — 2026-10-05 after PR #259
