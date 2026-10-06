@@ -3,6 +3,12 @@
 ## Objective
 Finish the existing GitHub/Google Cloud Production path first, prepare Google services for the next application layer, migrate the user experience to Floot without moving Production database/infrastructure secrets, and then complete final product, AI, SEO, quality, and launch work in Floot.
 
+## Live repository checkpoint — 2026-10-06 after PR #261
+- Protected `main` is `7c58277ac04450f9eb5fb48c04c435d070443b56` after merged PR #261.
+- PR #261 adds the bounded read-only audit for all 17 permanent Production secrets; main build, tests/verification, source inventory, and code quality checks are green.
+- Repository closure now includes the [Floot/Google integration gate](FLOOT-GOOGLE-INTEGRATION-GATE.md) so GitHub, Google Cloud, Cloudflare and Floot use one domain/auth/config contract before cloud execution and later cutover.
+- No Production mutation is authorized by repository readiness.
+
 ## Governing architecture
 - GitHub: source of truth, code review, CI/CD, infrastructure definitions, production evidence.
 - Google Cloud: backend, Cloud SQL, IAM/WIF, Secret Manager, storage, runtime infrastructure.
@@ -20,7 +26,7 @@ Exit criteria:
 
 ## Phase 1 — Complete GitHub + Production database path
 ### 1A Database role cutover gates
-- Current source prerequisites: PRs #249 through #259 are merged; live main is `308c0aa856943550cb565ab77e299607df1561e6` with green build/source-inventory/code-quality/test push checks. Canonical GitHub/WIF identity proof is complete and the protected runtime service-account value is canonical. PR #259 records the direct-IAM allowlist for all 17 permanent Production secrets. The controlling Phase 1A blocker is Secret Manager direct/effective IAM reconciliation: `DATABASE_MIGRATION_URL` matches the reviewed canonical direct policy, while `DATABASE_URL` is proven to contain both the historical missing-`h` runtime and canonical runtime in its direct `roles/secretmanager.secretAccessor` binding. Do not remove historical IAM solely to satisfy certification. Resume [reconciliation](PRODUCTION-RECONCILIATION.md) from the direct/effective Secret Manager IAM gate, following [NEXT-ACTION.md](NEXT-ACTION.md).
+- Current source prerequisites: PRs #249 through #261 are merged; live main is `7c58277ac04450f9eb5fb48c04c435d070443b56`. Canonical GitHub/WIF identity proof is complete. PR #259 records the direct-IAM allowlist for all 17 permanent Production secrets and PR #261 adds the read-only audit for the complete direct/effective Secret Manager evidence set. Resume [reconciliation](PRODUCTION-RECONCILIATION.md) by running that read-only audit and reviewing any drift before any separately authorized mutation, following [NEXT-ACTION.md](NEXT-ACTION.md).
 - Reconfirm current main.
 - Preserve the completed selected-execution manifest review: 47 canonical records, independently recomputed digest and current protected-value match. Revalidate only as required by subsequent changes or the intended operation's freshness needs.
 - Preserve the three reviewed direct migration-secret bindings, returned project IAM and both matching custom-role definitions. Complete remaining role/effective-IAM reconciliation, including historical project-level secret access, actual usage and retirement requirements. Validator implementation `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f`, with 59 passing local cases and two completed independent reviews, is merged through #253 with its source gates complete. These metadata/source checks alone do not establish effective access.
@@ -62,7 +68,7 @@ Exit criteria:
 Exit criteria: Google services are ready for `khedmah.uk`, the Floot frontend, and the existing backend without weakening current IAM.
 
 Workstreams:
-- Domain architecture: `khedmah.uk`, `www.khedmah.uk`, `api.khedmah.uk`; optional `admin`/`media` only when needed.
+- Domain architecture: `khedmah.uk`, `www.khedmah.uk`, `api.khedmah.uk`; optional `admin`/`media` only when needed. Enforce the Floot/Google integration gate before changing CORS, cookies, OAuth/Firebase authorized domains or Maps restrictions.
 - Cloudflare DNS plan with staged cutover and rollback.
 - Google OAuth branding, authorized origins, redirect URIs, privacy/terms/support URLs.
 - Firebase web configuration and authorized domains.
