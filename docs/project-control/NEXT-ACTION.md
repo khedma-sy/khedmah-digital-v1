@@ -1,19 +1,16 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-05 after PR #259. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
+Snapshot: 2026-10-06 after PR #261. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
 
-## Execute next — reconcile direct Secret Manager IAM drift
+## Execute next — close repository integration gate, then run the consolidated read-only cloud audit
 
-1. Treat live `main` `308c0aa856943550cb565ab77e299607df1561e6` and merged PRs #256–#259 as the current source checkpoint. Main build, source inventory, code quality, and test/verification push checks are green.
-2. Canonical GitHub/WIF proof is complete. Do not repeat runtime-variable or canonical-WIF diagnosis as pending.
-3. The first live direct-IAM mismatch is `DATABASE_URL`: its `roles/secretmanager.secretAccessor` binding contains both the historical runtime `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` and canonical runtime `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
-4. Before any IAM mutation, review the historical runtime's required continuity/usage and the complete secret-level drift set. Do not remove historical bindings solely to satisfy the validator.
-5. Any removal/change to Production Secret Manager IAM requires explicit owner authorization and an operation-specific reviewed command/change.
-6. After direct/effective secret IAM is reconciled and re-certified, resume Phase 1A gates: actual PostgreSQL memberships and credential continuity, operation-fresh recovery evidence, PREPARE only with explicit owner authorization, isolation, post-cutover INVENTORY, and final migration alias verification.
-7. Phase 1D documentation drift is closed on the current main checkpoint. Continue Phase 1A IAM/database gates, then Phase 1B schema, Phase 1C hardening/release, then Phase 2 Google readiness. Floot remains Phase 3 only.
-8. While the owner is mobile, perform repository-only work; defer Cloud Shell instructions and all Production mutations.
-
-
+1. Treat protected `main` `7c58277ac04450f9eb5fb48c04c435d070443b56` and merged PRs #249–#261 as the source checkpoint.
+2. Merge the synchronized repository-control/integration change only after its own Node, Test & Verify, Preview and review gates pass.
+3. Enforce [FLOOT-GOOGLE-INTEGRATION-GATE.md](FLOOT-GOOGLE-INTEGRATION-GATE.md): GitHub remains source/release authority, Google Cloud owns backend/data/infra, Cloudflare owns DNS, and Floot is the accepted experience layer.
+4. After repository closure, run the merged `scripts/audit-production-secret-iam-readonly.sh` from Cloud Shell to collect the 17-secret direct/effective IAM evidence set. Do not read secret payloads and do not mutate cloud resources.
+5. Review any historical-principal drift and continuity before proposing a separate operation. Do not remove a binding merely to satisfy a validator.
+6. Any IAM/Secret Manager/SQL/DNS/Terraform/deployment mutation requires operation-specific review and explicit owner authorization.
+7. Continue Phase 1A database/recovery gates, Phase 1B schema, Phase 1C hardening/release, Phase 2 Google readiness, then Phase 3 Floot. Do not skip directly to Floot because repository CI is green.
 
 ## Why a workflow dispatch is not the next read-only command
 
