@@ -24,6 +24,8 @@ This is an experience-layer migration, not a database or infrastructure replacem
 ## API-first rule
 Every migrated screen must map to an existing or explicitly approved API contract before implementation.
 
+The cross-platform release boundary is governed by [the Floot/Google integration gate](../project-control/FLOOT-GOOGLE-INTEGRATION-GATE.md). It must be green before custom-domain cutover or Production browser-session acceptance.
+
 Reviewed source maps: [authentication](AUTH-API-CONTRACT.md), [errors/profile/Operations access](ERROR-PROFILE-ACCESS-CONTRACT.md), [discovery](DISCOVERY-API-CONTRACT.md), [food/cart/order entry](FOOD-CART-ORDER-CONTRACT.md), [fulfillment](FULFILLMENT-LIFECYCLE-CONTRACT.md), and [media/Classifieds ownership and moderation](MEDIA-CLASSIFIEDS-CONTRACT.md). Each map retains its pinned-source and validation limits. [The acceptance backlog](IMPLEMENTATION-ACCEPTANCE-BACKLOG.md) keeps unresolved findings separate from completed mapping; no live integration is certified by these documents.
 
 Required mapping fields:
@@ -76,6 +78,8 @@ Custom domain only after acceptance:
 - `khedmah.uk` / `www.khedmah.uk` → Floot.
 - `api.khedmah.uk` → Google Cloud production backend.
 Cloudflare remains DNS authority.
+
+Floot-hosted preview is a separate browser origin and is **not** automatically equivalent to the final same-site custom-domain topology. Production CORS/CSRF or cookie policy must not be widened merely to make a Floot preview work. Preview acceptance must use a bounded test origin/session or an approved adapter/proxy, then the final `khedmah.uk` / `api.khedmah.uk` topology must be tested again.
 
 ## Launch philosophy
 No big-bang rewrite. Migrate by bounded module, keep backend contracts stable, and retain a rollback path until the new frontend is accepted.
