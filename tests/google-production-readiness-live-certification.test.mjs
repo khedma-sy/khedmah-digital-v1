@@ -157,7 +157,9 @@ case "$*" in
     test -f "$root/policies/$5.json"
     case "$5" in
       GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY)
-        test ! -f "$root/deferred-version-$5"
+        if test -f "$root/deferred-version-$5"; then
+          printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$5"
+        fi
         ;;
       *) exit 99 ;;
     esac ;;
