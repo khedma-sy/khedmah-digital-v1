@@ -52,7 +52,7 @@ test('live certification pins exact distinct Terraform-created service accounts'
   assert.match(script, /sort -u/);
 });
 
-test('live certification fails closed when inherited Secret Manager access is found or cannot be proven', async () => {
+test('live certification fails closed except for the bounded human project-Owner break-glass path', async () => {
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud projects get-ancestors/);
   assert.match(script, /gcloud asset analyze-iam-policy/);
@@ -70,7 +70,10 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
-  assert.ok(script.includes("attachedResourceFullName != $resource"));
+  assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
+  assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
+  assert.match(script, /startswith\("user:"\)/);
+  assert.match(script, /human project-Owner break-glass exception/);
   assert.match(script, /refusing certification/);
 });
 
