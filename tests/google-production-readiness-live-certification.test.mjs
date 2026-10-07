@@ -69,7 +69,7 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.doesNotMatch(script, /for scope in "\$\{scopes\[@\]\}"/);
   assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
-  assert.match(script, /type == "array"/);
+  assert.match(script, /nonCriticalErrors/);\n  assert.match(script, /--show-response/);
   assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
   assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
@@ -114,15 +114,16 @@ function canonicalMetadata() {
   return {
     role: { name: aliasRoleName, stage: 'GA', includedPermissions: [...aliasPermissions] },
     policies,
-    analysis: Object.fromEntries(allSecrets.map((name) => [name, [{
-      fullyExplored: true,
-      attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`
-    }, {
-      fullyExplored: true,
-      attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
-      iamBinding: { role: 'roles/owner', members: ['user:break-glass@example.com'] },
-      identityList: { identities: [{ name: 'user:break-glass@example.com' }] }
-    }]]))
+    analysis: Object.fromEntries(allSecrets.map((name) => [name, {
+      fullyExplored: true, mainAnalysis: { fullyExplored: true, nonCriticalErrors: [], analysisResults: [{
+        fullyExplored: true, attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`
+      }, {
+        fullyExplored: true,
+        attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
+        iamBinding: { role: 'roles/owner', members: ['user:break-glass@example.com'] },
+        identityList: { identities: [{ name: 'user:break-glass@example.com' }] }
+      }] }
+    }]))
   };
 }
 
@@ -168,7 +169,7 @@ case "$*" in
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
-  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --format=json")
+  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
     test "$#" -eq 9
     name="\${4#--full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/}"
     cat "$root/analysis/$name.json" ;;
@@ -247,7 +248,7 @@ for (const [name, mutate, expectedError] of [
   ['public allAuthenticatedUsers', (m) => m.policies.DATABASE_MIGRATION_URL.bindings[2].members.push('allAuthenticatedUsers'), /public IAM principal/],
   ['conditional alias binding', (m) => { m.policies.DATABASE_MIGRATION_URL.bindings[2].condition = { title: 'fixture', expression: 'true' }; }, /Conditional Secret Manager IAM/],
   ['project-inherited non-owner payload permission', (m) => {
-    m.analysis.DATABASE_MIGRATION_URL.push({
+    m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.analysisResults.push({
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/secretmanager.secretAccessor', members: ['user:other@example.com'] },
@@ -255,14 +256,14 @@ for (const [name, mutate, expectedError] of [
     });
   }, /exceeds the human project-Owner break-glass exception/],
   ['project Owner group payload permission', (m) => {
-    m.analysis.DATABASE_MIGRATION_URL[1] = {
+    m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.analysisResults[1] = {
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/owner', members: ['group:admins@example.com'] },
       identityList: { identities: [{ name: 'group:admins@example.com' }] }
     };
   }, /exceeds the human project-Owner break-glass exception/],
-  ['incomplete effective IAM analysis', (m) => { m.analysis.DATABASE_MIGRATION_URL[0].fullyExplored = false; }, /IAM analysis was incomplete/]
+  ['incomplete effective IAM analysis', (m) => { m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.fullyExplored = false; }, /IAM analysis was incomplete/]
 ]) {
   test(`offline certification rejects ${name} without weakening other secret gates`, async () => {
     const result = await certify(mutate);
