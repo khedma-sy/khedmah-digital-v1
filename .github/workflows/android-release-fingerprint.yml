@@ -1,0 +1,62 @@
+name: Android Release Fingerprint
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-release-fingerprint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprint:
+    name: Extract protected Android release certificate fingerprint
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Reconstruct protected release keystore
+        shell: bash
+        env:
+          ANDROID_RELEASE_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_RELEASE_KEYSTORE_B64:-}"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/khedmah-release.keystore"
+          chmod 600 "$RUNNER_TEMP/khedmah-release.keystore"
+          test -s "$RUNNER_TEMP/khedmah-release.keystore"
+
+      - name: Print release certificate SHA-1 and SHA-256 only
+        shell: bash
+        env:
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_RELEASE_KEY_ALIAS:-}"
+          test -n "${ANDROID_RELEASE_KEYSTORE_PASSWORD:-}"
+
+          CERT_OUTPUT="$(
+            keytool -list -v               -keystore "$RUNNER_TEMP/khedmah-release.keystore"               -alias "$ANDROID_RELEASE_KEY_ALIAS"               -storepass:env ANDROID_RELEASE_KEYSTORE_PASSWORD
+          )"
+
+          SHA1="$(sed -n 's/^[[:space:]]*SHA1: //p' <<<"$CERT_OUTPUT" | head -n1 | tr '[:lower:]' '[:upper:]')"
+          SHA256="$(sed -n 's/^[[:space:]]*SHA256: //p' <<<"$CERT_OUTPUT" | head -n1 | tr '[:lower:]' '[:upper:]')"
+
+          [[ "$SHA1" =~ ^([0-9A-F]{2}:){19}[0-9A-F]{2}$ ]]
+          [[ "$SHA256" =~ ^([0-9A-F]{2}:){31}[0-9A-F]{2}$ ]]
+
+          printf 'ANDROID_RELEASE_SHA1=%s\n' "$SHA1"
+          printf 'ANDROID_RELEASE_SHA256=%s\n' "$SHA256"
+
+      - name: Remove reconstructed keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/khedmah-release.keystore"

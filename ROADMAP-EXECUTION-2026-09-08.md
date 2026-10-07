@@ -1,5 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-07 / PR #270 Android Release Fingerprint
+
+- **المصدر:** `main=b012412230ed003cbc444250c967ead61e06b08e`. PR #270 على الفرع `chore/android-release-fingerprint`، ورأس التنفيذ الحالي `111cb31af6f831a17a8aa3b1711db23ff3db78bb`.
+- **الإصلاح المنفذ:** أضيف `.github/workflows/android-release-fingerprint.yml` كـworkflow محمي ببيئة `production` لإعادة بناء release keystore مؤقتًا من الأسرار المحمية واستخراج **SHA-1** و**SHA-256** لشهادة الإصدار فقط. لا يطبع keystore أو alias أو كلمات مرور أو API keys، ويحذف الملف المؤقت في خطوة `always()`. يعمل يدويًا ويعمل تلقائيًا عند دخوله إلى `main` لأول مرة عبر path trigger للملف نفسه.
+- **الدليل على الرأس الحالي:** نجحت `PR Validation` و`Run Tests & Verification (24.x)` و`Code Quality Checks` و`quality-gates` و`Source inventory (read-only)` و`build (24.x)` و`deploy-preview` و`resolve-staging-baseline`. أعيد `review-evidence` بعد إلغاء أول محاولة أثناء browser capture، ثم نجح في المحاولة التالية مع Preview readiness=passed وBrowser capture=success وClassifieds acceptance=success وMobile interactions=32/32.
+- **مراجعة Codex:** الملاحظة المفتوحة الوحيدة طلبت تحديث هذا checkpoint نفسه قبل الدمج؛ هذا التحديث هو معالجة تلك الملاحظة. لا توجد ملاحظة كود أخرى معروفة على الرأس الحالي.
+- **العائق المتبقي:** لا يوجد فشل CI معروف. الدمج محجوب فقط حتى يصبح هذا checkpoint على رأس PR الجديد، تعاد checks المطلوبة على الرأس الجديد، ويُحل review thread الخاص بهذه الملاحظة.
+- **الخطوة التالية الوحيدة:** بعد نجاح checks على رأس هذا التحديث وحل thread، ادمج PR #270 وفق branch protection. بعد الدمج راقب تشغيل `Android Release Fingerprint` على `main`؛ استخرج من log فقط `ANDROID_RELEASE_SHA1` و`ANDROID_RELEASE_SHA256`. استخدم SHA-1 الحقيقي مع package `com.khedmah.digital` لتقييد Android Maps key. لا تنشئ SHA افتراضيًا ولا debug key، ولا تنفذ أي Secret/API-key mutation قبل مراجعة البصمة الناتجة.
+- **الملفات ذات الصلة:** `.github/workflows/android-release-fingerprint.yml`، `.github/workflows/android-release-certification.yml`، `apps/android/app/build.gradle.kts`، و`ROADMAP-EXECUTION-2026-09-08.md`.
+
+
 ## نقطة الاستئناف الحية — 2026-10-06 بعد Maps Apply وPR #264
 
 - **المصدر الحالي:** `main=a384bf43e6bcfb0fc4d6dfdb480babd6b8f674c2` بعد PR #263. Maps Plan run `37459560853` نجح، وMaps Apply run `37460506967` نجح على SHA نفسه.
