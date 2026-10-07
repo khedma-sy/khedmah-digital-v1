@@ -52,7 +52,7 @@ test('live certification pins exact distinct Terraform-created service accounts'
   assert.match(script, /sort -u/);
 });
 
-test('live certification fails closed when inherited Secret Manager access is found or cannot be proven', async () => {
+test('live certification fails closed except for the bounded human project-Owner break-glass path', async () => {
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud projects get-ancestors/);
   assert.match(script, /gcloud asset analyze-iam-policy/);
@@ -70,7 +70,10 @@ test('live certification fails closed when inherited Secret Manager access is fo
   assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
-  assert.ok(script.includes("attachedResourceFullName != $resource"));
+  assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
+  assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
+  assert.match(script, /startswith\("user:"\)/);
+  assert.match(script, /human project-Owner break-glass exception/);
   assert.match(script, /refusing certification/);
 });
 
@@ -114,6 +117,11 @@ function canonicalMetadata() {
     analysis: Object.fromEntries(allSecrets.map((name) => [name, {
       fullyExplored: true, mainAnalysis: { fullyExplored: true, nonCriticalErrors: [], analysisResults: [{
         fullyExplored: true, attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`
+      }, {
+        fullyExplored: true,
+        attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
+        iamBinding: { role: 'roles/owner', members: ['user:break-glass@example.com'] },
+        identityList: { identities: [{ name: 'user:break-glass@example.com' }] }
       }] }
     }]))
   };
@@ -145,7 +153,19 @@ case "$*" in
   "secrets versions describe latest --secret "*" --project ${fixtureProject} --format=value(state)")
     test "$#" -eq 9
     test -f "$root/policies/$6.json"
+    case "$6" in GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY) exit 98 ;; esac
     printf '%s\\n' ENABLED ;;
+  "secrets versions list --secret "*" --project ${fixtureProject} --format=value(name)")
+    test "$#" -eq 8
+    test -f "$root/policies/$5.json"
+    case "$5" in
+      GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY)
+        if test -f "$root/deferred-version-$5"; then
+          printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$5"
+        fi
+        ;;
+      *) exit 99 ;;
+    esac ;;
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
@@ -167,6 +187,7 @@ async function certify(mutate = () => {}) {
     await writeFile(join(directory, 'calls'), '');
     await writeFile(join(directory, 'role.json'), metadata.rawRole ?? JSON.stringify(metadata.role));
     if (metadata.roleReadFailure) await writeFile(join(directory, 'role-read-failure'), '');
+    if (metadata.deferredVersion) await writeFile(join(directory, `deferred-version-${metadata.deferredVersion}`), '');
     for (const name of allSecrets) {
       await writeFile(join(directory, `policies/${name}.json`), JSON.stringify(metadata.policies[name]));
       await writeFile(join(directory, `analysis/${name}.json`), JSON.stringify(metadata.analysis[name]));
@@ -192,6 +213,9 @@ test('offline certification accepts the canonical three-binding migration policy
   const result = await certify();
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
+  assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=15/);
+  assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
+  assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
   assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
   assert.equal(result.calls.filter((call) => call.startsWith('asset analyze-iam-policy ')).length, 17);
@@ -207,6 +231,8 @@ for (const stage of [undefined, 'ALPHA', 'BETA', 'DEPRECATED', 'EAP']) {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
+  assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=15/);
+  assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
   });
 }
 
@@ -221,9 +247,22 @@ for (const [name, mutate, expectedError] of [
   ['public allUsers', (m) => m.policies.DATABASE_MIGRATION_URL.bindings[2].members.push('allUsers'), /public IAM principal/],
   ['public allAuthenticatedUsers', (m) => m.policies.DATABASE_MIGRATION_URL.bindings[2].members.push('allAuthenticatedUsers'), /public IAM principal/],
   ['conditional alias binding', (m) => { m.policies.DATABASE_MIGRATION_URL.bindings[2].condition = { title: 'fixture', expression: 'true' }; }, /Conditional Secret Manager IAM/],
-  ['project-inherited payload permission', (m) => {
-    m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.analysisResults.push({ fullyExplored: true, attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}` });
-  }, /binding grants inherited Secret Manager payload access/],
+  ['project-inherited non-owner payload permission', (m) => {
+    m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.analysisResults.push({
+      fullyExplored: true,
+      attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
+      iamBinding: { role: 'roles/secretmanager.secretAccessor', members: ['user:other@example.com'] },
+      identityList: { identities: [{ name: 'user:other@example.com' }] }
+    });
+  }, /exceeds the human project-Owner break-glass exception/],
+  ['project Owner group payload permission', (m) => {
+    m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.analysisResults[1] = {
+      fullyExplored: true,
+      attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
+      iamBinding: { role: 'roles/owner', members: ['group:admins@example.com'] },
+      identityList: { identities: [{ name: 'group:admins@example.com' }] }
+    };
+  }, /exceeds the human project-Owner break-glass exception/],
   ['incomplete effective IAM analysis', (m) => { m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.fullyExplored = false; }, /IAM analysis was incomplete/]
 ]) {
   test(`offline certification rejects ${name} without weakening other secret gates`, async () => {
@@ -233,6 +272,13 @@ for (const [name, mutate, expectedError] of [
     assert.doesNotMatch(result.stdout, /READY:/);
   });
 }
+
+test('offline certification rejects an unexpected deferred Maps secret version', async () => {
+  const result = await certify((metadata) => { metadata.deferredVersion = 'GOOGLE_MAPS_SERVER_API_KEY'; });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Deferred Production secret GOOGLE_MAPS_SERVER_API_KEY unexpectedly has a version/);
+  assert.doesNotMatch(result.stdout, /READY:/);
+});
 
 for (const [name, mutate] of [
   ['missing role name', (m) => { delete m.role.name; }],

@@ -4,6 +4,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+const deferredMapsVariables = new Set([
+  'GOOGLE_MAPS_ANDROID_API_KEY',
+  'GOOGLE_MAPS_ANDROID_SHA1',
+  'GOOGLE_MAPS_SERVER_API_KEY',
+]);
 
 test('production readiness injects every required Google and identity value', async () => {
   const [workflow, contract] = await Promise.all([
@@ -12,7 +17,7 @@ test('production readiness injects every required Google and identity value', as
   ]);
   const required = [...contract.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)]
     .map((match) => match[1])
-    .filter((name) => name !== 'GOOGLE_APPLICATION_CREDENTIALS');
+    .filter((name) => name !== 'GOOGLE_APPLICATION_CREDENTIALS' && !deferredMapsVariables.has(name));
   const gate = workflow.split('- name: Block release unless all production values are injected')[1]
     ?.split('        run: |')[0] ?? '';
   const webBuild = workflow.split('- name: Build Web with protected Firebase configuration')[1]
@@ -28,7 +33,7 @@ test('production readiness injects every required Google and identity value', as
   assert.match(webBuild, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: \$\{\{ secrets\.GOOGLE_MAPS_BROWSER_API_KEY \}\}/);
 });
 
-test('production configuration accepts only the approved media location', async () => {
+test('production configuration accepts only the approved media location and permits documented deferred Maps values', async () => {
   const contract = await read('.env.production');
   const names = [...contract.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)].map((match) => match[1]);
   const productionEnv = Object.fromEntries(
@@ -42,6 +47,15 @@ test('production configuration accepts only the approved media location', async 
     ['scripts/validate-google-config.mjs', '--production'],
     { encoding: 'utf8', env: productionEnv },
   ));
+
+  const withoutDeferredMaps = { ...productionEnv };
+  for (const name of deferredMapsVariables) delete withoutDeferredMaps[name];
+  assert.doesNotThrow(() => execFileSync(
+    process.execPath,
+    ['scripts/validate-google-config.mjs', '--production'],
+    { encoding: 'utf8', env: withoutDeferredMaps },
+  ));
+
   assert.throws(
     () => execFileSync(
       process.execPath,

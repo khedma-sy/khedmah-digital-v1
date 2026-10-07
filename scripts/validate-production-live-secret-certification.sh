@@ -116,6 +116,11 @@ permanent_secret_names=(
   DATABASE_MIGRATION_URL
 )
 
+deferred_secret_names=(
+  GOOGLE_MAPS_ANDROID_API_KEY
+  GOOGLE_MAPS_SERVER_API_KEY
+)
+
 array_contains() {
   local needle="$1"
   shift
@@ -192,11 +197,24 @@ verify_no_inherited_secret_access() {
     echo 'ERROR: Effective Secret Manager IAM analysis was incomplete.' >&2
     return 1
   }
-  if jq -e --arg resource "$resource" '
-    any(.mainAnalysis.analysisResults[]?; .attachedResourceFullName != $resource)
+  local project_resource="//cloudresourcemanager.googleapis.com/projects/$project_number"
+  if ! jq -e --arg resource "$resource" --arg project_resource "$project_resource" '
+    all(.mainAnalysis.analysisResults[]?;
+      if .attachedResourceFullName == $resource then
+        true
+      else
+        .attachedResourceFullName == $project_resource and
+        .iamBinding.role == "roles/owner" and
+        ((.iamBinding.condition? // null) == null) and
+        ((.iamBinding.members // []) | length > 0) and
+        all(.iamBinding.members[]?; (type == "string") and startswith("user:")) and
+        ((.identityList.identities // []) | length > 0) and
+        all(.identityList.identities[]?; (.name | type == "string") and (.name | startswith("user:")))
+      end
+    )
   ' "$analysis_file" >/dev/null; then
     rm -f "$analysis_file"
-    echo 'ERROR: A project, folder or organization binding grants inherited Secret Manager payload access.' >&2
+    echo 'ERROR: Inherited Secret Manager payload access exceeds the human project-Owner break-glass exception.' >&2
     return 1
   fi
   rm -f "$analysis_file"
@@ -204,6 +222,10 @@ verify_no_inherited_secret_access() {
 
 test "${#permanent_secret_names[@]}" -eq 17 || {
   echo 'ERROR: Permanent Secret Manager inventory count drifted from 17.' >&2
+  exit 1
+}
+test "${#deferred_secret_names[@]}" -eq 2 || {
+  echo 'ERROR: Deferred Maps secret inventory count drifted from 2.' >&2
   exit 1
 }
 
@@ -217,11 +239,19 @@ for secret_name in "${permanent_secret_names[@]}"; do
       ;;
   esac
 
-  state="$(gcloud secrets versions describe latest --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
-  test "$state" = ENABLED || {
-    echo 'ERROR: A permanent Production secret has no ENABLED latest version.' >&2
-    exit 1
-  }
+  if array_contains "$secret_name" "${deferred_secret_names[@]}"; then
+    deferred_versions="$(gcloud secrets versions list --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
+    test -z "$deferred_versions" || {
+      printf 'ERROR: Deferred Production secret %s unexpectedly has a version.\n' "$secret_name" >&2
+      exit 1
+    }
+  else
+    state="$(gcloud secrets versions describe latest --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(state)')"
+    test "$state" = ENABLED || {
+      echo 'ERROR: An active Production secret has no ENABLED latest version.' >&2
+      exit 1
+    }
+  fi
 
   policy_json="$(gcloud secrets get-iam-policy "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format=json)"
   jq -e '[.bindings[]?.members[]?] | all(. != "allUsers" and . != "allAuthenticatedUsers")' <<<"$policy_json" >/dev/null || {
@@ -244,6 +274,9 @@ for secret_name in "${permanent_secret_names[@]}"; do
 done
 
 echo "READY: LIVE_SECRET_METADATA_COUNT=${#permanent_secret_names[@]}"
+echo "READY: LIVE_SECRET_ENABLED_VERSION_COUNT=$(("${#permanent_secret_names[@]}" - "${#deferred_secret_names[@]}"))"
+echo "READY: DEFERRED_SECRET_COUNT=${#deferred_secret_names[@]}"
 echo "READY: LIVE_SECRET_PROJECT=$GOOGLE_CLOUD_PROJECT"
+echo 'READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY'
 echo 'READY: SECRET_PAYLOADS_READ=0'
 echo 'NOTE: BOOTSTRAP_ADMIN_SECRET is one-time and is certified separately by Production Bootstrap Admin before mutation.'

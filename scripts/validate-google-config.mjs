@@ -4,7 +4,16 @@ const files = [".env.production", "config/google/google.ts", "config/google/fire
 await Promise.all(files.map(file => readFile(file, "utf8")));
 const contract = await readFile(".env.production", "utf8");
 const names = [...contract.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)].map(match => match[1]);
-const required = names.filter(name => !name.endsWith("_ENABLED") && name !== "GOOGLE_APPLICATION_CREDENTIALS");
+const deferredProductionVariables = new Set([
+  "GOOGLE_MAPS_ANDROID_API_KEY",
+  "GOOGLE_MAPS_ANDROID_SHA1",
+  "GOOGLE_MAPS_SERVER_API_KEY",
+]);
+const required = names.filter(name =>
+  !name.endsWith("_ENABLED") &&
+  name !== "GOOGLE_APPLICATION_CREDENTIALS" &&
+  !(production && deferredProductionVariables.has(name))
+);
 const leaked = contract.split("\n").filter(line => {
   const entry = /^([A-Z][A-Z0-9_]+)=(.+)$/.exec(line);
   if (!entry) return false;

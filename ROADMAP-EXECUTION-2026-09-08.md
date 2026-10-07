@@ -1,6 +1,20 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## نقطة الاستئناف الحية — 2026-10-06 بعد #261
+## نقطة الاستئناف الحية — 2026-10-06 بعد Maps Apply وPR #264
+
+- **المصدر الحالي:** `main=a384bf43e6bcfb0fc4d6dfdb480babd6b8f674c2` بعد PR #263. Maps Plan run `37459560853` نجح، وMaps Apply run `37460506967` نجح على SHA نفسه.
+- **نتيجة Maps الحية:** Terraform Apply أنشأ فقط `khedmah-v1-maps-browser` بنتيجة `1 added, 0 changed, 0 destroyed`. قيمة Browser أضيفت إلى `GOOGLE_MAPS_BROWSER_API_KEY` دون طباعة payload. القراءة اللاحقة أثبتت Browser versions `1` و`2` كلاهما `enabled`، بينما `GOOGLE_MAPS_ANDROID_API_KEY` و`GOOGLE_MAPS_SERVER_API_KEY` بلا أي versions.
+- **قرار النطاق:** Android يبقى مؤجلًا حتى SHA-1 حقيقي لتوقيع الإصدار. Server Maps يبقى بلا key/version لعدم وجود مستهلك خادمي معتمد. لا تُنشأ قيم placeholder ولا debug.
+- **PR #264:** الرأس الحالي `8ee916b0088541649c09e98876d2df23fde78ef2` على `fix/live-secret-certification-deferred-maps-2026-10-06`. يحدّث 4A ليبقي 17 Secret resources تحت الشهادة، يطلب ENABLED versions للأسرار الفعالة فقط، ويُلزم Android/Server المؤجلين بصفر versions، ويقيد inherited payload access باستثناء break-glass ضيق لمستخدم بشري بدور project `roles/owner` فقط.
+- **التحقق على الرأس الحالي:** `PR Validation` و`Code Quality Checks` و`Run Tests & Verification (24.x)` و`build (24.x)` و`Source inventory (read-only)` و`validate-files` و`quality-gates` و`resolve-staging-baseline` نجحت. `production-secret-gate` متخطاة على PR كما هو مصمم. `deploy-preview` كان آخر check جارٍ عند تحديث هذا checkpoint، وليس فشلًا.
+- **مراجعة Codex:** ملاحظة assertion القديمة أُصلحت في `8ee916b...` وحُل thread الخاص بها. الملاحظة الثانية تطلب هذا التحديث نفسه للـcheckpoint؛ بعد دخول هذا commit يجب حل thread المتبقي وإعادة تثبيت حالة checks على الرأس الجديد.
+- **IAM الحي المرصود:** المستخدم البشري `haifawi30@gmail.com` ما زال `roles/owner` على المشروع. لا تُسحب Owner يدويًا ضمن هذا pass. 4A يسمح بها فقط كـhuman project-Owner break-glass ويرفض أي inherited Secret Manager payload access آخر.
+- **لا تغييرات Cloud إضافية في PR #264:** لا Terraform Apply، لا IAM mutation، لا قراءة payload، لا Secret version mutation، ولا Production deployment.
+- **الخطوة التالية الوحيدة:** اترك CI/Preview يثبت الرأس النهائي بعد هذا commit، حل review thread الأخير، ادمج PR #264 وفق branch protection، ثم شغّل `.github/workflows/google-production-readiness.yml` يدويًا على أحدث `main` لتشغيل `production-secret-gate` و4A الحي. لا تعلن Google Cloud مغلقًا إلا إذا أعاد live certification READY مع 17 metadata resources، 15 enabled-version secrets، 2 deferred secrets، `SECRET_PAYLOADS_READ=0`، وعدم وجود inherited access خارج استثناء Owner البشري المحدد.
+
+### نقطة الاستئناف السابقة — بعد #261
+
+### نقطة استئناف سابقة — 2026-10-06 بعد #261
 
 - `main` الحي هو `7c58277ac04450f9eb5fb48c04c435d070443b56` بعد دمج PR #261.
 - PR #260 حدّث نقطة التسليم بعد #259، وPR #261 أضاف أداة تدقيق Secret Manager IAM للقراءة فقط لكل أسرار Production الدائمة وعددها 17.
