@@ -70,8 +70,8 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.doesNotMatch(script, /gcloud asset analyze-iam-policy/);
   assert.match(script, /project_resource_number="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
   assert.match(script, /project_resource_id="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$GOOGLE_CLOUD_PROJECT"/);
-  assert.match(script, /attachedResourceFullName == \$project_resource_number or \.attachedResourceFullName == \$project_resource_id/);
-  assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
+  assert.match(script, /test "\$attached" = "\$project_resource_number" \|\| test "\$attached" = "\$project_resource_id"/);
+  assert.match(script, /test "\$role" = "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
   assert.match(script, /human project-Owner break-glass exception/);
   assert.match(script, /refusing certification/);
@@ -255,7 +255,8 @@ test('offline certification accepts the canonical three-binding migration policy
   assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
   assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
-  assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
+  assert.equal(result.calls.filter((call) => call === 'iam roles describe khedmahDatabaseMigrationAliasManager --project certification-fixture --format=json').length, 1);
+  assert.equal(result.calls.filter((call) => call === 'iam roles describe roles/owner --format=json').length, 17);
   assert.equal(result.calls.filter((call) => call.startsWith('asset get-effective-iam-policy ')).length, 1);
 });
 
