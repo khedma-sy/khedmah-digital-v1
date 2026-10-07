@@ -186,7 +186,7 @@ case "$*" in
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
-  "asset get-effective-iam-policy --scope=projects/${fixtureProject} --names="*" --format=json")
+  "asset get-effective-iam-policy --scope=projects/${fixtureProject} --names=\"*\" --format=json")
     test "$#" -eq 5
     names_csv="\${4#--names=}"
     IFS=',' read -r -a names <<<"$names_csv"
