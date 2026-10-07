@@ -69,7 +69,8 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.doesNotMatch(script, /for scope in "\$\{scopes\[@\]\}"/);
   assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
-  assert.match(script, /nonCriticalErrors/);\n  assert.match(script, /--show-response/);
+  assert.match(script, /nonCriticalErrors/);
+  assert.match(script, /--show-response/);
   assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
   assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
