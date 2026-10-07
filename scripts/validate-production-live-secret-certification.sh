@@ -198,13 +198,14 @@ verify_no_inherited_secret_access() {
     echo 'ERROR: Effective Secret Manager IAM analysis was incomplete.' >&2
     return 1
   }
-  local project_resource="//cloudresourcemanager.googleapis.com/projects/$project_number"
-  if ! jq -e --arg resource "$resource" --arg project_resource "$project_resource" '
+  local project_resource_number="//cloudresourcemanager.googleapis.com/projects/$project_number"
+  local project_resource_id="//cloudresourcemanager.googleapis.com/projects/$GOOGLE_CLOUD_PROJECT"
+  if ! jq -e --arg resource "$resource" --arg project_resource_number "$project_resource_number" --arg project_resource_id "$project_resource_id" '
     all(.mainAnalysis.analysisResults[]?;
       if .attachedResourceFullName == $resource then
         true
       else
-        .attachedResourceFullName == $project_resource and
+        (.attachedResourceFullName == $project_resource_number or .attachedResourceFullName == $project_resource_id) and
         .iamBinding.role == "roles/owner" and
         ((.iamBinding.condition? // null) == null) and
         ((.iamBinding.members // []) | length > 0) and

@@ -71,7 +71,9 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
   assert.match(script, /--show-response/);
-  assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
+  assert.match(script, /project_resource_number="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
+  assert.match(script, /project_resource_id="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$GOOGLE_CLOUD_PROJECT"/);
+  assert.match(script, /attachedResourceFullName == \$project_resource_number or \.attachedResourceFullName == \$project_resource_id/);
   assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
   assert.match(script, /human project-Owner break-glass exception/);
@@ -220,6 +222,17 @@ test('offline certification accepts the canonical three-binding migration policy
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
   assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
   assert.equal(result.calls.filter((call) => call.startsWith('asset analyze-iam-policy ')).length, 17);
+});
+
+test('offline certification accepts Policy Analyzer project-ID form for the human Owner break-glass binding', async () => {
+  const result = await certify((metadata) => {
+    for (const analysis of Object.values(metadata.analysis)) {
+      analysis.mainAnalysis.analysisResults[1].attachedResourceFullName = `//cloudresourcemanager.googleapis.com/projects/${fixtureProject}`;
+    }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
+  assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
 });
 
 for (const stage of [undefined, 'ALPHA', 'BETA', 'DEPRECATED', 'EAP']) {
