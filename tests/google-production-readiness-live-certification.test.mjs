@@ -86,6 +86,8 @@ test('live certification retains exact direct IAM checks and never reads secret 
   assert.ok(script.includes('test "$actual_policy" = "$expected_policy"'));
   assert.match(script, /READY: SECRET_PAYLOADS_READ=0/);
   assert.doesNotMatch(script, /gcloud secrets versions access/);
+  assert.ok(script.includes('gcloud secrets versions list "$secret_name" --project "$GOOGLE_CLOUD_PROJECT"'));
+  assert.doesNotMatch(script, /gcloud secrets versions list --secret/);
 });
 
 const fixtureProject = 'certification-fixture';
@@ -158,13 +160,13 @@ case "$*" in
     test -f "$root/policies/$6.json"
     case "$6" in GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY) exit 98 ;; esac
     printf '%s\\n' ENABLED ;;
-  "secrets versions list --secret "*" --project ${fixtureProject} --format=value(name)")
-    test "$#" -eq 8
-    test -f "$root/policies/$5.json"
-    case "$5" in
+  "secrets versions list "*" --project ${fixtureProject} --format=value(name)")
+    test "$#" -eq 7
+    test -f "$root/policies/$4.json"
+    case "$4" in
       GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY)
         if test -f "$root/deferred-version-$5"; then
-          printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$5"
+          printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$4"
         fi
         ;;
       *) exit 99 ;;
