@@ -1,0 +1,48 @@
+name: One-time refresh Sharp lockfile
+
+on:
+  push:
+    branches:
+      - fix/sharp-cve-2026-96889
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Refresh lockfile from the committed dependency contract
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Refuse unexpected package.json drift
+        run: git diff --exit-code -- package.json
+      - name: Verify the fixed Sharp version is locked
+        run: |
+          node - <<'NODE'
+          const lock = require('./package-lock.json');
+          const version = lock.packages?.['node_modules/sharp']?.version;
+          if (version !== '0.35.5') {
+            throw new Error(`Expected sharp 0.35.5, got ${version || 'missing'}`);
+          }
+          console.log('sharp='+version);
+          NODE
+      - name: Verify reproducible install
+        run: npm ci --ignore-scripts
+      - name: Verify production audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Commit generated lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(git status --short -- package-lock.json)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix(deps): refresh lockfile for sharp 0.35.5"
+          git push origin HEAD:"$GITHUB_REF_NAME"
