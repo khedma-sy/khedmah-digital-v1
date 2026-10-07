@@ -187,11 +187,11 @@ verify_no_inherited_secret_access() {
     echo 'ERROR: Effective Secret Manager IAM analysis failed; refusing certification.' >&2
     return 1
   fi
+  # gcloud flattens AnalyzeIamPolicyResponse.mainAnalysis.analysisResults into
+  # a top-level JSON array. Validate that shape and fail closed on any partial result.
   jq -e '
-    .fullyExplored == true and
-    .mainAnalysis.fullyExplored == true and
-    ((.mainAnalysis.nonCriticalErrors // []) | length == 0) and
-    all(.mainAnalysis.analysisResults[]?; .fullyExplored == true)
+    type == "array" and
+    all(.[]; type == "object" and .fullyExplored == true)
   ' "$analysis_file" >/dev/null || {
     rm -f "$analysis_file"
     echo 'ERROR: Effective Secret Manager IAM analysis was incomplete.' >&2
@@ -199,7 +199,8 @@ verify_no_inherited_secret_access() {
   }
   local project_resource="//cloudresourcemanager.googleapis.com/projects/$project_number"
   if ! jq -e --arg resource "$resource" --arg project_resource "$project_resource" '
-    all(.mainAnalysis.analysisResults[]?;
+    type == "array" and
+    all(.[];
       if .attachedResourceFullName == $resource then
         true
       else
