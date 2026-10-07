@@ -171,7 +171,7 @@ case "$*" in
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
   "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
-    test "$#" -eq 9
+    test "$#" -eq 10
     name="\${4#--full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/}"
     cat "$root/analysis/$name.json" ;;
   *) printf 'FORBIDDEN: %s\\n' "$*" >>"$root/calls"; exit 99 ;;
