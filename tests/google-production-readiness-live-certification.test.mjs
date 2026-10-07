@@ -188,7 +188,7 @@ case "$*" in
     cat "$root/policies/$3.json" ;;
   "asset get-effective-iam-policy --scope=projects/${fixtureProject} --names="*" --format=json")
     test "$#" -eq 5
-    names_csv="${4#--names=}"
+    names_csv="\${4#--names=}"
     IFS=',' read -r -a names <<<"$names_csv"
     test "${#names[@]}" -eq 17
     jq -s '{
