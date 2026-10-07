@@ -165,7 +165,7 @@ case "$*" in
     test -f "$root/policies/$4.json"
     case "$4" in
       GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY)
-        if test -f "$root/deferred-version-$5"; then
+        if test -f "$root/deferred-version-$4"; then
           printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$4"
         fi
         ;;
