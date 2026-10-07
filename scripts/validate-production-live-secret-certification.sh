@@ -242,7 +242,7 @@ for secret_name in "${permanent_secret_names[@]}"; do
   esac
 
   if array_contains "$secret_name" "${deferred_secret_names[@]}"; then
-    deferred_versions="$(gcloud secrets versions list --secret "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
+    deferred_versions="$(gcloud secrets versions list "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
     test -z "$deferred_versions" || {
       printf 'ERROR: Deferred Production secret %s unexpectedly has a version.\n' "$secret_name" >&2
       exit 1
