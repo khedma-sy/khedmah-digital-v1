@@ -56,7 +56,7 @@ test('live certification fails closed except for the bounded human project-Owner
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud projects get-ancestors/);
   assert.match(script, /gcloud asset analyze-iam-policy/);
-  assert.ok(script.includes('--full-resource-name="$resource"'));
+  assert.doesNotMatch(script, /--full-resource-name=/);
   assert.match(script, /--permissions=secretmanager\.versions\.access/);
   assert.match(script, /--expand-roles --expand-resources/);
   assert.doesNotMatch(script, /--expand-groups|--output-group-edges/);
@@ -67,7 +67,7 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.match(script, /folder\) analysis_scope="folder:/);
   assert.equal((script.match(/gcloud asset analyze-iam-policy/g) ?? []).length, 1);
   assert.doesNotMatch(script, /for scope in "\$\{scopes\[@\]\}"/);
-  assert.match(script, /default 20-query daily quota/);
+  assert.match(script, /one Policy Analyzer query instead of 17/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
   assert.match(script, /--show-response/);
@@ -121,12 +121,21 @@ function canonicalMetadata() {
     policies,
     analysis: Object.fromEntries(allSecrets.map((name) => [name, {
       fullyExplored: true, mainAnalysis: { fullyExplored: true, nonCriticalErrors: [], analysisResults: [{
-        fullyExplored: true, attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`
+        fullyExplored: true,
+        attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`,
+        accessControlLists: [{
+          resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}` }],
+          accesses: [{ permission: 'secretmanager.versions.access' }]
+        }]
       }, {
         fullyExplored: true,
         attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
         iamBinding: { role: 'roles/owner', members: ['user:break-glass@example.com'] },
-        identityList: { identities: [{ name: 'user:break-glass@example.com' }] }
+        identityList: { identities: [{ name: 'user:break-glass@example.com' }] },
+        accessControlLists: [{
+          resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}` }],
+          accesses: [{ permission: 'secretmanager.versions.access' }]
+        }]
       }] }
     }]))
   };
@@ -174,10 +183,16 @@ case "$*" in
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
-  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
-    test "$#" -eq 10
-    name="\${4#--full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/}"
-    cat "$root/analysis/$name.json" ;;
+  "asset analyze-iam-policy --project=${fixtureProject} --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
+    test "$#" -eq 9
+    jq -s '{
+      fullyExplored: all(.[]; .fullyExplored == true),
+      mainAnalysis: {
+        fullyExplored: all(.[]; .mainAnalysis.fullyExplored == true),
+        nonCriticalErrors: [.[].mainAnalysis.nonCriticalErrors[]?],
+        analysisResults: [.[].mainAnalysis.analysisResults[]?]
+      }
+    }' "$root"/analysis/*.json ;;
   *) printf 'FORBIDDEN: %s\\n' "$*" >>"$root/calls"; exit 99 ;;
 esac
 `;
@@ -223,7 +238,7 @@ test('offline certification accepts the canonical three-binding migration policy
   assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
   assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
-  assert.equal(result.calls.filter((call) => call.startsWith('asset analyze-iam-policy ')).length, 17);
+  assert.equal(result.calls.filter((call) => call.startsWith('asset analyze-iam-policy ')).length, 1);
 });
 
 test('offline certification accepts Policy Analyzer project-ID form for the human Owner break-glass binding', async () => {
@@ -268,7 +283,11 @@ for (const [name, mutate, expectedError] of [
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/secretmanager.secretAccessor', members: ['user:other@example.com'] },
-      identityList: { identities: [{ name: 'user:other@example.com' }] }
+      identityList: { identities: [{ name: 'user:other@example.com' }] },
+      accessControlLists: [{
+        resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/DATABASE_MIGRATION_URL` }],
+        accesses: [{ permission: 'secretmanager.versions.access' }]
+      }]
     });
   }, /exceeds the human project-Owner break-glass exception/],
   ['project Owner group payload permission', (m) => {
@@ -276,7 +295,11 @@ for (const [name, mutate, expectedError] of [
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/owner', members: ['group:admins@example.com'] },
-      identityList: { identities: [{ name: 'group:admins@example.com' }] }
+      identityList: { identities: [{ name: 'group:admins@example.com' }] },
+      accessControlLists: [{
+        resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/DATABASE_MIGRATION_URL` }],
+        accesses: [{ permission: 'secretmanager.versions.access' }]
+      }]
     };
   }, /exceeds the human project-Owner break-glass exception/],
   ['incomplete effective IAM analysis', (m) => { m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.fullyExplored = false; }, /IAM analysis was incomplete/]
