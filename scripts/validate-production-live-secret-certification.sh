@@ -158,9 +158,9 @@ expected_policy_lines() {
   esac
 }
 
-verify_no_inherited_secret_access() {
-  local secret_name="$1"
-  local resource="//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name"
+effective_access_analysis_file=""
+
+prepare_effective_secret_access_analysis() {
   local scope_type="${analysis_scope%%:*}"
   local scope_id="${analysis_scope#*:}"
   local -a scope_arg
@@ -174,16 +174,16 @@ verify_no_inherited_secret_access() {
       ;;
   esac
 
-  # One query per secret at the highest ancestor covers that secret and its inherited policies.
-  # This keeps the 17-secret certification below Policy Analyzer's default 20-query daily quota.
-  local analysis_file
-  analysis_file="$(mktemp)"
+  effective_access_analysis_file="$(mktemp)"
+  # Query the effective permission once for the whole hierarchy, then certify each
+  # protected secret against the returned resource ACLs. This preserves inherited
+  # access coverage while consuming one Policy Analyzer query instead of 17.
   if ! gcloud asset analyze-iam-policy "${scope_arg[@]}" \
-    --full-resource-name="$resource" \
     --permissions=secretmanager.versions.access \
     --expand-roles --expand-resources \
-    --execution-timeout=60s --show-response --format=json >"$analysis_file"; then
-    rm -f "$analysis_file"
+    --execution-timeout=60s --show-response --format=json >"$effective_access_analysis_file"; then
+    rm -f "$effective_access_analysis_file"
+    effective_access_analysis_file=""
     echo 'ERROR: Effective Secret Manager IAM analysis failed; refusing certification.' >&2
     return 1
   fi
@@ -193,33 +193,48 @@ verify_no_inherited_secret_access() {
     .mainAnalysis.fullyExplored == true and
     ((.mainAnalysis.nonCriticalErrors // []) | length == 0) and
     all(.mainAnalysis.analysisResults[]?; .fullyExplored == true)
-  ' "$analysis_file" >/dev/null || {
-    rm -f "$analysis_file"
+  ' "$effective_access_analysis_file" >/dev/null || {
+    rm -f "$effective_access_analysis_file"
+    effective_access_analysis_file=""
     echo 'ERROR: Effective Secret Manager IAM analysis was incomplete.' >&2
     return 1
   }
+}
+
+verify_no_inherited_secret_access() {
+  local secret_name="$1"
+  local resource="//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name"
   local project_resource_number="//cloudresourcemanager.googleapis.com/projects/$project_number"
   local project_resource_id="//cloudresourcemanager.googleapis.com/projects/$GOOGLE_CLOUD_PROJECT"
+
+  test -n "$effective_access_analysis_file" && test -s "$effective_access_analysis_file" || {
+    echo 'ERROR: Effective Secret Manager IAM analysis is unavailable.' >&2
+    return 1
+  }
+
   if ! jq -e --arg resource "$resource" --arg project_resource_number "$project_resource_number" --arg project_resource_id "$project_resource_id" '
-    all(.mainAnalysis.analysisResults[]?;
-      if .attachedResourceFullName == $resource then
-        true
-      else
-        (.attachedResourceFullName == $project_resource_number or .attachedResourceFullName == $project_resource_id) and
-        .iamBinding.role == "roles/owner" and
-        ((.iamBinding.condition? // null) == null) and
-        ((.iamBinding.members // []) | length > 0) and
-        all(.iamBinding.members[]?; (type == "string") and startswith("user:")) and
-        ((.identityList.identities // []) | length > 0) and
-        all(.identityList.identities[]?; (.name | type == "string") and (.name | startswith("user:")))
-      end
-    )
-  ' "$analysis_file" >/dev/null; then
-    rm -f "$analysis_file"
+    [
+      .mainAnalysis.analysisResults[]?
+      | select(any(.accessControlLists[]?.resources[]?; .fullResourceName == $resource))
+    ] as $relevant
+    | ($relevant | length) > 0 and
+      all($relevant[];
+        if .attachedResourceFullName == $resource then
+          true
+        else
+          (.attachedResourceFullName == $project_resource_number or .attachedResourceFullName == $project_resource_id) and
+          .iamBinding.role == "roles/owner" and
+          ((.iamBinding.condition? // null) == null) and
+          ((.iamBinding.members // []) | length > 0) and
+          all(.iamBinding.members[]?; (type == "string") and startswith("user:")) and
+          ((.identityList.identities // []) | length > 0) and
+          all(.identityList.identities[]?; (.name | type == "string") and (.name | startswith("user:")))
+        end
+      )
+  ' "$effective_access_analysis_file" >/dev/null; then
     echo 'ERROR: Inherited Secret Manager payload access exceeds the human project-Owner break-glass exception.' >&2
     return 1
   fi
-  rm -f "$analysis_file"
 }
 
 test "${#permanent_secret_names[@]}" -eq 17 || {
@@ -230,6 +245,9 @@ test "${#deferred_secret_names[@]}" -eq 2 || {
   echo 'ERROR: Deferred Maps secret inventory count drifted from 2.' >&2
   exit 1
 }
+
+prepare_effective_secret_access_analysis
+trap 'test -z "$effective_access_analysis_file" || rm -f "$effective_access_analysis_file"' EXIT
 
 for secret_name in "${permanent_secret_names[@]}"; do
   resource_name="$(gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
