@@ -182,12 +182,13 @@ verify_no_inherited_secret_access() {
     --full-resource-name="$resource" \
     --permissions=secretmanager.versions.access \
     --expand-roles --expand-resources \
-    --execution-timeout=60s --format=json >"$analysis_file"; then
+    --execution-timeout=60s --show-response --format=json >"$analysis_file"; then
     rm -f "$analysis_file"
     echo 'ERROR: Effective Secret Manager IAM analysis failed; refusing certification.' >&2
     return 1
   fi
   jq -e '
+    type == "object" and
     .fullyExplored == true and
     .mainAnalysis.fullyExplored == true and
     ((.mainAnalysis.nonCriticalErrors // []) | length == 0) and

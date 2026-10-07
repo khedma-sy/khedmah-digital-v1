@@ -70,6 +70,7 @@ test('live certification fails closed except for the bounded human project-Owner
   assert.match(script, /default 20-query daily quota/);
   assert.match(script, /fullyExplored == true/);
   assert.match(script, /nonCriticalErrors/);
+  assert.match(script, /--show-response/);
   assert.match(script, /project_resource="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
   assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
@@ -169,8 +170,8 @@ case "$*" in
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
-  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --format=json")
-    test "$#" -eq 9
+  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
+    test "$#" -eq 10
     name="\${4#--full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/}"
     cat "$root/analysis/$name.json" ;;
   *) printf 'FORBIDDEN: %s\\n' "$*" >>"$root/calls"; exit 99 ;;
