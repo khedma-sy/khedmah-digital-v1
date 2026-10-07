@@ -55,26 +55,23 @@ test('live certification pins exact distinct Terraform-created service accounts'
 test('live certification fails closed except for the bounded human project-Owner break-glass path', async () => {
   const script = await read('scripts/validate-production-live-secret-certification.sh');
   assert.match(script, /gcloud projects get-ancestors/);
-  assert.match(script, /gcloud asset analyze-iam-policy/);
-  assert.ok(script.includes('--full-resource-name="$resource"'));
-  assert.match(script, /--permissions=secretmanager\.versions\.access/);
-  assert.match(script, /--expand-roles --expand-resources/);
-  assert.doesNotMatch(script, /--expand-groups|--output-group-edges/);
-  assert.match(script, /--folder=/);
-  assert.match(script, /--organization=/);
+  assert.match(script, /gcloud asset get-effective-iam-policy/);
+  assert.match(script, /--scope="\$scope_path"/);
+  assert.match(script, /--names="\$names_csv"/);
+  assert.match(script, /protected_resources/);
+  assert.match(script, /Effective IAM resource inventory drifted from 17 protected secrets/);
+  assert.match(script, /policyResults/);
+  assert.match(script, /role_grants_secret_payload_access/);
+  assert.match(script, /secretmanager\.versions\.access/);
   assert.match(script, /analysis_scope="project:\$GOOGLE_CLOUD_PROJECT"/);
   assert.match(script, /organization\) analysis_scope="organization:/);
   assert.match(script, /folder\) analysis_scope="folder:/);
-  assert.equal((script.match(/gcloud asset analyze-iam-policy/g) ?? []).length, 1);
-  assert.doesNotMatch(script, /for scope in "\$\{scopes\[@\]\}"/);
-  assert.match(script, /default 20-query daily quota/);
-  assert.match(script, /fullyExplored == true/);
-  assert.match(script, /nonCriticalErrors/);
-  assert.match(script, /--show-response/);
+  assert.equal((script.match(/gcloud asset get-effective-iam-policy/g) ?? []).length, 1);
+  assert.doesNotMatch(script, /gcloud asset analyze-iam-policy/);
   assert.match(script, /project_resource_number="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$project_number"/);
   assert.match(script, /project_resource_id="\/\/cloudresourcemanager\.googleapis\.com\/projects\/\$GOOGLE_CLOUD_PROJECT"/);
-  assert.match(script, /attachedResourceFullName == \$project_resource_number or \.attachedResourceFullName == \$project_resource_id/);
-  assert.match(script, /\.iamBinding\.role == "roles\/owner"/);
+  assert.match(script, /test "\$attached" = "\$project_resource_number" \|\| test "\$attached" = "\$project_resource_id"/);
+  assert.match(script, /test "\$role" = "roles\/owner"/);
   assert.match(script, /startswith\("user:"\)/);
   assert.match(script, /human project-Owner break-glass exception/);
   assert.match(script, /refusing certification/);
@@ -121,12 +118,21 @@ function canonicalMetadata() {
     policies,
     analysis: Object.fromEntries(allSecrets.map((name) => [name, {
       fullyExplored: true, mainAnalysis: { fullyExplored: true, nonCriticalErrors: [], analysisResults: [{
-        fullyExplored: true, attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`
+        fullyExplored: true,
+        attachedResourceFullName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}`,
+        accessControlLists: [{
+          resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}` }],
+          accesses: [{ permission: 'secretmanager.versions.access' }]
+        }]
       }, {
         fullyExplored: true,
         attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
         iamBinding: { role: 'roles/owner', members: ['user:break-glass@example.com'] },
-        identityList: { identities: [{ name: 'user:break-glass@example.com' }] }
+        identityList: { identities: [{ name: 'user:break-glass@example.com' }] },
+        accessControlLists: [{
+          resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/${name}` }],
+          accesses: [{ permission: 'secretmanager.versions.access' }]
+        }]
       }] }
     }]))
   };
@@ -151,6 +157,12 @@ case "$*" in
   "iam roles describe khedmahDatabaseMigrationAliasManager --project ${fixtureProject} --format=json")
     test ! -f "$root/role-read-failure"
     cat "$root/role.json" ;;
+  "iam roles describe roles/owner --format=json")
+    printf '%s\\n' '{"name":"roles/owner","includedPermissions":["secretmanager.versions.access"]}' ;;
+  "iam roles describe roles/secretmanager.secretAccessor --format=json")
+    printf '%s\\n' '{"name":"roles/secretmanager.secretAccessor","includedPermissions":["secretmanager.versions.access"]}' ;;
+  "iam roles describe roles/editor --format=json")
+    printf '%s\\n' '{"name":"roles/editor","includedPermissions":["resourcemanager.projects.get"]}' ;;
   "secrets describe "*" --project ${fixtureProject} --format=value(name)")
     test "$#" -eq 6
     test -f "$root/policies/$3.json"
@@ -174,10 +186,31 @@ case "$*" in
   "secrets get-iam-policy "*" --project ${fixtureProject} --format=json")
     test "$#" -eq 6
     cat "$root/policies/$3.json" ;;
-  "asset analyze-iam-policy --project=${fixtureProject} --full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/"*" --permissions=secretmanager.versions.access --expand-roles --expand-resources --execution-timeout=60s --show-response --format=json")
-    test "$#" -eq 10
-    name="\${4#--full-resource-name=//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/}"
-    cat "$root/analysis/$name.json" ;;
+  "asset get-effective-iam-policy "*)
+    test "$#" -eq 5
+    names_csv="\${4#--names=}"
+    test "$(tr -cd ',' <<<"$names_csv" | wc -c | tr -d ' ')" -eq 16
+    jq -s '{
+      policyResults: [
+        .[] |
+        .mainAnalysis.analysisResults as $results |
+        {
+          fullResourceName: ($results[0].accessControlLists[0].resources[0].fullResourceName),
+          policies: [
+            $results[] |
+            select(.iamBinding != null) |
+            {
+              attachedResource: .attachedResourceFullName,
+              policy: {bindings: [{
+                role: .iamBinding.role,
+                members: (.iamBinding.members // []),
+                condition: (.iamBinding.condition // null)
+              }]}
+            }
+          ]
+        }
+      ]
+    }' "$root"/analysis/*.json ;;
   *) printf 'FORBIDDEN: %s\\n' "$*" >>"$root/calls"; exit 99 ;;
 esac
 `;
@@ -195,7 +228,7 @@ async function certify(mutate = () => {}) {
     if (metadata.deferredVersion) await writeFile(join(directory, `deferred-version-${metadata.deferredVersion}`), '');
     for (const name of allSecrets) {
       await writeFile(join(directory, `policies/${name}.json`), JSON.stringify(metadata.policies[name]));
-      await writeFile(join(directory, `analysis/${name}.json`), JSON.stringify(metadata.analysis[name]));
+      if (metadata.analysis[name]) await writeFile(join(directory, `analysis/${name}.json`), JSON.stringify(metadata.analysis[name]));
     }
     const result = spawnSync('/bin/bash', ['--noprofile', '--norc', fileURLToPath(new URL('../scripts/validate-production-live-secret-certification.sh', import.meta.url))], {
       encoding: 'utf8', timeout: 10000,
@@ -222,8 +255,9 @@ test('offline certification accepts the canonical three-binding migration policy
   assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
   assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
-  assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
-  assert.equal(result.calls.filter((call) => call.startsWith('asset analyze-iam-policy ')).length, 17);
+  assert.equal(result.calls.filter((call) => call === 'iam roles describe khedmahDatabaseMigrationAliasManager --project certification-fixture --format=json').length, 1);
+  assert.equal(result.calls.filter((call) => call === 'iam roles describe roles/owner --format=json').length, 17);
+  assert.equal(result.calls.filter((call) => call.startsWith('asset get-effective-iam-policy ')).length, 1);
 });
 
 test('offline certification accepts Policy Analyzer project-ID form for the human Owner break-glass binding', async () => {
@@ -268,7 +302,11 @@ for (const [name, mutate, expectedError] of [
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/secretmanager.secretAccessor', members: ['user:other@example.com'] },
-      identityList: { identities: [{ name: 'user:other@example.com' }] }
+      identityList: { identities: [{ name: 'user:other@example.com' }] },
+      accessControlLists: [{
+        resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/DATABASE_MIGRATION_URL` }],
+        accesses: [{ permission: 'secretmanager.versions.access' }]
+      }]
     });
   }, /exceeds the human project-Owner break-glass exception/],
   ['project Owner group payload permission', (m) => {
@@ -276,10 +314,14 @@ for (const [name, mutate, expectedError] of [
       fullyExplored: true,
       attachedResourceFullName: `//cloudresourcemanager.googleapis.com/projects/${fixtureProjectNumber}`,
       iamBinding: { role: 'roles/owner', members: ['group:admins@example.com'] },
-      identityList: { identities: [{ name: 'group:admins@example.com' }] }
+      identityList: { identities: [{ name: 'group:admins@example.com' }] },
+      accessControlLists: [{
+        resources: [{ fullResourceName: `//secretmanager.googleapis.com/projects/${fixtureProjectNumber}/secrets/DATABASE_MIGRATION_URL` }],
+        accesses: [{ permission: 'secretmanager.versions.access' }]
+      }]
     };
   }, /exceeds the human project-Owner break-glass exception/],
-  ['incomplete effective IAM analysis', (m) => { m.analysis.DATABASE_MIGRATION_URL.mainAnalysis.fullyExplored = false; }, /IAM analysis was incomplete/]
+  ['missing protected effective IAM result', (m) => { delete m.analysis.DATABASE_MIGRATION_URL; }, /Effective Secret Manager IAM batch was incomplete or duplicated/]
 ]) {
   test(`offline certification rejects ${name} without weakening other secret gates`, async () => {
     const result = await certify(mutate);

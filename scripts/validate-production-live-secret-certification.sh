@@ -158,68 +158,136 @@ expected_policy_lines() {
   esac
 }
 
-verify_no_inherited_secret_access() {
-  local secret_name="$1"
-  local resource="//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name"
+effective_iam_policy_file=""
+
+prepare_effective_secret_iam_policies() {
   local scope_type="${analysis_scope%%:*}"
   local scope_id="${analysis_scope#*:}"
-  local -a scope_arg
+  local scope_path
   case "$scope_type" in
-    project) scope_arg=(--project="$scope_id") ;;
-    folder) scope_arg=(--folder="$scope_id") ;;
-    organization) scope_arg=(--organization="$scope_id") ;;
+    project) scope_path="projects/$scope_id" ;;
+    folder) scope_path="folders/$scope_id" ;;
+    organization) scope_path="organizations/$scope_id" ;;
     *)
       echo 'ERROR: Could not establish a supported IAM ancestor scope.' >&2
       return 1
       ;;
   esac
 
-  # One query per secret at the highest ancestor covers that secret and its inherited policies.
-  # This keeps the 17-secret certification below Policy Analyzer's default 20-query daily quota.
-  local analysis_file
-  analysis_file="$(mktemp)"
-  if ! gcloud asset analyze-iam-policy "${scope_arg[@]}" \
-    --full-resource-name="$resource" \
-    --permissions=secretmanager.versions.access \
-    --expand-roles --expand-resources \
-    --execution-timeout=60s --show-response --format=json >"$analysis_file"; then
-    rm -f "$analysis_file"
-    echo 'ERROR: Effective Secret Manager IAM analysis failed; refusing certification.' >&2
-    return 1
-  fi
-  jq -e '
-    type == "object" and
-    .fullyExplored == true and
-    .mainAnalysis.fullyExplored == true and
-    ((.mainAnalysis.nonCriticalErrors // []) | length == 0) and
-    all(.mainAnalysis.analysisResults[]?; .fullyExplored == true)
-  ' "$analysis_file" >/dev/null || {
-    rm -f "$analysis_file"
-    echo 'ERROR: Effective Secret Manager IAM analysis was incomplete.' >&2
+  local resource
+  local -a protected_resources=()
+  for secret_name in "${permanent_secret_names[@]}"; do
+    protected_resources+=("//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name")
+  done
+  test "${#protected_resources[@]}" -eq 17 || {
+    echo 'ERROR: Effective IAM resource inventory drifted from 17 protected secrets.' >&2
     return 1
   }
-  local project_resource_number="//cloudresourcemanager.googleapis.com/projects/$project_number"
-  local project_resource_id="//cloudresourcemanager.googleapis.com/projects/$GOOGLE_CLOUD_PROJECT"
-  if ! jq -e --arg resource "$resource" --arg project_resource_number "$project_resource_number" --arg project_resource_id "$project_resource_id" '
-    all(.mainAnalysis.analysisResults[]?;
-      if .attachedResourceFullName == $resource then
-        true
-      else
-        (.attachedResourceFullName == $project_resource_number or .attachedResourceFullName == $project_resource_id) and
-        .iamBinding.role == "roles/owner" and
-        ((.iamBinding.condition? // null) == null) and
-        ((.iamBinding.members // []) | length > 0) and
-        all(.iamBinding.members[]?; (type == "string") and startswith("user:")) and
-        ((.identityList.identities // []) | length > 0) and
-        all(.identityList.identities[]?; (.name | type == "string") and (.name | startswith("user:")))
-      end
-    )
-  ' "$analysis_file" >/dev/null; then
-    rm -f "$analysis_file"
-    echo 'ERROR: Inherited Secret Manager payload access exceeds the human project-Owner break-glass exception.' >&2
+
+  local names_csv
+  names_csv="$(IFS=,; printf '%s' "${protected_resources[*]}")"
+  effective_iam_policy_file="$(mktemp)"
+  if ! gcloud asset get-effective-iam-policy \
+    --scope="$scope_path" \
+    --names="$names_csv" \
+    --format=json >"$effective_iam_policy_file"; then
+    rm -f "$effective_iam_policy_file"
+    effective_iam_policy_file=""
+    echo 'ERROR: Effective Secret Manager IAM batch lookup failed; refusing certification.' >&2
     return 1
   fi
-  rm -f "$analysis_file"
+
+  jq -e --argjson expected 17 '
+    type == "object" and
+    (.policyResults | type == "array") and
+    (.policyResults | length) == $expected and
+    ([.policyResults[].fullResourceName] | unique | length) == $expected
+  ' "$effective_iam_policy_file" >/dev/null || {
+    rm -f "$effective_iam_policy_file"
+    effective_iam_policy_file=""
+    echo 'ERROR: Effective Secret Manager IAM batch was incomplete or duplicated.' >&2
+    return 1
+  }
+}
+
+role_grants_secret_payload_access() {
+  local role="$1"
+  local role_json
+  case "$role" in
+    roles/*)
+      role_json="$(gcloud iam roles describe "$role" --format=json)" || return 2
+      ;;
+    projects/*/roles/*)
+      local role_project role_id
+      role_project="${role#projects/}"
+      role_project="${role_project%%/roles/*}"
+      role_id="${role##*/roles/}"
+      role_json="$(gcloud iam roles describe "$role_id" --project "$role_project" --format=json)" || return 2
+      ;;
+    organizations/*/roles/*)
+      local role_org role_id
+      role_org="${role#organizations/}"
+      role_org="${role_org%%/roles/*}"
+      role_id="${role##*/roles/}"
+      role_json="$(gcloud iam roles describe "$role_id" --organization "$role_org" --format=json)" || return 2
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+  jq -e '.includedPermissions // [] | index("secretmanager.versions.access") != null' <<<"$role_json" >/dev/null
+}
+
+verify_no_inherited_secret_access() {
+  local secret_name="$1"
+  local resource="//secretmanager.googleapis.com/projects/$project_number/secrets/$secret_name"
+  local project_resource_number="//cloudresourcemanager.googleapis.com/projects/$project_number"
+  local project_resource_id="//cloudresourcemanager.googleapis.com/projects/$GOOGLE_CLOUD_PROJECT"
+
+  test -n "$effective_iam_policy_file" && test -s "$effective_iam_policy_file" || {
+    echo 'ERROR: Effective Secret Manager IAM batch is unavailable.' >&2
+    return 1
+  }
+
+  local row attached role condition_json members_json
+  while IFS=$'\t' read -r attached role condition_json members_json; do
+    test -n "$role" || continue
+    if ! role_grants_secret_payload_access "$role"; then
+      status=$?
+      if test "$status" -eq 2; then
+        echo 'ERROR: Could not resolve an inherited IAM role while certifying Secret Manager payload access.' >&2
+        return 1
+      fi
+      continue
+    fi
+
+    if test "$attached" = "$project_resource_number" || test "$attached" = "$project_resource_id"; then
+      if test "$role" = "roles/owner" &&
+         test "$condition_json" = "null" &&
+         jq -e 'type == "array" and length > 0 and all(.[]; (type == "string") and startswith("user:"))' <<<"$members_json" >/dev/null; then
+        continue
+      fi
+    fi
+
+    echo 'ERROR: Inherited Secret Manager payload access exceeds the human project-Owner break-glass exception.' >&2
+    return 1
+  done < <(
+    jq -r --arg resource "$resource" '
+      .policyResults[]
+      | select(.fullResourceName == $resource)
+      | .policies[]?
+      | select(.attachedResource != $resource)
+      | .attachedResource as $attached
+      | .policy.bindings[]?
+      | [$attached, .role, ((.condition // null) | tojson), ((.members // []) | tojson)]
+      | @tsv
+    ' "$effective_iam_policy_file"
+  )
+
+  jq -e --arg resource "$resource" 'any(.policyResults[]; .fullResourceName == $resource)' "$effective_iam_policy_file" >/dev/null || {
+    echo 'ERROR: Effective IAM batch omitted a protected Secret Manager resource.' >&2
+    return 1
+  }
 }
 
 test "${#permanent_secret_names[@]}" -eq 17 || {
@@ -230,6 +298,9 @@ test "${#deferred_secret_names[@]}" -eq 2 || {
   echo 'ERROR: Deferred Maps secret inventory count drifted from 2.' >&2
   exit 1
 }
+
+prepare_effective_secret_iam_policies
+trap 'test -z "$effective_iam_policy_file" || rm -f "$effective_iam_policy_file"' EXIT
 
 for secret_name in "${permanent_secret_names[@]}"; do
   resource_name="$(gcloud secrets describe "$secret_name" --project "$GOOGLE_CLOUD_PROJECT" --format='value(name)')"
