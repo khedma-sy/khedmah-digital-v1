@@ -1,5 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-08 / PR #271 Media State Diagnostics
+
+- **المصدر الحي قبل هذا التحديث:** protected `main=04d415593e9c5d436b9c06baf457bd1996e18af5` بعد دمج PR #270. بصمة Android release اكتملت؛ لا تعدّ Android fingerprint خطوة معلقة.
+- **Production Operator evidence:** التشغيل اليدوي `Production Operator - New Account #70` بوضع `VERIFY_ONLY` على نفس `main` وصل إلى Google/Firebase/operations readiness ثم فشل فقط عند `ERROR: Media bucket IAM is public or missing the runtime objectAdmin binding.` وتم تخطي deploy؛ لم يحدث Production deployment.
+- **Terraform media evidence:** `Terraform Media State Handoff #6` بوضع `VERIFY_ONLY` فشل داخل فحص legacy root state من دون تشخيص يحدد أي عنوان media مفقود. التشغيل `#8` بوضع `VERIFY_EMPTY_ROOT` أثبت `ERROR: ROOT_STATE_ALREADY_EXISTS`، لذلك root state موجود ولا يجوز معاملته كحساب جديد فارغ.
+- **PR #271:** الفرع `fix/media-state-verify-diagnostics-2026-10-08` يضيف تشخيصًا read-only/fail-closed يفرق بين غياب `google_storage_bucket.media` وغياب `google_storage_bucket_iam_member.runtime_media_objects` ويطبع فقط lineage/serial sanitised metadata. لا يضيف apply/import/state-rm/IAM/deployment.
+- **الدليل قبل مزامنة checkpoint:** implementation head `b75471dbc38be0e6aa7fca3723875950c220f3bf` اجتاز Node.js CI وKhedmah - Test & Verify وPR Preview، لكن Codex طلب تحديث checkpoint الحي قبل الدمج. أي commit أحدث لهذا التحديث يجب أن يعيد بوابات الرأس نفسه.
+- **العائق الحالي:** هوية ownership للـmedia داخل authoritative root state غير محسومة بعد؛ لا نعرف بعد هل root state يفتقد bucket address أو IAM address. لا يجوز تنفيذ `HANDOFF_STATE` أو Terraform plan/apply/import أو IAM mutation قبل تشخيص `VERIFY_ONLY` على workflow المحدث ومراجعة النتيجة.
+- **الخطوة التالية الوحيدة:** بعد نجاح checks والمراجعة على رأس PR #271 ودمجه حسب branch protection، أعد تشغيل `Terraform Media State Handoff` على أحدث `main` بوضع `VERIFY_ONLY`. استخدم التشخيص الناتج لتحديد العملية التالية، ثم راجعها منفصلة قبل أي Production mutation.
+- **المرحلة:** الترتيب يبقى Phase 1 → Phase 2 Google readiness → Phase 3 Floot. لا يُشغّل `DEPLOY_PRODUCTION` قبل إغلاق media state/readiness وباقي البوابات المحددة في مستندات التحكم.
+
 ## نقطة الاستئناف الحية — 2026-10-07 / PR #270 Android Release Fingerprint
 
 - **المصدر:** `main=b012412230ed003cbc444250c967ead61e06b08e`. PR #270 على الفرع `chore/android-release-fingerprint`، ورأس التنفيذ الحالي `111cb31af6f831a17a8aa3b1711db23ff3db78bb`.
