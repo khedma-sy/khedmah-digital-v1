@@ -228,11 +228,27 @@ jobs:
 
           lineage="$(jq -er '.lineage' "$state_file")"
           serial="$(jq -er '.serial' "$state_file")"
-          mapfile -t addresses < <(terraform -chdir=infra/iac state list | LC_ALL=C sort)
+          address_file="$(mktemp)"
+          if ! terraform -chdir=infra/iac state list | LC_ALL=C sort >"$address_file"; then
+            echo "ERROR: ROOT_STATE_ADDRESS_INVENTORY_FAILED" >&2
+            echo "INFO: ROOT_STATE_LINEAGE=$lineage ROOT_STATE_SERIAL=$serial" >&2
+            rm -f "$address_file"
+            exit 1
+          fi
+          mapfile -t addresses <"$address_file"
+          rm -f "$address_file"
           bucket_address='google_storage_bucket.media'
           iam_address='google_storage_bucket_iam_member.runtime_media_objects'
-          printf '%s\n' "${addresses[@]}" | grep -Fx "$bucket_address" >/dev/null
-          printf '%s\n' "${addresses[@]}" | grep -Fx "$iam_address" >/dev/null
+          if ! printf '%s\n' "${addresses[@]}" | grep -Fx "$bucket_address" >/dev/null; then
+            echo "ERROR: ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING" >&2
+            echo "INFO: ROOT_STATE_LINEAGE=$lineage ROOT_STATE_SERIAL=$serial" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "${addresses[@]}" | grep -Fx "$iam_address" >/dev/null; then
+            echo "ERROR: ROOT_STATE_MEDIA_IAM_ADDRESS_MISSING" >&2
+            echo "INFO: ROOT_STATE_LINEAGE=$lineage ROOT_STATE_SERIAL=$serial" >&2
+            exit 1
+          fi
 
           if [[ "$MODE" == HANDOFF_STATE ]]; then
             test "$CONFIRMATION" = HANDOFF_MEDIA_STATE

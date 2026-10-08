@@ -1,5 +1,25 @@
 # Next Safe Action — Khedmah
 
+Snapshot: 2026-10-08 / PR #271 media-state diagnostics. Re-read exact latest `main`, PR head, review threads, and run status before acting. This is not Production mutation approval.
+
+## Execute next — merge the diagnostic repair, then re-run read-only media-state verification
+
+1. Current protected `main` before PR #271 is `04d415593e9c5d436b9c06baf457bd1996e18af5`. Android release fingerprint work is complete.
+2. PR #271 exists only to make the legacy media-state verifier actionable while remaining read-only/fail-closed. Its implementation head `b75471dbc38be0e6aa7fca3723875950c220f3bf` passed Node.js CI, Test & Verify and PR Preview before the required checkpoint update.
+3. Let the updated PR #271 head pass its own required checks and review. Merge it only under normal branch protection.
+4. After merge, run `Terraform Media State Handoff` on exact latest `main` with `VERIFY_ONLY`. Do not use `VERIFY_EMPTY_ROOT`: run #8 already proved `ROOT_STATE_ALREADY_EXISTS`.
+5. Read the explicit diagnostic and branch on the exact outcome:
+   - If `ROOT_STATE_ADDRESS_INVENTORY_FAILED` appears, stop. Diagnose and repair the read/backend/auth failure, then rerun `VERIFY_ONLY`. Do not choose or execute any state operation from an invalid inventory.
+   - If `ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING` appears after a valid inventory, record that exact blocker for separate review.
+   - If `ROOT_STATE_MEDIA_IAM_ADDRESS_MISSING` appears after a valid inventory, record that exact blocker for separate review.
+   - If neither missing-address marker appears and verification succeeds, preserve the returned state identity as the reviewed evidence for the next gate.
+6. Stop and review the operation required by the valid result. `HANDOFF_STATE`, Terraform plan/apply/import/state removal, IAM changes, deployment, SQL, DNS and secret mutations remain separate approval gates.
+7. Production Operator `VERIFY_ONLY` run #70 is not green: it is blocked at the media bucket IAM readiness gate. Do not run `DEPLOY_PRODUCTION` until this media ownership/readiness blocker and the remaining release gates are closed.
+8. Preserve the phase order: Phase 1A database/recovery → Phase 1B schema → Phase 1C hardening/release → Phase 2 Google readiness/deployment → Phase 3 Floot.
+
+
+## Historical next-action record
+
 Snapshot: 2026-10-06 after PR #261. Re-read live refs and run status before acting. This is an execution dependency, not Production mutation approval.
 
 ## Execute next — close repository integration gate, then run the consolidated read-only cloud audit

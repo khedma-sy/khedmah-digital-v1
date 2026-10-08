@@ -1,5 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-08 / PR #271 Media State Diagnostics
+
+- **المصدر الحي قبل هذا التحديث:** protected `main=04d415593e9c5d436b9c06baf457bd1996e18af5` بعد دمج PR #270. بصمة Android release اكتملت؛ لا تعدّ Android fingerprint خطوة معلقة.
+- **Production Operator evidence:** التشغيل اليدوي `Production Operator - New Account #70` بوضع `VERIFY_ONLY` على نفس `main` وصل إلى Google/Firebase/operations readiness ثم فشل فقط عند `ERROR: Media bucket IAM is public or missing the runtime objectAdmin binding.` وتم تخطي deploy؛ لم يحدث Production deployment.
+- **Terraform media evidence:** `Terraform Media State Handoff #6` بوضع `VERIFY_ONLY` فشل داخل فحص legacy root state من دون تشخيص يحدد أي عنوان media مفقود. التشغيل `#8` بوضع `VERIFY_EMPTY_ROOT` أثبت `ERROR: ROOT_STATE_ALREADY_EXISTS`، لذلك root state موجود ولا يجوز معاملته كحساب جديد فارغ.
+- **PR #271:** الفرع `fix/media-state-verify-diagnostics-2026-10-08` يضيف تشخيصًا read-only/fail-closed يفرق بين غياب `google_storage_bucket.media` وغياب `google_storage_bucket_iam_member.runtime_media_objects` ويطبع فقط lineage/serial sanitised metadata. بعد ملاحظة Codex P1 على الرأس `28fd79f7...`، عولج خطر تصنيف فشل `terraform state list` كعنوان مفقود: رأس الإصلاح `f6b32b45c24e31c518ea77125fe71e7fb23a7fb0` يتحقق من نجاح inventory أولًا ويستخدم `ROOT_STATE_ADDRESS_INVENTORY_FAILED` عند فشل الأمر. لا يضيف apply/import/state-rm/IAM/deployment.
+- **الدليل قبل مزامنة checkpoint:** الرأس السابق `28fd79f7bd3b4239eeba1322982e1138cf7bf543` اجتاز Node.js CI وKhedmah - Test & Verify وPR Preview. Codex كشف ثغرة fail-closed في inventory وتم إصلاحها في `f6b32b45...`; فحوص هذا الرأس بدأت من جديد. أي commit أحدث ناتج عن مزامنة هذا checkpoint يجب أن يعيد بوابات الرأس نفسه ومراجعة Codex قبل الدمج.
+- **العائق الحالي:** هوية ownership للـmedia داخل authoritative root state غير محسومة بعد. للتشخيص ثلاث نتائج معتبرة: (1) `ROOT_STATE_ADDRESS_INVENTORY_FAILED` وتعني أن قراءة inventory نفسها غير موثوقة ويجب إصلاح مسار القراءة/المصادقة/backend ثم إعادة `VERIFY_ONLY` من دون اختيار أي عملية state؛ (2) `ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING`؛ (3) `ROOT_STATE_MEDIA_IAM_ADDRESS_MISSING`. لا يجوز تنفيذ `HANDOFF_STATE` أو Terraform plan/apply/import أو IAM mutation قبل نتيجة inventory صالحة ومراجعة العملية الناتجة.
+- **الخطوة التالية الوحيدة:** بعد نجاح checks والمراجعة على رأس PR #271 ودمجه حسب branch protection، أعد تشغيل `Terraform Media State Handoff` على أحدث `main` بوضع `VERIFY_ONLY`. إذا ظهر `ROOT_STATE_ADDRESS_INVENTORY_FAILED` فتوقف وأصلح سبب فشل القراءة ثم أعد `VERIFY_ONLY`; لا تختَر أي state operation. فقط عند نجاح inventory استخدم marker العنوان المفقود، إن وجد، لتحديد عملية منفصلة ومراجعتها قبل أي Production mutation.
+- **المرحلة:** الترتيب يبقى Phase 1 → Phase 2 Google readiness → Phase 3 Floot. لا يُشغّل `DEPLOY_PRODUCTION` قبل إغلاق media state/readiness وباقي البوابات المحددة في مستندات التحكم.
+
 ## نقطة الاستئناف الحية — 2026-10-07 / PR #270 Android Release Fingerprint
 
 - **المصدر:** `main=b012412230ed003cbc444250c967ead61e06b08e`. PR #270 على الفرع `chore/android-release-fingerprint`، ورأس التنفيذ الحالي `111cb31af6f831a17a8aa3b1711db23ff3db78bb`.
