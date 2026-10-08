@@ -38,6 +38,12 @@ test('handoff verifies protected root state and exact reviewed state identity', 
   assert.match(workflow, /test \"\$bucket_name\" = \"\$iam_bucket\"/);
 });
 
+test('verify-only reports which legacy media address is missing with state identity', () => {
+  assert.match(workflow, /ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING/);
+  assert.match(workflow, /ROOT_STATE_MEDIA_IAM_ADDRESS_MISSING/);
+  assert.match(workflow, /ROOT_STATE_LINEAGE=\$lineage ROOT_STATE_SERIAL=\$serial/);
+});
+
 test('fresh account verifies an absent root state instead of manufacturing an empty state', () => {
   assert.match(workflow, /VERIFY_EMPTY_ROOT/);
   assert.match(workflow, /ROOT_STATE_ALREADY_EXISTS/);
