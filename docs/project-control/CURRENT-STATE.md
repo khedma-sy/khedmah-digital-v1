@@ -1,5 +1,16 @@
 # Khedmah Digital — Current State
 
+## Live repository checkpoint — 2026-10-08 / PR #271 media-state diagnostics
+
+- Protected `main` before PR #271 is `04d415593e9c5d436b9c06baf457bd1996e18af5`, the merge of PR #270. Android release fingerprint extraction is complete and is no longer the next action.
+- Production Operator - New Account run #70 used `VERIFY_ONLY` on that exact main. Protected variables, region, WIF authentication, Google/Firebase/operations validation and preceding readiness checks passed; the run failed at the media bucket gate with `Media bucket IAM is public or missing the runtime objectAdmin binding`. Deploy was skipped.
+- Terraform Media State Handoff run #6 used `VERIFY_ONLY` and failed inside legacy root-state verification without an actionable missing-address marker. Run #8 used `VERIFY_EMPTY_ROOT` and returned `ROOT_STATE_ALREADY_EXISTS`, proving that the authoritative root-state object exists and must not be treated as absent.
+- PR #271 adds read-only fail-closed diagnostics for the two legacy media addresses. Its implementation head before this checkpoint sync was `b75471dbc38be0e6aa7fca3723875950c220f3bf`; Node.js CI, Khedmah - Test & Verify, and PR Preview succeeded on that head. Codex then required this live checkpoint update, so the newer documentation head must receive its own checks before merge.
+- No Production mutation is authorized by these results. In particular: no `HANDOFF_STATE`, Terraform apply/import/state removal, IAM change, deployment, SQL mutation, DNS change, or secret payload read should occur until the updated `VERIFY_ONLY` identifies the exact media-state mismatch and that operation is separately reviewed.
+- Next safe action after PR #271 merges: run Terraform Media State Handoff `VERIFY_ONLY` on exact latest `main`; use its explicit missing-address diagnostic to choose the next reviewed operation. Phase order remains Phase 1 → Phase 2 Google readiness → Phase 3 Floot.
+
+Updated: 2026-10-08. This is evidence and execution sequencing, not Production mutation approval.
+
 ## Live repository checkpoint — 2026-10-06 after PR #261
 
 - Protected `main` is `7c58277ac04450f9eb5fb48c04c435d070443b56`, the guarded merge of PR #261.
