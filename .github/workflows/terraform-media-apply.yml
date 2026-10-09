@@ -277,7 +277,13 @@ jobs:
               '.lineage == $lineage and .serial == $serial' "$media_state"
           fi
 
-          test -z "$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
+          live_media_bucket="$(gcloud storage buckets list --project="$GOOGLE_CLOUD_PROJECT" \
+            --filter="name=${GCS_MEDIA_BUCKET}" --format='value(name)')"
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            test -z "$live_media_bucket"
+          else
+            test "$live_media_bucket" = "$GCS_MEDIA_BUCKET"
+          fi
 
           terraform -chdir=infra/iac/media show -json "$PLAN_FILE" > /tmp/apply-plan.json
           cmp -s /tmp/apply-plan.json "$PLAN_JSON"
@@ -285,11 +291,21 @@ jobs:
             --arg project "$GOOGLE_CLOUD_PROJECT" \
             --arg bucket "$GCS_MEDIA_BUCKET" \
             --arg location "${GCS_MEDIA_LOCATION^^}" \
-            --arg member "serviceAccount:${OPERATIONS_RUNTIME_SERVICE_ACCOUNT}" '
-              [(.resource_changes // [])[] | {address, actions: .change.actions}] == [
-                {address:"google_storage_bucket.media", actions:["create"]},
-                {address:"google_storage_bucket_iam_member.runtime_media_objects", actions:["create"]}
-              ] and
+            --arg member "serviceAccount:${OPERATIONS_RUNTIME_SERVICE_ACCOUNT}" \
+            --arg first_media_apply "$FIRST_MEDIA_APPLY" '
+              (
+                ($first_media_apply == "true" and
+                  [(.resource_changes // [])[] | {address, actions: .change.actions}] == [
+                    {address:"google_storage_bucket.media", actions:["create"]},
+                    {address:"google_storage_bucket_iam_member.runtime_media_objects", actions:["create"]}
+                  ]) or
+                ($first_media_apply == "false" and
+                  [(.resource_changes // [])[] | {address, actions: .change.actions}] == [
+                    {address:"google_storage_bucket.media", actions:["update"]},
+                    {address:"google_storage_bucket_iam_member.runtime_media_objects", actions:["create"]}
+                  ])
+              ) and
+              ([.resource_changes[]?.change.actions[]?] | all(. != "delete")) and
               (.planned_values.root_module.resources | map(select(.address == "google_storage_bucket.media"))[0].values |
                 .name == $bucket and .project == $project and .location == $location and
                 .public_access_prevention == "enforced" and .uniform_bucket_level_access == true and
@@ -356,7 +372,7 @@ jobs:
           fi
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
-      - name: Verify created private media bucket
+      - name: Verify private media bucket after apply
         shell: bash
         run: |
           set -euo pipefail
