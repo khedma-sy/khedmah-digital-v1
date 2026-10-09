@@ -32,7 +32,7 @@ test('production WIF keeps explicit main workflow allowlist', () => {
   assert.doesNotMatch(productionOperator, /\.github\/workflows\/\*@/);
 });
 
-test('media apply validates both state identities and new-account resource identity', () => {
+test('media apply validates both state identities and exact resource identity', () => {
   const approval = workflow.indexOf('Reject unapproved request before checkout or authentication');
   const firstInit = workflow.indexOf('terraform -chdir=infra/iac init');
   const apply = workflow.indexOf('terraform -chdir=infra/iac/media apply');
@@ -42,7 +42,10 @@ test('media apply validates both state identities and new-account resource ident
   assert.match(workflow, /--arg project "\$GOOGLE_CLOUD_PROJECT"/);
   assert.match(workflow, /--arg bucket "\$GCS_MEDIA_BUCKET"/);
   assert.match(workflow, /serviceAccount:\$\{OPERATIONS_RUNTIME_SERVICE_ACCOUNT\}/);
-  assert.match(workflow, /test -z "\$\(gcloud storage buckets list/);
+  assert.match(workflow, /live_media_bucket=/);
+  assert.match(workflow, /if \[\[ "\$FIRST_MEDIA_APPLY" == "true" \]\]/);
+  assert.match(workflow, /test -z "\$live_media_bucket"/);
+  assert.match(workflow, /test "\$live_media_bucket" = "\$GCS_MEDIA_BUCKET"/);
 });
 
 test('media apply uses only saved plan and verifies private post-apply state', () => {
@@ -72,6 +75,13 @@ test('existing media state still requires exact lineage and serial', () => {
   assert.match(workflow, /\.lineage == \$lineage and \.serial == \$serial/);
   assert.match(workflow, /test "\$EXPECTED_MEDIA_LINEAGE" = "\$APPROVED_MEDIA_LINEAGE"/);
   assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "\$APPROVED_MEDIA_SERIAL"/);
+});
+
+test('adopted media apply permits only bucket update plus runtime IAM create and rejects delete', () => {
+  assert.match(workflow, /\$first_media_apply == "false"/);
+  assert.match(workflow, /address:"google_storage_bucket\.media", actions:\["update"\]/);
+  assert.match(workflow, /address:"google_storage_bucket_iam_member\.runtime_media_objects", actions:\["create"\]/);
+  assert.match(workflow, /all\(\. != "delete"\)/);
 });
 
 
