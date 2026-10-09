@@ -1,5 +1,23 @@
 # Next Safe Action — Khedmah
 
+Snapshot: 2026-10-09 / PR #272 adopted media apply gate. Re-read exact latest `main`, PR head, review threads, and run status before acting. This is not Production mutation approval.
+
+## Execute next — close PR #272, then regenerate the media plan on new main
+
+1. Protected `main` is `a1556336adc32ce179ef371ac330cab94ada91fb`. PR #271 is merged.
+2. Media State Handoff #9 produced a valid root-state inventory and `ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING`; root lineage/serial are `b88fb6d6-803d-f7ba-dfc5-2d1584276084 / 1`.
+3. The isolated media state was valid and empty at `00bd1621-fc2e-2b58-4177-2ba90ec51e9f / 1`. Its protected backup was hash-verified. With explicit owner approval, only `google_storage_bucket.media` was imported. Current media state is the same lineage, serial `2`, exactly one resource.
+4. Media Plan run `37943973798` succeeded on the current main and returned exactly `1 add, 1 change, 0 destroy`: bucket update in place for lifecycle plus canonical runtime IAM create. It performed no apply or deployment.
+5. Do **not** dispatch the current main `terraform-media-apply.yml`: its fresh-account gate still requires bucket absence and `create/create`, so it is not valid for the adopted state.
+6. PR #272 updates only the apply gate for the reviewed adopted-state shape: exact live bucket required, exact `bucket update + runtime IAM create`, any delete rejected, all existing saved-plan/checksum/SHA/root+media state identity/private-access gates preserved.
+7. Before this checkpoint update, PR #272 head `611a1d6ca195c8c8b668fd8003e8ea67cf52241f` passed Node.js CI, Khedmah - Test & Verify and PR Preview. Codex P1 requires this source-of-truth synchronization. Let the new documentation head pass its own checks and re-review; resolve the review thread only after confirming the contradiction is removed.
+8. Merge #272 only through normal branch protection after its exact-head checks/review are green.
+9. After merge, re-read the new protected `main` SHA and **generate a new Terraform Media Plan on that SHA**. Do not apply run `37943973798`; it is evidence for the old SHA only.
+10. Review the new saved plan. Proceed toward apply only if it still proves exactly the adopted-safe shape and `0 destroy`, with root state still `b88fb6d6-803d-f7ba-dfc5-2d1584276084 / 1` and media state still `00bd1621-fc2e-2b58-4177-2ba90ec51e9f / 2` at plan time.
+11. Historical runtime IAM removal is not part of #272 or the media plan. Do not remove `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com` until canonical runtime access has been applied and independently verified.
+12. Preserve phase order: Phase 1A database/recovery → Phase 1B schema → Phase 1C hardening/release → Phase 2 Google readiness/deployment → Phase 3 Floot. Media closure alone does not authorize Floot transition or Production deployment.
+
+
 Snapshot: 2026-10-08 / PR #271 media-state diagnostics. Re-read exact latest `main`, PR head, review threads, and run status before acting. This is not Production mutation approval.
 
 ## Execute next — merge the diagnostic repair, then re-run read-only media-state verification
