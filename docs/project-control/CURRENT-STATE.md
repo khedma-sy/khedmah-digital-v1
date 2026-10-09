@@ -1,5 +1,22 @@
 # Khedmah Digital — Current State
 
+## Live repository checkpoint — 2026-10-09 / PR #272 adopted media apply gate
+
+- Protected `main` is `a1556336adc32ce179ef371ac330cab94ada91fb`, the merge of PR #271.
+- PR #271 diagnostics closed the legacy-root ambiguity: Media State Handoff #9 returned a valid inventory with `ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING`, root lineage `b88fb6d6-803d-f7ba-dfc5-2d1584276084`, serial `1`.
+- The isolated media state existed before adoption with lineage `00bd1621-fc2e-2b58-4177-2ba90ec51e9f`, serial `1`, zero resources. A protected backup `media-before-adoption-2026-10-09.tfstate` was created and independently hash-matched to the live state at SHA-256 `80b524ca66eb1bcfd0f755bfd534c82dbfea12a4fe1ea2b8405d523d8062ee57`.
+- With explicit owner approval, only `google_storage_bucket.media` was imported into the isolated media state. No IAM import and no Terraform apply occurred. Post-import state kept the same lineage, advanced to serial `2`, and contains exactly one address: `google_storage_bucket.media`.
+- Live bucket `khedma-dl-khedmah-media` is private and in `europe-west1`: STANDARD, UBLA enabled, Public Access Prevention enforced, versioning enabled, soft delete 30 days. The configured lifecycle rule is absent live.
+- Live bucket IAM has no public principals. `roles/storage.objectAdmin` is still attached to historical `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com`; canonical GitHub Production runtime is `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`. The historical runtime is not used by the observed Cloud Run jobs; those use `khedmah-v1-migrator@...`. `DATABASE_URL` direct IAM currently contains only the canonical runtime.
+- Terraform Media Plan run `37943973798` succeeded on `a1556336...` and produced exactly `1 add, 1 change, 0 destroy`: update `google_storage_bucket.media` in place to add lifecycle policy; create `google_storage_bucket_iam_member.runtime_media_objects` for the canonical runtime. The plan artifact was created and verified; apply/deployment was not performed.
+- The current main apply workflow is stale for this adopted state: it requires the media bucket to be absent and requires `create/create`. PR #272 changes that gate so an existing reviewed media state must have the exact live bucket and the saved plan must be exactly `bucket update + runtime IAM create`, with no delete action.
+- PR #272 head before this documentation checkpoint was `611a1d6ca195c8c8b668fd8003e8ea67cf52241f`; Node.js CI, Khedmah - Test & Verify and PR Preview all succeeded. Codex raised one P1 source-of-truth finding requesting this adoption/plan evidence and next-action update before apply is enabled.
+- No apply or deployment is authorized by this checkpoint. The pre-merge plan `37943973798` must not be applied after #272 changes main because its saved plan is bound to the older commit. After #272 passes exact-head checks/re-review and merges, generate a new media plan on the new protected main and review it before any apply.
+- Historical IAM removal remains a separate operation. Do not remove `khedma-v1-runtime@...` merely to satisfy readiness; first establish canonical runtime access with the reviewed plan and verify continuity.
+
+Updated: 2026-10-09. This is live evidence and sequencing, not blanket Production mutation approval.
+
+
 ## Live repository checkpoint — 2026-10-08 / PR #271 media-state diagnostics
 
 - Protected `main` before PR #271 is `04d415593e9c5d436b9c06baf457bd1996e18af5`, the merge of PR #270. Android release fingerprint extraction is complete and is no longer the next action.
