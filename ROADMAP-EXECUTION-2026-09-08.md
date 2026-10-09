@@ -1,5 +1,20 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-09 / PR #272 Adopted Media Apply Gate
+
+- **المصدر المحمي الحالي:** `main=a1556336adc32ce179ef371ac330cab94ada91fb`، دمج PR #271. لا يوجد commit أحدث على `main` عند هذا checkpoint.
+- **تشخيص root state المكتمل:** بعد #271، تشغيل Terraform Media State Handoff #9 بوضع `VERIFY_ONLY` أعاد inventory صالحًا ثم `ROOT_STATE_MEDIA_BUCKET_ADDRESS_MISSING` مع `ROOT_STATE_LINEAGE=b88fb6d6-803d-f7ba-dfc5-2d1584276084` و`ROOT_STATE_SERIAL=1`. هذا أثبت أن root state موجود وصالح للقراءة لكنه لا يملك عنوان Media Bucket.
+- **حالة media state قبل adoption:** الكائن the protected media state object at prefix `khedmah/production/media` كان موجودًا، `lineage=00bd1621-fc2e-2b58-4177-2ba90ec51e9f`، `serial=1`، وعدد الموارد `0`. أُخذت نسخة احتياطية `media-before-adoption-2026-10-09.tfstate` داخل state bucket المحمي، وتطابق SHA-256 للأصل والنسخة: `80b524ca66eb1bcfd0f755bfd534c82dbfea12a4fe1ea2b8405d523d8062ee57`.
+- **adoption المنفذ والمراجع:** بعد موافقة المالك الصريحة، تم استيراد **`google_storage_bucket.media` فقط** إلى media state؛ لم يتم استيراد IAM ولم يتم `terraform apply`. بعد الاستيراد بقي lineage نفسه، ارتفع serial إلى `2`، وأصبح المورد الوحيد `google_storage_bucket.media`.
+- **الحالة الحية للـbucket:** `khedma-dl-khedmah-media` في `europe-west1`، STANDARD، UBLA مفعّل، Public Access Prevention = enforced، versioning مفعّل، وsoft delete = 2592000 ثانية. لا توجد lifecycle rule حية. IAM غير عام؛ `roles/storage.objectAdmin` ما زال مربوطًا بالهوية التاريخية `khedma-v1-runtime@khedma-dl.iam.gserviceaccount.com`، بينما GitHub Production والكود الحالي يعتمدان `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com`.
+- **دليل plan بعد adoption:** Terraform Media Plan run `37943973798` على `a1556336...` نجح وأنتج خطة محروسة: `1 to add, 1 to change, 0 to destroy`. التغيير الوحيد على bucket هو update in-place لإضافة lifecycle rule، والإضافة الوحيدة هي `google_storage_bucket_iam_member.runtime_media_objects` للـruntime canonical الجديد. لم ينفذ apply أو deployment.
+- **لماذا PR #272 مطلوب:** workflow `terraform-media-apply.yml` على main ما زال يفترض fresh-create (`bucket create + IAM create`) ويرفض وجود bucket حي؛ لذلك لا يجوز تشغيله على الحالة الحالية. PR #272 يضيف مسار adopted-state يقبل فقط `bucket update + IAM create` ويرفض أي delete مع إبقاء SHA/plan/checksum/root+media lineage/serial/identity/private-access gates.
+- **حالة PR #272 قبل هذا checkpoint:** رأس التنفيذ `611a1d6ca195c8c8b668fd8003e8ea67cf52241f` اجتاز Node.js CI، Khedmah - Test & Verify وPR Preview. Codex فتح ملاحظة P1 واحدة تطلب تسجيل هذا evidence في source-of-truth قبل تمكين apply؛ هذا التحديث يعالج الملاحظة، لذلك يجب إعادة checks/re-review على الرأس الجديد قبل الدمج.
+- **الخطوة التالية الوحيدة:** أكمل تحديث checkpoint على PR #272، أعد جميع checks والمراجعة على رأسه الجديد، وحل thread فقط بعد التحقق من أن التعليمات لم تعد متناقضة. ادمج #272 وفق branch protection إذا بقيت البوابات خضراء. **لا تستخدم plan run 37943973798 بعد الدمج** لأنه مقيد بـSHA القديم؛ أنشئ Media Plan جديدًا على أحدث `main` ثم راجعه قبل أي apply.
+- **لا يزال ممنوعًا الآن:** لا Terraform apply، لا إزالة IAM التاريخي، لا Production deployment، لا SQL/DNS/secret mutation. إزالة binding التاريخي - إن لزم - تبقى عملية مستقلة بعد إثبات runtime الجديد واستمرارية الوصول.
+- **ترتيب المراحل محفوظ:** Phase 1A database/recovery → Phase 1B schema → Phase 1C hardening/release → Phase 2 Google readiness/deployment → Phase 3 Floot. إغلاق media وحده لا يسمح بالقفز مباشرة إلى Floot.
+
+
 ## نقطة الاستئناف الحية — 2026-10-08 / PR #271 Media State Diagnostics
 
 - **المصدر الحي قبل هذا التحديث:** protected `main=04d415593e9c5d436b9c06baf457bd1996e18af5` بعد دمج PR #270. بصمة Android release اكتملت؛ لا تعدّ Android fingerprint خطوة معلقة.
