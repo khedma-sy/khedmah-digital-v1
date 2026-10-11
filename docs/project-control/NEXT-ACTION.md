@@ -1,24 +1,26 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-11 after Media Apply #4 and Production Operator VERIFY_ONLY #71. This section supersedes older next-action instructions below.
+Snapshot: 2026-10-11 after Media Apply #4, successful Production VERIFY_ONLY #71, failed Google certification #798 and owner-supplied SQL recovery configuration. This section supersedes older instructions below.
 
-## Execute next — current recovery metadata before selecting a database operation
+## Execute next — repair Android activation classification and read successful backups
 
-1. Media Apply `38121038156` completed on protected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; state serial is 4. The owner removed the temporary canonical deployer bucket storage.admin grant and supplied the resulting policy. Do not replay the consumed plan, restore the grant, or remove historical runtime access as automatic cleanup.
-2. Production Operator `38121433817` **VERIFY_ONLY passed** after that removal. Cloud Run backend/frontend are both absent; hardened-role check and deployment were skipped. This closes the earlier media readiness blocker, not the database/schema/hardening/release gates.
-3. Inspect the final result of Google readiness `38121557389` (#798) on the same main. It was still running at this checkpoint. If it fails, use the precise failing step; do not weaken IAM or insert placeholder credentials.
-4. The owner is at Cloud Shell. Obtain this one read-only, non-payload metadata result:
+1. Protected main is `bc5a5c764413498189147cc34c7e857c78aa3d2c`. Media Apply `38121038156` completed, serial 4; the temporary deployer bucket storage.admin grant was removed. Production Operator `38121433817` VERIFY_ONLY passed; hardened-role verification and deployment were skipped, and backend/frontend remain absent. Do not replay media apply or restore the temporary grant.
+2. Google readiness `38121557389` (#798) failed at `07:37:13 UTC` because the active Android Maps secret was still declared deferred. validate-files passed, protected builds skipped. PR #274 now requires an ENABLED Android latest version with unchanged IAM checks, while Server Maps remains zero-version deferred. Local metadata-only tests passed 52/52, including missing/disabled version and IAM rejection; this does not certify live cloud state.
+3. Let this repair's exact head pass CI/Preview/review; merge normally, then run Google readiness on the resulting protected main. Expected successful metadata counts are 17 total / 16 enabled-version secrets / 1 deferred; `SECRET_PAYLOADS_READ=0`. Do not reuse earlier-head checks or infer API-key restriction/device certification from this metadata gate.
+4. The owner completed instance describe: POSTGRES_16, RUNNABLE, europe-west1; backup enabled, retention 7 backups, PITR and log archiving enabled, 7-day log retention. This configuration is not proof of backup success or a tested restore. The next owner-operated Cloud Shell read is:
 
 ```bash
-gcloud sql instances describe khedmah-v1-db \
+gcloud sql backups list \
+  --instance=khedmah-v1-db \
   --project=khedma-dl \
-  --format='yaml(name,region,state,databaseVersion,settings.backupConfiguration)'
+  --sort-by='~endTime' \
+  --limit=5 \
+  --format='table(id,status,endTime,type,description)'
 ```
 
-5. This reads instance identity, state and backup/PITR configuration only; it neither creates a backup nor proves a tested restore. Then inspect a current successful backup and its operation-specific suitability, credential/alias metadata, actual PostgreSQL role state, and installed canonical schema using the governed sequence. Do not presume a migration ledger or replay baseline SQL.
-6. The latest returned role dispatch remains failed PREPARE `37183178537` on 2026-10-04. Existing older inventory is historical evidence, not a current SQL snapshot. Do not dispatch PREPARE/INVENTORY/VERIFY as a shortcut around unresolved recovery/current-state gates.
-7. Complete #274's own checks/review before normal merge. The temporary hold on this documentation PR to preserve an unapplied saved plan has ended.
-8. Preserve order: database/recovery → canonical schema → hardening → approved Google deployment/domain acceptance → Floot integration. No Production mutation is authorized by this document.
+5. Review the returned backup instance/status/time/description before deciding whether a fresh operation-specific backup is needed. Then complete current credential/alias continuity, actual PostgreSQL membership and installed-schema evidence. Do not presume a migration ledger or replay baseline SQL.
+6. Latest returned role dispatch remains failed PREPARE `37183178537` from 2026-10-04. Existing older inventory is historical; do not dispatch role workflows to substitute for unresolved recovery evidence.
+7. Preserve order: database/recovery → canonical schema → hardening → approved Google deployment/domain acceptance → Floot integration. No new Production mutation or Floot cutover is authorized by this document.
 
 ## Historical next-action checkpoints
 

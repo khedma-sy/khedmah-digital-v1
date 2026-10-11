@@ -116,8 +116,10 @@ permanent_secret_names=(
   DATABASE_MIGRATION_URL
 )
 
+# Android Maps was activated after the reviewed release fingerprint was
+# established; its latest version must now pass the active-secret checks.
+# Server Maps has no approved consumer and must still have zero versions.
 deferred_secret_names=(
-  GOOGLE_MAPS_ANDROID_API_KEY
   GOOGLE_MAPS_SERVER_API_KEY
 )
 
@@ -294,8 +296,8 @@ test "${#permanent_secret_names[@]}" -eq 17 || {
   echo 'ERROR: Permanent Secret Manager inventory count drifted from 17.' >&2
   exit 1
 }
-test "${#deferred_secret_names[@]}" -eq 2 || {
-  echo 'ERROR: Deferred Maps secret inventory count drifted from 2.' >&2
+test "${#deferred_secret_names[@]}" -eq 1 || {
+  echo 'ERROR: Deferred Maps secret inventory count drifted from 1.' >&2
   exit 1
 }
 
@@ -353,3 +355,4 @@ echo "READY: LIVE_SECRET_PROJECT=$GOOGLE_CLOUD_PROJECT"
 echo 'READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY'
 echo 'READY: SECRET_PAYLOADS_READ=0'
 echo 'NOTE: BOOTSTRAP_ADMIN_SECRET is one-time and is certified separately by Production Bootstrap Admin before mutation.'
+
