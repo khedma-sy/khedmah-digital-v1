@@ -95,6 +95,7 @@ class Tests(unittest.TestCase):
     def execute(self, operator, preflight=preflight_ok):
         with patch.object(cutover, "load_bundle", return_value=(
                 operator, object(), types.SimpleNamespace(run=preflight), "READ ONLY __RESTART_MILLIS__")), \
+             patch.object(cutover.time, "sleep"), \
              patch.object(cutover, "postflight") as postflight, \
              contextlib.redirect_stdout(io.StringIO()) as output:
             cutover.execute(cutover.CONFIRMATION, "1234")
@@ -168,6 +169,16 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(cutover.Stop, "RUNTIME_CONTROL_STATE_NOT_READY"):
             self.execute(operator)
         self.assertEqual([args[2] for args in operator.mutations], ["set-password", "assign-roles"])
+
+    def test_role_metadata_propagation_polls_reads_without_repeating_mutation(self):
+        operator = FakeOperator()
+        stale = json.dumps(dict(name="khedmah_app", type="BUILT_IN", databaseRoles=["cloudsqlsuperuser"]))
+        ready = json.dumps(dict(name="khedmah_app", type="BUILT_IN", databaseRoles=["khedmah_runtime_role"]))
+        with patch.object(operator, "cloud", side_effect=[stale, ready]) as cloud, \
+             patch.object(cutover.time, "sleep"):
+            cutover.await_runtime_membership(operator)
+        self.assertEqual(cloud.call_count, 2)
+        self.assertTrue(all(call.args[:3] == ("sql", "users", "describe") for call in cloud.call_args_list))
 
     def test_operation_drift_error_and_timeout_never_certify_success(self):
         operator = FakeOperator()

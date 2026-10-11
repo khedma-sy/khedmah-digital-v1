@@ -156,6 +156,20 @@ def postflight(operator, reader, sql, fence):
             print(json.dumps(validate_postflight(record, user, database), sort_keys=True), flush=True)
         operator.check_refs(reader)
 
+def await_runtime_membership(operator):
+    # The existing workflow allows read-only propagation polling after UPDATE_USER.
+    # Never repeat the assign-roles request to resolve stale read metadata.
+    for attempt in range(6):
+        runtime = json.loads(operator.cloud("sql", "users", "describe", "khedmah_app",
+                                           "--instance=" + operator.INSTANCE, "--format=json"))
+        require(runtime.get("name") == "khedmah_app"
+                and runtime.get("type", "BUILT_IN") == "BUILT_IN", "RUNTIME_CONTROL_IDENTITY_CHANGED")
+        if runtime.get("databaseRoles") == ["khedmah_runtime_role"]:
+            return
+        if attempt < 5:
+            time.sleep(5)
+    raise Stop("RUNTIME_CONTROL_STATE_NOT_READY")
+
 def execute(confirmation, backup_id):
     require(confirmation == CONFIRMATION, "SEPARATE_CUTOVER_APPROVAL_REQUIRED")
     os.umask(0o077)
@@ -181,11 +195,7 @@ def execute(confirmation, backup_id):
            "--type=BUILT_IN", "--database-roles=khedmah_runtime_role", "--revoke-existing-roles")
 
     guard(operator, reader, backup_id)
-    runtime = json.loads(operator.cloud("sql", "users", "describe", "khedmah_app",
-                                       "--instance=" + operator.INSTANCE, "--format=json"))
-    require(runtime.get("name") == "khedmah_app"
-            and runtime.get("type", "BUILT_IN") == "BUILT_IN"
-            and runtime.get("databaseRoles") == ["khedmah_runtime_role"], "RUNTIME_CONTROL_STATE_NOT_READY")
+    await_runtime_membership(operator)
     fence = str(time.time_ns() // 1_000_000)
     print("RESTART_NOT_BEFORE_MILLIS=" + fence, flush=True)
     mutate(operator, "INSTANCE_RESTART", "RESTART", "sql", "instances", "restart", operator.INSTANCE)
