@@ -23,14 +23,6 @@ on:
         description: Exact root-state serial, or 0 when root lineage is ABSENT
         required: true
         type: string
-      expected_media_lineage:
-        description: Exact media-state lineage, or ABSENT for the reviewed first apply
-        required: true
-        type: string
-      expected_media_serial:
-        description: Exact media-state serial, or 0 with ABSENT for the reviewed first apply
-        required: true
-        type: string
       confirmation:
         description: APPLY_KHEDMAH_MEDIA_<SHA7 uppercase>
         required: true
@@ -57,8 +49,6 @@ jobs:
       APPROVED_ARTIFACT_NAME: ${{ vars.TF_MEDIA_APPROVED_ARTIFACT_NAME }}
       APPROVED_ROOT_LINEAGE: ${{ vars.TF_ROOT_STATE_LINEAGE }}
       APPROVED_ROOT_SERIAL: ${{ vars.TF_ROOT_STATE_SERIAL }}
-      APPROVED_MEDIA_LINEAGE: ${{ vars.TF_MEDIA_STATE_LINEAGE }}
-      APPROVED_MEDIA_SERIAL: ${{ vars.TF_MEDIA_STATE_SERIAL }}
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GCS_MEDIA_LOCATION: ${{ vars.GCS_MEDIA_LOCATION }}
       GCS_MEDIA_BUCKET: ${{ vars.GCS_MEDIA_BUCKET }}
@@ -70,8 +60,6 @@ jobs:
       REQUESTED_STATE_BUCKET: ${{ inputs.state_bucket }}
       EXPECTED_ROOT_LINEAGE: ${{ inputs.expected_root_lineage }}
       EXPECTED_ROOT_SERIAL: ${{ inputs.expected_root_serial }}
-      EXPECTED_MEDIA_LINEAGE: ${{ inputs.expected_media_lineage }}
-      EXPECTED_MEDIA_SERIAL: ${{ inputs.expected_media_serial }}
       REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
       TF_IN_AUTOMATION: 'true'
       TF_WORKSPACE: default
@@ -82,7 +70,7 @@ jobs:
           set -euo pipefail
           for value in \
             APPROVED_SHA APPROVED_PLAN_RUN_ID APPROVED_ARTIFACT_NAME \
-            APPROVED_ROOT_LINEAGE APPROVED_ROOT_SERIAL APPROVED_MEDIA_LINEAGE APPROVED_MEDIA_SERIAL \
+            APPROVED_ROOT_LINEAGE APPROVED_ROOT_SERIAL \
             GOOGLE_CLOUD_PROJECT GCS_MEDIA_LOCATION GCS_MEDIA_BUCKET OPERATIONS_RUNTIME_SERVICE_ACCOUNT CONFIGURED_STATE_BUCKET; do
             test -n "${!value:-}" || { echo "Missing protected production variable: $value" >&2; exit 1; }
           done
@@ -91,7 +79,6 @@ jobs:
           [[ "$APPROVED_PLAN_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$REQUESTED_PLAN_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$APPROVED_ROOT_SERIAL" =~ ^[0-9]+$ ]]
-          [[ "$APPROVED_MEDIA_SERIAL" =~ ^[0-9]+$ ]]
           test "$REQUESTED_SHA" = "$APPROVED_SHA"
           test "$REQUESTED_PLAN_RUN_ID" = "$APPROVED_PLAN_RUN_ID"
           test "$REQUESTED_STATE_BUCKET" = "$CONFIGURED_STATE_BUCKET"
@@ -103,15 +90,6 @@ jobs:
           else
             test "$APPROVED_ROOT_LINEAGE" != "ABSENT"
             echo "ROOT_STATE_ABSENT=false" >> "$GITHUB_ENV"
-          fi
-          test "$EXPECTED_MEDIA_LINEAGE" = "$APPROVED_MEDIA_LINEAGE"
-          test "$EXPECTED_MEDIA_SERIAL" = "$APPROVED_MEDIA_SERIAL"
-          if [[ "$APPROVED_MEDIA_LINEAGE" == "ABSENT" ]]; then
-            test "$APPROVED_MEDIA_SERIAL" = "0"
-            echo "FIRST_MEDIA_APPLY=true" >> "$GITHUB_ENV"
-          else
-            test "$APPROVED_MEDIA_LINEAGE" != "ABSENT"
-            echo "FIRST_MEDIA_APPLY=false" >> "$GITHUB_ENV"
           fi
           SHA7="${APPROVED_SHA:0:7}"
           EXPECTED_CONFIRMATION="APPLY_KHEDMAH_MEDIA_${SHA7^^}"
@@ -149,6 +127,7 @@ jobs:
           sha256sum --check SHA256SUMS
           test -f khedmah-media.tfplan
           test -f khedmah-media-plan.json
+          test -f khedmah-media-state-evidence.json
 
       - name: Reject unapproved Production hosting region
         shell: bash
@@ -186,6 +165,7 @@ jobs:
         env:
           PLAN_FILE: ${{ runner.temp }}/approved-media-plan/khedmah-media.tfplan
           PLAN_JSON: ${{ runner.temp }}/approved-media-plan/khedmah-media-plan.json
+          STATE_EVIDENCE: ${{ runner.temp }}/approved-media-plan/khedmah-media-state-evidence.json
         shell: bash
         run: |
           set -euo pipefail
@@ -243,6 +223,35 @@ jobs:
             ((.versioning_enabled == true) or (.versioning.enabled == true))
           ' <<<"$state_bucket_metadata" >/dev/null
 
+          jq -e \
+            --arg sha "$APPROVED_SHA" \
+            --arg bucket "$REQUESTED_STATE_BUCKET" '
+              .commit_sha == $sha and
+              .state_bucket == $bucket and
+              .state_prefix == "khedmah/production/media" and
+              (.generation | type == "string") and
+              (.lineage | type == "string") and
+              (.serial | type == "number") and
+              (.serial >= 0)
+            ' "$STATE_EVIDENCE" >/dev/null
+          EXPECTED_MEDIA_GENERATION="$(jq -er '.generation' "$STATE_EVIDENCE")"
+          EXPECTED_MEDIA_LINEAGE="$(jq -er '.lineage' "$STATE_EVIDENCE")"
+          EXPECTED_MEDIA_SERIAL="$(jq -er '.serial' "$STATE_EVIDENCE")"
+          if [[ "$EXPECTED_MEDIA_LINEAGE" == "ABSENT" ]]; then
+            test "$EXPECTED_MEDIA_GENERATION" = "ABSENT"
+            test "$EXPECTED_MEDIA_SERIAL" = "0"
+            FIRST_MEDIA_APPLY=true
+          else
+            [[ "$EXPECTED_MEDIA_GENERATION" =~ ^[0-9]+$ ]]
+            test "$EXPECTED_MEDIA_GENERATION" != "ABSENT"
+            test "$EXPECTED_MEDIA_LINEAGE" != "ABSENT"
+            FIRST_MEDIA_APPLY=false
+          fi
+          {
+            echo "FIRST_MEDIA_APPLY=$FIRST_MEDIA_APPLY"
+            echo "EXPECTED_MEDIA_GENERATION=$EXPECTED_MEDIA_GENERATION"
+          } >> "$GITHUB_ENV"
+
           root_data="$(mktemp -d)"
           media_data="$(mktemp -d)"
           root_state="$(mktemp)"
@@ -265,6 +274,9 @@ jobs:
           export TF_DATA_DIR="$media_data"
           if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
             assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_ALREADY_EXISTS
+          else
+            current_media_generation="$(gcloud storage objects describe "$media_state_uri" --format='value(generation)')"
+            test "$current_media_generation" = "$EXPECTED_MEDIA_GENERATION"
           fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
@@ -272,6 +284,8 @@ jobs:
           if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
             assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_CREATED_DURING_REVIEW
           else
+            current_media_generation="$(gcloud storage objects describe "$media_state_uri" --format='value(generation)')"
+            test "$current_media_generation" = "$EXPECTED_MEDIA_GENERATION"
             terraform -chdir=infra/iac/media state pull > "$media_state"
             jq -e --arg lineage "$EXPECTED_MEDIA_LINEAGE" --argjson serial "$EXPECTED_MEDIA_SERIAL" \
               '.lineage == $lineage and .serial == $serial' "$media_state"
@@ -364,11 +378,20 @@ jobs:
           if [[ "$ROOT_STATE_ABSENT" == "true" ]]; then
             assert_gcs_object_absent "$root_state_uri" ROOT_STATE_APPEARED_BEFORE_MEDIA_APPLY
           fi
+          if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
+            assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY
+          else
+            current_media_generation="$(gcloud storage objects describe "$media_state_uri" --format='value(generation)')"
+            test "$current_media_generation" = "$EXPECTED_MEDIA_GENERATION"
+          fi
           terraform -chdir=infra/iac/media init -input=false -reconfigure \
             -backend-config="bucket=${REQUESTED_STATE_BUCKET}" \
             -backend-config="prefix=khedmah/production/media"
           if [[ "$FIRST_MEDIA_APPLY" == "true" ]]; then
             assert_gcs_object_absent "$media_state_uri" MEDIA_STATE_APPEARED_BEFORE_FIRST_APPLY
+          else
+            current_media_generation="$(gcloud storage objects describe "$media_state_uri" --format='value(generation)')"
+            test "$current_media_generation" = "$EXPECTED_MEDIA_GENERATION"
           fi
           terraform -chdir=infra/iac/media apply -input=false -lock-timeout=60s "$PLAN_FILE"
 
