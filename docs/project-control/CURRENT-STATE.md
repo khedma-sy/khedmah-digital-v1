@@ -1,5 +1,14 @@
 # Khedmah Digital — Current State
 
+## Preview candidate read preparation — 2026-10-11
+
+- Continued from `6254b3a7002012128a50d675a8287f2149b5a5c6`; Phase A/B and the 1000-Job metadata inventory are complete. The prior documentation head's Node/Test/Google source checks succeeded; Preview remained intentionally held.
+- Added `scripts/deployment/preview-job-candidate-review.mjs` and its fixed twenty-record `preview-job-review-candidates.json`. The manifest pins the observed creation timestamps and exact approved Preview project by SHA-256; europe-west1 and both canonical/configured Production exclusions are required before cloud reads.
+- Through the already approved Preview identity, read only each candidate's UID/namespace/creation time, container image, runtime-identity match and all retained executions (bounded at 1001; reaching the bound rejects completeness). No secret values, container environment, raw cloud stderr or condition messages are emitted. Missing/malformed/denied responses stop without retry. Unknown or pending execution state is never classified as terminal. Empty retained history does not certify historical ownership or cleanup safety.
+- Workflow authentication, environment approval, quality and isolation gates are unchanged. The diagnostic now invokes the candidate reader, with a ten-minute step limit, and still exits nonzero before deployment. No deletion, quota/IAM change, Production operation or protected-variable edit is included. The owner already approved this read identity and asked to continue; no new read authorization is pending.
+- Local Node v24.19.0 validation: **15/15 tests passed** (8 candidate-reader regressions + 7 existing inventory cases), zero failed/skipped/cancelled. YAML parsing and the twenty-record manifest check passed. All cloud calls were replaced in these local tests; live execution/ownership evidence remains pending on the new commit's CI.
+- Next: review the new-head live candidate records; reconcile image PR/revision/hash with creating workflow history and closed PR state before preparing any exact deletion manifest. Keep deployment held and require separate deletion approval and fresh execution guards. Protected Production-variable reconciliation and durable retention remain open.
+
 ## Current checkpoint — 2026-10-11: Phase A/B complete; live role isolation verified; Preview quota blocks integration
 
 - **Phase B completed and verified.** Owner-supplied Cloud Shell output received at `2026-10-11T17:11:28+03:00` reports `SOURCE_BUNDLE_VERIFIED`, `CUTOVER_PREFLIGHT_PASSED`, all three `STAGE_DONE` markers, and `RUNTIME_CUTOVER_AND_ISOLATION_VERIFIED`. This is live owner-operated evidence for the hash-pinned implementation `7f2180db43ceae85b8882d19cc37bbe519d625fa`, not a GitHub workflow execution. The terminal echo is interleaved; the complete returned stage and JSON evidence is authoritative.
