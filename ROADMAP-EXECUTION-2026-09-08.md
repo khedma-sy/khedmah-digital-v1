@@ -1,10 +1,25 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## نقطة الاستئناف الحية — 2026-10-11 / خطة Media #12 جاهزة للمراجعة والتنفيذ
+## نقطة الاستئناف الحية — 2026-10-11 / Media مكتملة وProduction VERIFY_ONLY ناجح
+
+هذه النقطة تحل محل تعليمات الاستئناف في الأقسام التاريخية أدناه؛ لا تعِد Apply أو grant مؤقتًا من تلك الأقسام.
+
+- **المصدر:** protected main هو `bc5a5c764413498189147cc34c7e857c78aa3d2c` بعد دمج PR #273. فحوص main الخاصة به نجحت: Node `38120301083` وTest `38120301054`؛ PR Validation متخطى على push كما هو متوقع.
+- **التطبيق المكتمل:** بعد موافقة المالك على الخطة ومراجع الاعتماد، Media Apply #4 `38121038156` نجح على المصدر نفسه؛ job `114415645937` أثبت `1 added, 1 changed, 0 destroyed` ثم `MEDIA_BUCKET_APPLY_VERIFIED`. lineage بقي `00bd1621-fc2e-2b58-4177-2ba90ec51e9f`، serial أصبح `4`.
+- **النطاق المنفذ:** lifecycle Delete عند `num_newer_versions=3`، مع soft delete 30 يومًا؛ وإضافة `roles/storage.objectAdmin` للـcanonical runtime على Media bucket. الخطة المطبقة هي `38120326927`؛ لا تعِد استعمال saved plan بعد التطبيق.
+- **إغلاق grant المؤقت:** نفّذ المالك إزالة `roles/storage.admin` من `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com` على `khedma-dl-khedmah-media`. الناتج المرسل في 2026-10-11 يعرض policy etag `CAg=`، بلا ذلك الربط المباشر وبلا public principals؛ يبقى canonical وhistorical runtime ضمن objectAdmin. هذا دليل bucket-level policy فقط وليس تدقيق effective/inherited IAM شاملًا. لم تُحذف الهوية التاريخية.
+- **التحقق بعد الإزالة:** Production Operator - New Account #71 `38121433817` بوضع `VERIFY_ONLY` على main نفسه نجح. job `114416805570` عند `07:28:27 UTC` سجل `DEPLOYMENT_PREREQUISITES` و`MEDIA_BUCKET` و`SECRET_METADATA_COUNT=15`. سجل أيضًا `FIRST_DEPLOY_MISSING_SERVICES=backend frontend`: الخدمتان غير منشورتين بعد. خطوة hardened-role verification وjob deploy متخطّيان حسب الوضع؛ هذا النجاح لا يثبت roles/schema/HARDEN أو نشرًا حيًا.
+- **شهادة Google المنفصلة:** التشغيل `38121557389` (#798) بدأ على main نفسه لتحديث Secret Manager metadata/direct/effective IAM وبناء Web/Android داخل runner فقط. النتيجة النهائية معلقة وقت هذا checkpoint؛ لا تنسب نجاح #795 القديم إلى هذا التشغيل.
+- **العائق التالي:** آخر database-role dispatch هو PREPARE `37183178537` في 2026-10-04 وفشل عند تصنيف role state؛ لا يظهر dispatch أحدث في القراءة الحالية. actual PostgreSQL memberships، credential/alias continuity، recovery/backup/PITR، installed schema وHARDEN لم تُغلق بهذه الفحوص. لا تستنتج أنها اكتملت من نجاح Media أو VERIFY_ONLY.
+- **الخطوة التالية المحددة:** اقرأ نتيجة #798 ثم اجمع metadata الحالية للـinstance `khedmah-v1-db` وbackup/PITR من Cloud Shell. ابدأ بأمر describe للقراءة فقط كما في NEXT-ACTION. بعد ذلك راجع backup ناجحًا مناسبًا للعملية وactual role/schema evidence قبل اختيار عملية منفصلة. لا تعِد inventory القديم أو تدقيق WIF المكتمل لمجرد انتقال المحادثة.
+- **PR #274:** تحديث توثيقي فقط؛ عملية Media أغلقت، لذلك حظر دمج checkpoint لحماية saved plan لم يعد ينطبق. يلزم فحص ومراجعة رأس #274 نفسه قبل الدمج المعتاد. لا يجيز هذا PR أي mutation جديد.
+- **الوصول إلى Floot:** يبقى الترتيب database/recovery → schema → hardening → Google release/domain acceptance → Floot integration. مشروع Khedma Business Desk الحالي ليس مرتبطًا بالخلفية بعد. لا DNS cutover ولا نشر ولا منح صلاحيات ولا نقل credentials إلى Floot ضمن هذا checkpoint.
+
+## سجل تاريخي قبل التطبيق — 2026-10-11 / خطة Media #12 جاهزة للمراجعة والتنفيذ
 
 - PR #273 دُمج طبيعيًا بعد نجاح رأسه `88cf77be1fa4645a6be33a8873a58ae08a93302c`؛ protected main عند إعداد الخطة هو `bc5a5c764413498189147cc34c7e857c78aa3d2c`.
 - CI: Node `38118828380` وTest `38118828316` ناجحان؛ 1732 root + 616 backend + 151 frontend = 2499، صفر فشل/تخطٍّ. السجل يحتوي تحذير audit متوسطًا واحدًا؛ النجاح ليس شهادة خلو أمني. Preview `38118828319` نجح، بما في ذلك أدلة العرض التكميلية 72/72 والهاتف 32/32. ملاحظتا المراجعة السابقتان مغلقتان بعد التحقق؛ المراجعة الآلية القديمة تخص `49fd635` ولا تمثل APPROVED review للرأس النهائي.
-- Media Plan #12 `38120326927` نجح على main أعلاه؛ الخطة 1 add / 1 change / 0 destroy، فقط bucket lifecycle update وcanonical runtime IAM create. Apply لم يُنفذ.
+- Media Plan #12 `38120326927` نجح على main أعلاه؛ الخطة 1 add / 1 change / 0 destroy، فقط bucket lifecycle update وcanonical runtime IAM create. Apply لم يكن قد نُفذ عند هذا السجل؛ النتيجة الأحدث موثقة أعلاه.
 - Artifact `11694901687`، الاسم `terraform-media-plan-bc5a5c764413498189147cc34c7e857c78aa3d2c`، 9937 bytes؛ SHA-256 `b2367f7a31bf223883fb77ebc6c6e0d398d67a6731806161a3ecf520f4e77e81` طابق تنزيلًا مستقلًا؛ جميع entries في SHA256SUMS طابقت bytes.
 - Root identity `b88fb6d6-803d-f7ba-dfc5-2d1584276084 / 1` اجتازت gate. Media evidence: generation `1791696772776335`، lineage `00bd1621-fc2e-2b58-4177-2ba90ec51e9f`، serial `3`؛ لا تستخدم serial 2 القديم.
 - النطاق الدقيق: حاوية `khedma-dl-khedmah-media` في europe-west1؛ منح `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` دور `roles/storage.objectAdmin` على الحاوية فقط؛ إضافة lifecycle Delete عند num_newer_versions=3 مع soft delete 30 يومًا. لا إزالة IAM التاريخي في هذه العملية.

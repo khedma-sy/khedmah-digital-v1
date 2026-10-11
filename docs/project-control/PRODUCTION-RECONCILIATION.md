@@ -1,5 +1,21 @@
 # Production reconciliation — evidence before an operation
 
+## Current checkpoint — 2026-10-11: media applied, temporary grant removed, VERIFY_ONLY passed
+
+This section supersedes older execution instructions below. Historical evidence is retained; do not replay its completed operations.
+
+- Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its own Node `38120301083` and Test `38120301054` passed; push PR Validation skipped as designed.
+- Media Apply #4 `38121038156`, job `114415645937`, succeeded after owner approval: **1 added, 1 changed, 0 destroyed**; post-apply `MEDIA_BUCKET_APPLY_VERIFIED`. State lineage `00bd1621-fc2e-2b58-4177-2ba90ec51e9f`, serial **4**. Saved plan `38120326927` has been consumed; do not replay it.
+- The operation added the canonical runtime bucket objectAdmin binding and the reviewed lifecycle Delete condition `num_newer_versions=3`, with 30-day soft delete.
+- Owner-supplied Cloud Shell output on 2026-10-11 confirms removal of the temporary canonical deployer bucket `roles/storage.admin` grant; returned bucket policy etag `CAg=`. Canonical and historical runtime objectAdmin bindings remain, with no returned public principal. This proves the returned direct policy, not all inherited/effective access. Historical runtime removal remains separately reviewed.
+- Post-removal Production Operator #71 `38121433817` used **VERIFY_ONLY** on that exact main and passed. Job `114416805570` reported readiness at `07:28:27 UTC`, 15 enabled secret metadata checks and `FIRST_DEPLOY_MISSING_SERVICES=backend frontend`. Both hardened-role verification and deploy were **skipped** as designed; no Production deployment occurred.
+- Separate Google readiness #798 `38121557389` was dispatched on the same main. Its live Secret Manager certification and runner-only Web/Android builds are still pending final result at this checkpoint; the earlier #795 success is dated evidence only.
+- The most recent database-role dispatch returned by the current Actions inventory remains failed PREPARE `37183178537` from 2026-10-04. No newer role dispatch was returned. This does not exclude out-of-band changes or certify current SQL memberships/schema.
+- Remaining gates: operation-fresh recovery/backup/PITR evidence, actual PostgreSQL memberships and credential/alias continuity, installed canonical schema, HARDEN, then approved deployment/domain/browser acceptance. VERIFY_ONLY cannot close those gates.
+- Next bounded read: current instance identity/state and backup configuration for `khedmah-v1-db`, via the owner-operated Cloud Shell command in [NEXT-ACTION.md](NEXT-ACTION.md); then select the next read from its result. No payloads, role workflow dispatch, SQL writes, IAM/DNS change or deployment is authorized by this checkpoint.
+- Draft #274 records these results; the old hold to avoid invalidating the unapplied saved plan is obsolete because apply completed. Its own checks/review are still required before normal merge.
+- Floot remains the experience layer. The existing Business Desk has not been integrated; follow the [Floot/Google gate](FLOOT-GOOGLE-INTEGRATION-GATE.md).
+
 Checkpoint: 2026-10-05; protected main `b364a67c68e17c38667db652e6a3e7d3884a3b32` after PR #258. PRs #256–#258 have closed the canonical-WIF diagnostic and documentation-drift gates; main build, source inventory, code quality, and test/verification checks are green. The reviewed database-role workflow/runner remain unchanged from `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`; live-secret alignment `4a60f7e622dbbcf4d4a21c5e5e15c13fab297a8f` remains merged through #253, and secret-name diagnostics through #256. Read live refs and run status before an operation. Source review and completed owner reads below do not authorize a mutation.
 
 ## Target and historical anchor

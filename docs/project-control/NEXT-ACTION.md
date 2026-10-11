@@ -1,5 +1,27 @@
 # Next Safe Action — Khedmah
 
+Snapshot: 2026-10-11 after Media Apply #4 and Production Operator VERIFY_ONLY #71. This section supersedes older next-action instructions below.
+
+## Execute next — current recovery metadata before selecting a database operation
+
+1. Media Apply `38121038156` completed on protected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; state serial is 4. The owner removed the temporary canonical deployer bucket storage.admin grant and supplied the resulting policy. Do not replay the consumed plan, restore the grant, or remove historical runtime access as automatic cleanup.
+2. Production Operator `38121433817` **VERIFY_ONLY passed** after that removal. Cloud Run backend/frontend are both absent; hardened-role check and deployment were skipped. This closes the earlier media readiness blocker, not the database/schema/hardening/release gates.
+3. Inspect the final result of Google readiness `38121557389` (#798) on the same main. It was still running at this checkpoint. If it fails, use the precise failing step; do not weaken IAM or insert placeholder credentials.
+4. The owner is at Cloud Shell. Obtain this one read-only, non-payload metadata result:
+
+```bash
+gcloud sql instances describe khedmah-v1-db \
+  --project=khedma-dl \
+  --format='yaml(name,region,state,databaseVersion,settings.backupConfiguration)'
+```
+
+5. This reads instance identity, state and backup/PITR configuration only; it neither creates a backup nor proves a tested restore. Then inspect a current successful backup and its operation-specific suitability, credential/alias metadata, actual PostgreSQL role state, and installed canonical schema using the governed sequence. Do not presume a migration ledger or replay baseline SQL.
+6. The latest returned role dispatch remains failed PREPARE `37183178537` on 2026-10-04. Existing older inventory is historical evidence, not a current SQL snapshot. Do not dispatch PREPARE/INVENTORY/VERIFY as a shortcut around unresolved recovery/current-state gates.
+7. Complete #274's own checks/review before normal merge. The temporary hold on this documentation PR to preserve an unapplied saved plan has ended.
+8. Preserve order: database/recovery → canonical schema → hardening → approved Google deployment/domain acceptance → Floot integration. No Production mutation is authorized by this document.
+
+## Historical next-action checkpoints
+
 Snapshot: 2026-10-09 / PR #272 adopted media apply gate. Re-read exact latest `main`, PR head, review threads, and run status before acting. This is not Production mutation approval.
 
 ## Execute next — close PR #272, then regenerate the media plan on new main
