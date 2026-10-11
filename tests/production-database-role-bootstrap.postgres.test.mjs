@@ -149,9 +149,41 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
           'Phase A must not demote the runtime or pretend isolation is complete.');
         assert.equal(runBootstrap(fixture, 'role-state').status, 12,
           'The existing classifier must continue to reject the mixed membership state.');
+        const restartFence = query(adminUrl,
+          'SELECT floor(extract(epoch FROM pg_postmaster_start_time()) * 1000)::bigint - 1');
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false,
+          'Phase B must reject the still-privileged runtime after Phase A.');
         replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
         assertBootstrapSuccess(runBootstrap(fixture, 'verify'),
           'existing isolation verifier after separately simulated control-plane demotion');
+        for (const url of [fixture.migrationUrl, runtimeRepairUrl(fixture),
+          ...['postgres', 'template1'].map((databaseName) => connectionUrl({ baseUrl: fixture.migrationUrl, databaseName }))]) {
+          const evidence = runtimeCutoverRead(fixture, url, restartFence);
+          assert.equal(evidence.read_only, 'on');
+          assert.equal(evidence.system_role_manifest_sha256, fixture.systemRoleManifestSha256);
+          for (const key of ['restart_proven', 'role_isolation', 'prebaseline_fresh', 'runtime_footprint_clear', 'instance_inventory_safe']) {
+            assert.equal(evidence[key], true, `Phase B ${key} must pass after simulated cutover: ${JSON.stringify(evidence)}`);
+          }
+        }
+        const afterStartupFence = String(BigInt(restartFence) + 2n);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, afterStartupFence).restart_proven, false,
+          'Membership isolation alone cannot establish a later server restart.');
+        execute(adminUrl, `ALTER ROLE ${identifier(fixture.runtimeUser)} CREATEDB`);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false,
+          'Control-plane membership is insufficient while a privileged role attribute remains.');
+        execute(adminUrl, `ALTER ROLE ${identifier(fixture.runtimeUser)} NOCREATEDB`);
+        execute(fixture.adminDatabaseUrl, `GRANT TEMPORARY ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.runtimeRole)}`);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false);
+        execute(fixture.adminDatabaseUrl, `REVOKE TEMPORARY ON DATABASE ${identifier(fixture.databaseName)} FROM ${identifier(fixture.runtimeRole)}`);
+        const postgresAdmin = connectionUrl({ baseUrl: adminUrl, databaseName: 'postgres' });
+        const postgresMigration = connectionUrl({ baseUrl: fixture.migrationUrl, databaseName: 'postgres' });
+        try {
+          execute(postgresAdmin, 'CREATE TABLE public.cutover_persistence_probe(id integer)');
+          assert.equal(runtimeCutoverRead(fixture, postgresMigration, restartFence).prebaseline_fresh, false,
+            'Persistence in another reviewed database must block Phase B completion.');
+        } finally {
+          execute(postgresAdmin, 'DROP TABLE IF EXISTS public.cutover_persistence_probe');
+        }
       });
     });
     await t.test('mixed-state ACL staging rolls back when catalog footprint changes', async () => {
@@ -1895,4 +1927,24 @@ function mixedRepairSql(fixture) {
     .replaceAll('DATABASE khedmah ', `DATABASE ${identifier(fixture.databaseName)} `)
     .replaceAll('656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf', fixture.systemRoleManifestSha256);
   return sql;
+}
+
+function runtimeCutoverRead(fixture, databaseUrl, restartFence) {
+  assert.match(restartFence, /^[0-9]{13}$/);
+  let sql = readFileSync(resolve(repositoryRoot, 'scripts/production-database-runtime-cutover-check.sql'), 'utf8');
+  for (const [name, replacement] of Object.entries({
+    khedmah_app: fixture.runtimeUser,
+    khedmah_migrator: fixture.migrationUser,
+    khedmah_runtime_role: fixture.runtimeRole,
+    khedmah_migration_role: fixture.migrationRole,
+  })) sql = sql.replaceAll(name, replacement);
+  sql = sql.replaceAll("'khedmah'", literal(fixture.databaseName))
+    .replaceAll('__RESTART_MILLIS__', restartFence)
+    // This allowance is test-only; production SQL keeps the strict inventory.
+    .replaceAll('AND NOT (false)', "AND NOT (database.datname ~ '(_ci|_test)$')");
+  const result = runPsql(databaseUrl, sql, { PGOPTIONS: '-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on' });
+  assertBootstrapSuccess(result, 'Phase B read-only postflight SQL');
+  const records = result.stdout.split('\n').filter((line) => line.startsWith('{'));
+  assert.equal(records.length, 1, result.stdout);
+  return JSON.parse(records[0]);
 }
