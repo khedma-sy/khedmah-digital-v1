@@ -108,17 +108,21 @@ export function checkSchemaJob(env, environment, identifier, stage, phase, run =
   return name;
 }
 
+export function schemaPoolCommand(args, env, run = execFileSync, policy = POLICY) {
+  if (args.length !== 4) stop('ARGUMENTS_REJECTED');
+  const [phase, environment, identifier, stage] = args;
+  if (phase === 'name') {
+    const name = schemaJobName(environment, identifier, stage);
+    if (environment === 'preview') validatePoolTarget(env, policy);
+    return name;
+  }
+  checkSchemaJob(env, environment, identifier, stage, phase, run, policy);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (process.argv.length !== 6) stop('ARGUMENTS_REJECTED');
-    const [phase, environment, identifier, stage] = process.argv.slice(2);
-    if (phase === 'name') {
-      const name = schemaJobName(environment, identifier, stage);
-      if (environment === 'preview') validatePoolTarget(process.env);
-      console.log(name);
-    } else {
-      checkSchemaJob(process.env, environment, identifier, stage, phase);
-    }
+    const output = schemaPoolCommand(process.argv.slice(2), process.env);
+    if (output !== undefined) console.log(output);
   } catch (error) {
     console.error('STOP: ' + error.message);
     process.exitCode = 1;
