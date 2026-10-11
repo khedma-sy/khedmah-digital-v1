@@ -27,8 +27,18 @@ test('media plan binds the reviewed production state and resource identities', (
   assert.match(workflow, /bash scripts\/plan-media-storage\.sh/);
 });
 
+test('media plan records exact media state evidence in the reviewed artifact', () => {
+  assert.match(workflow, /khedmah-media-state-evidence\.json/);
+  assert.match(workflow, /media_generation_before/);
+  assert.match(workflow, /media_generation_after/);
+  assert.match(workflow, /MEDIA_STATE_CHANGED_DURING_PLAN/);
+  assert.match(workflow, /MEDIA_STATE_CHANGED_WHILE_CAPTURING_EVIDENCE/);
+  assert.match(workflow, /terraform -chdir=infra\/iac\/media state pull/);
+});
+
 test('media plan publishes review evidence but cannot apply or deploy', () => {
   assert.match(workflow, /khedmah-media-plan-summary\.json/);
+  assert.match(workflow, /khedmah-media-state-evidence\.json/);
   assert.match(workflow, /cd "\$artifact_dir"/);
   assert.match(workflow, /sha256sum --check SHA256SUMS/);
   assert.match(workflow, /actions\/upload-artifact@v7/);

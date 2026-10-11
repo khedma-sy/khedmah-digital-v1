@@ -119,10 +119,85 @@ jobs:
           gcloud config set project "$GOOGLE_CLOUD_PROJECT" >/dev/null
           plan_dir="$(mktemp -d)"
           review_tf_data_dir="$(mktemp -d)"
-          trap 'rm -rf "$plan_dir" "$review_tf_data_dir"' EXIT
+          evidence_tf_data_dir="$(mktemp -d)"
+          trap 'rm -rf "$plan_dir" "$review_tf_data_dir" "$evidence_tf_data_dir"' EXIT
           export TF_PLAN_FILE="$plan_dir/khedmah-media.tfplan"
 
+          media_state_uri="gs://${TF_STATE_BUCKET}/${TF_STATE_PREFIX}/default.tfstate"
+          read_media_state_generation() {
+            local err_file generation
+            err_file="$(mktemp)"
+            if generation="$(gcloud storage objects describe "$media_state_uri" --format='value(generation)' 2>"$err_file")"; then
+              rm -f "$err_file"
+              test -n "$generation"
+              printf '%s\n' "$generation"
+              return 0
+            fi
+            if grep -Eiq '(NOT_FOUND|not found|404|matched no objects|does not exist)' "$err_file"; then
+              rm -f "$err_file"
+              printf '%s\n' 'ABSENT'
+              return 0
+            fi
+            cat "$err_file" >&2
+            rm -f "$err_file"
+            return 1
+          }
+
+          media_generation_before="$(read_media_state_generation)"
           bash scripts/plan-media-storage.sh
+          media_generation_after="$(read_media_state_generation)"
+          if [[ "$media_generation_before" != "$media_generation_after" ]]; then
+            printf 'ERROR: MEDIA_STATE_CHANGED_DURING_PLAN BEFORE=%s AFTER=%s\n' \
+              "$media_generation_before" "$media_generation_after" >&2
+            exit 1
+          fi
+
+          if [[ "$media_generation_before" == "ABSENT" ]]; then
+            jq -n \
+              --arg commit_sha "$REQUESTED_SHA" \
+              --arg state_bucket "$TF_STATE_BUCKET" \
+              --arg state_prefix "$TF_STATE_PREFIX" \
+              '{
+                commit_sha: $commit_sha,
+                state_bucket: $state_bucket,
+                state_prefix: $state_prefix,
+                generation: "ABSENT",
+                lineage: "ABSENT",
+                serial: 0
+              }' > "$plan_dir/khedmah-media-state-evidence.json"
+          else
+            TF_DATA_DIR="$evidence_tf_data_dir" terraform -chdir=infra/iac/media init \
+              -input=false -reconfigure \
+              -backend-config="bucket=${TF_STATE_BUCKET}" \
+              -backend-config="prefix=${TF_STATE_PREFIX}" >/dev/null
+            TF_DATA_DIR="$evidence_tf_data_dir" terraform -chdir=infra/iac/media state pull \
+              > "$plan_dir/khedmah-media-state.tfstate"
+            lineage="$(jq -er '.lineage | select(type == "string" and length > 0)' "$plan_dir/khedmah-media-state.tfstate")"
+            serial="$(jq -er '.serial | select(type == "number" and . >= 0)' "$plan_dir/khedmah-media-state.tfstate")"
+            generation_final="$(read_media_state_generation)"
+            if [[ "$generation_final" != "$media_generation_before" ]]; then
+              printf 'ERROR: MEDIA_STATE_CHANGED_WHILE_CAPTURING_EVIDENCE BEFORE=%s AFTER=%s\n' \
+                "$media_generation_before" "$generation_final" >&2
+              exit 1
+            fi
+            jq -n \
+              --arg commit_sha "$REQUESTED_SHA" \
+              --arg state_bucket "$TF_STATE_BUCKET" \
+              --arg state_prefix "$TF_STATE_PREFIX" \
+              --arg generation "$generation_final" \
+              --arg lineage "$lineage" \
+              --argjson serial "$serial" \
+              '{
+                commit_sha: $commit_sha,
+                state_bucket: $state_bucket,
+                state_prefix: $state_prefix,
+                generation: $generation,
+                lineage: $lineage,
+                serial: $serial
+              }' > "$plan_dir/khedmah-media-state-evidence.json"
+            rm -f "$plan_dir/khedmah-media-state.tfstate"
+          fi
+
           export TF_DATA_DIR="$review_tf_data_dir"
           terraform -chdir=infra/iac/media init -backend=false -input=false
           terraform -chdir=infra/iac/media show -json "$TF_PLAN_FILE" \
@@ -143,12 +218,13 @@ jobs:
           mkdir -p "$artifact_dir"
           cp "$TF_PLAN_FILE" "$plan_dir/khedmah-media-plan.json" \
             "$plan_dir/khedmah-media-plan.txt" \
-            "$plan_dir/khedmah-media-plan-summary.json" "$artifact_dir/"
+            "$plan_dir/khedmah-media-plan-summary.json" \
+            "$plan_dir/khedmah-media-state-evidence.json" "$artifact_dir/"
           (
             cd "$artifact_dir"
             sha256sum khedmah-media.tfplan khedmah-media-plan.json \
               khedmah-media-plan.txt khedmah-media-plan-summary.json \
-              > SHA256SUMS
+              khedmah-media-state-evidence.json > SHA256SUMS
             sha256sum --check SHA256SUMS
           )
           printf 'artifact_dir=%s\n' "$artifact_dir" >> "$GITHUB_OUTPUT"
@@ -163,6 +239,10 @@ jobs:
             printf -- '- Runtime identity: `%s`\n' "$OPERATIONS_RUNTIME_SERVICE_ACCOUNT"
             printf -- '- Root lineage/serial: `%s` / `%s`\n' \
               "$LEGACY_ROOT_STATE_LINEAGE" "$LEGACY_ROOT_STATE_SERIAL"
+            printf -- '- Media state evidence: generation `%s`, lineage `%s`, serial `%s`\n' \
+              "$(jq -r '.generation' "$plan_dir/khedmah-media-state-evidence.json")" \
+              "$(jq -r '.lineage' "$plan_dir/khedmah-media-state-evidence.json")" \
+              "$(jq -r '.serial' "$plan_dir/khedmah-media-state-evidence.json")"
             printf -- '- Apply/deployment: `NOT PERFORMED`\n'
             printf '%s\n' '' '```json'
             cat "$plan_dir/khedmah-media-plan-summary.json"

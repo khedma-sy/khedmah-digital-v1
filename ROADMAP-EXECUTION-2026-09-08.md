@@ -1,5 +1,18 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-11 / PR #273 Plan-bound Media State Evidence
+
+- **المصدر المحمي قبل الإصلاح:** `main=acf28da31ba0e3dd83745369574199c244571db3`، دمج PR #272. PR #272 لم يعد pending.
+- **محاولة Media Apply #3:** التشغيل `38115102784` attempt 1 اجتاز بوابات plan/checksum/state ثم فشل عند `storage.buckets.update` قبل إكمال Terraform apply. Audit Logs أثبتت أن principal هو `khedmah-v1-deployer@khedma-dl.iam.gserviceaccount.com`. بعد موافقة المالك مُنح deployer مؤقتًا `roles/storage.admin` على **Media Bucket فقط**، وليس على المشروع.
+- **سبب فشل الإعادة:** attempt 2 لنفس التشغيل لم يصل إلى apply؛ فشل مغلقًا في `Verify target, states and approved plan` لأن media state لم تعد تطابق serial المحمي القديم بعد المحاولة السابقة. لا يجوز تجاوز هذا الفحص أو إعادة استخدام الخطة القديمة بالقوة.
+- **الإصلاح في PR #273:** الفرع `fix/media-plan-state-evidence-2026-10-11` يجعل Media Plan يسجل داخل artifact المحمي بـSHA256 هوية media state المستخدمة في التخطيط: GCS object generation + Terraform lineage + serial. Media Apply يشتق توقعات media state من artifact نفسه ويتحقق من generation قبل وبعد backend init وقبل apply؛ لا يعتمد على `TF_MEDIA_STATE_LINEAGE` و`TF_MEDIA_STATE_SERIAL` اليدويين. بوابات no-delete وexact latest-main وroot-state وresource identity وprivate bucket باقية.
+- **حالة التحقق الحالية:** PR #273 مفتوح. المراجعة كشفت وجوب تحديث اختبارات workflow وهذا checkpoint؛ أُدخل التعديلان على نفس الفرع، ويجب انتظار checks/re-review على الرأس الجديد قبل أي merge.
+- **إصلاح فشل CI الأخير:** على الرأس `7c1a7f215dbf9ba80325f2698988979bf94e8e41` فشلت Node/Test/Preview في اختبار `apply: approved state region reaches the next mocked state gate`؛ مجموعة root سجلت 1731 نجاحًا من 1732. fixture لم توفر `GITHUB_ENV` الذي تكتب فيه خطوة التحقق قبل فحص root state، فتوقفت قبل sentinel. الإصلاح `6d86e96a3e80edeff2d6fb62c20659a5328deddc` يوفر ملفًا مؤقتًا معزولًا؛ لا تعديل على workflow أو تخفيف للبوابات. التحقق المحلي: `node --test tests/production-state-location-guard.test.mjs` نجح 27/27، صفر فشل/تخطٍّ، مع أدوات cloud/terraform وهمية؛ ليس دليل Production. يجب انتظار CI/Preview والمراجعة على رأس checkpoint النهائي.
+- **العائق الحالي:** لا Production apply جديد مسموح حتى يصبح PR #273 أخضر ويُدمج، ثم يُنشأ **Media Plan جديد** على main الجديد. الخطة السابقة `37973891823` stale ولا يجوز تطبيقها.
+- **الخطوة التالية الوحيدة:** أكمل checks والمراجعة لـPR #273، عالج أي ملاحظة جديدة، ثم ادمجه وفق branch protection. بعد الدمج أنشئ Media Plan جديدًا فقط؛ إذا كان non-destructive ومطابقًا للحالة الحية، اعتمده وشغّل Media Apply. بعد النجاح والتحقق من lifecycle + canonical runtime IAM + media state، أزل grant `roles/storage.admin` المؤقت من deployer فورًا ثم أعد Production readiness/verification.
+- **حدود المرحلة:** Media ليست نهاية Google Cloud. الترتيب يبقى Phase 1A database/recovery → Phase 1B schema → Phase 1C hardening/release → Phase 2 Google readiness/deployment → Phase 3 Floot.
+
+
 ## نقطة الاستئناف الحية — 2026-10-09 / PR #272 Adopted Media Apply Gate
 
 - **المصدر المحمي الحالي:** `main=a1556336adc32ce179ef371ac330cab94ada91fb`، دمج PR #271. لا يوجد commit أحدث على `main` عند هذا checkpoint.
