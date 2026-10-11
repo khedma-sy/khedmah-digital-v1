@@ -158,6 +158,14 @@ case "$*" in
     test ! -f "$root/role-read-failure"
     cat "$root/role.json" ;;
   "iam roles describe roles/owner --format=json")
+    if test -f "$root/inherited-role-read-failure"; then
+      printf 'PERMISSION_DENIED: inherited role lookup\\n' >&2
+      exit 7
+    fi
+    if test -f "$root/inherited-role.json"; then
+      cat "$root/inherited-role.json"
+      exit 0
+    fi
     printf '%s\\n' '{"name":"roles/owner","includedPermissions":["secretmanager.versions.access"]}' ;;
   "iam roles describe roles/secretmanager.secretAccessor --format=json")
     printf '%s\\n' '{"name":"roles/secretmanager.secretAccessor","includedPermissions":["secretmanager.versions.access"]}' ;;
@@ -236,6 +244,8 @@ async function certify(mutate = () => {}) {
     await writeFile(join(directory, 'calls'), '');
     await writeFile(join(directory, 'role.json'), metadata.rawRole ?? JSON.stringify(metadata.role));
     if (metadata.roleReadFailure) await writeFile(join(directory, 'role-read-failure'), '');
+    if (metadata.inheritedRoleReadFailure) await writeFile(join(directory, 'inherited-role-read-failure'), '');
+    if (metadata.rawInheritedRole !== undefined) await writeFile(join(directory, 'inherited-role.json'), metadata.rawInheritedRole);
     if (metadata.deferredVersion) await writeFile(join(directory, `deferred-version-${metadata.deferredVersion}`), '');
     if (metadata.versionUnavailable) await writeFile(join(directory, `version-unavailable-${metadata.versionUnavailable}`), '');
     for (const [name, state] of Object.entries(metadata.versionStates ?? {})) {
@@ -425,4 +435,41 @@ test('offline certification refuses role lookup failure without a fallback or su
   assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
   assert.ok(!result.calls.some((call) => call.startsWith('secrets ') || call.startsWith('asset ')));
 });
+
+test('offline certification rejects an inherited role lookup failure instead of certifying unknown access', async () => {
+  const result = await certify((metadata) => { metadata.inheritedRoleReadFailure = true; });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Could not resolve an inherited IAM role/);
+  assert.doesNotMatch(result.stdout, /READY:/);
+});
+
+for (const [name, raw] of [
+  ['malformed JSON', '{'],
+  ['empty response', ''],
+  ['non-object metadata', 'null'],
+  ['multiple documents', '{"name":"roles/owner","includedPermissions":[]}\n{"name":"roles/owner","includedPermissions":[]}'],
+  ['missing name', '{"includedPermissions":[]}'],
+  ['wrong name', '{"name":"roles/editor","includedPermissions":[]}'],
+  ['missing permissions', '{"name":"roles/owner"}'],
+  ['non-array permissions', '{"name":"roles/owner","includedPermissions":{}}'],
+  ['non-string permission', '{"name":"roles/owner","includedPermissions":[null]}'],
+]) {
+  test(`offline certification rejects inherited role ${name} without a success marker`, async () => {
+    const result = await certify((metadata) => { metadata.rawInheritedRole = raw; });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Could not resolve an inherited IAM role/);
+    assert.doesNotMatch(result.stdout, /READY:/);
+  });
+}
+
+for (const permissions of [[], ['resourcemanager.projects.get']]) {
+  test(`offline certification accepts a verified inherited non-payload permission set ${JSON.stringify(permissions)}`, async () => {
+    const result = await certify((metadata) => {
+      metadata.rawInheritedRole = JSON.stringify({ name: 'roles/owner', includedPermissions: permissions });
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
+    assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
+  });
+}
 

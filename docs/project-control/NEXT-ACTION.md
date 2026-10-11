@@ -1,26 +1,20 @@
 # Next Safe Action — Khedmah
 
-Snapshot: 2026-10-11 after Media Apply #4, successful Production VERIFY_ONLY #71, failed Google certification #798 and owner-supplied SQL recovery configuration. This section supersedes older instructions below.
+Snapshot: 2026-10-11, after completed owner recovery metadata reads and the inherited-IAM error-path repair. This section supersedes the historical instructions below.
 
-## Execute next — repair Android activation classification and read successful backups
+## Source repair, then bounded recovery operation
 
-1. Protected main is `bc5a5c764413498189147cc34c7e857c78aa3d2c`. Media Apply `38121038156` completed, serial 4; the temporary deployer bucket storage.admin grant was removed. Production Operator `38121433817` VERIFY_ONLY passed; hardened-role verification and deployment were skipped, and backend/frontend remain absent. Do not replay media apply or restore the temporary grant.
-2. Google readiness `38121557389` (#798) failed at `07:37:13 UTC` because the active Android Maps secret was still declared deferred. validate-files passed, protected builds skipped. PR #274 now requires an ENABLED Android latest version with unchanged IAM checks, while Server Maps remains zero-version deferred. Local metadata-only tests passed 52/52, including missing/disabled version and IAM rejection; this does not certify live cloud state.
-3. Let this repair's exact head pass CI/Preview/review; merge normally, then run Google readiness on the resulting protected main. Expected successful metadata counts are 17 total / 16 enabled-version secrets / 1 deferred; `SECRET_PAYLOADS_READ=0`. Do not reuse earlier-head checks or infer API-key restriction/device certification from this metadata gate.
-4. The owner completed instance describe: POSTGRES_16, RUNNABLE, europe-west1; backup enabled, retention 7 backups, PITR and log archiving enabled, 7-day log retention. This configuration is not proof of backup success or a tested restore. The next owner-operated Cloud Shell read is:
+- Additional owner-supplied Cloud Shell evidence on 2026-10-11: the five latest automated backups are SUCCESSFUL; newest backup `1791662400000` ended `2026-10-10T21:05:35.243Z` (`2026-10-11 00:05:35 Asia/Damascus`). The latest 20 source-instance operations show 19 BACKUP_VOLUME and one UPDATE, all DONE with no returned error code. No restore/clone appears in that bounded list; it does not rule out older, deleted or other-target drills and does not prove restored data integrity.
+- Project instance inventory returns only `khedmah-v1-db`, RUNNABLE, POSTGRES_16, europe-west1. Detailed metadata: ENTERPRISE, `db-f1-micro`, ZONAL, 10 GB PD_SSD, public IPv4 enabled, connectorEnforcement=NOT_REQUIRED, requireSsl=false, sslMode=ALLOW_UNENCRYPTED_AND_ENCRYPTED, Google-managed internal CA. No privateNetwork, authorizedNetworks or diskEncryptionConfiguration was returned. Do not infer that actual traffic is unencrypted or that unauthenticated database access is possible.
+- Exact-head pre-repair evidence: `41c2ff3d061b66e9f8d131fa026ab9e02c1e1f53` passed Node `38122741807`, Test & Verify `38122741922`, Google source validation `38122741810` and Preview `38122741806`. Preview passed browser capture, Classifieds acceptance and 32/32 mobile interactions. The PR-event production-secret-gate was skipped; these results are not live secret certification or acceptance of a later commit.
+- Additional source review reproduced a fail-open inherited-role lookup: `if ! role_grants_secret_payload_access ...; then status=$?` captured the inverted success status and ignored lookup failure. A closed fake-gcloud PERMISSION_DENIED scenario incorrectly returned 0 on that exact script. The repair captures the original status using a positive if/else, accepts only verified non-payload status 1, and rejects unresolved roles or malformed/missing/mismatched role metadata. Direct IAM allowlists, the bounded human project-Owner exception and Android-active/Server-deferred policy remain intact.
+- Local repaired suite: **64/64 passed, zero failed/skipped**, including 12 new cases for inherited lookup failure, invalid metadata and verified non-payload roles. Bash and Node syntax checks passed. Every gcloud call was intercepted by the closed fixture; this is not live Google certification.
+- Next source action: complete CI/Preview/review on this repair's new head, merge under normal protection, then run live Google readiness on the resulting protected main. Do not reuse `41c2ff3...` success for the new commit.
+- Proposed recovery operation, not yet executed or approved: create a separate temporary `khedmah-v1-restorecheck-20261011` instance in europe-west1 using POSTGRES_16/ENTERPRISE/db-f1-micro/ZONAL/10 GB SSD; require encrypted Cloud SQL connector access. Restore numeric backup `1791662400000` from the source into that newly created target, validate database/schema readability and scoped read-only SQL results, preserve sanitized evidence, then delete only the temporary target. Numeric backup-ID restore requires an existing destination, so create the empty target first. Target-local test access may be established without reading or changing Production credentials. No production restore, DNS, application binding, source password, IAM or schema change is part of this drill.
+- Review the bounded temporary-resource cost and obtain the operation-specific owner authorization required by this control plan before creation/restore/test-access/cleanup. A two-hour test window is a planning target, not an automatic billing cap. Recheck target absence and source backup availability before execution. Successful backup restore does not by itself prove arbitrary PITR recovery, current production SQL roles or current schema readiness. Do not repeat completed metadata reads without a concrete freshness reason.
 
-```bash
-gcloud sql backups list \
-  --instance=khedmah-v1-db \
-  --project=khedma-dl \
-  --sort-by='~endTime' \
-  --limit=5 \
-  --format='table(id,status,endTime,type,description)'
-```
-
-5. Review the returned backup instance/status/time/description before deciding whether a fresh operation-specific backup is needed. Then complete current credential/alias continuity, actual PostgreSQL membership and installed-schema evidence. Do not presume a migration ledger or replay baseline SQL.
-6. Latest returned role dispatch remains failed PREPARE `37183178537` from 2026-10-04. Existing older inventory is historical; do not dispatch role workflows to substitute for unresolved recovery evidence.
-7. Preserve order: database/recovery → canonical schema → hardening → approved Google deployment/domain acceptance → Floot integration. No new Production mutation or Floot cutover is authorized by this document.
+- Preserve completed Media Apply `38121038156` (serial 4), owner removal of temporary deployer bucket storage.admin and successful VERIFY_ONLY `38121433817`. Protected main before this PR remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; Google live readiness `38121557389` failed on the old Android-deferred classification. Do not replay Media Apply or restore that temporary grant.
+- Current PostgreSQL memberships, credential/alias continuity, installed schema, HARDEN and deployment/domain/Floot acceptance remain separate open gates. Do not dispatch role workflows to bypass recovery requirements. Preserve database/recovery → schema → hardening → Google deployment/domain acceptance → Floot order.
 
 ## Historical next-action checkpoints
 

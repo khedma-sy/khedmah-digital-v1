@@ -237,7 +237,16 @@ role_grants_secret_payload_access() {
       return 2
       ;;
   esac
-  jq -e '.includedPermissions // [] | index("secretmanager.versions.access") != null' <<<"$role_json" >/dev/null
+  # Distinguish a verified non-payload role from unreadable or malformed metadata.
+  # Do not turn an unknown role into an empty, supposedly harmless permission set.
+  jq -se --arg role "$role" '
+    length == 1 and (.[0] |
+      type == "object" and .name == $role and
+      (.includedPermissions | type == "array") and
+      all(.includedPermissions[]; type == "string")
+    )
+  ' <<<"$role_json" >/dev/null || return 2
+  jq -e '.includedPermissions | index("secretmanager.versions.access") != null' <<<"$role_json" >/dev/null
 }
 
 verify_no_inherited_secret_access() {
@@ -251,12 +260,14 @@ verify_no_inherited_secret_access() {
     return 1
   }
 
-  local row attached role condition_json members_json
+  local row attached role condition_json members_json status
   while IFS=$'\t' read -r attached role condition_json members_json; do
     test -n "$role" || continue
-    if ! role_grants_secret_payload_access "$role"; then
+    if role_grants_secret_payload_access "$role"; then
+      : # Payload access must pass the bounded human-Owner exception below.
+    else
       status=$?
-      if test "$status" -eq 2; then
+      if test "$status" -ne 1; then
         echo 'ERROR: Could not resolve an inherited IAM role while certifying Secret Manager payload access.' >&2
         return 1
       fi
