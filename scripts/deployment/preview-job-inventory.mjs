@@ -2,13 +2,17 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-const PROJECT = 'khedmah-preview-774201339973';
 const REGION = 'europe-west1';
 const MAX_JOBS = 2000;
 
 export function inventoryPreviewJobs(env = process.env, run = execFileSync) {
+  // Select the project from the already-validated Preview environment configuration.
+  const project = env.PREVIEW_GOOGLE_CLOUD_PROJECT;
   if (env.DEPLOYMENT_ENVIRONMENT !== 'preview'
-      || env.PREVIEW_GOOGLE_CLOUD_PROJECT !== PROJECT
+      || typeof project !== 'string'
+      || !/^khedmah-preview-[a-z0-9-]+$/.test(project)
+      || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(project)
+      || project === env.PRODUCTION_GOOGLE_CLOUD_PROJECT
       || env.GOOGLE_CLOUD_REGION !== REGION
       || env.PRODUCTION_GOOGLE_CLOUD_PROJECT !== 'khedma-dl') {
     throw new Error('PREVIEW_INVENTORY_TARGET_REJECTED');
@@ -16,7 +20,7 @@ export function inventoryPreviewJobs(env = process.env, run = execFileSync) {
   let jobs;
   try {
     const raw = run('gcloud', [
-      'run', 'jobs', 'list', '--project=' + PROJECT, '--region=' + REGION,
+      'run', 'jobs', 'list', '--project=' + project, '--region=' + REGION,
       '--limit=' + MAX_JOBS, '--user-output-enabled',
       '--format=json(metadata.name,metadata.creationTimestamp,metadata.labels)',
     ], {
@@ -54,7 +58,7 @@ export function inventoryPreviewJobs(env = process.env, run = execFileSync) {
   records.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
     || a.name.localeCompare(b.name));
   return {
-    project: PROJECT, region: REGION, job_count: records.length,
+    project, region: REGION, job_count: records.length,
     oldest_jobs: records.slice(0, 20),
     execution_state_reviewed: false,
     cleanup_authorized: false,

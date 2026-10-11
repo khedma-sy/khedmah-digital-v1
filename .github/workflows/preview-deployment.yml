@@ -99,6 +99,19 @@ jobs:
           STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
         run: node scripts/validate-environment-separation.mjs
+      - name: Read Preview Job metadata and hold deployment
+        if: steps.gcp-check.outputs.has_gcp == 'true'
+        env:
+          DEPLOYMENT_ENVIRONMENT: preview
+          PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/deployment/preview-job-inventory.mjs
+          echo 'PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'
+          exit 1
       - id: classifieds-stage
         name: Resolve Classifieds Preview rollout stage
         if: steps.gcp-check.outputs.has_gcp == 'true'

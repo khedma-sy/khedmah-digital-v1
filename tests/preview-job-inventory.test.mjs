@@ -4,7 +4,7 @@ import { inventoryPreviewJobs } from '../scripts/deployment/preview-job-inventor
 
 const env = {
   DEPLOYMENT_ENVIRONMENT: 'preview',
-  PREVIEW_GOOGLE_CLOUD_PROJECT: 'khedmah-preview-774201339973',
+  PREVIEW_GOOGLE_CLOUD_PROJECT: 'khedmah-preview-fixture',
   GOOGLE_CLOUD_REGION: 'europe-west1',
   PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
 };
@@ -14,7 +14,7 @@ const job = (name = 'khedmah-preview-test-001', timestamp = '2026-10-01T12:00:00
   status: { unreviewed: true },
 });
 
-test('only reads projected metadata from the pinned Preview project', () => {
+test('only reads projected metadata from the configured Preview project', () => {
   const calls = [];
   const result = inventoryPreviewJobs(env, (command, args, options) => {
     calls.push({ command, args, options });
@@ -23,7 +23,7 @@ test('only reads projected metadata from the pinned Preview project', () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, 'gcloud');
   assert.deepEqual(calls[0].args, [
-    'run', 'jobs', 'list', '--project=khedmah-preview-774201339973',
+    'run', 'jobs', 'list', '--project=khedmah-preview-fixture',
     '--region=europe-west1', '--limit=2000', '--user-output-enabled',
     '--format=json(metadata.name,metadata.creationTimestamp,metadata.labels)',
   ]);
