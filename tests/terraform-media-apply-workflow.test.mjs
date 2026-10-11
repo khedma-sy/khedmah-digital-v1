@@ -38,7 +38,8 @@ test('media apply validates both state identities and exact resource identity', 
   const apply = workflow.indexOf('terraform -chdir=infra/iac/media apply');
   assert.ok(approval >= 0 && approval < firstInit && firstInit < apply);
   assert.match(workflow, /TF_ROOT_STATE_LINEAGE/);
-  assert.match(workflow, /TF_MEDIA_STATE_LINEAGE/);
+  assert.match(workflow, /khedmah-media-state-evidence\\.json/);
+  assert.match(workflow, /EXPECTED_MEDIA_GENERATION/);
   assert.match(workflow, /--arg project "\$GOOGLE_CLOUD_PROJECT"/);
   assert.match(workflow, /--arg bucket "\$GCS_MEDIA_BUCKET"/);
   assert.match(workflow, /serviceAccount:\$\{OPERATIONS_RUNTIME_SERVICE_ACCOUNT\}/);
@@ -60,8 +61,10 @@ test('media apply uses only saved plan and verifies private post-apply state', (
 
 
 test('fresh-account media apply has an explicit absent-state handshake and publishes the created state identity', () => {
-  assert.match(workflow, /expected_media_lineage:.*ABSENT/s);
-  assert.match(workflow, /APPROVED_MEDIA_LINEAGE.*ABSENT/s);
+  assert.match(workflow, /khedmah-media-state-evidence\\.json/);
+  assert.match(workflow, /EXPECTED_MEDIA_LINEAGE/);
+  assert.match(workflow, /EXPECTED_MEDIA_SERIAL/);
+  assert.match(workflow, /EXPECTED_MEDIA_GENERATION/);
   assert.match(workflow, /FIRST_MEDIA_APPLY=true/);
   assert.match(workflow, /MEDIA_STATE_ALREADY_EXISTS/);
   assert.match(workflow, /MEDIA_STATE_CREATED_DURING_REVIEW/);
@@ -73,8 +76,9 @@ test('fresh-account media apply has an explicit absent-state handshake and publi
 test('existing media state still requires exact lineage and serial', () => {
   assert.match(workflow, /terraform -chdir=infra\/iac\/media state pull/);
   assert.match(workflow, /\.lineage == \$lineage and \.serial == \$serial/);
-  assert.match(workflow, /test "\$EXPECTED_MEDIA_LINEAGE" = "\$APPROVED_MEDIA_LINEAGE"/);
-  assert.match(workflow, /test "\$EXPECTED_MEDIA_SERIAL" = "\$APPROVED_MEDIA_SERIAL"/);
+  assert.match(workflow, /test "\$current_media_generation" = "\$EXPECTED_MEDIA_GENERATION"/);
+  assert.match(workflow, /\.commit_sha == \$sha/);
+  assert.match(workflow, /\.state_prefix == "khedmah\/production\/media"/);
 });
 
 test('adopted media apply permits only bucket update plus runtime IAM create and rejects delete', () => {
