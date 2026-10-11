@@ -1,5 +1,17 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## نقطة الاستئناف الحية — 2026-10-11 / خطة Media #12 جاهزة للمراجعة والتنفيذ
+
+- PR #273 دُمج طبيعيًا بعد نجاح رأسه `88cf77be1fa4645a6be33a8873a58ae08a93302c`؛ protected main عند إعداد الخطة هو `bc5a5c764413498189147cc34c7e857c78aa3d2c`.
+- CI: Node `38118828380` وTest `38118828316` ناجحان؛ 1732 root + 616 backend + 151 frontend = 2499، صفر فشل/تخطٍّ. السجل يحتوي تحذير audit متوسطًا واحدًا؛ النجاح ليس شهادة خلو أمني. Preview `38118828319` نجح، بما في ذلك أدلة العرض التكميلية 72/72 والهاتف 32/32. ملاحظتا المراجعة السابقتان مغلقتان بعد التحقق؛ المراجعة الآلية القديمة تخص `49fd635` ولا تمثل APPROVED review للرأس النهائي.
+- Media Plan #12 `38120326927` نجح على main أعلاه؛ الخطة 1 add / 1 change / 0 destroy، فقط bucket lifecycle update وcanonical runtime IAM create. Apply لم يُنفذ.
+- Artifact `11694901687`، الاسم `terraform-media-plan-bc5a5c764413498189147cc34c7e857c78aa3d2c`، 9937 bytes؛ SHA-256 `b2367f7a31bf223883fb77ebc6c6e0d398d67a6731806161a3ecf520f4e77e81` طابق تنزيلًا مستقلًا؛ جميع entries في SHA256SUMS طابقت bytes.
+- Root identity `b88fb6d6-803d-f7ba-dfc5-2d1584276084 / 1` اجتازت gate. Media evidence: generation `1791696772776335`، lineage `00bd1621-fc2e-2b58-4177-2ba90ec51e9f`، serial `3`؛ لا تستخدم serial 2 القديم.
+- النطاق الدقيق: حاوية `khedma-dl-khedmah-media` في europe-west1؛ منح `khedmah-v1-runtime@khedma-dl.iam.gserviceaccount.com` دور `roles/storage.objectAdmin` على الحاوية فقط؛ إضافة lifecycle Delete عند num_newer_versions=3 مع soft delete 30 يومًا. لا إزالة IAM التاريخي في هذه العملية.
+- الخطوة التالية: تأكيد المالك على هذه العملية المحددة؛ ضبط approved SHA/run/artifact للنسخة المراجعة، ثم Media Apply فقط إذا بقي main وgeneration مطابقين. بعد النجاح تحقق من lifecycle/runtime IAM/state ثم أزل grant storage.admin المؤقت للـdeployer وأعد readiness.
+- هذا checkpoint يبقى Draft وغير مدمج أثناء انتظار Apply حتى لا يغيّر main ويبطل saved plan. إذا تغير main لأي سبب، لا تطبق #12؛ أنشئ خطة جديدة على latest main. بعد إغلاق العملية حدّث هذا checkpoint بنتيجتها قبل الدمج.
+- قراءة Floot فقط: مشروع Khedma Business Desk `5e271f43-96a6-40de-a634-ec3eae023a49` عند version `1791671018394` ما زال يستخدم Floot-local sessions؛ الربط الإنتاجي لم يُنفذ. بوابات Google وباقي المراحل تسبق الانتقال.
+
 ## نقطة الاستئناف الحية — 2026-10-11 / PR #273 Plan-bound Media State Evidence
 
 - **المصدر المحمي قبل الإصلاح:** `main=acf28da31ba0e3dd83745369574199c244571db3`، دمج PR #272. PR #272 لم يعد pending.
