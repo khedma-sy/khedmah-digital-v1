@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
@@ -122,6 +123,45 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         const completed = runBootstrap(fixture, 'role-state');
         assertBootstrapSuccess(completed, 'lexical-order completed role-state probe');
         assert.equal(completed.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=completed');
+      });
+    });
+
+
+    await t.test('mixed-state ACL staging preserves credentials and reaches existing isolation after separate cutover', async () => {
+      await withFixture(adminUrl, {}, async (fixture) => {
+        createMixedRepairFixture(fixture);
+        const before = query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl');
+        const premature = runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture));
+        assert.notEqual(premature.status, 0, 'Owner stage must require migrator defaults first.');
+        assert.match(premature.stderr, /REPAIR_RUN_MIGRATOR_STAGE_FIRST/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), before);
+        const badDigest = runPsql(fixture.migrationUrl,
+          mixedRepairSql(fixture).replaceAll(fixture.systemRoleManifestSha256, '0'.repeat(64)));
+        assert.notEqual(badDigest.status, 0);
+        assert.match(badDigest.stderr, /REPAIR_SYSTEM_MANIFEST_MISMATCH/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), '0');
+        assertBootstrapSuccess(runPsql(fixture.migrationUrl, mixedRepairSql(fixture)), 'limited migrator default stage');
+        assertBootstrapSuccess(runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture)), 'owner ACL stage');
+        assertBootstrapSuccess(runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture)), 'idempotent SQL owner stage');
+        assert.equal(query(runtimeRepairUrl(fixture), 'SELECT current_user'), fixture.runtimeUser);
+        assert.equal(query(fixture.migrationUrl, 'SELECT current_user'), fixture.migrationUser);
+        assert.equal(query(adminUrl, `SELECT rolcreaterole AND rolcreatedb FROM pg_roles WHERE rolname=${literal(fixture.runtimeUser)}`), 't',
+          'Phase A must not demote the runtime or pretend isolation is complete.');
+        assert.equal(runBootstrap(fixture, 'role-state').status, 12,
+          'The existing classifier must continue to reject the mixed membership state.');
+        replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+        assertBootstrapSuccess(runBootstrap(fixture, 'verify'),
+          'existing isolation verifier after separately simulated control-plane demotion');
+      });
+    });
+    await t.test('mixed-state ACL staging rolls back when catalog footprint changes', async () => {
+      await withFixture(adminUrl, {}, async (fixture) => {
+        createMixedRepairFixture(fixture);
+        execute(fixture.adminDatabaseUrl, 'CREATE TABLE public.repair_guard_probe(id integer)');
+        const result = runPsql(fixture.migrationUrl, mixedRepairSql(fixture));
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /REPAIR_CATALOG_NOT_EMPTY_OR_TRUSTED/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), '0');
       });
     });
 
@@ -1817,4 +1857,42 @@ function literal(value) {
 
 function diagnostic(message, result) {
   return [message, result.error?.message, result.stdout, result.stderr].filter(Boolean).join('\n');
+}
+
+function createMixedRepairFixture(fixture) {
+  execute(fixture.adminUrl, `
+    ALTER ROLE ${identifier(fixture.runtimeUser)} CREATEROLE CREATEDB;
+    CREATE ROLE ${identifier(fixture.runtimeRole)} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+    CREATE ROLE ${identifier(fixture.migrationRole)} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+  `);
+  demoteMigrationMembership(fixture);
+  execute(fixture.adminDatabaseUrl, `
+    GRANT CONNECT ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.runtimeRole)};
+    GRANT CONNECT, CREATE ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.migrationRole)};
+    GRANT USAGE ON SCHEMA public TO ${identifier(fixture.runtimeRole)};
+    GRANT USAGE, CREATE ON SCHEMA public TO ${identifier(fixture.migrationRole)};
+  `);
+  fixture.systemRoleManifestSha256 = captureSystemRoleManifest(fixture);
+}
+function runtimeRepairUrl(fixture) {
+  return connectionUrl({
+    baseUrl: fixture.adminUrl,
+    databaseName: fixture.databaseName,
+    username: fixture.runtimeUser,
+    password: fixture.runtimePassword,
+  });
+}
+function mixedRepairSql(fixture) {
+  let sql = readFileSync(resolve(repositoryRoot, 'scripts/production-database-mixed-acl-prepare.sql'), 'utf8');
+  const names = {
+    khedmah_app: fixture.runtimeUser,
+    khedmah_migrator: fixture.migrationUser,
+    khedmah_runtime_role: fixture.runtimeRole,
+    khedmah_migration_role: fixture.migrationRole,
+  };
+  for (const [name, replacement] of Object.entries(names)) sql = sql.replaceAll(name, replacement);
+  sql = sql.replaceAll("'khedmah'", literal(fixture.databaseName))
+    .replaceAll('DATABASE khedmah ', `DATABASE ${identifier(fixture.databaseName)} `)
+    .replaceAll('656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf', fixture.systemRoleManifestSha256);
+  return sql;
 }
