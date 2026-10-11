@@ -40,9 +40,12 @@ for file in "${files[@]}"; do [[ -f "$file" ]] || { echo "Missing $file" >&2; ex
 manifest_sha256="$(cat "${files[@]}" | sha256sum | awk '{print $1}')"
 
 tag="${environment}-${identifier}"
-short_identifier="$(printf '%s' "$identifier" | sha256sum | cut -c1-10)"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/foundation-migrations:${tag}"
-job="khedmah-${environment}-foundation-001-022-${short_identifier}"
+job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" foundation-001-022)"
+pool_label_args=()
+if [[ "$environment" == 'preview' ]]; then
+  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=foundation-001-022")
+fi
 source_args=()
 if [[ "$environment" == 'staging' ]]; then
   source_args=(--gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source")
@@ -56,7 +59,9 @@ gcloud builds submit . \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" \
   --quiet
 
-gcloud run jobs deploy "$job" \
+node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" foundation-001-022
+
+gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
@@ -70,9 +75,12 @@ gcloud run jobs deploy "$job" \
   --task-timeout 15m \
   --quiet
 
+node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" foundation-001-022
+
 gcloud run jobs execute "$job" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --wait
 
 printf 'Foundation 001-022 completed and verified for %s.\n' "$environment"
+

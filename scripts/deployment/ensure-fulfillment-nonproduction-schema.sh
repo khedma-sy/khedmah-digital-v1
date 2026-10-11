@@ -42,9 +42,12 @@ verify_repo_blob backend/migrations/versions/027_mobility_document_reviews.sql "
 verify_repo_blob backend/migrations/versions/028_platform_notifications.sql "$migration_028_blob"
 
 tag="${environment}-${identifier}"
-short_identifier="$(printf '%s' "$identifier" | sha256sum | cut -c1-10)"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/fulfillment-migration:${tag}"
-job="khedmah-${environment}-fulfillment-026-028-${short_identifier}"
+job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" fulfillment-026-028)"
+pool_label_args=()
+if [[ "$environment" == 'preview' ]]; then
+  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=fulfillment-026-028")
+fi
 
 gcloud builds submit . \
   --project "$GOOGLE_CLOUD_PROJECT" \
@@ -53,7 +56,9 @@ gcloud builds submit . \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" \
   --quiet
 
-gcloud run jobs deploy "$job" \
+node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" fulfillment-026-028
+
+gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
@@ -66,6 +71,8 @@ gcloud run jobs deploy "$job" \
   --max-retries 0 \
   --task-timeout 10m \
   --quiet
+
+node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" fulfillment-026-028
 
 set +e
 execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait 2>&1)"
@@ -100,3 +107,4 @@ if [[ "$execution_status" -ne 0 ]]; then
   exit "$execution_status"
 fi
 printf 'Fulfillment migrations 026-028 %s completed and verified for %s.\n' "$mode" "$environment"
+

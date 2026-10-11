@@ -27,9 +27,12 @@ actual_sha256="$(sha256sum backend/migrations/versions/029_taxi_pricing_revision
 [[ "$actual_sha256" == "$migration_sha256" ]] || { echo 'Repository Taxi pricing migration blob changed.' >&2; exit 4; }
 
 tag="${environment}-${identifier}"
-short_identifier="$(printf '%s' "$identifier" | sha256sum | cut -c1-10)"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/taxi-pricing-migration:${tag}"
-job="khedmah-${environment}-taxi-pricing-029-${short_identifier}"
+job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" taxi-pricing-029)"
+pool_label_args=()
+if [[ "$environment" == 'preview' ]]; then
+  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=taxi-pricing-029")
+fi
 
 gcloud builds submit . \
   --project "$GOOGLE_CLOUD_PROJECT" \
@@ -38,7 +41,9 @@ gcloud builds submit . \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" \
   --quiet
 
-gcloud run jobs deploy "$job" \
+node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" taxi-pricing-029
+
+gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
@@ -51,6 +56,8 @@ gcloud run jobs deploy "$job" \
   --max-retries 0 \
   --task-timeout 10m \
   --quiet
+
+node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" taxi-pricing-029
 
 set +e
 execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait 2>&1)"
@@ -86,3 +93,4 @@ if [[ "$execution_status" -ne 0 ]]; then
 fi
 
 printf 'Taxi pricing migration 029 %s completed and verified for %s.\n' "$mode" "$environment"
+

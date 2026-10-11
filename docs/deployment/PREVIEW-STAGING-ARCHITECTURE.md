@@ -49,7 +49,17 @@ No mutable project, service account, secret, image repository, Cloud Run service
 
 ## Preview strategy
 
-A PR receives `khedmah-pr-<number>-frontend` and `khedmah-pr-<number>-backend`. Each synchronize event replaces traffic with images tagged `preview-pr-<number>-<SHA>`. Concurrency cancels obsolete runs. Preview uses no production data and cannot deploy when its project equals Production.
+A PR receives `khedmah-pr-<number>-frontend` and `khedmah-pr-<number>-backend`. Each synchronize event replaces traffic with images tagged `preview-pr-<number>-<SHA>`. Quality checks can run in parallel. The two Preview cloud mutation jobs share a non-cancelling queue; each re-checks current PR head/state before cloud authentication, rejecting obsolete queued sources. Preview uses no production data and cannot deploy when its project equals Production.
+
+## Bounded Preview schema Jobs
+
+The nine schema helpers use `khedmah-preview-schema-<stage>` for foundation 001–022, Product Store 024, Classifieds 025, Fulfillment 026–028, Taxi pricing 029, Billing 030/033, Taxi authority 031, profile gate 032 and food promotions 034. Image tags remain PR/revision-specific. These shared Preview schema Job definitions persist across PR closure; the PR-service cleanup never deletes them. Existing legacy hashed Jobs require a separately reviewed cleanup.
+
+The pool is guarded by projected inventory, dedicated ownership labels, Preview project/runtime/Cloud SQL/image checks, completed reconciliation and terminal execution reads both before deploy and before execute. A failed read cannot mean absence. The second check requires the exact requested image. No external writer may update/execute these shared slots concurrently. Manual cancellations and incomplete/truncated history stop reuse for reconciliation; the CLI checks do not provide an atomic distributed lock.
+
+GitHub's [concurrency queue](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency) serializes cloud writers without cancelling running mutations. Queued outdated PR sources stop before authentication. See Google's [Job status contract](https://docs.cloud.google.com/run/docs/reference/rest/v1/namespaces.jobs#JobStatus) and [execution history](https://docs.cloud.google.com/run/docs/managing/job-executions) for the projected readiness/history fields.
+
+The current checkpoint keeps deployment held before these helpers; preparation and passing mocked tests do not constitute a live pool rollout.
 
 ## Staging strategy
 
