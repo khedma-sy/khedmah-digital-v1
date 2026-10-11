@@ -59,6 +59,7 @@ test('only performs two projected read commands, derives source and preserves ho
     return runner()(command, args);
   }, manifest);
   assert.equal(calls.length, 2);
+  assert.ok(calls[0].at(-1).includes('containers[].image'));
   assert.ok(calls.every(args => !args.at(-1).includes('containers.env')));
   assert.equal(result.records[0].source_pr, 12);
   assert.equal(result.records[0].identifier_hash_matches_name, true);
@@ -170,4 +171,5 @@ test('workflow retains authentication, isolation and unconditional deployment st
   assert.match(step, /exit 1/);
   assert.doesNotMatch(step, /continue-on-error|jobs delete|jobs execute|jobs deploy/);
 });
+
 

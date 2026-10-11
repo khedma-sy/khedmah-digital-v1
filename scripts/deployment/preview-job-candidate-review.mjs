@@ -105,7 +105,7 @@ export function reviewPreviewCandidates(env = process.env, run = execFileSync, m
   for (const candidate of manifest.candidates) {
     const job = read(['run', 'jobs', 'describe', candidate.name],
       'metadata.name,metadata.uid,metadata.namespace,metadata.creationTimestamp,metadata.labels,'
-      + 'spec.template.spec.template.spec.serviceAccountName,spec.template.spec.template.spec.containers.image,'
+      + 'spec.template.spec.template.spec.serviceAccountName,spec.template.spec.template.spec.containers[].image,'
       + 'status.executionCount');
     const meta = job?.metadata;
     if (!meta || meta.name !== candidate.name || meta.creationTimestamp !== candidate.created_at
@@ -159,4 +159,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1;
   }
 }
+
 
