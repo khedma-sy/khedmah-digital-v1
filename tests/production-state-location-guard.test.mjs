@@ -54,7 +54,7 @@ exit 87
     OPERATIONS_APPROVED_PRODUCTION: 'true', OPERATIONS_BACKEND_SERVICE: 'backend',
     OPERATIONS_FRONTEND_SERVICE: 'frontend', NEXT_PUBLIC_SITE_URL: 'https://example.test',
     OPERATIONS_EVIDENCE_DIRECTORY: join(dir, 'evidence'), PLAN_FILE: plan, PLAN_JSON: plan,
-    STATE_EVIDENCE: stateEvidence, APPROVED_SHA: '',
+    STATE_EVIDENCE: stateEvidence, APPROVED_SHA: '', GITHUB_ENV: join(dir, 'github-env'),
   }};
 }
 function run(ctx, command, env = ctx.env) {
