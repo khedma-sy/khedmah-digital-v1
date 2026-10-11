@@ -38,7 +38,7 @@ test('media apply validates both state identities and exact resource identity', 
   const apply = workflow.indexOf('terraform -chdir=infra/iac/media apply');
   assert.ok(approval >= 0 && approval < firstInit && firstInit < apply);
   assert.match(workflow, /TF_ROOT_STATE_LINEAGE/);
-  assert.match(workflow, /khedmah-media-state-evidence\\.json/);
+  assert.match(workflow, /khedmah-media-state-evidence\.json/);
   assert.match(workflow, /EXPECTED_MEDIA_GENERATION/);
   assert.match(workflow, /--arg project "\$GOOGLE_CLOUD_PROJECT"/);
   assert.match(workflow, /--arg bucket "\$GCS_MEDIA_BUCKET"/);
@@ -61,7 +61,7 @@ test('media apply uses only saved plan and verifies private post-apply state', (
 
 
 test('fresh-account media apply has an explicit absent-state handshake and publishes the created state identity', () => {
-  assert.match(workflow, /khedmah-media-state-evidence\\.json/);
+  assert.match(workflow, /khedmah-media-state-evidence\.json/);
   assert.match(workflow, /EXPECTED_MEDIA_LINEAGE/);
   assert.match(workflow, /EXPECTED_MEDIA_SERIAL/);
   assert.match(workflow, /EXPECTED_MEDIA_GENERATION/);
