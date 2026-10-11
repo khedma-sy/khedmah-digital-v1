@@ -1941,7 +1941,7 @@ function runtimeCutoverRead(fixture, databaseUrl, restartFence) {
   sql = sql.replaceAll("'khedmah'", literal(fixture.databaseName))
     .replaceAll('__RESTART_MILLIS__', restartFence)
     // This allowance is test-only; production SQL keeps the strict inventory.
-    .replaceAll('AND NOT (false)', "AND NOT (database.datname ~ '(_ci|_test)$')");
+    .replaceAll('AND NOT (false)', () => "AND NOT (database.datname ~ '(_ci|_test)$')");
   const result = runPsql(databaseUrl, sql, { PGOPTIONS: '-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on' });
   assertBootstrapSuccess(result, 'Phase B read-only postflight SQL');
   const records = result.stdout.split('\n').filter((line) => line.startsWith('{'));
