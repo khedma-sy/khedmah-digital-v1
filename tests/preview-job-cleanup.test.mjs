@@ -122,9 +122,12 @@ test('post-delete inventory denial or surviving candidates cannot report success
   }
 });
 
-test('the deployed workflow still invokes only the read and deployment hold', () => {
+test('the workflow invokes only the approved manifest and retains the deployment hold', () => {
   const workflow = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  assert.ok(!workflow.includes('preview-job-cleanup.mjs'));
-  assert.ok(workflow.includes('node scripts/deployment/preview-job-candidate-review.mjs'));
-  assert.ok(workflow.includes('PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'));
+  const manifest = JSON.parse(readFileSync(new URL('../scripts/deployment/preview-job-cleanup-20261011.json', import.meta.url), 'utf8'));
+  assert.equal(manifest.candidates.length, 20);
+  assert.equal(confirmationFor(manifest), 'DELETE_KHEDMAH_PREVIEW_20_fd1117bf33c2a788');
+  assert.ok(workflow.includes('node scripts/deployment/preview-job-cleanup.mjs --confirm ' + confirmationFor(manifest)));
+  assert.ok(workflow.includes('GH_TOKEN: ${{ github.token }}'));
+  assert.ok(workflow.includes('PREVIEW_CLEANUP_COMPLETE_DEPLOYMENT_HELD'));
 });

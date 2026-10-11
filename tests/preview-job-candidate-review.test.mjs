@@ -160,14 +160,15 @@ test('empty retained history and unrecognized source do not certify ownership or
 
 test('workflow retains authentication, isolation and unconditional deployment stop', () => {
   const source = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  const start = source.indexOf('- name: Read Preview candidate ownership');
+  const start = source.indexOf('- name: Delete approved twenty Preview Jobs');
   const end = source.indexOf('- id: classifieds-stage', start);
   assert.ok(start > source.indexOf('run: node scripts/validate-environment-separation.mjs'));
   const step = source.slice(start, end);
   assert.match(step, /timeout-minutes: 10/);
   assert.match(step, /set -euo pipefail/);
-  assert.match(step, /node scripts\/deployment\/preview-job-candidate-review.mjs/);
-  assert.match(step, /PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD/);
+  assert.ok(start > source.indexOf('uses: google-github-actions/auth@v3'));
+  assert.match(step, /node scripts\/deployment\/preview-job-cleanup.mjs --confirm DELETE_KHEDMAH_PREVIEW_20_fd1117bf33c2a788/);
+  assert.match(step, /PREVIEW_CLEANUP_COMPLETE_DEPLOYMENT_HELD/);
   assert.match(step, /exit 1/);
   assert.doesNotMatch(step, /continue-on-error|jobs delete|jobs execute|jobs deploy/);
 });
