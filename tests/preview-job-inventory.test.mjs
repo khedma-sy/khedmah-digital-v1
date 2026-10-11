@@ -32,6 +32,8 @@ test('only reads projected metadata from the configured Preview project', () => 
   assert.equal(result.job_count, 1);
   assert.equal(result.execution_state_reviewed, false);
   assert.equal(result.cleanup_authorized, false);
+  assert.equal(result.configured_production_matches_canonical, true);
+  assert.equal(result.deployment_hold_required, true);
   assert.ok(!JSON.stringify(result).includes('DO_NOT_PRINT_SENTINEL'));
   assert.ok(!JSON.stringify(result).includes('unreviewed'));
 });
@@ -40,10 +42,30 @@ test('rejects missing or changed target configuration before any cloud call', ()
   for (const key of Object.keys(env)) {
     for (const value of ['', 'khedma-dl', 'unapproved-value']) {
       if (value === env[key]) continue;
+      if (key === 'PRODUCTION_GOOGLE_CLOUD_PROJECT' && value === 'unapproved-value') continue;
       assert.throws(() => inventoryPreviewJobs({ ...env, [key]: value }, () => {
         assert.fail('Unexpected cloud call');
       }), /TARGET_REJECTED/);
     }
+  }
+  assert.throws(() => inventoryPreviewJobs({ ...env, PRODUCTION_GOOGLE_CLOUD_PROJECT: env.PREVIEW_GOOGLE_CLOUD_PROJECT }, () => {
+    assert.fail('Unexpected cloud call');
+  }), /TARGET_REJECTED/);
+});
+
+test('reports stale Production configuration while keeping both Production targets excluded', () => {
+  const changed = { ...env, PRODUCTION_GOOGLE_CLOUD_PROJECT: 'previous-prod-fixture' };
+  const result = inventoryPreviewJobs(changed, (command, args) => {
+    assert.ok(args.includes('--project=khedmah-preview-fixture'));
+    assert.ok(!args.some(arg => arg.includes('previous-prod-fixture')));
+    return '[]';
+  });
+  assert.equal(result.configured_production_matches_canonical, false);
+  assert.equal(result.deployment_hold_required, true);
+  for (const target of ['khedma-dl', changed.PRODUCTION_GOOGLE_CLOUD_PROJECT]) {
+    assert.throws(() => inventoryPreviewJobs({ ...changed, PREVIEW_GOOGLE_CLOUD_PROJECT: target }, () => {
+      assert.fail('Unexpected cloud call');
+    }), /TARGET_REJECTED/);
   }
 });
 

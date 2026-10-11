@@ -8,13 +8,17 @@ const MAX_JOBS = 2000;
 export function inventoryPreviewJobs(env = process.env, run = execFileSync) {
   // Select the project from the already-validated Preview environment configuration.
   const project = env.PREVIEW_GOOGLE_CLOUD_PROJECT;
+  const configuredProduction = env.PRODUCTION_GOOGLE_CLOUD_PROJECT;
   if (env.DEPLOYMENT_ENVIRONMENT !== 'preview'
       || typeof project !== 'string'
       || !/^khedmah-preview-[a-z0-9-]+$/.test(project)
       || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(project)
-      || project === env.PRODUCTION_GOOGLE_CLOUD_PROJECT
+      || typeof configuredProduction !== 'string'
+      || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(configuredProduction)
+      || project === configuredProduction
+      || project === 'khedma-dl'
       || env.GOOGLE_CLOUD_REGION !== REGION
-      || env.PRODUCTION_GOOGLE_CLOUD_PROJECT !== 'khedma-dl') {
+  ) {
     throw new Error('PREVIEW_INVENTORY_TARGET_REJECTED');
   }
   let jobs;
@@ -60,6 +64,8 @@ export function inventoryPreviewJobs(env = process.env, run = execFileSync) {
   return {
     project, region: REGION, job_count: records.length,
     oldest_jobs: records.slice(0, 20),
+    configured_production_matches_canonical: configuredProduction === 'khedma-dl',
+    deployment_hold_required: true,
     execution_state_reviewed: false,
     cleanup_authorized: false,
   };
