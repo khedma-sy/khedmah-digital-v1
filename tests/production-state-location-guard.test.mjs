@@ -32,6 +32,15 @@ exit 87
     writeFileSync(join(bin, tool), mock, { mode: 0o755 });
   }
   const plan = join(dir, 'plan'); writeFileSync(plan, 'sentinel');
+  const stateEvidence = join(dir, 'media-state-evidence.json');
+  writeFileSync(stateEvidence, JSON.stringify({
+    commit_sha: '',
+    state_bucket: 'state-bucket',
+    state_prefix: 'khedmah/production/media',
+    generation: '123',
+    lineage: 'reviewed-media-lineage',
+    serial: 2,
+  }));
   return { dir, calls, env: {
     PATH: `${bin}:${process.env.PATH}`, HOME: dir, CALL_LOG: calls,
     BUCKET_JSON: JSON.stringify(protectedBucket),
@@ -45,6 +54,7 @@ exit 87
     OPERATIONS_APPROVED_PRODUCTION: 'true', OPERATIONS_BACKEND_SERVICE: 'backend',
     OPERATIONS_FRONTEND_SERVICE: 'frontend', NEXT_PUBLIC_SITE_URL: 'https://example.test',
     OPERATIONS_EVIDENCE_DIRECTORY: join(dir, 'evidence'), PLAN_FILE: plan, PLAN_JSON: plan,
+    STATE_EVIDENCE: stateEvidence, APPROVED_SHA: '',
   }};
 }
 function run(ctx, command, env = ctx.env) {
