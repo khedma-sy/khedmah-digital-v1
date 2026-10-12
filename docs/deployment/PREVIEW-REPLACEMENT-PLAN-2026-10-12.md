@@ -1,12 +1,12 @@
 # Preview replacement plan — 2026-10-12
 
-Status: owner-supplied parent/billing inventory received; permission tests pending. No replacement project has been created.
+Status: parent/billing inventory and Production billing enablement confirmed; permission probe packaged and awaiting execution. No replacement project has been created.
 
 ## Owner direction and source
 
 The owner asked why a new Preview could not replace the inaccessible project, then instructed «أبدأ» at 2026-10-12T14:38:46+03:00. Proceed with replacement preparation and prerequisite reads under the current management account. This supersedes the previous next action that made recovery of the old Preview the sole forward path; it does not authorize bypassing that project's IAM.
 
-Reviewed PR #274 head: `a7670d02e43e3004b1734d3aff8d12d9b6fba340`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Executable source remains `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. This plan has no new runtime acceptance evidence.
+Reviewed PR #274 head: `588f475fec44401e64955d99b03c3d56513ad28b`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. This pass adds one standalone operator-invoked permission reader, not a deployment workflow step. This plan has no new runtime acceptance evidence.
 
 ## Proposed target
 
@@ -16,7 +16,7 @@ Reviewed PR #274 head: `a7670d02e43e3004b1734d3aff8d12d9b6fba340`, open/unmerged
 | New project ID | `khedmah-preview-v2-20261012` — proposed, not reserved or proven available |
 | Region | `europe-west1` |
 | Parent organization/folder | Organization `594049370623`, identified from the accessible project's parent; creation permission remains unverified |
-| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Link permission and billable good standing are not yet verified |
+| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Production billing reports enabled on this same account; new-project link permission remains unverified |
 | Project number | Generated on creation; never copy the old namespace |
 | Database | New isolated PostgreSQL test database, synthetic data only; sizing/edition/backup policy to be costed before provisioning |
 | Existing Preview | `khedmah-preview-774201339973` / `195546947562`; access investigation remains open |
@@ -53,7 +53,9 @@ Remaining prerequisites after the supplied inventory:
 
 The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. The next permission-probe output is still missing; the read-only work is already authorized.
 
-## Step 2 — prepared permission-only probe; awaiting owner execution
+## Step 2 — checksum-pinned permission-only probe; awaiting owner execution
+
+The later output supplied at 2026-10-12T14:58:59+03:00 confirmed `billingEnabled=true` on Production and repeated its account/project metadata. Its marker was `READ_ONLY_PROJECT_BILLING_STATE_OK_NO_MUTATION`; it did not test either permission below. Do not repeat the completed metadata reads or treat that marker as the permission-probe result.
 
 Use the existing current-account credentials to call these official APIs:
 
@@ -62,11 +64,28 @@ Use the existing current-account credentials to call these official APIs:
 | Organization `594049370623` | `POST https://cloudresourcemanager.googleapis.com/v3/organizations/594049370623:testIamPermissions` | `resourcemanager.projects.create` |
 | The owner-supplied open billing account | `POST https://cloudbilling.googleapis.com/v1/billingAccounts/{billing_account}:testIamPermissions` | `billing.resourceAssociations.create` |
 
-These POST requests test IAM only; they do not create projects, link billing or grant permissions. The account-pinned Python probe delivered in the conversation checks for configured impersonation/credential overrides, captures `gcloud auth print-access-token` in memory without printing it, refuses redirects and emits projected permission booleans. HTTP/authentication/invalid-response failures stop as read errors, not as evidence that permission is absent.
+These POST requests test IAM only; they do not create projects, link billing or grant permissions. The standalone [permission reader](../../scripts/read-preview-project-access.py) checks for configured impersonation/credential overrides, captures `gcloud auth print-access-token` in memory without printing it, refuses redirects and emits projected permission booleans. HTTP/authentication/invalid-response failures stop as read errors, not as evidence that permission is absent.
 
 Expected successful output includes `PROJECT_CREATE: allowed=true`, `BILLING_LINK: allowed=true` and `PREVIEW_PARENT_AND_BILLING_IAM_PASSED_NO_MUTATION`. These are expected markers, not observed results. Both permissions must be assessed under the current account. A successful probe does not establish quota/name availability, organization-policy compliance, the new project's billing assignment permissions or billable account standing.
 
-Validation performed: Python AST parsing succeeded. No live API request or mutation was executed by the assistant. No monetary estimate or resource apply is approved by a permission result alone.
+Validation performed: six local mocked checks passed (both permissions present, missing permission, HTTP denial, auth override, malformed response and invalid billing-account ID), including fixed API/permission scope and no token in output. No live Google API request or mutation was executed. No monetary estimate or resource apply is established by a permission result alone.
+
+The full billing account ID remains an operator argument, not committed configuration. Helper SHA-256: `90b832c077641f5bd642041ee7435e3651f6baa9d7fc064679bd19808ba3785a`; immutable Git blob: `361e986116a4e3b361a9b11fb36a88fdc9fedfe6`. The new helper is not automatically called by CI and its existing deployment hold is unchanged.
+
+Short launcher (replace the billing-account placeholder with the ID supplied in the owner's private output):
+
+```bash
+(
+set -euo pipefail
+khedmah_access_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_access_script"' EXIT
+gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/361e986116a4e3b361a9b11fb36a88fdc9fedfe6 --jq '.content' | base64 --decode > "$khedmah_access_script"
+printf '%s  %s\n' '90b832c077641f5bd642041ee7435e3651f6baa9d7fc064679bd19808ba3785a' "$khedmah_access_script" | sha256sum --check --status
+python3 "$khedmah_access_script" --billing-account=OWNER_SUPPLIED_BILLING_ACCOUNT_ID
+)
+```
+
+A download/checksum failure stops before execution. Expected live results are the two permission booleans followed by the success marker above; none has yet been observed.
 
 ## Resource and identity manifest to finalize
 
@@ -172,4 +191,4 @@ Official references reviewed:
 - [Billing account permission test](https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions)
 - [Cloud SQL pricing — estimate still pending](https://cloud.google.com/sql/pricing)
 
-This pass changes documentation only. No cloud permission test, project creation, billing link, secret read/write, IAM change, resource apply, workflow dispatch, migration, deployment or email send has been executed. No new tests are claimed; validation is source review and the documentation-only change check.
+This pass adds one standalone read-only permission helper and updates five existing documents. Six mocked local validations passed; they are not live permission or deployment evidence. No cloud permission test, project creation, billing link, secret read/write, IAM change, resource apply, workflow dispatch, migration, deployment or email send has been executed. No existing deployment code or test file changed.
