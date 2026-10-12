@@ -1,5 +1,35 @@
 # Preview replacement plan — 2026-10-12
 
+## Combined replacement Preview infrastructure — 2026-10-12
+
+This checkpoint supersedes older price-read/one-command-at-a-time next actions below. The owner explicitly requested that the remaining steps be grouped and that price calculations stop blocking progress. Existing creation, billing and core API results remain completed. The supplied local attachment ends with `PREVIEW_SQL_PUBLIC_PRICE_CANDIDATES_READ`; the catalog read is also completed, not a task to repeat. No claim about remaining promotional credit follows from billing activation.
+
+- **Implementation:** `39d79d591bd583ecf22e460221aaad7d9adf5872`, operator-only `scripts/bootstrap-preview-v2.py`, with `tests/test_preview_v2_bootstrap.py`. This is a combined infrastructure batch, not application/Floot acceptance. It is not automatically invoked by CI.
+- **Exact target:** `khedmah-preview-v2-20261012` / `1044962071847`, organization `594049370623`, region `europe-west1`, operator `haifawi30@gmail.com`. Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 remains open/unmerged.
+- **One execution scope:** create or verify the private, versioned, 30-day-soft-delete state bucket `khedmah-preview-v2-20261012-tfstate`; use only prefix `khedmah/preview-v2/bootstrap`; then plan/check/apply 58 Terraform resource declarations comprising a private build-source bucket, Artifact Registry, five separate service accounts, bounded project/resource IAM memberships, one PostgreSQL 16 Enterprise zonal instance (`db-custom-1-3840`, 10 GiB SSD, growth limit 20 GiB, seven backups/PITR days, connector-required access without authorized networks), database `khedmah`, and eleven empty secret containers with separate metadata/payload grants.
+- **Credential boundaries:** no service-account keys, SQL user/password creation, Secret Manager payload versions, Production/old Preview access, WIF trust, GitHub environment retargeting, Cloud Run deployment, migration, email send or Floot mutation. Build receives only eight browser-configuration secret grants; runtime receives DATABASE_URL/RESEND_API_KEY; migrator receives DATABASE_MIGRATION_URL; frontend receives no secret/SQL grant. Empty containers do not establish usable credentials.
+- **Execution guards:** explicit account/project/number/parent/API checks; no auth impersonation or endpoint override; fixed configuration and pinned Google provider 6.50.0/lockfile; Terraform init/validate **before first cloud write**; GCS ownership/access/recovery readback; exact 58-address root plan, create/no-op only, no drift/update/delete/replacement/extra resources; apply only that saved plan with remote locking; confirm live SQL identity/region/RUNNABLE state. Stop on failed/uncertain writes without automatic retries. Preserve failed-run recovery files under the operator's home directory; never force-unlock/import/delete to make a retry succeed.
+- **Local validation:** Python compilation and 15 isolation/destructive-change regression tests passed. The provider was downloaded with the reviewed lock/signature. Local `terraform validate` could not initialize the provider because this executor denies the provider's Unix socket (`operation not permitted`); no successful provider-schema validation or live plan/apply is claimed. Reviewed the version-pinned provider documentation for the configured SQL/storage/secret fields. The operator launcher runs provider validation in Cloud Shell before creating the bucket or runtime resources.
+- **Source integrity:** script blob `d36705a5314a2f92133ca4f56d7a1f47b07eb7af`; SHA-256 `f64c5d97eb42ab17fa8b43c35ae1ea07b57e681be5772760e71ce9a6a4394e75`. Remote source readback exactly matched the tested local script. This branch update uses `[skip ci]`; unchanged deployment source retains its prior hold. There is no current-head CI or merge-readiness claim.
+- **Next action:** owner runs the single checksum-pinned launcher in `docs/deployment/PREVIEW-REPLACEMENT-PLAN-2026-10-12.md`. Expected infrastructure marker: `PREVIEW_V2_INFRASTRUCTURE_VERIFIED`; it explicitly reports credentials/database roles/application/Floot as false. No new cloud creation has been executed by the assistant.
+- **After returned infrastructure evidence:** prepare the next coherent batch for isolated SQL role/password provisioning, Firebase/Maps/mail configuration, migration/build/frontend identities and new namespace wiring, GitHub federation/configuration, ordered fresh-database migrations, deployment and browser/auth tests. Do not release the old mail diagnostic hold or redirect protected configuration before these consumers and credentials are ready. Floot API integration then requires its own accepted session/CORS/CSRF/browser contract. The available Floot list contains an app named Khedma Business Desk; do not treat that name alone as authorization to overwrite it with the Digital V1 platform.
+
+### Combined infrastructure launcher — run once in Cloud Shell
+
+This creates the scoped new Preview resources after its automatic checks. It does not claim to finish application deployment. Use the existing installed Terraform in PATH or `$HOME/bin/terraform`. A failed operation requires reading the reported error and retained recovery directory before retrying.
+
+```bash
+(
+set -euo pipefail
+umask 077
+khedmah_bootstrap_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_bootstrap_script"' EXIT
+gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/d36705a5314a2f92133ca4f56d7a1f47b07eb7af --jq '.content' | base64 --decode > "$khedmah_bootstrap_script"
+printf '%s  %s\n' 'f64c5d97eb42ab17fa8b43c35ae1ea07b57e681be5772760e71ce9a6a4394e75' "$khedmah_bootstrap_script" | sha256sum --check --status
+python3 "$khedmah_bootstrap_script" --apply
+)
+```
+
 Status: project creation, billing link/readback and all 13 requested core APIs are completed. The observed inventory contains 18 enabled services. A bounded Cloud Billing API activation and public SQL price read are prepared; regional SQL quote selection and runtime provisioning remain pending.
 
 ## Owner direction and source
