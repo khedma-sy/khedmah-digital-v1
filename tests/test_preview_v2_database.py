@@ -30,6 +30,13 @@ def empty():
     return {'database': 'khedmah', 'user': 'postgres', 'relations': 0, 'routines': 0, 'schemas': 0, 'roles': 0}
 
 
+def version_list_result(args):
+    # Official gcloud contract: versions list SECRET (not --secret=SECRET).
+    assert args in [('secrets', 'versions', 'list', name, '--format=json')
+                    for name in m.SECRET_USERS], args
+    return '[]'
+
+
 def preflight_cloud(users):
     """Mock only external reads; exercise Runner.preflight itself."""
     def cloud(*args):
@@ -41,7 +48,7 @@ def preflight_cloud(users):
         if args == ('auth', 'print-access-token'): return 'TEST_PREFLIGHT_TOKEN'
         if args[:2] == ('secrets', 'describe'):
             return json.dumps({'name': f'projects/{m.NUMBER}/secrets/{args[2]}'})
-        if args[:3] == ('secrets', 'versions', 'list'): return '[]'
+        if args[:3] == ('secrets', 'versions', 'list'): return version_list_result(args)
         raise AssertionError(args)
     return cloud
 
@@ -64,9 +71,10 @@ class FakeRunner(m.Runner):
         self.payloads = {}
 
     def cloud(self, *args):
-        if args[:3] == ('secrets', 'versions', 'list'): return '[]'
+        if args[:3] == ('secrets', 'versions', 'list'): return version_list_result(args)
         if args[:3] == ('secrets', 'versions', 'describe'):
             name = next(x.split('=', 1)[1] for x in args if x.startswith('--secret='))
+            assert args == ('secrets', 'versions', 'describe', 'latest', '--secret=' + name, '--format=json')
             return json.dumps({'name': f'projects/{m.NUMBER}/secrets/{name}/versions/1', 'state': 'ENABLED'})
         raise AssertionError(args)
 
@@ -113,6 +121,45 @@ class DatabaseTests(unittest.TestCase):
 
     def test_exact_target_allowed(self):
         m.validate_target(project(), instance())
+
+    def test_old_version_list_flag_rejected_by_cli_contract_fixture(self):
+        for name in m.SECRET_USERS:
+            with self.assertRaises(AssertionError):
+                version_list_result(('secrets', 'versions', 'list', '--secret=' + name, '--format=json'))
+
+    def test_gcloud_metadata_failures_identify_command_and_safe_reason(self):
+        operations = [
+            (('secrets', 'describe', 'DATABASE_URL', '--format=json'), 'SECRETS_DESCRIBE'),
+            (('secrets', 'versions', 'list', 'DATABASE_URL', '--format=json'), 'SECRETS_VERSIONS_LIST'),
+            (('secrets', 'versions', 'describe', 'latest', '--secret=DATABASE_URL', '--format=json'),
+             'SECRETS_VERSIONS_DESCRIBE'),
+        ]
+        errors = [('unrecognized arguments: --secret=DATABASE_URL', 'ARGUMENTS_REJECTED'),
+                  ('PERMISSION_DENIED: access refused', 'PERMISSION_DENIED'),
+                  ('NOT_FOUND: missing resource', 'NOT_FOUND'),
+                  ('SERVICE_DISABLED: enable service', 'SERVICE_DISABLED'),
+                  ('UNAUTHENTICATED: credentials expired', 'UNAUTHENTICATED'),
+                  ('unknown failure', 'FAILED')]
+        r = m.Runner()
+        for args, label in operations:
+            for stderr, reason in errors:
+                with self.subTest(args=args, reason=reason), patch.object(m.subprocess, 'run') as run:
+                    run.return_value.returncode = 1
+                    run.return_value.stderr = stderr + '\nPRIVATE_OUTPUT_MUST_NOT_APPEAR'
+                    run.return_value.stdout = 'PRIVATE_OUTPUT_MUST_NOT_APPEAR'
+                    with self.assertRaises(m.Stop) as caught: r.cloud(*args)
+                    self.assertEqual(str(caught.exception), 'GCLOUD_' + label + '_' + reason)
+
+    def test_real_cli_wrapper_pins_metadata_read_target(self):
+        r = m.Runner()
+        with patch.object(m.subprocess, 'run') as run:
+            run.return_value.returncode = 0; run.return_value.stdout = '[]\n'
+            self.assertEqual(r.cloud('secrets', 'versions', 'list', 'DATABASE_URL', '--format=json'), '[]')
+            argv = run.call_args.args[0]
+            self.assertEqual(argv[:6], ['gcloud', 'secrets', 'versions', 'list', 'DATABASE_URL', '--format=json'])
+            self.assertIn('--project=' + m.PROJECT, argv)
+            self.assertIn('--account=' + m.ACCOUNT, argv)
+            self.assertEqual(run.call_args.kwargs['env']['CLOUDSDK_CORE_LOG_HTTP'], 'false')
 
     def test_observed_postgres_inventory_defaults_absent_type(self):
         m.validate_initial_users([{'name': 'postgres'}])

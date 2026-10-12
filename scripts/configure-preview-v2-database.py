@@ -220,7 +220,26 @@ class Runner:
         p = subprocess.run(['gcloud', *args, '--project=' + PROJECT, '--account=' + ACCOUNT,
                             '--user-output-enabled', '--verbosity=error'], env=self.env,
                            capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL)
-        require(p.returncode == 0, 'GCLOUD_' + args[0].upper() + '_FAILED')
+        if p.returncode:
+            # Identify the failed metadata read without echoing captured output.
+            label = args[0].upper()
+            for prefix, command in (
+                (('secrets', 'describe'), 'SECRETS_DESCRIBE'),
+                (('secrets', 'versions', 'list'), 'SECRETS_VERSIONS_LIST'),
+                (('secrets', 'versions', 'describe'), 'SECRETS_VERSIONS_DESCRIBE'),
+            ):
+                if args[:len(prefix)] == prefix:
+                    label = command
+                    break
+            reason = 'FAILED'
+            if 'unrecognized arguments:' in p.stderr:
+                reason = 'ARGUMENTS_REJECTED'
+            else:
+                for code in ('SERVICE_DISABLED', 'PERMISSION_DENIED', 'NOT_FOUND', 'UNAUTHENTICATED'):
+                    if code in p.stderr:
+                        reason = code
+                        break
+            raise Stop('GCLOUD_' + label + '_' + reason)
         return p.stdout.strip()
 
     def request(self, method, url, body=None):
@@ -300,7 +319,7 @@ class Runner:
         for name in SECRET_USERS:
             metadata = json.loads(self.cloud('secrets', 'describe', name, '--format=json'))
             require(metadata.get('name') == f'projects/{NUMBER}/secrets/{name}', 'SECRET_IDENTITY_MISMATCH')
-            require(json.loads(self.cloud('secrets', 'versions', 'list', '--secret=' + name,
+            require(json.loads(self.cloud('secrets', 'versions', 'list', name,
                                             '--format=json')) == [], 'SECRET_ALREADY_POPULATED_RECONCILE')
             permissions = self.request('POST', SM_BASE + name + ':testIamPermissions',
                                        {'permissions': sorted(PERMISSIONS)})
@@ -322,7 +341,7 @@ class Runner:
 
     def publish(self, name, user):
         require(name in SECRET_USERS and SECRET_USERS[name] == user, 'SECRET_USER_BINDING_REJECTED')
-        require(json.loads(self.cloud('secrets', 'versions', 'list', '--secret=' + name,
+        require(json.loads(self.cloud('secrets', 'versions', 'list', name,
                                        '--format=json')) == [], 'SECRET_ALREADY_POPULATED_RECONCILE')
         payload = credential_url(user, self.passwords[user]).encode()
         self.journal('SECRET_VERSION_ATTEMPT_' + name)
