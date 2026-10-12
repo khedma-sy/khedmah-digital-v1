@@ -69,7 +69,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def operation_name(value):
-    return isinstance(value, str) and re.fullmatch(r"operations/[A-Za-z0-9_.:-]{1,200}", value)
+    # Firebase documents operations/**, not a single short identifier. Accept
+    # nested paths and URI pchar (including base64 padding), but no traversal,
+    # percent escapes, query/fragment delimiters, controls or alternate host.
+    return (isinstance(value, str) and len(value) <= 4096
+            and re.fullmatch(r"operations/[A-Za-z0-9._~!$&'()*+,;=:@/-]+", value) is not None
+            and all(part not in ("", ".", "..") for part in value.split("/")))
 
 
 class Client:
@@ -91,7 +96,9 @@ class Client:
                     (PARENT + ":addFirebase", {}),
                     (PARENT + "/webApps", {"displayName": WEB_NAME})):
                 stop("WRITE_SCOPE_REJECTED")
-        url = base + path
+        # Preserve opaque operation names in the journal; encode path characters
+        # only for transport, keeping their documented slash separators.
+        url = base + (urllib.parse.quote(path, safe="/") if operation_name(path) else path)
         if query:
             url += "?" + urllib.parse.urlencode(query)
         request = urllib.request.Request(
@@ -269,10 +276,17 @@ class Journal:
             self.save()
             emit("STAGE_ATTEMPT", action=stage)
             operation = client.request(path, body=body)
-            if not operation_name(operation.get("name")):
-                stop("INVALID_OPERATION_RECEIPT_RECONCILE")
-            record["operation"] = operation["name"]
+            # Keep bounded name-only evidence even if a future receipt format is
+            # unsupported. Never save the whole response, metadata or error body.
+            receipt_name = operation.get("name")
+            record["receipt_name"] = (receipt_name if isinstance(receipt_name, str)
+                                      and len(receipt_name) <= 4096 else None)
+            accepted = operation_name(receipt_name)
+            if accepted:
+                record["operation"] = receipt_name
             self.save()
+            if not accepted:
+                stop("INVALID_OPERATION_RECEIPT_RECONCILE")
             emit("FIREBASE_OPERATION", action=stage, operation=record["operation"])
         for _ in range(60):
             if operation.get("name") != record["operation"]:
@@ -292,12 +306,14 @@ class Journal:
         stop("OPERATION_PENDING_RERUN_SAME_COMMAND")
 
 
-def run(apply=False, directory=None):
+def run(apply=False, directory=None, require_existing_project=False):
     os.umask(0o077)
     context = Journal(directory or Path.home() / "khedmah-preview-v2-firebase-bootstrap") if apply else contextlib.nullcontext()
     with context as journal:
         client = preflight(apply)
         project = get_project(client)
+        if project is None and require_existing_project:
+            stop("EXISTING_FIREBASE_PROJECT_REQUIRED_RECONCILE")
         if project is None:
             candidates = list(client.pages("availableProjects", "projectInfo", "projectInfo(project),nextPageToken"))
             matches = [item for item in candidates if item.get("project") in (PARENT, "projects/" + NUMBER)]
@@ -308,7 +324,8 @@ def run(apply=False, directory=None):
                 stop("FIREBASE_ADD_ELIGIBILITY_UNCONFIRMED")
         app = get_app(client) if project else None
         emit("PREVIEW_FIREBASE_REGISTRATION_PLAN", project=PROJECT, add_firebase=project is None,
-             create_web_app=app is None, web_app_display_name=WEB_NAME, apply=apply)
+             create_web_app=app is None, web_app_display_name=WEB_NAME, apply=apply,
+             require_existing_project=require_existing_project)
         if not apply:
             emit("PREVIEW_FIREBASE_PLAN_COMPLETE_NO_MUTATION")
             return
@@ -340,8 +357,10 @@ def run(apply=False, directory=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--require-existing-project", action="store_true",
+                        help="Stop unless Firebase is already ACTIVE; never submit addFirebase.")
     options = parser.parse_args()
     try:
-        run(options.apply)
+        run(options.apply, require_existing_project=options.require_existing_project)
     except OSError:
         stop("LOCAL_STATE_FAILURE_RECONCILE")

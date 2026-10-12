@@ -37,6 +37,7 @@ class FakeCloud:
         self.override = False
         self.gcp_id = module.PROJECT
         self.operations = {}
+        self.add_name, self.app_name = "operations/add-1", "operations/app-1"
 
     def gcloud(self, args, **kwargs):
         self.commands.append(args)
@@ -59,7 +60,7 @@ class FakeCloud:
 
     def open(self, request, timeout):
         url = urllib.parse.urlsplit(request.full_url)
-        path = url.path
+        path = urllib.parse.unquote(url.path)
         method = request.get_method()
         body = json.loads(request.data) if request.data else None
         self.calls.append((method, request.full_url, body))
@@ -90,13 +91,13 @@ class FakeCloud:
                 data = dict(apps=copy.deepcopy(self.apps))
             elif path == module.PARENT + ":addFirebase":
                 assert method == "POST" and body == {}
-                data = dict(name="operations/add-1", done=False)
+                data = dict(name=self.add_name, done=False)
                 self.operations[data["name"]] = "project"
             elif path == module.PARENT + "/webApps" and method == "POST":
                 assert body == dict(displayName=module.WEB_NAME)
                 if self.fail_app_post:
                     raise OSError("DO_NOT_PRINT_ERROR")
-                data = dict(name="operations/app-1", done=False)
+                data = dict(name=self.app_name, done=False)
                 self.operations[data["name"]] = "app"
             elif path in self.operations:
                 if self.pending:
@@ -128,11 +129,11 @@ class FirebaseBootstrapTests(unittest.TestCase):
         self.cloud = FakeCloud()
         self.output = io.StringIO()
 
-    def run_helper(self, apply=True):
+    def run_helper(self, apply=True, require_existing_project=False):
         with patch.dict(module.os.environ, {}, clear=True), patch.object(module.subprocess, "run", self.cloud.gcloud), \
                 patch.object(module.urllib.request, "build_opener", return_value=self.cloud), \
                 patch.object(module.time, "sleep"), contextlib.redirect_stdout(self.output):
-            module.run(apply, self.directory)
+            module.run(apply, self.directory, require_existing_project=require_existing_project)
         self.assertNotIn("DO_NOT_PRINT", self.output.getvalue())
         return [json.loads(line) for line in self.output.getvalue().splitlines()]
 
@@ -221,6 +222,88 @@ class FirebaseBootstrapTests(unittest.TestCase):
         self.run_helper()
         self.assertEqual(len(self.cloud.mutations()), 2)
         self.assertIn("FIREBASE_OPERATION_RESUMED", self.output.getvalue())
+
+    def test_legacy_unacknowledged_add_reconciles_active_project_and_creates_only_app(self):
+        self.directory.mkdir()
+        state = self.directory / "state.json"
+        state.write_text(json.dumps(dict(project=module.PROJECT, number=module.NUMBER,
+                                         stages={"ADD_FIREBASE": dict(attempted=True)})))
+        self.cloud.exists = True
+        self.cloud.app_name = "operations/projects/" + module.NUMBER + "/webApps/opaque+name=="
+        rows = self.run_helper(require_existing_project=True)
+        self.assertEqual(len(self.cloud.mutations()), 1)
+        self.assertTrue(self.cloud.mutations()[0][1].endswith("/webApps"))
+        self.assertFalse(rows[1]["add_firebase"])
+        self.assertTrue(rows[1]["require_existing_project"])
+        stages = json.loads(state.read_text())["stages"]
+        self.assertTrue(stages["ADD_FIREBASE"]["verified"])
+        self.assertEqual(stages["ADD_FIREBASE"]["resource"], module.PARENT)
+        self.assertNotIn("operation", stages["ADD_FIREBASE"])
+        self.assertEqual(stages["CREATE_WEB_APP"]["operation"], self.cloud.app_name)
+        self.assertTrue(stages["CREATE_WEB_APP"]["verified"])
+        self.run_helper(require_existing_project=True)
+        self.assertEqual(len(self.cloud.mutations()), 1)
+
+    def test_required_existing_project_never_submits_add_or_checks_creation_eligibility(self):
+        for apply in (False, True):
+            with self.subTest(apply=apply):
+                with self.assertRaisesRegex(SystemExit, "EXISTING_FIREBASE_PROJECT_REQUIRED"):
+                    self.run_helper(apply, require_existing_project=True)
+                self.assertEqual(self.cloud.mutations(), [])
+                self.assertFalse(any("availableProjects" in c[1] for c in self.cloud.calls))
+
+    def test_nested_padded_long_operation_names_are_encoded_and_survive_pending_resume(self):
+        self.cloud.exists, self.cloud.pending = True, True
+        self.cloud.app_name = "operations/projects/" + module.NUMBER + "/" + "x" * 240 + "+/id=="
+        with self.assertRaisesRegex(SystemExit, "OPERATION_PENDING_RERUN"):
+            self.run_helper(require_existing_project=True)
+        state = json.loads((self.directory / "state.json").read_text())
+        self.assertEqual(state["stages"]["CREATE_WEB_APP"]["operation"], self.cloud.app_name)
+        reads = [c[1] for c in self.cloud.calls if "/operations/" in c[1]]
+        self.assertTrue(reads)
+        for url in reads:
+            parsed = urllib.parse.urlsplit(url)
+            self.assertEqual(parsed.netloc, "firebase.googleapis.com")
+            self.assertEqual(parsed.query, "")
+            self.assertEqual(parsed.fragment, "")
+            self.assertEqual(urllib.parse.unquote(parsed.path), "/v1beta1/" + self.cloud.app_name)
+            self.assertIn("%2B", url)
+            self.assertIn("%3D", url)
+        self.cloud.pending = False
+        self.run_helper(require_existing_project=True)
+        self.assertEqual(len(self.cloud.mutations()), 1)
+        self.assertIn("FIREBASE_OPERATION_RESUMED", self.output.getvalue())
+
+    def test_unsupported_receipt_retains_name_evidence_without_replaying_post(self):
+        self.cloud.exists = True
+        self.cloud.app_name = "unsupported/receipt-shape"
+        with self.assertRaisesRegex(SystemExit, "INVALID_OPERATION_RECEIPT_RECONCILE"):
+            self.run_helper(require_existing_project=True)
+        state = (self.directory / "state.json").read_text()
+        record = json.loads(state)["stages"]["CREATE_WEB_APP"]
+        self.assertEqual(record, dict(attempted=True, receipt_name=self.cloud.app_name))
+        self.assertNotIn("DO_NOT_PRINT", state)
+        self.assertNotIn(self.cloud.app_name, self.output.getvalue())
+        with self.assertRaisesRegex(SystemExit, "UNCONFIRMED_CREATE_WEB_APP"):
+            self.run_helper(require_existing_project=True)
+        self.assertEqual(len(self.cloud.mutations()), 1)
+        self.cloud.apps = [app()]
+        self.run_helper(require_existing_project=True)
+        self.assertEqual(len(self.cloud.mutations()), 1)
+
+    def test_operation_paths_cannot_inject_host_query_fragment_or_traversal(self):
+        client = module.Client("DO_NOT_PRINT_TOKEN", False)
+        client.opener = self.cloud
+        for path in ("operations/", "operations/.", "operations/../projects/foreign",
+                     "operations/x/../../projects/foreign", "operations//other", "operations/x/",
+                     "operations/x?fields=token", "operations/x#fragment", "operations/x\\y",
+                     "operations/x\n", "operations/x y", "operations/%2e%2e/x",
+                     "operations/%252e%252e/x", "operations/x%2fy", "operations/" + "x" * 4096,
+                     "//elsewhere.invalid/operations/x", "https://elsewhere.invalid/operations/x"):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(SystemExit, "READ_SCOPE_REJECTED"):
+                    client.request(path)
+        self.assertEqual(self.cloud.calls, [])
 
     def test_foreign_operation_result_stops_before_app_creation(self):
         self.cloud.foreign_operation = True
