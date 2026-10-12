@@ -6,13 +6,14 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('non-production Product Store migration 024 is checksum-bound, isolated, idempotent and ordered before Classifieds 025', async () => {
-  const [runner, wrapper, migration, deploy, dockerfile, build] = await Promise.all([
+  const [runner, wrapper, migration, deploy, dockerfile, build, profile] = await Promise.all([
     read('scripts/deployment/run-product-store-nonproduction-migration.sh'),
     read('scripts/deployment/ensure-product-store-nonproduction-schema.sh'),
     read('backend/migrations/versions/024_product_store.sql'),
     read('scripts/deployment/deploy-cloud-run-environment.sh'),
     read('Dockerfile.product-store-migration'),
-    read('cloudbuild.product-store-migration.yaml')
+    read('cloudbuild.product-store-migration.yaml'),
+    read('scripts/deployment/schema-execution-profile.sh')
   ]);
 
   const sha = createHash('sha256').update(migration).digest('hex');
@@ -29,8 +30,17 @@ test('non-production Product Store migration 024 is checksum-bound, isolated, id
   assert.match(runner, /COMMIT;/);
 
   assert.match(wrapper, /GOOGLE_CLOUD_PROJECT.*PRODUCTION_GOOGLE_CLOUD_PROJECT/s);
-  assert.match(wrapper, /DATABASE_URL=DATABASE_URL:latest/);
-  assert.match(wrapper, /--service-account "\$RUNTIME_SERVICE_ACCOUNT"/);
+  assert.match(wrapper, /source .*schema-execution-profile\.sh/);
+  const resolveProfile = wrapper.indexOf('resolve_schema_execution "$environment"');
+  assert.ok(resolveProfile >= 0 && resolveProfile < wrapper.indexOf('gcloud builds submit'));
+  assert.match(wrapper, /--set-secrets="\$SCHEMA_DATABASE_SECRET_BINDING"/);
+  assert.match(wrapper, /--service-account "\$SCHEMA_SERVICE_ACCOUNT"/);
+  // The shared profile preserves Staging and isolates the replacement migrator.
+  // test_preview_v2_schema_execution.py also executes this wrapper for both targets.
+  assert.match(profile, /SCHEMA_DATABASE_SECRET_BINDING='DATABASE_URL=DATABASE_URL:latest'/);
+  assert.match(profile, /SCHEMA_SERVICE_ACCOUNT="\$\{RUNTIME_SERVICE_ACCOUNT:/);
+  assert.match(profile, /SCHEMA_DATABASE_SECRET_BINDING='DATABASE_URL=DATABASE_MIGRATION_URL:1'/);
+  assert.match(profile, /SCHEMA_SERVICE_ACCOUNT='khedmah-pv2-migrator@/);
   assert.match(wrapper, /cloudbuild\.product-store-migration\.yaml/);
   assert.doesNotMatch(wrapper, /production-operator/);
 
