@@ -140,6 +140,18 @@ def validate_target(project, sql):
             and not settings.get('ipConfiguration', {}).get('authorizedNetworks'), 'SQL_CONNECTOR_MISMATCH')
 
 
+def validate_initial_users(users):
+    require(isinstance(users, list) and all(isinstance(user, dict) for user in users),
+            'SQL_USER_INVENTORY_INVALID')
+    require(len(users) == 1 and users[0].get('name') == 'postgres',
+            'SQL_USERS_ALREADY_PRESENT_RECONCILE')
+    # SQL Admin defines BUILT_IN as the default when type is omitted.
+    # https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/users
+    # Default only an absent key; explicit null/empty/unknown/IAM types still stop.
+    require(users[0].get('type', 'BUILT_IN') == 'BUILT_IN',
+            'SQL_POSTGRES_TYPE_UNEXPECTED_RECONCILE')
+
+
 def validate_empty(data):
     require(data.get('database') == DATABASE and data.get('user') == 'postgres'
             and all(type(data.get(k)) is int and data[k] == 0 for k in
@@ -279,8 +291,7 @@ class Runner:
         instance = json.loads(self.cloud('sql', 'instances', 'describe', INSTANCE, '--format=json'))
         validate_target(project, instance)
         users = json.loads(self.cloud('sql', 'users', 'list', '--instance=' + INSTANCE, '--format=json'))
-        require(len(users) == 1 and users[0].get('name') == 'postgres'
-                and users[0].get('type') == 'BUILT_IN', 'SQL_USERS_ALREADY_PRESENT_RECONCILE')
+        validate_initial_users(users)
         for resource in ('services', 'jobs'):
             require(json.loads(self.cloud('run', resource, 'list', '--region=' + REGION,
                                            '--format=json')) == [], 'CLOUD_RUN_ALREADY_PRESENT_RECONCILE')

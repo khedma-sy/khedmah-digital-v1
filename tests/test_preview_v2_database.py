@@ -30,6 +30,22 @@ def empty():
     return {'database': 'khedmah', 'user': 'postgres', 'relations': 0, 'routines': 0, 'schemas': 0, 'roles': 0}
 
 
+def preflight_cloud(users):
+    """Mock only external reads; exercise Runner.preflight itself."""
+    def cloud(*args):
+        if args[:2] == ('config', 'get-value'): return '(unset)'
+        if args[:2] == ('projects', 'describe'): return json.dumps(project())
+        if args[:3] == ('sql', 'instances', 'describe'): return json.dumps(instance())
+        if args[:3] == ('sql', 'users', 'list'): return json.dumps(users)
+        if args[:3] in (('run', 'services', 'list'), ('run', 'jobs', 'list')): return '[]'
+        if args == ('auth', 'print-access-token'): return 'TEST_PREFLIGHT_TOKEN'
+        if args[:2] == ('secrets', 'describe'):
+            return json.dumps({'name': f'projects/{m.NUMBER}/secrets/{args[2]}'})
+        if args[:3] == ('secrets', 'versions', 'list'): return '[]'
+        raise AssertionError(args)
+    return cloud
+
+
 def roles():
     return {'database': 'khedmah', 'roles': [
         {'name': name, 'login': name in m.USERS, 'super': False, 'createdb': False,
@@ -97,6 +113,72 @@ class DatabaseTests(unittest.TestCase):
 
     def test_exact_target_allowed(self):
         m.validate_target(project(), instance())
+
+    def test_observed_postgres_inventory_defaults_absent_type(self):
+        m.validate_initial_users([{'name': 'postgres'}])
+
+    def test_explicit_builtin_type_remains_supported(self):
+        m.validate_initial_users([{'name': 'postgres', 'type': 'BUILT_IN'}])
+
+    def test_missing_duplicate_or_other_users_still_rejected(self):
+        for users in ([], [{'name': 'khedmah_app'}], [{}],
+                      [{'name': 'postgres'}, {'name': 'khedmah_app'}],
+                      [{'name': 'postgres'}, {'name': 'postgres'}]):
+            with self.subTest(users=users), self.assertRaisesRegex(m.Stop, 'SQL_USERS_ALREADY_PRESENT_RECONCILE'):
+                m.validate_initial_users(users)
+
+    def test_explicit_invalid_or_iam_type_never_defaults(self):
+        for kind in (None, '', 0, False, [], {}, 'UNKNOWN', 'builtin', 'CLOUD_IAM_USER',
+                     'CLOUD_IAM_SERVICE_ACCOUNT', 'CLOUD_IAM_GROUP', 'CLOUD_IAM_GROUP_USER',
+                     'CLOUD_IAM_GROUP_SERVICE_ACCOUNT', 'CLOUD_IAM_WORKFORCE_IDENTITY'):
+            with self.subTest(kind=kind), self.assertRaisesRegex(m.Stop, 'SQL_POSTGRES_TYPE_UNEXPECTED_RECONCILE'):
+                m.validate_initial_users([{'name': 'postgres', 'type': kind}])
+
+    def test_malformed_inventory_stops_cleanly(self):
+        for users in (None, {}, 'postgres', [None], ['postgres'], [[]]):
+            with self.subTest(users=users), self.assertRaisesRegex(m.Stop, 'SQL_USER_INVENTORY_INVALID'):
+                m.validate_initial_users(users)
+
+    def test_real_preflight_accepts_observed_shape_and_reuses_empty_lock_root(self):
+        with tempfile.TemporaryDirectory() as home, patch.object(m.Path, 'home', return_value=Path(home)), \
+             patch.object(m.shutil, 'which', return_value='/mock/bin'), patch('builtins.print'):
+            root = Path(home) / 'khedmah-preview-v2-database-runs'
+            root.mkdir(); (root / '.lock').touch()
+            r = m.Runner()
+            def permission_read(method, url, body=None):
+                self.assertEqual(method, 'POST')
+                self.assertIn(url, [m.SM_BASE + name + ':testIamPermissions' for name in m.SECRET_USERS])
+                self.assertEqual(body, {'permissions': sorted(m.PERMISSIONS)})
+                return {'permissions': sorted(m.PERMISSIONS)}
+            try:
+                with patch.object(r, 'cloud', side_effect=preflight_cloud([{'name': 'postgres'}])), \
+                     patch.object(r, 'request', side_effect=permission_read) as request, \
+                     patch.object(r, 'set_postgres_password', side_effect=m.Stop('FIRST_WRITE_INTERCEPTED')) as write, \
+                     patch.object(r, 'start_proxy') as proxy:
+                    with self.assertRaisesRegex(m.Stop, 'FIRST_WRITE_INTERCEPTED'): r.apply()
+                    self.assertEqual(request.call_count, 2)
+                    write.assert_called_once_with(); proxy.assert_not_called()
+                    self.assertTrue((r.work / 'recovery.json').is_file())
+                    self.assertEqual(r.stage, 'POSTGRES_BOOTSTRAP_PASSWORD_ATTEMPT')
+            finally: r.close()
+
+    def test_real_preflight_rejects_bad_inventory_before_credentials_or_writes(self):
+        for users in ([{'name': 'postgres'}, {'name': 'khedmah_app'}],
+                      [{'name': 'postgres', 'type': None}], {'name': 'postgres'}):
+            with self.subTest(users=users), tempfile.TemporaryDirectory() as home, \
+                 patch.object(m.Path, 'home', return_value=Path(home)), \
+                 patch.object(m.shutil, 'which', return_value='/mock/bin'):
+                r = m.Runner()
+                try:
+                    with patch.object(r, 'cloud', side_effect=preflight_cloud(users)), \
+                         patch.object(r, 'request') as request, patch.object(r, 'set_postgres_password') as write, \
+                         patch.object(m.secrets, 'token_hex') as password:
+                        with self.assertRaises(m.Stop): r.apply()
+                        request.assert_not_called(); write.assert_not_called(); password.assert_not_called()
+                        self.assertIsNone(r.work)
+                        root = Path(home) / 'khedmah-preview-v2-database-runs'
+                        self.assertEqual([p.name for p in root.iterdir()], ['.lock'])
+                finally: r.close()
 
     def test_foreign_identity_or_nonready_instance_rejected(self):
         for key, value in [('project', 'khedma-dl'), ('region', 'us-central1'), ('state', 'PENDING_CREATE'),
