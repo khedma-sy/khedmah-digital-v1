@@ -1,22 +1,31 @@
 # Preview replacement plan — 2026-10-12
 
-## Firebase project ACTIVE — WebApp resume repair ready — 2026-10-12
+## Firebase WebApp verified — five SDK configuration values prepared — 2026-10-12
 
-This is the current continuation point for the unfinished Floot integration. The owner completed the requested read-only reconciliation: Firebase addition is confirmed at resource level. The remaining authorized registration step is the WebApp.
+This is the current continuation point for the unfinished Floot integration. Firebase project and WebApp registration are complete. Do not repeat registration; the next owner command stages five verified SDK configuration values in the replacement Preview's existing Secret Manager containers.
 
-- **New owner evidence:** reader target-verification timestamp `2026-10-12T17:14:49.744880+00:00`, received `2026-10-12T20:15:43+03:00`. Exact replacement target `khedmah-preview-v2-20261012` / `1044962071847` passed identity checks. `FIREBASE_PROJECT` returned `OK / ACTIVE`; `FIREBASE_WEB_APPS` returned `OK / active_app_count=0 / inventory_complete=true / sdk_configuration_read=false`. The prior ADD_FIREBASE request therefore no longer has an unknown project outcome. No active WebApp was present at this read; this inventory does not cover deleted apps.
-- **Application configuration evidence:** Firebase Management, Identity Toolkit, API Keys, Maps JavaScript and Secret Manager all remain enabled. All nine application secret containers returned `OK / exists=true`; each latest-version lookup returned `NOT_FOUND_REPORTED`. The reader ended `PREVIEW_V2_APPLICATION_CONFIG_READ_COMPLETED_NO_MUTATION`; values, runtime access and mail delivery remain unverified.
-- **Receipt repair implementation:** `79e220fb55b2ae5f9a6e9ed6f94b069d1124db9a`, changing only `scripts/bootstrap-preview-v2-firebase.py` and `tests/test_preview_v2_firebase_bootstrap.py`. The operation validator now accepts bounded nested paths and URI path characters, including plus/padding and names longer than the old 200-character segment. Operation paths are encoded for HTTP transport against the fixed Firebase origin. Traversal, percent escapes, alternate hosts, query/fragment injection and controls remain rejected. The actual previously rejected name was not retained, so its precise format is still unknown; representative new tests are synthetic, not a claimed capture of that receipt.
-- **Journal behavior:** each mutation intent is persisted before its POST. A bounded name-only receipt is now persisted even when unsupported, without retaining the whole response, metadata, token, SDK configuration or error body. Valid receipt and operation names are written together before polling. Unconfirmed creation is not replayed. Preserve `$HOME/khedmah-preview-v2-firebase-bootstrap/state.json`; the existing ADD_FIREBASE intent without an operation is reconciled against the fresh exact ACTIVE project.
-- **Concrete next action:** run the new pinned helper with `--apply --require-existing-project`. This mode stops if the project is not already ACTIVE and never reaches the addFirebase submission path. It reads all WebApps including deleted entries and either creates exactly one `Khedmah Preview V2 Web` app or verifies the unique exact existing app; conflicting, duplicate, deleted or unready apps stop. It polls a valid operation and reads the resulting app back. The existing owner authorization covers this remaining registration step; no further approval gate has been added.
-- **Expected success:** `PREVIEW_V2_FIREBASE_PROJECT_AND_WEB_APP_VERIFIED`, with `browser_configuration_ready=false`, `auth_providers_configured=false`, `secret_versions_created=false`, `sdk_configuration_read=false`, `api_key_restrictions_verified=false`, `application_deployed=false` and `floot_connected=false`. These false fields are pending work, not registration failure. Creating a WebApp may associate/provision a Firebase API key as part of Firebase's managed behavior, but the helper does not retrieve its key string. A timeout can resume from the journal; unsupported receipts or other errors require reconciliation rather than resetting state.
-- **Exact validation:** 20 Python orchestration/HTTP tests passed, zero failures, including the legacy attempted-ADD journal plus ACTIVE-project recovery with exactly one WebApp POST; missing-project guard for both plan/apply; nested padded long operation transport and pending-operation resume; unsupported receipt retention without duplicate POST; and route injection rejection. Existing identity, permission, inventory, operation-result, payload-redaction and concurrency checks remain passing. Handoff Bash syntax and `git diff --check` passed. Local tests use a recording fake; there is no authenticated Google execution here. This owner-only helper is not called by Actions and no workflow was changed. The source/docs commits use `[skip ci]`; no new full CI or live WebApp success is claimed.
-- **Repository baseline:** PR #274 was open/unmerged at `ffce85385fbbf26fcfe3fce6d4d69e868d3b7358`, with zero workflow runs; main/base remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`. Last full-CI source remains `f99479268f036c098bdd0fd828d5295aeb11ef39` with 2,588 tests passed. This pass is limited to the helper, its Python tests and the same five checkpoint documents.
-- **Remaining work:** after verified WebApp registration, prepare real browser configuration/Auth setup and restricted Maps/mail credentials, then schema migrations, exact runtime object grants, application deployment and Floot connection. Preview deployment and cleanup holds remain. Production, Staging, the old inaccessible Preview, completed infrastructure/database identities and WIF setup are not changed by this repair. No merge or workflow dispatch.
+- **Completed owner registration:** receipt timestamp `2026-10-12T17:26:05.145902+00:00`, received `2026-10-12T20:26:54+03:00`. The guarded resume reported `add_firebase=false / create_web_app=true / require_existing_project=true`, verified the project ACTIVE, submitted CREATE_WEB_APP, and finished `PREVIEW_V2_FIREBASE_PROJECT_AND_WEB_APP_VERIFIED`. Exact app: `1:1044962071847:web:919c294e1cd5ed37374502`, display name `Khedmah Preview V2 Web`, in `khedmah-preview-v2-20261012` / `1044962071847`. A key association exists; configuration, restrictions, Auth, runtime access, deployment and Floot connection are not thereby verified.
+- **Live receipt compatibility:** WebApp operation `operations/workflows/MGFlYjU5NjctODIxMy00ZjE3LWJkYWMtOTYwZmYyMzIxOWRk` was accepted, polled and read back by the repaired helper. This verifies nested-path handling for this new receipt; it does not reveal the lost ADD_FIREBASE receipt's exact name. Preserve the registration journal; it is distinct from the new configuration journal.
+- **Prepared implementation:** `722fbdb914ffdd63e26a43c8902894fb6292f2d3`, adding `scripts/configure-preview-v2-firebase.py`, `tests/test_preview_v2_firebase_config.py` and `tests/preview-v2-firebase-config.test.mjs`. The owner-only helper defaults to a read-only plan. With `--apply`, it may add version 1 only for the five exact containers listed below; no container/IAM/API/Firebase/Auth/key-restriction mutation or deployment is included.
+- **Identity and source checks:** fixed owner `haifawi30@gmail.com`, project/number/organization and required APIs; reject auth overrides. Read the exact ACTIVE Firebase project and complete WebApp inventory including deleted entries, requiring the sole exact verified app. Read its SDK config in memory and check project ID, app ID, auth domain, messaging sender ID and project number when returned. Fully paginate API key metadata, resolve the WebApp's apiKeyId to exactly one canonical key in this project, and compare that key's string with the SDK value in memory. Do not print SDK values or key strings, put them in command arguments, or store them in local files/journals.
+- **Secret staging:** preflight all five existing containers, effective per-secret read/add/access permissions, complete version inventory and existing value matches before the first mutation. Reuse an identical ENABLED version 1. Multiple/disabled/destroyed/unexpected versions or different values stop rather than rotate/overwrite. Persist intent before each addVersion, immediately verify returned identity/state, then compare readback bytes with the SDK-derived value. Recheck all five before reporting success. Journal `$HOME/khedmah-preview-v2-firebase-config/state.json` contains only target/app identifiers and attempted/verified flags, under an exclusive local writer lock. A matching version after a lost POST response is reconciled; an unconfirmed attempt with no version stops without replay.
+- **Next command / expected result:** run the checksum-pinned `--apply` handoff below. Expected marker `PREVIEW_V2_FIREBASE_CORE_CONFIG_STAGED` with `verified_secret_count=5`. This is a bounded configuration-staging result, not complete browser/deployment readiness. The helper reads SDK/API-key values and the five scoped Secret Manager payloads in memory to verify them; no secret value is printed. Maps, Resend, database secrets, Storage and Analytics secrets are outside its write/read-payload allowlist.
+- **Storage / Analytics contract findings:** `apps/frontend/lib/firebase/config.ts` currently requires storageBucket and treats measurementId as optional; `cloudbuild.preview.yaml` nevertheless references both corresponding secret versions. Firebase Management documents storageBucket as deprecated and recommends product-specific bucket inventory; measurementId exists only for an Analytics-linked WebApp and is optional. The helper reports only whether those SDK fields were present, and deliberately does not publish either unverified field, invent a bucket/measurement ID, enable Analytics or create Storage. Their actual availability and the Preview build/client contracts require the next reconciliation before any deployment.
+- **Validation:** 18 new mocked orchestration/HTTP tests passed, together with the 20 existing registration tests, via two passing Node test wrappers; zero failures/skips/cancellations. Coverage includes five exact writes and no-op rerun, all-secret preflight before mutation, foreign/mismatched app/project/key/value rejection, pagination, permission denial, partial/lost response recovery, absent-version non-replay, verified-version disappearance, payload-readback mismatch, writer lock, redaction and route/body scope. Shell handoff syntax and diff whitespace checks passed. The helper is not called by Actions; no workflows or application source were changed. Source/docs use `[skip ci]`; no new full CI or live secret write is claimed.
+- **Last observed baseline / remaining work:** the owner's `2026-10-12T17:14:49.744880+00:00` reader showed all five application APIs enabled and all nine application secret containers present with latest-version NOT_FOUND_REPORTED. DB identities/version-1 credentials, infrastructure and WIF configuration remain completed. After SDK values are staged, reconcile Storage/Analytics requirements, then Auth/providers/domains, key restrictions, Maps/mail, schema/runtime grants, application deployment and Floot integration. Preview deployment and cleanup holds remain. Production, Staging, old Preview, database identities and the registration helper are unchanged by this implementation.
+- **Repository evidence:** PR #274 was open/unmerged at `4054642f87a452743f2379a36185265bc348e84e` with zero workflow runs; main/base `bc5a5c764413498189147cc34c7e857c78aa3d2c`. Last full-CI source remains `f99479268f036c098bdd0fd828d5295aeb11ef39` (2,588 tests). This pass is three new operator/test files and these same five checkpoint documents; no merge or workflow dispatch.
 
-Pinned helper blob: `11906ca85d59b225bb0a9d637cbb152a6dfbe924`; SHA-256: `7ee8e9e66404088b845a99933023360457b39211fac7487763574dceeb5d86da`.
+| Existing secret container | Verified SDK field |
+| --- | --- |
+| NEXT_PUBLIC_FIREBASE_API_KEY | apiKey |
+| NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN | authDomain |
+| NEXT_PUBLIC_FIREBASE_PROJECT_ID | projectId |
+| NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID | messagingSenderId |
+| NEXT_PUBLIC_FIREBASE_APP_ID | appId |
 
-References: [Firebase operation GET route](https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/operations/get), [WebApp creation operation](https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps/create).
+Pinned helper blob: `b937ce9c2a1af686205fb396817d986f070fdf18`; SHA-256: `466cc81cdfef8c784f8b4124e1089abe4aa33ee2509d31c45d21c57c78b953cd`.
+
+References: [SDK configuration fields](https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps/getConfig), [API key metadata](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys/get), [key string](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys/getKeyString), [add secret version](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/addVersion).
 
 Cloud Shell handoff (copy only this block, without the shell prompt):
 
@@ -24,22 +33,22 @@ Cloud Shell handoff (copy only this block, without the shell prompt):
 (
 set -euo pipefail
 umask 077
-khedmah_firebase_script="$(mktemp)"
-trap 'rm -f -- "$khedmah_firebase_script"' EXIT
+khedmah_config_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_config_script"' EXIT
 
 gh api --hostname github.com \
-  repos/khedma-sy/khedmah-digital-v1/git/blobs/11906ca85d59b225bb0a9d637cbb152a6dfbe924 \
-  --jq '.content' | base64 --decode > "$khedmah_firebase_script"
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/b937ce9c2a1af686205fb396817d986f070fdf18 \
+  --jq '.content' | base64 --decode > "$khedmah_config_script"
 
 printf '%s  %s\n' \
-  '7ee8e9e66404088b845a99933023360457b39211fac7487763574dceeb5d86da' \
-  "$khedmah_firebase_script" | sha256sum --check --status
+  '466cc81cdfef8c784f8b4124e1089abe4aa33ee2509d31c45d21c57c78b953cd' \
+  "$khedmah_config_script" | sha256sum --check --status
 
-python3 "$khedmah_firebase_script" --apply --require-existing-project
+python3 "$khedmah_config_script" --apply
 )
 ```
 
-The preceding read-only reconciliation is complete. Earlier commands below are historical and are superseded by this pinned resume handoff.
+Do not repeat the completed Firebase registration handoff. Earlier commands below are historical and superseded by this configuration-staging step.
 
 ## Owner direction and source
 
