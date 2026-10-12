@@ -1,12 +1,12 @@
 # Preview replacement plan — 2026-10-12
 
-Status: project creation and billing link/readback are completed. Core API enablement/readback is prepared. Resource names/sizing and a partial cost scenario are documented; SQL regional pricing and runtime provisioning remain pending.
+Status: project creation, billing link/readback and all 13 requested core APIs are completed. The observed inventory contains 18 enabled services. A bounded Cloud Billing API activation and public SQL price read are prepared; regional SQL quote selection and runtime provisioning remain pending.
 
 ## Owner direction and source
 
 The owner asked why a new Preview could not replace the inaccessible project, then instructed «أبدأ» at 2026-10-12T14:38:46+03:00. Proceed with replacement preparation and prerequisite reads under the current management account. This supersedes the previous next action that made recovery of the old Preview the sole forward path; it does not authorize bypassing that project's IAM.
 
-Reviewed PR #274 head: `929931a757dbc490bd3f89572bbd8dd7cccde061`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. The standalone permission reader added at `7a46afc90f39d812892934717f09228190573221` remains unchanged. The separate operator-invoked billing helper added at `929931a757dbc490bd3f89572bbd8dd7cccde061` has now been executed successfully by the owner; it is not wired into CI. This pass changes documentation only. This plan has no new runtime acceptance evidence.
+Reviewed PR #274 head: `beaabdf43321c3de495f273cab153a94bfb3d57a`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. The standalone permission reader added at `7a46afc90f39d812892934717f09228190573221` remains unchanged. The separate operator-invoked billing helper added at `929931a757dbc490bd3f89572bbd8dd7cccde061` has now been executed successfully by the owner; it is not wired into CI. This pass adds an operator-invoked public Cloud SQL price reader and updates the same five documents. This plan has no new runtime acceptance evidence.
 
 ## Verified project and planned resources
 
@@ -51,7 +51,7 @@ Remaining prerequisites after the supplied inventory:
 - If multiple billing accounts or plausible parent destinations are returned, resolve the intended one before linking resources. Do not select by list order.
 - Preserve denials as denials. Do not repeat the old Preview queries, switch to the historical account or impersonate its service account.
 
-The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. Both permission results have now been supplied. Creation/readback has also been supplied. Billing link/readback has also been supplied. The next missing evidence is core API enablement/readback.
+The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. Both permission results have now been supplied. Creation/readback has also been supplied. Billing link/readback has also been supplied. Core API enablement/readback has also been supplied. The next missing evidence is the public Cloud SQL price-candidate read for the planned region.
 
 ## Step 2 — completed checksum-pinned permission-only probe
 
@@ -166,9 +166,9 @@ gcloud billing projects describe khedmah-preview-v2-20261012 \
 
 Validation: Python compilation and 16 local mocked checks passed: successful link, plan-only, existing identical link, wrong project, foreign association, closed account, missing permission, auth override, HTTP denial, invalid permission response, concurrent preflight change, failed post-link readback, invalid billing ID, explicit CLI scope/captured output, mutation timeout without retry, and redirect refusal. The launcher passed Bash parsing. These local checks are separate from the subsequently supplied successful live billing result above.
 
-## Step 5 — core API enablement and readback; prepared, not executed
+## Step 5 — completed core API enablement and readback
 
-This bounded stage enables the following 13 core service APIs in the verified new project. It does not explicitly create SQL instances, Cloud Run services, build executions or other runtime capacity. Google may enable dependencies and create service agents as part of activation; the full enabled-service readback is intentionally retained. Do not disable automatic dependencies merely because they are not in the requested list.
+The owner completed this bounded stage. Result received at `2026-10-12T15:49:33+03:00`: operation `operations/acf.p2-1044962071847-c671033d-c4b4-49b4-8dbe-5a977c13b27a` finished successfully and all following 13 requested APIs were returned ENABLED. The full post-read includes five extra ENABLED services: `containerregistry.googleapis.com`, `pubsub.googleapis.com`, `storage-api.googleapis.com`, `storage-component.googleapis.com`, `telemetry.googleapis.com` (18 total). Their precise activation history is not established by a single post-read; do not disable them as presumed mistakes. Do not repeat the completed core enablement. The command below is historical execution evidence. It does not explicitly create SQL instances, Cloud Run services, build executions or other runtime capacity. Google may enable dependencies and create service agents as part of activation; the full enabled-service readback is intentionally retained. Do not disable automatic dependencies merely because they are not in the requested list.
 
 | Purpose | Requested APIs |
 | --- | --- |
@@ -210,7 +210,45 @@ gcloud services list --enabled \
 )
 ```
 
-Require all 13 requested service names in ENABLED state. Preserve any error and list current service state before retrying an uncertain operation; partial enablement is not rolled back by disabling services. The native commands enforce the caller's applicable IAM/policy constraints; a denial does not justify granting Owner or changing caller. The prepared shell command passed Bash parsing, and its explicit service list was checked. No API enablement has been reported yet.
+Require all 13 requested service names in ENABLED state. Preserve any error and list current service state before retrying an uncertain operation; partial enablement is not rolled back by disabling services. The native commands enforce the caller's applicable IAM/policy constraints; a denial does not justify granting Owner or changing caller. The prepared shell command passed Bash parsing, and its explicit service list was checked. The owner has supplied successful core activation/readback; no application runtime deployment is implied.
+
+## Step 6 — public regional SQL price candidates; pending owner execution
+
+The interactive SQL pricing page could not be reliably retrieved. Use Google's documented Catalog API instead of substituting an unverified regional number. This step has one explicit control-plane write: enable `cloudbilling.googleapis.com` in the new project. The subsequent [price reader](../../scripts/read-preview-cloud-sql-prices.py) is read-only. It uses OAuth scopes supported by the REST methods, with the current account's token captured in memory and `X-Goog-User-Project` pinned to the new project. It does not create/store an API key, read billing-account-specific contract prices, access Secret Manager or provision runtime resources.
+
+Reader behavior:
+- Reject configured impersonation/access-token/credential-file overrides, and verify exact project ID/number/parent/ACTIVE state.
+- Discover the unique `Cloud SQL` service through `GET /v1/services`; do not assume an unverified service ID.
+- Follow pagination of `GET /v1/services/{service}/skus?currencyCode=USD`, with bounded page sizes/count and repeated-token/duplicate-SKU rejection.
+- Select OnDemand PostgreSQL, explicitly named shared-core or generic storage/backup/IP/log candidates. Require explicit regional applicability to `europe-west1`; global prices are separately labeled `GLOBAL_CANDIDATE`. Do not label a default US price, broad Europe-only scope or another region as Belgium.
+- Preserve the original descriptions, categories, pricing versions/effective times, usage/base units, conversion factors, display quantity, tiers and Money units/nanos. A Money amount is `units + nanos / 1,000,000,000`; do not add nanos as whole currency units.
+- Emit sanitized public price metadata only after all pages succeed. No secret/token or billing account ID is printed. HTTP failures stop with a status code; there is no caller substitution, IAM grant or automatic retry.
+
+The proposed SQL configuration remains PostgreSQL 16 Enterprise, ZONAL, one vCPU/3.75 GiB memory (`db-custom-1-3840` candidate), 10 GiB SSD initially with proposed growth allowance to 20 GiB, seven backups/PITR days, and 730 running hours for a full-month scenario. Candidate output can include other SQL editions/families or global support SKUs: select compatible rates explicitly; do not sum every returned row or silently choose the first match.
+
+Helper blob `85da1d0d57692dcb0bb5fb29755d7eac8a1e79cd`; SHA-256 `fc1418a5de761e34f45ae4f1bf48d4b3c216344501b3ec4f27420c3f275c846a`. The launcher verifies downloaded source before enabling the catalog API.
+
+```bash
+(
+set -euo pipefail
+umask 077
+khedmah_price_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_price_script"' EXIT
+gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/85da1d0d57692dcb0bb5fb29755d7eac8a1e79cd --jq '.content' | base64 --decode > "$khedmah_price_script"
+printf '%s  %s\n' 'fc1418a5de761e34f45ae4f1bf48d4b3c216344501b3ec4f27420c3f275c846a' "$khedmah_price_script" | sha256sum --check --status
+
+gcloud services enable cloudbilling.googleapis.com \
+  --project=khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --user-output-enabled
+
+python3 "$khedmah_price_script"
+)
+```
+
+Successful full read ends with `PREVIEW_SQL_PUBLIC_PRICE_CANDIDATES_READ` and `CANDIDATES_REQUIRE_TIER_AND_UNIT_REVIEW_NOT_A_TOTAL_QUOTE`. Those markers establish retrieval, not a finalized quote. Record the selected SKU IDs, descriptions, effective times and units next, calculate the regional SQL scenario, and add the other explicitly excluded components before deciding the resource plan. The USD catalog does not establish actual billing currency, discounts, tax or existing old-Preview charges.
+
+Validation: Python compilation and 16 local mocked checks passed, including pagination and exact OAuth quota-project scope, no token output, foreign region/commitment/MySQL exclusion, global-price labeling, currency mismatch, preserved units/tiers, wrong project/auth overrides, denial/malformed responses, duplicate SKUs, redirect/path refusal and looping pagination. Bash parsing passed. No live Catalog API success is claimed yet.
 
 ## Concrete proposed resource manifest — pending provision/review
 
@@ -297,7 +335,7 @@ Validate these under the protected environment with deployment held; do not echo
 
 ## Provisioning and acceptance order
 
-1. Completed: prerequisite inventory, permission tests, project creation and billing link/readback. Next execute Step 5 core API enablement/readback, then complete the regional SQL quote and reviewed dedicated infrastructure plan before provisioning runtime capacity.
+1. Completed: prerequisite inventory, permission tests, project creation, billing link/readback and core API activation/readback. Next execute Step 6's catalog activation/public price read, then complete the regional SQL quote and reviewed dedicated infrastructure plan before provisioning runtime capacity.
 2. Prepare a deterministic Preview-specific infrastructure plan with exact targets, additions, IAM scope and cost assumptions; ensure no existing environment appears in its mutation set.
 3. Provision resources in the already created project in bounded stages. Use verified project number `1044962071847`; read back the regional SQL connection, identities, secret metadata and WIF bindings. Keep provisioning evidence separate from deployment evidence.
 4. Configure isolated credentials through secure provider interfaces, then prepare/review the source and protected-variable retargeting together. Old Preview access is not needed to manufacture or extract replacement credentials.
@@ -331,7 +369,7 @@ Official sources: [Cloud Run rates and regional tiers](https://cloud.google.com/
 
 For the proposed PostgreSQL candidate, quote these exact inputs in `europe-west1`: Enterprise, ZONAL, one vCPU, 3.75 GiB memory, PostgreSQL 16, 730 running hours as a full-month assumption, 10 GiB SSD initially (growth allowance up to 20 GiB), seven backups and seven PITR days. Formula: `730 × (regional CPU hourly rate + 3.75 × regional RAM hourly rate) + billed SSD + retained backup/log storage + applicable network/IP`. Backup usage must be estimated from actual retained data; seven backups does not prove a fixed seven-times-disk bill.
 
-The official Cloud SQL pricing page exceeded the retriever's page-size limit; the alternative fetch did not expose usable pricing. Search surfaced shared-core/default prices but did not prove the selected Belgium custom-tier rate. No such number is substituted into this worksheet. Complete an authoritative regional calculator/SKU quote before SQL capacity creation. This unresolved pricing item does not prevent the bounded core API activation stage.
+The official Cloud SQL pricing page exceeded the retriever's page-size limit; the alternative fetch did not expose usable pricing. Search surfaced shared-core/default prices but did not prove the selected Belgium custom-tier rate. No such number is substituted into this worksheet. Complete an authoritative regional calculator/SKU quote before SQL capacity creation. Core API activation has completed. Step 6's public Catalog API reader is the next concrete route to regional price evidence.
 
 Keep old Preview charges separate. Budget alerts are notifications, not automatic spending caps. New project creation/billing link does not stop charges in the inaccessible old project.
 
@@ -362,9 +400,12 @@ Official references reviewed:
 - [Project permission test](https://docs.cloud.google.com/resource-manager/reference/rest/v3/projects/testIamPermissions)
 - [Organization permission test](https://docs.cloud.google.com/resource-manager/reference/rest/v3/organizations/testIamPermissions)
 - [Billing account permission test](https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions)
+- [Public catalog guide](https://docs.cloud.google.com/billing/v1/how-tos/catalog-api)
+- [Public services and OAuth scopes](https://docs.cloud.google.com/billing/docs/reference/rest/v1/services/list)
+- [Public SKUs, pagination, pricing units and OAuth scopes](https://docs.cloud.google.com/billing/docs/reference/rest/v1/services.skus/list)
 - [Core API activation](https://docs.cloud.google.com/sdk/gcloud/reference/services/enable)
 - [Enabled API inventory](https://docs.cloud.google.com/sdk/gcloud/reference/services/list)
 - [Cloud SQL instance settings](https://docs.cloud.google.com/sql/docs/postgres/instance-settings)
 - [Cloud SQL pricing — regional quote still pending](https://cloud.google.com/sql/pricing)
 
-This checkpoint updates the same five Markdown documents only. The 13-service native command passed Bash parsing; service inventory and cost arithmetic were checked. Billing helper implementation remains at `929931a757dbc490bd3f89572bbd8dd7cccde061`: its compilation/16 mocked checks are prior local evidence, while the owner's `PREVIEW_BILLING_LINK_VERIFIED` is new live evidence. No core API enablement, new runtime apply, secret/IAM provisioning, workflow dispatch, migration, deployment or email send has been reported. No source/test files changed and no live Google action was executed by the assistant.
+This checkpoint adds one standalone public-price reader and updates the same five Markdown documents. The reader passed compilation/16 local mocked checks; its launcher passed Bash parsing. New owner-supplied live evidence confirms the core API operation and 18 ENABLED services, including all 13 requested. Earlier billing/helper validation remains recorded separately. The new catalog activation/read, runtime apply, secret/IAM provisioning, workflow dispatch, migration, deployment and email send have not been reported. Existing deployment/billing-helper/test files are unchanged; no live Google action was executed by the assistant.
