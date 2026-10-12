@@ -32,7 +32,7 @@ image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" food-promotions-034)"
 pool_label_args=()
 if [[ "$environment" == 'preview' ]]; then
-  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=food-promotions-034")
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=food-promotions-034")
 fi
 
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config cloudbuild.food-promotions-migration.yaml \

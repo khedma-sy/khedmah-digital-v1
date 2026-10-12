@@ -46,8 +46,10 @@ if(a[0]==='run'&&a[1]==='jobs'){
   else if(a[2]==='describe')console.log(JSON.stringify(jobs[name].job));
   else if(a[2]==='executions'&&a[3]==='list')console.log(JSON.stringify(jobs[value('--job')].executions));
   else if(a[2]==='deploy'){
+    // jobs deploy accepts --labels; --update-labels belongs to jobs update.
+    if(a.some(x=>x==='--update-labels'||x.startsWith('--update-labels=')))throw Error('jobs deploy: unsupported --update-labels');
     const generation=(jobs[name]?.job.metadata.generation??0)+1;
-    const labels={'cloud.googleapis.com/location':value('--region'),...Object.fromEntries((value('--update-labels')??'').split(',').filter(Boolean).map(x=>x.split('=')))};
+    const labels={'cloud.googleapis.com/location':value('--region'),...Object.fromEntries((value('--labels')??'').split(',').filter(Boolean).map(x=>x.split('=')))};
     jobs[name]={executions:jobs[name]?.executions??[],job:{
       metadata:{name,namespace:'123456789',uid:'a'.repeat(32),generation,labels},
       spec:{template:{metadata:{annotations:{'run.googleapis.com/cloudsql-instances':value('--set-cloudsql-instances')}},

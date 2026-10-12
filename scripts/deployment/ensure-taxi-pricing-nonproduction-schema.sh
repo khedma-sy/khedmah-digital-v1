@@ -31,7 +31,7 @@ image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" taxi-pricing-029)"
 pool_label_args=()
 if [[ "$environment" == 'preview' ]]; then
-  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=taxi-pricing-029")
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=taxi-pricing-029")
 fi
 
 gcloud builds submit . \

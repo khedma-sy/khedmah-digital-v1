@@ -44,7 +44,7 @@ image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" foundation-001-022)"
 pool_label_args=()
 if [[ "$environment" == 'preview' ]]; then
-  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=foundation-001-022")
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=foundation-001-022")
 fi
 source_args=()
 if [[ "$environment" == 'staging' ]]; then

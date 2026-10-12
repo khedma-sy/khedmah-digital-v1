@@ -35,7 +35,7 @@ image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" product-store-024)"
 pool_label_args=()
 if [[ "$environment" == 'preview' ]]; then
-  pool_label_args=(--update-labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=product-store-024")
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=product-store-024")
 fi
 
 gcloud builds submit .   --project "$GOOGLE_CLOUD_PROJECT"   --region "$GOOGLE_CLOUD_REGION"   --config cloudbuild.product-store-migration.yaml   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"   --quiet
