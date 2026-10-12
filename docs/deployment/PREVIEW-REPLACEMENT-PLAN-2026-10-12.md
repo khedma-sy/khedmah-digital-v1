@@ -1,12 +1,12 @@
 # Preview replacement plan — 2026-10-12
 
-Status: the replacement project was created successfully. Billing permission checks/link/readback are prepared; billing has not yet been reported enabled.
+Status: project creation and billing link/readback are completed. Core API enablement/readback is prepared. Resource names/sizing and a partial cost scenario are documented; SQL regional pricing and runtime provisioning remain pending.
 
 ## Owner direction and source
 
 The owner asked why a new Preview could not replace the inaccessible project, then instructed «أبدأ» at 2026-10-12T14:38:46+03:00. Proceed with replacement preparation and prerequisite reads under the current management account. This supersedes the previous next action that made recovery of the old Preview the sole forward path; it does not authorize bypassing that project's IAM.
 
-Reviewed PR #274 head: `3b4c57e72dc6bb13ed29ad1e847dc3b1249f5b03`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. The standalone permission reader added at `7a46afc90f39d812892934717f09228190573221` remains unchanged. This pass adds a separate operator-invoked billing helper; it is not wired into CI. This plan has no new runtime acceptance evidence.
+Reviewed PR #274 head: `929931a757dbc490bd3f89572bbd8dd7cccde061`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. The standalone permission reader added at `7a46afc90f39d812892934717f09228190573221` remains unchanged. The separate operator-invoked billing helper added at `929931a757dbc490bd3f89572bbd8dd7cccde061` has now been executed successfully by the owner; it is not wired into CI. This pass changes documentation only. This plan has no new runtime acceptance evidence.
 
 ## Verified project and planned resources
 
@@ -16,7 +16,7 @@ Reviewed PR #274 head: `3b4c57e72dc6bb13ed29ad1e847dc3b1249f5b03`, open/unmerged
 | New project ID | `khedmah-preview-v2-20261012` — created, ACTIVE |
 | Planned resource region | `europe-west1`; the project itself is not regional |
 | Parent organization/folder | Organization `594049370623`, confirmed in the new project's creation readback |
-| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Production billing reports enabled on this same account; `billing.resourceAssociations.create` returned allowed=true; new-project-side billing authority remains to be checked |
+| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. The owner supplied successful project-side/account-side preflight and new-project `billingEnabled=true`, `billingAccountMatches=true` readback on 2026-10-12 |
 | Project number | `1044962071847`, confirmed in creation readback; never copy the old namespace |
 | Database | New isolated PostgreSQL test database, synthetic data only; sizing/edition/backup policy to be costed before provisioning |
 | Existing Preview | `khedmah-preview-774201339973` / `195546947562`; access investigation remains open |
@@ -46,12 +46,12 @@ These reads identify a parent candidate and visible open billing accounts. They 
 
 Remaining prerequisites after the supplied inventory:
 - Completed: organization `594049370623` is identified and its `resourcemanager.projects.create` test returned allowed=true.
-- Completed: `billing.resourceAssociations.create` returned allowed=true on the selected billing account. After creation, verify the required project-side billing assignment/service-use permissions on the new project itself.
+- Completed: project-side billing assignment/service-use permissions and billing-account association permission were checked by the billing helper, and linking/readback passed.
 - Completed: Google accepted creation under the selected organization and returned the exact new project ACTIVE. This does not establish quotas for future services.
 - If multiple billing accounts or plausible parent destinations are returned, resolve the intended one before linking resources. Do not select by list order.
 - Preserve denials as denials. Do not repeat the old Preview queries, switch to the historical account or impersonate its service account.
 
-The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. Both permission results have now been supplied. Creation/readback has also been supplied. The next missing evidence is the new project's billing link/readback result.
+The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. Both permission results have now been supplied. Creation/readback has also been supplied. Billing link/readback has also been supplied. The next missing evidence is core API enablement/readback.
 
 ## Step 2 — completed checksum-pinned permission-only probe
 
@@ -125,9 +125,9 @@ The supplied readback matches the exact project ID, organization parent, Preview
 
 The command passed local Bash syntax validation and was successfully executed by the owner, not the assistant. The official [create command](https://docs.cloud.google.com/sdk/gcloud/reference/projects/create) documents `--no-enable-cloud-apis`, organization, name, labels and account flags.
 
-## Step 4 — bounded billing preflight, link and readback; pending execution
+## Step 4 — completed billing preflight, link and readback
 
-The replacement direction authorizes linking the previously selected open billing account to this newly created project. The account ID remains an operator argument and is not committed. Use the [billing helper](../../scripts/link-preview-project-billing.py) through its pinned launcher below. Default invocation is plan-only; the supplied `--apply` explicitly requests the bounded link after checks pass.
+The owner successfully executed this step and supplied the result at `2026-10-12T15:27:20+03:00` (message receipt, not an emitted operation timestamp): both permission checks were allowed, the preflight passed, linking was attempted, and exact-project readback returned `billingEnabled=true` and `billingAccountMatches=true`, ending with `PREVIEW_BILLING_LINK_VERIFIED`. Do not repeat this completed link. The launcher below is retained as execution evidence only. The account ID remains an operator argument and is not committed. The completed run used the [billing helper](../../scripts/link-preview-project-billing.py) through its pinned launcher below. Default invocation is plan-only; the recorded `--apply` requested the bounded link after checks passed.
 
 The helper verifies:
 - Current account `haifawi30@gmail.com`, with no configured impersonation/access-token-file/credential-file override.
@@ -164,9 +164,91 @@ gcloud billing projects describe khedmah-preview-v2-20261012 \
   --format='yaml(projectId,billingEnabled,billingAccountName)'
 ```
 
-Validation: Python compilation and 16 local mocked checks passed: successful link, plan-only, existing identical link, wrong project, foreign association, closed account, missing permission, auth override, HTTP denial, invalid permission response, concurrent preflight change, failed post-link readback, invalid billing ID, explicit CLI scope/captured output, mutation timeout without retry, and redirect refusal. The launcher passed Bash parsing. These are local checks, not live billing completion evidence.
+Validation: Python compilation and 16 local mocked checks passed: successful link, plan-only, existing identical link, wrong project, foreign association, closed account, missing permission, auth override, HTTP denial, invalid permission response, concurrent preflight change, failed post-link readback, invalid billing ID, explicit CLI scope/captured output, mutation timeout without retry, and redirect refusal. The launcher passed Bash parsing. These local checks are separate from the subsequently supplied successful live billing result above.
 
-## Resource and identity manifest to finalize
+## Step 5 — core API enablement and readback; prepared, not executed
+
+This bounded stage enables the following 13 core service APIs in the verified new project. It does not explicitly create SQL instances, Cloud Run services, build executions or other runtime capacity. Google may enable dependencies and create service agents as part of activation; the full enabled-service readback is intentionally retained. Do not disable automatic dependencies merely because they are not in the requested list.
+
+| Purpose | Requested APIs |
+| --- | --- |
+| Project/service control | `serviceusage.googleapis.com`, `cloudresourcemanager.googleapis.com` |
+| Identities and future GitHub federation | `iam.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com` |
+| Runtime and build | `run.googleapis.com`, `cloudbuild.googleapis.com`, `artifactregistry.googleapis.com` |
+| Data and configuration | `sqladmin.googleapis.com`, `secretmanager.googleapis.com`, `storage.googleapis.com` |
+| Observability | `logging.googleapis.com`, `monitoring.googleapis.com` |
+
+Firebase/Auth, Maps, API Keys, optional media integrations and any other application-specific APIs are a later explicit stage after their consumers are reconciled. Do not copy the broad Production API set wholesale or enable container scanning without accounting for its separate charges.
+
+```bash
+(
+set -euo pipefail
+gcloud services enable \
+  serviceusage.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  iam.googleapis.com \
+  iamcredentials.googleapis.com \
+  sts.googleapis.com \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
+  sqladmin.googleapis.com \
+  storage.googleapis.com \
+  logging.googleapis.com \
+  monitoring.googleapis.com \
+  --project=khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --user-output-enabled
+
+gcloud services list --enabled \
+  --project=khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --user-output-enabled \
+  --sort-by=config.name \
+  --format='table(config.name,state)'
+)
+```
+
+Require all 13 requested service names in ENABLED state. Preserve any error and list current service state before retrying an uncertain operation; partial enablement is not rolled back by disabling services. The native commands enforce the caller's applicable IAM/policy constraints; a denial does not justify granting Owner or changing caller. The prepared shell command passed Bash parsing, and its explicit service list was checked. No API enablement has been reported yet.
+
+## Concrete proposed resource manifest — pending provision/review
+
+Names and settings below are a planning decision for the already created project, not a claim of live resources or an infrastructure apply. Regional resources use `europe-west1`. The new project's SHA-256 is `b299ab462a1e169173551bb6a47c508bcdfb30860f21b551d455cb7704f80e4f`; the numeric namespace is `1044962071847`.
+
+| Resource | Proposed target/settings | Remaining gate |
+| --- | --- | --- |
+| Terraform state | Bucket `khedmah-preview-v2-20261012-tfstate`, prefix `khedmah/preview-v2/bootstrap`; private, uniform access, versioning | Dedicated new-environment configuration, exact plan, permissions and live-name check |
+| Build source | Bucket `khedmah-preview-v2-20261012-cloudbuild-source`; private, regional, reviewed retention | Preview helpers currently use default source staging; explicitly wire this bucket before claiming it is used |
+| Artifact Registry | Docker repository `khedmah-preview` | Reviewed cleanup that protects deployed images; initial planning allowance 5 GiB, not a storage cap |
+| Cloud SQL | `khedmah-preview-v2-db`, PostgreSQL 16, Enterprise, `db-custom-1-3840` candidate, ZONAL, 10 GiB SSD initially, proposed autoresize limit 20 GiB | Verify regional tier/policy support and price, review exact create plan before incurring recurring capacity |
+| SQL recovery/network | Proposed seven automatic backups, PITR seven days, public connector endpoint with no authorized-network allowlist | Confirm exact settings/connection contract; storage/backups continue to cost money independently of application idleness |
+| Database/users | DB `khedmah`; separate `khedmah_app` and `khedmah_migrator`, new independent credentials | Runtime role must lack DDL/admin privileges; migration ownership/default grants and login binding must pass fresh catalog checks |
+| Initial frontend/backend | `khedmah-pr-274-frontend`, `khedmah-pr-274-backend`; each 1 vCPU/512 MiB candidate, request-based billing, min 0, proposed max 2 and concurrency 20 | Add explicit settings/identity wiring to deployment source and verify health, memory and connection behavior |
+| Schema Jobs | Nine existing `khedmah-preview-schema-<stage>` names, one task/parallelism 1, retries 0, explicit migrator identity | Retarget pool pins, adapt all migration consumers and initial apply/verify stages; queue remains serialized |
+| Firebase/auth | Add Firebase to this new project; create isolated web config/auth domains | Verify backend auth binding and browser acceptance; Google Cloud project creation alone has not created Firebase configuration |
+| Media | Candidate private bucket `khedmah-preview-v2-20261012-media` only after Preview media contract is confirmed | No bucket creation or public access assumed |
+| Budget | Project-filtered budget with actual/forecast alerts | Amount and currency after full quote; alerts and service scaling limits are not hard account spending caps |
+
+The Cloud Run helper currently leaves scaling/resource values implicit. These proposed caps must be written and checked, not merely documented. Multiple active PRs can create additional service pairs; initially target PR #274 only. Maximum-instance settings are operational controls, not a guarantee that cost can never exceed an amount.
+
+### Proposed service-account separation
+
+All five IDs below belong only to `khedmah-preview-v2-20261012.iam.gserviceaccount.com`; no keys are proposed.
+
+| Account ID | Intended access boundary |
+| --- | --- |
+| `khedmah-pv2-deployer` | Scoped Cloud Run deployment, build submission, required metadata reads and actAs only on the four intended execution identities; no project-wide secret payload access |
+| `khedmah-pv2-build` | Artifact writes to the new repository, source-bucket reads, logging, and access to the eight frontend build configuration secrets |
+| `khedmah-pv2-runtime` | Backend Cloud SQL client and only its bound runtime secrets; media access only if the verified contract needs it |
+| `khedmah-pv2-frontend` | Frontend execution identity with no SQL or secret-payload grants by default |
+| `khedmah-pv2-migrator` | Cloud SQL client and the new migration-credential secret; restricted SQL migration role |
+
+Required source work is explicit: schema helpers currently select `RUNTIME_SERVICE_ACCOUNT` and `DATABASE_URL`; frontend/backend currently share that identity; build submissions do not select the proposed dedicated build identity; Preview does not pass the proposed source-staging bucket. New identities and secret names alone do not change any of those consumers. Keep the current deployment hold until wiring and focused tests prove separation.
+
+Proposed GitHub WIF pool/provider: `khedmah-preview-github/github-actions`, restricted to repository ID `1307435925`, owner ID `307214577`, the protected `preview` environment and reviewed Preview workflows. Verify actual claim shape and permitted PR refs before encoding trust; do not copy the Production main-only condition or introduce a broad workflow/branch wildcard. Retain independent Staging and canonical Production exclusions.
+
+## Remaining implementation contracts
 
 | Component | Required preparation |
 | --- | --- |
@@ -215,7 +297,7 @@ Validate these under the protected environment with deployment held; do not echo
 
 ## Provisioning and acceptance order
 
-1. Completed: prerequisite inventory, parent/billing-account permission tests and project creation/readback. Next execute Step 4 billing preflight/link/readback, then finalize the costed resource manifest before provisioning runtime capacity.
+1. Completed: prerequisite inventory, permission tests, project creation and billing link/readback. Next execute Step 5 core API enablement/readback, then complete the regional SQL quote and reviewed dedicated infrastructure plan before provisioning runtime capacity.
 2. Prepare a deterministic Preview-specific infrastructure plan with exact targets, additions, IAM scope and cost assumptions; ensure no existing environment appears in its mutation set.
 3. Provision resources in the already created project in bounded stages. Use verified project number `1044962071847`; read back the regional SQL connection, identities, secret metadata and WIF bindings. Keep provisioning evidence separate from deployment evidence.
 4. Configure isolated credentials through secure provider interfaces, then prepare/review the source and protected-variable retargeting together. Old Preview access is not needed to manufacture or extract replacement credentials.
@@ -231,18 +313,27 @@ The existing [migration plan](../floot-migration/MIGRATION-PLAN.md) and [integra
 
 A Floot origin still requires an accepted API/auth transport, cookie/session handling, exact CORS/CSRF rules and actual browser verification. Existing Next.js acceptance does not prove Floot acceptance. No Floot app, credentials, domains or Production DNS changes are included in this preparation.
 
-## Cost worksheet — not a price quote
+## Dated cost worksheet — partial scenario, not total Preview pricing
 
-A defensible monetary estimate is pending the instance size/edition, storage, retained backups, run/build usage and billing currency. Do not copy the Production tier or assert that scaling Cloud Run to zero makes Cloud SQL free.
+Checked on **2026-10-12**. USD list-rate illustration with no free-tier, credits, negotiated discounts or commitments deducted. Free-tier allowances can be shared with the other projects on the same billing account, so a new project is not assumed to receive a fresh independent allowance. The actual billing currency/taxes remain unverified.
 
-Estimate separately:
-- SQL compute: provisioned hours × selected regional hourly rate; use 730 hours only as a clearly stated full-month planning assumption.
-- SQL storage and backups: projected GiB-month × their current regional rates.
-- Cloud Run requests/CPU/memory and schema Job execution.
-- Cloud Build minutes, image storage and retained build artifacts.
-- Media/network/logging, Secret Manager, Firebase/Maps and email usage as applicable.
+| Component | Explicit monthly usage assumption | Verified rate/calculation | Scenario USD |
+| --- | --- | --- | ---: |
+| Cloud Run services, Belgium Tier 1 | Combined 100,000 billed vCPU-seconds, 60,000 GiB-seconds, 100,000 requests across the two services | `100000 × 0.000024 + 60000 × 0.0000025 + 0.1 × 0.40` | 2.59 |
+| Cloud Run Jobs, Belgium Tier 1 | 9,000 billed vCPU-seconds and 4,500 GiB-seconds; include minimum billable execution duration | `9000 × 0.000018 + 4500 × 0.000002` | 0.17 |
+| Cloud Build default pool | 1,000 total build minutes on `e2-standard-2`; migrations/rebuilds count too | Belgium default-pool rate `0.006/minute` | 6.00 |
+| Artifact Registry | 5 GiB retained for 730 hours | `5 × 730 × 0.000136986`; shared free allowance ignored | 0.50 |
+| **Subtotal of only these four components** | Usage assumptions, not limits or measured load | Decimal calculation: `9.260998900`, rounded | **9.26** |
 
-The official Cloud SQL pricing page was found, but its interactive price table did not load reliably in this session; no region-specific price was verified or copied into this plan. Complete a dated calculator estimate before incurring the new recurring resource cost. A budget alert is not a guaranteed spending cap. The old project's residual charges must be considered separately.
+Official sources: [Cloud Run rates and regional tiers](https://cloud.google.com/run/pricing), [Cloud Build Belgium default-pool prices](https://cloud.google.com/build/pricing-update), [Artifact Registry pricing](https://cloud.google.com/artifact-registry/pricing). Private-pool Build rates must not be used for this default-pool assumption. Future builds must explicitly verify the selected machine type; the current source leaves it implicit.
+
+**Not included in USD 9.26:** SQL compute, SSD storage, backups/PITR logs, IP/network charges, other Cloud Storage and operations, Secret Manager, chargeable logs, Firebase/Auth, Maps, mail-provider charges and taxes. It is not a total, approved budget or promise of the eventual bill.
+
+For the proposed PostgreSQL candidate, quote these exact inputs in `europe-west1`: Enterprise, ZONAL, one vCPU, 3.75 GiB memory, PostgreSQL 16, 730 running hours as a full-month assumption, 10 GiB SSD initially (growth allowance up to 20 GiB), seven backups and seven PITR days. Formula: `730 × (regional CPU hourly rate + 3.75 × regional RAM hourly rate) + billed SSD + retained backup/log storage + applicable network/IP`. Backup usage must be estimated from actual retained data; seven backups does not prove a fixed seven-times-disk bill.
+
+The official Cloud SQL pricing page exceeded the retriever's page-size limit; the alternative fetch did not expose usable pricing. Search surfaced shared-core/default prices but did not prove the selected Belgium custom-tier rate. No such number is substituted into this worksheet. Complete an authoritative regional calculator/SKU quote before SQL capacity creation. This unresolved pricing item does not prevent the bounded core API activation stage.
+
+Keep old Preview charges separate. Budget alerts are notifications, not automatic spending caps. New project creation/billing link does not stop charges in the inaccessible old project.
 
 ## Sources and validation limits
 
@@ -271,6 +362,9 @@ Official references reviewed:
 - [Project permission test](https://docs.cloud.google.com/resource-manager/reference/rest/v3/projects/testIamPermissions)
 - [Organization permission test](https://docs.cloud.google.com/resource-manager/reference/rest/v3/organizations/testIamPermissions)
 - [Billing account permission test](https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions)
-- [Cloud SQL pricing — estimate still pending](https://cloud.google.com/sql/pricing)
+- [Core API activation](https://docs.cloud.google.com/sdk/gcloud/reference/services/enable)
+- [Enabled API inventory](https://docs.cloud.google.com/sdk/gcloud/reference/services/list)
+- [Cloud SQL instance settings](https://docs.cloud.google.com/sql/docs/postgres/instance-settings)
+- [Cloud SQL pricing — regional quote still pending](https://cloud.google.com/sql/pricing)
 
-This checkpoint adds one standalone billing helper and updates the same five documents. Its Python compilation, 16 mocked checks and launcher Bash parsing passed. The prior permission helper's six mocked checks remain historical; the owner supplied successful live IAM results and successful project creation. Billing link, secret read/write, IAM grant, runtime apply, workflow dispatch, migration, deployment and email send have not been reported. Existing deployment code, permission helper and test files remain unchanged. No live Google action was executed by the assistant.
+This checkpoint updates the same five Markdown documents only. The 13-service native command passed Bash parsing; service inventory and cost arithmetic were checked. Billing helper implementation remains at `929931a757dbc490bd3f89572bbd8dd7cccde061`: its compilation/16 mocked checks are prior local evidence, while the owner's `PREVIEW_BILLING_LINK_VERIFIED` is new live evidence. No core API enablement, new runtime apply, secret/IAM provisioning, workflow dispatch, migration, deployment or email send has been reported. No source/test files changed and no live Google action was executed by the assistant.
