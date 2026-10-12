@@ -96,11 +96,14 @@ class ExecutionTests(unittest.TestCase):
                         expected = helper.name == 'ensure-foundation-nonproduction-schema.sh'
                         self.assertEqual('--gcs-source-staging-dir' in call, expected)
 
-    def test_replacement_remains_blocked_by_current_pool_target_before_build(self):
+    def test_old_preview_is_rejected_by_replacement_pool_before_build(self):
         result, calls = self.invoke(HELPERS[0], real_node=True, overrides={
             'PRODUCTION_FIREBASE_PROJECT_ID': 'khedma-dl', 'PREVIEW_SCHEMA_POOL_SERIALIZED': 'true',
             'GITHUB_ACTIONS': 'true', 'GITHUB_WORKFLOW': 'PR Preview',
-            'GITHUB_REPOSITORY': 'khedma-sy/khedmah-digital-v1'})
+            'GITHUB_REPOSITORY': 'khedma-sy/khedmah-digital-v1',
+            'GOOGLE_CLOUD_PROJECT': 'khedmah-preview-774201339973',
+            'RUNTIME_SERVICE_ACCOUNT': 'runtime@khedmah-preview-774201339973.iam.gserviceaccount.com',
+            'CLOUD_SQL_INSTANCE_CONNECTION_NAME': 'khedmah-preview-774201339973:europe-west1:old-db'})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('TARGET_OR_SERIALIZATION_REJECTED', result.stderr)
         self.assertEqual(calls, [])

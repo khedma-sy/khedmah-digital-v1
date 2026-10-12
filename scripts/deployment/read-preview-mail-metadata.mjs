@@ -14,7 +14,7 @@ export function readPreviewMailMetadata(env, run = spawnSync, policy) {
   if (env.DEPLOYMENT_ENVIRONMENT !== 'preview') stop('ENVIRONMENT_REJECTED');
   validatePoolTarget(env, policy);
   const project = env.GOOGLE_CLOUD_PROJECT;
-  const namespace = policy?.namespace ?? '195546947562';
+  const namespace = policy?.namespace ?? '1044962071847';
   const parents = [project, namespace].map(p => `projects/${p}/secrets/${SECRET}`);
   const versionNumber = name => {
     if (typeof name !== 'string') return null;

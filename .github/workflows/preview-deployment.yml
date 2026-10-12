@@ -76,10 +76,24 @@ jobs:
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PREVIEW_EXPECTED_PR_STATE: open
         run: node scripts/deployment/verify-preview-source.mjs
+      - name: Verify replacement Preview configuration before authentication
+        env:
+          PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          PREVIEW_FIREBASE_PROJECT_ID: ${{ vars.PREVIEW_FIREBASE_PROJECT_ID }}
+          GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          PREVIEW_ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
+          PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+          PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
+          PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
+          PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
+          PREVIEW_V2_CONFIGURATION_READY: ${{ vars.PREVIEW_V2_CONFIGURATION_READY }}
+          PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+          PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
+        run: node scripts/deployment/verify-preview-v2-configuration.mjs
       - name: Check GCP credentials
         id: gcp-check
         env:
-          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_WI: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           if [ -n "$GCP_WI" ]; then
             echo "has_gcp=true" >> "$GITHUB_OUTPUT"
@@ -90,8 +104,8 @@ jobs:
       - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Validate environment isolation
@@ -117,7 +131,7 @@ jobs:
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
           ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
-          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
           CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
           PREVIEW_SCHEMA_POOL_SERIALIZED: 'true'
         shell: bash
@@ -130,12 +144,12 @@ jobs:
         timeout-minutes: 10
         if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
-          PREVIEW_RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          PREVIEW_RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
           DEPLOYMENT_ENVIRONMENT: preview
           PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
-          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
           CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
           PREVIEW_SCHEMA_POOL_SERIALIZED: 'true'
@@ -167,7 +181,7 @@ jobs:
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
           CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
-          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
           PREVIEW_SCHEMA_POOL_SERIALIZED: 'true'
@@ -306,17 +320,21 @@ jobs:
           PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PREVIEW_EXPECTED_PR_STATE: closed
         run: node scripts/deployment/verify-preview-source.mjs
+      - name: Hold cleanup during replacement Preview preparation
+        run: |
+          echo 'PREVIEW_V2_CLEANUP_HELD_NO_CLOUD_ACCESS'
+          exit 1
       - name: Check GCP credentials
         id: gcp-check
         env:
-          GCP_WI: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_WI: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           if [ -n "$GCP_WI" ]; then echo "has_gcp=true" >> "$GITHUB_OUTPUT"; else echo "has_gcp=false" >> "$GITHUB_OUTPUT"; fi
       - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_PREVIEW_DEPLOYER_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
       - name: Delete PR Cloud Run services

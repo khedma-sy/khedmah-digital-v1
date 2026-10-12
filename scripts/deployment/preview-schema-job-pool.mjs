@@ -16,8 +16,8 @@ export const STAGES = Object.freeze({
   'food-promotions-034': 'food-promotions-migration',
 });
 const POLICY = Object.freeze({
-  project_sha256: '9ff100125b4a00e62a9ed621f8e25ed90ceb9a47b6c03c8bb0fa66a3f782329f',
-  namespace: '195546947562', region: 'europe-west1',
+  project_sha256: 'b299ab462a1e169173551bb6a47c508bcdfb30860f21b551d455cb7704f80e4f',
+  namespace: '1044962071847', region: 'europe-west1',
 });
 const hash = value => createHash('sha256').update(value).digest('hex');
 const stop = code => { throw new Error('PREVIEW_SCHEMA_POOL_' + code); };

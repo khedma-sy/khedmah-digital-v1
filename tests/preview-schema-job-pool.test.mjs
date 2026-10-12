@@ -207,8 +207,9 @@ test('replacement job rejects runtime credentials, aliases, literal values, dupl
   }
 });
 
-test('replacement fixture does not activate the still-held live target policy', () => {
-  assert.throws(() => validatePoolTarget(replacementFixture().env), /TARGET_OR_SERIALIZATION_REJECTED/);
+test('live policy selects only the replacement; the old project is rejected', () => {
+  assert.doesNotThrow(() => validatePoolTarget(replacementFixture().env));
+  assert.throws(() => validatePoolTarget({ ...replacementFixture().env, GOOGLE_CLOUD_PROJECT: 'khedmah-preview-774201339973' }), /TARGET_OR_SERIALIZATION_REJECTED/);
 });
 
 const pr = { number: 274, state: 'open', head_sha: sourceEnv.PREVIEW_HEAD_SHA, head_repo: 'khedma-sy/khedmah-digital-v1' };
