@@ -1,0 +1,119 @@
+"""Isolation and destructive-change regressions for the operator bootstrap."""
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('bootstrap', Path(__file__).resolve().parents[1] / 'scripts/bootstrap-preview-v2.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+
+def project_fixture():
+    return {'projectId': m.PROJECT, 'projectNumber': m.NUMBER, 'lifecycleState': 'ACTIVE',
+            'parent': {'id': m.ORGANIZATION, 'type': 'organization'}, 'labels': m.LABELS}
+
+
+def bucket_fixture():
+    return {'name': m.STATE_BUCKET, 'projectNumber': m.NUMBER, 'location': m.REGION.upper(),
+            'labels': m.LABELS, 'versioning': {'enabled': True},
+            'softDeletePolicy': {'retentionDurationSeconds': '2592000'},
+            'iamConfiguration': {'uniformBucketLevelAccess': {'enabled': True}, 'publicAccessPrevention': 'enforced'}}
+
+
+def plan_fixture():
+    return {'resource_changes': [
+        {'address': kind + '.' + name, 'mode': 'managed',
+         'provider_name': 'registry.terraform.io/hashicorp/google',
+         'change': {'actions': ['create'], 'after': copy.deepcopy(values)}}
+        for kind, entries in m.manifest()['resource'].items() for name, values in entries.items()
+    ]}
+
+
+class BootstrapTests(unittest.TestCase):
+    def test_matching_project_and_enabled_apis(self):
+        m.validate_project(project_fixture(), {'projectId': m.PROJECT, 'billingEnabled': True},
+                           [{'config': {'name': name}, 'state': 'ENABLED'} for name in m.CORE_APIS])
+
+    def test_production_project_rejected(self):
+        p = project_fixture(); p['projectId'] = 'khedma-dl'
+        with self.assertRaisesRegex(m.Stop, 'PROJECT_IDENTITY_MISMATCH'):
+            m.validate_project(p, {}, [])
+
+    def test_missing_core_api_rejected(self):
+        with self.assertRaisesRegex(m.Stop, 'CORE_API_MISSING'):
+            m.validate_project(project_fixture(), {'projectId': m.PROJECT, 'billingEnabled': True}, [])
+
+    def test_bucket_owned_by_foreign_project_rejected(self):
+        b = bucket_fixture(); b['projectNumber'] = '311026134906'
+        with self.assertRaisesRegex(m.Stop, 'IDENTITY_MISMATCH'): m.validate_bucket(b)
+
+    def test_state_bucket_without_protection_rejected(self):
+        b = bucket_fixture(); b['iamConfiguration']['publicAccessPrevention'] = 'inherited'
+        with self.assertRaisesRegex(m.Stop, 'ACCESS_MISMATCH'): m.validate_bucket(b)
+
+    def test_state_bucket_without_recovery_rejected(self):
+        for key in ('versioning', 'softDeletePolicy'):
+            b = bucket_fixture(); b.pop(key)
+            with self.assertRaises(m.Stop): m.validate_bucket(b)
+
+    def test_create_and_noop_are_accepted(self):
+        p = plan_fixture(); self.assertEqual(m.validate_plan(p), (len(p['resource_changes']), 0))
+        for r in p['resource_changes']: r['change']['actions'] = ['no-op']
+        self.assertEqual(m.validate_plan(p), (0, len(p['resource_changes'])))
+
+    def test_update_delete_and_replacement_rejected(self):
+        for actions in (['update'], ['delete'], ['delete', 'create'], ['create', 'delete']):
+            p = plan_fixture(); p['resource_changes'][0]['change']['actions'] = actions
+            with self.assertRaisesRegex(m.Stop, 'NONCREATE_CHANGE'): m.validate_plan(p)
+
+    def test_extra_or_missing_resource_rejected(self):
+        for mutate in (lambda p: p['resource_changes'].pop(),
+                       lambda p: p['resource_changes'].append(copy.deepcopy(p['resource_changes'][0]))):
+            p = plan_fixture(); mutate(p)
+            with self.assertRaisesRegex(m.Stop, 'RESOURCE_SET_MISMATCH'): m.validate_plan(p)
+
+    def test_foreign_project_or_principal_rejected(self):
+        p = plan_fixture(); p['resource_changes'][0]['change']['after']['project'] = 'khedma-dl'
+        with self.assertRaisesRegex(m.Stop, 'FOREIGN_PROJECT'): m.validate_plan(p)
+        p = plan_fixture()
+        r = next(r for r in p['resource_changes'] if 'member' in r['change']['after'])
+        r['change']['after']['member'] = 'allUsers'
+        with self.assertRaisesRegex(m.Stop, 'VALUE_MISMATCH_member'): m.validate_plan(p)
+
+    def test_drift_deferred_or_errored_plans_rejected(self):
+        for key, value in [('resource_drift', [{'address': 'example'}]), ('deferred_changes', [{}]), ('errored', True)]:
+            p = plan_fixture(); p[key] = value
+            with self.assertRaises(m.Stop): m.validate_plan(p)
+
+    def test_secret_access_separated_and_no_credential_payloads(self):
+        resources = m.manifest()['resource']
+        self.assertNotIn('google_secret_manager_secret_version', resources)
+        self.assertNotIn('google_sql_user', resources)
+        self.assertNotIn('google_service_account_key', resources)
+        grants = resources['google_secret_manager_secret_iam_member']
+        self.assertEqual(grants['DATABASE_URL_payload']['member'], 'serviceAccount:' + m.email('runtime'))
+        self.assertEqual(grants['DATABASE_MIGRATION_URL_payload']['member'], 'serviceAccount:' + m.email('migrator'))
+        self.assertFalse(any(x['member'] == 'serviceAccount:' + m.email('frontend') for x in grants.values()))
+        self.assertFalse(any(x['role'] in ('roles/owner', 'roles/editor', 'roles/secretmanager.secretAccessor')
+                             for x in resources['google_project_iam_member'].values()))
+
+    def test_no_authorized_network_or_public_iam(self):
+        resources = m.manifest()['resource']
+        ip = resources['google_sql_database_instance']['preview']['settings']['ip_configuration']
+        self.assertNotIn('authorized_networks', ip)
+        self.assertNotIn('allUsers', json.dumps(resources))
+        self.assertNotIn('allAuthenticatedUsers', json.dumps(resources))
+
+    def test_default_invocation_does_not_call_cloud(self):
+        with patch.object(m.sys, 'argv', ['bootstrap-preview-v2.py']), patch.object(m.Runner, 'apply') as apply:
+            m.main(); apply.assert_not_called()
+
+    def test_redirects_refused(self):
+        self.assertIsNone(m.NoRedirect().redirect_request(None, None, None, None, None, None))
+
+
+if __name__ == '__main__':
+    unittest.main()
