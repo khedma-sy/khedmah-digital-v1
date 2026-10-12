@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage five verified Firebase SDK values in the replacement Preview only.
+"""Stage five verified Firebase SDK values, or inspect Preview components.
 
 No Firebase resource creation, key restriction change, Auth setup or deployment.
 Storage and Analytics require separate reconciliation; no placeholders are used.
@@ -41,7 +41,12 @@ PERMISSIONS = ["secretmanager.secrets.get", "secretmanager.versions.list",
                "secretmanager.versions.add"]
 BASES = {"firebase": "https://firebase.googleapis.com/v1beta1/",
          "keys": "https://apikeys.googleapis.com/v2/",
-         "secrets": "https://secretmanager.googleapis.com/v1/"}
+         "secrets": "https://secretmanager.googleapis.com/v1/",
+         "storage": "https://storage.googleapis.com/storage/v1/",
+         "firebase_storage": "https://firebasestorage.googleapis.com/v1beta/",
+         "auth": "https://identitytoolkit.googleapis.com/admin/v2/"}
+BUCKET_PARENT = "projects/" + NUMBER + "/buckets"
+AUTH_FIELDS = "name,subtype,authorizedDomains,signIn(email(enabled,passwordRequired),anonymous(enabled),phoneNumber(enabled))"
 
 
 def stop(code):
@@ -89,15 +94,32 @@ class Client:
         self.token, self.apply = token, apply
         self.key_name = None
         self.desired = {}
+        self.inspect_components = False
+        self.services = set()
+        self.sdk_components, self.restrictions = {}, {}
         self.opener = urllib.request.build_opener(NoRedirect)
 
     def request(self, service, path, *, body=None, query=None):
+        if self.inspect_components and (body is not None or service == "secrets"):
+            stop("REQUEST_SCOPE_REJECTED")
         allowed = False
         if service == "firebase" and body is None:
             allowed = path in (PARENT, PARENT + "/webApps", APP + "/config")
         elif service == "keys" and body is None:
             allowed = path == KEY_PARENT or (self.key_name is not None
                                              and path == self.key_name + "/keyString")
+        elif self.inspect_components and body is None and not self.apply:
+            if service == "storage":
+                allowed = (path == "b" and query and query.get("project") == PROJECT
+                           and query.get("projection") == "noAcl"
+                           and query.get("returnPartialSuccess") == "false")
+            elif service == "firebase_storage":
+                allowed = path == BUCKET_PARENT
+            elif service == "auth":
+                allowed = (path == PARENT + "/config" and query == {"fields": AUTH_FIELDS}) or (
+                    path in (PARENT + "/defaultSupportedIdpConfigs/" + provider
+                             for provider in ("google.com", "facebook.com"))
+                    and query == {"fields": "name,enabled"})
         elif service == "secrets":
             for name in FIELDS:
                 parent = SM_PARENT + name
@@ -132,10 +154,12 @@ class Client:
         except (ValueError, OSError):
             stop(service.upper() + "_REQUEST_UNCONFIRMED_RECONCILE")
 
-    def pages(self, service, path, key, fields, **query):
+    def pages(self, service, path, key, fields, *, page_size_key="pageSize", **query):
         seen, page = set(), ""
         for _ in range(50):
-            data = self.request(service, path, query=dict(query, pageSize=100, pageToken=page, fields=fields))
+            data = self.request(service, path, query=dict(query, **{page_size_key: 100}, pageToken=page, fields=fields))
+            if data.get("unreachable"):
+                stop("INCOMPLETE_BUCKET_INVENTORY")
             items = data.get(key, [])
             if not isinstance(items, list) or any(not isinstance(v, dict) for v in items):
                 stop("INVALID_LIST_METADATA")
@@ -170,7 +194,9 @@ def preflight(apply):
     token = cloud("auth", "print-access-token")
     if not token or any(c.isspace() for c in token):
         stop("TOKEN_UNAVAILABLE")
-    return Client(token, apply)
+    client = Client(token, apply)
+    client.services = {v["config"].get("name") for v in services}
+    return client
 
 
 def verified_config(client):
@@ -217,6 +243,8 @@ def verified_config(client):
             or not isinstance(t.get("service"), str)
             or not re.fullmatch(r"[a-z0-9.-]+\.googleapis\.com", t["service"]) for t in targets):
         stop("INVALID_KEY_RESTRICTIONS_METADATA")
+    client.sdk_components = {k: config.get(k) for k in ("storageBucket", "measurementId")}
+    client.restrictions = restrictions
     emit("PREVIEW_FIREBASE_SDK_IDENTITY_VERIFIED", project=PROJECT, app_id=APP_ID,
          api_key_association_verified=True, sdk_configuration_read=True,
          sdk_storage_bucket_present=bool(config.get("storageBucket")),
@@ -225,6 +253,117 @@ def verified_config(client):
          application_restriction_types=sorted(k for k in restrictions if k.endswith("KeyRestrictions")),
          api_key_restrictions_verified=False)
     return {secret: config[field] for secret, field in FIELDS.items()}
+
+
+def string_list(value):
+    if (not isinstance(value, list) or len(value) > 1000 or any(not isinstance(v, str)
+            or not 1 <= len(v) <= 2048 or any(ord(c) < 32 for c in v) for v in value)):
+        stop("INVALID_COMPONENT_METADATA")
+    return value
+
+
+def inspect_components(client):
+    """GET-only evidence, never an instruction to create a missing resource."""
+    if client.apply or not client.inspect_components:
+        stop("INSPECTION_MODE_REQUIRED")
+    reads = []
+
+    def read(service, api, stage, action):
+        if api not in client.services:
+            emit(stage, outcome="NOT_QUERIED_API_NOT_ENABLED", read_succeeded=False)
+            reads.append(False)
+            return None
+        try:
+            data = action()
+        except SystemExit as error:
+            # Optional component failures remain unknown; never swallow identity/scope errors.
+            match = re.fullmatch("STOP: " + service.upper() + r"_HTTP_(\d{3})_RECONCILE", str(error))
+            if match:
+                code = int(match[1])
+                outcome = {403: "PERMISSION_DENIED_REPORTED", 404: "NOT_FOUND_REPORTED"}.get(code, "HTTP_ERROR")
+                emit(stage, outcome=outcome, http_status=code, read_succeeded=False)
+            elif str(error) == "STOP: " + service.upper() + "_REQUEST_UNCONFIRMED_RECONCILE":
+                emit(stage, outcome="REQUEST_UNCONFIRMED", read_succeeded=False)
+            else:
+                raise
+            reads.append(False)
+            return None
+        reads.append(True)
+        return data
+
+    restrictions = client.restrictions
+    browser = restrictions.get("browserKeyRestrictions", {})
+    if not isinstance(browser, dict):
+        stop("INVALID_KEY_RESTRICTIONS_METADATA")
+    targets = [dict(service=t["service"], methods=string_list(t.get("methods", [])))
+               for t in restrictions.get("apiTargets", [])]
+    emit("PREVIEW_FIREBASE_BROWSER_KEY_METADATA", key_name=client.key_name,
+         browser_restriction_present="browserKeyRestrictions" in restrictions,
+         allowed_referrers=string_list(browser.get("allowedReferrers", [])), api_targets=targets,
+         api_key_restrictions_verified=False, deployed_origin_verified=False)
+    bucket = client.sdk_components.get("storageBucket")
+    if bucket is not None and (not isinstance(bucket, str) or
+            not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]", bucket)):
+        stop("INVALID_SDK_BUCKET_METADATA")
+    emit("PREVIEW_FIREBASE_OPTIONAL_SDK_METADATA", sdk_storage_bucket=bucket,
+         sdk_measurement_id_present=bool(client.sdk_components.get("measurementId")),
+         storage_configuration_verified=False, analytics_configuration_verified=False)
+    buckets = read("storage", "storage.googleapis.com", "PREVIEW_PROJECT_BUCKETS", lambda: list(client.pages(
+        "storage", "b", "items", "items(name,projectNumber,location,storageClass),nextPageToken,unreachable",
+        page_size_key="maxResults", project=PROJECT, projection="noAcl", returnPartialSuccess="false")))
+    if buckets is not None:
+        names = [b.get("name") for b in buckets]
+        if (any(str(b.get("projectNumber")) != NUMBER or not isinstance(b.get("name"), str)
+                or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]", b["name"]) for b in buckets)
+                or len(set(names)) != len(names)):
+            stop("BUCKET_INVENTORY_IDENTITY_MISMATCH")
+        emit("PREVIEW_PROJECT_BUCKETS", outcome="OK", inventory_complete=True,
+             buckets=[{k: b.get(k) for k in ("name", "projectNumber", "location", "storageClass")} for b in buckets],
+             sdk_bucket_in_project=bucket in names, storage_rules_verified=False, bucket_iam_verified=False)
+    linked = read("firebase_storage", "firebasestorage.googleapis.com", "PREVIEW_FIREBASE_LINKED_BUCKETS",
+                  lambda: list(client.pages("firebase_storage", BUCKET_PARENT, "buckets", "buckets(name),nextPageToken")))
+    if linked is not None:
+        names = []
+        for item in linked:
+            name = item.get("name")
+            if not isinstance(name, str) or not re.fullmatch(re.escape(BUCKET_PARENT) + r"/[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]", name):
+                stop("FIREBASE_BUCKET_NAMESPACE_MISMATCH")
+            names.append(name[len(BUCKET_PARENT) + 1:])
+        if len(set(names)) != len(names):
+            stop("DUPLICATE_LINKED_BUCKET_METADATA")
+        emit("PREVIEW_FIREBASE_LINKED_BUCKETS", outcome="OK", inventory_complete=True,
+             linked_buckets=names, sdk_bucket_linked=bucket in names, storage_configuration_verified=False)
+    config = read("auth", "identitytoolkit.googleapis.com", "PREVIEW_AUTH_CONFIG",
+                  lambda: client.request("auth", PARENT + "/config", query={"fields": AUTH_FIELDS}))
+    if config is not None:
+        if config.get("name") not in (PARENT + "/config", "projects/" + NUMBER + "/config"):
+            stop("AUTH_CONFIG_NAMESPACE_MISMATCH")
+        sign_in, local = config.get("signIn", {}), {}
+        if not isinstance(sign_in, dict):
+            stop("INVALID_AUTH_METADATA")
+        for provider, fields in {"email": ("enabled", "passwordRequired"), "anonymous": ("enabled",), "phoneNumber": ("enabled",)}.items():
+            source = sign_in.get(provider, {})
+            if not isinstance(source, dict) or any(not isinstance(source.get(k, False), bool) for k in fields):
+                stop("INVALID_AUTH_METADATA")
+            local[provider] = {k: source.get(k, False) for k in fields}
+        emit("PREVIEW_AUTH_CONFIG", outcome="OK", subtype=config.get("subtype"),
+             authorized_domains=string_list(config.get("authorizedDomains", [])), local_sign_in=local,
+             login_flow_verified=False)
+    for provider in ("google.com", "facebook.com"):
+        path = PARENT + "/defaultSupportedIdpConfigs/" + provider
+        stage = "PREVIEW_AUTH_PROVIDER_" + provider.upper().replace(".", "_")
+        data = read("auth", "identitytoolkit.googleapis.com", stage,
+                    lambda: client.request("auth", path, query={"fields": "name,enabled"}))
+        if data is not None:
+            if (data.get("name") not in (path, path.replace(PARENT, "projects/" + NUMBER, 1))
+                    or not isinstance(data.get("enabled", False), bool)):
+                stop("AUTH_PROVIDER_METADATA_MISMATCH")
+            emit(stage, outcome="OK", enabled=data.get("enabled", False), login_flow_verified=False)
+    emit("PREVIEW_V2_FIREBASE_COMPONENT_READ_COMPLETED_NO_MUTATION", project=PROJECT, app_id=APP_ID,
+         evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+         all_component_reads_succeeded=all(reads), cloud_mutation=False, secret_payload_access=False,
+         sdk_api_key_read=True, credential_values_printed=False, browser_configuration_ready=False,
+         application_deployed=False, floot_connected=False)
 
 
 def version_one(data, name):
@@ -303,12 +442,18 @@ class Journal:
         os.replace(temporary, self.path)
 
 
-def run(apply=False, directory=None):
+def run(apply=False, directory=None, inspect=False):
+    if apply and inspect:
+        stop("APPLY_AND_INSPECTION_ARE_EXCLUSIVE")
     os.umask(0o077)
     context = Journal(directory or Path.home() / "khedmah-preview-v2-firebase-config") if apply else contextlib.nullcontext()
     with context as journal:
         client = preflight(apply)
+        client.inspect_components = inspect
         values = verified_config(client)
+        if inspect:
+            inspect_components(client)
+            return
         client.desired = values
         ready = {}
         for name, value in values.items():
@@ -359,9 +504,11 @@ def run(apply=False, directory=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--apply", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true")
+    mode.add_argument("--inspect-components", action="store_true", help="Read Storage, key restrictions and Auth metadata only")
     args = parser.parse_args()
     try:
-        run(args.apply)
+        run(args.apply, inspect=args.inspect_components)
     except (OSError, ValueError, TypeError, KeyError):
         stop("LOCAL_OR_METADATA_FAILURE_RECONCILE")

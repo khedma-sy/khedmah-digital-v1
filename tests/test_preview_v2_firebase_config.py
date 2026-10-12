@@ -40,6 +40,13 @@ class Cloud:
         self.corrupt_readback, self.foreign_readback = False, False
         self.repeat_pages = False
         self.key_pages = False
+        self.services = ["firebase.googleapis.com", "apikeys.googleapis.com", "secretmanager.googleapis.com"]
+        self.buckets, self.linked = [], []
+        self.auth = dict(name=m.PARENT + "/config", authorizedDomains=[m.PROJECT + ".firebaseapp.com"],
+                         subtype="FIREBASE_AUTH", signIn=dict(email=dict(enabled=True, passwordRequired=True)))
+        self.providers = {p: dict(name=m.PARENT + "/defaultSupportedIdpConfigs/" + p, enabled=False)
+                          for p in ("google.com", "facebook.com")}
+        self.component_status, self.bucket_pages, self.linked_pages = {}, False, False
 
     def gcloud(self, args, **kwargs):
         self.commands.append(args)
@@ -54,7 +61,7 @@ class Cloud:
             data = dict(projectId=self.gcp_id, projectNumber=m.NUMBER, lifecycleState="ACTIVE",
                         parent=dict(type="organization", id=m.ORGANIZATION))
         elif args[1:3] == ["services", "list"]:
-            data = [dict(config=dict(name=s)) for s in ("firebase.googleapis.com", "apikeys.googleapis.com", "secretmanager.googleapis.com")]
+            data = [dict(config=dict(name=s)) for s in self.services]
         else:
             raise AssertionError("Unexpected gcloud call")
         return subprocess.CompletedProcess(args, 0, json.dumps(data), "")
@@ -75,6 +82,9 @@ class Cloud:
         assert request.headers["X-goog-user-project"] == m.PROJECT and timeout == 45
         if self.denied and self.denied in path:
             raise urllib.error.HTTPError(request.full_url, 403, "DO_NOT_PRINT_ERROR", {}, io.BytesIO(b"DO_NOT_PRINT_BODY"))
+        if url.netloc in self.component_status:
+            raise urllib.error.HTTPError(request.full_url, self.component_status[url.netloc], "DO_NOT_PRINT_ERROR", {},
+                                         io.BytesIO(b"DO_NOT_PRINT_BODY"))
         if url.netloc == "firebase.googleapis.com":
             assert method == "GET"
             path = path.removeprefix("/v1beta1/")
@@ -100,6 +110,27 @@ class Cloud:
                 data = dict(keyString=self.actual_key)
             else:
                 raise AssertionError("Unexpected key path")
+        elif url.netloc == "storage.googleapis.com":
+            assert method == "GET" and path == "/storage/v1/b"
+            assert query["project"] == [m.PROJECT] and query["projection"] == ["noAcl"]
+            assert query["maxResults"] == ["100"] and "pageSize" not in query
+            assert query["returnPartialSuccess"] == ["false"]
+            data = dict(items=self.buckets)
+            if self.bucket_pages and "pageToken" not in query:
+                data = dict(items=[], nextPageToken="bucket/+2")
+        elif url.netloc == "firebasestorage.googleapis.com":
+            assert method == "GET" and path == "/v1beta/" + m.BUCKET_PARENT
+            data = dict(buckets=self.linked)
+            if self.linked_pages and "pageToken" not in query:
+                data = dict(buckets=[], nextPageToken="linked/+2")
+        elif url.netloc == "identitytoolkit.googleapis.com":
+            assert method == "GET"
+            if path == "/admin/v2/" + m.PARENT + "/config":
+                assert query["fields"] == [m.AUTH_FIELDS]
+                data = dict(self.auth, hashConfig={"signerKey": "DO_NOT_PRINT_SIGNER_KEY"})
+            else:
+                assert query["fields"] == ["name,enabled"]
+                data = dict(self.providers[path.split("/")[-1]], clientSecret="DO_NOT_PRINT_OAUTH_SECRET")
         elif url.netloc == "secretmanager.googleapis.com":
             path = path.removeprefix("/v1/" + m.SM_PARENT)
             name = path.split("/")[0].split(":")[0]
@@ -146,10 +177,10 @@ class ConfigurationTests(unittest.TestCase):
         self.directory = Path(self.temp.name) / "journal"
         self.cloud, self.output = Cloud(), io.StringIO()
 
-    def run_helper(self, apply=True):
+    def run_helper(self, apply=True, inspect=False):
         with patch.dict(m.os.environ, {}, clear=True), patch.object(m.subprocess, "run", self.cloud.gcloud), \
                 patch.object(m.urllib.request, "build_opener", return_value=self.cloud), contextlib.redirect_stdout(self.output):
-            m.run(apply, self.directory)
+            m.run(apply, self.directory, inspect=inspect)
         self.assertNotIn("DO_NOT_PRINT", self.output.getvalue())
         return [json.loads(line) for line in self.output.getvalue().splitlines()]
 
@@ -360,6 +391,105 @@ class ConfigurationTests(unittest.TestCase):
             client.request("secrets", m.SM_PARENT + "NEXT_PUBLIC_FIREBASE_APP_ID:addVersion", body=m.payload(m.APP_ID))
         self.assertEqual(self.cloud.calls, [])
         self.assertIsNone(m.NoRedirect().redirect_request(None, None, None, None, None, None))
+
+    def component_fixture(self):
+        self.cloud.services += ["storage.googleapis.com", "firebasestorage.googleapis.com", "identitytoolkit.googleapis.com"]
+        bucket = m.PROJECT + ".firebasestorage.app"
+        self.cloud.config["storageBucket"] = bucket
+        self.cloud.buckets = [dict(name=bucket, projectNumber=m.NUMBER, location="EUROPE-WEST1", storageClass="STANDARD")]
+        self.cloud.linked = [dict(name=m.BUCKET_PARENT + "/" + bucket)]
+        self.cloud.keys[0]["restrictions"]["browserKeyRestrictions"] = dict(allowedReferrers=["https://preview.example.test/*"])
+        return bucket
+
+    def test_component_read_has_no_post_secret_access_or_journal_and_redacts_unrequested_auth_fields(self):
+        bucket = self.component_fixture()
+        rows = self.run_helper(False, True)
+        self.assertTrue(all(c[0] == "GET" for c in self.cloud.calls))
+        self.assertFalse(any("secretmanager.googleapis.com" in c[1] for c in self.cloud.calls))
+        self.assertFalse(self.directory.exists())
+        stages = {r["stage"]: r for r in rows}
+        self.assertTrue(stages["PREVIEW_PROJECT_BUCKETS"]["sdk_bucket_in_project"])
+        self.assertEqual(stages["PREVIEW_FIREBASE_LINKED_BUCKETS"]["linked_buckets"], [bucket])
+        self.assertEqual(stages["PREVIEW_FIREBASE_BROWSER_KEY_METADATA"]["allowed_referrers"], ["https://preview.example.test/*"])
+        self.assertTrue(stages["PREVIEW_AUTH_CONFIG"]["local_sign_in"]["email"]["enabled"])
+        self.assertFalse(stages["PREVIEW_AUTH_PROVIDER_GOOGLE_COM"]["enabled"])
+        self.assertEqual(rows[-1]["stage"], "PREVIEW_V2_FIREBASE_COMPONENT_READ_COMPLETED_NO_MUTATION")
+        self.assertTrue(rows[-1]["all_component_reads_succeeded"])
+        for field in ("cloud_mutation", "secret_payload_access", "credential_values_printed", "browser_configuration_ready"):
+            self.assertFalse(rows[-1][field])
+
+    def test_inspection_and_apply_are_exclusive_before_any_access(self):
+        with self.assertRaisesRegex(SystemExit, "APPLY_AND_INSPECTION_ARE_EXCLUSIVE"):
+            self.run_helper(True, True)
+        self.assertEqual(self.cloud.calls, [])
+        self.assertEqual(self.cloud.commands, [])
+        self.assertFalse(self.directory.exists())
+
+    def test_component_inventory_follows_both_storage_pagination_protocols(self):
+        self.component_fixture()
+        self.cloud.bucket_pages = self.cloud.linked_pages = True
+        rows = self.run_helper(False, True)
+        self.assertTrue(rows[-1]["all_component_reads_succeeded"])
+        for host in ("storage.googleapis.com", "firebasestorage.googleapis.com"):
+            self.assertEqual(len([c for c in self.cloud.calls if urllib.parse.urlsplit(c[1]).netloc == host]), 2)
+
+    def test_missing_bucket_is_not_inferred_from_sdk_name(self):
+        self.component_fixture()
+        self.cloud.buckets, self.cloud.linked = [], []
+        rows = self.run_helper(False, True)
+        stages = {r["stage"]: r for r in rows}
+        self.assertFalse(stages["PREVIEW_PROJECT_BUCKETS"]["sdk_bucket_in_project"])
+        self.assertFalse(stages["PREVIEW_FIREBASE_LINKED_BUCKETS"]["sdk_bucket_linked"])
+        self.assertEqual(self.cloud.mutations(), [])
+
+    def test_disabled_component_apis_are_not_queried_and_remain_unknown(self):
+        rows = self.run_helper(False, True)
+        self.assertFalse(rows[-1]["all_component_reads_succeeded"])
+        self.assertEqual(sum(r.get("outcome") == "NOT_QUERIED_API_NOT_ENABLED" for r in rows), 5)
+        self.assertTrue(all(urllib.parse.urlsplit(c[1]).netloc in ("firebase.googleapis.com", "apikeys.googleapis.com")
+                            for c in self.cloud.calls))
+
+    def test_component_denials_not_found_and_server_error_do_not_prevent_other_reads(self):
+        self.component_fixture()
+        self.cloud.component_status = {"storage.googleapis.com": 403, "firebasestorage.googleapis.com": 404,
+                                       "identitytoolkit.googleapis.com": 503}
+        rows = self.run_helper(False, True)
+        self.assertFalse(rows[-1]["all_component_reads_succeeded"])
+        self.assertEqual([r["http_status"] for r in rows if "http_status" in r], [403, 404, 503, 503, 503])
+        self.assertFalse(any(r.get("inventory_complete") for r in rows))
+        self.assertEqual(self.cloud.mutations(), [])
+
+    def test_foreign_bucket_link_config_and_provider_identities_stop_without_mutation(self):
+        for target in ("bucket", "link", "config", "provider"):
+            self.cloud = Cloud()
+            self.component_fixture()
+            if target == "bucket":
+                self.cloud.buckets[0]["projectNumber"] = "foreign"
+            elif target == "link":
+                self.cloud.linked[0]["name"] = "projects/foreign/buckets/foreign-bucket"
+            elif target == "config":
+                self.cloud.auth["name"] = "projects/foreign/config"
+            else:
+                self.cloud.providers["google.com"]["name"] = "projects/foreign/defaultSupportedIdpConfigs/google.com"
+            with self.subTest(target=target), self.assertRaisesRegex(SystemExit, "MISMATCH"):
+                self.run_helper(False, True)
+            self.assertEqual(self.cloud.mutations(), [])
+
+    def test_component_read_allowlist_rejects_writes_foreign_scope_and_unmasked_auth_secrets(self):
+        client = m.Client(TOKEN, False)
+        client.inspect_components, client.opener = True, self.cloud
+        for service, path, query, body in (
+            ("auth", m.PARENT + "/config", None, None),
+            ("auth", m.PARENT + "/config", {"fields": "signIn(hashConfig)"}, None),
+            ("auth", m.PARENT + "/defaultSupportedIdpConfigs/google.com", {"fields": "clientSecret"}, None),
+            ("storage", "b", {"project": "khedma-dl"}, None),
+            ("firebase_storage", m.BUCKET_PARENT + "/bucket:addFirebase", None, {}),
+            ("secrets", m.SM_PARENT + "NEXT_PUBLIC_FIREBASE_API_KEY/versions/1:access", None, None),
+            ("secrets", m.SM_PARENT + "NEXT_PUBLIC_FIREBASE_API_KEY:testIamPermissions", None, {"permissions": m.PERMISSIONS}),
+        ):
+            with self.subTest(path=path), self.assertRaisesRegex(SystemExit, "REQUEST_SCOPE_REJECTED"):
+                client.request(service, path, body=body, query=query)
+        self.assertEqual(self.cloud.calls, [])
 
 
 if __name__ == "__main__":
