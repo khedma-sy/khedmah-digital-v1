@@ -114,12 +114,27 @@ jobs:
           PREVIEW_RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
           DEPLOYMENT_ENVIRONMENT: preview
           PREVIEW_GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ secrets.GCP_PREVIEW_RUNTIME_SERVICE_ACCOUNT }}
+          CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ vars.PREVIEW_CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
+          PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
+          PREVIEW_SCHEMA_POOL_SERIALIZED: 'true'
+          PREVIEW_SCHEMA_IDENTIFIER: pr-${{ github.event.pull_request.number }}-${{ github.sha }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
         shell: bash
         run: |
           set -euo pipefail
           node scripts/deployment/preview-job-inventory.mjs
+          node --input-type=module <<'JS'
+          import { checkSchemaJob, STAGES } from './scripts/deployment/preview-schema-job-pool.mjs';
+          for (const stage of Object.keys(STAGES)) {
+            const job = checkSchemaJob(process.env, 'preview', process.env.PREVIEW_SCHEMA_IDENTIFIER, stage, 'before-deploy');
+            console.log('PREVIEW_SCHEMA_POOL_READ=' + JSON.stringify({ stage, job, before_deploy: true }));
+          }
+          console.log('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED');
+          JS
           echo 'PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'
           exit 1
       - id: classifieds-stage
