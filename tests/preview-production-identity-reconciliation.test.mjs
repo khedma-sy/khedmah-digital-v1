@@ -53,8 +53,13 @@ test('partial success is reported; second failure cannot claim full reconciliati
   assert.equal(events.filter(x => x.startsWith('STAGE_DONE=')).length, 1);
   assert.ok(!events.includes('PREVIEW_PRODUCTION_IDENTITIES_RECONCILED'));
 });
-test('no workflow invokes the owner-operated identity correction or releases the hold', () => {
+test('rollout uses the reconciled identities without replaying the owner-operated correction', () => {
   const s = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
   assert.doesNotMatch(s, /reconcile-preview-production-identities\.mjs/);
-  assert.match(s, /PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'\n          exit 1/);
+  const start = s.indexOf('- name: Verify Preview inventory and pool before rollout');
+  const preflight = s.slice(start, s.indexOf('- id: classifieds-stage', start));
+  assert.ok(start > 0);
+  for (const name of IDENTITY_NAMES) assert.ok(preflight.includes(name + ': ${{ vars.' + name + ' }}'));
+  assert.match(preflight, /checkSchemaJob\(process\.env/);
+  assert.ok(preflight.indexOf('PREVIEW_SCHEMA_POOL_ROLLOUT_APPROVED') > preflight.indexOf('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED'));
 });

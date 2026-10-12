@@ -158,9 +158,9 @@ test('empty retained history and unrecognized source do not certify ownership or
   assert.equal(result.cleanup_authorized, false);
 });
 
-test('workflow retains authentication, isolation and unconditional deployment stop', () => {
+test('workflow retains authentication, isolation and read-only pool preflight before rollout', () => {
   const source = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  const start = source.indexOf('- name: Read Preview inventory after cleanup');
+  const start = source.indexOf('- name: Verify Preview inventory and pool before rollout');
   const end = source.indexOf('- id: classifieds-stage', start);
   assert.ok(start > source.indexOf('run: node scripts/validate-environment-separation.mjs'));
   const step = source.slice(start, end);
@@ -168,8 +168,9 @@ test('workflow retains authentication, isolation and unconditional deployment st
   assert.match(step, /set -euo pipefail/);
   assert.ok(start > source.indexOf('uses: google-github-actions/auth@v3'));
   assert.match(step, /node scripts\/deployment\/preview-job-inventory.mjs/);
-  assert.match(step, /PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD/);
-  assert.match(step, /exit 1/);
+  assert.match(step, /PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED/);
+  assert.match(step, /PREVIEW_SCHEMA_POOL_ROLLOUT_APPROVED/);
+  assert.ok(step.indexOf('PREVIEW_SCHEMA_POOL_ROLLOUT_APPROVED') > step.indexOf('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED'));
   assert.doesNotMatch(step, /continue-on-error|jobs delete|jobs execute|jobs deploy/);
 });
 

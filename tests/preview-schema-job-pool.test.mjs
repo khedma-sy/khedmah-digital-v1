@@ -174,7 +174,7 @@ test('closed cleanup checks fresh PR state and denies reopened requests or unrea
   assert.throws(() => verifyPreviewSource(e, () => { throw Error('DO_NOT_PRINT_SENTINEL'); }), /^Error: PREVIEW_SOURCE_READ_FAILED$/);
   assert.throws(() => verifyPreviewSource({ ...e, PREVIEW_PR_NUMBER: '../bad' }, () => assert.fail('unexpected call')), /INPUT_REJECTED/);
 });
-test('both cloud writers share one non-cancelling queue; stale-source checks precede auth and deployment remains held', () => {
+test('both cloud writers share one non-cancelling queue; stale-source checks precede auth and pool preflight precedes rollout', () => {
   const s = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
   assert.equal((s.match(/group: khedmah-preview-cloud-mutations\n      queue: max\n      cancel-in-progress: false/g) ?? []).length, 2);
   assert.doesNotMatch(s, /cancel-in-progress: true/);
@@ -182,7 +182,10 @@ test('both cloud writers share one non-cancelling queue; stale-source checks pre
     const job = s.slice(s.indexOf('  ' + name + ':')).split(/\n  [a-z][a-z-]+:\n/)[0];
     assert.ok(job.indexOf('verify-preview-source.mjs') < job.indexOf('google-github-actions/auth@v3'));
   }
-  assert.ok(s.indexOf('PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD') < s.indexOf('name: Deploy isolated PR services'));
-  assert.match(s, /PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'\n          exit 1/);
+  const preflight = s.indexOf('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED');
+  const approval = s.indexOf('PREVIEW_SCHEMA_POOL_ROLLOUT_APPROVED');
+  assert.ok(preflight > s.indexOf('checkSchemaJob(process.env'));
+  assert.ok(approval > preflight && approval < s.indexOf('name: Deploy isolated PR services'));
+  assert.doesNotMatch(s, /PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD/);
   assert.doesNotMatch(s, /preview-job-cleanup\.mjs/);
 });

@@ -122,7 +122,7 @@ test('post-delete inventory denial or surviving candidates cannot report success
   }
 });
 
-test('the completed cleanup is not replayed and the workflow retains a read-only hold', () => {
+test('the completed cleanup is not replayed when the guarded pool rollout is enabled', () => {
   const workflow = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
   const manifest = JSON.parse(readFileSync(new URL('../scripts/deployment/preview-job-cleanup-20261011.json', import.meta.url), 'utf8'));
   assert.equal(manifest.candidates.length, 20);
@@ -130,5 +130,6 @@ test('the completed cleanup is not replayed and the workflow retains a read-only
   assert.ok(!workflow.includes('preview-job-cleanup.mjs'));
   assert.ok(!workflow.includes('DELETE_KHEDMAH_PREVIEW_20_fd1117bf33c2a788'));
   assert.ok(workflow.includes('node scripts/deployment/preview-job-inventory.mjs'));
-  assert.ok(workflow.includes('PREVIEW_DIAGNOSTIC_COMPLETE_DEPLOYMENT_HELD'));
+  assert.ok(workflow.includes('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED'));
+  assert.ok(workflow.indexOf('PREVIEW_SCHEMA_POOL_READONLY_PREFLIGHT_PASSED') < workflow.indexOf('PREVIEW_SCHEMA_POOL_ROLLOUT_APPROVED'));
 });
