@@ -59,7 +59,7 @@ The pool is guarded by projected inventory, dedicated ownership labels, Preview 
 
 GitHub's [concurrency queue](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency) serializes cloud writers without cancelling running mutations. Queued outdated PR sources stop before authentication. See Google's [Job status contract](https://docs.cloud.google.com/run/docs/reference/rest/v1/namespaces.jobs#JobStatus) and [execution history](https://docs.cloud.google.com/run/docs/managing/job-executions) for the projected readiness/history fields.
 
-The current checkpoint keeps deployment held before these helpers; preparation and passing mocked tests do not constitute a live pool rollout.
+The approved first pool rollout completed successfully on 2026-10-12 at `daf0c4e4d2ec211e7008eeb4db674f78613d5ec1` (Preview run `38229881202`), including all nine executions, service health/CORS and browser acceptance. The current workflow holds before these helpers while a metadata-only mail diagnostic runs. That diagnostic returned three Secret Manager permission denials; it does not invalidate the deployed Preview or authorize a replay. See `docs/project-control/NEXT-ACTION.md` for the administrator metadata check and conditional secret-scoped remediation.
 
 ## Staging strategy
 
