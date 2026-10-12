@@ -3,6 +3,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -68,6 +69,71 @@ class BootstrapTests(unittest.TestCase):
         for actions in (['update'], ['delete'], ['delete', 'create'], ['create', 'delete']):
             p = plan_fixture(); p['resource_changes'][0]['change']['actions'] = actions
             with self.assertRaisesRegex(m.Stop, 'NONCREATE_CHANGE'): m.validate_plan(p)
+
+    def test_storage_plan_uses_provider_canonical_location(self):
+        resources = m.manifest()['resource']
+        self.assertEqual(resources['google_storage_bucket']['build_source']['location'], 'EUROPE-WEST1')
+        self.assertEqual(resources['google_artifact_registry_repository']['images']['location'], 'europe-west1')
+        self.assertEqual(resources['google_sql_database_instance']['preview']['region'], 'europe-west1')
+        p = plan_fixture()
+        bucket = next(r for r in p['resource_changes'] if r['address'] == 'google_storage_bucket.build_source')
+        # Literal provider-shaped output, independent of the generated manifest.
+        bucket['change']['after']['location'] = 'EUROPE-WEST1'
+        self.assertEqual(m.validate_plan(p), (58, 0))
+
+    def test_storage_wrong_or_unknown_location_rejected(self):
+        for location in ('EU', 'US-CENTRAL1', '', None):
+            with self.subTest(location=location):
+                p = plan_fixture()
+                bucket = next(r for r in p['resource_changes'] if r['address'] == 'google_storage_bucket.build_source')
+                bucket['change']['after']['location'] = location
+                with self.assertRaisesRegex(m.Stop, 'VALUE_MISMATCH_location'):
+                    m.validate_plan(p)
+
+    def test_nonstorage_region_checks_remain_exact(self):
+        for address, key, value in (
+            ('google_artifact_registry_repository.images', 'location', 'EUROPE-WEST1'),
+            ('google_artifact_registry_repository.images', 'location', 'us-central1'),
+            ('google_sql_database_instance.preview', 'region', 'us-central1'),
+        ):
+            with self.subTest(address=address, value=value):
+                p = plan_fixture()
+                item = next(r for r in p['resource_changes'] if r['address'] == address)
+                item['change']['after'][key] = value
+                with self.assertRaisesRegex(m.Stop, 'VALUE_MISMATCH_' + key):
+                    m.validate_plan(p)
+
+    def test_existing_verified_state_bucket_is_reused_with_fresh_plan(self):
+        def cloud(*args):
+            if args[0] == 'config': return '(unset)'
+            if args[0] == 'projects': return json.dumps(project_fixture())
+            if args[0] == 'billing': return json.dumps({'projectId': m.PROJECT, 'billingEnabled': True})
+            if args[0] == 'services':
+                return json.dumps([{'config': {'name': n}, 'state': 'ENABLED'} for n in m.CORE_APIS])
+            if args[0] == 'auth': return 'mock-token'
+            if args[0] == 'sql':
+                return json.dumps({'project': m.PROJECT, 'name': m.INSTANCE, 'region': m.REGION,
+                                   'state': 'RUNNABLE', 'connectionName': f'{m.PROJECT}:{m.REGION}:{m.INSTANCE}'})
+            self.fail('unexpected cloud command')
+
+        def run(cmd, label, *args, **kwargs):
+            if label == 'TERRAFORM_PLAN_READ': return json.dumps(plan_fixture())
+            if label == 'TERRAFORM_OUTPUT':
+                return json.dumps({'project_id': {'value': m.PROJECT},
+                                   'connection_name': {'value': f'{m.PROJECT}:{m.REGION}:{m.INSTANCE}'}})
+            return ''
+
+        with tempfile.TemporaryDirectory() as home, patch.object(m.Path, 'home', return_value=Path(home)), \
+             patch.object(m.shutil, 'which', return_value='/mock/terraform'), \
+             patch.object(m.Runner, 'cloud', side_effect=cloud), \
+             patch.object(m.Runner, 'api', return_value=bucket_fixture()) as api, \
+             patch.object(m.Runner, 'run', side_effect=run) as execute, patch.object(m, 'emit'), patch('builtins.print'):
+            m.Runner().apply()
+            self.assertEqual(api.call_count, 2)
+            self.assertTrue(all(call.args == ('/b/' + m.STATE_BUCKET,) for call in api.call_args_list))
+            labels = [call.args[1] for call in execute.call_args_list]
+            self.assertLess(labels.index('TERRAFORM_PLAN'), labels.index('TERRAFORM_PLAN_READ'))
+            self.assertLess(labels.index('TERRAFORM_PLAN_READ'), labels.index('TERRAFORM_APPLY'))
 
     def test_extra_or_missing_resource_rejected(self):
         for mutate in (lambda p: p['resource_changes'].pop(),

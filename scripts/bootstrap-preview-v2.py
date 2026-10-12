@@ -69,7 +69,9 @@ def manifest():
         resources.setdefault(kind, {})[name] = values
 
     add('google_storage_bucket', 'build_source', {
-        'name': SOURCE_BUCKET, 'project': PROJECT, 'location': REGION,
+        # Google provider 6.50.0 canonicalizes Storage locations to uppercase.
+        # Keep the exact plan comparison; other regional resources use REGION.
+        'name': SOURCE_BUCKET, 'project': PROJECT, 'location': REGION.upper(),
         'storage_class': 'STANDARD', 'uniform_bucket_level_access': True,
         'public_access_prevention': 'enforced', 'force_destroy': False,
         'labels': LABELS, 'soft_delete_policy': {'retention_duration_seconds': 604800},
