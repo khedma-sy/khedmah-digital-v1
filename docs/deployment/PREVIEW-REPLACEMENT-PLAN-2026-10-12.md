@@ -1,12 +1,12 @@
 # Preview replacement plan — 2026-10-12
 
-Status: preparation complete; cloud prerequisites pending. No replacement project has been created.
+Status: owner-supplied parent/billing inventory received; permission tests pending. No replacement project has been created.
 
 ## Owner direction and source
 
 The owner asked why a new Preview could not replace the inaccessible project, then instructed «أبدأ» at 2026-10-12T14:38:46+03:00. Proceed with replacement preparation and prerequisite reads under the current management account. This supersedes the previous next action that made recovery of the old Preview the sole forward path; it does not authorize bypassing that project's IAM.
 
-Reviewed PR #274 head: `44d70ab227eb138554cf75973a28c37a4c9a711c`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Executable source remains `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. This plan has no new runtime acceptance evidence.
+Reviewed PR #274 head: `a7670d02e43e3004b1734d3aff8d12d9b6fba340`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Executable source remains `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. This plan has no new runtime acceptance evidence.
 
 ## Proposed target
 
@@ -15,8 +15,8 @@ Reviewed PR #274 head: `44d70ab227eb138554cf75973a28c37a4c9a711c`, open/unmerged
 | Current management account | haifawi30@gmail.com |
 | New project ID | `khedmah-preview-v2-20261012` — proposed, not reserved or proven available |
 | Region | `europe-west1` |
-| Parent organization/folder | Unselected; read metadata first and verify creation authority on the chosen parent |
-| Billing account | Unselected; no billing-account ID or link permission is known |
+| Parent organization/folder | Organization `594049370623`, identified from the accessible project's parent; creation permission remains unverified |
+| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Link permission and billable good standing are not yet verified |
 | Project number | Generated on creation; never copy the old namespace |
 | Database | New isolated PostgreSQL test database, synthetic data only; sizing/edition/backup policy to be costed before provisioning |
 | Existing Preview | `khedmah-preview-774201339973` / `195546947562`; access investigation remains open |
@@ -25,9 +25,9 @@ Reviewed PR #274 head: `44d70ab227eb138554cf75973a28c37a4c9a711c`, open/unmerged
 
 No transfer of old Preview data is assumed. Keep old resource/billing reconciliation on the backlog: creating a new project does not close, delete or stop charging for the old one.
 
-## Step 1 — owner-run read-only prerequisite inventory
+## Step 1 — completed owner-run read-only prerequisite inventory
 
-Run these in the existing Cloud Shell session. They explicitly use the current account; neither changes the default project or cloud configuration.
+The owner supplied successful output for both commands in the message received at 2026-10-12T14:49:12+03:00: organization `594049370623` is the parent of `khedma-dl`, and one open `My Billing Account` is visible. No command execution timestamp was emitted. Do not rerun this completed inventory without a concrete freshness need. Commands are retained below as evidence.
 
 ```bash
 gcloud projects describe khedma-dl \
@@ -44,14 +44,29 @@ gcloud billing accounts list \
 
 These reads identify a parent candidate and visible open billing accounts. They do not prove permission to create a project or link billing. The accessible project's parent is a candidate, not an automatic destination. An empty billing list is not proof that no billing account exists.
 
-After results:
+Remaining prerequisites after the supplied inventory:
 - Resolve the chosen organization/folder and verify `resourcemanager.projects.create` there; if there is no parent, inspect the supported personal-project creation path and quota instead of inventing an organization.
 - Verify `billing.resourceAssociations.create` on the selected billing account, and the required project-side billing assignment/service-use permissions for the new project. Do not infer these from Owner access to Production or visibility in the billing list.
 - Check the applicable project quota and organization policies; an unavailable proposed name needs a reviewed replacement ID.
 - If multiple billing accounts or plausible parent destinations are returned, resolve the intended one before linking resources. Do not select by list order.
 - Preserve denials as denials. Do not repeat the old Preview queries, switch to the historical account or impersonate its service account.
 
-The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The user's output is the missing evidence for this stage, not a pending permission to conduct these already authorized reads.
+The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. The next permission-probe output is still missing; the read-only work is already authorized.
+
+## Step 2 — prepared permission-only probe; awaiting owner execution
+
+Use the existing current-account credentials to call these official APIs:
+
+| Target | API | Requested permission |
+| --- | --- | --- |
+| Organization `594049370623` | `POST https://cloudresourcemanager.googleapis.com/v3/organizations/594049370623:testIamPermissions` | `resourcemanager.projects.create` |
+| The owner-supplied open billing account | `POST https://cloudbilling.googleapis.com/v1/billingAccounts/{billing_account}:testIamPermissions` | `billing.resourceAssociations.create` |
+
+These POST requests test IAM only; they do not create projects, link billing or grant permissions. The account-pinned Python probe delivered in the conversation checks for configured impersonation/credential overrides, captures `gcloud auth print-access-token` in memory without printing it, refuses redirects and emits projected permission booleans. HTTP/authentication/invalid-response failures stop as read errors, not as evidence that permission is absent.
+
+Expected successful output includes `PROJECT_CREATE: allowed=true`, `BILLING_LINK: allowed=true` and `PREVIEW_PARENT_AND_BILLING_IAM_PASSED_NO_MUTATION`. These are expected markers, not observed results. Both permissions must be assessed under the current account. A successful probe does not establish quota/name availability, organization-policy compliance, the new project's billing assignment permissions or billable account standing.
+
+Validation performed: Python AST parsing succeeded. No live API request or mutation was executed by the assistant. No monetary estimate or resource apply is approved by a permission result alone.
 
 ## Resource and identity manifest to finalize
 
@@ -133,7 +148,7 @@ The official Cloud SQL pricing page was found, but its interactive price table d
 
 ## Sources and validation limits
 
-Source owners reviewed at the pinned PR head:
+Source owners reviewed at `44d70ab227eb138554cf75973a28c37a4c9a711c` (executable source unchanged at the newly verified documentation head):
 - `.github/workflows/preview-deployment.yml`
 - `.github/classifieds-preview-stage`
 - `scripts/deployment/preview-schema-job-pool.mjs`
@@ -153,6 +168,8 @@ Official references reviewed:
 - [Project metadata command](https://docs.cloud.google.com/sdk/gcloud/reference/projects/describe)
 - [Billing account inventory command](https://docs.cloud.google.com/sdk/gcloud/reference/billing/accounts/list)
 - [Billing association permissions](https://docs.cloud.google.com/billing/docs/how-to/modify-project)
+- [Organization permission test](https://docs.cloud.google.com/resource-manager/reference/rest/v3/organizations/testIamPermissions)
+- [Billing account permission test](https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions)
 - [Cloud SQL pricing — estimate still pending](https://cloud.google.com/sql/pricing)
 
 This pass changes documentation only. No cloud permission test, project creation, billing link, secret read/write, IAM change, resource apply, workflow dispatch, migration, deployment or email send has been executed. No new tests are claimed; validation is source review and the documentation-only change check.
