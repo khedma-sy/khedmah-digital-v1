@@ -26,6 +26,9 @@ fi
 actual_sha256="$(sha256sum backend/migrations/versions/029_taxi_pricing_revisions.sql | awk '{print $1}')"
 [[ "$actual_sha256" == "$migration_sha256" ]] || { echo 'Repository Taxi pricing migration blob changed.' >&2; exit 4; }
 
+source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
+resolve_schema_execution "$environment"
+
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/taxi-pricing-migration:${tag}"
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" taxi-pricing-029)"
@@ -34,7 +37,7 @@ if [[ "$environment" == 'preview' ]]; then
   pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=taxi-pricing-029")
 fi
 
-gcloud builds submit . \
+gcloud builds submit . "${SCHEMA_BUILD_ARGS[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --config cloudbuild.taxi-pricing-migration.yaml \
@@ -47,9 +50,9 @@ gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
-  --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+  --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-  --set-secrets='DATABASE_URL=DATABASE_URL:latest' \
+  --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
   --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_CONFIRMATION=${TAXI_PRICING_MIGRATION_029_CONFIRMATION:-},MIGRATION_SHA256=${migration_sha256}" \
   --tasks 1 \
   --parallelism 1 \

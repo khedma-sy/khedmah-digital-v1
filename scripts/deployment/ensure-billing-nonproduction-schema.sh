@@ -35,6 +35,9 @@ actual_033_sha256="$(sha256sum "$migration_033" | awk '{print $1}')"
 actual_033_git_blob="$(git hash-object "$migration_033")"
 [[ "$actual_033_git_blob" == "$migration_033_git_blob" ]] || { echo 'Repository Billing migration 033 Git blob changed.' >&2; exit 4; }
 
+source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
+resolve_schema_execution "$environment"
+
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/billing-migration:${tag}"
 job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" billing-030-033)"
@@ -43,14 +46,14 @@ if [[ "$environment" == 'preview' ]]; then
   pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=billing-030-033")
 fi
 
-gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config cloudbuild.billing-migration.yaml \
+gcloud builds submit . "${SCHEMA_BUILD_ARGS[@]}" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --config cloudbuild.billing-migration.yaml \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" --quiet
 
 node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" billing-030-033
 
 gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
-  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$image" --service-account "$RUNTIME_SERVICE_ACCOUNT" \
-  --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" --set-secrets='DATABASE_URL=DATABASE_URL:latest' \
+  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$image" --service-account "$SCHEMA_SERVICE_ACCOUNT" \
+  --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
   --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_CONFIRMATION=${BILLING_MIGRATION_030_CONFIRMATION:-},MIGRATION_SHA256=${migration_sha256},MIGRATION_GIT_BLOB=${migration_git_blob},MIGRATION_033_SHA256=${migration_033_sha256},MIGRATION_033_GIT_BLOB=${migration_033_git_blob}" \
   --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
 

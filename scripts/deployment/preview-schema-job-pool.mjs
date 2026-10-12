@@ -22,6 +22,11 @@ const POLICY = Object.freeze({
 const hash = value => createHash('sha256').update(value).digest('hex');
 const stop = code => { throw new Error('PREVIEW_SCHEMA_POOL_' + code); };
 
+const replacementProject = 'khedmah-preview-v2-20261012';
+const schemaIdentity = env => env.GOOGLE_CLOUD_PROJECT === replacementProject
+  ? 'khedmah-pv2-migrator@' + replacementProject + '.iam.gserviceaccount.com'
+  : env.RUNTIME_SERVICE_ACCOUNT;
+
 export function schemaJobName(environment, identifier, stage) {
   if (!Object.hasOwn(STAGES, stage) || !['preview', 'staging'].includes(environment)
       || !/^[a-zA-Z0-9._-]+$/.test(identifier)) stop('ARGUMENTS_REJECTED');
@@ -84,10 +89,18 @@ export function checkSchemaJob(env, environment, identifier, stage, phase, run =
       || !Number.isSafeInteger(meta.generation) || meta.generation < 1 || status?.observedGeneration !== meta.generation
       || ready?.length !== 1 || ready[0].status !== 'True'
       || !Number.isSafeInteger(status.executionCount ?? 0) || (status.executionCount ?? 0) < 0
-      || spec?.serviceAccountName !== env.RUNTIME_SERVICE_ACCOUNT
+      || spec?.serviceAccountName !== schemaIdentity(env)
       || !Array.isArray(spec?.containers) || spec.containers.length !== 1
       || job.spec.template.metadata?.annotations?.['run.googleapis.com/cloudsql-instances'] !== env.CLOUD_SQL_INSTANCE_CONNECTION_NAME) {
     stop('OWNERSHIP_OR_RECONCILIATION_REJECTED');
+  }
+  if (env.GOOGLE_CLOUD_PROJECT === replacementProject) {
+    const database = spec.containers[0]?.env?.filter(item => item.name === 'DATABASE_URL');
+    if (database?.length !== 1 || Object.hasOwn(database[0], 'value')
+        || database[0]?.valueFrom?.secretKeyRef?.name !== 'DATABASE_MIGRATION_URL'
+        || database[0]?.valueFrom?.secretKeyRef?.key !== '1') {
+      stop('MIGRATION_SECRET_BINDING_REJECTED');
+    }
   }
   const imageBase = policy.region + '-docker.pkg.dev/' + env.GOOGLE_CLOUD_PROJECT + '/'
     + env.ARTIFACT_REPOSITORY + '/' + STAGES[stage] + ':preview-';

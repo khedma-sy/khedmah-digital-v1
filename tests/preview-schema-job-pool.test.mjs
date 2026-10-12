@@ -160,6 +160,57 @@ test('all nine helpers guard deploy and execution while preserving image revisio
 });
 
 const sourceEnv = { PREVIEW_PR_NUMBER: '274', PREVIEW_HEAD_SHA: 'a'.repeat(40), PREVIEW_EXPECTED_PR_STATE: 'open' };
+
+function replacementFixture() {
+  const project = 'khedmah-preview-v2-20261012';
+  const replacementPolicy = { project_sha256: hash(project), namespace: '1044962071847', region: policy.region };
+  const replacementEnv = { ...env, GOOGLE_CLOUD_PROJECT: project, ARTIFACT_REPOSITORY: 'khedmah-preview',
+    RUNTIME_SERVICE_ACCOUNT: 'khedmah-pv2-runtime@' + project + '.iam.gserviceaccount.com',
+    CLOUD_SQL_INSTANCE_CONNECTION_NAME: project + ':europe-west1:khedmah-preview-v2-db' };
+  const job = fixture().job;
+  job.metadata.namespace = replacementPolicy.namespace;
+  job.status.executionCount = 0;
+  delete job.status.latestCreatedExecution;
+  job.spec.template.metadata.annotations['run.googleapis.com/cloudsql-instances'] = replacementEnv.CLOUD_SQL_INSTANCE_CONNECTION_NAME;
+  const spec = job.spec.template.spec.template.spec;
+  spec.serviceAccountName = 'khedmah-pv2-migrator@' + project + '.iam.gserviceaccount.com';
+  spec.containers[0].image = policy.region + '-docker.pkg.dev/' + project + '/khedmah-preview/classifieds-migration:preview-' + identifier;
+  spec.containers[0].env = [{ name: 'DATABASE_URL', valueFrom: { secretKeyRef: { name: 'DATABASE_MIGRATION_URL', key: '1' } } }];
+  const run = (command, args) => {
+    assert.equal(command, 'gcloud');
+    assert.ok(args.includes('--project=' + project));
+    if (args[2] === 'list') return JSON.stringify([{ metadata: { name } }]);
+    if (args[2] === 'describe') return JSON.stringify(job);
+    if (args[2] === 'executions') return '[]';
+    assert.fail('unexpected cloud operation');
+  };
+  return { spec, env: replacementEnv, check: () => checkSchemaJob(replacementEnv, 'preview', identifier,
+    stage, 'before-execute', run, replacementPolicy) };
+}
+
+test('replacement job contract uses migration identity and the verified immutable credential version', () => {
+  assert.equal(replacementFixture().check(), name);
+  const f = replacementFixture(); f.spec.serviceAccountName = f.env.RUNTIME_SERVICE_ACCOUNT;
+  assert.throws(() => f.check(), /OWNERSHIP_OR_RECONCILIATION_REJECTED/);
+});
+
+test('replacement job rejects runtime credentials, aliases, literal values, duplicates and missing binding', () => {
+  for (const mutate of [
+    s => { s.env[0].valueFrom.secretKeyRef.name = 'DATABASE_URL'; },
+    s => { s.env[0].valueFrom.secretKeyRef.key = 'latest'; },
+    s => { s.env[0].value = 'must-not-pass'; },
+    s => { s.env.push(structuredClone(s.env[0])); },
+    s => { s.env = []; },
+  ]) {
+    const f = replacementFixture(); mutate(f.spec.containers[0]);
+    assert.throws(() => f.check(), /MIGRATION_SECRET_BINDING_REJECTED/);
+  }
+});
+
+test('replacement fixture does not activate the still-held live target policy', () => {
+  assert.throws(() => validatePoolTarget(replacementFixture().env), /TARGET_OR_SERIALIZATION_REJECTED/);
+});
+
 const pr = { number: 274, state: 'open', head_sha: sourceEnv.PREVIEW_HEAD_SHA, head_repo: 'khedma-sy/khedmah-digital-v1' };
 test('queued deployment accepts only the latest same-repository open PR source', () => {
   assert.equal(verifyPreviewSource(sourceEnv, () => JSON.stringify(pr)), true);
