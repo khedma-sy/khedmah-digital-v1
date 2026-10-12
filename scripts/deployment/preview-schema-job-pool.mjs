@@ -80,7 +80,8 @@ export function checkSchemaJob(env, environment, identifier, stage, phase, run =
   const job = read(['run', 'jobs', 'describe', name],
     'metadata.name,metadata.uid,metadata.namespace,metadata.generation,metadata.deletionTimestamp,metadata.labels,'
     + 'spec.template.metadata.annotations,spec.template.spec.template.spec.serviceAccountName,'
-    + 'spec.template.spec.template.spec.containers[].image,status.observedGeneration,status.conditions,status.executionCount,status.latestCreatedExecution');
+    + 'spec.template.spec.template.spec.containers[].image,spec.template.spec.template.spec.containers[].env,'
+    + 'status.observedGeneration,status.conditions,status.executionCount,status.latestCreatedExecution');
   const meta = job?.metadata, status = job?.status, spec = job?.spec?.template?.spec?.template?.spec;
   const ready = status?.conditions?.filter(x => x.type === 'Ready');
   if (meta?.name !== name || meta.namespace !== policy.namespace || !/^[a-f0-9-]{20,64}$/.test(meta.uid ?? '')

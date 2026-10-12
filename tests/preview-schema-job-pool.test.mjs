@@ -180,7 +180,14 @@ function replacementFixture() {
     assert.equal(command, 'gcloud');
     assert.ok(args.includes('--project=' + project));
     if (args[2] === 'list') return JSON.stringify([{ metadata: { name } }]);
-    if (args[2] === 'describe') return JSON.stringify(job);
+    if (args[2] === 'describe') {
+      // Respect the CLI projection: omitted env metadata cannot prove the binding.
+      const projected = structuredClone(job);
+      if (!args.some(arg => arg.includes('spec.template.spec.template.spec.containers[].env'))) {
+        delete projected.spec.template.spec.template.spec.containers[0].env;
+      }
+      return JSON.stringify(projected);
+    }
     if (args[2] === 'executions') return '[]';
     assert.fail('unexpected cloud operation');
   };

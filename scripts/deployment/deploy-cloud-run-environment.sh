@@ -29,6 +29,9 @@ if [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" != "${GOOGLE_CLOUD_PROJECT}:${GOOGLE
   else echo 'Staging Cloud SQL instance must belong to the staging project and region.' >&2; fi
   exit 4
 fi
+source "$(dirname "${BASH_SOURCE[0]}")/application-execution-profile.sh"
+resolve_application_execution "$environment"
+cloudbuild_source_args+=("${APPLICATION_BUILD_ARGS[@]}")
 if [[ "$environment" == "preview" ]]; then
   [[ "$identifier" =~ ^pr-[0-9]+-[0-9a-f]{7,40}$ ]] || { echo 'Preview identifier must be pr-N-SHA.' >&2; exit 2; }
   pr_number="$(cut -d- -f2 <<<"$identifier")"
@@ -44,7 +47,7 @@ backend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${A
 frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/frontend:${tag}"
 # Taxi authority can be enabled after Migration 031 while trip execution remains independently fail-closed.
 backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_ACCESS_ENABLED=true,TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
-backend_secret_bindings="DATABASE_URL=DATABASE_URL:latest"
+backend_secret_bindings="$APPLICATION_DATABASE_SECRET_BINDING"
 if [[ "$environment" == "preview" ]]; then
   preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
   if [[ -n "$preview_email_from" ]]; then
@@ -64,7 +67,7 @@ fi
 PRODUCT_STORE_MIGRATION_024_MODE='apply'
 PRODUCT_STORE_MIGRATION_024_CONFIRMATION="APPLY_KHEDMAH_NONPROD_024_${environment^^}"
 export PRODUCT_STORE_MIGRATION_024_MODE PRODUCT_STORE_MIGRATION_024_CONFIRMATION
-bash # Ensure the canonical non-production foundation through 022 before Product Store 024.
+# Ensure the canonical non-production foundation through 022 before Product Store 024.
 bash scripts/deployment/ensure-foundation-nonproduction-schema.sh "$environment" "$identifier"
 bash scripts/deployment/ensure-product-store-nonproduction-schema.sh "$environment" "$identifier"
 
@@ -150,10 +153,12 @@ backend_deploy_args=(
   --allow-unauthenticated
   --quiet
 )
-backend_deploy_args+=(
-  --add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
-  --set-secrets="$backend_secret_bindings"
-)
+if [[ "$environment" == "preview" ]]; then
+  backend_deploy_args+=(--set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+else
+  backend_deploy_args+=(--add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+fi
+backend_deploy_args+=(--set-secrets="$backend_secret_bindings")
 "${backend_deploy_args[@]}"
 backend_url="$(gcloud run services describe "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 
@@ -165,7 +170,7 @@ fi
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "$config" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag},_NEXT_PUBLIC_API_URL=${backend_url},_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"
 
-gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$RUNTIME_SERVICE_ACCOUNT" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
+gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$APPLICATION_FRONTEND_SERVICE_ACCOUNT" "${APPLICATION_FRONTEND_ISOLATION_ARGS[@]}" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
 frontend_url="$(gcloud run services describe "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 [[ "$frontend_url" == https://*run.app ]] || { echo 'Isolated frontend URL is not a Cloud Run URL.' >&2; exit 5; }
 # The runtime allowlist and action-link origin must match this deployment.

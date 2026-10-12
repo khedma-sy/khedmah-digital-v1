@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 const requiredFiles = [
   '.github/workflows/preview-deployment.yml', '.github/workflows/staging-deployment.yml',
   'cloudbuild.preview.yaml', 'cloudbuild.preview-backend.yaml', 'cloudbuild.staging.yaml', 'cloudbuild.staging-backend.yaml', 'scripts/deployment/verify-cors-preflight.mjs',
-  'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/ensure-classifieds-nonproduction-schema.sh',
+  'scripts/deployment/deploy-cloud-run-environment.sh', 'scripts/deployment/application-execution-profile.sh', 'scripts/deployment/ensure-classifieds-nonproduction-schema.sh',
   'scripts/deployment/run-classifieds-nonproduction-migration.sh', 'scripts/deployment/resolve-classifieds-preview-stage.sh', '.github/classifieds-preview-stage',
   'scripts/deployment/resolve-classifieds-staging-stage.sh', '.github/classifieds-staging-stage', 'scripts/check-classifieds-preview-acceptance.mjs', 'Dockerfile.classifieds-migration', 'cloudbuild.classifieds-migration.yaml',
   'scripts/deployment/ensure-fulfillment-nonproduction-schema.sh', 'scripts/deployment/run-fulfillment-nonproduction-migrations.sh',
