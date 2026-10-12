@@ -1,12 +1,12 @@
 # Preview replacement plan — 2026-10-12
 
-Status: parent/billing inventory and Production billing enablement confirmed; permission probe packaged and awaiting execution. No replacement project has been created.
+Status: parent/billing inventory and both IAM permission tests passed; bounded empty-project creation command prepared. Creation has not been reported.
 
 ## Owner direction and source
 
 The owner asked why a new Preview could not replace the inaccessible project, then instructed «أبدأ» at 2026-10-12T14:38:46+03:00. Proceed with replacement preparation and prerequisite reads under the current management account. This supersedes the previous next action that made recovery of the old Preview the sole forward path; it does not authorize bypassing that project's IAM.
 
-Reviewed PR #274 head: `588f475fec44401e64955d99b03c3d56513ad28b`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. This pass adds one standalone operator-invoked permission reader, not a deployment workflow step. This plan has no new runtime acceptance evidence.
+Reviewed PR #274 head: `7a46afc90f39d812892934717f09228190573221`, open/unmerged. Reviewed main: `bc5a5c764413498189147cc34c7e857c78aa3d2c`. The documentation head has zero returned workflow runs. Deployment/workflow source and existing tests remain unchanged from `0aab5966dba0b1d32029aaf4ae003b548a262ae8`; its deliberate mail hold remains intact. The standalone operator-invoked permission reader added at that head is unchanged by this documentation checkpoint. This plan has no new runtime acceptance evidence.
 
 ## Proposed target
 
@@ -15,8 +15,8 @@ Reviewed PR #274 head: `588f475fec44401e64955d99b03c3d56513ad28b`, open/unmerged
 | Current management account | haifawi30@gmail.com |
 | New project ID | `khedmah-preview-v2-20261012` — proposed, not reserved or proven available |
 | Region | `europe-west1` |
-| Parent organization/folder | Organization `594049370623`, identified from the accessible project's parent; creation permission remains unverified |
-| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Production billing reports enabled on this same account; new-project link permission remains unverified |
+| Parent organization/folder | Organization `594049370623`, identified from the accessible project's parent; `resourcemanager.projects.create` returned allowed=true |
+| Billing account | One visible open account, `My Billing Account`; full ID supplied privately by the owner. Production billing reports enabled on this same account; `billing.resourceAssociations.create` returned allowed=true; new-project-side billing authority remains to be checked |
 | Project number | Generated on creation; never copy the old namespace |
 | Database | New isolated PostgreSQL test database, synthetic data only; sizing/edition/backup policy to be costed before provisioning |
 | Existing Preview | `khedmah-preview-774201339973` / `195546947562`; access investigation remains open |
@@ -45,17 +45,17 @@ gcloud billing accounts list \
 These reads identify a parent candidate and visible open billing accounts. They do not prove permission to create a project or link billing. The accessible project's parent is a candidate, not an automatic destination. An empty billing list is not proof that no billing account exists.
 
 Remaining prerequisites after the supplied inventory:
-- Resolve the chosen organization/folder and verify `resourcemanager.projects.create` there; if there is no parent, inspect the supported personal-project creation path and quota instead of inventing an organization.
-- Verify `billing.resourceAssociations.create` on the selected billing account, and the required project-side billing assignment/service-use permissions for the new project. Do not infer these from Owner access to Production or visibility in the billing list.
-- Check the applicable project quota and organization policies; an unavailable proposed name needs a reviewed replacement ID.
+- Completed: organization `594049370623` is identified and its `resourcemanager.projects.create` test returned allowed=true.
+- Completed: `billing.resourceAssociations.create` returned allowed=true on the selected billing account. After creation, verify the required project-side billing assignment/service-use permissions on the new project itself.
+- Name availability, project quota and applicable organization policies still constrain creation. The single bounded create call below lets Google enforce them; on failure, retain the exact error and reconcile rather than assume absence or automatically choose another project.
 - If multiple billing accounts or plausible parent destinations are returned, resolve the intended one before linking resources. Do not select by list order.
 - Preserve denials as denials. Do not repeat the old Preview queries, switch to the historical account or impersonate its service account.
 
-The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. The next permission-probe output is still missing; the read-only work is already authorized.
+The assistant has no connected authenticated Google Cloud/Cloud Shell execution tool. The prerequisite inventory has been supplied. Both permission results have now been supplied. The missing next evidence is the new project's creation/readback result.
 
-## Step 2 — checksum-pinned permission-only probe; awaiting owner execution
+## Step 2 — completed checksum-pinned permission-only probe
 
-The later output supplied at 2026-10-12T14:58:59+03:00 confirmed `billingEnabled=true` on Production and repeated its account/project metadata. Its marker was `READ_ONLY_PROJECT_BILLING_STATE_OK_NO_MUTATION`; it did not test either permission below. Do not repeat the completed metadata reads or treat that marker as the permission-probe result.
+The later output supplied at 2026-10-12T14:58:59+03:00 confirmed `billingEnabled=true` on Production and repeated its account/project metadata. Its marker was `READ_ONLY_PROJECT_BILLING_STATE_OK_NO_MUTATION`; it did not test either permission below. A later result received at 2026-10-12T15:08:16+03:00 supplies both required permission booleans as true and the expected IAM completion marker. Do not rerun either completed read solely to reproduce evidence.
 
 Use the existing current-account credentials to call these official APIs:
 
@@ -66,13 +66,13 @@ Use the existing current-account credentials to call these official APIs:
 
 These POST requests test IAM only; they do not create projects, link billing or grant permissions. The standalone [permission reader](../../scripts/read-preview-project-access.py) checks for configured impersonation/credential overrides, captures `gcloud auth print-access-token` in memory without printing it, refuses redirects and emits projected permission booleans. HTTP/authentication/invalid-response failures stop as read errors, not as evidence that permission is absent.
 
-Expected successful output includes `PROJECT_CREATE: allowed=true`, `BILLING_LINK: allowed=true` and `PREVIEW_PARENT_AND_BILLING_IAM_PASSED_NO_MUTATION`. These are expected markers, not observed results. Both permissions must be assessed under the current account. A successful probe does not establish quota/name availability, organization-policy compliance, the new project's billing assignment permissions or billable account standing.
+Observed owner-supplied output includes `PROJECT_CREATE: allowed=true`, `BILLING_LINK: allowed=true`, `read_only=true` on each result, and `PREVIEW_PARENT_AND_BILLING_IAM_PASSED_NO_MUTATION`. No API execution timestamp was emitted; the recorded timestamp is receipt of the owner's message. Both permissions must be assessed under the current account. A successful probe does not establish quota/name availability, organization-policy compliance, the new project's billing assignment permissions or billable account standing.
 
 Validation performed: six local mocked checks passed (both permissions present, missing permission, HTTP denial, auth override, malformed response and invalid billing-account ID), including fixed API/permission scope and no token in output. No live Google API request or mutation was executed. No monetary estimate or resource apply is established by a permission result alone.
 
 The full billing account ID remains an operator argument, not committed configuration. Helper SHA-256: `90b832c077641f5bd642041ee7435e3651f6baa9d7fc064679bd19808ba3785a`; immutable Git blob: `361e986116a4e3b361a9b11fb36a88fdc9fedfe6`. The new helper is not automatically called by CI and its existing deployment hold is unchanged.
 
-Short launcher (replace the billing-account placeholder with the ID supplied in the owner's private output):
+Completed reader reference only; do not rerun without a concrete reason. The private billing identifier remains an argument:
 
 ```bash
 (
@@ -85,7 +85,45 @@ python3 "$khedmah_access_script" --billing-account=OWNER_SUPPLIED_BILLING_ACCOUN
 )
 ```
 
-A download/checksum failure stops before execution. Expected live results are the two permission booleans followed by the success marker above; none has yet been observed.
+A download/checksum failure stops before execution. The owner has supplied both true permission booleans and the success marker. The helper itself performs no project creation or billing mutation.
+
+## Step 3 — bounded project-container creation; pending execution
+
+The owner's replacement direction and successful prerequisite checks support this next concrete stage. Scope is one new project container under the verified organization. This stage deliberately does not attach billing or create runtime capacity, so resource sizing/cost decisions remain prerequisites for the later billable infrastructure stage.
+
+| Change | Exact target |
+| --- | --- |
+| Create project ID | `khedmah-preview-v2-20261012` |
+| Display name | `Khedmah Preview V2` |
+| Parent | `organizations/594049370623` |
+| Caller | `haifawi30@gmail.com` |
+| Labels | `environment=preview,application=khedmah` |
+| Cloud API bundle | Do not enable automatically: `--no-enable-cloud-apis` |
+| Billing, runtime resources, default configuration | No link, resource provisioning or default-project switch in this command |
+
+```bash
+(
+set -euo pipefail
+gcloud projects create khedmah-preview-v2-20261012 \
+  --organization=594049370623 \
+  --account=haifawi30@gmail.com \
+  --name='Khedmah Preview V2' \
+  --labels=environment=preview,application=khedmah \
+  --no-enable-cloud-apis \
+  --user-output-enabled
+
+gcloud projects describe khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --user-output-enabled \
+  --format='yaml(projectId,projectNumber,name,lifecycleState,parent,labels,createTime)'
+)
+```
+
+The shell stops if creation fails; it must not adopt an unrelated existing project or proceed with billing after an error. If the create command times out or its completion is uncertain, reconcile the exact operation/project with read-only metadata before any retry. A successful create enforces name availability and Google's applicable creation controls at that moment; it does not certify later service quotas.
+
+On successful readback, require the exact project ID, organization parent and `ACTIVE` state, then record Google's assigned project number. Next inspect the new project's own billing assignment/service-use permissions before preparing the exact billing link. No Cloud SQL, Cloud Run, WIF, secret, DNS or GitHub environment change is included here.
+
+The command passed local Bash syntax validation; it has not been executed by the assistant and no successful creation is claimed. The official [create command](https://docs.cloud.google.com/sdk/gcloud/reference/projects/create) documents `--no-enable-cloud-apis`, organization, name, labels and account flags.
 
 ## Resource and identity manifest to finalize
 
@@ -136,7 +174,7 @@ Validate these under the protected environment with deployment held; do not echo
 
 ## Provisioning and acceptance order
 
-1. Obtain the prerequisite inventory, verify destination/permissions, and select the costed resource manifest.
+1. Completed: prerequisite inventory and the two parent/billing-account permission tests. Next create/read back only the project container under Step 3, then verify its own billing authority and select the costed resource manifest before provisioning runtime capacity.
 2. Prepare a deterministic Preview-specific infrastructure plan with exact targets, additions, IAM scope and cost assumptions; ensure no existing environment appears in its mutation set.
 3. Provision the new project/resources in bounded stages. Read back the actual project number, regional SQL connection, identities, secret metadata and WIF bindings. Keep provisioning evidence separate from deployment evidence.
 4. Configure isolated credentials through secure provider interfaces, then prepare/review the source and protected-variable retargeting together. Old Preview access is not needed to manufacture or extract replacement credentials.
@@ -191,4 +229,4 @@ Official references reviewed:
 - [Billing account permission test](https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions)
 - [Cloud SQL pricing — estimate still pending](https://cloud.google.com/sql/pricing)
 
-This pass adds one standalone read-only permission helper and updates five existing documents. Six mocked local validations passed; they are not live permission or deployment evidence. No cloud permission test, project creation, billing link, secret read/write, IAM change, resource apply, workflow dispatch, migration, deployment or email send has been executed. No existing deployment code or test file changed.
+This checkpoint updates five existing documents only. The unchanged helper's six mocked local checks are historical local evidence; the owner has now supplied successful live IAM test results. No new project creation, billing link, secret read/write, IAM grant, runtime apply, workflow dispatch, migration, deployment or email send has been reported. The create/readback command passed Bash parsing. No existing deployment code, helper or test file changed.
