@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Live continuation index — reconciled 2026-10-13
+
+Resume from the [completed-work ledger](docs/project-control/CURRENT-STATE.md) and [one next action](docs/project-control/NEXT-ACTION.md). This reconciliation restores the already executed replacement infrastructure/database/WIF evidence from Git history alongside the completed Firebase registration, five version-1 values and component inspection. Do not repeat those batches.
+
+Next pending operation remains default Firebase Storage for `khedmah-preview-v2-20261012` in `europe-west1`, with the repository's deny-all rules, followed by identity/linkage/IAM/rules verification. It has not been executed/reported. Later application configuration, schema/grants, deployment and Floot acceptance remain pending. The assistant has no connected Google Cloud execution session; NEXT-ACTION contains the concrete owner step.
+
+Inspected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 open/unmerged at parent `0fe3f1fa97f776228616a8565ffa72c260d4e75d`, with zero exact-head Actions/check runs. Latest full CI remains `f994792...`; Preview WIF succeeded and its red run is the intentional mail/deployment hold. This pass changes only the same five Markdown checkpoints, with `[skip ci]`, preserving executable bytes and all cloud/merge gates. Preserve this ledger/index when advancing the task. Older next-action sections below are historical when they conflict.
+
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
 This section supersedes the inspection command below. The owner completed it; do not repeat Firebase registration, the five core secret writes, or the unchanged component read as if its output were missing.

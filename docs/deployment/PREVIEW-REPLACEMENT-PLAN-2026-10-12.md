@@ -1,5 +1,13 @@
 # Preview replacement plan — 2026-10-12
 
+## Execution status override — reconciled 2026-10-13
+
+Use [CURRENT-STATE's completed-work ledger](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md) for continuation. Project/billing/core APIs, infrastructure, SQL/database identities and version-1 credentials, GitHub/WIF, Firebase WebApp and five core configuration values are already complete. Completion evidence omitted by later checkpoint replacements was recovered from Git history; do not replay infrastructure, SQL pricing, credential, federation or registration batches.
+
+The pending action is the already prepared default Firebase Storage setup for `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-west1`, deny-all rules. It is not executed/reported. NEXT-ACTION specifies the bounded owner step and post-creation verification; no new cloud execution access is available here. All later schema/grants/deployment/Floot and Production boundaries remain.
+
+**Historical-plan rule:** below, labels such as “pending owner execution”, “pending provision/review”, and “remaining implementation” describe their dated checkpoints. They do not override the completed-work ledger. Preserve those historical bytes as evidence, while advancing the compact ledger on each continuation.
+
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
 This section supersedes the inspection command below. The owner completed it; do not repeat Firebase registration, the five core secret writes, or the unchanged component read as if its output were missing.

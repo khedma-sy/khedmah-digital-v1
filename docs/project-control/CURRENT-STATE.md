@@ -1,5 +1,43 @@
 # Khedmah Digital — Current State
 
+## Reconciled continuation — completed work preserved — 2026-10-13
+
+This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
+
+### Repository and validation observed in this reconciliation
+
+- Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
+- PR #274 is open/unmerged; the inspected parent is `0fe3f1fa97f776228616a8565ffa72c260d4e75d`. Its exact-head Actions and check-run inventories both returned zero. The present change is documentation only, with `[skip ci]`; it does not certify merge or release readiness.
+- Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
+- Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
+
+### Completed replacement Preview work — do not replay
+
+Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-west1`; established management account `haifawi30@gmail.com`.
+
+| Completed work | Evidence and limit |
+| --- | --- |
+| Project, billing and core APIs | Owner creation/billing/readback succeeded. Thirteen requested core APIs were enabled; eighteen services were observed at that checkpoint. Later application API activation is separate. Do not repeat creation, billing linkage or cost/bootstrap batches. |
+| Infrastructure | [Database checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/b7cfac01103639f761fcb98bfcb348e887f1f15c/docs/project-control/CURRENT-STATE.md) preserves owner `PREVIEW_V2_INFRASTRUCTURE_VERIFIED`: 58 added, zero changed/destroyed, separate state/source buckets, Artifact Registry, five execution identities, SQL/database and eleven secret containers. This is recorded owner execution, not a new cloud inventory in this pass. |
+| Database identities and credentials | Same checkpoint records both successful SQL logins, `DATABASE_URL:1`, `DATABASE_MIGRATION_URL:1`, postgres credential containment and `PREVIEW_V2_DATABASE_IDENTITIES_VERIFIED_SCHEMA_PENDING`. Receipt `2026-10-12T17:48:56+03:00` is not the operation timestamp. Do not rerun the launcher, recreate users or rotate these credentials. Application schema and runtime object grants remain pending. |
+| GitHub configuration and WIF | Successful new-project authentication and Secret Manager metadata access are independently visible in job `114908813534`. Protected target configuration already names the replacement project. Do not reconnect GitHub or repeat federation setup. |
+| Firebase project and WebApp | Registered WebApp `1:1044962071847:web:919c294e1cd5ed37374502`; SDK/project/key association verified. Do not repeat Firebase addition or WebApp registration. |
+| Five Firebase configuration values | Owner `PREVIEW_V2_FIREBASE_CORE_CONFIG_STAGED` at `2026-10-12T17:41:53.457370+00:00`: API_KEY, AUTH_DOMAIN, PROJECT_ID, MESSAGING_SENDER_ID and APP_ID under the existing NEXT_PUBLIC_FIREBASE names, all enabled version 1. Do not restage them. |
+| Component inspection | Owner GET-only inspection at `2026-10-12T18:01:56.779959+00:00` completed. Do not request the unchanged inspection again as though its output were missing. |
+
+### Actual continuation and remaining work
+
+1. **Next:** complete the existing bounded default Firebase Storage setup for this exact replacement project, in `europe-west1`, using deny-all rules from `infra/firebase/storage.rules`. See [NEXT-ACTION](NEXT-ACTION.md). This operation remains prepared, not executed or reported. The SDK bucket name is absent from the complete supplied project bucket inventory; Storage API was disabled.
+2. Verify resulting bucket identity/region, Firebase linkage, IAM and deployed rules before staging the sixth configuration value. Browser referrers were empty; Auth/provider reads returned 404 without structured reasons. Their readiness is unresolved; 404 alone does not authorize reinitialization.
+3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. No new product scope is introduced.
+4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
+
+### Execution boundary and handoff discipline
+
+This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Storage step is owner-operated in the established Firebase account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
+
+After the Storage result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
+
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
 This section supersedes the inspection command below. The owner completed it; do not repeat Firebase registration, the five core secret writes, or the unchanged component read as if its output were missing.

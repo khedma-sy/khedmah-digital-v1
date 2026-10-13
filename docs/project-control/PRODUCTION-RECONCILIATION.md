@@ -1,5 +1,11 @@
 # Production reconciliation — evidence before an operation
 
+## Current scope — Preview continuation reconciled 2026-10-13
+
+The active next action is replacement Preview Storage, as specified in [CURRENT-STATE](CURRENT-STATE.md) and [NEXT-ACTION](NEXT-ACTION.md). Completed replacement infrastructure, database identity/credential setup, WIF and Firebase core configuration must not be replayed. Main `bc5a5c7...` and PR #274 parent `0fe3f1fa97f776228616a8565ffa72c260d4e75d` were inspected; this pass is documentation only with `[skip ci]`.
+
+Production Phase A/B completion recorded below remains valid historical execution evidence; it does not authorize Production schema, HARDEN or deployment. This pass performs no Production/Staging/old-Preview mutation, cloud operation, secret read, workflow dispatch or merge. Keep Production prerequisites and operation-specific approval gates separate from replacement Preview readiness. Follow the reconciled ledger instead of any older next-action paragraph that requests completed work.
+
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
 This section supersedes the inspection command below. The owner completed it; do not repeat Firebase registration, the five core secret writes, or the unchanged component read as if its output were missing.

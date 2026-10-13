@@ -1,5 +1,30 @@
 # Next Safe Action — Khedmah
 
+## Reconciled next action — replacement Preview Storage only — 2026-10-13
+
+Read the completed-work ledger in [CURRENT-STATE](CURRENT-STATE.md) first. Infrastructure, database identities/credential versions, protected GitHub configuration, working WIF, Firebase registration and five Firebase values are complete. The component inspection has also completed. Older commands below requesting those operations are historical.
+
+**One pending owner operation:** open [Firebase Storage for the replacement project](https://console.firebase.google.com/project/khedmah-preview-v2-20261012/storage) under the established account, confirm `khedmah-preview-v2-20261012`, and create its default bucket in **europe-west1 (Belgium)** with the existing repository's deny-all rules. Select locked/production rules if the console offers that mode; the label concerns rules, not the Production project. Verify the resulting Rules page against:
+
+```text
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+Return the bucket name, location and Rules screen; do not send credentials. If the page already shows a bucket, return that existing state instead of creating/replacing it. An unexpected project, region, permission denial or billing-account change stops this bounded operation. The existing billing link is already complete; no relinking is part of this step.
+
+**State:** prepared, not executed/reported. No Google Cloud execution session is connected to the assistant. This handoff follows the owner's instruction to continue the existing Preview setup, not a request to repeat previous approvals or Firebase registration. The [official Storage setup guide](https://firebase.google.com/docs/storage/web/start) and committed `infra/firebase/storage.rules` were re-read.
+
+**After the owner result:** verify exact project/bucket/region, Firebase linkage, IAM and deployed rules before storing the sixth value. A screenshot confirms only what it shows; it does not establish effective IAM. Then continue the unresolved Auth/referrer, Maps/mail, schema/runtime grants and deployment/Floot acceptance gates recorded in CURRENT-STATE. Retain both Preview holds. No Production action or merge is included.
+
+This documentation reconciliation changes no executable or workflow bytes and uses `[skip ci]`. Parent `0fe3f1fa97f776228616a8565ffa72c260d4e75d` had no Actions/check runs. The current-source full-CI gate remains open.
+
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
 This section supersedes the inspection command below. The owner completed it; do not repeat Firebase registration, the five core secret writes, or the unchanged component read as if its output were missing.
