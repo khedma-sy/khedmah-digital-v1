@@ -1,16 +1,41 @@
 # Next Safe Action — Khedmah
 
-## Preview Resend key saved by owner; Secret Manager target/version read next — 2026-10-13
+## Preview Resend Cloud Shell staging prepared; owner execution next — 2026-10-13
 
-At `2026-10-13T13:30:51+03:00`, the owner replied **تم الحفظ** after the handoff to create and privately save `khedmah-preview-v2`, Sending access, domain `mail.khedmah.uk`, in team khedmasy. Record this as owner-reported key creation/private saving, not independently read API metadata, credential validation or delivery proof. No key value was provided, read, printed or stored by the assistant. Do not repeat key creation. Preserve the prior Console-Verified domain evidence and four existing keys.
+The owner explicitly requested Google Cloud Shell at `2026-10-13T13:37:44+03:00`, superseding the prior Console-only handoff. Owner-reported creation/private saving of the separate Preview key is preserved; do not recreate it. The tested standalone helper `scripts/stage-preview-v2-resend-config.py` is ready for owner execution. No cloud execution or secret staging result is yet available.
 
-**Next safe action — read only:** open the replacement project's [RESEND_API_KEY Versions page](https://console.cloud.google.com/security/secret-manager/secret/RESEND_API_KEY/versions?project=khedmah-preview-v2-20261012) under the established management account `haifawi30@gmail.com`. Verify the exact selected project ID `khedmah-preview-v2-20261012` (project number `1044962071847`) and secret `RESEND_API_KEY`; return a screenshot of the Versions table/header with no payload dialog open. Do not enter the key yet. The most recent preserved version inventory was empty, but this is not a fresh cloud read; inspect the present state first.
+**Next safe action:** run the immutable launcher in [NEXT-ACTION.md](NEXT-ACTION.md) in the owner's interactive Cloud Shell. The helper freshly verifies account `haifawi30@gmail.com`, project `khedmah-preview-v2-20261012`, number `1044962071847`, organization `594049370623`, the existing `RESEND_API_KEY` container and all version metadata before requesting the saved key twice via hidden terminal input. Only an empty inventory permits adding the first version. A matching enabled version 1 is verified without adding another version; conflicting/multiple/disabled versions stop. Auth/endpoint overrides, metadata failures and ambiguous writes fail closed. Only masked result JSON or the sanitized STOP code should be returned.
 
-If the page shows a different project, a permission error, a missing secret or any existing version, reconcile that evidence before writing. Do not create another secret container, overwrite/rotate/disable/destroy an existing version or change IAM. Once the exact target and empty inventory are observed, the next bounded owner step can add the first version through the Console's Add new version dialog, entering the saved Preview key directly into Secret value, followed by version-state readback. That write has not been handed off or executed in this checkpoint. This Console path supports the owner's step-by-step workflow without placing the key in chat or shell history.
+Implementation `8f8c1952db95be8931215076ed98f05a6ac7ece9`; immutable helper blob `27c1eea187492bb71df80d4812a8a6cad87effbb`; SHA-256 `3ba9fb8fa191c45db01b440bcf69341224f21300c6d0fca58b0fc60cd1ce3f15`. **13 offline Python tests passed**, the Node test wrapper passed, and Python syntax/whitespace checks passed. These are focused local tests, not a fresh full CI or cloud acceptance run. The latest full-source results remain at `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370` and Google source readiness `38277607365` succeeded; Preview `38277607448` remains intentionally held. Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 is open/unmerged, prepared from parent `18263672abf000fa0be77202a7c0f23d60ce4cad`. Source and checkpoint commits use `[skip ci]`; no workflow dispatch, merge or cloud operation occurred here.
 
-A stored secret alone will not prove the Resend key's scope/validity, successful delivery or application readiness. Sending tests and shared-domain configuration changes require their own review; no message send is authorized by this staging handoff. No domain claim/transfer, DNS write, existing Resend key change, shared tracking change or Production operation is included. Preserve Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source checks, deployment/login/session and Floot acceptance remain pending. The explicit Preview workflow hold remains.
+Successful staging proves only that the privately supplied bytes match the enabled secret version. Resend scope/credential validity, domain sending/tracking settings and delivery remain unverified; no email send is included. The existing khedmasy team/domain and four existing keys remain preserved. No domain claim/transfer, DNS/settings change, IAM change, deployment or Production mutation is included. Preserve Google parent/provider verification, six Firebase values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source full checks, deployment/login/session and Floot acceptance remain pending; the explicit Preview deployment hold and Production gates remain.
 
-Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `7c1919eb90fae2812bdf400f17a4580c471b972b`; latest full-source checks and held Preview run `38277607448` are unchanged. Five Markdown files only, `[skip ci]`; no executable change, new tests/full CI, dispatch, merge or assistant cloud mutation. Reference: [Google Secret Manager Console version creation](https://cloud.google.com/secret-manager/docs/add-secret-version).
+The helper captures payload input/readback only in process memory and sends the add-version payload through stdin (`--data-file=-`), never a shell argument, environment variable or temporary payload file. It disables HTTP/file logging and emits no key or fingerprint. Its private local directory `~/khedmah-preview-v2-resend-config` contains only a nonsecret durable attempt marker. Keep the marker: empty inventory after an attempted write requires reconciliation, not deletion/retry. Other secret writers must be serialized; Secret Manager addVersion has no compare-and-swap. If a write succeeds but readback fails, no success verdict is emitted; reconcile metadata and, if appropriate, compare the saved key against the existing version without rotating.
+
+**Owner step:** copy the entire command below. Wait for the first hidden prompt, paste the already-saved Preview key and press Enter; paste the same key at the second prompt. Input is intentionally invisible. Return only the final masked `PREVIEW_V2_RESEND_CONFIG_STAGED` JSON or sanitized STOP code. Do not put the key into the command block, chat, screenshots or another terminal command. A STOP result must be reconciled before trying again.
+
+```bash
+(
+set -euo pipefail
+umask 077
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+khedmah_mail_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_mail_script"' EXIT
+
+gh api --hostname github.com \
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/27c1eea187492bb71df80d4812a8a6cad87effbb \
+  --jq '.content' | base64 --decode > "$khedmah_mail_script"
+
+printf '%s  %s\n' \
+  '3ba9fb8fa191c45db01b440bcf69341224f21300c6d0fca58b0fc60cd1ce3f15' \
+  "$khedmah_mail_script" | sha256sum --check --status
+
+python3 "$khedmah_mail_script" --apply
+)
+```
+
+Evidence still required: owner output for `project`, `secret`, `version`, `created`, `value_verified` and `evidence_utc`. No result is inferred from providing this launcher. After a confirmed result, update this ledger and evaluate remaining Preview mail metadata/Maps/origin gates; do not release deployment or send mail from a storage verdict alone. CLI references: [version add via stdin](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/add), [version readback](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/access), [configuration section reads](https://docs.cloud.google.com/sdk/gcloud/reference/config/list).
 
 ## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
