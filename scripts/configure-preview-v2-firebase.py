@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage five verified Firebase SDK values, or inspect Preview components.
+"""Stage five verified Firebase SDK values, or inspect Preview components/Auth.
 
 No Firebase resource creation, key restriction change, Auth setup or deployment.
 Storage and Analytics require separate reconciliation; no placeholders are used.
@@ -89,17 +89,50 @@ def payload(value):
     return {"payload": {"data": base64.b64encode(value.encode()).decode()}}
 
 
+def safe_error_metadata(raw):
+    """Emit only recognized diagnostic codes, never raw provider/error content."""
+    codes = {"CONFIGURATION_NOT_FOUND", "CONFIG_NOT_FOUND", "PROJECT_NOT_FOUND",
+             "SERVICE_DISABLED", "PERMISSION_DENIED", "ACCESS_TOKEN_SCOPE_INSUFFICIENT",
+             "CONSUMER_INVALID", "IAM_PERMISSION_DENIED", "API_KEY_SERVICE_BLOCKED"}
+    statuses = {"NOT_FOUND", "PERMISSION_DENIED", "UNAUTHENTICATED", "INVALID_ARGUMENT",
+                "FAILED_PRECONDITION", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL"}
+    result = dict(structured_error=False, error_status="UNKNOWN", recognized_error_codes=[])
+    try:
+        value = json.loads(raw)
+        detail = value.get("error") if isinstance(value, dict) else None
+        if not isinstance(detail, dict):
+            return result
+        result["structured_error"] = True
+        if detail.get("status") in statuses:
+            result["error_status"] = detail["status"]
+        candidates = [detail.get("message", "")]
+        for field in ("details", "errors"):
+            if isinstance(detail.get(field), list):
+                for item in detail[field]:
+                    if isinstance(item, dict):
+                        candidates.extend([item.get("reason", ""), item.get("message", "")])
+        result["recognized_error_codes"] = sorted(code for code in codes if any(
+            isinstance(value, str) and re.search(r"(?<![A-Z0-9_])" + code + r"(?![A-Z0-9_])", value)
+            for value in candidates))
+    except (ValueError, TypeError):
+        pass
+    return result
+
+
 class Client:
     def __init__(self, token, apply):
         self.token, self.apply = token, apply
         self.key_name = None
         self.desired = {}
         self.inspect_components = False
+        self.inspect_auth_only = False
         self.services = set()
         self.sdk_components, self.restrictions = {}, {}
         self.opener = urllib.request.build_opener(NoRedirect)
 
     def request(self, service, path, *, body=None, query=None):
+        if self.inspect_auth_only and (service != "auth" or body is not None):
+            stop("REQUEST_SCOPE_REJECTED")
         if self.inspect_components and (body is not None or service == "secrets"):
             stop("REQUEST_SCOPE_REJECTED")
         allowed = False
@@ -150,7 +183,12 @@ class Client:
                 stop("INVALID_API_RESPONSE")
             return data
         except urllib.error.HTTPError as error:
-            stop(service.upper() + "_HTTP_" + str(error.code) + "_RECONCILE")
+            failure = SystemExit("STOP: " + service.upper() + "_HTTP_" + str(error.code) + "_RECONCILE")
+            try:
+                failure.metadata = safe_error_metadata(error.read(65536))
+            except OSError:
+                failure.metadata = safe_error_metadata(b"")
+            raise failure
         except (ValueError, OSError):
             stop(service.upper() + "_REQUEST_UNCONFIRMED_RECONCILE")
 
@@ -262,12 +300,7 @@ def string_list(value):
     return value
 
 
-def inspect_components(client):
-    """GET-only evidence, never an instruction to create a missing resource."""
-    if client.apply or not client.inspect_components:
-        stop("INSPECTION_MODE_REQUIRED")
-    reads = []
-
+def component_reader(client, reads):
     def read(service, api, stage, action):
         if api not in client.services:
             emit(stage, outcome="NOT_QUERIED_API_NOT_ENABLED", read_succeeded=False)
@@ -281,7 +314,8 @@ def inspect_components(client):
             if match:
                 code = int(match[1])
                 outcome = {403: "PERMISSION_DENIED_REPORTED", 404: "NOT_FOUND_REPORTED"}.get(code, "HTTP_ERROR")
-                emit(stage, outcome=outcome, http_status=code, read_succeeded=False)
+                emit(stage, outcome=outcome, http_status=code, read_succeeded=False,
+                     **getattr(error, "metadata", safe_error_metadata(b"")))
             elif str(error) == "STOP: " + service.upper() + "_REQUEST_UNCONFIRMED_RECONCILE":
                 emit(stage, outcome="REQUEST_UNCONFIRMED", read_succeeded=False)
             else:
@@ -290,6 +324,15 @@ def inspect_components(client):
             return None
         reads.append(True)
         return data
+    return read
+
+
+def inspect_components(client):
+    """GET-only evidence, never an instruction to create a missing resource."""
+    if client.apply or not client.inspect_components:
+        stop("INSPECTION_MODE_REQUIRED")
+    reads = []
+    read = component_reader(client, reads)
 
     restrictions = client.restrictions
     browser = restrictions.get("browserKeyRestrictions", {})
@@ -333,6 +376,17 @@ def inspect_components(client):
             stop("DUPLICATE_LINKED_BUCKET_METADATA")
         emit("PREVIEW_FIREBASE_LINKED_BUCKETS", outcome="OK", inventory_complete=True,
              linked_buckets=names, sdk_bucket_linked=bucket in names, storage_configuration_verified=False)
+    inspect_auth(client, read)
+    emit("PREVIEW_V2_FIREBASE_COMPONENT_READ_COMPLETED_NO_MUTATION", project=PROJECT, app_id=APP_ID,
+         evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+         all_component_reads_succeeded=all(reads), cloud_mutation=False, secret_payload_access=False,
+         sdk_api_key_read=True, credential_values_printed=False, browser_configuration_ready=False,
+         application_deployed=False, floot_connected=False)
+
+
+def inspect_auth(client, read):
+    if client.apply or not client.inspect_components:
+        stop("INSPECTION_MODE_REQUIRED")
     config = read("auth", "identitytoolkit.googleapis.com", "PREVIEW_AUTH_CONFIG",
                   lambda: client.request("auth", PARENT + "/config", query={"fields": AUTH_FIELDS}))
     if config is not None:
@@ -359,11 +413,6 @@ def inspect_components(client):
                     or not isinstance(data.get("enabled", False), bool)):
                 stop("AUTH_PROVIDER_METADATA_MISMATCH")
             emit(stage, outcome="OK", enabled=data.get("enabled", False), login_flow_verified=False)
-    emit("PREVIEW_V2_FIREBASE_COMPONENT_READ_COMPLETED_NO_MUTATION", project=PROJECT, app_id=APP_ID,
-         evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-         all_component_reads_succeeded=all(reads), cloud_mutation=False, secret_payload_access=False,
-         sdk_api_key_read=True, credential_values_printed=False, browser_configuration_ready=False,
-         application_deployed=False, floot_connected=False)
 
 
 def version_one(data, name):
@@ -442,14 +491,25 @@ class Journal:
         os.replace(temporary, self.path)
 
 
-def run(apply=False, directory=None, inspect=False):
-    if apply and inspect:
+def run(apply=False, directory=None, inspect=False, auth_only=False):
+    if sum(bool(mode) for mode in (apply, inspect, auth_only)) > 1:
         stop("APPLY_AND_INSPECTION_ARE_EXCLUSIVE")
     os.umask(0o077)
     context = Journal(directory or Path.home() / "khedmah-preview-v2-firebase-config") if apply else contextlib.nullcontext()
     with context as journal:
         client = preflight(apply)
-        client.inspect_components = inspect
+        client.inspect_components = inspect or auth_only
+        client.inspect_auth_only = auth_only
+        if auth_only:
+            reads = []
+            inspect_auth(client, component_reader(client, reads))
+            emit("PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION", project=PROJECT,
+                 evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                 all_component_reads_succeeded=all(reads), cloud_mutation=False,
+                 secret_payload_access=False, sdk_api_key_read=False,
+                 credential_values_printed=False, login_flow_verified=False,
+                 application_deployed=False, floot_connected=False)
+            return
         values = verified_config(client)
         if inspect:
             inspect_components(client)
@@ -507,8 +567,9 @@ if __name__ == "__main__":
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true")
     mode.add_argument("--inspect-components", action="store_true", help="Read Storage, key restrictions and Auth metadata only")
+    mode.add_argument("--inspect-auth", action="store_true", help="Read only masked Auth metadata and sanitized failure codes")
     args = parser.parse_args()
     try:
-        run(args.apply, inspect=args.inspect_components)
+        run(args.apply, inspect=args.inspect_components, auth_only=args.inspect_auth)
     except (OSError, ValueError, TypeError, KeyError):
         stop("LOCAL_OR_METADATA_FAILURE_RECONCILE")

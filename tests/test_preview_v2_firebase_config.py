@@ -177,12 +177,89 @@ class ConfigurationTests(unittest.TestCase):
         self.directory = Path(self.temp.name) / "journal"
         self.cloud, self.output = Cloud(), io.StringIO()
 
-    def run_helper(self, apply=True, inspect=False):
+    def run_helper(self, apply=True, inspect=False, auth_only=False):
         with patch.dict(m.os.environ, {}, clear=True), patch.object(m.subprocess, "run", self.cloud.gcloud), \
                 patch.object(m.urllib.request, "build_opener", return_value=self.cloud), contextlib.redirect_stdout(self.output):
-            m.run(apply, self.directory, inspect=inspect)
+            m.run(apply, self.directory, inspect=inspect, auth_only=auth_only)
         self.assertNotIn("DO_NOT_PRINT", self.output.getvalue())
         return [json.loads(line) for line in self.output.getvalue().splitlines()]
+
+    def test_auth_only_reads_three_masked_configs_without_keys_secrets_or_journal(self):
+        self.cloud.services.append("identitytoolkit.googleapis.com")
+        rows = self.run_helper(False, auth_only=True)
+        self.assertEqual(len(self.cloud.calls), 3)
+        for method, url, body in self.cloud.calls:
+            self.assertEqual(method, "GET")
+            self.assertEqual(urllib.parse.urlsplit(url).netloc, "identitytoolkit.googleapis.com")
+            self.assertIsNone(body)
+        self.assertEqual(rows[-1]["stage"], "PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION")
+        self.assertTrue(rows[-1]["all_component_reads_succeeded"])
+        self.assertFalse(rows[-1]["sdk_api_key_read"])
+        self.assertFalse(rows[-1]["secret_payload_access"])
+        self.assertFalse(rows[-1]["login_flow_verified"])
+        self.assertFalse(self.directory.exists())
+
+    def test_auth_only_missing_api_is_reported_without_enablement_or_http(self):
+        rows = self.run_helper(False, auth_only=True)
+        self.assertEqual(self.cloud.calls, [])
+        self.assertEqual([r["outcome"] for r in rows[:-1]], ["NOT_QUERIED_API_NOT_ENABLED"] * 3)
+        self.assertFalse(rows[-1]["all_component_reads_succeeded"])
+
+    def test_auth_only_distinguishes_structured_missing_config_denial_and_html(self):
+        self.cloud.services.append("identitytoolkit.googleapis.com")
+        responses = [(404, {"error": {"status": "NOT_FOUND", "message": "CONFIGURATION_NOT_FOUND"}}),
+                     (403, {"error": {"status": "PERMISSION_DENIED", "details": [
+                         {"reason": "SERVICE_DISABLED", "metadata": {"secret": "DO_NOT_PRINT"}}]}}),
+                     (404, None)]
+        def fail(request, timeout):
+            status, payload = responses.pop(0)
+            body = json.dumps(payload).encode() if payload else b"<html>DO_NOT_PRINT</html>"
+            raise urllib.error.HTTPError(request.full_url, status, "DO_NOT_PRINT", {}, io.BytesIO(body))
+        self.cloud.open = fail
+        rows = self.run_helper(False, auth_only=True)
+        self.assertEqual(rows[0]["recognized_error_codes"], ["CONFIGURATION_NOT_FOUND"])
+        self.assertEqual(rows[0]["error_status"], "NOT_FOUND")
+        self.assertEqual(rows[1]["recognized_error_codes"], ["SERVICE_DISABLED"])
+        self.assertEqual(rows[1]["http_status"], 403)
+        self.assertFalse(rows[2]["structured_error"])
+        self.assertEqual(rows[2]["recognized_error_codes"], [])
+        self.assertFalse(rows[-1]["all_component_reads_succeeded"])
+        self.assertEqual(self.cloud.mutations(), [])
+
+    def test_error_metadata_never_echoes_unknown_messages_or_sensitive_details(self):
+        detail = {"error": {"status": "DO_NOT_PRINT", "message": "DO_NOT_PRINT_ACCESS_TOKEN",
+            "details": [{"reason": "DO_NOT_PRINT", "message": "PERMISSION_DENIED: DO_NOT_PRINT"}]}}
+        safe = m.safe_error_metadata(json.dumps(detail).encode())
+        self.assertEqual(safe["error_status"], "UNKNOWN")
+        self.assertEqual(safe["recognized_error_codes"], ["PERMISSION_DENIED"])
+        self.assertNotIn("DO_NOT_PRINT", json.dumps(safe))
+        for raw in (b"not-json", b"[]", b'{"error":null}', b'{"error":{"status":[]}}'):
+            self.assertNotIn("DO_NOT_PRINT", json.dumps(m.safe_error_metadata(raw)))
+
+    def test_auth_only_transport_rejects_other_services_writes_and_foreign_paths(self):
+        client = m.Client(TOKEN, False)
+        client.inspect_components = True
+        client.inspect_auth_only = True
+        for service, path, body in (("secrets", m.SM_PARENT + next(iter(m.FIELDS)), None),
+                                   ("firebase", m.PARENT, None),
+                                   ("keys", m.KEY_PARENT, None),
+                                   ("auth", "projects/khedma-dl/config", None),
+                                   ("auth", m.PARENT + "/config", {"signIn": {}})):
+            with self.subTest(service=service, path=path), self.assertRaisesRegex(SystemExit, "REQUEST_SCOPE_REJECTED"):
+                client.request(service, path, body=body, query={"fields": m.AUTH_FIELDS})
+
+    def test_auth_only_wrong_project_stops_before_token_or_http(self):
+        self.cloud.gcp_id = "khedma-dl"
+        with self.assertRaisesRegex(SystemExit, "PROJECT_IDENTITY_MISMATCH"):
+            self.run_helper(False, auth_only=True)
+        self.assertEqual(self.cloud.calls, [])
+        self.assertFalse(any(c[1:3] == ["auth", "print-access-token"] for c in self.cloud.commands))
+
+    def test_auth_only_cannot_be_combined_with_other_modes(self):
+        for apply, inspect in ((True, False), (False, True)):
+            with self.assertRaisesRegex(SystemExit, "EXCLUSIVE"):
+                self.run_helper(apply, inspect=inspect, auth_only=True)
+        self.assertEqual(self.cloud.commands, [])
 
     def test_plan_is_read_only_and_optional_fields_are_not_fabricated(self):
         rows = self.run_helper(False)
