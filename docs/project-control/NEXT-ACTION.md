@@ -1,6 +1,41 @@
 # Next Safe Action — Khedmah
 
-## Next owner operation — stage the verified Storage bucket identifier — 2026-10-13
+## Next read — focused Auth diagnosis after six-value staging — 2026-10-13
+
+Storage staging completed at `2026-10-13T08:00:08.427498+00:00`: `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:1`, created and exact value verified, PAP enforced, UBLA enabled, no payload printed. [CURRENT-STATE](CURRENT-STATE.md) preserves this and the earlier five core values. The previous Storage staging command below is historical; do not repeat it.
+
+The prior Auth config and Google/Facebook provider reads returned HTTP 404 without structured error details. Both paths match the official API reference. A 404 alone is not proof of absent Auth initialization and does not authorize a create/upgrade/provider mutation. This next read adds diagnostic evidence that the earlier helper discarded.
+
+Implementation `f86108bb710654c7798eab261f902b96483d77b6`: existing `scripts/configure-preview-v2-firebase.py`, new mutually exclusive `--inspect-auth` mode.
+Blob `5957e5748e3e605a0681c9725fb1837c39f62b01`; SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`.
+
+After fixed account/project/organization and enabled-API metadata preflight, the mode makes exactly three allowed GETs when Identity Toolkit is enabled: masked project config, masked Google provider, masked Facebook provider. The success projection includes authorized domains and local sign-in flags; provider fields are only name/enabled. Scope guards reject other HTTP services, foreign paths and bodies in this mode. It does not read SDK/API-key values, Secret Manager payloads or users; create a journal; enable an API; initialize Auth; update providers/domains/key restrictions; alter billing; or deploy anything.
+
+Failures report HTTP status, `structured_error`, a recognized `error_status`, and allowlisted `recognized_error_codes` such as CONFIGURATION_NOT_FOUND, SERVICE_DISABLED or IAM_PERMISSION_DENIED. Unknown/raw messages and arbitrary details are never echoed. HTML/non-JSON 404 remains unstructured/unknown; malformed success/namespace data stops. Individual HTTP failures remain unresolved while the other independent reads finish.
+
+```bash
+(
+set -euo pipefail
+umask 077
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+khedmah_auth_read_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_auth_read_script"' EXIT
+gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/5957e5748e3e605a0681c9725fb1837c39f62b01 --jq '.content' | base64 --decode > "$khedmah_auth_read_script"
+printf '%s  %s\n' '01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47' "$khedmah_auth_read_script" | sha256sum --check --status
+python3 "$khedmah_auth_read_script" --inspect-auth
+)
+```
+
+Return all JSON/error output, including failures. Final `PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION` is an execution marker, **not** login readiness. The helper emits `all_component_reads_succeeded`; no live read has been executed here.
+
+Reconcile next from actual evidence: distinguish a structured missing-config result from permission/API/network/route uncertainty. If config exists, review its providers/domains; if initialization is confirmed absent, prepare the exact Preview-only setup separately without an automatic Identity Platform upgrade. Preserve the current account; no repeat unchanged denial, identity switch or blanket role grant. Actual login/session/CORS/CSRF tests and precise browser-referrer restrictions remain later acceptance work.
+
+Validation: 33 mocked Python cases (26 existing plus 7 new) pass through the existing Node wrapper; Python compilation and launcher Bash syntax pass. Only the existing helper/test and five Markdown checkpoints change. No new full CI, merge, workflow dispatch or cloud mutation. Source/checkpoint `[skip ci]` preserves the deployment holds. Maps/mail, schema/runtime grants, current-source full checks, held Preview deployment and Floot acceptance remain pending.
+
+References: [project Auth config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/getConfig), [provider config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects.defaultSupportedIdpConfigs/get).
+
+## Completed owner operation — historical Storage identifier staging — 2026-10-13
 
 Owner PAP enforcement/readback is complete, received `2026-10-13T10:48:47+03:00`: exact bucket/project/region, `publicAccessPrevention="enforced"`, UBLA enabled. The previous PAP update below is historical and must not be repeated as the next step.
 

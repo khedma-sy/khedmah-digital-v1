@@ -1,6 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Storage PAP completed; identifier staging next — 2026-10-13
+## Storage configuration completed; focused Auth diagnosis next — 2026-10-13
+
+Owner `PREVIEW_V2_STORAGE_CONFIG_STAGED` at `2026-10-13T08:00:08.427498+00:00` verifies `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:1`, created=true, value_verified=true, enforced PAP and enabled UBLA. All six required Firebase values now have staging evidence across the preserved checkpoints. Do not repeat setup or staging. Full IAM/data-plane, runtime/deployment and Floot acceptance remain separate pending gates.
+
+Continue from [CURRENT-STATE](docs/project-control/CURRENT-STATE.md) and [NEXT-ACTION](docs/project-control/NEXT-ACTION.md): pinned GET-only `--inspect-auth`, implementation `f86108bb710654c7798eab261f902b96483d77b6`, to recover sanitized structured failure details omitted by the earlier 404-only reads. Exactly three masked Auth/provider GETs when enabled; no key/secret/user payload, journal, API activation, Auth initialization/upgrade or cloud mutation. Prepared, not live-executed.
+
+Thirty-three mocked Python cases passed via the existing Node wrapper; compilation and launcher syntax passed. Changes are the existing Firebase helper/test plus the same five checkpoints. `[skip ci]`; no fresh full CI, merge, deployment or Production change. Review actual Auth error/config evidence before any setup mutation, then continue the established remaining gates.
+
+## Historical checkpoint — Storage PAP completed; identifier staging then pending — 2026-10-13
 
 Owner raw readback received `2026-10-13T10:48:47+03:00` verifies enforced public access prevention, enabled UBLA and exact replacement bucket/project/EUROPE-WEST1. Receipt time is not operation time. Do not repeat creation, rules/API setup, anonymous probes or the PAP update as pending work.
 
