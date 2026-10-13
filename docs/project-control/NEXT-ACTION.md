@@ -1,6 +1,44 @@
 # Next Safe Action — Khedmah
 
-## Next owner operation — bucket-only public access prevention — 2026-10-13
+## Next owner operation — stage the verified Storage bucket identifier — 2026-10-13
+
+Owner PAP enforcement/readback is complete, received `2026-10-13T10:48:47+03:00`: exact bucket/project/region, `publicAccessPrevention="enforced"`, UBLA enabled. The previous PAP update below is historical and must not be repeated as the next step.
+
+[CURRENT-STATE](CURRENT-STATE.md) records the configuration-gate review. Prior verified SDK identity, bucket/linkage, deny-all source and direct-public-binding evidence, the denied anonymous probes, and enforced PAP support **identifier staging only**. This does not certify all authenticated/inherited IAM, every data-plane operation, application deployment or Floot acceptance.
+
+Implementation: `b743db65156947f352c6621b4ebd47973b835fef`, `scripts/stage-preview-v2-storage-config.py`.
+Blob: `6adc4db33fa42ba4f4745179936b513f0f078fa5`.
+SHA-256: `717aa80127ece34f2a92a2de6e492999a0336de6d3339e2ac4a6699390c70914`.
+
+The helper pins project `khedmah-preview-v2-20261012`, number `1044962071847`, management account `haifawi30@gmail.com` and organization `594049370623`; rejects auth overrides; checks the bucket's exact identity, region, enforced PAP and UBLA; and requires the existing `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` container. It can add only its first version with the verified bucket name, then compare the exact readback bytes without printing them. It reads no other secret payload.
+
+An existing enabled matching version 1 is verified without writing. Different values, multiple/disabled versions, missing metadata, permission errors or wrong target/protection stop. No placeholders, overwrite, rotation, IAM grant, Auth setup, API activation, bucket/rules change, other Firebase secret write, database action or deployment is included.
+
+A private local marker under `$HOME/khedmah-preview-v2-storage-config/version-attempt.json` records an attempted write without its value. Exclusive creation prevents overlapping local writers and blind retries after an uncertain response. Secret Manager addVersion has no CAS guard; keep other cloud writers serialized. If it stops, return the marker/error and output; do not delete the marker or force another write. An already visible matching version can be verified on a later reviewed retry without adding another.
+
+```bash
+(
+set -euo pipefail
+umask 077
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+khedmah_storage_config_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_storage_config_script"' EXIT
+gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/6adc4db33fa42ba4f4745179936b513f0f078fa5 --jq '.content' | base64 --decode > "$khedmah_storage_config_script"
+printf '%s  %s\n' '717aa80127ece34f2a92a2de6e492999a0336de6d3339e2ac4a6699390c70914' "$khedmah_storage_config_script" | sha256sum --check --status
+python3 "$khedmah_storage_config_script" --apply
+)
+```
+
+Expected final stage: `PREVIEW_V2_STORAGE_CONFIG_STAGED`, `version="1"`, `value_verified=true`. Until the owner returns that result, the sixth value remains **not staged**. The helper has not run on Google Cloud here. Preserve database credentials and the five Firebase core values.
+
+Validation: 10 new mocked Python cases plus 15 existing Storage cases passed via two Node wrappers; compilation and Bash launcher syntax passed. Cases cover foreign targets, missing PAP/UBLA, conflict/disabled versions, different values, denied inventory, uncertain writes/retries and exact stdin-only payload scope. No live write, full CI, merge or workflow dispatch. Source and checkpoint use `[skip ci]` to preserve deployment holds.
+
+After successful readback, continue with the unresolved Auth configuration/provider response diagnosis and exact browser-origin restrictions, then Maps/mail, schema/runtime grants, current-source full CI, held Preview deployment and Floot acceptance. Do not declare all Storage usage or login ready from configuration staging.
+
+References: [add a version from stdin](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/add), [raw bucket metadata](https://docs.cloud.google.com/sdk/gcloud/reference/storage/buckets/describe).
+
+## Completed owner operation — historical bucket-only public access prevention — 2026-10-13
 
 The access read is complete: `booleanPolicy: {}` for `constraints/storage.publicAccessPrevention`, Firebase anonymous list **403**, GCS anonymous list **401**. Received at `2026-10-13T10:38:31+03:00`; no operation timestamp was emitted. The terminal echo is interleaved, but the final structured results and completion marker are complete. Do not repeat this same read merely to obtain a cleaner echo.
 

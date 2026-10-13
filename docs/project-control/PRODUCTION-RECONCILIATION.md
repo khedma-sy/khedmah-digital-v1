@@ -1,6 +1,14 @@
 # Production reconciliation — evidence before an operation
 
-## Storage access read received; bucket setting next — 2026-10-13
+## Storage PAP completed; identifier staging next — 2026-10-13
+
+Owner raw readback received `2026-10-13T10:48:47+03:00` verifies enforced public access prevention, enabled UBLA and exact replacement bucket/project/EUROPE-WEST1. Receipt time is not operation time. Do not repeat creation, rules/API setup, anonymous probes or the PAP update as pending work.
+
+The narrow configuration gate review is in [CURRENT-STATE](CURRENT-STATE.md). Next is the pinned single-secret helper in [NEXT-ACTION](NEXT-ACTION.md), implementation `b743db65156947f352c6621b4ebd47973b835fef`: stage only the verified Storage bucket identifier in its existing configuration secret and verify version 1 without printing payloads. Matching existing value is read-only; conflicts/uncertain attempts stop. Full effective IAM/data-plane/application acceptance remains separate. The helper is prepared, not executed.
+
+Ten new plus fifteen existing mocked Python cases passed through two Node wrappers; compilation and launcher syntax passed. This pass adds the helper and its Python tests, extends the existing wrapper, and updates the same five checkpoints. `[skip ci]`, no live secret write, full CI, merge, deployment or Production mutation. After owner staging evidence, continue Auth/referrer diagnosis and the established remaining gates.
+
+## Historical checkpoint — Storage access read; bucket setting then pending — 2026-10-13
 
 Owner evidence received `2026-10-13T10:38:31+03:00`: effective `storage.publicAccessPrevention` returned `booleanPolicy: {}` (not enforced); anonymous Firebase list **403** and GCS list **401**. The receipt time is not an operation timestamp. Both sampled anonymous requests were denied; full effective IAM, all data-plane operations and application readiness remain unverified.
 

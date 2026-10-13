@@ -4,6 +4,16 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
+### Storage public access prevention completed — received 2026-10-13, 10:48:47 Asia/Damascus
+
+Owner output contains `Completed 1`, the complete raw bucket readback and `STORAGE_PAP_UPDATE_AND_READBACK_FINISHED_NOT_A_READINESS_VERDICT`. Receipt time is not the cloud operation timestamp. The terminal echo is interleaved; the completed result is authoritative evidence.
+
+- Exact bucket `khedmah-preview-v2-20261012.firebasestorage.app`, project number `1044962071847`, location `EUROPE-WEST1`; `publicAccessPrevention="enforced"`, UBLA and bucketPolicyOnly both enabled. The lock boundary remains `2027-01-11T07:22:44.139Z`. Do not repeat the PAP update, bucket creation, rules release or API activation.
+- **Configuration gate review:** exact SDK/bucket identity, Firebase linkage, deny-all source, direct public-binding check, sampled anonymous denial, and now enforced public-access prevention are sufficient to store the already verified bucket **identifier** in its existing configuration secret. This action grants no Storage access or application release. Full authenticated/inherited IAM and all object/read/write acceptance are still unverified; the narrow configuration decision does not certify them or remove runtime/deployment gates.
+- **Next prepared owner operation:** checksum-pinned `scripts/stage-preview-v2-storage-config.py --apply`, implementation `b743db65156947f352c6621b4ebd47973b835fef`. It rechecks the exact project/account/bucket, enforced PAP/UBLA and the existing secret container. Only `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` version 1 may be created and payload-verified in memory. Existing matching version 1 is read-only; conflicting/disabled/multiple versions stop without rotation.
+- The local exclusive attempt marker prevents same-host concurrent creation and blind retries after an uncertain write. Other cloud writers remain serialized. No core Firebase values, Auth, Maps/mail, IAM, rules, APIs, SQL, workflows or Production are changed. The helper is prepared, **not executed**.
+- Validation: 10 new mocked Python cases and the existing 15 Storage cases passed through two Node wrappers; Python compilation and launcher Bash syntax passed. No live secret write or new full CI. Source/test changes are limited to the new helper, its Python tests and the existing Node wrapper; the same five checkpoints record the result.
+
 ### Storage access read completed — received 2026-10-13, 10:38:31 Asia/Damascus
 
 The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VERDICT` result. The interleaved terminal echo does not override its complete structured output. This is owner-run evidence; the receipt time is not a cloud operation timestamp.
@@ -11,7 +21,7 @@ The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VE
 - Effective constraint: `constraints/storage.publicAccessPrevention`, `booleanPolicy: {}`. This is the false/not-enforced boolean representation, consistent with Google's documented disable-enforce example; it is not an authorization error or proof of public access.
 - Anonymous Firebase list returned **403**; anonymous GCS list returned **401**. Both sampled requests were denied. This closes the requested anonymous-list observation only; it does not establish every object/read/write path, authenticated/inherited IAM, or why the request was denied.
 - Together with the earlier bucket setting `inherited`, this shows that public access prevention is not currently enforced for this bucket. Preserve the separately verified deny-all rule source and absence of direct public bucket bindings.
-- **Next bounded mutation, prepared but not executed:** set public access prevention to `enforced` on `khedmah-preview-v2-20261012.firebasestorage.app` only, then read back its exact identity and raw IAM configuration. The command is in [NEXT-ACTION](NEXT-ACTION.md). It changes no organization/project-wide policy, IAM membership, rules, API, secrets, database or deployment.
+- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with bucket-name configuration staging in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
 - Do not rerun Storage creation or the completed unchanged policy/probe batch. The sixth Storage value remains unstaged. Full effective IAM and application/data-plane acceptance remain separately unverified; this property update cannot certify them or authorize deployment.
 
 ### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
@@ -22,7 +32,7 @@ Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-
 - Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
 - **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
 - **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
-- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. Continue with the bucket-only public-access-prevention update in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
+- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with identifier staging in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
 
 
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
@@ -43,7 +53,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `b82b2406d4b4f8c7f325860e8848c14700ff8b06`. Its exact-head Actions inventory returned zero; the latest repository runs remain the previously recorded full-source checks and held Preview run. The present change is documentation only, with `[skip ci]`; it does not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `e409b9cd7e2e6d6d714c1d1d258c606529207d25`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `b743db65156947f352c6621b4ebd47973b835fef` adds the bounded Storage configuration helper with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -60,13 +70,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Firebase project and WebApp | Registered WebApp `1:1044962071847:web:919c294e1cd5ed37374502`; SDK/project/key association verified. Do not repeat Firebase addition or WebApp registration. |
 | Five Firebase configuration values | Owner `PREVIEW_V2_FIREBASE_CORE_CONFIG_STAGED` at `2026-10-12T17:41:53.457370+00:00`: API_KEY, AUTH_DOMAIN, PROJECT_ID, MESSAGING_SENDER_ID and APP_ID under the existing NEXT_PUBLIC_FIREBASE names, all enabled version 1. Do not restage them. |
 | Firebase Storage provisioning | Owner completion at `2026-10-13T07:22:50.206618+00:00`: default bucket in EUROPE-WEST1, Firebase linkage, deny-all source, UBLA and no direct public bindings verified. No repeat creation. |
+| Storage public-access prevention | Owner raw readback received `2026-10-13T10:48:47+03:00`: enforced on the exact replacement bucket, UBLA enabled. No repeat PAP mutation. Full IAM/application acceptance is separate. |
 | Storage public-access observation | Owner result received `2026-10-13T10:38:31+03:00`: effective boolean policy empty/not enforced; Firebase anonymous list 403 and GCS list 401. No full IAM or readiness conclusion. |
 | Component inspection | Owner GET-only inspection at `2026-10-12T18:01:56.779959+00:00` completed. Do not request the unchanged inspection again as though its output were missing. |
 
 ### Actual continuation and remaining work
 
-1. **Next:** enforce public access prevention on the exact replacement default bucket and read back the result using [NEXT-ACTION](NEXT-ACTION.md). The access read is complete; its effective policy was not enforced and both anonymous list requests were denied. This next operation is a bucket-only configuration mutation, not a repeat read, creation or secret write.
-2. Bucket identity/region, Firebase linkage, direct bucket bindings and deny-all source are verified. Complete the remaining effective-access/propagation review before staging the sixth configuration value. Browser referrers were empty; Auth/provider reads returned 404 without structured reasons. Their readiness is unresolved; 404 alone does not authorize reinitialization.
+1. **Next:** stage and verify only the bucket-name configuration value using the pinned helper in [NEXT-ACTION](NEXT-ACTION.md). Public access prevention enforcement and readback are complete. Existing five core Firebase values remain untouched.
+2. The narrow identifier-staging gate review is documented above; it relies on verified bucket/linkage/rule-source evidence and enforced PAP, not a claim of full effective IAM or all data-plane operations. After successful version-1 readback, continue with bounded Auth diagnosis: previous config/provider reads returned 404 without structured reasons and browser referrers were empty. Their readiness is unresolved; 404 alone does not authorize reinitialization.
 3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. No new product scope is introduced.
 4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
 
@@ -74,7 +85,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Storage step is owner-operated in Cloud Shell under the established account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
 
-After the bucket-setting result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
+After the Storage-configuration result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
