@@ -1,24 +1,28 @@
 # Next Safe Action — Khedmah
 
-## Maps secret verified; single Preview Auth domain prepared — 2026-10-13
+## Preview Auth domain verified; Firebase key referrers prepared — 2026-10-13
 
-Owner `PREVIEW_V2_MAPS_CONFIG_STAGED` receipt at **`2026-10-13T15:25:14.433875+00:00`**, received `2026-10-13T18:26:18+03:00`, verifies **`GOOGLE_MAPS_BROWSER_API_KEY:1`** in `khedmah-preview-v2-20261012`: `created=true`, `value_verified=true`, `key_restrictions_verified=true`, `maps_javascript_api_enabled=true`, with no key/secret payload printed. Preflight reported no enabled version 1 before staging. **Maps creation and secret staging are completed; do not recreate, rotate or stage again.**
+Owner `PREVIEW_V2_AUTH_DOMAIN_CONFIGURED` receipt at **`2026-10-13T15:45:50.160431+00:00`**, received `2026-10-13T18:49:36+03:00`, confirms the reviewed Preview hostname is already in Firebase Auth's four authorized domains. **`changed=false` means this invocation verified existing state without PATCHing it; it does not establish when or by whom the earlier addition occurred.** Google is enabled, selected local sign-in settings are unchanged, and no credential output or Secret Manager payload access occurred. Do not repeat domain addition, Auth initialization or Google enablement.
 
-Key identity remains `projects/1044962071847/locations/global/keys/khedmah-preview-v2-maps-browser`, UID `6fad46fb-229e-403e-8f60-530b4ab9c1ae`; Maps JavaScript only with exact planned referrer `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`. Creation at `2026-10-13T15:03:52.070082Z` and restriction readback are preserved. The origin is planned, not observed deployed: the new receipt explicitly leaves deployed-origin verification, map rendering, application deployment and Floot connection false.
+Verified domains: `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, `khedmah-preview-v2-20261012.web.app`, and `khedmah-pr-274-frontend-1044962071847.europe-west1.run.app`. The receipt leaves deployed origin, login flow, application deployment and Floot unverified. Its `firebase_key_referrers_configured=false` is the Auth helper's conservative scope flag, **not a fresh API-key read**. Earlier actual key metadata showed an empty referrer list and 27 API targets.
 
-Completed staging implementation `18d09817627930da767ca98e021584912a0f5392`, helper blob `cc503f687a28ed032279f9b51f3a7280fee38dd8`, SHA-256 `72bad320f49e80a3cac8b1c6d428abcfc3331cb336fc1688138916bcf89285a3`, retains 18 focused offline tests. Preserve the Maps loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` removing only unused legacy Places (two focused Web map tests). The earlier gcloud creation operation unexpectedly printed its keyString; the metadata-only claim was incorrect. Do not copy that payload, prefix/suffix or fingerprint into repository, tests, PR text or replies, and do not replay the old creation command. The staging helper captured both subprocess streams and the owner receipt confirms no payload output.
+Completed Auth-domain implementation `5e0f7d326508f41e94104e8bdb1fa291b2e5e211`, blob `f9225ca16408bf05ce2459cfcdf570045b34a1a4`, SHA-256 `8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e`, retains 20 offline tests; owner readback now confirms its configuration prerequisite. Actual Google popup/token/session acceptance remains pending.
 
-**Next safe action:** owner runs the pinned [Auth-domain launcher](NEXT-ACTION.md) once. New helper adds only `khedmah-pr-274-frontend-1044962071847.europe-west1.run.app` to the existing Firebase Auth authorized domains for the fixed replacement project. It freshly verifies account/project/organization, standard FIREBASE_AUTH identity, Google enabled and exact existing domains. The three preserved domains are `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, and `khedmah-preview-v2-20261012.web.app`. An unexpected/missing/duplicate domain causes a stop instead of overwriting. If the reviewed fourth domain already exists, it verifies without a PATCH.
+**Next safe action:** run the pinned [Firebase referrer launcher](NEXT-ACTION.md) for existing key `projects/1044962071847/locations/global/keys/fdae1cd2-64ce-49ec-a426-ed46120083e9`. It freshly verifies account/project/organization, standard Auth, the four domains and Google enabled, then exact key resource/UID/etag, browser restriction type and the complete observed 27-service allowlist. Only empty referrers permit an update; exact intended state verifies without writing. Unexpected services, methods, referrers, key binding or identity cause a stop.
 
-The only write is the documented Auth config PATCH with `updateMask=authorizedDomains`; its body contains exactly the preserved three domains plus the planned host. A fresh pre-write read rejects observed changes, and post-write reads verify the final domain set, unchanged selected local sign-in settings and Google still enabled. Config exposes no etag: this is not atomic compare-and-swap, so serialize other Auth Console/API writers. A STOP or uncertain response requires reading/reconciling current state before another operation. No API-key restrictions, Auth provider, authDomain SDK value, secret, API, IAM, schema or workflow setting is modified by this helper.
+Reviewed scope is exactly two HTTPS origins: the planned PR #274 frontend and `khedmah-preview-v2-20261012.firebaseapp.com`, the existing default OAuth helper domain. Each uses the bare origin and its `/*` path pattern, following Google's matching guidance. No wildcard subdomain, other PR, Production, localhost or `web.app` browsing origin is included. Auth's existing localhost/web.app entries remain unchanged; this key is for Preview browsing, not local browsing or a separate Hosting application.
 
-Implementation **`5e0f7d326508f41e94104e8bdb1fa291b2e5e211`**, `scripts/configure-preview-v2-auth-domain.py`; blob `f9225ca16408bf05ce2459cfcdf570045b34a1a4`; SHA-256 `8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e`. **20 mocked Python tests passed** plus the Node wrapper, Python syntax and published helper byte readback. Tests cover exact mutation scope, preserved domains/settings, existing-domain verify-only behavior, project/provider/domain conflicts, concurrent-change detection, uncertain writes, readback failures, transport redaction and redirect refusal. These are offline checks; no owner Auth-domain execution or fresh full CI is claimed.
+The single API Keys PATCH uses `updateMask=restrictions`, copies the existing API targets and empty method restrictions unchanged, sets the four reviewed patterns, and includes the freshly read `etag` to reject stale writes. It waits for the returned operation, then re-reads key identity/restrictions and Auth prerequisites. Only validated operation name and selected metadata are emitted. No `getKeyString`, secret payload read, key creation/rotation or API enablement occurs. Errors/conflicts/polling timeout stop without automatic write retries or rollback; reconcile the operation/current metadata before retrying.
 
-Preserve `RESEND_API_KEY:1` verified at `2026-10-13T10:49:53.792297+00:00`, all six Firebase values, Storage/PAP, project/infra/database credentials, WIF, standard Auth and Google enablement. Firebase browser-key referrers remain separately pending; preserve its existing Firebase API allowlist and keep Maps on its own key. Actual deployed URL, backend CORS/CSRF, schema/runtime grants, current-source full checks, login/session, Maps rendering, mail scope/delivery and Floot acceptance remain open. Adding a domain is configuration evidence only and does not release Preview deployment/cleanup holds or any Production gate.
+Implementation **`9137cf0c8126a8a8f4430f0df1432bf61f78a51e`**, `scripts/configure-preview-v2-firebase-referrers.py`; blob `8a8093e2e0e599fdec8fa279bb2534e27d9e9ac7`; SHA-256 `57f9414bb63b09cf76947e74e676d69b8bcf549749d834e864cb8abffd71a931`. **21 offline Python tests passed**, plus Node wrapper, Python syntax/whitespace and published helper byte readback. Coverage includes API/referrer scope, etag carriage, prerequisites, unexpected metadata, configured no-write behavior, operation completion/errors/timeouts, no write retry, readback conflicts, service-order/default-method normalization and redaction/redirect refusal. The referrer change has not been owner-executed; no fresh full CI or browser acceptance is claimed.
 
-Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at inspected parent `f5fc18759b3afdd235722102eadd0ee0229810cf`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is deliberately held. This pass adds the helper and its Python/Node tests and updates these same five checkpoints with `[skip ci]`; no workflow dispatch, merge, assistant cloud execution, email send or Production mutation.
+Preserve Maps `GOOGLE_MAPS_BROWSER_API_KEY:1` at `2026-10-13T15:25:14.433875+00:00` (value, exact restrictions and Maps JavaScript enabled verified; no payload printed), Resend `RESEND_API_KEY:1` at `2026-10-13T10:49:53.792297+00:00`, six Firebase values, Storage/PAP, project/infra/database credentials and WIF. Maps creation/staging are complete; do not replay them. Maps loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` retains two focused tests; staging implementation `18d09817627930da767ca98e021584912a0f5392` retains 18. The earlier Maps create output exposed keyString despite intended suppression: never retain/reprint that payload, prefix/suffix or fingerprint. Keep Maps on its separate restricted key.
 
-Run this complete command in Cloud Shell. It downloads reviewed source only, validates its immutable SHA-256 and runs the narrowly scoped helper. No key or credential input is requested; the access token stays in memory and all subprocess output/errors are captured.
+Actual canonical frontend URL, backend CORS/CSRF, schema/runtime grants, current-source full checks, popup/session, Maps rendering, mail scope/delivery and Floot remain open. Metadata readback will not establish restriction propagation or browser acceptance. Preview deployment/cleanup holds and all Production gates remain. No shared mail setting change, domain transfer, email send or workflow release follows from this receipt.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at inspected parent `4cbeb50d41e03ddb9291dc935e0d8c3d5e198f69`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is deliberately held. This pass adds the helper and Python/Node tests, updates the same five checkpoints with `[skip ci]`, and does not dispatch, merge, execute cloud operations or mutate Production.
+
+Run this complete command in Cloud Shell. Although the prompt may display `khedma-dl`, every gcloud call and REST resource is explicitly pinned to the replacement project/account. The launcher downloads reviewed source and checks its immutable SHA-256. No credential or key input is requested.
 
 ```bash
 (
@@ -28,26 +32,37 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=true
 export CLOUDSDK_CORE_LOG_HTTP=false
 export CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true
 
-khedmah_auth_domain_script="$(mktemp)"
-trap 'rm -f -- "$khedmah_auth_domain_script"' EXIT
+khedmah_firebase_referrers_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_firebase_referrers_script"' EXIT
 
 gh api --hostname github.com \
-  repos/khedma-sy/khedmah-digital-v1/git/blobs/f9225ca16408bf05ce2459cfcdf570045b34a1a4 \
-  --jq '.content' | base64 --decode > "$khedmah_auth_domain_script"
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/8a8093e2e0e599fdec8fa279bb2534e27d9e9ac7 \
+  --jq '.content' | base64 --decode > "$khedmah_firebase_referrers_script"
 
 printf '%s  %s\n' \
-  '8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e' \
-  "$khedmah_auth_domain_script" | sha256sum --check --status
+  '57f9414bb63b09cf76947e74e676d69b8bcf549749d834e864cb8abffd71a931' \
+  "$khedmah_firebase_referrers_script" | sha256sum --check --status
 
-python3 "$khedmah_auth_domain_script" --apply
+python3 "$khedmah_firebase_referrers_script" --apply
 )
 ```
 
-Return only the final `PREVIEW_V2_AUTH_DOMAIN_CONFIGURED` JSON or sanitized STOP code. Success must identify the replacement project, show exactly four authorized domains, unchanged local sign-in settings and Google enabled. `changed=false` is valid when the domain was already present. The receipt intentionally does not certify Firebase API-key referrers, actual login, deployed origin, application deployment or Floot.
+Exact `allowedReferrers` prepared for the Firebase browser key:
 
-Keep other Auth Console/API writers idle during the command because the config API has no etag. If execution stops after PATCH begins, reconcile with a read before retrying; no rollback or provider change follows automatically. After a confirmed receipt, reconcile Firebase browser-key referrers while preserving required API targets, then the remaining backend/schema/full-CI/Preview release gates.
+- `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app`
+- `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`
+- `https://khedmah-preview-v2-20261012.firebaseapp.com`
+- `https://khedmah-preview-v2-20261012.firebaseapp.com/*`
 
-References: [Auth config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/getConfig), [single-field config PATCH](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/updateConfig), [Google sign-in and authorized domains](https://firebase.google.com/docs/auth/web/google-signin), [Firebase API key guidance](https://firebase.google.com/docs/projects/api-keys).
+Source reviewed: `apps/frontend/lib/firebase/config.ts` consumes staged browser settings; `apps/frontend/lib/firebase/auth.ts` uses Google `signInWithPopup`. The selected firebaseapp.com origin supports the existing default OAuth helper. No custom authDomain or staged SDK value change is included. The planned frontend URL remains subject to actual deployment verification; the separate Maps key is outside this operation.
+
+Return final `PREVIEW_V2_FIREBASE_REFERRERS_CONFIGURED` JSON or sanitized STOP plus validated operation name if emitted. Success must show the exact project/key, four patterns, `api_allowlist_preserved=true`, `api_target_count=27` and verified Auth prerequisites. `changed=false` is valid if already configured. Propagation/browser acceptance, deployed origin, login, deployment and Floot intentionally remain false.
+
+Keep other key/Auth writers idle. The key update carries an etag; a conflict is a stop, not permission to overwrite another writer. If pending/uncertain, inspect the returned operation and current metadata before another mutation. The helper does not retry PATCH, rotate a key, touch secrets or automatically roll back. Preserve prior nonsecret staging attempt markers.
+
+After owner readback, reconcile backend origin/CORS/CSRF and the ordered schema/runtime-grant path against the held Preview workflow, then obtain current-source full checks before considering a bounded rollout. Stored keys and authorized domains do not release deployment/cleanup holds or authorize email delivery.
+
+References: [referrer patterns](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys), [PATCH mask](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys/patch), [key etag](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys), [operation polling](https://docs.cloud.google.com/api-keys/docs/polling-operations), [Firebase API allowlist](https://firebase.google.com/docs/projects/api-keys), [Google OAuth helper](https://firebase.google.com/docs/auth/web/google-signin).
 
 ## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
