@@ -1,14 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Google provider saved in Console; API readback next — 2026-10-13
+## Google provider API readback verified; Preview mail domain read next — 2026-10-13
 
-Owner screenshot received `2026-10-13T12:34:11+03:00` shows **Khedmah Preview V2 → Authentication → Sign-in method**, with **Google — Enabled** in the provider list after Save. This is saved Console-status evidence, not merely the unsaved Enable toggle. No operation timestamp, project ID/number, OAuth client metadata or browser login result is visible.
+Owner post-save read completed at `2026-10-13T09:39:12.147924+00:00` (12:39:12 Asia/Damascus), received `2026-10-13T12:50:37+03:00`, for the pinned replacement project `khedmah-preview-v2-20261012`. Parent `PREVIEW_AUTH_CONFIG` is OK / FIREBASE_AUTH; `PREVIEW_AUTH_PROVIDER_GOOGLE_COM` is OK with `enabled=true`. Standard Auth initialization and Google provider enablement are now both verified by API metadata. Do not repeat setup, Save or the unchanged Auth read.
 
-The prior form showed the owner's selected management address as Preview support email and the approved public app name; the subsequent save status is recorded in [CURRENT-STATE](../project-control/CURRENT-STATE.md). Do not repeat the support-choice handoff or provider setup.
+Facebook remains absent and deferred; it alone explains the aggregate false. No actual login/session/deployment/Floot acceptance is claimed. Preserve initialized Auth, six staged Firebase values and completed Storage/PAP, database and WIF work.
 
-Continue with the checksum-pinned post-save GET-only Auth readback in [NEXT-ACTION](../project-control/NEXT-ACTION.md). Facebook remains deferred; evaluate its missing-config outcome separately from Google. Standard Auth and all six SDK values remain completed evidence.
+Continue from [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md): read Resend Domains for the intended application-mail team through the Resend connection once enabled, or from the owner's dashboard, and capture sending-verification status, especially `mail.khedmah.uk`. The source defaults to `noreply@mail.khedmah.uk`; the latest Preview RESEND_API_KEY version inventory was empty. Domain/account ownership and verification are not assumed. No key, DNS, email-send or deployment operation is included.
 
-Five Markdown checkpoints only, `[skip ci]`; no executable changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader implementation remains `f86108bb710654c7798eab261f902b96483d77b6` with prior scoped validation. Preview deployment holds and all Production gates remain.
+This pass updates the same five Markdown checkpoints with `[skip ci]`. Source review covers Preview workflow/deploy/email resolver/provider and frontend build secret bindings. No executable changes, new tests/full CI, workflow dispatch, merge, assistant cloud mutation or email send. Preserve six staged Firebase values, Storage/PAP, database/WIF completion and all Preview/Production gates.
 
 ## Historical checkpoint — Auth diagnosis and initialization handoff — 2026-10-13
 
