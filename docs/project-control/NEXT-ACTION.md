@@ -1,20 +1,24 @@
 # Next Safe Action — Khedmah
 
-## Restricted Maps key created; private staging helper prepared — 2026-10-13
+## Maps secret verified; single Preview Auth domain prepared — 2026-10-13
 
-Owner creation receipt, received `2026-10-13T18:13:20+03:00`, reports **`createTime=2026-10-13T15:03:52.070082Z`**, `updateTime=2026-10-13T15:03:52.161980Z`, and key `projects/1044962071847/locations/global/keys/khedmah-preview-v2-maps-browser`, UID `6fad46fb-229e-403e-8f60-530b4ab9c1ae`. Both operation metadata and subsequent describe show exactly one API target `maps-backend.googleapis.com` and browser referrer `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`. **Creation/restriction readback is completed owner evidence; do not recreate, rotate or modify this key.** The earlier Firebase-only list in the same pasted transcript predates creation and does not contradict this result.
+Owner `PREVIEW_V2_MAPS_CONFIG_STAGED` receipt at **`2026-10-13T15:25:14.433875+00:00`**, received `2026-10-13T18:26:18+03:00`, verifies **`GOOGLE_MAPS_BROWSER_API_KEY:1`** in `khedmah-preview-v2-20261012`: `created=true`, `value_verified=true`, `key_restrictions_verified=true`, `maps_javascript_api_enabled=true`, with no key/secret payload printed. Preflight reported no enabled version 1 before staging. **Maps creation and secret staging are completed; do not recreate, rotate or stage again.**
 
-**Output correction:** the operation-completion result included a `keyString` despite the prior command's intended suppression. The previous claim that this command would print metadata only was incorrect. Do not copy the payload, prefix/suffix or fingerprint into repository files, tests, PR text or subsequent replies. No key value is recorded here. Treat the prior create launcher as completed and superseded; it must not be replayed. The new helper captures both stdout and stderr for every gcloud subprocess, including failures, and emits only fixed sanitized failure codes or selected metadata.
+Key identity remains `projects/1044962071847/locations/global/keys/khedmah-preview-v2-maps-browser`, UID `6fad46fb-229e-403e-8f60-530b4ab9c1ae`; Maps JavaScript only with exact planned referrer `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`. Creation at `2026-10-13T15:03:52.070082Z` and restriction readback are preserved. The origin is planned, not observed deployed: the new receipt explicitly leaves deployed-origin verification, map rendering, application deployment and Floot connection false.
 
-**Next safe action:** owner runs the immutable staging launcher in [NEXT-ACTION.md](NEXT-ACTION.md); no key copy/paste is needed. It verifies the fixed account/project/organization, exact key name/UID and restrictions, Maps JavaScript API enabled state, the existing `GOOGLE_MAPS_BROWSER_API_KEY` container and full version inventory. It reads the existing key directly into process memory. Only an empty inventory permits first-version creation through stdin; an existing matching enabled version 1 is verified without adding another. Conflicting/multiple/disabled versions and ambiguous attempts stop. Secret readback compares bytes privately, and restrictions are checked again before a success verdict. No key/API/IAM change, other secret write, email or deployment is included.
+Completed staging implementation `18d09817627930da767ca98e021584912a0f5392`, helper blob `cc503f687a28ed032279f9b51f3a7280fee38dd8`, SHA-256 `72bad320f49e80a3cac8b1c6d428abcfc3331cb336fc1688138916bcf89285a3`, retains 18 focused offline tests. Preserve the Maps loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` removing only unused legacy Places (two focused Web map tests). The earlier gcloud creation operation unexpectedly printed its keyString; the metadata-only claim was incorrect. Do not copy that payload, prefix/suffix or fingerprint into repository, tests, PR text or replies, and do not replay the old creation command. The staging helper captured both subprocess streams and the owner receipt confirms no payload output.
 
-Implementation `18d09817627930da767ca98e021584912a0f5392`; helper `scripts/stage-preview-v2-maps-config.py`; blob `cc503f687a28ed032279f9b51f3a7280fee38dd8`; SHA-256 `72bad320f49e80a3cac8b1c6d428abcfc3331cb336fc1688138916bcf89285a3`. **18 offline Python tests passed**, including payload-bearing stdout/stderr on successful and failed subprocesses, project/key/restriction mismatch, missing API activation, first write, readback mismatch, and retry containment. The Node wrapper, Python syntax/whitespace checks and published helper byte readback passed. These are focused local checks, not owner execution, fresh full CI, credential-use or map-rendering acceptance. Staging remains pending; no `GOOGLE_MAPS_BROWSER_API_KEY` version is yet claimed by this checkpoint.
+**Next safe action:** owner runs the pinned [Auth-domain launcher](NEXT-ACTION.md) once. New helper adds only `khedmah-pr-274-frontend-1044962071847.europe-west1.run.app` to the existing Firebase Auth authorized domains for the fixed replacement project. It freshly verifies account/project/organization, standard FIREBASE_AUTH identity, Google enabled and exact existing domains. The three preserved domains are `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, and `khedmah-preview-v2-20261012.web.app`. An unexpected/missing/duplicate domain causes a stop instead of overwriting. If the reviewed fourth domain already exists, it verifies without a PATCH.
 
-Preserve the earlier map loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` (unused legacy Places removed; two focused Web map tests passed). The restricted host is the reviewed deterministic planned origin; no deployed URL or browser acceptance has yet been observed. Actual frontend origin, Firebase key/Auth domains and backend CORS/CSRF must agree before rollout/acceptance. Preserve `RESEND_API_KEY:1` verified at `2026-10-13T10:49:53.792297+00:00`, all six Firebase values, Storage/PAP, project/infra/database credentials, WIF and standard Auth/Google provider completion. Resend scope/delivery, Maps staging/rendering, schema/runtime grants, current-source full checks, login/session and Floot remain pending. Preview deployment/cleanup holds and all Production gates remain.
+The only write is the documented Auth config PATCH with `updateMask=authorizedDomains`; its body contains exactly the preserved three domains plus the planned host. A fresh pre-write read rejects observed changes, and post-write reads verify the final domain set, unchanged selected local sign-in settings and Google still enabled. Config exposes no etag: this is not atomic compare-and-swap, so serialize other Auth Console/API writers. A STOP or uncertain response requires reading/reconciling current state before another operation. No API-key restrictions, Auth provider, authDomain SDK value, secret, API, IAM, schema or workflow setting is modified by this helper.
 
-Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 parent `48416ac12e61cf198fb563b11274c1e0cb535dc1`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is deliberately held. Both source/checkpoint commits use `[skip ci]`; no workflow dispatch, merge, assistant cloud execution or Production mutation occurred.
+Implementation **`5e0f7d326508f41e94104e8bdb1fa291b2e5e211`**, `scripts/configure-preview-v2-auth-domain.py`; blob `f9225ca16408bf05ce2459cfcdf570045b34a1a4`; SHA-256 `8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e`. **20 mocked Python tests passed** plus the Node wrapper, Python syntax and published helper byte readback. Tests cover exact mutation scope, preserved domains/settings, existing-domain verify-only behavior, project/provider/domain conflicts, concurrent-change detection, uncertain writes, readback failures, transport redaction and redirect refusal. These are offline checks; no owner Auth-domain execution or fresh full CI is claimed.
 
-Run the complete command in Cloud Shell. It downloads only reviewed helper source, checks its immutable SHA-256 and executes it; no credential value is embedded in this launcher. The helper captures the key itself inside the owner session and stages it without a prompt or temporary payload file.
+Preserve `RESEND_API_KEY:1` verified at `2026-10-13T10:49:53.792297+00:00`, all six Firebase values, Storage/PAP, project/infra/database credentials, WIF, standard Auth and Google enablement. Firebase browser-key referrers remain separately pending; preserve its existing Firebase API allowlist and keep Maps on its own key. Actual deployed URL, backend CORS/CSRF, schema/runtime grants, current-source full checks, login/session, Maps rendering, mail scope/delivery and Floot acceptance remain open. Adding a domain is configuration evidence only and does not release Preview deployment/cleanup holds or any Production gate.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at inspected parent `f5fc18759b3afdd235722102eadd0ee0229810cf`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is deliberately held. This pass adds the helper and its Python/Node tests and updates these same five checkpoints with `[skip ci]`; no workflow dispatch, merge, assistant cloud execution, email send or Production mutation.
+
+Run this complete command in Cloud Shell. It downloads reviewed source only, validates its immutable SHA-256 and runs the narrowly scoped helper. No key or credential input is requested; the access token stays in memory and all subprocess output/errors are captured.
 
 ```bash
 (
@@ -24,28 +28,26 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=true
 export CLOUDSDK_CORE_LOG_HTTP=false
 export CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true
 
-khedmah_maps_script="$(mktemp)"
-trap 'rm -f -- "$khedmah_maps_script"' EXIT
+khedmah_auth_domain_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_auth_domain_script"' EXIT
 
 gh api --hostname github.com \
-  repos/khedma-sy/khedmah-digital-v1/git/blobs/cc503f687a28ed032279f9b51f3a7280fee38dd8 \
-  --jq '.content' | base64 --decode > "$khedmah_maps_script"
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/f9225ca16408bf05ce2459cfcdf570045b34a1a4 \
+  --jq '.content' | base64 --decode > "$khedmah_auth_domain_script"
 
 printf '%s  %s\n' \
-  '72bad320f49e80a3cac8b1c6d428abcfc3331cb336fc1688138916bcf89285a3' \
-  "$khedmah_maps_script" | sha256sum --check --status
+  '8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e' \
+  "$khedmah_auth_domain_script" | sha256sum --check --status
 
-python3 "$khedmah_maps_script" --apply
+python3 "$khedmah_auth_domain_script" --apply
 )
 ```
 
-Return only final `PREVIEW_V2_MAPS_CONFIG_STAGED` JSON or the sanitized STOP code. Success must include exact project/secret/version, `value_verified=true`, key identity/restrictions, API enabled state and `evidence_utc`; do not infer a success receipt from the existence of this command. It intentionally leaves `deployed_origin_verified=false`, `map_render_verified=false`, `application_deployed=false` and `floot_connected=false`.
+Return only the final `PREVIEW_V2_AUTH_DOMAIN_CONFIGURED` JSON or sanitized STOP code. Success must identify the replacement project, show exactly four authorized domains, unchanged local sign-in settings and Google enabled. `changed=false` is valid when the domain was already present. The receipt intentionally does not certify Firebase API-key referrers, actual login, deployed origin, application deployment or Floot.
 
-The private local directory `~/khedmah-preview-v2-maps-config` contains a nonsecret durable attempt marker only. Preserve it. Empty inventory after an attempted write requires reconciliation, not marker deletion or a blind retry. Other writers must remain serialized; Secret Manager addVersion has no compare-and-swap. A successful write followed by denied readback must be reconciled without creating another version.
+Keep other Auth Console/API writers idle during the command because the config API has no etag. If execution stops after PATCH begins, reconcile with a read before retrying; no rollback or provider change follows automatically. After a confirmed receipt, reconcile Firebase browser-key referrers while preserving required API targets, then the remaining backend/schema/full-CI/Preview release gates.
 
-The previous creation command at checkpoint `48416ac12e61cf198fb563b11274c1e0cb535dc1` is historical and its output-suppression assumption is disproved. Do not run it again. No key rotation, restriction broadening, Places enablement, other secret/IAM change, message send or deployment is included. After confirmed staging, reconcile exact Firebase/browser/Auth origins and remaining runtime/schema/full-CI gates; a stored key is not an application-readiness verdict.
-
-References: [get-key-string](https://docs.cloud.google.com/sdk/gcloud/reference/services/api-keys/get-key-string), [secret version add via stdin](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/add), [secret version readback](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/access).
+References: [Auth config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/getConfig), [single-field config PATCH](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/updateConfig), [Google sign-in and authorized domains](https://firebase.google.com/docs/auth/web/google-signin), [Firebase API key guidance](https://firebase.google.com/docs/projects/api-keys).
 
 ## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
