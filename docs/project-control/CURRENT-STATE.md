@@ -4,7 +4,19 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+### Preview Resend key saved by owner; Secret Manager target/version read next — 2026-10-13
+
+At `2026-10-13T13:30:51+03:00`, the owner replied **تم الحفظ** after the handoff to create and privately save `khedmah-preview-v2`, Sending access, domain `mail.khedmah.uk`, in team khedmasy. Record this as owner-reported key creation/private saving, not independently read API metadata, credential validation or delivery proof. No key value was provided, read, printed or stored by the assistant. Do not repeat key creation. Preserve the prior Console-Verified domain evidence and four existing keys.
+
+**Next safe action — read only:** open the replacement project's [RESEND_API_KEY Versions page](https://console.cloud.google.com/security/secret-manager/secret/RESEND_API_KEY/versions?project=khedmah-preview-v2-20261012) under the established management account `haifawi30@gmail.com`. Verify the exact selected project ID `khedmah-preview-v2-20261012` (project number `1044962071847`) and secret `RESEND_API_KEY`; return a screenshot of the Versions table/header with no payload dialog open. Do not enter the key yet. The most recent preserved version inventory was empty, but this is not a fresh cloud read; inspect the present state first.
+
+If the page shows a different project, a permission error, a missing secret or any existing version, reconcile that evidence before writing. Do not create another secret container, overwrite/rotate/disable/destroy an existing version or change IAM. Once the exact target and empty inventory are observed, the next bounded owner step can add the first version through the Console's Add new version dialog, entering the saved Preview key directly into Secret value, followed by version-state readback. That write has not been handed off or executed in this checkpoint. This Console path supports the owner's step-by-step workflow without placing the key in chat or shell history.
+
+A stored secret alone will not prove the Resend key's scope/validity, successful delivery or application readiness. Sending tests and shared-domain configuration changes require their own review; no message send is authorized by this staging handoff. No domain claim/transfer, DNS write, existing Resend key change, shared tracking change or Production operation is included. Preserve Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source checks, deployment/login/session and Floot acceptance remain pending. The explicit Preview workflow hold remains.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `7c1919eb90fae2812bdf400f17a4580c471b972b`; latest full-source checks and held Preview run `38277607448` are unchanged. Five Markdown files only, `[skip ci]`; no executable change, new tests/full CI, dispatch, merge or assistant cloud mutation. Reference: [Google Secret Manager Console version creation](https://cloud.google.com/secret-manager/docs/add-secret-version).
+
+### Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
 Owner said the existing active team/account is theirs at `2026-10-13T13:21:02+03:00`. Screenshot received `2026-10-13T13:25:14+03:00` shows Resend team label **khedmasy**, Domains page, one listed domain **mail.khedmah.uk**, status **Verified**, with no active search and All statuses selected. This establishes owner-accessible Console evidence for the existing verified domain. No transfer is needed for the next key step. This is not a fresh provider API read or delivery/runtime test.
 
@@ -168,7 +180,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `e51013430fc12620a05e8622d5964eff5d74ab62`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `7c1919eb90fae2812bdf400f17a4580c471b972b`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -197,14 +209,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** create the separate domain-scoped Preview sending key in the observed **khedmasy** team, per [NEXT-ACTION](NEXT-ACTION.md), checking for an existing same-name key first. The existing domain is Console-Verified; key creation, protected staging and actual sending remain unverified. Claim/transfer stays held.
+1. **Next:** inspect exact replacement-project/secret identity and current `RESEND_API_KEY` versions in the Console, per [NEXT-ACTION](NEXT-ACTION.md), before private value entry. Owner reports the Preview key saved; do not create it again. Cloud staging, actual sending and deployment remain unverified. Claim/transfer stays held.
 2. From returned evidence, select the Preview sender and prepare a separate, domain-limited sending credential and protected staging into the existing Preview secret. Do not copy a Production credential or assume a missing domain can be claimed/transferred. DNS changes, credentials and any test email need concrete scope before execution.
 3. Prepare the missing Maps/browser configuration and exact approved origins/referrers, ordered schema/runtime grants, current-source full checks, then review removal of the explicit deployment hold and perform bounded Preview rollout/acceptance. No placeholder origin or secret, wildcard browser trust or automatic release.
 4. Standard Auth and Google enablement are completed configuration evidence; Facebook remains deferred. Saved support/branding fields, OAuth client/consent and actual popup/session/CORS/CSRF/Floot acceptance remain separately unverified. Old Preview deployment does not certify the replacement.
 
 ### Execution boundary and handoff discipline
 
-No authenticated Google Cloud execution surface or Resend connection is confirmed here. The owner is using the existing khedmasy team directly and is preparing a new scoped Preview sending key. Claim/transfer, DNS writes, shared domain settings, secret staging, sends and deployment are not part of this handoff. This reconciliation itself performs no cloud operation, credential read, workflow dispatch or merge.
+No authenticated Google Cloud execution surface or Resend connection is confirmed here. Owner reports the new Preview key saved privately; next is a Console metadata-only target/version read, followed by a separately reviewed first-version write if the inventory is empty. This reconciliation performs no cloud operation, credential read, dispatch or merge. Claim/transfer, DNS/shared-domain changes, sends and deployment remain held.
 
 After the Resend domain evidence arrives, update **this ledger and NEXT-ACTION together**. Keep all six Firebase values and completed project, infrastructure, database, WIF, Storage and Google Auth/provider work. Preserve Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B evidence remains preserved; schema/HARDEN/release require their own gates.
 

@@ -1,6 +1,12 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+## Preview Resend key saved by owner; Secret Manager target/version read next — 2026-10-13
+
+Owner reported **تم الحفظ** after creating/privately saving the separate Preview Resend key. Do not repeat creation; exact key metadata/validity and cloud staging are not independently verified. Next: read the replacement project's `RESEND_API_KEY` Versions page, verify exact project/secret and return metadata-only evidence before entering the key. Preserve existing Resend keys/domain and all completed Google/Firebase/Storage/database/WIF work. No secret write, send or deployment is yet included.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `7c1919eb90fae2812bdf400f17a4580c471b972b`; latest full-source checks and held Preview run `38277607448` are unchanged. Five Markdown files only, `[skip ci]`; no executable change, new tests/full CI, dispatch, merge or assistant cloud mutation. Reference: [Google Secret Manager Console version creation](https://cloud.google.com/secret-manager/docs/add-secret-version).
+
+## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
 Owner screenshot shows team **khedmasy** with existing `mail.khedmah.uk` marked **Verified**. Next: in that team prepare/create a separate `khedmah-preview-v2` key with **Sending access**, restricted to this domain. The next screenshot lists four existing sending keys and none named `khedmah-preview-v2`; preserve all four and save the new value privately. No key creation or cloud staging is yet evidenced. Domain transfer/claim and DNS changes remain held; no shared tracking/settings change is included.
 

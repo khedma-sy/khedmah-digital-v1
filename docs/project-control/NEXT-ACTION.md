@@ -1,6 +1,18 @@
 # Next Safe Action — Khedmah
 
-## Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+## Preview Resend key saved by owner; Secret Manager target/version read next — 2026-10-13
+
+At `2026-10-13T13:30:51+03:00`, the owner replied **تم الحفظ** after the handoff to create and privately save `khedmah-preview-v2`, Sending access, domain `mail.khedmah.uk`, in team khedmasy. Record this as owner-reported key creation/private saving, not independently read API metadata, credential validation or delivery proof. No key value was provided, read, printed or stored by the assistant. Do not repeat key creation. Preserve the prior Console-Verified domain evidence and four existing keys.
+
+**Next safe action — read only:** open the replacement project's [RESEND_API_KEY Versions page](https://console.cloud.google.com/security/secret-manager/secret/RESEND_API_KEY/versions?project=khedmah-preview-v2-20261012) under the established management account `haifawi30@gmail.com`. Verify the exact selected project ID `khedmah-preview-v2-20261012` (project number `1044962071847`) and secret `RESEND_API_KEY`; return a screenshot of the Versions table/header with no payload dialog open. Do not enter the key yet. The most recent preserved version inventory was empty, but this is not a fresh cloud read; inspect the present state first.
+
+If the page shows a different project, a permission error, a missing secret or any existing version, reconcile that evidence before writing. Do not create another secret container, overwrite/rotate/disable/destroy an existing version or change IAM. Once the exact target and empty inventory are observed, the next bounded owner step can add the first version through the Console's Add new version dialog, entering the saved Preview key directly into Secret value, followed by version-state readback. That write has not been handed off or executed in this checkpoint. This Console path supports the owner's step-by-step workflow without placing the key in chat or shell history.
+
+A stored secret alone will not prove the Resend key's scope/validity, successful delivery or application readiness. Sending tests and shared-domain configuration changes require their own review; no message send is authorized by this staging handoff. No domain claim/transfer, DNS write, existing Resend key change, shared tracking change or Production operation is included. Preserve Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source checks, deployment/login/session and Floot acceptance remain pending. The explicit Preview workflow hold remains.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `7c1919eb90fae2812bdf400f17a4580c471b972b`; latest full-source checks and held Preview run `38277607448` are unchanged. Five Markdown files only, `[skip ci]`; no executable change, new tests/full CI, dispatch, merge or assistant cloud mutation. Reference: [Google Secret Manager Console version creation](https://cloud.google.com/secret-manager/docs/add-secret-version).
+
+## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
 Owner said the existing active team/account is theirs at `2026-10-13T13:21:02+03:00`. Screenshot received `2026-10-13T13:25:14+03:00` shows Resend team label **khedmasy**, Domains page, one listed domain **mail.khedmah.uk**, status **Verified**, with no active search and All statuses selected. This establishes owner-accessible Console evidence for the existing verified domain. No transfer is needed for the next key step. This is not a fresh provider API read or delivery/runtime test.
 
