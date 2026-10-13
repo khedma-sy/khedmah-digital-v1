@@ -16,7 +16,7 @@ import tempfile
 import time
 
 REPO = "khedma-sy/khedmah-digital-v1"
-SOURCE_COMMIT = "ce88601197329507dfd9565ac6d36f3e73f7928c"
+SOURCE_COMMIT = "72024a1ed0d8bdcc0de799345b501a0e3b153d3a"
 PREDECESSOR_BLOB = "9cdf28e8fc45846e7b012ec7be9844a359d304e9"
 PREDECESSOR_SHA256 = "c950c014af500d2500c2e9762e869771fb9281c24b5d63fb1dd284c2db2254d0"
 MIGRATIONS = [
@@ -230,7 +230,13 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c
              JOIN pg_catalog.pg_class t ON t.oid=c.conrelid
              JOIN pg_catalog.pg_namespace n ON n.oid=t.relnamespace
-             WHERE n.nspname='public' AND NOT c.convalidated)
+             -- 017 intentionally keeps two older taxonomy FKs NOT VALID.
+             -- Validate only this phase and the Classifieds/media contract it preserves.
+             WHERE n.nspname='public' AND NOT c.convalidated
+               AND t.relname IN ('fulfillment_orders','fulfillment_order_items','fulfillment_order_events',
+                 'fulfillment_order_ratings','fulfillment_order_location_updates',
+                 'mobility_document_reviews','mobility_document_review_events','platform_notifications',
+                 'ad_listings','ad_free_slots','ad_request_receipts','ad_moderation_events','media_assets'))
      OR (SELECT count(*) FROM pg_catalog.pg_constraint c
          JOIN pg_catalog.pg_class t ON t.oid=c.conrelid
          JOIN pg_catalog.pg_namespace n ON n.oid=t.relnamespace

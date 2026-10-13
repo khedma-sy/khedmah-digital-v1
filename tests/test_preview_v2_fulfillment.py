@@ -7,6 +7,8 @@ import importlib.util
 import io
 import json
 import os
+import re
+import sqlite3
 from pathlib import Path
 import stat
 import subprocess
@@ -107,6 +109,34 @@ class CatalogTests(unittest.TestCase):
             with self.assertRaises(SystemExit):m.verify_result(p,f,v)
 
 class SQLTests(unittest.TestCase):
+    def test_canonical_017_not_valid_fks_do_not_block_new_phase_constraints(self):
+        # Execute the actual portable catalog predicate, not a reimplementation.
+        # SQLite is a relational fixture only; this is not a PostgreSQL integration test.
+        legacy=(ROOT/'backend/migrations/versions/017_category_taxonomy_contract.sql').read_text()
+        baseline=re.findall(r'ALTER TABLE (\w+)\s+ADD CONSTRAINT (\w+).*?NOT VALID;',legacy,re.S)
+        self.assertEqual(baseline,[('business_profiles','business_profiles_category_code_fk'),
+                                   ('service_listings','service_listings_category_code_fk')])
+        query=re.search(r'IF EXISTS \((SELECT 1 FROM pg_catalog.pg_constraint.*?)\)\s+OR',
+                        m.structural_contract(),re.S).group(1)
+        checked=[*m.NEW_TABLES,*p.AD_TABLES,'media_assets']
+        with sqlite3.connect(':memory:') as db:
+            db.execute("ATTACH DATABASE ':memory:' AS pg_catalog")
+            db.executescript('''CREATE TABLE pg_catalog.pg_namespace(oid integer,nspname text);
+                CREATE TABLE pg_catalog.pg_class(oid integer,relname text,relnamespace integer);
+                CREATE TABLE pg_catalog.pg_constraint(conrelid integer,convalidated boolean);
+                INSERT INTO pg_catalog.pg_namespace VALUES(1,'public');''')
+            for oid,(table,name) in enumerate(baseline,1):
+                db.execute('INSERT INTO pg_catalog.pg_class VALUES(?,?,1)',(oid,table))
+                db.execute('INSERT INTO pg_catalog.pg_constraint VALUES(?,false)',(oid,))
+            self.assertIsNone(db.execute(query).fetchone())
+            db.execute('INSERT INTO pg_catalog.pg_class VALUES(100,?,1)',(checked[0],))
+            db.execute('INSERT INTO pg_catalog.pg_constraint VALUES(100,false)')
+            for table in checked:
+                db.execute('UPDATE pg_catalog.pg_class SET relname=? WHERE oid=100',(table,))
+                self.assertIsNotNone(db.execute(query).fetchone(),table)
+            db.execute('UPDATE pg_catalog.pg_constraint SET convalidated=true WHERE conrelid=100')
+            self.assertIsNone(db.execute(query).fetchone())
+
     def test_atomic_canonical_order_and_precommit_verification(self):
         sql=m.build_sql(p,f,SQL025,MIGRATIONS)
         self.assertEqual(sql.count('BEGIN READ WRITE;'),1);self.assertEqual(sql.count('COMMIT;'),1)
