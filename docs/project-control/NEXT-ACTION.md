@@ -1,6 +1,52 @@
 # Next Safe Action — Khedmah
 
-## Next owner operation — checksum-pinned Preview Storage setup — 2026-10-13
+## Next read — completed Storage; effective access verification — 2026-10-13
+
+The owner completed Storage provisioning at `2026-10-13T07:22:50.206618+00:00`. [CURRENT-STATE](CURRENT-STATE.md) preserves the bucket, exact ruleset, linkage, direct-IAM and UBLA evidence. The previous `--apply` command below is historical and must not be rerun. No new bucket, Firebase registration or API enablement is the next task.
+
+**Concrete remaining observation:** bucket publicAccessPrevention is `inherited`. Read the effective `storage.publicAccessPrevention` policy on this exact project, and make two anonymous GET list probes against the bucket's Firebase and GCS endpoints. The command sends no OAuth headers/cookies to those probes; curl `-q` ignores user curl configuration, follows no redirects, discards response bodies and prints only status codes. No object or secret payload is returned to chat.
+
+The Resource Manager org-policy reader uses the already enabled Cloud Resource Manager route, rather than requiring new Organization Policy API activation. Every gcloud read pins the management account/project. No project-default change, API activation, IAM grant, secret write, upload, deployment or Production operation is included. If a read is denied/unavailable, keep its failure and review the other independent observations; do not change identities or turn a denial into evidence of policy absence.
+
+```bash
+(
+set -euo pipefail
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+
+if ! gcloud resource-manager org-policies describe \
+  storage.publicAccessPrevention --effective \
+  --project=khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --user-output-enabled --verbosity=error --format=json; then
+  printf 'EFFECTIVE_POLICY_READ_FAILED\n'
+fi
+
+if ! curl -q --silent --show-error --connect-timeout 10 --max-time 30 \
+  --proto '=https' --output /dev/null \
+  --write-out 'FIREBASE_ANONYMOUS_LIST_HTTP=%{http_code}\n' \
+  'https://firebasestorage.googleapis.com/v0/b/khedmah-preview-v2-20261012.firebasestorage.app/o?maxResults=1'; then
+  printf 'FIREBASE_PROBE_UNCONFIRMED\n'
+fi
+
+if ! curl -q --silent --show-error --connect-timeout 10 --max-time 30 \
+  --proto '=https' --output /dev/null \
+  --write-out 'GCS_ANONYMOUS_LIST_HTTP=%{http_code}\n' \
+  'https://storage.googleapis.com/storage/v1/b/khedmah-preview-v2-20261012.firebasestorage.app/o?maxResults=1'; then
+  printf 'GCS_PROBE_UNCONFIRMED\n'
+fi
+
+printf 'STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VERDICT\n'
+)
+```
+
+Return all output. Review `booleanPolicy.enforced` in the effective policy alongside both HTTP outcomes. A 401/403 is denial of that particular anonymous list request; 200 indicates the request was allowed and must be investigated without displaying objects; 000/network failure, 404, 429, 5xx and redirects are unconfirmed. Even two denials do not prove all authenticated/object access or the cause of denial. Do not declare full effective IAM or all-rules propagation verified from these probes.
+
+Storage bucket name staging remains held until the remaining access review is resolved. Then continue the established Auth/referrer, Maps/mail, schema/runtime grants, current-source CI and held Preview/Floot acceptance sequence. This pass changes the same five Markdown checkpoints only; shell syntax was checked, no live probe or code test was run, and `[skip ci]` preserves the existing holds.
+
+References: [effective policy CLI](https://docs.cloud.google.com/sdk/gcloud/reference/resource-manager/org-policies/describe), [public access prevention inheritance](https://docs.cloud.google.com/storage/docs/public-access-prevention), [Firebase SDK list request implementation](https://github.com/firebase/firebase-js-sdk/blob/main/packages/storage/src/implementation/requests.ts).
+
+## Completed owner operation — historical Storage creation command — 2026-10-13
 
 The owner completed the full inventory at component timestamp `2026-10-13T06:50:24.270798+00:00`. [CURRENT-STATE](CURRENT-STATE.md) records the returned project/billing/SQL/users/APIs/services/secrets findings while retaining completed infrastructure, WIF and five-value Firebase setup. Do not repeat that inventory or any setup batch.
 

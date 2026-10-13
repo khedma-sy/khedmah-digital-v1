@@ -4,6 +4,17 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
+### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
+
+Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-256 `725152a320b79490d0a58b9037d20c75c30b7aa9c4e873433a05c569291bd592` completed at `2026-10-13T07:22:50.206618+00:00`. Final marker: `PREVIEW_V2_STORAGE_PROVISIONING_COMPLETED_APPLICATION_HELD`. This supersedes all earlier “Storage absent/prepared/not executed” next actions.
+
+- **Completed:** exact-project preflight, missing Storage API enablement, deny-all ruleset/release creation and pre-bucket verification, then default bucket creation. Bucket `khedmah-preview-v2-20261012.firebasestorage.app` belongs to the replacement project and is in EUROPE-WEST1. Firebase linkage and exact deny-all rule source were verified.
+- Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
+- **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
+- **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
+- **Next:** the bounded read-only effective-public-access-policy and anonymous Firebase/GCS list checks in [NEXT-ACTION](NEXT-ACTION.md). This resolves the concrete `inherited` ambiguity and probes request denial without sending credentials. A denied anonymous list alone is not a full audit of authenticated/inherited IAM or all rule operations. Do not stage the sixth value or release deployment solely from this completion marker.
+
+
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
 
 The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINESS_VERDICT`. Component inspection timestamp: `2026-10-13T06:50:24.270798+00:00`; the subsequent CLI rows have no separate operation timestamp. The interleaved terminal echo does not invalidate the complete returned result. This is owner-run evidence, not assistant cloud execution.
@@ -42,8 +53,8 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** run the checksum-pinned Storage operator in [NEXT-ACTION](NEXT-ACTION.md), implementation `698a12b04b01194525e50d97ecafd3dba2a1c159`. It targets only the existing replacement project/europe-west1, enables the missing Storage API, installs deny-all rules before default bucket creation, and verifies the returned metadata. Prepared, not executed/reported. Existing-resource or permission conflicts stop; no secret staging or application deployment follows.
-2. Verify resulting bucket identity/region, Firebase linkage, IAM and deployed rules before staging the sixth configuration value. Browser referrers were empty; Auth/provider reads returned 404 without structured reasons. Their readiness is unresolved; 404 alone does not authorize reinitialization.
+1. **Next:** perform only the effective public-access policy read and anonymous request probes in [NEXT-ACTION](NEXT-ACTION.md). Default Storage creation and deny-all release are complete. No cloud write or secret staging belongs to this read.
+2. Bucket identity/region, Firebase linkage, direct bucket bindings and deny-all source are verified. Complete the remaining effective-access/propagation review before staging the sixth configuration value. Browser referrers were empty; Auth/provider reads returned 404 without structured reasons. Their readiness is unresolved; 404 alone does not authorize reinitialization.
 3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. No new product scope is introduced.
 4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
 
@@ -51,7 +62,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Storage step is owner-operated in Cloud Shell under the established account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
 
-After the Storage result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
+After the access-check result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
