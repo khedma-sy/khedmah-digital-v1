@@ -1,28 +1,28 @@
 # Next Safe Action — Khedmah
 
-## Preview Auth domain verified; Firebase key referrers prepared — 2026-10-13
+## Preview Firebase referrers verified; read-only schema inventory prepared — 2026-10-13
 
-Owner `PREVIEW_V2_AUTH_DOMAIN_CONFIGURED` receipt at **`2026-10-13T15:45:50.160431+00:00`**, received `2026-10-13T18:49:36+03:00`, confirms the reviewed Preview hostname is already in Firebase Auth's four authorized domains. **`changed=false` means this invocation verified existing state without PATCHing it; it does not establish when or by whom the earlier addition occurred.** Google is enabled, selected local sign-in settings are unchanged, and no credential output or Secret Manager payload access occurred. Do not repeat domain addition, Auth initialization or Google enablement.
+Owner `PREVIEW_V2_FIREBASE_REFERRERS_CONFIGURED` at **`2026-10-13T16:38:32.225505+00:00`** confirms the existing Firebase browser key's referrer update and fresh metadata readback. Operation `operations/akmf.p10-1044962071847-cf31e82d-ffaa-46f8-be75-2ca150dd7213` completed; `changed=true`. The exact key resource/UID is `projects/1044962071847/locations/global/keys/fdae1cd2-64ce-49ec-a426-ed46120083e9`. All 27 API targets were preserved, Auth domains verified and Google enabled. No key/secret payload access or credential output. **Do not repeat the referrer update, Auth domain addition, Auth initialization or Google enablement.**
 
-Verified domains: `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, `khedmah-preview-v2-20261012.web.app`, and `khedmah-pr-274-frontend-1044962071847.europe-west1.run.app`. The receipt leaves deployed origin, login flow, application deployment and Floot unverified. Its `firebase_key_referrers_configured=false` is the Auth helper's conservative scope flag, **not a fresh API-key read**. Earlier actual key metadata showed an empty referrer list and 27 API targets.
+The four verified patterns are the bare HTTPS origin and `/*` pattern for each of `khedmah-pr-274-frontend-1044962071847.europe-west1.run.app` and `khedmah-preview-v2-20261012.firebaseapp.com`. This is configuration metadata only: deployed origin, propagation/browser acceptance, actual login, application deployment and Floot remain unverified. The earlier Auth-domain receipt at `2026-10-13T15:45:50.160431+00:00` had `changed=false`, verifying already-present domains without an Auth PATCH by that invocation.
 
-Completed Auth-domain implementation `5e0f7d326508f41e94104e8bdb1fa291b2e5e211`, blob `f9225ca16408bf05ce2459cfcdf570045b34a1a4`, SHA-256 `8a8828b9ae195509dd634d10be88381a39606c207046ff58a7a63d848039e31e`, retains 20 offline tests; owner readback now confirms its configuration prerequisite. Actual Google popup/token/session acceptance remains pending.
+Completed referrer implementation `9137cf0c8126a8a8f4430f0df1432bf61f78a51e`, blob `8a8093e2e0e599fdec8fa279bb2534e27d9e9ac7`, SHA-256 `57f9414bb63b09cf76947e74e676d69b8bcf549749d834e864cb8abffd71a931`, retains 21 offline tests and now has owner execution evidence.
 
-**Next safe action:** run the pinned [Firebase referrer launcher](NEXT-ACTION.md) for existing key `projects/1044962071847/locations/global/keys/fdae1cd2-64ce-49ec-a426-ed46120083e9`. It freshly verifies account/project/organization, standard Auth, the four domains and Google enabled, then exact key resource/UID/etag, browser restriction type and the complete observed 27-service allowlist. Only empty referrers permit an update; exact intended state verifies without writing. Unexpected services, methods, referrers, key binding or identity cause a stop.
+**Next safe action: read the replacement database catalogs before selecting any schema or runtime-grant operation.** Existing database identities and version-1 credentials are complete; there is no current replacement application-schema/object-grant inventory. Source review found the ordered nonproduction schema path uses the dedicated migrator and `DATABASE_MIGRATION_URL:1`; backend runtime uses `DATABASE_URL:1`. Initial database setup revokes PUBLIC default privileges but does not grant runtime access to later objects. No explicit replacement object-grant stage was found between schema execution and backend deployment. This is a source gap requiring reconciliation, not a live assertion that tables or grants are absent.
 
-Reviewed scope is exactly two HTTPS origins: the planned PR #274 frontend and `khedmah-preview-v2-20261012.firebaseapp.com`, the existing default OAuth helper domain. Each uses the bare origin and its `/*` path pattern, following Google's matching guidance. No wildcard subdomain, other PR, Production, localhost or `web.app` browsing origin is included. Auth's existing localhost/web.app entries remain unchanged; this key is for Preview browsing, not local browsing or a separate Hosting application.
+Prepared `scripts/read-preview-v2-schema.py --inspect` pins project `khedmah-preview-v2-20261012` / `1044962071847`, organization `594049370623`, account `haifawi30@gmail.com`, region `europe-west1`, SQL instance `khedmah-preview-v2-db`, database `khedmah` and login `khedmah_migrator`. It verifies project/instance/secret-version metadata, **privately reads existing `DATABASE_MIGRATION_URL:1`**, and opens its own temporary Cloud SQL Auth Proxy Unix socket. No credential entry is required. A private temporary passfile is removed after psql; the proxy and temporary directory are cleaned up. Existing proxy listeners, SQL users and credential-recovery files are untouched.
 
-The single API Keys PATCH uses `updateMask=restrictions`, copies the existing API targets and empty method restrictions unchanged, sets the four reviewed patterns, and includes the freshly read `etag` to reject stale writes. It waits for the returned operation, then re-reads key identity/restrictions and Auth prerequisites. Only validated operation name and selected metadata are emitted. No `getKeyString`, secret payload read, key creation/rotation or API enablement occurs. Errors/conflicts/polling timeout stop without automatic write retries or rollback; reconcile the operation/current metadata before retrying.
+The fixed transaction is `BEGIN READ ONLY` with read-only session defaults, `pg_catalog` search path and statement/lock timeouts. Output contains role flags/memberships, database/schema privileges, non-system schemas, at most 200 relation definitions/owners and runtime DML/sequence privileges, routine count and migrator default ACL metadata. Larger inventories explicitly report incomplete relation coverage. **No application data rows, password catalog, SQL writes, schema/grants, API/IAM change, secret creation/rotation, build, deployment or email send.** Success reports `PREVIEW_V2_SCHEMA_CATALOG_READ_COMPLETED` with `secret_payload_access=true`, `credential_values_printed=false` and mutation/readiness flags false. It is an inventory, not a schema readiness verdict.
 
-Implementation **`9137cf0c8126a8a8f4430f0df1432bf61f78a51e`**, `scripts/configure-preview-v2-firebase-referrers.py`; blob `8a8093e2e0e599fdec8fa279bb2534e27d9e9ac7`; SHA-256 `57f9414bb63b09cf76947e74e676d69b8bcf549749d834e864cb8abffd71a931`. **21 offline Python tests passed**, plus Node wrapper, Python syntax/whitespace and published helper byte readback. Coverage includes API/referrer scope, etag carriage, prerequisites, unexpected metadata, configured no-write behavior, operation completion/errors/timeouts, no write retry, readback conflicts, service-order/default-method normalization and redaction/redirect refusal. The referrer change has not been owner-executed; no fresh full CI or browser acceptance is claimed.
+Implementation **`d87a276ec3cd41b217f05e31a4943580667be4c5`**, helper blob `1f1565473cc1ab8d8e98791f0fc4af440f9d3d32`, SHA-256 `154d46eab2799d131ca3134f7c8c0eebee58491e2190e9d86da205cd91c72d11`. **16 offline Python tests passed**, including fixed credential target/version, read-only psql/session, private passfile and exact socket-host matching, cleanup, identity guards, output bounds, redaction and redirect refusal; Node wrapper and Python syntax passed. Proxy readiness is mocked because this runner cannot create sockets. No real PostgreSQL execution or current-source full CI is claimed; owner catalog execution remains pending. Related tests: `tests/test_preview_v2_schema_read.py`, `tests/preview-v2-schema-read.test.mjs`.
 
-Preserve Maps `GOOGLE_MAPS_BROWSER_API_KEY:1` at `2026-10-13T15:25:14.433875+00:00` (value, exact restrictions and Maps JavaScript enabled verified; no payload printed), Resend `RESEND_API_KEY:1` at `2026-10-13T10:49:53.792297+00:00`, six Firebase values, Storage/PAP, project/infra/database credentials and WIF. Maps creation/staging are complete; do not replay them. Maps loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` retains two focused tests; staging implementation `18d09817627930da767ca98e021584912a0f5392` retains 18. The earlier Maps create output exposed keyString despite intended suppression: never retain/reprint that payload, prefix/suffix or fingerprint. Keep Maps on its separate restricted key.
+Backend source uses `configuredOrigins()` for credentialed CORS and CSRF. Deployment wiring derives `CORS_ORIGIN` and `NEXT_PUBLIC_SITE_URL` from the returned frontend `status.url`. Actual service URL alignment with the reviewed browser-key/Auth origin and browser CORS/CSRF acceptance remain gates; source wiring alone is not live acceptance. Relevant files: `apps/backend/src/app.ts`, `apps/backend/src/middleware/csrf-origin.middleware.ts`, `scripts/deployment/deploy-cloud-run-environment.sh`, `scripts/deployment/schema-execution-profile.sh`, `scripts/deployment/run-foundation-nonproduction-migrations.sh`, `scripts/configure-preview-v2-database.py`.
 
-Actual canonical frontend URL, backend CORS/CSRF, schema/runtime grants, current-source full checks, popup/session, Maps rendering, mail scope/delivery and Floot remain open. Metadata readback will not establish restriction propagation or browser acceptance. Preview deployment/cleanup holds and all Production gates remain. No shared mail setting change, domain transfer, email send or workflow release follows from this receipt.
+Preserve all completed ledger entries: project/infra/database credentials/WIF, six Firebase values, Storage/PAP, Maps `GOOGLE_MAPS_BROWSER_API_KEY:1` at `2026-10-13T15:25:14.433875+00:00`, Resend `RESEND_API_KEY:1` at `2026-10-13T10:49:53.792297+00:00`, Auth and referrers. Maps loader repair `e92cf6cb4751b28f58e21a92655882a48d87ba68` retains two focused tests; Maps staging `18d09817627930da767ca98e021584912a0f5392` retains 18. Do not replay key creation/staging or retain/reprint the earlier Maps creation keyString, prefix/suffix or fingerprint. Mail scope/delivery, Maps rendering, Google popup/token/session and Floot remain open; no shared mail setting change or domain transfer follows from this receipt.
 
-Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at inspected parent `4cbeb50d41e03ddb9291dc935e0d8c3d5e198f69`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is deliberately held. This pass adds the helper and Python/Node tests, updates the same five checkpoints with `[skip ci]`, and does not dispatch, merge, execute cloud operations or mutate Production.
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at inspected parent `72601ce86dc6c1eb24d7bbda2d80c4740e1d8157`. Latest full-source SHA remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` deliberately exited at `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. Deployment steps remain unreachable and cleanup remains held at `PREVIEW_V2_CLEANUP_HELD_NO_CLOUD_ACCESS`. This pass adds only the catalog helper/tests and updates the same five checkpoints with `[skip ci]`; no dispatch, merge, assistant cloud operation or Production mutation. Current-source full checks and separate rollout gates remain required.
 
-Run this complete command in Cloud Shell. Although the prompt may display `khedma-dl`, every gcloud call and REST resource is explicitly pinned to the replacement project/account. The launcher downloads reviewed source and checks its immutable SHA-256. No credential or key input is requested.
+Run this one checksum-pinned block in the owner's existing Cloud Shell. The shell prompt may still name the old project: every gcloud call and connection target is explicitly pinned to the replacement. Existing `psql` and `cloud-sql-proxy` are required; if absent, the helper stops before credential access. Return the final JSON or sanitized `STOP:` text only; do not print the private passfile, proxy log or any Secret Manager payload.
 
 ```bash
 (
@@ -32,37 +32,23 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=true
 export CLOUDSDK_CORE_LOG_HTTP=false
 export CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true
 
-khedmah_firebase_referrers_script="$(mktemp)"
-trap 'rm -f -- "$khedmah_firebase_referrers_script"' EXIT
+khedmah_schema_read_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_schema_read_script"' EXIT
 
 gh api --hostname github.com \
-  repos/khedma-sy/khedmah-digital-v1/git/blobs/8a8093e2e0e599fdec8fa279bb2534e27d9e9ac7 \
-  --jq '.content' | base64 --decode > "$khedmah_firebase_referrers_script"
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/1f1565473cc1ab8d8e98791f0fc4af440f9d3d32 \
+  --jq '.content' | base64 --decode > "$khedmah_schema_read_script"
 
 printf '%s  %s\n' \
-  '57f9414bb63b09cf76947e74e676d69b8bcf549749d834e864cb8abffd71a931' \
-  "$khedmah_firebase_referrers_script" | sha256sum --check --status
+  '154d46eab2799d131ca3134f7c8c0eebee58491e2190e9d86da205cd91c72d11' \
+  "$khedmah_schema_read_script" | sha256sum --check --status
 
-python3 "$khedmah_firebase_referrers_script" --apply
+python3 "$khedmah_schema_read_script" --inspect
 )
 ```
 
-Exact `allowedReferrers` prepared for the Firebase browser key:
+After the receipt, update CURRENT-STATE and this action together. Select the next ordered schema step and design the runtime object-grant gate from actual catalog evidence. A failed/partial inventory is not permission to run migrations or reuse the retired Production hardening script. Keep deployment and cleanup held.
 
-- `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app`
-- `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`
-- `https://khedmah-preview-v2-20261012.firebaseapp.com`
-- `https://khedmah-preview-v2-20261012.firebaseapp.com/*`
-
-Source reviewed: `apps/frontend/lib/firebase/config.ts` consumes staged browser settings; `apps/frontend/lib/firebase/auth.ts` uses Google `signInWithPopup`. The selected firebaseapp.com origin supports the existing default OAuth helper. No custom authDomain or staged SDK value change is included. The planned frontend URL remains subject to actual deployment verification; the separate Maps key is outside this operation.
-
-Return final `PREVIEW_V2_FIREBASE_REFERRERS_CONFIGURED` JSON or sanitized STOP plus validated operation name if emitted. Success must show the exact project/key, four patterns, `api_allowlist_preserved=true`, `api_target_count=27` and verified Auth prerequisites. `changed=false` is valid if already configured. Propagation/browser acceptance, deployed origin, login, deployment and Floot intentionally remain false.
-
-Keep other key/Auth writers idle. The key update carries an etag; a conflict is a stop, not permission to overwrite another writer. If pending/uncertain, inspect the returned operation and current metadata before another mutation. The helper does not retry PATCH, rotate a key, touch secrets or automatically roll back. Preserve prior nonsecret staging attempt markers.
-
-After owner readback, reconcile backend origin/CORS/CSRF and the ordered schema/runtime-grant path against the held Preview workflow, then obtain current-source full checks before considering a bounded rollout. Stored keys and authorized domains do not release deployment/cleanup holds or authorize email delivery.
-
-References: [referrer patterns](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys), [PATCH mask](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys/patch), [key etag](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/projects.locations.keys), [operation polling](https://docs.cloud.google.com/api-keys/docs/polling-operations), [Firebase API allowlist](https://firebase.google.com/docs/projects/api-keys), [Google OAuth helper](https://firebase.google.com/docs/auth/web/google-signin).
 
 ## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
