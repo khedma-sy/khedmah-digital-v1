@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Resend domain conflict — claim/transfer held; existing team lookup next — 2026-10-13
+### Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+
+Owner said the existing active team/account is theirs at `2026-10-13T13:21:02+03:00`. Screenshot received `2026-10-13T13:25:14+03:00` shows Resend team label **khedmasy**, Domains page, one listed domain **mail.khedmah.uk**, status **Verified**, with no active search and All statuses selected. This establishes owner-accessible Console evidence for the existing verified domain. No transfer is needed for the next key step. This is not a fresh provider API read or delivery/runtime test.
+
+Owner screenshot received `2026-10-13T13:26:51+03:00` shows API keys in the same khedmasy team: four listed entries, no search, All permissions, one page. Names: `khedma.dl`, `khedmah-staging`, `Khedmah Staging Email`, `Khedmah Production Email`; each displays Sending access. `khedmah-preview-v2` is not present in this observed inventory. Existing domain restrictions/actual consumers are not exposed. Token previews are deliberately not recorded. Preserve all four existing keys.
+
+**Next safe action:** stay in team **khedmasy** on API keys and click Create API key. Prepare a separate key named **khedmah-preview-v2**, permission **Sending access**, restricted to **mail.khedmah.uk**. The observed list has no same-name key; create the new scoped key once and save its value privately in a password manager. If the list changes and that name appears before creation, inspect it before duplicating. Never retrieve or copy an existing Production key; return completion/name/scope only. Do not paste or screenshot the token. This is the owner's requested Preview application credential, not a ChatGPT connector credential.
+
+No new Preview key creation or Secret Manager version is yet evidenced. Protected staging into the replacement project's existing RESEND_API_KEY container is a separate next step. Do not rotate/revoke existing keys, transfer/delete the domain, add the ownership TXT or use Auto configure. The abandoned claim in team haifawi30 has not been canceled or API-inspected here. Existing domain sending capability details, region, DNS/Return-Path and saved tracking were not shown; do not attribute the earlier unsaved Ireland/send form to this existing domain. Read existing configuration before mail acceptance and do not change shared domain settings without checking its consumers and applicable Production gates.
+
+Preserve Google parent/provider API verification, six staged Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source full checks, application deployment, login/session and Floot acceptance remain pending. Adding a mail key does not release the explicit Preview workflow deployment hold.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `e51013430fc12620a05e8622d5964eff5d74ab62`; latest full-source checks at `f99479268f036c098bdd0fd828d5295aeb11ef39` and held Preview run `38277607448` are unchanged. Five Markdown checkpoints only with `[skip ci]`; no new tests/full CI, executable changes, dispatch, merge, assistant cloud mutation or email send.
+
+### Historical checkpoint — domain claim held; team lookup then next — 2026-10-13
 
 Owner screenshot received `2026-10-13T13:17:44+03:00` shows the Resend **Claim domain** screen for `mail.khedmah.uk`, after Add domain. Resend explicitly reports that another team uses this domain and that ownership verification would transfer it and revoke that team's access. The green Domain step does not prove sending readiness, completed transfer or DNS verification. The screenshot does not identify the other team or its environment. No successful claim, verified sending domain, new Preview API key or secret staging is evidenced.
 
@@ -154,7 +168,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `60929acca6824932d4a0276e7992271ea75777b5`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `e51013430fc12620a05e8622d5964eff5d74ab62`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -183,14 +197,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** inspect the Resend team selector and identify the team that already owns `mail.khedmah.uk`, per [NEXT-ACTION](NEXT-ACTION.md). The observed Claim domain flow is held: no ownership TXT, Auto configure, transfer or deletion.
+1. **Next:** create the separate domain-scoped Preview sending key in the observed **khedmasy** team, per [NEXT-ACTION](NEXT-ACTION.md), checking for an existing same-name key first. The existing domain is Console-Verified; key creation, protected staging and actual sending remain unverified. Claim/transfer stays held.
 2. From returned evidence, select the Preview sender and prepare a separate, domain-limited sending credential and protected staging into the existing Preview secret. Do not copy a Production credential or assume a missing domain can be claimed/transferred. DNS changes, credentials and any test email need concrete scope before execution.
 3. Prepare the missing Maps/browser configuration and exact approved origins/referrers, ordered schema/runtime grants, current-source full checks, then review removal of the explicit deployment hold and perform bounded Preview rollout/acceptance. No placeholder origin or secret, wildcard browser trust or automatic release.
 4. Standard Auth and Google enablement are completed configuration evidence; Facebook remains deferred. Saved support/branding fields, OAuth client/consent and actual popup/session/CORS/CSRF/Floot acceptance remain separately unverified. Old Preview deployment does not certify the replacement.
 
 ### Execution boundary and handoff discipline
 
-No authenticated Google Cloud execution surface or Resend connection is confirmed here. The owner is using Resend directly; read the visible team selector next. Domain claim/transfer, DNS authorization/writes, keys, sends and deployment remain held. This reconciliation itself performs no cloud operation, credential read, workflow dispatch or merge.
+No authenticated Google Cloud execution surface or Resend connection is confirmed here. The owner is using the existing khedmasy team directly and is preparing a new scoped Preview sending key. Claim/transfer, DNS writes, shared domain settings, secret staging, sends and deployment are not part of this handoff. This reconciliation itself performs no cloud operation, credential read, workflow dispatch or merge.
 
 After the Resend domain evidence arrives, update **this ledger and NEXT-ACTION together**. Keep all six Firebase values and completed project, infrastructure, database, WIF, Storage and Google Auth/provider work. Preserve Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B evidence remains preserved; schema/HARDEN/release require their own gates.
 

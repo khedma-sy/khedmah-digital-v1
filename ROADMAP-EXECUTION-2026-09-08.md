@@ -1,6 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Resend domain conflict — claim/transfer held; existing team lookup next — 2026-10-13
+## Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+
+Owner screenshot shows team **khedmasy** with existing `mail.khedmah.uk` marked **Verified**. Next: in that team prepare/create a separate `khedmah-preview-v2` key with **Sending access**, restricted to this domain. The next screenshot lists four existing sending keys and none named `khedmah-preview-v2`; preserve all four and save the new value privately. No key creation or cloud staging is yet evidenced. Domain transfer/claim and DNS changes remain held; no shared tracking/settings change is included.
+
+Preserve Google parent/provider API verification, six staged Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source full checks, application deployment, login/session and Floot acceptance remain pending. Adding a mail key does not release the explicit Preview workflow deployment hold.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `e51013430fc12620a05e8622d5964eff5d74ab62`; latest full-source checks at `f99479268f036c098bdd0fd828d5295aeb11ef39` and held Preview run `38277607448` are unchanged. Five Markdown checkpoints only with `[skip ci]`; no new tests/full CI, executable changes, dispatch, merge, assistant cloud mutation or email send.
+
+## Historical checkpoint — domain claim held; team lookup then next — 2026-10-13
 
 The owner reached a **Claim domain** conflict: Resend reports `mail.khedmah.uk` belongs to another team; verification would transfer it and revoke existing access. Do not add the claim TXT, use Auto configure or verify/transfer/delete this domain. Next: read the team selector beside `haifawi30` and identify the existing domain's team. No successful domain verification, Preview key or secret staging is evidenced.
 

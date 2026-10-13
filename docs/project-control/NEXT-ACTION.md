@@ -1,6 +1,20 @@
 # Next Safe Action — Khedmah
 
-## Resend domain conflict — claim/transfer held; existing team lookup next — 2026-10-13
+## Existing Resend team and verified domain found; scoped Preview key next — 2026-10-13
+
+Owner said the existing active team/account is theirs at `2026-10-13T13:21:02+03:00`. Screenshot received `2026-10-13T13:25:14+03:00` shows Resend team label **khedmasy**, Domains page, one listed domain **mail.khedmah.uk**, status **Verified**, with no active search and All statuses selected. This establishes owner-accessible Console evidence for the existing verified domain. No transfer is needed for the next key step. This is not a fresh provider API read or delivery/runtime test.
+
+Owner screenshot received `2026-10-13T13:26:51+03:00` shows API keys in the same khedmasy team: four listed entries, no search, All permissions, one page. Names: `khedma.dl`, `khedmah-staging`, `Khedmah Staging Email`, `Khedmah Production Email`; each displays Sending access. `khedmah-preview-v2` is not present in this observed inventory. Existing domain restrictions/actual consumers are not exposed. Token previews are deliberately not recorded. Preserve all four existing keys.
+
+**Next safe action:** stay in team **khedmasy** on API keys and click Create API key. Prepare a separate key named **khedmah-preview-v2**, permission **Sending access**, restricted to **mail.khedmah.uk**. The observed list has no same-name key; create the new scoped key once and save its value privately in a password manager. If the list changes and that name appears before creation, inspect it before duplicating. Never retrieve or copy an existing Production key; return completion/name/scope only. Do not paste or screenshot the token. This is the owner's requested Preview application credential, not a ChatGPT connector credential.
+
+No new Preview key creation or Secret Manager version is yet evidenced. Protected staging into the replacement project's existing RESEND_API_KEY container is a separate next step. Do not rotate/revoke existing keys, transfer/delete the domain, add the ownership TXT or use Auto configure. The abandoned claim in team haifawi30 has not been canceled or API-inspected here. Existing domain sending capability details, region, DNS/Return-Path and saved tracking were not shown; do not attribute the earlier unsaved Ireland/send form to this existing domain. Read existing configuration before mail acceptance and do not change shared domain settings without checking its consumers and applicable Production gates.
+
+Preserve Google parent/provider API verification, six staged Firebase SDK values, Storage/PAP, database and WIF completion. Maps/origins, schema/runtime grants, current-source full checks, application deployment, login/session and Floot acceptance remain pending. Adding a mail key does not release the explicit Preview workflow deployment hold.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `e51013430fc12620a05e8622d5964eff5d74ab62`; latest full-source checks at `f99479268f036c098bdd0fd828d5295aeb11ef39` and held Preview run `38277607448` are unchanged. Five Markdown checkpoints only with `[skip ci]`; no new tests/full CI, executable changes, dispatch, merge, assistant cloud mutation or email send.
+
+## Historical checkpoint — domain claim held; team lookup then next — 2026-10-13
 
 Owner screenshot received `2026-10-13T13:17:44+03:00` shows the Resend **Claim domain** screen for `mail.khedmah.uk`, after Add domain. Resend explicitly reports that another team uses this domain and that ownership verification would transfer it and revoke that team's access. The green Domain step does not prove sending readiness, completed transfer or DNS verification. The screenshot does not identify the other team or its environment. No successful claim, verified sending domain, new Preview API key or secret staging is evidenced.
 
