@@ -1,5 +1,11 @@
 # Preview replacement plan — 2026-10-12
 
+## Owner inventory received; CLI Storage handoff prepared — 2026-10-13
+
+Owner output at component timestamp `2026-10-13T06:50:24.270798+00:00` confirms the existing replacement project/billing, RUNNABLE SQL and users, no regional Cloud Run services, and empty Storage/Maps/Resend secret-version lists. Firebase identity is valid; the SDK bucket remains absent and Storage API disabled. Auth 404/referrer findings remain unresolved. Preserve all prior completed setup evidence.
+
+Continue with [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md). The owner requested Cloud Shell operation; the checksum-pinned helper `scripts/provision-preview-v2-storage.py` at `698a12b04b01194525e50d97ecafd3dba2a1c159` prepares the missing API, deny-all release and default bucket only. Fifteen mocked Python tests plus their Node wrapper and compilation passed. It has not been executed on Google Cloud. No Production mutation, workflow dispatch, merge, secret staging or deployment occurred. `[skip ci]` preserves the holds; no full-CI claim. This supersedes the earlier UI-only next action without discarding the completed ledger.
+
 ## Execution status override — reconciled 2026-10-13
 
 Use [CURRENT-STATE's completed-work ledger](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md) for continuation. Project/billing/core APIs, infrastructure, SQL/database identities and version-1 credentials, GitHub/WIF, Firebase WebApp and five core configuration values are already complete. Completion evidence omitted by later checkpoint replacements was recovered from Git history; do not replay infrastructure, SQL pricing, credential, federation or registration batches.

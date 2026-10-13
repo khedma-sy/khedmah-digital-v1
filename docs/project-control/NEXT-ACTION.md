@@ -1,29 +1,43 @@
 # Next Safe Action — Khedmah
 
-## Reconciled next action — replacement Preview Storage only — 2026-10-13
+## Next owner operation — checksum-pinned Preview Storage setup — 2026-10-13
 
-Read the completed-work ledger in [CURRENT-STATE](CURRENT-STATE.md) first. Infrastructure, database identities/credential versions, protected GitHub configuration, working WIF, Firebase registration and five Firebase values are complete. The component inspection has also completed. Older commands below requesting those operations are historical.
+The owner completed the full inventory at component timestamp `2026-10-13T06:50:24.270798+00:00`. [CURRENT-STATE](CURRENT-STATE.md) records the returned project/billing/SQL/users/APIs/services/secrets findings while retaining completed infrastructure, WIF and five-value Firebase setup. Do not repeat that inventory or any setup batch.
 
-**One pending owner operation:** open [Firebase Storage for the replacement project](https://console.firebase.google.com/project/khedmah-preview-v2-20261012/storage) under the established account, confirm `khedmah-preview-v2-20261012`, and create its default bucket in **europe-west1 (Belgium)** with the existing repository's deny-all rules. Select locked/production rules if the console offers that mode; the label concerns rules, not the Production project. Verify the resulting Rules page against:
+**Scope of this command:** it is a cloud mutation, prepared under the existing instruction to complete the replacement Preview. It validates the fixed account/project/number/organization, current Firebase app/SDK bucket and billing. It enables only the missing `firebasestorage.googleapis.com`, installs the exact repository deny-all rules in a bucket-specific Rules release, verifies that release, then creates the default `khedmah-preview-v2-20261012.firebasestorage.app` bucket in `europe-west1` through the documented Firebase endpoint. It verifies project/region/linkage/rules and reports direct bucket IAM/ACL metadata. The existing billing link is read only.
 
-```text
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
-    }
-  }
-}
+Existing matching buckets are verified without writes. Existing different rules/resources, denied/ambiguous reads, incomplete inventories and drift stop without overwriting or relinking. An exact deny-all release already present can be reused after verification. Partial operations are not rolled back automatically: return all output on any STOP and do not blindly rerun.
+
+**No side effects outside this batch:** no SQL, secret payload/version, key restriction, Auth, Maps/mail, IAM grant, service deployment, Production/Staging/old Preview mutation or Floot edit. It does not change Cloud Shell's default project. The account is explicitly pinned to `haifawi30@gmail.com`.
+
+Implementation: `698a12b04b01194525e50d97ecafd3dba2a1c159`; script blob `435fecef99f899b68e985b8119f64c811191fe49`; SHA-256 `725152a320b79490d0a58b9037d20c75c30b7aa9c4e873433a05c569291bd592`. Source is not wired into CI. Fifteen mocked Python tests, their Node wrapper and Python compilation passed; the handoff has not been live-run. Source/docs commits use `[skip ci]` to preserve the cloud holds; no new full-CI result.
+
+Run the complete block in Cloud Shell and return its output:
+
+```bash
+(
+set -euo pipefail
+umask 077
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+khedmah_storage_script="$(mktemp)"
+trap 'rm -f -- "$khedmah_storage_script"' EXIT
+
+gh api --hostname github.com \
+  repos/khedma-sy/khedmah-digital-v1/git/blobs/435fecef99f899b68e985b8119f64c811191fe49 \
+  --jq '.content' | base64 --decode > "$khedmah_storage_script"
+
+printf '%s  %s\n' \
+  '725152a320b79490d0a58b9037d20c75c30b7aa9c4e873433a05c569291bd592' \
+  "$khedmah_storage_script" | sha256sum --check --status
+
+python3 "$khedmah_storage_script" --apply
+)
 ```
 
-Return the bucket name, location and Rules screen; do not send credentials. If the page already shows a bucket, return that existing state instead of creating/replacing it. An unexpected project, region, permission denial or billing-account change stops this bounded operation. The existing billing link is already complete; no relinking is part of this step.
+Expected terminal marker, only after successful actual execution: `PREVIEW_V2_STORAGE_PROVISIONING_COMPLETED_APPLICATION_HELD`; an already correct existing resource reports `PREVIEW_V2_STORAGE_ALREADY_PRESENT_NO_MUTATION`. The preceding report deliberately keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. Final inherited-IAM and propagated-rule verification remain before staging the sixth Firebase value. Then continue the unresolved Auth/referrer, Maps/mail, schema/grants, current-source CI, held deployment and Floot acceptance sequence.
 
-**State:** prepared, not executed/reported. No Google Cloud execution session is connected to the assistant. This handoff follows the owner's instruction to continue the existing Preview setup, not a request to repeat previous approvals or Firebase registration. The [official Storage setup guide](https://firebase.google.com/docs/storage/web/start) and committed `infra/firebase/storage.rules` were re-read.
-
-**After the owner result:** verify exact project/bucket/region, Firebase linkage, IAM and deployed rules before storing the sixth value. A screenshot confirms only what it shows; it does not establish effective IAM. Then continue the unresolved Auth/referrer, Maps/mail, schema/runtime grants and deployment/Floot acceptance gates recorded in CURRENT-STATE. Retain both Preview holds. No Production action or merge is included.
-
-This documentation reconciliation changes no executable or workflow bytes and uses `[skip ci]`. Parent `0fe3f1fa97f776228616a8565ffa72c260d4e75d` had no Actions/check runs. The current-source full-CI gate remains open.
+References: [default bucket creation](https://firebase.google.com/docs/reference/rest/storage/rest/v1alpha/projects.defaultBucket/create), [Rules management](https://firebase.google.com/docs/rules/manage-deploy), [direct bucket IAM](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/getIamPolicy). This CLI step supersedes earlier UI instructions below; the completed-work ledger remains authoritative.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 

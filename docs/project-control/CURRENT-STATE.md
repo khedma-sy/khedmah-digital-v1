@@ -4,6 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
+### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
+
+The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINESS_VERDICT`. Component inspection timestamp: `2026-10-13T06:50:24.270798+00:00`; the subsequent CLI rows have no separate operation timestamp. The interleaved terminal echo does not invalidate the complete returned result. This is owner-run evidence, not assistant cloud execution.
+
+- Active account `haifawi30@gmail.com`; project `khedmah-preview-v2-20261012` / `1044962071847` is ACTIVE under organization `594049370623`; billingEnabled=true. Cloud Shell's displayed default `khedma-dl` did not change the explicitly scoped reads. Do not change the default or repeat setup.
+- SQL `khedmah-preview-v2-db` is RUNNABLE, POSTGRES_16, `europe-west1`, tier `db-custom-1-3840`; app, migrator and postgres users are present. This metadata refresh preserves the earlier successful login/credential evidence; it does not re-prove SQL roles, schema or grants.
+- Regional Cloud Run service list is empty. This is evidence of no returned services in this project/region; it is not an inventory of Jobs or other regions.
+- Eleven Secret Manager containers are returned. Version lists for `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `GOOGLE_MAPS_BROWSER_API_KEY` and `RESEND_API_KEY` are each empty. These three configurations have no returned stored versions; do not treat container presence or API activation as configured values. The five Firebase core values and two database versions retain their separate prior evidence.
+- Enabled APIs include Firebase, Identity Toolkit, Secure Token, API Keys, Maps JavaScript, Firebase Rules, Cloud Run, SQL and Storage. `firebasestorage.googleapis.com` is absent. Do not disable the additional observed services or infer their activation history.
+- Firebase WebApp/SDK/key identity matches. Complete bucket inventory again contains only source/state buckets. The SDK default bucket is absent. Browser allowedReferrers remains empty. Auth config/Google/Facebook reads return 404 without a structured reason. These findings preserve unresolved Auth readiness; they do not authorize Auth recreation.
+- **Next operator source:** `scripts/provision-preview-v2-storage.py`, implementation `698a12b04b01194525e50d97ecafd3dba2a1c159`. The reviewed Cloud Shell launcher is in [NEXT-ACTION](NEXT-ACTION.md), superseding the UI-only handoff. This is a prepared **mutation** for the replacement project's missing Storage API, deny-all rules release and default bucket, not another inventory command. It has not been run on Google Cloud.
+- **Validation:** 15 Python tests passed, also invoked by the single Node wrapper; compilation passed. All cloud calls were mocked. Tests cover target mismatch, existing resources/rules, inventory drift/pagination, denial and disabled-API handling, route restrictions, public bucket bindings, and exact repository rule source. No live REST provisioning, rule propagation, full CI or readiness is claimed.
+- The operator leaves existing resources/rules unchanged, requires deny-all release readback before bucket creation, and verifies resulting bucket identity/linkage plus direct bucket IAM/ACL observations. It does not write the sixth secret value or certify effective inherited IAM or data-plane rule propagation. Any error returns a stop marker for reconciliation; do not blindly retry a partially completed batch. Existing schema/deployment holds remain.
+
+
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
@@ -27,14 +42,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** complete the existing bounded default Firebase Storage setup for this exact replacement project, in `europe-west1`, using deny-all rules from `infra/firebase/storage.rules`. See [NEXT-ACTION](NEXT-ACTION.md). This operation remains prepared, not executed or reported. The SDK bucket name is absent from the complete supplied project bucket inventory; Storage API was disabled.
+1. **Next:** run the checksum-pinned Storage operator in [NEXT-ACTION](NEXT-ACTION.md), implementation `698a12b04b01194525e50d97ecafd3dba2a1c159`. It targets only the existing replacement project/europe-west1, enables the missing Storage API, installs deny-all rules before default bucket creation, and verifies the returned metadata. Prepared, not executed/reported. Existing-resource or permission conflicts stop; no secret staging or application deployment follows.
 2. Verify resulting bucket identity/region, Firebase linkage, IAM and deployed rules before staging the sixth configuration value. Browser referrers were empty; Auth/provider reads returned 404 without structured reasons. Their readiness is unresolved; 404 alone does not authorize reinitialization.
 3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. No new product scope is introduced.
 4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
 
 ### Execution boundary and handoff discipline
 
-This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Storage step is owner-operated in the established Firebase account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
+This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Storage step is owner-operated in Cloud Shell under the established account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
 
 After the Storage result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup or Firebase registration as the next task merely because the conversation changed.
 
