@@ -1,6 +1,38 @@
 # Next Safe Action — Khedmah
 
-## Next read — completed Storage; effective access verification — 2026-10-13
+## Next owner operation — bucket-only public access prevention — 2026-10-13
+
+The access read is complete: `booleanPolicy: {}` for `constraints/storage.publicAccessPrevention`, Firebase anonymous list **403**, GCS anonymous list **401**. Received at `2026-10-13T10:38:31+03:00`; no operation timestamp was emitted. The terminal echo is interleaved, but the final structured results and completion marker are complete. Do not repeat this same read merely to obtain a cleaner echo.
+
+Google documents the empty boolean policy as the disabled/not-enforced representation. With the already observed bucket setting `inherited`, prevention is not enforced. The denied requests do not imply the bucket is public or prove all access paths.
+
+**Prepared mutation:** set only the existing replacement bucket's public access prevention to `enforced`, then read back identity/region/IAM configuration. Exact project/account and bucket are pinned. Prior provisioning verified project number `1044962071847`, EUROPE-WEST1, linkage, deny-all source, UBLA and no public direct bucket bindings. No organization/project-wide policy, IAM principal, rules, API, secret, database, default project or deployment change is included. This closes a concrete observed bucket-setting gap.
+
+The commands below deliberately use single physical lines to simplify Cloud Shell pasting. Run the whole block; `set -e` stops after a failed operation. If update succeeds but readback fails, return that outcome for reconciliation instead of rerunning creation. No output marker alone establishes readiness.
+
+```bash
+(
+set -euo pipefail
+export CLOUDSDK_CORE_DISABLE_PROMPTS=true
+export CLOUDSDK_CORE_LOG_HTTP=false
+
+gcloud storage buckets update gs://khedmah-preview-v2-20261012.firebasestorage.app --public-access-prevention --project=khedmah-preview-v2-20261012 --account=haifawi30@gmail.com --user-output-enabled --verbosity=error
+
+gcloud storage buckets describe gs://khedmah-preview-v2-20261012.firebasestorage.app --raw --project=khedmah-preview-v2-20261012 --account=haifawi30@gmail.com --user-output-enabled --verbosity=error --format='json(name,projectNumber,location,iamConfiguration)'
+
+printf 'STORAGE_PAP_UPDATE_AND_READBACK_FINISHED_NOT_A_READINESS_VERDICT\n'
+)
+```
+
+Expected readback: exact bucket name, `projectNumber: "1044962071847"`, `location: "EUROPE-WEST1"`, `iamConfiguration.publicAccessPrevention: "enforced"`, with uniform bucket-level access still enabled. Return all output. On a permission denial, retain the error; do not change identity, grant roles or broaden the target automatically.
+
+The update is **not yet executed**. The sixth Storage value remains unstaged; authenticated/effective IAM and application/data-plane acceptance are not certified by this property. Review returned evidence before advancing the existing Storage configuration gate and Auth/referrer, Maps/mail, schema/runtime-grant, current-source CI, held deployment and Floot acceptance sequence.
+
+Validation in this pass: five Markdown files only; command shell syntax checked; no cloud execution or new full CI. Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 parent `b82b2406d4b4f8c7f325860e8848c14700ff8b06` has no exact-head Actions runs. Existing holds remain; `[skip ci]` avoids dispatching deployment.
+
+References: [empty boolean policy and bucket setting](https://docs.cloud.google.com/storage/docs/using-public-access-prevention), [update flag](https://docs.cloud.google.com/sdk/gcloud/reference/storage/buckets/update), [raw metadata readback](https://docs.cloud.google.com/sdk/gcloud/reference/storage/buckets/describe).
+
+## Completed owner read — historical effective access verification — 2026-10-13
 
 The owner completed Storage provisioning at `2026-10-13T07:22:50.206618+00:00`. [CURRENT-STATE](CURRENT-STATE.md) preserves the bucket, exact ruleset, linkage, direct-IAM and UBLA evidence. The previous `--apply` command below is historical and must not be rerun. No new bucket, Firebase registration or API enablement is the next task.
 

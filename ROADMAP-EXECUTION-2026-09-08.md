@@ -1,6 +1,12 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Storage completed; next read only — 2026-10-13
+## Storage access read received; bucket setting next — 2026-10-13
+
+Owner evidence received `2026-10-13T10:38:31+03:00`: effective `storage.publicAccessPrevention` returned `booleanPolicy: {}` (not enforced); anonymous Firebase list **403** and GCS list **401**. The receipt time is not an operation timestamp. Both sampled anonymous requests were denied; full effective IAM, all data-plane operations and application readiness remain unverified.
+
+Continue from [CURRENT-STATE](docs/project-control/CURRENT-STATE.md) and [NEXT-ACTION](docs/project-control/NEXT-ACTION.md): set public access prevention to `enforced` on the existing replacement default bucket only, then read back exact identity and IAM configuration. This is a prepared, unexecuted mutation; no organization policy, IAM membership, secret staging, deployment or Production change. Do not repeat completed Storage creation or the unchanged policy/probe batch. Five Markdown files only, shell syntax checked, `[skip ci]`, no new full CI; all existing source/deployment gates remain.
+
+## Historical checkpoint — Storage completed; access read then pending — 2026-10-13
 
 Owner output at `2026-10-13T07:22:50.206618+00:00` confirms `PREVIEW_V2_STORAGE_PROVISIONING_COMPLETED_APPLICATION_HELD`: default bucket `khedmah-preview-v2-20261012.firebasestorage.app`, EUROPE-WEST1, Firebase linkage, deny-all source, UBLA enabled and no public direct bucket bindings. publicAccessPrevention remains `inherited`; effective access/propagation and sixth-value staging remain unverified/not performed.
 
