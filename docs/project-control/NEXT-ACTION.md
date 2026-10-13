@@ -1,18 +1,22 @@
 # Next Safe Action — Khedmah
 
-## Preview Resend version 1 staged and verified; Maps metadata next — 2026-10-13
+## Preview Maps inventory received; restricted key creation prepared — 2026-10-13
 
-Owner Cloud Shell execution completed at **`2026-10-13T10:49:53.792297+00:00`** (13:49:53 Asia/Damascus), received `2026-10-13T13:50:17+03:00`. The pinned helper returned `PREVIEW_V2_RESEND_PREFLIGHT_PASSED` with `enabled_version_1_present=false`, then `PREVIEW_V2_RESEND_CONFIG_STAGED`: exact project `khedmah-preview-v2-20261012`, secret `RESEND_API_KEY`, version `1`, `created=true`, `value_verified=true`, `secret_payload_printed=false`. This records an owner-executed first-version write and matching private readback, not an assistant cloud run. **Staging is complete; do not recreate the key, repeat the launcher or rotate this version.**
+Owner supplied the project-pinned API-key inventory at `2026-10-13T17:54:36+03:00`; no operation timestamp was emitted. It returned exactly one active key: `projects/1044962071847/locations/global/keys/fdae1cd2-64ce-49ec-a426-ed46120083e9`, display name **Browser key (auto created by Firebase)**. Its 27 API targets are Firebase-related and do not include Maps JavaScript; `browserKeyRestrictions={}` contains no allowed referrers. No independent Maps browser key is present in this successful inventory. Do not repeat the same read, reuse/widen the Firebase key or claim browser-origin readiness.
 
-The helper implementation remains `8f8c1952db95be8931215076ed98f05a6ac7ece9`, blob `27c1eea187492bb71df80d4812a8a6cad87effbb`, SHA-256 `3ba9fb8fa191c45db01b440bcf69341224f21300c6d0fca58b0fc60cd1ce3f15`; prior 13 focused offline tests and Node wrapper passed. The receipt explicitly retains `resend_key_scope_verified=false`, `email_delivery_verified=false`, `application_deployed=false` and `floot_connected=false`. No key value was supplied in chat. Keep the private nonsecret attempt marker; it is not a pending setup task.
+**Source repair completed:** implementation `e92cf6cb4751b28f58e21a92655882a48d87ba68` removes only the unused `libraries=places` loader parameter from `apps/frontend/app/map/page.tsx` and updates `docs/google/maps-integration.md`. The reviewed map and taxi consumers use map/marker/circle/polyline primitives and application data, with no Places service calls. Google documents that Places API (Legacy) cannot be enabled for new projects as of October 2026. No Places enablement, new Places feature or broader API grant is needed for these consumers. Two existing focused Web map tests passed; source diff and the owner command's Bash syntax passed review. Full current-source CI and browser acceptance remain pending.
 
-**Next safe action — Maps metadata only:** execute the project-pinned API-key list in [NEXT-ACTION.md](NEXT-ACTION.md) and return names/display names/restrictions, with no key strings. `cloudbuild.preview.yaml` still requires `GOOGLE_MAPS_BROWSER_API_KEY`; its last version inventory was empty. That older observation does not certify present absence of a Maps key. Read existing key metadata before choosing whether to reuse an appropriate Preview-only key or prepare a new one. Do not reuse the Firebase key, touch another environment's key, create an unrestricted key, invent a frontend origin or broaden referrers. Actual origins/referrers and Maps service scope must be reviewed before a write; no Maps mutation is handed off here.
+**Reviewed planned origin:** `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app`. This is derived from Google's documented deterministic Cloud Run URL, the source-reviewed service name `khedmah-pr-274-frontend`, verified project number `1044962071847` and configured region `europe-west1`; its DNS segment is 37 characters, within the documented 63-character limit. It is a planned origin, not an observed deployed service or readiness result. The actual published frontend URL, Firebase authorized domains/key restrictions and backend CORS/CSRF must agree before runtime/Floot acceptance. Do not use the old Preview hash URL, arbitrary `*.run.app` trust or assume a Floot origin.
 
-Preserve the existing khedmasy `mail.khedmah.uk` Verified domain evidence and existing sending keys. Resend scope, actual sending/tracking configuration and delivery need separate evidence before mail acceptance. No domain claim/transfer, DNS/shared-settings change or email send occurred. Preserve all six Firebase values, Storage/PAP, database and WIF, and Google Auth/provider completion. Maps/origins, schema/runtime grants, current-source full checks, deployment/login/session and Floot acceptance remain pending. The explicit Preview deployment hold, separate Staging/old Preview and all Production gates remain.
+**Next safe action:** owner runs the bounded creation/readback command in [NEXT-ACTION.md](NEXT-ACTION.md). It verifies the project number, creates only `khedmah-preview-v2-maps-browser` with one API target `maps-backend.googleapis.com` and one exact-host referrer `https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*`, then prints metadata only. The path wildcard permits pages on this one host; it does not permit other hosts. Fixed key ID prevents silently creating duplicates; an existing-key error or an uncertain outcome must be reconciled before retry, not followed by a new name/update/delete. No key string or secret payload is fetched by this command. Key creation/readback remains pending owner execution; no API enablement, Secret Manager write or deployment is included.
 
-Live GitHub was checked before this reconciliation: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at parent `ee1492b9d34860f2736a3681de3a714ace8a28c8`. Latest full-source SHA `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370` and Google source readiness `38277607365` succeeded; Preview `38277607448` remains deliberately held. This evidence update changes five Markdown checkpoints only with `[skip ci]`; no new tests/full CI, workflow dispatch, merge or assistant cloud mutation.
+**Completed work remains:** owner `RESEND_API_KEY:1` staging/readback at `2026-10-13T10:49:53.792297+00:00` is preserved (`created=true`, `value_verified=true`, no payload printed). Do not recreate/restage it. All six Firebase values, Storage/PAP, project/infra/database credentials, WIF and standard Auth/Google provider configuration remain completed. Resend scope/delivery, Maps key staging/runtime use, exact browser origins, schema/runtime grants, current-source full checks, login/session and Floot acceptance remain pending. Preserve the explicit Preview deployment/cleanup holds and all Production gates; no email, DNS/shared-domain change, Production mutation, workflow dispatch or merge occurred.
 
-Run the following in Cloud Shell. It reads only existing API-key metadata using the established account and explicit replacement project. It does not fetch a key string, access a Secret Manager payload, create/update a key, enable an API or change the active gcloud project.
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274 at parent `c066a5778a50cceeb1e1d23b2b045ad55a2b56ef`. Latest full-source results remain SHA `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node `38277607370`, Google source readiness `38277607365` succeeded; Preview `38277607448` is intentionally held. Both repair/checkpoint commits use `[skip ci]`; no exact-current-head full CI result is claimed.
+
+References: [Cloud Run deterministic URL](https://docs.cloud.google.com/run/docs/triggering/https-request#deterministic), [Maps application/API restrictions](https://developers.google.com/maps/api-security-best-practices), [Places Legacy availability](https://developers.google.com/maps/documentation/javascript/legacy/places).
+
+Execute once in the owner's Cloud Shell. Creation output is suppressed because the API can return generated credential material; the subsequent describe selects only name, display name and restrictions. Do not replace `--format=none` with unrestricted JSON output and do not run get-key-string.
 
 ```bash
 (
@@ -21,17 +25,36 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=true
 export CLOUDSDK_CORE_LOG_HTTP=false
 export CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true
 
-gcloud services api-keys list \
+khedmah_maps_number="$(gcloud projects describe khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com --user-output-enabled --verbosity=error \
+  --format='value(projectNumber)')"
+[[ "$khedmah_maps_number" == '1044962071847' ]] || {
+  printf 'STOP: PROJECT_IDENTITY_MISMATCH\n' >&2
+  exit 1
+}
+
+gcloud services api-keys create \
+  --key-id=khedmah-preview-v2-maps-browser \
+  --display-name='Khedmah Preview V2 Maps Browser' \
   --project=khedmah-preview-v2-20261012 \
+  --account=haifawi30@gmail.com \
+  --api-target=service=maps-backend.googleapis.com \
+  --allowed-referrers='https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app/*' \
+  --user-output-enabled --verbosity=error --format=none >/dev/null
+
+gcloud services api-keys describe khedmah-preview-v2-maps-browser \
+  --project=khedmah-preview-v2-20261012 --location=global \
   --account=haifawi30@gmail.com \
   --user-output-enabled --verbosity=error \
   --format='json(name,displayName,restrictions)'
 )
 ```
 
-Return the JSON or error. An empty successful list means no active API-key metadata was returned by this list; an error does not prove absence. Confirm each resource belongs to `projects/1044962071847/locations/global/keys/` and assess application/API restrictions before selecting any next mutation. These reads are still pending; no outcome is assumed. [Official command reference](https://docs.cloud.google.com/sdk/gcloud/reference/services/api-keys/list).
+Return only the metadata JSON or error. Expected resource name is under project number `1044962071847`, exact key ID above, one browser referrer above and only Maps JavaScript API. If creation may have succeeded but readback failed, reconcile this same ID with a metadata-only describe; do not repeat creation blindly or rotate another key.
 
-The just-completed Resend operation is not a mail-delivery verdict. Its old launcher is retained at immutable checkpoint `ee1492b9d34860f2736a3681de3a714ace8a28c8` for audit; it is no longer the next owner step.
+After metadata proves the exact restrictions, prepare private first-version staging into the existing `GOOGLE_MAPS_BROWSER_API_KEY` secret, checking its current inventory and comparing values without printing either. This later staging is not part of the current command. Before rollout, verify Maps JavaScript API activation and the actual canonical service origin; a saved API key alone is not a map-rendering verdict. No Places API (Legacy) enablement or Places (New) migration is included.
+
+CLI references: [create a key with restrictions](https://docs.cloud.google.com/sdk/gcloud/reference/services/api-keys/create), [describe metadata](https://docs.cloud.google.com/sdk/gcloud/reference/services/api-keys/describe).
 
 ## Historical checkpoint — existing Resend team/domain found; key creation then next — 2026-10-13
 
