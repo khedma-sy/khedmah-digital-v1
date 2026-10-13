@@ -17,6 +17,17 @@ test('Preview grant SQL: atomic rollback, exact ACL, schema preservation and rep
     '--sql-lab-pack'],{encoding:'utf8',maxBuffer:2*1024*1024});
   assert.equal(result.status,0,result.stderr);
   const pack=JSON.parse(result.stdout);
+  const verifyResult=spawnSync('python3',[fileURLToPath(new URL('./test_preview_v2_runtime_verify.py',import.meta.url)),
+    '--sql-lab-pack'],{encoding:'utf8',maxBuffer:2*1024*1024});
+  assert.equal(verifyResult.status,0,verifyResult.stderr);
+  const verifyPack=JSON.parse(verifyResult.stdout);
+  // Only the version guard changes for this PG18 WASM laboratory. The
+  // reader published for Cloud Shell continues to require native PG16.
+  const runtimeCompat=sql=>{
+    assert.ok(sql.includes('NOT BETWEEN 160000 AND 169999'));
+    return sql.replace('NOT BETWEEN 160000 AND 169999','NOT BETWEEN 180000 AND 189999');
+  };
+  const getReceipt=results=>results.find(x=>x.rows?.[0]?.json_build_object).rows[0].json_build_object;
   const dir=await mkdtemp(path.join(tmpdir(),'khedmah-acl-sql-'));
   let db;
   try {
@@ -57,6 +68,7 @@ test('Preview grant SQL: atomic rollback, exact ACL, schema preservation and rep
       assert.deepEqual(rows.find(x=>x.rows?.[0]?.json_build_object).rows[0].json_build_object,pack.baseline);
     };
     await checkBaseline();
+    assert.equal(getReceipt(await db.exec(runtimeCompat(verifyPack.state))).acl_state,'GRANTS_NOT_APPLIED');
     // A grant outside the allowlist must abort and roll back all earlier grants.
     const badAcl=compat(pack.apply).replace(pack.grants,pack.grants+
       'GRANT SELECT ON public.category_taxonomy_022_before_image TO khedmah_runtime_role;\n');
@@ -73,10 +85,22 @@ test('Preview grant SQL: atomic rollback, exact ACL, schema preservation and rep
     assert.equal(receipt.acl_exact,true);
     const readback=pack.readback.replaceAll('12'.repeat(32),receipt.schema_digest);
     await db.exec(readback);
+    assert.equal(getReceipt(await db.exec(runtimeCompat(verifyPack.state))).acl_state,'EXPECTED_GRANTS_PRESENT');
+    await db.exec('RESET SESSION AUTHORIZATION; SET SESSION AUTHORIZATION khedmah_app;');
+    const runtimeReceipt=getReceipt(await db.exec(runtimeCompat(verifyPack.runtime)));
+    assert.equal(runtimeReceipt.user,'khedmah_app');
+    assert.equal(runtimeReceipt.session_user,'khedmah_app');
+    assert.equal(runtimeReceipt.read_only,'on');
+    assert.equal(runtimeReceipt.allowed_select_probes,62);
+    assert.equal(runtimeReceipt.denied_select_probes,2);
+    // WASM role execution proves SQL permissions, not a native password login.
+    await db.exec('RESET SESSION AUTHORIZATION; SET SESSION AUTHORIZATION khedmah_migrator;');
     await assert.rejects(()=>db.exec(compat(pack.apply)),/RUNTIME_GRANTS_BASELINE_DRIFT_NO_APPLY/);
     await db.exec('ROLLBACK;');await db.exec(readback);
     await db.exec('GRANT UPDATE(user_id) ON khedmah_taxi.driver_approvals TO khedmah_runtime_role;');
     await assert.rejects(()=>db.exec(readback),/RUNTIME_GRANTS_EXACT_ACL_MISMATCH/);
+    await db.exec('ROLLBACK;');
+    await assert.rejects(()=>db.exec(runtimeCompat(verifyPack.state)),/RUNTIME_ACL_DRIFT_REVIEW_REQUIRED/);
     await db.exec('ROLLBACK; REVOKE UPDATE(user_id) ON khedmah_taxi.driver_approvals FROM khedmah_runtime_role;');
     await db.exec(readback);
     await db.exec('GRANT SELECT ON public.category_taxonomy_022_before_image TO PUBLIC;');

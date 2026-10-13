@@ -4,7 +4,27 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Preview schema/ACL receipt verified; bounded runtime grants prepared — 2026-10-13
+### Preview return handoff — runtime verification prepared, owner execution pending — 2026-10-13
+
+The owner asked to complete available repository work and prepare Google Cloud Shell commands while away. **No new owner cloud receipt has arrived.** Latest verified cloud evidence remains `PREVIEW_V2_SCHEMA_ACL_READ_COMPLETED_NO_MUTATION` at `2026-10-13T19:43:50.327004+00:00`: schema contracts through 034, **64 tables / 9 routines / 12 triggers**, runtime CONNECT/public USAGE only. Runtime grants, application deployment and Floot acceptance are not completed. Preserve the full completed-work ledger below and all migration/secret/setup receipts.
+
+**Next safe action on return:** run the new pinned `--inspect-acl` command in [NEXT-ACTION](NEXT-ACTION.md). It classifies the exact current ACLs as `GRANTS_NOT_APPLIED` or `EXPECTED_GRANTS_PRESENT`; any other state stops. This fresh return-time read is different from repeating the already completed schema receipt. If grants are absent, run the existing bounded grant helper once. If expected grants are present, skip mutation. Only after the verified grant receipt or an exact expected-grants read, run the prepared `--verify-runtime` command. Any STOP requires review; there is no automatic repair or retry.
+
+New helper: `scripts/verify-preview-v2-runtime.py`, source checkpoint `93e087e01c309a276418aba4272e3a9cce10fdba`, blob `be29039afc398c92aa250c3cfe933b9275e81087`, SHA-256 `85d1506e2182de13b5201ea32954e85d36acc17a5cdc94c0d06066538270e7fe`. It verifies 21 immutable helper/SQL sources and pins the existing Preview project/account/organization/SQL instance/PostgreSQL 16/database. It checks actual table inventory/ownership, unprivileged roles, and complete effective/explicit/default ACLs without rewriting observed values. `--inspect-acl` reads only migration credential v1 privately and works before or after grants. `--verify-runtime` first requires exact applied ACLs, then privately reads **DATABASE_URL:1** and connects as the actual **khedmah_app** login, with a private proxy/passfile and read-only transactions. It checks 62 permitted zero-row SELECT statements and two denied SELECTs (rollback metadata and Taxi events), then checks ACLs again as migrator. It reads/prints no application rows or credential values, changes no schema/ACL/cloud configuration, and sends no message. It does not execute DML or the Taxi resolver, re-certify every schema function body, prove a prior uncertain COMMIT, or certify application readiness. Both modes use `ROLLBACK`; error output is sanitized and no retry is automated.
+
+The existing grant helper is unchanged: blob `4c903b4dfe3bf0e3b510ff5002d0c7e9df39fad0`, SHA-256 `275ddbb90fd3e3e936520c1a5601f8b4e4927da43c2855550cf30ee4fb7741d2`. It grants only 60 public application tables and the reviewed narrow Taxi schema/table/column/function contract; rollback metadata remains excluded. Its exact baseline, transaction/schema-digest checks, COMMIT acknowledgement and readback remain mandatory. Do not replay any completed migration or rotate/restage credentials. Never run the older absent-grant schema readers as post-grant acceptance.
+
+#### Validation and deployment boundaries
+
+New helper: **15 offline Python tests passed**, plus the extended optional PGlite 0.5.9 / PG18.6 WASM SQL laboratory. The lab verified pending/applied/drift classifications and execution as the runtime role: 62 permitted SELECTs, two denials, exact ACL checks, rollback and replay/drift rejection. Only the published reader's PG16 version guard and the retained grant helper's previously documented PG16/deparser contracts are adapted/excluded in this PG18 lab. It is not native PG16 password authentication or Google Cloud evidence. Published helpers retain their exact PG16 guards.
+
+The complete repository builds successfully locally; repository-mode database/Google/Firebase/operations readiness validation passed. Root suite: **1,811 passed, two optional skips, zero failures** (1,813 tests). Local `test:all` reached backend integration tests and was blocked by the disposable-database guard (`DESTRUCTIVE_DB_TESTS_DISABLED`); no cloud or existing database was substituted. Fresh GitHub CI will supply its isolated PostgreSQL 16 service. This is source validation, not a deployment-readiness verdict.
+
+Live initial review: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, only open PR #274, parent `93e087e01c309a276418aba4272e3a9cce10fdba`. A normal source commit requests current-source CI; results are pending until recorded. Production workflows remain manual; Staging is develop-triggered. Preview and cleanup retain `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` and `PREVIEW_V2_CLEANUP_HELD_NO_CLOUD_ACCESS`. No workflow dispatch, merge, Production mutation, email send or assistant cloud execution is included.
+
+Source review found concrete remaining gates: Preview backend has no **FIREBASE_API_KEY** binding for `GoogleAuthService` server-side account lookup; the browser-restricted Firebase key must not simply be reused or loosened for server requests. Preview also has no **GCS_MEDIA_BUCKET** binding and therefore selects the intentional in-memory adapter; durable media requires reviewed bucket IAM and wiring before durable-media acceptance. Existing schema jobs recognize already-applied stages, but the deployment path still launches schema jobs in apply-capable modes; review them against the prepared 034 schema and runtime ACLs before release. Actual origin/Auth/Maps restrictions, CORS/CSRF, Google sessions, mail key scope/settings/delivery and Floot connection still require acceptance. These findings do not authorize a deployment or a new key/IAM change by themselves. The prepared return commands end at read-only runtime acceptance; inspect their receipts before preparing the next bounded cloud change.
+
+### Historical checkpoint — schema/ACL receipt verified; bounded runtime grants prepared — 2026-10-13
 
 Owner **`PREVIEW_V2_SCHEMA_ACL_READ_COMPLETED_NO_MUTATION`** at **`2026-10-13T19:43:50.327004+00:00`**, received `2026-10-13T22:44:08+03:00`, confirms the full contracts through 034: **64 tables, nine routines, twelve triggers**, two schemas and zero sequences. Complete effective/explicit/default-ACL inventories were read in a read-only migrator session. No grant/schema/cloud-configuration mutation or credential/application-row output occurred. Existing migration secret v1 was privately accessed; runtime credential and runtime login were not tested.
 
@@ -253,20 +273,17 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** owner runs the pinned **bounded Preview runtime grant** from [NEXT-ACTION](NEXT-ACTION.md). The 19:43 UTC read is complete and its exact baseline is embedded in the preflight; do not request it again as missing evidence.
-2. Require `PREVIEW_V2_RUNTIME_GRANTS_VERIFIED`, 64/9/12 and exact ACL/readback checks. This prepares runtime permissions but does not establish runtime-credential login or DML acceptance.
-3. On success, reconcile the receipt and prepare bounded runtime login/permission acceptance. On unconfirmed COMMIT/readback, inspect before retrying; the old absent-grant helpers are not post-grant acceptance tools.
-4. Never replay foundation/024/025/026–028/029/030/033/031–032/034. Preserve migrator ownership, no runtime CREATE/grant option, rollback-table exclusion, narrow Taxi column/function permissions and Taxi-trip disablement.
-5. Full current-source checks, actual frontend URL/key/Auth alignment, deployment/cleanup gates, CORS/CSRF, Google sessions, Maps, mail acceptance and Floot remain pending. No email/notification send or Production operation is included.
+1. Run the fresh pinned return-time `--inspect-acl` in NEXT-ACTION. This classifies exact pending/applied ACLs without mutation.
+2. Only `GRANTS_NOT_APPLIED`: run the existing grant once and require `PREVIEW_V2_RUNTIME_GRANTS_VERIFIED`. `EXPECTED_GRANTS_PRESENT`: skip the grant. Any STOP: review before another operation.
+3. Run the pinned `--verify-runtime` after expected grants. Require `PREVIEW_V2_RUNTIME_LOGIN_READONLY_VERIFIED`; this checks actual runtime login and read permissions/denials, not application DML or deployment readiness.
+4. Preserve all completed migrations, secrets, narrow Taxi/rollback-table exclusions and Taxi-trip disablement. Reconcile receipts into this ledger; no grant/runtime-login completion may be inferred from preparation or tests.
+5. Complete the reviewed server Firebase verifier configuration, durable-media IAM/binding, deployment schema-job mode review and actual browser/auth/session/maps/mail/Floot gates. No email/notification send or Production operation is included.
 
 ### Execution boundary and handoff discipline
 
-No authenticated assistant Google Cloud execution surface is confirmed. Latest owner completion is the read-only schema/ACL inspection at `2026-10-13T19:43:50.327004+00:00`. Canonical schema through 034 is verified; runtime currently has only CONNECT/public USAGE. All historical completions remain preserved.
+No authenticated assistant Google Cloud execution surface is confirmed. The latest owner receipt is still the read-only schema/ACL inspection at 19:43 UTC. Prepared return commands are conditional and one-at-a-time; they are not cloud execution evidence. The new reader can inspect ACLs after an uncertain grant, but does not prove the historical COMMIT outcome or authorize a retry automatically. Keep the explicit Preview/cleanup and Production holds.
 
-The prepared grant helper uses twenty pinned sources and the existing migration secret privately. It verifies the exact observed baseline, locks the 64 existing tables, issues seven explicit GRANT statements, verifies exact effective/explicit ACLs and structural preservation before COMMIT, then performs separate read-only acceptance. It does not access the runtime credential or mutate business data/default ACLs/roles/schema/cloud resources. No grant execution or deployment readiness is claimed yet.
-
-Update **this ledger and NEXT-ACTION together** after the owner result. Preserve all environment/Production gates; no cloud resource configuration, message send, DNS/shared-mail change or merge is included.
-
+Update this ledger and NEXT-ACTION together after each actual owner result. The complete historical ledger below/above is preserved; do not replace it with only the newest component.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
