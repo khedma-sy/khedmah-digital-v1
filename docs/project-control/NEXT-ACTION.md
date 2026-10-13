@@ -1,6 +1,20 @@
 # Next Safe Action — Khedmah
 
-## Resend domain form prepared; domain creation then DNS review — 2026-10-13
+## Resend domain conflict — claim/transfer held; existing team lookup next — 2026-10-13
+
+Owner screenshot received `2026-10-13T13:17:44+03:00` shows the Resend **Claim domain** screen for `mail.khedmah.uk`, after Add domain. Resend explicitly reports that another team uses this domain and that ownership verification would transfer it and revoke that team's access. The green Domain step does not prove sending readiness, completed transfer or DNS verification. The screenshot does not identify the other team or its environment. No successful claim, verified sending domain, new Preview API key or secret staging is evidenced.
+
+**Hold the claim:** do not use Auto configure, add the displayed ownership TXT record, click I've added the records, delete a domain, or authorize a transfer. Treat the existing integration as potentially in use until its dependencies are established; no Production dependency is assumed either way. No claim token/content is recorded in this checkpoint.
+
+**Next safe action:** open the account/team selector beside `haifawi30` at the top left and return the visible team names/options. This is a read-only lookup. If another owner-accessible team is listed, inspect its existing Domains inventory in the next step without editing it. Do not create a new team or replacement subdomain to bypass the conflict automatically. If the current session has no other team, establish which existing Resend account originally managed this domain before choosing recovery or an isolated Preview sender.
+
+Reference: [Resend domain claims](https://resend.com/docs/dashboard/domains/claim). The immediate action is team lookup, not the destructive transfer steps in that documentation.
+
+Owner confirmed the key is for the Preview application, not a ChatGPT connector. Google parent/provider API verification, six Firebase SDK values, Storage/PAP, database and WIF completion remain preserved. Actual login/session, Maps/origins, schema/runtime grants, current-source checks, application deployment and Floot acceptance remain pending. Preview deployment and all Production gates remain held.
+
+Live GitHub: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `60929acca6824932d4a0276e7992271ea75777b5`; latest full-source checks and intentional Preview hold `38277607448` are unchanged. Five Markdown checkpoints only, `[skip ci]`; no new tests/full CI, executable change, workflow dispatch, merge, assistant cloud mutation or email send.
+
+## Historical checkpoint — domain form prepared; Add domain then pending — 2026-10-13
 
 Owner clarified at `2026-10-13T13:04:27+03:00` that the new key is for the Preview application, not a ChatGPT connector. The owner is proceeding through the Resend dashboard. Screenshot evidence shows Cloudflare listing `khedmah.uk`; Resend workspace label `haifawi30`; an unsaved key form named `khedmah-preview-v2` with Sending access and only All domains offered; then an unsaved Add domain form. These screens do not establish complete domain inventory, DNS ownership verification or key creation.
 

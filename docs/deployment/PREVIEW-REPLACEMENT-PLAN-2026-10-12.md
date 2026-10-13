@@ -1,6 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Resend domain form prepared; domain creation then DNS review — 2026-10-13
+## Resend domain conflict — claim/transfer held; existing team lookup next — 2026-10-13
+
+The owner reached a **Claim domain** conflict: Resend reports `mail.khedmah.uk` belongs to another team; verification would transfer it and revoke existing access. Do not add the claim TXT, use Auto configure or verify/transfer/delete this domain. Next: read the team selector beside `haifawi30` and identify the existing domain's team. No successful domain verification, Preview key or secret staging is evidenced.
+
+Owner confirmed the key is for the Preview application, not a ChatGPT connector. Google parent/provider API verification, six Firebase SDK values, Storage/PAP, database and WIF completion remain preserved. Actual login/session, Maps/origins, schema/runtime grants, current-source checks, application deployment and Floot acceptance remain pending. Preview deployment and all Production gates remain held.
+
+Live GitHub: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `60929acca6824932d4a0276e7992271ea75777b5`; latest full-source checks and intentional Preview hold `38277607448` are unchanged. Five Markdown checkpoints only, `[skip ci]`; no new tests/full CI, executable change, workflow dispatch, merge, assistant cloud mutation or email send.
+
+## Historical checkpoint — domain form prepared; Add domain then pending — 2026-10-13
 
 Owner confirmed the key is for the Preview application. The latest unsaved Resend form shows `mail.khedmah.uk`, Ireland (`eu-west-1`) and Return-Path `send`. Next: add that domain once, then review the generated DNS screen before any Cloudflare change. Creation, verification and key staging are not yet evidenced. Saved tracking must be checked before transactional-mail testing.
 
