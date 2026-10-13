@@ -1,6 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Storage configuration completed; focused Auth diagnosis next — 2026-10-13
+## Auth diagnosis completed; standard Firebase Auth initialization next — 2026-10-13
+
+Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. This confirms that the service reports missing Auth configuration; it supersedes the earlier ambiguous 404-only diagnosis. Provider readiness cannot be assessed while the parent configuration is missing.
+
+Continue from [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md): owner uses the exact replacement project's Firebase Console **Authentication → Get started** action, then performs the existing checksum-pinned masked Auth readback after setup. Standard Firebase Auth only; no Identity Platform upgrade, provider/support-email choice, new credentials or deployment is included. Prepared, not executed. Do not repeat the unchanged diagnostic.
+
+Preserve all six staged Firebase values and completed Storage/PAP, database and WIF evidence. The same five documents change with `[skip ci]`; no executable changes, new full CI, workflow dispatch, merge or cloud/Production mutation. Provider/origin/Maps/mail, schema/runtime, current-source CI and deployment/Floot acceptance gates remain.
+
+## Historical checkpoint — Storage configuration complete; Auth diagnosis then prepared — 2026-10-13
 
 Owner `PREVIEW_V2_STORAGE_CONFIG_STAGED` at `2026-10-13T08:00:08.427498+00:00` verifies `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:1`, created=true, value_verified=true, enforced PAP and enabled UBLA. All six required Firebase values now have staging evidence across the preserved checkpoints. Do not repeat setup or staging. Full IAM/data-plane, runtime/deployment and Floot acceptance remain separate pending gates.
 

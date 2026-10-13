@@ -1,17 +1,27 @@
 # Next Safe Action — Khedmah
 
-## Next read — focused Auth diagnosis after six-value staging — 2026-10-13
+## Next owner operation — initialize standard Firebase Authentication — 2026-10-13
 
-Storage staging completed at `2026-10-13T08:00:08.427498+00:00`: `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:1`, created and exact value verified, PAP enforced, UBLA enabled, no payload printed. [CURRENT-STATE](CURRENT-STATE.md) preserves this and the earlier five core values. The previous Storage staging command below is historical; do not repeat it.
+Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. This confirms that the service reports missing Auth configuration; it supersedes the earlier ambiguous 404-only diagnosis. Provider readiness cannot be assessed while the parent configuration is missing.
 
-The prior Auth config and Google/Facebook provider reads returned HTTP 404 without structured error details. Both paths match the official API reference. A 404 alone is not proof of absent Auth initialization and does not authorize a create/upgrade/provider mutation. This next read adds diagnostic evidence that the earlier helper discarded.
+The final marker is `PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION`, with `all_component_reads_succeeded=false`, `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false`, `credential_values_printed=false`, `application_deployed=false`, `login_flow_verified=false` and `floot_connected=false`. The complete JSON is accepted despite interleaved terminal echo. Do not repeat the unchanged diagnostic as the next action.
 
-Implementation `f86108bb710654c7798eab261f902b96483d77b6`: existing `scripts/configure-preview-v2-firebase.py`, new mutually exclusive `--inspect-auth` mode.
-Blob `5957e5748e3e605a0681c9725fb1837c39f62b01`; SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`.
+All six required Firebase SDK values have staging evidence in [CURRENT-STATE](CURRENT-STATE.md), including the Storage bucket identifier at version 1. Preserve completed project, billing, infrastructure, database, WIF, Firebase registration, Storage/rules/PAP and configuration staging. Initialization below is **prepared, not executed**.
 
-After fixed account/project/organization and enabled-API metadata preflight, the mode makes exactly three allowed GETs when Identity Toolkit is enabled: masked project config, masked Google provider, masked Facebook provider. The success projection includes authorized domains and local sign-in flags; provider fields are only name/enabled. Scope guards reject other HTTP services, foreign paths and bodies in this mode. It does not read SDK/API-key values, Secret Manager payloads or users; create a journal; enable an API; initialize Auth; update providers/domains/key restrictions; alter billing; or deploy anything.
+### Bounded Console operation
 
-Failures report HTTP status, `structured_error`, a recognized `error_status`, and allowlisted `recognized_error_codes` such as CONFIGURATION_NOT_FOUND, SERVICE_DISABLED or IAM_PERMISSION_DENIED. Unknown/raw messages and arbitrary details are never echoed. HTML/non-JSON 404 remains unstructured/unknown; malformed success/namespace data stops. Individual HTTP failures remain unresolved while the other independent reads finish.
+1. Under the established management account `haifawi30@gmail.com`, open [replacement Preview Authentication](https://console.firebase.google.com/project/khedmah-preview-v2-20261012/authentication). Verify project ID **`khedmah-preview-v2-20261012`**, number **`1044962071847`** where shown. The Cloud Shell default `khedma-dl` is not this target.
+2. Click **Get started** in **Authentication** to initialize standard Firebase Authentication, then open **Sign-in method**. Do not enable a provider or choose a public support email in this bounded step. If configuration is already present, do not recreate it; continue with readback.
+3. If the console requires an Identity Platform upgrade or presents a different setup operation, return the screen/error before proceeding. This action does not include an upgrade, OAuth/consent changes, email/SMS/anonymous provider enablement, test users, domain/key changes or deployment.
+4. After the initialization completes, run the pinned read below once and return its JSON. This is a **post-change verification**, not a request to repeat the unchanged diagnostic. If initialization failed or is uncertain, return that result first.
+
+[Firebase Console setup, Option 1](https://firebase.google.com/codelabs/firebase-terraform#6_set_up_firebase_authentication) documents Authentication → Get started and does not require GCIP. The public [`identityPlatform:initializeAuth` API](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects.identityPlatform/initializeAuth) initializes Identity Platform; it is not used for this standard-Firebase-only handoff.
+
+### Post-initialization readback
+
+The reader remains implementation `f86108bb710654c7798eab261f902b96483d77b6`, blob `5957e5748e3e605a0681c9725fb1837c39f62b01`, SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`. Its prior 33 mocked Python cases passed via the existing Node wrapper; this five-document evidence update changes no executable or test and runs no new full CI.
+
+The same focused mode performs target/account/organization/API checks and three masked Auth/provider GETs. It prints no SDK/API-key values, Secret Manager payloads, raw provider errors or user records, and makes no cloud mutation.
 
 ```bash
 (
@@ -27,13 +37,15 @@ python3 "$khedmah_auth_read_script" --inspect-auth
 )
 ```
 
-Return all JSON/error output, including failures. Final `PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION` is an execution marker, **not** login readiness. The helper emits `all_component_reads_succeeded`; no live read has been executed here.
+A successful masked config response is evidence that configuration can now be read. Providers may remain absent or disabled because this operation does not enable them; report those results separately. Missing provider config can keep `all_component_reads_succeeded=false` without undoing a successful parent-config read. If parent config still reports CONFIGURATION_NOT_FOUND, or a permission/API/route error occurs, preserve that evidence; do not retry initialization or broaden access blindly.
 
-Reconcile next from actual evidence: distinguish a structured missing-config result from permission/API/network/route uncertainty. If config exists, review its providers/domains; if initialization is confirmed absent, prepare the exact Preview-only setup separately without an automatic Identity Platform upgrade. Preserve the current account; no repeat unchanged denial, identity switch or blanket role grant. Actual login/session/CORS/CSRF tests and precise browser-referrer restrictions remain later acceptance work.
+Login/session readiness, provider/consent/public-support settings, authorized origins/key restrictions, Maps/mail, schema/runtime grants, current-source full CI, held Preview deployment and Floot acceptance remain pending. This handoff does not change Production, Staging, the old Preview, workflows or billing configuration.
 
-Validation: 33 mocked Python cases (26 existing plus 7 new) pass through the existing Node wrapper; Python compilation and launcher Bash syntax pass. Only the existing helper/test and five Markdown checkpoints change. No new full CI, merge, workflow dispatch or cloud mutation. Source/checkpoint `[skip ci]` preserves the deployment holds. Maps/mail, schema/runtime grants, current-source full checks, held Preview deployment and Floot acceptance remain pending.
+### Completed diagnosis provenance
 
-References: [project Auth config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/getConfig), [provider config GET](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects.defaultSupportedIdpConfigs/get).
+The owner executed the exact blob/hash above with `--inspect-auth` at `2026-10-13T08:11:22.288153+00:00`. All three reads reported the same structured missing-config code. No credential payload was accessed or printed. The final execution marker is not a readiness verdict. The earlier unstructured 404 investigation is closed by this result.
+
+This checkpoint changes only the same five Markdown documents with `[skip ci]`; executable source and prior scoped validation are preserved. No new tests/full CI, cloud mutation, workflow dispatch, merge or deployment occurred here.
 
 ## Completed owner operation — historical Storage identifier staging — 2026-10-13
 
