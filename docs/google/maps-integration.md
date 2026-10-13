@@ -2,7 +2,7 @@
 
 ## فصل المفاتيح
 
-- **Web:** مفتاح Browser مقيد بقائمة HTTPS HTTP referrers المعتمدة وبـ Maps JavaScript وPlaces فقط.
+- **Web:** مفتاح Browser مستقل مقيد بقائمة HTTPS HTTP referrers المعتمدة وبـ Maps JavaScript API. صفحتا `/map` والتكسي تعرضان بيانات التطبيق ولا تستخدمان خدمات Places؛ لا تُحمّل مكتبة Places ضمن الإعداد الأساسي. عند إضافة مستهلك فعلي لـ Places لاحقًا، يُراجع API المطلوب وصلاحياته منفصلًا؛ لا يُفعّل Places API (Legacy) لمشروع Preview الجديد.
 - **Android:** مفتاح مستقل مقيد باسم الحزمة وSHA-1 (release) وبـ Maps SDK for Android فقط؛ تسجل بصمة debug في مشروع غير إنتاجي.
 - **Backend:** مفتاح مستقل مقيد بعناوين egress الثابتة وبـ Geocoding وDirections وPlaces اللازمة فقط.
 
