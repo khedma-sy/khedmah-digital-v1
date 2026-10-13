@@ -1,12 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Firebase sign-in-method screen received; Auth readback next — 2026-10-13
+## Standard Firebase Auth initialization verified; Google provider next — 2026-10-13
 
-Owner screenshot received `2026-10-13T11:55:25+03:00` shows Firebase project display name **Khedmah Preview V2**, **Authentication → Sign-in method**, and the prompt to add the first sign-in method. Google/Facebook and other provider choices are visible; no enabled-provider list is shown. The image does not expose project ID/number, account email, an operation timestamp, Auth subtype or API config readback.
+Owner post-Console readback completed at `2026-10-13T09:12:41.017976+00:00` (12:12:41 Asia/Damascus), received at `2026-10-13T12:14:06+03:00`. Exact target is `khedmah-preview-v2-20261012`. `PREVIEW_AUTH_CONFIG` returned `outcome="OK"`, `subtype="FIREBASE_AUTH"`: standard Firebase Authentication initialization is now verified. Do not repeat Get started, initializeAuth, or the unchanged initialization diagnostic.
 
-Continue with the checksum-pinned GET-only Auth readback in [NEXT-ACTION](docs/project-control/NEXT-ACTION.md), then reconcile [CURRENT-STATE](docs/project-control/CURRENT-STATE.md). Do not repeat Get started. Provider enablement follows verified config evidence; the image alone does not establish exact project identity, backend initialization or login readiness. The earlier structured missing-config result remains historical pre-handoff evidence.
+Google and Facebook provider resources still return structured HTTP 404 / NOT_FOUND / CONFIGURATION_NOT_FOUND. The aggregate `all_component_reads_succeeded=false` reflects those provider reads; it does not undo the successful parent-config result. `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false` and `credential_values_printed=false`; application deployment, login-flow and Floot acceptance remain unverified.
 
-This is a five-Markdown-file evidence update with `[skip ci]`; no executable/test changes, new full CI, workflow dispatch, merge or assistant cloud mutation. Preserve all six staged SDK values, completed Storage/PAP, database/WIF evidence, Preview deployment hold and separate Production gates.
+Continue from [CURRENT-STATE](docs/project-control/CURRENT-STATE.md) and [NEXT-ACTION](docs/project-control/NEXT-ACTION.md): Google-only Console setup, public app name **خدمة ديجتل — Preview**, and company support address if eligible in the Console, then masked readback after Save. If that address is unavailable, return the choices before saving. Provider setup is prepared, not executed; Facebook remains deferred.
+
+This pass changes only the same five Markdown checkpoints with `[skip ci]`. No executable/test changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader source stays `f86108bb710654c7798eab261f902b96483d77b6` with its previously recorded 33 mocked Python cases. Preserve the six staged SDK values, Storage/PAP, database/WIF evidence and all deployment/Production gates.
 
 ## Historical checkpoint — Auth diagnosis and initialization handoff — 2026-10-13
 

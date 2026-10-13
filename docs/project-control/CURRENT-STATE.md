@@ -4,7 +4,20 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Firebase sign-in-method screen received; Auth readback next — 2026-10-13
+### Standard Firebase Auth initialization verified; Google provider next — 2026-10-13
+
+Owner post-Console readback completed at `2026-10-13T09:12:41.017976+00:00` (12:12:41 Asia/Damascus), received at `2026-10-13T12:14:06+03:00`. Exact target is `khedmah-preview-v2-20261012`. `PREVIEW_AUTH_CONFIG` returned `outcome="OK"`, `subtype="FIREBASE_AUTH"`: standard Firebase Authentication initialization is now verified. Do not repeat Get started, initializeAuth, or the unchanged initialization diagnostic.
+
+Google and Facebook provider resources still return structured HTTP 404 / NOT_FOUND / CONFIGURATION_NOT_FOUND. The aggregate `all_component_reads_succeeded=false` reflects those provider reads; it does not undo the successful parent-config result. `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false` and `credential_values_printed=false`; application deployment, login-flow and Floot acceptance remain unverified.
+
+Authorized domains observed exactly: `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, `khedmah-preview-v2-20261012.web.app`. Anonymous, email and phone sign-in are disabled; email passwordRequired is false. Preserve this observed configuration for now. No actual deployed Preview/Floot origin or aligned browser-key referrer has been verified.
+
+- **Scope selection from current source:** `apps/frontend/lib/firebase/auth.ts` uses Google popup sign-in and Firebase ID tokens. Facebook is conditional on `NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === 'true'`; the login page renders it deferred otherwise. `scripts/validate-firebase-social-auth-readiness.sh` requires Google, while Facebook is conditional on its separate flag. These are source facts, not live-login proof.
+- The current backend controller handles email/password login through `identityService`; enabling Firebase's email provider is not needed to advance the existing Google flow. Preserve those disabled local-provider settings.
+- Next is owner-operated **Google provider enablement** in this exact Preview project's Firebase Console, using the platform's public name and an explicitly selected support address, then the pinned masked readback **after Save**. Prepared, not executed. Facebook remains deferred; do not enable unrelated providers, broaden domains/referrers or run an Identity Platform upgrade. See [NEXT-ACTION](NEXT-ACTION.md). Public app name: **خدمة ديجتل — Preview**. Preferred support address `support@khedma.uk` may be selected only if offered by the Console; its presence/eligibility has not been observed. If it is unavailable, return the address choices before saving rather than assigning a personal public support address automatically.
+- This pass changes only the same five Markdown checkpoints with `[skip ci]`. No executable/test changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader source stays `f86108bb710654c7798eab261f902b96483d77b6` with its previously recorded 33 mocked Python cases. Preserve the six staged SDK values, Storage/PAP, database/WIF evidence and all deployment/Production gates.
+
+### Historical screenshot and pending-readback checkpoint — 2026-10-13
 
 Owner screenshot received `2026-10-13T11:55:25+03:00` shows Firebase project display name **Khedmah Preview V2**, **Authentication → Sign-in method**, and the prompt to add the first sign-in method. Google/Facebook and other provider choices are visible; no enabled-provider list is shown. The image does not expose project ID/number, account email, an operation timestamp, Auth subtype or API config readback.
 
@@ -53,7 +66,7 @@ The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VE
 - Effective constraint: `constraints/storage.publicAccessPrevention`, `booleanPolicy: {}`. This is the false/not-enforced boolean representation, consistent with Google's documented disable-enforce example; it is not an authorization error or proof of public access.
 - Anonymous Firebase list returned **403**; anonymous GCS list returned **401**. Both sampled requests were denied. This closes the requested anonymous-list observation only; it does not establish every object/read/write path, authenticated/inherited IAM, or why the request was denied.
 - Together with the earlier bucket setting `inherited`, this shows that public access prevention is not currently enforced for this bucket. Preserve the separately verified deny-all rule source and absence of direct public bucket bindings.
-- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with the Auth readback in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
+- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with Google provider setup in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
 - Do not rerun Storage creation or the completed unchanged policy/probe batch. The sixth Storage value was subsequently staged as recorded above. Full effective IAM and application/data-plane acceptance remain separately unverified; this property update cannot certify them or authorize deployment.
 
 ### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
@@ -64,7 +77,7 @@ Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-
 - Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
 - **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
 - **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
-- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with the Auth readback in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
+- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with Google provider setup in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
 
 
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
@@ -85,7 +98,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `d34645cc41df779162264bd741eab1a31f9d2d43`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `76ba14245671e27671dc7227cc1d7ac7b5509de4`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -105,22 +118,23 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Firebase Storage provisioning | Owner completion at `2026-10-13T07:22:50.206618+00:00`: default bucket in EUROPE-WEST1, Firebase linkage, deny-all source, UBLA and no direct public bindings verified. No repeat creation. |
 | Storage public-access prevention | Owner raw readback received `2026-10-13T10:48:47+03:00`: enforced on the exact replacement bucket, UBLA enabled. No repeat PAP mutation. Full IAM/application acceptance is separate. |
 | Storage public-access observation | Owner result received `2026-10-13T10:38:31+03:00`: effective boolean policy empty/not enforced; Firebase anonymous list 403 and GCS list 401. No full IAM or readiness conclusion. |
+| Standard Firebase Auth initialization | Owner readback `2026-10-13T09:12:41.017976+00:00`: parent config OK, subtype FIREBASE_AUTH, three observed authorized domains, local providers disabled. Google/Facebook configs remain absent. No repeat initialization. |
 | Firebase Console handoff | Owner screenshot received `2026-10-13T11:55:25+03:00` shows Khedmah Preview V2 / Authentication / Sign-in method with first-provider choices. UI stage observed; exact project and backend config remain subject to the pinned readback. Do not repeat Get started. |
-| Focused Auth diagnosis | Owner read at `2026-10-13T08:11:22.288153+00:00`: config and both provider endpoints report structured CONFIGURATION_NOT_FOUND. No cloud mutation or secret/key payload read. Subsequent owner UI evidence advances to config readback; no diagnosis result is discarded. |
+| Focused Auth diagnosis | Owner read at `2026-10-13T08:11:22.288153+00:00`: config and both provider endpoints report structured CONFIGURATION_NOT_FOUND. No cloud mutation or secret/key payload read. Subsequent config readback verifies initialization; provider absence remains. Preserve this original pre-initialization diagnosis. |
 | Component inspection | Owner GET-only inspection at `2026-10-12T18:01:56.779959+00:00` completed. Do not request the unchanged inspection again as though its output were missing. |
 
 ### Actual continuation and remaining work
 
-1. **Next:** perform the pinned masked Auth readback in [NEXT-ACTION](NEXT-ACTION.md). The owner has supplied the sign-in-method selection screen. Do not repeat Get started; verify exact project/config through the reader before asserting initialization completion or enabling a provider.
-2. Review the resulting Auth config and Google/Facebook provider state before enabling providers or setting public support/consent details. Then align actual approved Preview/Floot origins with authorized domains and browser-key restrictions. Empty browser referrers remain unresolved. No wildcard origin or automatic Identity Platform upgrade is included.
-3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. Preserve all six staged values and completed resource setup.
-4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
+1. **Next:** configure the Google provider only through the exact Preview project's Console as detailed in [NEXT-ACTION](NEXT-ACTION.md). Standard Firebase Auth initialization is verified; do not replay it.
+2. Select the public app name and supported company support email, save Google, then run the pinned masked readback. If support-address choices or OAuth setup differ from the prepared flow, return that concrete screen before saving. Do not copy client secrets into chat, Git or browser config. A missing Facebook provider is expected while Facebook remains deferred.
+3. Align actual approved Preview/Floot origins and key restrictions, complete Maps/mail, ordered application schema/runtime grants and current-source checks, then the held Preview deployment and browser/session/CORS/CSRF acceptance. Provider enabled metadata alone does not pass those gates. Analytics measurement ID remains optional.
+4. Old Preview deployment evidence does not certify the replacement project or Floot. Keep all six staged values and completed resource work; no new product scope is introduced.
 
 ### Execution boundary and handoff discipline
 
-This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the next concrete operation is the owner-operated GET-only Cloud Shell Auth readback under the established management account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
+No authenticated Google Cloud execution surface is connected here. The next cloud change is owner-operated Google-provider setup in Firebase Console under the established management account, followed by the existing Cloud Shell GET-only reader. This reconciliation performs no cloud operation, workflow dispatch, merge or credential read.
 
-After the Auth readback result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup, Firebase registration, Storage setup/staging or the completed missing-config diagnosis as pending work.
+After provider setup/readback, update **this ledger and NEXT-ACTION together** with the actual outcome. Preserve completed rows, Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release require their own gates. Do not restart account recovery, infrastructure, database, Firebase/Storage registration, configuration staging or Auth initialization.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
