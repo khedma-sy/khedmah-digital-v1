@@ -1,6 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Auth diagnosis completed; standard Firebase Auth initialization next — 2026-10-13
+## Firebase sign-in-method screen received; Auth readback next — 2026-10-13
+
+Owner screenshot received `2026-10-13T11:55:25+03:00` shows Firebase project display name **Khedmah Preview V2**, **Authentication → Sign-in method**, and the prompt to add the first sign-in method. Google/Facebook and other provider choices are visible; no enabled-provider list is shown. The image does not expose project ID/number, account email, an operation timestamp, Auth subtype or API config readback.
+
+Continue with the checksum-pinned GET-only Auth readback in [NEXT-ACTION](docs/project-control/NEXT-ACTION.md), then reconcile [CURRENT-STATE](docs/project-control/CURRENT-STATE.md). Do not repeat Get started. Provider enablement follows verified config evidence; the image alone does not establish exact project identity, backend initialization or login readiness. The earlier structured missing-config result remains historical pre-handoff evidence.
+
+This is a five-Markdown-file evidence update with `[skip ci]`; no executable/test changes, new full CI, workflow dispatch, merge or assistant cloud mutation. Preserve all six staged SDK values, completed Storage/PAP, database/WIF evidence, Preview deployment hold and separate Production gates.
+
+## Historical checkpoint — Auth diagnosis and initialization handoff — 2026-10-13
 
 Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. This confirms that the service reports missing Auth configuration; it supersedes the earlier ambiguous 404-only diagnosis. Provider readiness cannot be assessed while the parent configuration is missing.
 

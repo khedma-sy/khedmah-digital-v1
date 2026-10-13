@@ -1,23 +1,26 @@
 # Next Safe Action — Khedmah
 
-## Next owner operation — initialize standard Firebase Authentication — 2026-10-13
+## Next owner read — Auth config after the Console handoff — 2026-10-13
 
-Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. This confirms that the service reports missing Auth configuration; it supersedes the earlier ambiguous 404-only diagnosis. Provider readiness cannot be assessed while the parent configuration is missing.
+Owner screenshot received `2026-10-13T11:55:25+03:00` shows Firebase project display name **Khedmah Preview V2**, **Authentication → Sign-in method**, and the prompt to add the first sign-in method. Google/Facebook and other provider choices are visible; no enabled-provider list is shown. The image does not expose project ID/number, account email, an operation timestamp, Auth subtype or API config readback.
 
-The final marker is `PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION`, with `all_component_reads_succeeded=false`, `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false`, `credential_values_printed=false`, `application_deployed=false`, `login_flow_verified=false` and `floot_connected=false`. The complete JSON is accepted despite interleaved terminal echo. Do not repeat the unchanged diagnostic as the next action.
+**Next safe action:** run the existing checksum-pinned `--inspect-auth` readback once under the established account. Its fixed target checks verify the exact replacement project before reading masked config and Google/Facebook provider metadata. The UI handoff has reached the sign-in-method selection screen; do not repeat Get started or enable a provider before reconciling the returned config. The screenshot alone is not proof of initialized configuration or login readiness.
 
-All six required Firebase SDK values have staging evidence in [CURRENT-STATE](CURRENT-STATE.md), including the Storage bucket identifier at version 1. Preserve completed project, billing, infrastructure, database, WIF, Firebase registration, Storage/rules/PAP and configuration staging. Initialization below is **prepared, not executed**.
+The previous initialization instruction is superseded by this readback. No further Console mutation is requested before the returned config is reviewed.
 
-### Bounded Console operation
+Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. At that timestamp the service reported missing Auth configuration, resolving the earlier ambiguous 404-only diagnosis. Whether the parent configuration is now readable is the purpose of the next read.
 
-1. Under the established management account `haifawi30@gmail.com`, open [replacement Preview Authentication](https://console.firebase.google.com/project/khedmah-preview-v2-20261012/authentication). Verify project ID **`khedmah-preview-v2-20261012`**, number **`1044962071847`** where shown. The Cloud Shell default `khedma-dl` is not this target.
-2. Click **Get started** in **Authentication** to initialize standard Firebase Authentication, then open **Sign-in method**. Do not enable a provider or choose a public support email in this bounded step. If configuration is already present, do not recreate it; continue with readback.
-3. If the console requires an Identity Platform upgrade or presents a different setup operation, return the screen/error before proceeding. This action does not include an upgrade, OAuth/consent changes, email/SMS/anonymous provider enablement, test users, domain/key changes or deployment.
-4. After the initialization completes, run the pinned read below once and return its JSON. This is a **post-change verification**, not a request to repeat the unchanged diagnostic. If initialization failed or is uncertain, return that result first.
+The final marker is `PREVIEW_V2_AUTH_READ_COMPLETED_NO_MUTATION`, with `all_component_reads_succeeded=false`, `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false`, `credential_values_printed=false`, `application_deployed=false`, `login_flow_verified=false` and `floot_connected=false`. The complete JSON is accepted despite interleaved terminal echo. That was the pre-handoff diagnostic; the read below now checks state after the new UI evidence.
 
-[Firebase Console setup, Option 1](https://firebase.google.com/codelabs/firebase-terraform#6_set_up_firebase_authentication) documents Authentication → Get started and does not require GCIP. The public [`identityPlatform:initializeAuth` API](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects.identityPlatform/initializeAuth) initializes Identity Platform; it is not used for this standard-Firebase-only handoff.
+All six required Firebase SDK values have staging evidence in [CURRENT-STATE](CURRENT-STATE.md), including the Storage bucket identifier at version 1. Preserve completed project, billing, infrastructure, database, WIF, Firebase registration, Storage/rules/PAP and configuration staging. The Console screen is observed; backend initialization has **not yet been verified**.
 
-### Post-initialization readback
+### Readback scope
+
+Use Cloud Shell under the established management account `haifawi30@gmail.com`. The pinned helper targets `khedmah-preview-v2-20261012` / `1044962071847` explicitly; it does not use or change the displayed default `khedma-dl`.
+
+Return every JSON result. A successful parent-config response verifies readable configuration. Google/Facebook may still be absent or disabled because no provider enablement has been recorded. Do not select a public support email, change domains/key restrictions, enable a provider or accept an Identity Platform upgrade as part of this read.
+
+### Pinned Auth readback
 
 The reader remains implementation `f86108bb710654c7798eab261f902b96483d77b6`, blob `5957e5748e3e605a0681c9725fb1837c39f62b01`, SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`. Its prior 33 mocked Python cases passed via the existing Node wrapper; this five-document evidence update changes no executable or test and runs no new full CI.
 

@@ -4,7 +4,17 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Auth diagnosis completed; standard Firebase Auth initialization next — 2026-10-13, 11:11:22 Asia/Damascus
+### Firebase sign-in-method screen received; Auth readback next — 2026-10-13
+
+Owner screenshot received `2026-10-13T11:55:25+03:00` shows Firebase project display name **Khedmah Preview V2**, **Authentication → Sign-in method**, and the prompt to add the first sign-in method. Google/Facebook and other provider choices are visible; no enabled-provider list is shown. The image does not expose project ID/number, account email, an operation timestamp, Auth subtype or API config readback.
+
+**Next safe action:** run the existing checksum-pinned `--inspect-auth` readback once under the established account. Its fixed target checks verify the exact replacement project before reading masked config and Google/Facebook provider metadata. The UI handoff has reached the sign-in-method selection screen; do not repeat Get started or enable a provider before reconciling the returned config. The screenshot alone is not proof of initialized configuration or login readiness. See [NEXT-ACTION](NEXT-ACTION.md) for the pinned command.
+
+The earlier structured CONFIGURATION_NOT_FOUND result remains valid evidence for `2026-10-13T08:11:22.288153+00:00`; the screenshot does not establish whether the backend state has changed since then. A successful config response and provider results must be interpreted independently. Blaze billing shown in the UI does not identify the Auth subtype.
+
+This is a five-Markdown-file evidence update with `[skip ci]`; no executable/test changes, new full CI, workflow dispatch, merge or assistant cloud mutation. Preserve all six staged SDK values, completed Storage/PAP, database/WIF evidence, Preview deployment hold and separate Production gates.
+
+### Historical diagnosis and initialization handoff — 2026-10-13, 11:11:22 Asia/Damascus
 
 Owner GET-only diagnostic completed at `2026-10-13T08:11:22.288153+00:00` for `khedmah-preview-v2-20261012`. Auth config and both Google/Facebook provider reads each returned HTTP 404, `error_status="NOT_FOUND"`, `structured_error=true` and `recognized_error_codes=["CONFIGURATION_NOT_FOUND"]`. This confirms that the service reports missing Auth configuration; it supersedes the earlier ambiguous 404-only diagnosis. Provider readiness cannot be assessed while the parent configuration is missing.
 
@@ -43,7 +53,7 @@ The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VE
 - Effective constraint: `constraints/storage.publicAccessPrevention`, `booleanPolicy: {}`. This is the false/not-enforced boolean representation, consistent with Google's documented disable-enforce example; it is not an authorization error or proof of public access.
 - Anonymous Firebase list returned **403**; anonymous GCS list returned **401**. Both sampled requests were denied. This closes the requested anonymous-list observation only; it does not establish every object/read/write path, authenticated/inherited IAM, or why the request was denied.
 - Together with the earlier bucket setting `inherited`, this shows that public access prevention is not currently enforced for this bucket. Preserve the separately verified deny-all rule source and absence of direct public bucket bindings.
-- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with standard Auth initialization in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
+- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with the Auth readback in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
 - Do not rerun Storage creation or the completed unchanged policy/probe batch. The sixth Storage value was subsequently staged as recorded above. Full effective IAM and application/data-plane acceptance remain separately unverified; this property update cannot certify them or authorize deployment.
 
 ### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
@@ -54,7 +64,7 @@ Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-
 - Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
 - **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
 - **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
-- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with standard Auth initialization in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
+- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with the Auth readback in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
 
 
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
@@ -75,7 +85,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `4ff650fd262c8f537fccabd14383700420863a49`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `d34645cc41df779162264bd741eab1a31f9d2d43`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -95,21 +105,22 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Firebase Storage provisioning | Owner completion at `2026-10-13T07:22:50.206618+00:00`: default bucket in EUROPE-WEST1, Firebase linkage, deny-all source, UBLA and no direct public bindings verified. No repeat creation. |
 | Storage public-access prevention | Owner raw readback received `2026-10-13T10:48:47+03:00`: enforced on the exact replacement bucket, UBLA enabled. No repeat PAP mutation. Full IAM/application acceptance is separate. |
 | Storage public-access observation | Owner result received `2026-10-13T10:38:31+03:00`: effective boolean policy empty/not enforced; Firebase anonymous list 403 and GCS list 401. No full IAM or readiness conclusion. |
-| Focused Auth diagnosis | Owner read at `2026-10-13T08:11:22.288153+00:00`: config and both provider endpoints report structured CONFIGURATION_NOT_FOUND. No cloud mutation or secret/key payload read. Standard Auth initialization is next; no unchanged re-diagnosis. |
+| Firebase Console handoff | Owner screenshot received `2026-10-13T11:55:25+03:00` shows Khedmah Preview V2 / Authentication / Sign-in method with first-provider choices. UI stage observed; exact project and backend config remain subject to the pinned readback. Do not repeat Get started. |
+| Focused Auth diagnosis | Owner read at `2026-10-13T08:11:22.288153+00:00`: config and both provider endpoints report structured CONFIGURATION_NOT_FOUND. No cloud mutation or secret/key payload read. Subsequent owner UI evidence advances to config readback; no diagnosis result is discarded. |
 | Component inspection | Owner GET-only inspection at `2026-10-12T18:01:56.779959+00:00` completed. Do not request the unchanged inspection again as though its output were missing. |
 
 ### Actual continuation and remaining work
 
-1. **Next:** initialize standard Firebase Authentication via the exact Preview project's Console **Get started** action, following [NEXT-ACTION](NEXT-ACTION.md), then perform the pinned masked readback. The missing-config diagnosis is completed; setup itself has not been executed.
+1. **Next:** perform the pinned masked Auth readback in [NEXT-ACTION](NEXT-ACTION.md). The owner has supplied the sign-in-method selection screen. Do not repeat Get started; verify exact project/config through the reader before asserting initialization completion or enabling a provider.
 2. Review the resulting Auth config and Google/Facebook provider state before enabling providers or setting public support/consent details. Then align actual approved Preview/Floot origins with authorized domains and browser-key restrictions. Empty browser referrers remain unresolved. No wildcard origin or automatic Identity Platform upgrade is included.
 3. Complete the remaining browser/Auth/Maps/mail configuration, ordered application schema and runtime grants, current-source checks, then held Preview deployment and browser/session/CORS/CSRF acceptance with Floot. Analytics measurement ID remains optional. Preserve all six staged values and completed resource setup.
 4. A successful deployment of the **old** Preview at `daf0c4e4...` does not certify deployment of the replacement project. A literal `floot_connected=false` in a helper is not a performed live Floot connectivity test.
 
 ### Execution boundary and handoff discipline
 
-This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the concrete Auth initialization is owner-operated in Firebase Console under the established management account, followed by a Cloud Shell readback. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
+This reconciliation performs no cloud operation, workflow dispatch, merge or credential read. No authenticated Google Cloud execution surface is connected here; the next concrete operation is the owner-operated GET-only Cloud Shell Auth readback under the established management account. Do not invent a completed operation or route credentials through Floot. Preserve the Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release work requires its own gates and is not this next action.
 
-After the initialization/readback result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup, Firebase registration, Storage setup/staging or the completed missing-config diagnosis as pending work.
+After the Auth readback result arrives, update **this ledger and NEXT-ACTION together** with observed evidence. Keep completed rows and mark superseded commands explicitly; do not restore infrastructure, pricing, account recovery, database setup, Firebase registration, Storage setup/staging or the completed missing-config diagnosis as pending work.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
