@@ -4,7 +4,19 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Google provider API readback verified; Preview mail domain read next — 2026-10-13
+### Resend domain form prepared; domain creation then DNS review — 2026-10-13
+
+Owner clarified at `2026-10-13T13:04:27+03:00` that the new key is for the Preview application, not a ChatGPT connector. The owner is proceeding through the Resend dashboard. Screenshot evidence shows Cloudflare listing `khedmah.uk`; Resend workspace label `haifawi30`; an unsaved key form named `khedmah-preview-v2` with Sending access and only All domains offered; then an unsaved Add domain form. These screens do not establish complete domain inventory, DNS ownership verification or key creation.
+
+Latest form screenshot received `2026-10-13T13:12:16+03:00` shows `mail.khedmah.uk`, Ireland (`eu-west-1`) and Custom Return-Path `send`. This matches the current source-default sender `noreply@mail.khedmah.uk`. Next owner action: retain those values, leave tracking subdomain unconfigured and open/click tracking disabled where editable, then click **Add domain** once and return the resulting domain/DNS-record screen. The grey tracking controls are not proof of saved state; inspect saved tracking configuration before any transactional-mail test. No successful creation/verification is yet evidenced.
+
+This advances the earlier read-only dashboard handoff within the owner's Preview mail setup. It prepares one Resend domain object only. If an existing-domain, claim, transfer, upgrade or conflict prompt appears, return it rather than replacing existing resources. Before any Cloudflare DNS change or automatic DNS authorization, inspect Resend's generated records alongside the existing zone records for conflicts. Do not alter root/inbound MX, existing SPF/DKIM, routing or Production resources by assumption. No API key creation, secret staging, email send or deployment is included in this next step.
+
+Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion remain preserved below. Maps/origins, schema/runtime grants, current-source CI and deployment/Floot acceptance remain pending. The Preview mail workflow hold and all Production gates remain.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `934a8190f6d73836b42438106ae13af642d57050`; latest full-source checks remain `f99479268f036c098bdd0fd828d5295aeb11ef39` with intentional held Preview run `38277607448`. This update changes the same five Markdown checkpoints only with `[skip ci]`; no new full CI, executable change, workflow dispatch, merge or assistant cloud mutation.
+
+### Historical checkpoint — Google API verified; dashboard read then next — 2026-10-13
 
 Owner post-save read completed at `2026-10-13T09:39:12.147924+00:00` (12:39:12 Asia/Damascus), received `2026-10-13T12:50:37+03:00`, for the pinned replacement project `khedmah-preview-v2-20261012`. Parent `PREVIEW_AUTH_CONFIG` is OK / FIREBASE_AUTH; `PREVIEW_AUTH_PROVIDER_GOOGLE_COM` is OK with `enabled=true`. Standard Auth initialization and Google provider enablement are now both verified by API metadata. Do not repeat setup, Save or the unchanged Auth read.
 
@@ -96,7 +108,7 @@ The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VE
 - Effective constraint: `constraints/storage.publicAccessPrevention`, `booleanPolicy: {}`. This is the false/not-enforced boolean representation, consistent with Google's documented disable-enforce example; it is not an authorization error or proof of public access.
 - Anonymous Firebase list returned **403**; anonymous GCS list returned **401**. Both sampled requests were denied. This closes the requested anonymous-list observation only; it does not establish every object/read/write path, authenticated/inherited IAM, or why the request was denied.
 - Together with the earlier bucket setting `inherited`, this shows that public access prevention is not currently enforced for this bucket. Preserve the separately verified deny-all rule source and absence of direct public bucket bindings.
-- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with the Resend domain read in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
+- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with the Resend domain setup in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
 - Do not rerun Storage creation or the completed unchanged policy/probe batch. The sixth Storage value was subsequently staged as recorded above. Full effective IAM and application/data-plane acceptance remain separately unverified; this property update cannot certify them or authorize deployment.
 
 ### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
@@ -107,7 +119,7 @@ Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-
 - Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
 - **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
 - **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
-- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with the Resend domain read in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
+- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with the Resend domain setup in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
 
 
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
@@ -128,7 +140,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `2ceca903af62d75ba2e78c578823e2518510032e`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `934a8190f6d73836b42438106ae13af642d57050`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -157,14 +169,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** inspect the intended Resend team's domain/sending-verification status in [NEXT-ACTION](NEXT-ACTION.md). The source-default sender is `noreply@mail.khedmah.uk`; account, team and verified-domain availability remain unobserved.
+1. **Next:** add the prepared Resend domain `mail.khedmah.uk` in Ireland and return the resulting domain/DNS-record screen as detailed in [NEXT-ACTION](NEXT-ACTION.md). Domain creation and verification remain unconfirmed; DNS changes require a separate existing-record review.
 2. From returned evidence, select the Preview sender and prepare a separate, domain-limited sending credential and protected staging into the existing Preview secret. Do not copy a Production credential or assume a missing domain can be claimed/transferred. DNS changes, credentials and any test email need concrete scope before execution.
 3. Prepare the missing Maps/browser configuration and exact approved origins/referrers, ordered schema/runtime grants, current-source full checks, then review removal of the explicit deployment hold and perform bounded Preview rollout/acceptance. No placeholder origin or secret, wildcard browser trust or automatic release.
 4. Standard Auth and Google enablement are completed configuration evidence; Facebook remains deferred. Saved support/branding fields, OAuth client/consent and actual popup/session/CORS/CSRF/Floot acceptance remain separately unverified. Old Preview deployment does not certify the replacement.
 
 ### Execution boundary and handoff discipline
 
-No authenticated Google Cloud execution surface or Resend connection is confirmed here. The next operation is an owner-operated read of the existing Resend Domains dashboard; no new account/domain/DNS/key creation or email send is requested. This reconciliation performs no cloud operation, credential read, workflow dispatch or merge.
+No authenticated Google Cloud execution surface or Resend connection is confirmed here. The owner is using Resend directly; the next bounded action is domain-object creation from the reviewed form. DNS authorization/writes, keys, sends, cloud operations and deployment remain separate pending steps. This reconciliation itself performs no cloud operation, credential read, workflow dispatch or merge.
 
 After the Resend domain evidence arrives, update **this ledger and NEXT-ACTION together**. Keep all six Firebase values and completed project, infrastructure, database, WIF, Storage and Google Auth/provider work. Preserve Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B evidence remains preserved; schema/HARDEN/release require their own gates.
 

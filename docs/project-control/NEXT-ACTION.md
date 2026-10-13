@@ -1,6 +1,20 @@
 # Next Safe Action — Khedmah
 
-## Next read — Resend sending-domain status for Preview mail — 2026-10-13
+## Resend domain form prepared; domain creation then DNS review — 2026-10-13
+
+Owner clarified at `2026-10-13T13:04:27+03:00` that the new key is for the Preview application, not a ChatGPT connector. The owner is proceeding through the Resend dashboard. Screenshot evidence shows Cloudflare listing `khedmah.uk`; Resend workspace label `haifawi30`; an unsaved key form named `khedmah-preview-v2` with Sending access and only All domains offered; then an unsaved Add domain form. These screens do not establish complete domain inventory, DNS ownership verification or key creation.
+
+Latest form screenshot received `2026-10-13T13:12:16+03:00` shows `mail.khedmah.uk`, Ireland (`eu-west-1`) and Custom Return-Path `send`. This matches the current source-default sender `noreply@mail.khedmah.uk`. Next owner action: retain those values, leave tracking subdomain unconfigured and open/click tracking disabled where editable, then click **Add domain** once and return the resulting domain/DNS-record screen. The grey tracking controls are not proof of saved state; inspect saved tracking configuration before any transactional-mail test. No successful creation/verification is yet evidenced.
+
+This advances the earlier read-only dashboard handoff within the owner's Preview mail setup. It prepares one Resend domain object only. If an existing-domain, claim, transfer, upgrade or conflict prompt appears, return it rather than replacing existing resources. Before any Cloudflare DNS change or automatic DNS authorization, inspect Resend's generated records alongside the existing zone records for conflicts. Do not alter root/inbound MX, existing SPF/DKIM, routing or Production resources by assumption. No API key creation, secret staging, email send or deployment is included in this next step.
+
+Reference: [Resend regions](https://resend.com/docs/dashboard/domains/regions), [add and verify a domain](https://resend.com/docs/add-a-domain), [tracking](https://resend.com/docs/dashboard/domains/tracking). Region specifies sending origin, not data residency.
+
+Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion remain preserved below. Maps/origins, schema/runtime grants, current-source CI and deployment/Floot acceptance remain pending. The Preview mail workflow hold and all Production gates remain.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `934a8190f6d73836b42438106ae13af642d57050`; latest full-source checks remain `f99479268f036c098bdd0fd828d5295aeb11ef39` with intentional held Preview run `38277607448`. This update changes the same five Markdown checkpoints only with `[skip ci]`; no new full CI, executable change, workflow dispatch, merge or assistant cloud mutation.
+
+## Historical checkpoint — Google API verified; dashboard read then next — 2026-10-13
 
 Owner post-save read completed at `2026-10-13T09:39:12.147924+00:00` (12:39:12 Asia/Damascus), received `2026-10-13T12:50:37+03:00`, for the pinned replacement project `khedmah-preview-v2-20261012`. Parent `PREVIEW_AUTH_CONFIG` is OK / FIREBASE_AUTH; `PREVIEW_AUTH_PROVIDER_GOOGLE_COM` is OK with `enabled=true`. Standard Auth initialization and Google provider enablement are now both verified by API metadata. Do not repeat setup, Save or the unchanged Auth read.
 

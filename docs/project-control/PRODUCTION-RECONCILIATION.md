@@ -1,6 +1,14 @@
 # Production reconciliation — evidence before an operation
 
-## Google provider API readback verified; Preview mail domain read next — 2026-10-13
+## Resend domain form prepared; domain creation then DNS review — 2026-10-13
+
+Owner confirmed the key is for the Preview application. The latest unsaved Resend form shows `mail.khedmah.uk`, Ireland (`eu-west-1`) and Return-Path `send`. Next: add that domain once, then review the generated DNS screen before any Cloudflare change. Creation, verification and key staging are not yet evidenced. Saved tracking must be checked before transactional-mail testing.
+
+Google parent/provider API verification, all six Firebase SDK values, Storage/PAP, database and WIF completion remain preserved below. Maps/origins, schema/runtime grants, current-source CI and deployment/Floot acceptance remain pending. The Preview mail workflow hold and all Production gates remain.
+
+Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, open PR #274 parent `934a8190f6d73836b42438106ae13af642d57050`; latest full-source checks remain `f99479268f036c098bdd0fd828d5295aeb11ef39` with intentional held Preview run `38277607448`. This update changes the same five Markdown checkpoints only with `[skip ci]`; no new full CI, executable change, workflow dispatch, merge or assistant cloud mutation.
+
+## Historical checkpoint — Google API verified; dashboard read then next — 2026-10-13
 
 Owner post-save read completed at `2026-10-13T09:39:12.147924+00:00` (12:39:12 Asia/Damascus), received `2026-10-13T12:50:37+03:00`, for the pinned replacement project `khedmah-preview-v2-20261012`. Parent `PREVIEW_AUTH_CONFIG` is OK / FIREBASE_AUTH; `PREVIEW_AUTH_PROVIDER_GOOGLE_COM` is OK with `enabled=true`. Standard Auth initialization and Google provider enablement are now both verified by API metadata. Do not repeat setup, Save or the unchanged Auth read.
 
