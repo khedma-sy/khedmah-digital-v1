@@ -1,35 +1,20 @@
 # Next Safe Action — Khedmah
 
-## Next owner operation — enable the Preview Google provider — 2026-10-13
+## Next owner read — verify Google after the Console save — 2026-10-13
 
-Owner post-Console readback completed at `2026-10-13T09:12:41.017976+00:00` (12:12:41 Asia/Damascus), received at `2026-10-13T12:14:06+03:00`. Exact target is `khedmah-preview-v2-20261012`. `PREVIEW_AUTH_CONFIG` returned `outcome="OK"`, `subtype="FIREBASE_AUTH"`: standard Firebase Authentication initialization is now verified. Do not repeat Get started, initializeAuth, or the unchanged initialization diagnostic.
+Owner screenshot received `2026-10-13T12:34:11+03:00` shows **Khedmah Preview V2 → Authentication → Sign-in method**, with **Google — Enabled** in the provider list after Save. This is saved Console-status evidence, not merely the unsaved Enable toggle. No operation timestamp, project ID/number, OAuth client metadata or browser login result is visible.
 
-Google and Facebook provider resources still return structured HTTP 404 / NOT_FOUND / CONFIGURATION_NOT_FOUND. The aggregate `all_component_reads_succeeded=false` reflects those provider reads; it does not undo the successful parent-config result. `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false` and `credential_values_printed=false`; application deployment, login-flow and Floot acceptance remain unverified.
+The preceding owner screenshot, received `2026-10-13T12:32:39+03:00`, showed public name **خدمة ديجتل — Preview** and the owner's selected management email `haifawi30@gmail.com` in the support field; the user was told that it would be this Preview's support email and proceeded to Save. Preserve that owner selection for this step. The final provider-list screen does not re-display those fields, and no saved branding/support readback has been performed. Availability of `support@khedma.uk` was never established; do not repeat the earlier support-choice handoff or silently change the selected address.
 
-Authorized domains observed exactly: `localhost`, `khedmah-preview-v2-20261012.firebaseapp.com`, `khedmah-preview-v2-20261012.web.app`. Anonymous, email and phone sign-in are disabled; email passwordRequired is false. Preserve this observed configuration for now. No actual deployed Preview/Floot origin or aligned browser-key referrer has been verified.
+**Next safe action:** the existing checksum-pinned GET-only `--inspect-auth` readback once after this save. Verify exact target `khedmah-preview-v2-20261012` / `1044962071847`, parent config and Google provider metadata. Do not repeat initialization, provider enablement or Save. Facebook remains deferred; its absent resource may keep the aggregate read flag false without invalidating a successful Google result.
 
-### Reviewed scope
+Standard FIREBASE_AUTH initialization remains verified by the earlier `2026-10-13T09:12:41.017976+00:00` read. Preserve all six staged SDK values, completed Storage/PAP, database and WIF evidence. Saved provider status alone does not verify OAuth/login/session flow, consent details, approved origins/key restrictions, application deployment or Floot acceptance.
 
-Current frontend `apps/frontend/lib/firebase/auth.ts` and login page implement Google Firebase popup → ID-token exchange with the Khedmah backend. Facebook is conditional on `NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED`, disabled unless explicitly true. The existing social-auth validator requires Google and conditionally Facebook. Backend email/password login uses `identityService`, not Firebase email-provider activation.
+### Pinned post-save readback
 
-Next is owner-operated **Google provider enablement** in this exact Preview project's Firebase Console, using the platform's public name and an explicitly selected support address, then the pinned masked readback **after Save**. Prepared, not executed. Facebook remains deferred; do not enable unrelated providers, broaden domains/referrers or run an Identity Platform upgrade. This is existing authentication integration scope, not a new product feature or a Production OAuth launch.
+Run the whole block in Cloud Shell under `haifawi30@gmail.com`. The helper pins the replacement project explicitly and does not change the displayed default `khedma-dl`.
 
-### Console steps
-
-1. Open [Preview Authentication](https://console.firebase.google.com/project/khedmah-preview-v2-20261012/authentication) under `haifawi30@gmail.com`. Verify project `khedmah-preview-v2-20261012` / `1044962071847`; do not use Cloud Shell's displayed default `khedma-dl` as the target.
-2. In **Sign-in method**, select **Google** (or **Add new provider → Google**) and turn **Enable** on.
-3. Set **Public-facing name** to **خدمة ديجتل — Preview**.
-4. For **Project support email**, select `support@khedma.uk` **only if it appears as an eligible Console choice**. Its eligibility has not been verified. If missing, return the available choices before Save; do not silently substitute the management account as a public support address or add IAM roles to make the address eligible.
-5. With those settings confirmed in the form, click **Save**. If an existing provider, different OAuth setup, credential-entry requirement or upgrade prompt appears, return that state for reconciliation; do not overwrite an existing client or copy secrets into chat.
-6. Confirm Google appears **Enabled**, then run the pinned readback below and return its JSON. A screenshot may show provider status and the non-secret public fields; avoid expanded credential fields.
-
-The [official Firebase Console flow](https://firebase.google.com/codelabs/firebase-terraform#6_set_up_firebase_authentication) documents Google → Enable → public name → support email → Save. Keep the Console-generated settings within this Preview project; no manual credential copying, publishing to Production, extra Google API scopes, domain changes or unrelated provider enablement is included.
-
-### Readback after saving Google
-
-The initialization read at `2026-10-13T09:12:41.017976+00:00` is already completed. Run this command only after the Google setup changes, or after a concrete uncertain-save outcome that requires a read. Do not request the same unchanged read as a new diagnostic.
-
-Reader implementation `f86108bb710654c7798eab261f902b96483d77b6`; blob `5957e5748e3e605a0681c9725fb1837c39f62b01`; SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`. It checks the fixed project/account/organization/API state and reads masked config and Google/Facebook metadata without key/secret/user payloads or mutations.
+Reader implementation `f86108bb710654c7798eab261f902b96483d77b6`, blob `5957e5748e3e605a0681c9725fb1837c39f62b01`, SHA-256 `01c7d17abb4908d085130f8b54a5bc0f9cdb1d41d2845d91eef7e290aad8cb47`. It checks project/account/organization/API state, then reads only masked Auth config and Google/Facebook provider metadata. No credential, SDK-key, Secret Manager payload or user read; no cloud mutation.
 
 ```bash
 (
@@ -45,13 +30,20 @@ python3 "$khedmah_auth_read_script" --inspect-auth
 )
 ```
 
-Expected partial result after setup: parent config remains OK / FIREBASE_AUTH, Google returns a masked provider name and `enabled=true`. Facebook may continue to return CONFIGURATION_NOT_FOUND; therefore `all_component_reads_succeeded=false` alone must not be treated as a failure of Google setup. The reader does not expose client IDs/secrets or verify consent details, OAuth popup/session exchange, browser restrictions or deployment. Later acceptance must close those checks.
+Return all JSON, including individual provider outcomes. Expected result is parent config OK / FIREBASE_AUTH and Google `enabled=true`. Facebook may still return CONFIGURATION_NOT_FOUND, making `all_component_reads_succeeded=false`; evaluate the parent and Google responses separately. The final completion marker is not a readiness verdict.
 
-Preserve all six staged SDK values and completed Storage/PAP, database and WIF work. Google setup is **prepared, not yet executed**. Maps/mail, approved origins, schema/runtime, current-source full CI, held Preview deployment and Floot browser acceptance remain pending.
+A provider-status mismatch, denied read, wrong target or uncertain result must be reconciled before any further write. Do not repeat Save blindly or add roles. This reader does not return client IDs/secrets or saved public name/support fields, and it does not test OAuth popup, Khedmah token exchange/session, browser restrictions or deployment.
+
+### Completed steps and remaining gates
+
+- Standard Firebase Auth initialized: parent-config read verified at `2026-10-13T09:12:41.017976+00:00`. Three observed domains were localhost and the project's firebaseapp.com/web.app hosts; anonymous/email/phone disabled.
+- Google Console save: Enabled shown in the received provider-list screenshot. API readback pending.
+- Facebook remains behind its separate frontend flag and is deferred. Backend email/password login remains with the existing identity service.
+- Six SDK values, Storage/PAP, database and WIF completion are preserved. Maps/mail, approved browser origins/referrers, schema/runtime grants, current-source full CI, held Preview deployment and Floot acceptance remain pending.
 
 ### Validation and boundaries
 
-This pass changes only the same five Markdown checkpoints with `[skip ci]`. No executable/test changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader source stays `f86108bb710654c7798eab261f902b96483d77b6` with its previously recorded 33 mocked Python cases. Preserve the six staged SDK values, Storage/PAP, database/WIF evidence and all deployment/Production gates.
+Five Markdown checkpoints only, `[skip ci]`; no executable changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader implementation remains `f86108bb710654c7798eab261f902b96483d77b6` with prior scoped validation. Preview deployment holds and all Production gates remain.
 
 ## Completed owner operation — historical Storage identifier staging — 2026-10-13
 

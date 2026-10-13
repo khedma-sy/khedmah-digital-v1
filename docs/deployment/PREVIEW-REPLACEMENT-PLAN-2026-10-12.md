@@ -1,14 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Standard Firebase Auth initialization verified; Google provider next — 2026-10-13
+## Google provider saved in Console; API readback next — 2026-10-13
 
-Owner post-Console readback completed at `2026-10-13T09:12:41.017976+00:00` (12:12:41 Asia/Damascus), received at `2026-10-13T12:14:06+03:00`. Exact target is `khedmah-preview-v2-20261012`. `PREVIEW_AUTH_CONFIG` returned `outcome="OK"`, `subtype="FIREBASE_AUTH"`: standard Firebase Authentication initialization is now verified. Do not repeat Get started, initializeAuth, or the unchanged initialization diagnostic.
+Owner screenshot received `2026-10-13T12:34:11+03:00` shows **Khedmah Preview V2 → Authentication → Sign-in method**, with **Google — Enabled** in the provider list after Save. This is saved Console-status evidence, not merely the unsaved Enable toggle. No operation timestamp, project ID/number, OAuth client metadata or browser login result is visible.
 
-Google and Facebook provider resources still return structured HTTP 404 / NOT_FOUND / CONFIGURATION_NOT_FOUND. The aggregate `all_component_reads_succeeded=false` reflects those provider reads; it does not undo the successful parent-config result. `cloud_mutation=false`, `sdk_api_key_read=false`, `secret_payload_access=false` and `credential_values_printed=false`; application deployment, login-flow and Floot acceptance remain unverified.
+The prior form showed the owner's selected management address as Preview support email and the approved public app name; the subsequent save status is recorded in [CURRENT-STATE](../project-control/CURRENT-STATE.md). Do not repeat the support-choice handoff or provider setup.
 
-Continue from [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md): Google-only Console setup, public app name **خدمة ديجتل — Preview**, and company support address if eligible in the Console, then masked readback after Save. If that address is unavailable, return the choices before saving. Provider setup is prepared, not executed; Facebook remains deferred.
+Continue with the checksum-pinned post-save GET-only Auth readback in [NEXT-ACTION](../project-control/NEXT-ACTION.md). Facebook remains deferred; evaluate its missing-config outcome separately from Google. Standard Auth and all six SDK values remain completed evidence.
 
-This pass changes only the same five Markdown checkpoints with `[skip ci]`. No executable/test changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader source stays `f86108bb710654c7798eab261f902b96483d77b6` with its previously recorded 33 mocked Python cases. Preserve the six staged SDK values, Storage/PAP, database/WIF evidence and all deployment/Production gates.
+Five Markdown checkpoints only, `[skip ci]`; no executable changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader implementation remains `f86108bb710654c7798eab261f902b96483d77b6` with prior scoped validation. Preview deployment holds and all Production gates remain.
 
 ## Historical checkpoint — Auth diagnosis and initialization handoff — 2026-10-13
 

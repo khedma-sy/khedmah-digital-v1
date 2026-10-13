@@ -4,7 +4,19 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Standard Firebase Auth initialization verified; Google provider next — 2026-10-13
+### Google provider saved in Console; API readback next — 2026-10-13
+
+Owner screenshot received `2026-10-13T12:34:11+03:00` shows **Khedmah Preview V2 → Authentication → Sign-in method**, with **Google — Enabled** in the provider list after Save. This is saved Console-status evidence, not merely the unsaved Enable toggle. No operation timestamp, project ID/number, OAuth client metadata or browser login result is visible.
+
+The preceding owner screenshot, received `2026-10-13T12:32:39+03:00`, showed public name **خدمة ديجتل — Preview** and the owner's selected management email `haifawi30@gmail.com` in the support field; the user was told that it would be this Preview's support email and proceeded to Save. Preserve that owner selection for this step. The final provider-list screen does not re-display those fields, and no saved branding/support readback has been performed. Availability of `support@khedma.uk` was never established; do not repeat the earlier support-choice handoff or silently change the selected address.
+
+**Next safe action:** the existing checksum-pinned GET-only `--inspect-auth` readback once after this save. Verify exact target `khedmah-preview-v2-20261012` / `1044962071847`, parent config and Google provider metadata. Do not repeat initialization, provider enablement or Save. Facebook remains deferred; its absent resource may keep the aggregate read flag false without invalidating a successful Google result. Command: [NEXT-ACTION](NEXT-ACTION.md).
+
+Standard FIREBASE_AUTH initialization remains verified by the earlier `2026-10-13T09:12:41.017976+00:00` read. Preserve all six staged SDK values, completed Storage/PAP, database and WIF evidence. Saved provider status alone does not verify OAuth/login/session flow, consent details, approved origins/key restrictions, application deployment or Floot acceptance.
+
+Five Markdown checkpoints only, `[skip ci]`; no executable changes, new tests/full CI, workflow dispatch, merge or assistant cloud mutation. Reader implementation remains `f86108bb710654c7798eab261f902b96483d77b6` with prior scoped validation. Preview deployment holds and all Production gates remain.
+
+### Historical checkpoint — Auth initialization verified; Google setup then pending — 2026-10-13
 
 Owner post-Console readback completed at `2026-10-13T09:12:41.017976+00:00` (12:12:41 Asia/Damascus), received at `2026-10-13T12:14:06+03:00`. Exact target is `khedmah-preview-v2-20261012`. `PREVIEW_AUTH_CONFIG` returned `outcome="OK"`, `subtype="FIREBASE_AUTH"`: standard Firebase Authentication initialization is now verified. Do not repeat Get started, initializeAuth, or the unchanged initialization diagnostic.
 
@@ -66,7 +78,7 @@ The owner returned the complete `STORAGE_ACCESS_READ_FINISHED_NOT_A_READINESS_VE
 - Effective constraint: `constraints/storage.publicAccessPrevention`, `booleanPolicy: {}`. This is the false/not-enforced boolean representation, consistent with Google's documented disable-enforce example; it is not an authorization error or proof of public access.
 - Anonymous Firebase list returned **403**; anonymous GCS list returned **401**. Both sampled requests were denied. This closes the requested anonymous-list observation only; it does not establish every object/read/write path, authenticated/inherited IAM, or why the request was denied.
 - Together with the earlier bucket setting `inherited`, this shows that public access prevention is not currently enforced for this bucket. Preserve the separately verified deny-all rule source and absence of direct public bucket bindings.
-- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with Google provider setup in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
+- **Follow-up completed:** the PAP mutation and raw readback are now recorded above. Continue with the post-save Google readback in [NEXT-ACTION](NEXT-ACTION.md); the old PAP command is historical.
 - Do not rerun Storage creation or the completed unchanged policy/probe batch. The sixth Storage value was subsequently staged as recorded above. Full effective IAM and application/data-plane acceptance remain separately unverified; this property update cannot certify them or authorize deployment.
 
 ### Storage provisioning completed — 2026-10-13, 10:22:50 Asia/Damascus
@@ -77,7 +89,7 @@ Owner execution of helper blob `435fecef99f899b68e985b8119f64c811191fe49` / SHA-
 - Ruleset: `projects/khedmah-preview-v2-20261012/rulesets/0ee32473-ed46-4ccf-a3ee-8296276a87d1`. Direct bucket bindings contained no public principal. Uniform bucket-level access is enabled; returned lock time is `2027-01-11T07:22:44.139Z`, a future lock boundary, not evidence that it is already irreversibly locked.
 - **Limits:** publicAccessPrevention=`inherited`; effective inherited IAM/policy and data-plane rule propagation remain unverified. The report explicitly keeps `effective_iam_verified=false`, `rules_propagation_and_data_plane_verified=false` and `secret_value_staged=false`. It does not establish deployed application or tested Floot connectivity.
 - **Do not rerun** `provision-preview-v2-storage.py --apply`, enable the API again, recreate the bucket/rules, or request a setup screenshot as if this successful owner result were missing. Preserve the five Firebase core values and database credentials.
-- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with Google provider setup in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
+- **Follow-up received:** the effective-policy and anonymous-list reads are recorded above. The bucket-only public-access-prevention update is also completed; continue with the post-save Google readback in [NEXT-ACTION](NEXT-ACTION.md). No repeat creation or unchanged access-read batch is pending.
 
 
 ### Fresh owner inventory — 2026-10-13, 09:50:24 Asia/Damascus
@@ -98,7 +110,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 ### Repository and validation observed in this reconciliation
 
 - Protected main: `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). Its push runs Node CI `38120301083` and Test & Verify `38120301054` succeeded.
-- PR #274 is open/unmerged; the inspected parent is `76ba14245671e27671dc7227cc1d7ac7b5509de4`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
+- PR #274 is open/unmerged; the inspected parent is `b047e07a9e2feb6e49cd49f7260ac41d83d4dd6a`. Latest repository runs remain the previously recorded full-source checks and held Preview run. Implementation `f86108bb710654c7798eab261f902b96483d77b6` adds focused Auth diagnosis with scoped mocked validation above; source/checkpoint commits use `[skip ci]` and do not certify merge or release readiness.
 - Latest full-source verification remains `f99479268f036c098bdd0fd828d5295aeb11ef39`: Test & Verify `38277607829`, Node CI `38277607370` and Google source validation `38277607365` succeeded. The [recorded checkpoint](https://github.com/khedma-sy/khedmah-digital-v1/blob/5d0473b91d9f15d164d3e26cfcbd226f6188f5f5/docs/project-control/CURRENT-STATE.md) reports 2,588 tests. Later source changes have scoped validation, not a fresh full-CI result.
 - Preview run `38277607448`, deploy job `114908813534`, passed target guards, WIF authentication and environment isolation. At `2026-10-12T16:33:46.457Z`, RESEND metadata was readable: container exists, no enabled version, latest not found. The explicit `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD` then exited 1. This red result is the deliberate deployment hold, not a failed WIF connection. Schema/services/review-evidence were skipped.
 
@@ -118,6 +130,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Firebase Storage provisioning | Owner completion at `2026-10-13T07:22:50.206618+00:00`: default bucket in EUROPE-WEST1, Firebase linkage, deny-all source, UBLA and no direct public bindings verified. No repeat creation. |
 | Storage public-access prevention | Owner raw readback received `2026-10-13T10:48:47+03:00`: enforced on the exact replacement bucket, UBLA enabled. No repeat PAP mutation. Full IAM/application acceptance is separate. |
 | Storage public-access observation | Owner result received `2026-10-13T10:38:31+03:00`: effective boolean policy empty/not enforced; Firebase anonymous list 403 and GCS list 401. No full IAM or readiness conclusion. |
+| Google provider Console save | Owner screenshot received `2026-10-13T12:34:11+03:00` shows Google Enabled in provider list. Prior form shows owner-selected support address. API/client/browser verification remains pending; do not repeat Save. |
 | Standard Firebase Auth initialization | Owner readback `2026-10-13T09:12:41.017976+00:00`: parent config OK, subtype FIREBASE_AUTH, three observed authorized domains, local providers disabled. Google/Facebook configs remain absent. No repeat initialization. |
 | Firebase Console handoff | Owner screenshot received `2026-10-13T11:55:25+03:00` shows Khedmah Preview V2 / Authentication / Sign-in method with first-provider choices. UI stage observed; exact project and backend config remain subject to the pinned readback. Do not repeat Get started. |
 | Focused Auth diagnosis | Owner read at `2026-10-13T08:11:22.288153+00:00`: config and both provider endpoints report structured CONFIGURATION_NOT_FOUND. No cloud mutation or secret/key payload read. Subsequent config readback verifies initialization; provider absence remains. Preserve this original pre-initialization diagnosis. |
@@ -125,16 +138,16 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** configure the Google provider only through the exact Preview project's Console as detailed in [NEXT-ACTION](NEXT-ACTION.md). Standard Firebase Auth initialization is verified; do not replay it.
-2. Select the public app name and supported company support email, save Google, then run the pinned masked readback. If support-address choices or OAuth setup differ from the prepared flow, return that concrete screen before saving. Do not copy client secrets into chat, Git or browser config. A missing Facebook provider is expected while Facebook remains deferred.
+1. **Next:** execute the pinned post-save Auth readback in [NEXT-ACTION](NEXT-ACTION.md). Google Enabled is now observed in the saved Console list. Do not replay initialization, provider setup or support-email selection.
+2. Reconcile parent-config and Google-provider results independently. Facebook remains deferred, so its missing resource is not a Google setup failure. Preserve the owner-selected Preview support address; no saved branding/client metadata or browser-login proof has yet been returned. Do not copy client secrets into chat, Git or browser config.
 3. Align actual approved Preview/Floot origins and key restrictions, complete Maps/mail, ordered application schema/runtime grants and current-source checks, then the held Preview deployment and browser/session/CORS/CSRF acceptance. Provider enabled metadata alone does not pass those gates. Analytics measurement ID remains optional.
 4. Old Preview deployment evidence does not certify the replacement project or Floot. Keep all six staged values and completed resource work; no new product scope is introduced.
 
 ### Execution boundary and handoff discipline
 
-No authenticated Google Cloud execution surface is connected here. The next cloud change is owner-operated Google-provider setup in Firebase Console under the established management account, followed by the existing Cloud Shell GET-only reader. This reconciliation performs no cloud operation, workflow dispatch, merge or credential read.
+No authenticated Google Cloud execution surface is connected here. The next cloud operation is the existing owner-operated Cloud Shell GET-only reader under the established management account; the Console save has already been observed. This reconciliation performs no cloud operation, workflow dispatch, merge or credential read.
 
-After provider setup/readback, update **this ledger and NEXT-ACTION together** with the actual outcome. Preserve completed rows, Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release require their own gates. Do not restart account recovery, infrastructure, database, Firebase/Storage registration, configuration staging or Auth initialization.
+After the post-save provider readback, update **this ledger and NEXT-ACTION together** with the actual outcome. Preserve completed rows, Preview deployment/cleanup holds, separate Staging/old Preview and all Production gates. Production Phase A/B completion remains preserved; schema/HARDEN/release require their own gates. Do not restart account recovery, infrastructure, database, Firebase/Storage registration, configuration staging or Auth initialization.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
