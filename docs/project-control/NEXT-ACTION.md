@@ -1,14 +1,15 @@
 # Next Safe Action — Khedmah
 
-## Floot public read-only connectivity proof — 2026-10-14
+## Select the authenticated Floot transport — 2026-10-14
 
-The owner completed Google sign-in at the exact Preview origin and reported successful return with all expected application content visible. Treat this as positive owner-reported login/session/data-load acceptance. Logout and session-expiry are not yet verified.
+The public read-only Floot connectivity proof is complete. The new endpoint `/_api/integrations/khedmah_preview_health` returned HTTP 200 from the Floot Preview sandbox at **`2026-10-14T21:03:14.421Z`** with `connected=true`, `upstreamStatus=ok` and upstream version **`preview-pr-274-81cd97479040774cc36fb720cdb6f948348302dd`**. Typecheck is clean. No browser cookie, authorization header, Firebase token, Floot credential, secret payload or database operation is used; no Floot publish or Production mutation occurred.
 
-The existing Floot project was inspected and its development handoff/plan updated at checkpoint **`Prepared safe Preview integration gate`**. It currently uses a Floot-managed database and Floot-local JWT/session and has no Khedmah Preview adapter. Those mechanisms must not become a second Khedmah authority.
+**Next Safe Action requires a transport decision, not a Cloud Shell command.** Choose one reviewed path before authenticated Floot work:
 
-**Next Safe Action is repository/Floot source work; no Cloud Shell command is required.** Implement one fixed-upstream server endpoint that calls only a public read-only Preview health/config resource. It must forward no cookies, authorization headers, Firebase tokens or Floot credentials; read no secret payload; follow no cross-host redirect; use bounded timeout/response size; sanitize failures; and write no application data. Do not publish the Floot project during this proof.
+1. Upgrade/attach a compatible same-site custom domain, then validate Khedmah cookies in Chrome and Safari; or
+2. Design a controlled fixed-upstream server adapter that explicitly preserves the Firebase ID-token exchange, `Set-Cookie`/cookie lifecycle, CSRF/origin checks, logout, expiry and revocation without mixing with `floot_built_app_session`.
 
-Authenticated Floot integration remains held. Before enabling it, select and prove either a same-site custom-domain topology or a controlled server adapter that preserves the Khedmah Firebase exchange and session-cookie lifecycle, including CSRF/origin rules, logout, expiry and revocation. The current free Floot project has no custom domain. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
+The current Floot project is on the free plan with no custom domain. Direct browser authentication from `*.floot.app` to the Cloud Run origin is not accepted as universal proof because it is cross-site. Do not connect Khedmah secrets/database authority, publish Floot, change DNS/custom domains, mutate Production or merge PR274 yet. Separately exercise Preview logout/session-expiry acceptance when convenient.
 
 ## Add only the proven deployed Preview origin — 2026-10-14
 
