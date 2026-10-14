@@ -79,7 +79,16 @@ class BootstrapTests(unittest.TestCase):
         bucket = next(r for r in p['resource_changes'] if r['address'] == 'google_storage_bucket.build_source')
         # Literal provider-shaped output, independent of the generated manifest.
         bucket['change']['after']['location'] = 'EUROPE-WEST1'
-        self.assertEqual(m.validate_plan(p), (58, 0))
+        self.assertEqual(m.validate_plan(p), (59, 0))
+
+    def test_source_bucket_includes_bounded_metadata_reader(self):
+        grants = m.manifest()['resource']['google_storage_bucket_iam_member']
+        self.assertEqual(grants['source_deployer_metadata'], {
+            'bucket': '${google_storage_bucket.build_source.name}',
+            'role': 'roles/storage.bucketViewer',
+            'member': 'serviceAccount:' + m.email('deployer'),
+            'depends_on': ['google_service_account.deployer'],
+        })
 
     def test_storage_wrong_or_unknown_location_rejected(self):
         for location in ('EU', 'US-CENTRAL1', '', None):

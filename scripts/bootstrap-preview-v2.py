@@ -120,6 +120,12 @@ def manifest():
             'role': role, 'member': 'serviceAccount:' + email(identity),
             'depends_on': ['google_service_account.' + identity],
         })
+    add('google_storage_bucket_iam_member', 'source_deployer_metadata', {
+        'bucket': '${google_storage_bucket.build_source.name}',
+        'role': 'roles/storage.bucketViewer',
+        'member': 'serviceAccount:' + email('deployer'),
+        'depends_on': ['google_service_account.deployer'],
+    })
     add('google_sql_database_instance', 'preview', {
         'project': PROJECT, 'name': INSTANCE, 'region': REGION,
         'database_version': 'POSTGRES_16', 'deletion_protection': True,
