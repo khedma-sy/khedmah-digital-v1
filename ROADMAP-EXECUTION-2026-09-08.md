@@ -1,6 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Source-bucket denial reproduced under deployer — owner IAM evidence required — 2026-10-14
+## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+
+The owner read completed at **2026-10-14T16:37:21.047268Z** against project `khedmah-preview-v2-20261012` / `1044962071847`. The exact source bucket is private, PAP-enforced, UBLA-enabled and in EUROPE-WEST1. Its direct policy grants the deployer `roles/storage.objectAdmin` and the build identity `roles/storage.objectViewer`; the selected project policy grants Build/Run/SQL-viewer/service-usage roles but no bucket-metadata role. Both predefined object roles omit `storage.buckets.get`; the prior deployer diagnostic reproduced that exact metadata denial. Regional service/job inventories and the bounded build/audit window were complete and empty. No application deployment occurred.
+
+Implementation **`6d4bc1dc4ce0ffb856bea2ad2645f62e482ecbec`** adds a fail-closed helper and Terraform parity for exactly one bucket-scoped `roles/storage.bucketViewer` binding to `khedmah-pv2-deployer@khedmah-preview-v2-20261012.iam.gserviceaccount.com`. The helper verifies project/org/bucket identity, PAP/UBLA, the exact two-permission predefined role, baseline object bindings and absence of public access; it writes through an etag-bearing policy and verifies that only the intended direct binding was added. It reads no objects/secrets, submits no build and touches no Production resource.
+
+Exact-source validation passed: Test & Verify **`38600362314`** / job **`115977727439`** reported **2,663 passed, zero failed, one optional skip** (root 1,896 + backend 616 + frontend 151), including native PostgreSQL 16. Node **`38600362276`** and Google readiness **`38600362336`** succeeded. Artifact **`11912529301`**, SHA256 **`8ba5ae70bed99d68a4d7edad68e7eda91c4648b141d2109e59c7a3a80078e885`**. Preview **`38600362260`** quality and baseline jobs succeeded; inspect job `115977725616` and deploy job `115980544264` rejected this later source at their exact-source gates before authentication, so every cloud/deploy step skipped. This expected workflow failure is not a deployment attempt.
+
+**Next Safe Action:** run the single checksum-pinned `--apply` command in NEXT-ACTION once. Require `PREVIEW_V2_BUILD_SOURCE_METADATA_GRANT_VERIFIED`; on STOP or missing receipt, do not retry. After the receipt, prepare a separate deployer `--inspect` readback before any new bounded rollout. Main remains **`bc5a5c764413498189147cc34c7e857c78aa3d2c`**; PR274 is open/unmerged. No Production mutation, rollout retry, Floot connection or acceptance claim is authorized.
+
+## Historical checkpoint — source-bucket denial reproduced under deployer — 2026-10-14
 
 **Actual first rollout result:** executable **`f50c1d6ef74cf2fbaab03e8d5a9c22d0355ceed3`** reached the first foundation-image `gcloud builds submit`, then stopped at **2026-10-14T11:16:58.3970778Z**: the deployer was forbidden from accessing **`khedmah-preview-v2-20261012-cloudbuild-source`**. Preview run **`38554641637`**, deploy job **`115822909346`** FAILED. The CLI mentions organization policy / `serviceusage.services.use` generically; it does not identify the exact missing permission. No successful Build ID was returned and the runner never reached any Cloud Run job deployment/execution or application service operation. Post-attempt build/resource state is not yet independently reconciled. Do not rerun this attempt or infer a successful rollback/empty state from the error.
 

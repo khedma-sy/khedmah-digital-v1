@@ -1,6 +1,12 @@
 # Production reconciliation — evidence before an operation
 
-## Source-bucket denial reproduced under deployer — owner IAM evidence required — 2026-10-14
+## Preview source-bucket metadata repair prepared; Production unchanged — 2026-10-14
+
+Owner metadata evidence at **2026-10-14T16:37:21.047268Z** proves the replacement Preview deployer has direct object administration on the exact private source bucket but lacks a bucket-metadata role; the relevant object role excludes `storage.buckets.get`. Complete regional service/job/build/audit inventories were empty and no application deployment occurred.
+
+Source **`6d4bc1dc4ce0ffb856bea2ad2645f62e482ecbec`** prepares one bucket-scoped `roles/storage.bucketViewer` grant for the dedicated Preview deployer only, with etag, identity, PAP/UBLA, public-access and baseline-policy guards. CI passed **2,663 tests / zero failed / one optional skip**; Preview later-source gates stopped before authentication. The owner command is in NEXT-ACTION. Production credentials, IAM, workloads, data and release gates remain untouched and closed. No Preview rollout retry is authorized until the grant receipt and a separate deployer readback are reviewed.
+
+## Historical checkpoint — source-bucket denial reproduced under deployer — 2026-10-14
 
 **Actual first rollout result:** executable **`f50c1d6ef74cf2fbaab03e8d5a9c22d0355ceed3`** reached the first foundation-image `gcloud builds submit`, then stopped at **2026-10-14T11:16:58.3970778Z**: the deployer was forbidden from accessing **`khedmah-preview-v2-20261012-cloudbuild-source`**. Preview run **`38554641637`**, deploy job **`115822909346`** FAILED. The CLI mentions organization policy / `serviceusage.services.use` generically; it does not identify the exact missing permission. No successful Build ID was returned and the runner never reached any Cloud Run job deployment/execution or application service operation. Post-attempt build/resource state is not yet independently reconciled. Do not rerun this attempt or infer a successful rollback/empty state from the error.
 

@@ -1,6 +1,22 @@
 # Next Safe Action — Khedmah
 
-## Source-bucket denial reproduced under deployer — owner IAM evidence required — 2026-10-14
+## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+
+The owner read at **2026-10-14T16:37:21.047268Z** verified the exact private Preview source bucket, its baseline object bindings and complete empty regional service/job/build/audit inventories. The deployer has object access but no bucket-metadata role; `roles/storage.objectAdmin` does not include `storage.buckets.get`. No application deployment occurred.
+
+Implementation **`6d4bc1dc4ce0ffb856bea2ad2645f62e482ecbec`** prepares exactly one bucket-scoped `roles/storage.bucketViewer` binding for the dedicated Preview deployer and Terraform parity. It passed Test & Verify **`38600362314`** (**2,663 passed / zero failed / one optional skip**), Node **`38600362276`** and Google readiness **`38600362336`**. Preview **`38600362260`** stopped before authentication at exact-source gates; no cloud/deploy step ran.
+
+### الخطوة التالية — منح قراءة بيانات حاوية مصدر البناء فقط
+
+انسخ سطر الكود وحده إلى Cloud Shell وشغّله مرة واحدة. يستهدف مشروع Preview صراحةً حتى لو بقي عنوان الجلسة على `khedma-dl`. التغيير الوحيد المسموح هو إضافة `roles/storage.bucketViewer` لحساب نشر Preview على حاوية مصدر البناء المحددة؛ لا يمنح Storage Admin، ولا يقرأ محتوى الملفات أو الأسرار، ولا ينشر التطبيق، ولا يغيّر Production.
+
+```bash
+( set -euo pipefail; umask 077; khedmah_source_grant="$(mktemp)"; trap 'rm -f -- "$khedmah_source_grant"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/3bc29ecd18b08a8e71cedfb7011d201299264f38 --jq '.content' | base64 --decode > "$khedmah_source_grant"; printf '%s  %s\n' '14f785946f7862e120444bc9e9ffb7a75e456e4faf0b0d52bdfb541433f1d593' "$khedmah_source_grant" | sha256sum --check --status; python3 "$khedmah_source_grant" --apply; )
+```
+
+أرسل الناتج كاملًا. الإيصال المطلوب هو `PREVIEW_V2_BUILD_SOURCE_METADATA_GRANT_VERIFIED`. عند `STOP` أو غياب الإيصال لا تكرر الأمر ولا تعاود النشر. بعد نجاحه ستكون الخطوة التالية فحصًا منفصلًا بهوية deployer قبل تحضير محاولة rollout جديدة.
+
+## Historical checkpoint — source-bucket denial reproduced under deployer — 2026-10-14
 
 **Actual first rollout result:** executable **`f50c1d6ef74cf2fbaab03e8d5a9c22d0355ceed3`** reached the first foundation-image `gcloud builds submit`, then stopped at **2026-10-14T11:16:58.3970778Z**: the deployer was forbidden from accessing **`khedmah-preview-v2-20261012-cloudbuild-source`**. Preview run **`38554641637`**, deploy job **`115822909346`** FAILED. The CLI mentions organization policy / `serviceusage.services.use` generically; it does not identify the exact missing permission. No successful Build ID was returned and the runner never reached any Cloud Run job deployment/execution or application service operation. Post-attempt build/resource state is not yet independently reconciled. Do not rerun this attempt or infer a successful rollback/empty state from the error.
 

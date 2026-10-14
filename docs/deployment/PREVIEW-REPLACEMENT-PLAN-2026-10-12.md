@@ -1,6 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Source-bucket denial reproduced under deployer — owner IAM evidence required — 2026-10-14
+## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+
+The owner read at **2026-10-14T16:37:21.047268Z** verified the exact private, PAP-enforced, UBLA-enabled Preview source bucket and its direct policy. The deployer has `roles/storage.objectAdmin`; the build identity has `roles/storage.objectViewer`; neither role supplies bucket metadata access. Selected project bindings add Build/Run/SQL-viewer/service-usage capabilities but no bucket metadata role. Complete regional service/job/build/audit inventories were empty. This reconciles the failed first `gcloud builds submit`: no successful Build ID or downstream service/job deployment exists.
+
+Prepared source **`6d4bc1dc4ce0ffb856bea2ad2645f62e482ecbec`** adds exactly one direct, bucket-scoped `roles/storage.bucketViewer` binding for the dedicated Preview deployer plus Terraform parity. The helper is fail-closed, verifies the predefined role contains exactly `storage.buckets.get` and `storage.buckets.list`, preserves baseline bindings and public-access protections, and uses an etag-bearing policy update. It does not read objects/secrets, submit a build or touch Production.
+
+Test & Verify **`38600362314`** passed **2,663 / zero failed / one optional skip**; Node **`38600362276`** and Google readiness **`38600362336`** passed. Preview **`38600362260`** quality/baseline passed, while later-source inspect/deploy gates stopped before authentication, so there was no cloud execution. Next: execute the one checksum-pinned owner grant in NEXT-ACTION, then perform a separate deployer readback before preparing—not replaying—the next bounded rollout. Floot remains downstream of successful Preview deployment and runtime acceptance.
+
+## Historical checkpoint — source-bucket denial reproduced under deployer — 2026-10-14
 
 **Actual first rollout result:** executable **`f50c1d6ef74cf2fbaab03e8d5a9c22d0355ceed3`** reached the first foundation-image `gcloud builds submit`, then stopped at **2026-10-14T11:16:58.3970778Z**: the deployer was forbidden from accessing **`khedmah-preview-v2-20261012-cloudbuild-source`**. Preview run **`38554641637`**, deploy job **`115822909346`** FAILED. The CLI mentions organization policy / `serviceusage.services.use` generically; it does not identify the exact missing permission. No successful Build ID was returned and the runner never reached any Cloud Run job deployment/execution or application service operation. Post-attempt build/resource state is not yet independently reconciled. Do not rerun this attempt or infer a successful rollback/empty state from the error.
 
