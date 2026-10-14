@@ -220,7 +220,7 @@ def sql_lab_pack():
         names+=matches
     return dict(migrations=[dict(name=n,sql=(ROOT/'backend/migrations/versions'/n).read_text()) for n in names],
         apply=m.build_sql(acl,food,authority,args,sql034),readonly=acl.build_sql(food,authority,args,sql034),
-        inventory=m.inventory_query(acl),schema=m.SCHEMA_QUERY,grants=m.grant_sql(),baseline=m.baseline(),
+        inventory=m.inventory_query(acl),expected=m.expected_query(),schema=m.SCHEMA_QUERY,grants=m.grant_sql(),baseline=m.baseline(),
         retained_contract=food.postcondition_sql(authority,args,sql034),readback=m.build_readback_sql(acl,DIGEST))
 
 

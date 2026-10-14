@@ -73,6 +73,21 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     const after = sql(pack.readonly);
     t.diagnostic('Stopped fixture transaction SQL: ' + result.stderr);
     assert.deepEqual(JSON.parse(ok(after, 'state after stopped fixture attempt').join('\n')), pack.baseline);
+    // Diagnosis is restricted to this disposable fixture and always rolls back.
+    const comparison = JSON.parse(ok(sql('BEGIN READ WRITE;\n' + pack.grants +
+      "SELECT jsonb_build_object('observed',(" + pack.inventory +
+      ")::jsonb,'expected',(" + pack.expected + "));\nROLLBACK;"), 'fixture ACL comparison').join('\n'));
+    const difference = {};
+    for (const key of Object.keys(comparison.observed)) {
+      const observed = comparison.observed[key], expected = comparison.expected[key];
+      if (JSON.stringify(observed) === JSON.stringify(expected)) continue;
+      difference[key] = Array.isArray(observed) && Array.isArray(expected) ? {
+        observed_only: observed.filter(row => !expected.some(e => JSON.stringify(e) === JSON.stringify(row))),
+        expected_only: expected.filter(row => !observed.some(e => JSON.stringify(e) === JSON.stringify(row))),
+        counts: [observed.length, expected.length],
+      } : { observed, expected };
+    }
+    t.diagnostic('Disposable fixture ACL difference: ' + JSON.stringify(difference));
   }
   const lines = ok(result, 'grant transaction');
   assert.equal(lines.length, 2);
