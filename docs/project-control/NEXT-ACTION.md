@@ -1,6 +1,22 @@
 # Next Safe Action — Khedmah
 
-## Backend Firebase server-key helper verified — bounded owner creation next — 2026-10-14
+## Firebase server key created — private secret staging prepared, CI pending — 2026-10-14
+
+**Owner key creation is complete; never repeat the creation command.** `PREVIEW_V2_FIREBASE_SERVER_KEY_CREATED` at **`2026-10-14T08:01:24.927478+00:00`** confirms key `projects/1044962071847/locations/global/keys/khedmah-preview-v2-firebase-server`, UID **`7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`**, restricted to `identitytoolkit.googleapis.com`. Existing browser keys were preserved. No key/secret payload access, IAM mutation, secret container/value staging, runtime binding or deployment occurred. Client/IP restrictions, server request acceptance and actual Google sign-in remain unverified. This supersedes the pending-creation instruction below.
+
+**Next safe action:** finish source CI for `scripts/stage-preview-v2-firebase-server-config.py`, then hand off its pinned `--apply` command once. New helper blob **`f714090cd4cdddf65040e647c2e950d1207a62cc`**, SHA256 **`cf5588381a679f3c81dc569da995e19c9f77ddd5c7e0252345f408d2a1b5791f`**; baseline `8fc90fa943e3534d66915fc0912fcd0d112f110d`. Local **24 offline lifecycle/transport/security cases passed** through the Node wrapper. New-source CI is pending; do not execute the staging command yet.
+
+The helper loads the reviewed metadata guard from immutable blob `d3bd45963240d38aeb47325f05b9181e64df1064` after SHA256/Git-blob verification. It rechecks account/project/organization, exact server UID/restrictions, existing browser keys and the two existing service-account identities. It requires the backend secret absent, creates only `FIREBASE_API_KEY` with automatic replication and Preview labels, and sets only two direct secret bindings: runtime `roles/secretmanager.secretAccessor`, deployer `roles/secretmanager.viewer`. It rejects unexpected existing policy and uses the observed IAM etag for compare-and-set; no project/organization IAM or other secret is changed.
+
+After policy readback, the existing server key value is captured privately in memory and stored as enabled version **1**. CRC32C, private constant-time value comparison, complete version inventory and final metadata/policy readback are required. Values never appear in command arguments, environment, local files or printed receipts. A private durable attempt marker precedes cloud writes; no automatic retry, overwrite, rotation or cleanup. Secret addVersion has no CAS: the owner must serialize writers during this operation. `--inspect` reconciles metadata only and never authorizes retry. An interruption may leave the new secret/container/policy partly configured; return the bounded result for review rather than deleting or rerunning it.
+
+This source preparation does not stage anything in Google Cloud. Even a future success receipt proves only private value staging and the exact **direct** secret policy, not inherited/effective IAM, actual runtime secret access, backend binding, user login or deployment readiness. The helper does not send mail, change browser restrictions, recreate the key, call user lookup, run SQL or deploy. Database grants and runtime login remain complete; schema-job mode review, durable media, actual sessions/Maps/mail/Floot acceptance remain pending.
+
+Live GitHub main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 is open/unmerged at starting parent `8fc90fa943e3534d66915fc0912fcd0d112f110d`. Prior tested source `ed64f179ef12f693471c9416f966e5b051a73563` and its 2,614-pass evidence are retained below; they are not a verdict on this new helper. No workflow edit/dispatch, merge, Production mutation or release of Preview deployment/cleanup holds. Same five checkpoint files, full completed ledger and historical tails are preserved.
+
+Official API contracts reviewed: [secret creation](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/create), [version creation](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/addVersion), [secret IAM](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/setIamPolicy).
+
+## Historical checkpoint — Backend Firebase server-key helper verified — bounded owner creation next — 2026-10-14
 
 **Backend metadata read is complete; do not request it again.** Owner output received **`2026-10-14T10:40:22+03:00`** ends `BACKEND_AUTH_METADATA_READ_FINISHED_NOT_A_READINESS_VERDICT`; no operation timestamp was emitted. The exact-project number guard passed. The backend `FIREBASE_API_KEY` secret-name query returned **[]**. Two recognizable key entries are the existing Maps browser key and Firebase browser key with their retained referrer/API restrictions. The first portion of the pasted key JSON is interleaved with command text, so it is not treated as a clean machine-parseable inventory. Fresh complete inventory is mandatory inside the prepared helper; no repeated manual read is needed.
 
@@ -16,7 +32,7 @@ Preview `38530721939`: quality `115741698664` succeeded; deploy `115743243815` p
 
 Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`, sole PR #274 open/unmerged. This final verification checkpoint advances the tested implementation with only the same five Markdown files and **[skip ci]**; executable/test/workflow bytes, historical tails and every ledger row are preserved. No new CI run/dispatch is required for this documentation-only handoff. No workflow/Production/application deployment change, SQL replay, credential rotation, IAM or mail send. Completed runtime grant at 07:18:19 UTC and actual database login at 07:30:26 UTC remain intact. Preview deployment/cleanup holds, durable media/schema-job review, runtime DML, Google sessions, Maps/mail and Floot acceptance remain pending.
 
-### الأمر الحالي — إنشاء مفتاح Firebase خاص بخادم Preview مرة واحدة
+### أمر تاريخي مكتمل — لا تكرر إنشاء مفتاح الخادم
 
 اجتاز السكربت الفحوص. ينشئ مفتاحًا واحدًا مقيّدًا بخدمة Identity Toolkit فقط، ويتحقق من ثبات مفاتيح المتصفح دون قراءة قيمة المفتاح الجديد أو طباعتها. لا يُنشئ سرًا ولا يعدّل IAM ولا ينشر التطبيق.
 
@@ -166,7 +182,7 @@ The seven reviewed GRANT statements cover only the 60 named public application t
 
 Live GitHub rechecked: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole open/unmerged PR #274 at parent `4862be31d7710c408fc931f98f41bac67ee706b5`. Verified executable/test source stays `ce387aa61facbfb0e66c444d2620369082739203`: Test & Verify `38463786773`, Node `38463786754`, Google source/Android `38463786803` succeeded (2,612 passed / zero failed / one optional skip). Preview `38463786718` remains deliberately held after its successful RESEND metadata read; no new run or deployment is needed for this receipt. This update changes the same five Markdown checkpoints only with `[skip ci]`; no new executable/test/workflow change, tests, dispatch, merge or assistant cloud mutation. Full runtime/DML/deployment readiness, Firebase backend verification binding, durable media, browser/session/Maps/mail acceptance and Floot remain open. Preserve Production and Preview/cleanup gates.
 
-### الأمر الحالي — منح صلاحيات التطبيق في Preview مرة واحدة
+### أمر تاريخي مكتمل — لا تكرر منح صلاحيات التطبيق
 
 قراءة الصلاحيات اكتملت وأعادت `GRANTS_NOT_APPLIED`. انسخ هذا الأمر وحده عند سطر `# Next Safe Action — Khedmah
 
