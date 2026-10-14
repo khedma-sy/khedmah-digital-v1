@@ -1,6 +1,12 @@
 # Production reconciliation — evidence before an operation
 
-## Preview source-bucket metadata repair prepared; Production unchanged — 2026-10-14
+## Preview source-bucket repair verified; Production unchanged — 2026-10-14
+
+Owner receipt at **2026-10-14T17:10:39.427332Z** confirms the exact bucket-scoped `roles/storage.bucketViewer` grant to the dedicated Preview deployer. Authenticated deployer readback **`f391f68`**, job **`116003740725`**, then verified exact bucket metadata access at **17:36:21.602836Z** with no cloud mutation or deployment. Services/jobs and the relevant Build window were complete and empty; policy/audit visibility remained denied and is not represented as full effective-IAM evidence.
+
+Test/Node/Google and Preview quality/readback gates succeeded; deploy remained stopped before authentication by the old exact lineage gate. The next bounded release may mutate only replacement Preview after fresh inventory/secret/schema-slot guards. Production IAM, credentials, workloads, database, data and release gates remain untouched and closed. No Production mutation is authorized.
+
+## Historical checkpoint — Preview source-bucket metadata repair prepared — 2026-10-14
 
 Owner metadata evidence at **2026-10-14T16:37:21.047268Z** proves the replacement Preview deployer has direct object administration on the exact private source bucket but lacks a bucket-metadata role; the relevant object role excludes `storage.buckets.get`. Complete regional service/job/build/audit inventories were empty and no application deployment occurred.
 

@@ -1,6 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+## Source-bucket repair verified under deployer — bounded rollout next — 2026-10-14
+
+The owner completed the narrow grant at **2026-10-14T17:10:39.427332Z**. It added only bucket-scoped `roles/storage.bucketViewer` for the dedicated Preview deployer and preserved object bindings, PAP and UBLA. Do not repeat it.
+
+Authenticated readback source **`f391f68eea8081050b0565aab4e857d26d0c736a`**, Preview inspect job **`116003740725`**, successfully described the exact source bucket at **17:36:21.602836Z** and emitted `deployer_bucket_metadata_access_verified=true`. Services, jobs and the prior attempt Build window were complete and empty. Direct/project IAM and audit reads remained denied, so `full_effective_iam_verified=false` and the overall bounded inventory flag remained false; no deployment-readiness claim was made. No mutation or deployment occurred in this workflow.
+
+Test & Verify **`38607998764`** passed **2,662 / zero failed / one optional skip**; Node **`38607999000`**, Google **`38607998377`**, Preview quality/readback and baseline passed. Deploy stopped at its old exact-source gate before authentication. Next: publish one exact first-attempt direct successor for the post-repair rollout. It retains fresh empty service/job, eleven secret-version and nine slot checks plus read-only schema verification before builds. Any uncertain result stops; no blind rerun, Production change or Floot connection.
+
+## Historical checkpoint — source-bucket metadata gap proven — 2026-10-14
 
 The owner read at **2026-10-14T16:37:21.047268Z** verified the exact private, PAP-enforced, UBLA-enabled Preview source bucket and its direct policy. The deployer has `roles/storage.objectAdmin`; the build identity has `roles/storage.objectViewer`; neither role supplies bucket metadata access. Selected project bindings add Build/Run/SQL-viewer/service-usage capabilities but no bucket metadata role. Complete regional service/job/build/audit inventories were empty. This reconciles the failed first `gcloud builds submit`: no successful Build ID or downstream service/job deployment exists.
 

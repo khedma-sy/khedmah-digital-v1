@@ -1,6 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+## Source-bucket repair verified under deployer — bounded rollout next — 2026-10-14
+
+Owner receipt **`PREVIEW_V2_BUILD_SOURCE_METADATA_GRANT_VERIFIED`** at **2026-10-14T17:10:39.427332Z** confirms one direct `roles/storage.bucketViewer` binding on the exact Preview source bucket for the dedicated deployer. `storage.buckets.get/list`, prior object bindings, PAP and UBLA were preserved; no object/secret access, application deployment or rollout retry occurred. Do not repeat the grant command or remove its marker.
+
+Readback source **`f391f68eea8081050b0565aab4e857d26d0c736a`**, Preview run **`38607998697`**, inspect job **`116003740725`**, authenticated only as the Preview deployer and read the exact bucket successfully at **2026-10-14T17:36:21.602836Z**. Final receipt reports `deployer_bucket_metadata_access_verified=true`, `root_cause_proven=true`, `cloud_mutation=false`, `application_deployment_performed=false`, and `rollout_authorized=false`. Current regional service/job and attempt-window Build inventories were complete and empty. Direct bucket-policy, project-policy and audit reads remained denied, so full effective IAM and bounded audit completeness are not claimed; those denials do not negate the successful metadata access that blocked the first Build submission.
+
+Exact-source CI passed: Test & Verify **`38607998764`** / job **`116003739466`** had **2,662 passed, zero failed, one optional skip** (root 1,895 + backend 616 + frontend 151); Node **`38607999000`** and Google readiness **`38607998377`** succeeded. Artifact **`11916657593`**, SHA256 **`bc954f4e71b8ab614a7e1878ead213891b7d417a8d37b48bf1283f9a69974e6b`**. Preview quality `116003739534`, inspect and baseline `116006103752` succeeded. Deploy `116006105401` stopped at the old exact rollout lineage gate before authentication; all deployment steps skipped. No cloud mutation beyond the completed owner grant occurred.
+
+**Next Safe Action:** prepare one exact, first-attempt-only direct successor that authorizes the replacement Preview rollout after the verified source-bucket repair. It must retain fresh empty service/job and eleven enabled-v1-secret checks, all nine read-only schema-slot gates, source packaging exclusions and Preview/Production separation before any build. Any changed/nonempty/unconfirmed state stops for reconciliation; never replay the failed run or completed IAM/schema/secret work. Production and Floot remain untouched until Preview deployment and acceptance succeed.
+
+## Historical checkpoint — source-bucket metadata gap proven — 2026-10-14
 
 The owner read completed at **2026-10-14T16:37:21.047268Z** against project `khedmah-preview-v2-20261012` / `1044962071847`. The exact source bucket is private, PAP-enforced, UBLA-enabled and in EUROPE-WEST1. Its direct policy grants the deployer `roles/storage.objectAdmin` and the build identity `roles/storage.objectViewer`; the selected project policy grants Build/Run/SQL-viewer/service-usage roles but no bucket-metadata role. Both predefined object roles omit `storage.buckets.get`; the prior deployer diagnostic reproduced that exact metadata denial. Regional service/job inventories and the bounded build/audit window were complete and empty. No application deployment occurred.
 

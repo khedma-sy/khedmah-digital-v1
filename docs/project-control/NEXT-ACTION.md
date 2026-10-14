@@ -1,6 +1,14 @@
 # Next Safe Action — Khedmah
 
-## Source-bucket metadata gap proven — narrow Preview grant prepared — 2026-10-14
+## Source-bucket repair verified under deployer — bounded rollout next — 2026-10-14
+
+The owner grant receipt at **2026-10-14T17:10:39.427332Z** and deployer readback at **2026-10-14T17:36:21.602836Z** complete the source-bucket repair. Preview deployer metadata access is verified; current service/job/build inventories are empty. Full policy/audit visibility remains intentionally unclaimed. Do not repeat the grant or diagnostic.
+
+Source **`f391f68eea8081050b0565aab4e857d26d0c736a`** passed Test & Verify **`38607998764`** (**2,662 passed / zero failed / one optional skip**), Node **`38607999000`**, Google readiness **`38607998377`**, Preview quality and the authenticated readback. Deploy stopped before authentication at the old exact lineage gate, so no application deployment occurred.
+
+**Next action is repository-controlled; no Cloud Shell command is required.** Prepare and publish one exact direct successor authorizing the post-repair Preview rollout on its first synchronize attempt only. Before the first Build, the workflow must freshly verify unchanged main/PR, exact Preview configuration, empty services/jobs, eleven enabled v1/latest secrets, all nine free schema-job slots and the read-only schema contract. On any STOP, failed Build or uncertain state, reconcile rather than rerun. Production, merge, cleanup, Taxi enablement, email send and Floot connection remain held.
+
+## Historical checkpoint — source-bucket metadata gap proven — 2026-10-14
 
 The owner read at **2026-10-14T16:37:21.047268Z** verified the exact private Preview source bucket, its baseline object bindings and complete empty regional service/job/build/audit inventories. The deployer has object access but no bucket-metadata role; `roles/storage.objectAdmin` does not include `storage.buckets.get`. No application deployment occurred.
 
