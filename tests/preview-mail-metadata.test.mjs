@@ -109,7 +109,7 @@ test('local command failures and timeouts do not retry or expose the original er
   }
 });
 
-test('workflow authenticates and validates before the metadata-only hold, which blocks completed rollout replay', () => {
+test('workflow authenticates and validates before fresh metadata; any failed launch check holds rollout', () => {
   const workflow = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
   const start = workflow.indexOf('      - name: Read Preview mail metadata; hold completed rollout');
   const end = workflow.indexOf('      - name: Verify Preview inventory and pool before rollout', start);
@@ -127,9 +127,9 @@ test('workflow authenticates and validates before the metadata-only hold, which 
       const result = spawnSync('bash', ['-c', script + '\necho ROLLOUT_MUST_NOT_RUN'], {
         encoding: 'utf8', env: { ...process.env, PATH: dir + ':' + process.env.PATH, MOCK_STATUS: status },
       });
-      assert.notEqual(result.status, 0);
-      assert.ok(!result.stdout.includes('ROLLOUT_MUST_NOT_RUN'));
-      assert.equal(result.stdout.includes('PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD'), status === '0');
+      assert.equal(result.status === 0, status === '0');
+      assert.equal(result.stdout.includes('ROLLOUT_MUST_NOT_RUN'), status === '0');
+      // Real source/empty-inventory gates are exercised separately; denied metadata never proceeds.
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

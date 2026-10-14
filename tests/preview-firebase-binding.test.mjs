@@ -85,7 +85,7 @@ test('real resolver CLI keeps failed gcloud output private and returns no refere
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Firebase source binding stays behind the unchanged workflow hold and before mutation', () => {
+test('Firebase source binding stays behind the first-rollout workflow gates and before mutation', () => {
   const source = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
   const resolver = source.indexOf('DEPLOYMENT_ENVIRONMENT=preview node scripts/deployment/resolve-preview-firebase-config.mjs');
   assert.ok(resolver > source.indexOf('resolve_application_execution "$environment"'));

@@ -101,6 +101,13 @@ jobs:
             echo "has_gcp=false" >> "$GITHUB_OUTPUT"
             echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the preview environment"
           fi
+      - name: Verify the reviewed first Preview rollout before authentication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_EVENT_ACTION: ${{ github.event.action }}
+        run: node scripts/deployment/verify-preview-first-rollout.mjs --source
       - uses: google-github-actions/auth@v3
         if: steps.gcp-check.outputs.has_gcp == 'true'
         with:
@@ -125,6 +132,10 @@ jobs:
         timeout-minutes: 5
         if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_EVENT_ACTION: ${{ github.event.action }}
           DEPLOYMENT_ENVIRONMENT: preview
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
@@ -140,10 +151,11 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/deployment/read-preview-mail-metadata.mjs
-          node scripts/deployment/read-preview-launch-metadata.mjs
-          echo 'PREVIEW_LAUNCH_METADATA_COMPLETE_DEPLOYMENT_HELD'
-          echo 'PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD'
-          exit 1
+          if ! node scripts/deployment/verify-preview-first-rollout.mjs --inventory; then
+            echo 'PREVIEW_LAUNCH_METADATA_COMPLETE_DEPLOYMENT_HELD'
+            echo 'PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD'
+            exit 1
+          fi
       - name: Verify Preview inventory and pool before rollout
         timeout-minutes: 10
         if: steps.gcp-check.outputs.has_gcp == 'true'

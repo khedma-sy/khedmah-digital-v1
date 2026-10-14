@@ -62,11 +62,11 @@ test('malformed, foreign, duplicate and truncated metadata is rejected before an
   ];
   for(const change of cases) assert.throws(()=>readPreviewLaunchMetadata(env,fixture(change).run));
 });
-test('held workflow runs launch metadata before its unconditional exit and before builds/jobs/deployment',()=>{
+test('workflow requires the first-rollout gate before builds/jobs/deployment',()=>{
   const s=readFileSync(new URL('../.github/workflows/preview-deployment.yml',import.meta.url),'utf8');
   const step=s.split('      - name: Read Preview mail metadata; hold completed rollout\n')[1].split('      - name: Verify Preview inventory')[0];
-  assert.match(step,/node scripts\/deployment\/read-preview-launch-metadata\.mjs\n/);
+  assert.match(step,/if ! node scripts\/deployment\/verify-preview-first-rollout\.mjs --inventory; then/);
   assert.match(step,/PREVIEW_SCHEMA_IDENTIFIER: pr-\$\{\{ github.event.pull_request.number \}\}-\$\{\{ github.sha \}\}/);
-  assert.ok(step.indexOf('read-preview-launch-metadata.mjs')<step.indexOf('exit 1'));
+  assert.ok(step.indexOf('verify-preview-first-rollout.mjs')<step.indexOf('exit 1'));
   assert.doesNotMatch(step,/ROLLOUT_APPROVED|builds submit|jobs execute|deploy-cloud-run-environment/);
 });

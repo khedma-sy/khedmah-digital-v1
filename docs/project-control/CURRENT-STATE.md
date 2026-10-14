@@ -4,19 +4,19 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Preview launch metadata prepared — deployment remains held — 2026-10-14
+### First replacement Preview rollout prepared — verified empty baseline — 2026-10-14
 
-**Live continuation:** main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at preparation parent `d7be8cbcdf07b4490acd51ab8408286cfa8e32c1`. Completed owner schema/grants/secrets/media work and the verified source-only schema path below are preserved.
+**Fresh launch evidence:** metadata implementation `bee5489736287901d2dd1a3fe63193426e3ffa56` verified project `khedmah-preview-v2-20261012` / `1044962071847` ACTIVE at **2026-10-14T10:56:41.654Z** through the existing GitHub deployer. **Zero Cloud Run services, zero jobs**, all nine pool slots accepted as absent from successful complete inventories. All **eleven required secrets** have **version 1 ENABLED and latest resolving to 1**. No payload, SQL, object access or mutation. This is metadata evidence, not actual runtime access or application readiness.
 
-**Prepared read-only continuation:** `read-preview-launch-metadata.mjs` uses the existing exact replacement/Actions/serialization guards, verifies project ID/number/ACTIVE state, reads bounded regional Cloud Run service names, describes version 1 and latest for eleven required secrets using only name/state, then runs the existing complete job inventory and all nine before-deploy pool checks. Missing/denied/malformed/truncated/foreign metadata stops or remains explicitly unconfirmed; no secret payload, SQL, object data, runtime impersonation, build, job execution, service deployment, IAM change, repair or retry is introduced. Existing service presence is reported for review, never treated as permission to overwrite it. Version metadata does not prove runtime/build access or payload correctness.
+**Exact-source validation:** Test & Verify `38552366540` SUCCESS, test job `115813136366`: **2,648 passed / zero failed / one optional skip** (root 1,881 + backend 616 + frontend 151); native PG16 nine-entrypoint/ACL verification passed at `2026-10-14T10:52:25.8102885Z`. Node `38552366506` SUCCESS (build `115813135899`, inventory `115813135615`), Google readiness `38552366356` SUCCESS (validation `115813135135`, Production gate `115813136707` skipped). Artifact `11886794035`, expires `2026-10-21T10:54:43Z`, SHA256 `aafaab349b1a38d76c6cda894c522e4aae85f3a5c8cf98db103393c366597aa2`. Preview `38552366607` quality `115813135536` and baseline `115815210151` passed; deploy `115815210952` emitted both metadata hold markers after the complete receipt. Review `115815543777` and cleanup `115813136978` skipped. No deployment occurred in that run.
 
-The existing held workflow step now runs this reader after mail metadata and before its unconditional `exit 1`; it adds `PREVIEW_LAUNCH_METADATA_COMPLETE_DEPLOYMENT_HELD` and retains `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. The downstream rollout approval step remains unreachable. Source freshness/configuration/isolation/WIF and cleanup/Production holds remain intact. The configuration batch source manifest pins the changed workflow and new reader; the already completed owner configuration batch must not be rerun.
+**Reviewed first rollout scope:** the existing replacement-only runner selects the dedicated build/migrator/runtime/frontend identities and source bucket, pins migration/runtime DB credentials and backend Firebase to version 1, binds the exact media bucket only to backend, clears frontend secrets/Cloud SQL, and verifies all nine schema stages before either application build. Completed migrations, seeds, grants, secrets and IAM are never replayed. Canonical ACL/routine/trigger verification is read-only. Staging/Production and Taxi trips remain unchanged. Runtime access, browser origin/session, DML/media and Maps/mail acceptance are assessed only after a deployed workload exists; no extra impersonation grants or throwaway workloads are introduced. The existing anonymous browser evidence scripts do not create accounts or send mail.
 
-**Local validation:** 56 focused reader/workflow/pool/cleanup/configuration regressions passed, including the extracted held shell step. Reader syntax and diff checks passed. **Exact-source CI and live inventory are pending for this new source.** Prior schema CI does not validate this new reader or prove cloud permissions.
+**Bounded source release:** new `verify-preview-first-rollout.mjs` permits only a synchronize event for same-repository open PR274, run attempt 1, unchanged main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, and a commit with exactly one parent `bee5489736287901d2dd1a3fe63193426e3ffa56` and exact message `release(preview): execute reviewed first replacement rollout`. Source freshness/configuration checks remain before authentication. Later docs/source heads, reopen events, retries, forks, merged/stale PRs and changed main stop before cloud authentication. It rechecks source immediately before a fresh read-only inventory and refuses any existing service/job or unconfirmed required version. This confines the exception to this reviewed first rollout; failed/partial deployment requires state reconciliation, never a rerun or automatic adoption. All existing pool pre-deploy/pre-execute guards remain.
 
-**Next Safe Action:** inspect exact-source CI and the held metadata receipt. Reconcile any missing/denied metadata without broadening permissions automatically. If the inventory completes, review the concrete Preview launch gates against this source before a separate release decision. No Cloud Shell command is needed for this metadata pass. Do not replay completed migrations, seeds, grants, secrets, role creation, federation or attempt markers. Taxi trips stay disabled; actual runtime media/secret/DML/Google-session/origin/Maps/mail/Floot acceptance remains pending. No Production mutation, merge, workflow dispatch or email send.
+**Local validation:** 67 focused source/metadata/pool/Firebase/mail and real deployment-runner regressions passed, including first-attempt/lineage/replay rejection and unchanged Staging behavior. Syntax/diff and source-manifest checks passed. Fresh release-source CI and cloud execution remain pending.
 
-Metadata API references: https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/describe and https://docs.cloud.google.com/sdk/gcloud/reference/run/services/list.
+**Next Safe Action:** publish this single release commit and observe its quality gates and bounded first Preview rollout. No rollout result is claimed yet. If a step fails, stop and inspect the exact job/build/resource result before preparing any correction. Do not retry the same run, recreate resources or remove markers. Do not merge or mutate Production. No Cloud Shell command is needed for this GitHub execution. Actual Google sign-in and email delivery are separate acceptance tasks; no email is sent by this pass.
 
 ### Historical checkpoint — Preview schema verification validated — 2026-10-14
 
@@ -510,10 +510,10 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent d7be8cbc. Schema verification source passed 2,643 tests including native PG16; new launch metadata source CI/live reads pending.
-- Completed owner conditional media binding, backend bucket wiring and all schema/grant/secret work are preserved. No owner operation is repeated.
-- All nine Preview stages are verification-only; exact ACL/routine/trigger gate and Staging apply behavior retained.
-- Fresh bounded service/job/version metadata runs before an unconditional hold. Builds/jobs/services, Production, cleanup and merge remain held.
+- Main bc5a5c7; sole PR274 open/unmerged. Parent bee54897 passed 2,648 tests including native PG16; current first-rollout source validation/execution pending.
+- Fresh 10:56:41.654Z metadata verified zero services/jobs and eleven required v1/latest ENABLED secrets without payloads or mutation.
+- Completed owner media/schema/grant/secret work and source-only binding/verification contracts are preserved.
+- First-rollout exception is restricted to the exact parent/message, first synchronize attempt, current open PR and unchanged main. Future heads/reruns remain held; Production/cleanup remain held.
 
 ### Completed replacement Preview work — do not replay
 
@@ -570,15 +570,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Verify the new metadata source CI and live bounded Preview service/job/secret-version receipt. Source-native schema verification is complete; live Cloud SQL schema verification is not yet run.
-2. Review concrete launch gates after the metadata result, retaining the stop before builds/jobs/services until that review completes.
-3. Preserve completed migrations, seeds, grants, secrets and media binding. No replay, role recreation, marker removal or access broadening.
-4. Application deployment and actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot remain unverified.
-5. Taxi trips disabled; Production, merge and deployment/cleanup holds remain closed.
+1. Validate/publish the bounded first-rollout source and observe quality, fresh empty metadata, nine read-only schema jobs, then backend/frontend build/deployment/health/CORS in order.
+2. On any uncertain/partial failure inspect current state before correction; never rerun or replay completed schema/grants/secrets/IAM.
+3. Verify actual runtime identity/secret/media access, Google sessions, DML, deployed origins, Maps and Floot after successful deployment. No readiness conclusion from metadata or native fixtures alone.
+4. Email delivery requires a separately specified test recipient; this pass sends no email. Taxi trips stay disabled; Production/merge/cleanup remain held.
 
 ### Execution boundary and handoff discipline
 
-This pass permits bounded read-only cloud metadata inside the already authenticated Preview workflow, followed by an unconditional hold. It does not build or execute schema jobs, access secret payloads or SQL, release application rollout or authorize Production. No owner Cloud Shell command is required now.
+Only this reviewed direct-successor commit's first synchronize attempt can pass the pre-authentication source gate. A fresh metadata guard requires the observed empty service/job baseline and unchanged enabled secret versions. Existing deployment identity, pool and read-only schema gates remain mandatory. Subsequent commits and reruns stop before authentication. No owner Cloud Shell command is required now.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
