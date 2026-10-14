@@ -49,7 +49,7 @@ MAPPING = {'google.subject': 'assertion.sub', **{'attribute.' + k: 'assertion.' 
 CONDITION = ' && '.join(f"assertion.{key} == '{value}'" for key, value in CLAIMS.items())
 # Filled from reviewed source blobs before publishing this batch. Head freshness is
 # checked separately, so documentation-only commits cannot silently change code.
-SOURCE_BLOBS = {'.github/workflows/preview-deployment.yml': '0329e0b20fc56812bd8b2771b1826db7affb4406', 'scripts/deployment/verify-preview-v2-configuration.mjs': 'e97025878073fd9d87804c8a3c2ee7681bb2d0b7', 'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db', 'scripts/deployment/read-preview-mail-metadata.mjs': '613cc786f7e99ca3822de2f475978323529469ac', 'scripts/deployment/verify-preview-source.mjs': '447f7b82a6316f82b4c46f0728e72fac839a98d8', 'scripts/deployment/schema-execution-profile.sh': 'c651a4055fe771dca5a3168b3860e21fe1c5aeda'}
+SOURCE_BLOBS = {'.github/workflows/preview-deployment.yml': '1a66cd6a81dcc8923156bcac80d9374bc68faf88', 'scripts/deployment/verify-preview-v2-configuration.mjs': 'e97025878073fd9d87804c8a3c2ee7681bb2d0b7', 'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db', 'scripts/deployment/read-preview-mail-metadata.mjs': '613cc786f7e99ca3822de2f475978323529469ac', 'scripts/deployment/verify-preview-source.mjs': '447f7b82a6316f82b4c46f0728e72fac839a98d8', 'scripts/deployment/schema-execution-profile.sh': 'c651a4055fe771dca5a3168b3860e21fe1c5aeda', 'scripts/deployment/read-preview-launch-metadata.mjs': 'be29bc008786079fc3a8a2de6dd6780a73fb4935'}
 ENV_BASE = f'repos/{REPO}/environments/preview'
 ACTIVE_STATUSES = ('queued', 'in_progress', 'waiting', 'pending', 'requested')
 

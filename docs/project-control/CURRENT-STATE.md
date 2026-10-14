@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Preview schema verification prepared — no migration replay; native CI pending — 2026-10-14
+### Preview launch metadata prepared — deployment remains held — 2026-10-14
+
+**Live continuation:** main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at preparation parent `d7be8cbcdf07b4490acd51ab8408286cfa8e32c1`. Completed owner schema/grants/secrets/media work and the verified source-only schema path below are preserved.
+
+**Prepared read-only continuation:** `read-preview-launch-metadata.mjs` uses the existing exact replacement/Actions/serialization guards, verifies project ID/number/ACTIVE state, reads bounded regional Cloud Run service names, describes version 1 and latest for eleven required secrets using only name/state, then runs the existing complete job inventory and all nine before-deploy pool checks. Missing/denied/malformed/truncated/foreign metadata stops or remains explicitly unconfirmed; no secret payload, SQL, object data, runtime impersonation, build, job execution, service deployment, IAM change, repair or retry is introduced. Existing service presence is reported for review, never treated as permission to overwrite it. Version metadata does not prove runtime/build access or payload correctness.
+
+The existing held workflow step now runs this reader after mail metadata and before its unconditional `exit 1`; it adds `PREVIEW_LAUNCH_METADATA_COMPLETE_DEPLOYMENT_HELD` and retains `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. The downstream rollout approval step remains unreachable. Source freshness/configuration/isolation/WIF and cleanup/Production holds remain intact. The configuration batch source manifest pins the changed workflow and new reader; the already completed owner configuration batch must not be rerun.
+
+**Local validation:** 56 focused reader/workflow/pool/cleanup/configuration regressions passed, including the extracted held shell step. Reader syntax and diff checks passed. **Exact-source CI and live inventory are pending for this new source.** Prior schema CI does not validate this new reader or prove cloud permissions.
+
+**Next Safe Action:** inspect exact-source CI and the held metadata receipt. Reconcile any missing/denied metadata without broadening permissions automatically. If the inventory completes, review the concrete Preview launch gates against this source before a separate release decision. No Cloud Shell command is needed for this metadata pass. Do not replay completed migrations, seeds, grants, secrets, role creation, federation or attempt markers. Taxi trips stay disabled; actual runtime media/secret/DML/Google-session/origin/Maps/mail/Floot acceptance remains pending. No Production mutation, merge, workflow dispatch or email send.
+
+Metadata API references: https://docs.cloud.google.com/sdk/gcloud/reference/secrets/versions/describe and https://docs.cloud.google.com/sdk/gcloud/reference/run/services/list.
+
+### Historical checkpoint — Preview schema verification validated — 2026-10-14
 
 **Live continuation:** main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at preparation parent `9d59deaa1342c2132f42bfbcdffed6d4274ec06c`. The owner media binding and backend bucket wiring are complete; do not repeat them. Prior executable `5700972c50314a580ca300be04daeb8a8b62b0aa` passed 2,630 tests and retained the explicit mail-metadata deployment hold. That evidence does not validate the new source below.
 
@@ -12,11 +26,13 @@ This is the compact authority for continuation. It restores completed evidence f
 
 **Final existing job gate:** the Food Promotions job additionally runs bundled, checksum-pinned `preview-schema-verification.sql` in a repeatable-read, read-only transaction ending in ROLLBACK. It verifies the exact runtime effective/explicit/column/inherited/default ACL contract, 64-table set/ownership, 9 canonical function bodies/security including hardened 032, 12 trigger bindings/enabled states, role attributes, intentional unvalidated constraints and no unexpected RLS. It emits only `PREVIEW_V2_SCHEMA_AND_RUNTIME_ACL_READONLY_VERIFIED`; failures are bounded. The offline compiler reuses the immutable grant/ACL/identity contracts and canonical routine SQL without invoking cloud loaders or apply builders. SQL SHA256: `e5153751d02e0492ea0f6f05623f61466afa4d4362b76647b3ae63c5faeee581`. Existing per-stage checks retain schema and Billing configuration-seed probes. This is a bounded contract gate, not an exhaustive proof of every database field/index or application behavior.
 
-**Local validation:** 42 focused Node tests passed; 18 adjacent infrastructure/rollout checks passed (two overlap; not an additive total). The five-case Python shell execution suite covers all nine helpers, exact identities/version binding, replacement apply rejection before cloud calls and retained Staging behavior. Changed shell syntax, generated SQL reproducibility/checksum and diff checks passed. **Fresh exact-source CI, including native PostgreSQL 16 execution, is pending.** The expanded native fixture uses a newly created network-disabled disposable container only; it runs all nine real shell entrypoints after canonical schema/grants, records actual read-only sessions and checks schema/ACL preservation. Negative cases cover apply rejection before connections, ACL drift, routine body/security drift, disabled trigger, missing foundation columns, partial promotions and an empty database. No test connects to Cloud SQL or an existing database.
+**Local validation:** 42 focused Node tests passed; 18 adjacent infrastructure/rollout checks passed (two overlap; not an additive total). The five-case Python shell execution suite covers all nine helpers, exact identities/version binding, replacement apply rejection before cloud calls and retained Staging behavior. Changed shell syntax, generated SQL reproducibility/checksum and diff checks passed. **Native exact-source validation subsequently completed as recorded below.** The expanded native fixture uses a newly created network-disabled disposable container only; it runs all nine real shell entrypoints after canonical schema/grants, records actual read-only sessions and checks schema/ACL preservation. Negative cases cover apply rejection before connections, ACL drift, routine body/security drift, disabled trigger, missing foundation columns, partial promotions and an empty database. No test connects to Cloud SQL or an existing database.
 
-**Next Safe Action:** complete native/current-source CI and record exact evidence. Then obtain a fresh read-only inventory of replacement Preview services/schema-job slots and required secret-version metadata using the existing bounded inventory/pool checks, retaining an explicit stop before builds/jobs/deployment. Review remaining launch gates before a separate rollout decision. Do not replay completed migrations/seeds/grants/secrets, create another test workload for IAM acceptance or widen permissions. No Cloud Shell command is needed for the current source preparation.
+**Verified implementation:** schema source `36dcbc249b3ba0f94a962f2ce70fff48e83ab3c6`, completed by source-manifest correction `d7be8cbcdf07b4490acd51ab8408286cfa8e32c1`. Initial native PG16 checks passed; the initial aggregate run failed only because the configuration batch retained the old schema-profile blob. The correction updates that pin without weakening the exact source check or rerunning the owner batch.
 
-Workflow files and the mail-metadata `exit 1` hold are unchanged; Production, merge and cleanup gates remain closed, Taxi trips off. No cloud mutation, workflow dispatch, deployment, secret payload read or email send is performed by this source pass. Runtime media/secret/DML/Google-session/origin/Maps/mail/Floot acceptance remains pending. The same five checkpoints preserve all completed ledger rows and historical tails. Session-default reference: https://www.postgresql.org/docs/16/runtime-config-client.html and https://www.postgresql.org/docs/16/config-setting.html.
+**Test & Verify `38551557561` SUCCESS**, test job `115810480259`: **2,643 pass / zero fail / one optional WASM skip** (root 1,876 + backend 616 + frontend 151). The expanded native PG16 suite passed at **2026-10-14T10:45:27.4506827Z**, including all nine real entrypoints, read-only sessions, exact schema/ACL preservation and negative cases. Google readiness `38551557547` passed (validation `115810480307`, Production gate `115810481805` skipped). Node CI `38551557574` SUCCESS (build `115810480458`, source inventory `115810480008`). Test artifact `11887640502`, expires `2026-10-21T10:47:43Z`, SHA256 `2ef98a03dbb877a040c003e8dcd150729d4cd708ff1b20822ae78fc41722db91`.
+
+Preview `38551557560`: quality `115810479471` and baseline `115812149182` passed. Deploy `115812150086` reached RESEND v1 ENABLED metadata at `2026-10-14T10:48:13.018Z`, then deliberately stopped at `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. Review `115812301474` and cleanup `115810481141` skipped. No schema job or application rollout occurred. These are source-fixture results and mail metadata, not live schema or application acceptance.
 
 ### Historical checkpoint — Media binding and backend bucket wiring verified — 2026-10-14
 
@@ -494,11 +510,10 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent 9d59deaa. New read-only schema source CI pending; prior 5700972c validation retained separately.
-- Completed owner conditional media binding and verified backend bucket source wiring are preserved; no owner cloud operation is repeated.
-- All nine Preview stages select verify, wrappers/entrypoints reject replacement apply, and final bundled SQL checks exact ACL/table/routine/trigger contracts. Staging apply and all identity/version/pool guards retained.
-- Local focused/adjacent tests passed; native PG16 full-path source validation pending. Preview/Production/cleanup holds unchanged.
-- After source CI: fresh bounded read-only cloud inventory and launch-gate review with a stop before any build/job/deployment. No migration/grant/secret replay.
+- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent d7be8cbc. Schema verification source passed 2,643 tests including native PG16; new launch metadata source CI/live reads pending.
+- Completed owner conditional media binding, backend bucket wiring and all schema/grant/secret work are preserved. No owner operation is repeated.
+- All nine Preview stages are verification-only; exact ACL/routine/trigger gate and Staging apply behavior retained.
+- Fresh bounded service/job/version metadata runs before an unconditional hold. Builds/jobs/services, Production, cleanup and merge remain held.
 
 ### Completed replacement Preview work — do not replay
 
@@ -555,15 +570,15 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Complete exact-source CI, especially the expanded native PG16 test of all nine read-only entrypoints after canonical schema and runtime grants. Do not mistake local fixtures for live cloud verification.
-2. After CI, obtain fresh bounded replacement service/schema-job inventory and required secret-version metadata; retain a deliberate stop before builds/jobs/services. Review launch gates against the exact source before any rollout decision.
+1. Verify the new metadata source CI and live bounded Preview service/job/secret-version receipt. Source-native schema verification is complete; live Cloud SQL schema verification is not yet run.
+2. Review concrete launch gates after the metadata result, retaining the stop before builds/jobs/services until that review completes.
 3. Preserve completed migrations, seeds, grants, secrets and media binding. No replay, role recreation, marker removal or access broadening.
-4. Application deployment and actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot remain unverified. Source catalog checks do not prove every field/index or application flow.
+4. Application deployment and actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot remain unverified.
 5. Taxi trips disabled; Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-This source pass prepares verification-only schema execution and leaves the workflow hold unchanged. No owner Cloud Shell command is required now. Fresh current-source CI precedes any subsequent read-only inventory stage; neither stage itself authorizes Production or application rollout.
+This pass permits bounded read-only cloud metadata inside the already authenticated Preview workflow, followed by an unconditional hold. It does not build or execute schema jobs, access secret payloads or SQL, release application rollout or authorize Production. No owner Cloud Shell command is required now.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
