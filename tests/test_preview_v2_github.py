@@ -242,6 +242,11 @@ class BatchTests(unittest.TestCase):
         self.assertTrue(m.MEMBER.endswith('/attribute.repository_id/1307435925'))
 
     def test_source_manifest_matches_files_and_js_configuration_contract(self):
+        self.assertTrue({
+            '.github/workflows/preview-deployment.yml',
+            'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs',
+            'scripts/deployment/read-preview-post-rollout-reconciliation.mjs',
+        }.issubset(m.SOURCE_BLOBS))
         for path, wanted in m.SOURCE_BLOBS.items():
             data = (ROOT / path).read_bytes()
             self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), wanted, path)

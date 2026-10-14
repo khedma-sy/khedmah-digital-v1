@@ -233,9 +233,9 @@ test('closed cleanup checks fresh PR state and denies reopened requests or unrea
   assert.throws(() => verifyPreviewSource(e, () => { throw Error('DO_NOT_PRINT_SENTINEL'); }), /^Error: PREVIEW_SOURCE_READ_FAILED$/);
   assert.throws(() => verifyPreviewSource({ ...e, PREVIEW_PR_NUMBER: '../bad' }, () => assert.fail('unexpected call')), /INPUT_REJECTED/);
 });
-test('both cloud writers share one non-cancelling queue; stale-source checks precede auth and pool preflight precedes rollout', () => {
+test('both cloud writers and the exact read-only snapshot share one non-cancelling queue; stale-source checks precede auth and pool preflight precedes rollout', () => {
   const s = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
-  assert.equal((s.match(/group: khedmah-preview-cloud-mutations\n      queue: max\n      cancel-in-progress: false/g) ?? []).length, 2);
+  assert.equal((s.match(/group: khedmah-preview-cloud-mutations\n      queue: max\n      cancel-in-progress: false/g) ?? []).length, 3);
   assert.doesNotMatch(s, /cancel-in-progress: true/);
   for (const name of ['deploy-preview', 'cleanup-preview']) {
     const job = s.slice(s.indexOf('  ' + name + ':')).split(/\n  [a-z][a-z-]+:\n/)[0];
