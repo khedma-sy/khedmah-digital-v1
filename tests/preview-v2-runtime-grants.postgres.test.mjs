@@ -66,10 +66,13 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   }
   // Keep every retained contract and the published SQL unchanged. In
   // particular, do not discard the PG16 guards or normalize SQL output.
-  assert.deepEqual(JSON.parse(ok(sql(pack.readonly), 'full preflight')[0]), pack.baseline);
+  // PostgreSQL json_agg(record) may embed newlines in a single JSON value.
+  assert.deepEqual(JSON.parse(ok(sql(pack.readonly), 'full preflight').join('\n')), pack.baseline);
   const result = sql(pack.apply);
   if (result.status !== 0) {
-    assert.deepEqual(JSON.parse(ok(sql(pack.readonly), 'state after stopped fixture attempt')[0]), pack.baseline);
+    const after = sql(pack.readonly);
+    t.diagnostic('Stopped fixture transaction SQL: ' + result.stderr);
+    assert.deepEqual(JSON.parse(ok(after, 'state after stopped fixture attempt').join('\n')), pack.baseline);
   }
   const lines = ok(result, 'grant transaction');
   assert.equal(lines.length, 2);
