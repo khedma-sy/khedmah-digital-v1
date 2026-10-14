@@ -4,7 +4,15 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Runtime grant outcome unconfirmed — read-only reconciliation next — 2026-10-14
+### Post-attempt ACL reconciliation complete — native diagnosis next — 2026-10-14
+
+Owner post-attempt reconciliation completed at **2026-10-14T06:32:52.361353+00:00**, received 09:33:23 Damascus. `PREVIEW_V2_RUNTIME_ACL_STATE_READ` reports **GRANTS_NOT_APPLIED**, exact ACL state and expected table set/ownership verified, **64 tables / 9 routines / 12 triggers**. Migration credential v1 was read privately; no runtime credential, application rows, runtime probes or mutation. Full retained schema contracts were not reverified. Historic COMMIT/rollback remains unproven; this current-state read does not authorize retry.
+
+The requested reconciliation is complete. **Next safe action is source diagnosis and native PostgreSQL 16 regression in a disposable CI fixture**, not another identical cloud read or grant retry. The new `tests/preview-v2-runtime-grants.postgres.test.mjs` uses only a uniquely named Docker container with network disabled, no host mounts, no published port and no existing database fallback. It exercises the complete unchanged grant SQL, retained contracts, exact baseline, COMMIT receipt, readback and replay rejection using native psql. Native execution is pending CI; local JavaScript syntax passed. The earlier optional PG18 WASM test omitted PG16-specific retained contracts and cannot settle this failure.
+
+Grant helper and read-only helper bytes are unchanged in this diagnosis checkpoint. No cause or fix is claimed yet. All owner cloud mutation and runtime-login commands remain held until the diagnosis/correction is reviewed. No completed migration, secret or infrastructure setup is repeated. Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`, PR #274 open/unmerged; parent `b5445cb03e76419ae46a2d9346c626540f3adeaf`. Existing executable CI on `ce387aa61facbfb0e66c444d2620369082739203` remains historical source evidence; the new native test is not yet verified. Preview deployment/cleanup explicit holds and Production manual gates are unchanged. No workflow dispatch or assistant cloud mutation.
+
+### Historical checkpoint — Runtime grant outcome unconfirmed — read-only reconciliation next — 2026-10-14
 
 Owner ran the pinned runtime grant helper once and returned `PREVIEW_V2_RUNTIME_GRANTS_PREFLIGHT_PASSED` (project `khedmah-preview-v2-20261012`, public allowlist 60, Taxi tables 3), followed by **`STOP: RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY`**. Received **`2026-10-14T09:25:22+03:00`**; this failed attempt emitted no operation timestamp. **No COMMIT acknowledgement or `PREVIEW_V2_RUNTIME_GRANTS_VERIFIED` receipt was supplied.** The grant outcome is unknown: do not claim applied grants, rollback, unchanged database state, successful runtime login or readiness.
 
@@ -271,7 +279,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 - Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). PR #274 is open/unmerged; latest verified executable/test source is `ce387aa61facbfb0e66c444d2620369082739203`.
 - Current-source Test & Verify `38463786773`, Node CI `38463786754` and Google source/Android `38463786803` succeeded. Tests: 2,612 pass, zero failures, one optional WASM-lab skip; evidence artifact `11848071087`. The final five-document `[skip ci]` checkpoint preserves those executable/test/workflow bytes exactly.
 - Preview `38463786718`, deployment job `115527807196`, passed current-source/target/WIF/isolation checks and freshly verified RESEND latest v1 ENABLED at `2026-10-13T20:39:15.655Z`, without payload access or mutation, then intentionally exited at `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. Deployment/review evidence and cleanup were skipped. This is not a failed WIF connection, mail delivery or deployment.
-- The 06:19 UTC owner read confirmed absent grants. The subsequent grant attempt, received 09:25:22 Damascus, passed preflight then stopped with RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY; no COMMIT/final receipt. Runtime grant outcome/login remain unverified. Next is post-attempt read-only ACL reconciliation; no retry is authorized.
+- The post-attempt 06:32:52 UTC owner read confirms GRANTS_NOT_APPLIED, exact ACL/table-set/ownership and 64/9/12. This reconciliation is complete; historic COMMIT/rollback remains unproven. Native PostgreSQL 16 diagnosis is next; no retry is authorized.
 - Historical full-source runs at `f99479268f036c098bdd0fd828d5295aeb11ef39` and Preview `38277607448` remain historical evidence, superseded for current source/mail metadata by the runs above. No Production gate release or merge.
 
 ### Completed replacement Preview work — do not replay
@@ -319,17 +327,15 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** run the pinned `--inspect-acl` read to reconcile the grant attempt that stopped without COMMIT/final acknowledgement. The earlier 06:19 UTC baseline is pre-attempt evidence only.
-2. On EXPECTED_GRANTS_PRESENT, do not apply again; review current ACLs and remaining schema/runtime acceptance. On GRANTS_NOT_APPLIED, diagnose before a reviewed correction/retry; absence alone is not retry authorization. Any drift/read failure remains held.
-3. Runtime login verification is paused pending reconciliation. No successful grant, rollback, structural preservation after the attempt or full readiness is claimed from the STOP.
-4. Preserve all completed migrations/secrets and narrow Taxi/rollback-table exclusions. No replay, ownership/default-ACL/role broadening or Taxi-trip activation.
-5. Remaining Firebase backend verifier, durable-media, deployment schema-job mode and browser/auth/session/maps/mail/Floot gates stay pending.
+1. **Next:** diagnose the unchanged grant SQL on native PostgreSQL 16 in a fresh isolated CI container; review its concrete failure before preparing a correction.
+2. The 06:32:52 UTC post-attempt reconciliation is complete and confirms current grants absent. No new identical cloud read or blind grant retry is requested.
+3. Runtime login verification remains held; no successful grant, historical rollback or full readiness is claimed.
+4. Preserve completed migrations/secrets, owners/default ACLs, narrow Taxi grants and rollback-table exclusions. Taxi trips remain disabled.
+5. Firebase backend verifier, durable-media, deployment schema-job mode and browser/auth/session/maps/mail/Floot gates remain pending.
 
 ### Execution boundary and handoff discipline
 
-The owner submitted one runtime grant attempt, received at 2026-10-14 09:25:22 Damascus: preflight passed, then RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY. No operation timestamp, COMMIT acknowledgement or final grant receipt was emitted. The outcome is unknown; do not list the grant as completed or assert rollback.
-
-The existing read-only state inspector is the only next Cloud Shell command. No authenticated assistant Cloud Shell surface is confirmed. Keep the first apply and runtime-login commands held until new read evidence is reviewed, and record the result in this ledger and NEXT-ACTION together. The full previous completion ledger remains intact.
+Owner grant attempt passed preflight then stopped without COMMIT/final acknowledgement. The subsequent exact ACL read now confirms GRANTS_NOT_APPLIED at 06:32:52 UTC, without proving historic COMMIT/rollback. Diagnose the source before another mutation. The new native regression uses only disposable Docker resources in CI; no cloud credentials or existing database fallback. No direct authenticated assistant Cloud Shell surface is confirmed. No new owner command is issued in this diagnosis checkpoint. Preserve the full completion ledger.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 

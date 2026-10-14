@@ -1,6 +1,14 @@
 # Preview replacement plan — 2026-10-12
 
-## Runtime grant outcome unconfirmed — read-only reconciliation next — 2026-10-14
+## Post-attempt ACL reconciliation complete — native diagnosis next — 2026-10-14
+
+Owner post-attempt reconciliation completed at **2026-10-14T06:32:52.361353+00:00**, received 09:33:23 Damascus. `PREVIEW_V2_RUNTIME_ACL_STATE_READ` reports **GRANTS_NOT_APPLIED**, exact ACL state and expected table set/ownership verified, **64 tables / 9 routines / 12 triggers**. Migration credential v1 was read privately; no runtime credential, application rows, runtime probes or mutation. Full retained schema contracts were not reverified. Historic COMMIT/rollback remains unproven; this current-state read does not authorize retry.
+
+The requested reconciliation is complete. **Next safe action is source diagnosis and native PostgreSQL 16 regression in a disposable CI fixture**, not another identical cloud read or grant retry. The new `tests/preview-v2-runtime-grants.postgres.test.mjs` uses only a uniquely named Docker container with network disabled, no host mounts, no published port and no existing database fallback. It exercises the complete unchanged grant SQL, retained contracts, exact baseline, COMMIT receipt, readback and replay rejection using native psql. Native execution is pending CI; local JavaScript syntax passed. The earlier optional PG18 WASM test omitted PG16-specific retained contracts and cannot settle this failure.
+
+Grant helper and read-only helper bytes are unchanged in this diagnosis checkpoint. No cause or fix is claimed yet. All owner cloud mutation and runtime-login commands remain held until the diagnosis/correction is reviewed. No completed migration, secret or infrastructure setup is repeated. Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`, PR #274 open/unmerged; parent `b5445cb03e76419ae46a2d9346c626540f3adeaf`. Existing executable CI on `ce387aa61facbfb0e66c444d2620369082739203` remains historical source evidence; the new native test is not yet verified. Preview deployment/cleanup explicit holds and Production manual gates are unchanged. No workflow dispatch or assistant cloud mutation.
+
+## Historical checkpoint — Runtime grant outcome unconfirmed — read-only reconciliation next — 2026-10-14
 
 Owner ran the pinned runtime grant helper once and returned `PREVIEW_V2_RUNTIME_GRANTS_PREFLIGHT_PASSED` (project `khedmah-preview-v2-20261012`, public allowlist 60, Taxi tables 3), followed by **`STOP: RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY`**. Received **`2026-10-14T09:25:22+03:00`**; this failed attempt emitted no operation timestamp. **No COMMIT acknowledgement or `PREVIEW_V2_RUNTIME_GRANTS_VERIFIED` receipt was supplied.** The grant outcome is unknown: do not claim applied grants, rollback, unchanged database state, successful runtime login or readiness.
 
