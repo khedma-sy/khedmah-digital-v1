@@ -34,8 +34,12 @@ def stop(code):
 def cloud(*args, fields=None, plain=False):
     env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS='true',
                CLOUDSDK_CORE_LOG_HTTP='false', CLOUDSDK_CORE_DISABLE_FILE_LOGGING='true',
-               CLOUDSDK_CORE_USER_OUTPUT_ENABLED='true', LC_ALL='C')
-    command = ['gcloud', *args, '--project=' + PROJECT, '--account=' + ACCOUNT,
+               CLOUDSDK_CORE_USER_OUTPUT_ENABLED='true', CLOUDSDK_CORE_PROJECT=PROJECT, LC_ALL='C')
+    # For predefined roles, --project selects a custom-role namespace. Keep that
+    # flag off this global metadata read; quota remains pinned to Preview.
+    predefined = args[:3] == ('iam', 'roles', 'describe')
+    scope = '--billing-project=' + PROJECT if predefined else '--project=' + PROJECT
+    command = ['gcloud', *args, scope, '--account=' + ACCOUNT,
                '--user-output-enabled', '--verbosity=error']
     if not plain:
         command.append('--format=json' + (('(' + fields + ')') if fields else ''))

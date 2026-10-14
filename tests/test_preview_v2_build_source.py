@@ -18,7 +18,12 @@ class BuildSourceReadTests(unittest.TestCase):
     def fake(self, cmd, **kwargs):
         self.calls.append(cmd)
         self.assertIn('--account=' + reader.ACCOUNT, cmd)
-        self.assertIn('--project=' + reader.PROJECT, cmd)
+        if cmd[1:4] == ['iam', 'roles', 'describe']:
+            self.assertNotIn('--project=' + reader.PROJECT, cmd)
+            self.assertIn('--billing-project=' + reader.PROJECT, cmd)
+        else:
+            self.assertIn('--project=' + reader.PROJECT, cmd)
+        self.assertEqual(kwargs['env']['CLOUDSDK_CORE_PROJECT'], reader.PROJECT)
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_DISABLE_PROMPTS'], 'true')
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_LOG_HTTP'], 'false')
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_DISABLE_FILE_LOGGING'], 'true')
