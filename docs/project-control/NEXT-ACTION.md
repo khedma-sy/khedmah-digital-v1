@@ -1,15 +1,14 @@
 # Next Safe Action — Khedmah
 
-## Select the authenticated Floot transport — 2026-10-14
+## Implement the hardened Floot auth adapter under mocks — 2026-10-15
 
-The public read-only Floot connectivity proof is complete. The new endpoint `/_api/integrations/khedmah_preview_health` returned HTTP 200 from the Floot Preview sandbox at **`2026-10-14T21:03:14.421Z`** with `connected=true`, `upstreamStatus=ok` and upstream version **`preview-pr-274-81cd97479040774cc36fb720cdb6f948348302dd`**. Typecheck is clean. No browser cookie, authorization header, Firebase token, Floot credential, secret payload or database operation is used; no Floot publish or Production mutation occurred.
+The owner selected the controlled server-adapter path. The Floot project now contains a formal security contract and pure adapter primitives. Eight focused Jasmine cases passed with zero failures and focused TypeScript checking is clean. No live Firebase token exchange, session forwarding, Floot publish, secret/database access or Production mutation occurred.
 
-**Next Safe Action requires a transport decision, not a Cloud Shell command.** Choose one reviewed path before authenticated Floot work:
+The adapter must remain transport only: Khedmah is the sole identity/session/authorization authority. Do not create a Floot user, JWT, session table or role mapping. The browser-side transport cookie is host-only, HttpOnly, Secure and SameSite=Strict with a maximum age no greater than Khedmah's one-hour session. It must remain separate from `floot_built_app_session`.
 
-1. Upgrade/attach a compatible same-site custom domain, then validate Khedmah cookies in Chrome and Safari; or
-2. Design a controlled fixed-upstream server adapter that explicitly preserves the Firebase ID-token exchange, `Set-Cookie`/cookie lifecycle, CSRF/origin checks, logout, expiry and revocation without mixing with `floot_built_app_session`.
+**Next Safe Action is Floot source work; no Cloud Shell command is required.** Implement exactly three fixed-upstream endpoints—Google login, session read and logout—with mocked fetch tests first. Tests must prove exact Origin rejection, fixed host/path/method, redirect/timeout/body bounds, inbound cookie/auth/forwarding-header stripping, exact `khedmah_session` extraction, sanitized 401/403/429/error mapping, no token leakage and local cookie clearing on both successful and failed logout.
 
-The current Floot project is on the free plan with no custom domain. Direct browser authentication from `*.floot.app` to the Cloud Run origin is not accepted as universal proof because it is cross-site. Do not connect Khedmah secrets/database authority, publish Floot, change DNS/custom domains, mutate Production or merge PR274 yet. Separately exercise Preview logout/session-expiry acceptance when convenient.
+Do not implement a wildcard proxy. Do not run a real ID-token exchange or publish until the mocked endpoint suite passes and the actual Floot browser origin is confirmed. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
 
 ## Add only the proven deployed Preview origin — 2026-10-14
 
