@@ -4,7 +4,25 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### First rollout after source exclusions — native packaging gate pending — 2026-10-14
+### First Preview rollout blocked at source bucket — owner reconciliation read ready — 2026-10-14
+
+**Actual first rollout result:** executable **`f50c1d6ef74cf2fbaab03e8d5a9c22d0355ceed3`** reached the first foundation-image `gcloud builds submit`, then stopped at **2026-10-14T11:16:58.3970778Z**: the deployer was forbidden from accessing **`khedmah-preview-v2-20261012-cloudbuild-source`**. Preview run **`38554641637`**, deploy job **`115822909346`** FAILED. The CLI mentions organization policy / `serviceusage.services.use` generically; it does not identify the exact missing permission. No successful Build ID was returned and the runner never reached any Cloud Run job deployment/execution or application service operation. Post-attempt build/resource state is not yet independently reconciled. Do not rerun this attempt or infer a successful rollback/empty state from the error.
+
+**Successful gates:** source freshness, exact first-release lineage, WIF and isolation passed. Fresh metadata at **2026-10-14T11:16:40.542Z** verified the exact ACTIVE replacement project/number, **zero services / zero jobs**, all nine slots absent and all **eleven required secrets version 1 ENABLED / latest=1**. The second pool check passed at **11:16:56.1766906Z**. Those are pre-attempt metadata receipts, not live schema/runtime acceptance. Quality job `115820639414` and baseline `115822908218` succeeded; review `115823406911` and cleanup `115820641278` skipped.
+
+**Exact rollout-source validation:** Test & Verify **`38554641705`** SUCCESS, test job **`115820640214`**: **2,656 passed / zero failed / one optional WASM skip** (root 1,889 + backend 616 + frontend 151). Native PostgreSQL 16 suite passed at **2026-10-14T11:12:25.3883520Z**. Node **`38554641632`** SUCCESS (build `115820640500`, inventory `115820640753`); Google readiness **`38554641643`** SUCCESS (validation `115820640147`, Production secret gate `115820642064` skipped). Test artifact **`11889156910`**, expiry **`2026-10-21T11:15:11Z`**, SHA256 **`5bd6a3c866ad9ede5ec2a5b5fe02d989b256e4c6af6e7e5cc6d1276be3735d72`**. These counts belong to f50c1d6, not to the later diagnostic helper.
+
+**Credential packaging verified:** native Git/gcloud/Docker fixture emitted **`BUILD_SOURCE_GIT_GCLOUD_DOCKER_EXCLUSIONS_VERIFIED`** at **2026-10-14T11:10:46.3494375Z**, before authentication. Root/nested transient federation files are excluded by all three ignore boundaries and gcloudignore parsing is forced for Preview. The earlier b33ee1cf attempt was safely superseded and stopped before authentication at 11:08:36Z; its historical receipt is retained below.
+
+**Narrow diagnostic finding, not proven root cause:** the replacement-specific bootstrap manifest grants the deployer `roles/serviceusage.serviceUsageConsumer` and bucket-scoped `roles/storage.objectAdmin`; it has no explicit `storage.buckets.get` grant. Google's current role definition does not include that permission in Object Admin. Missing bucket metadata access is therefore plausible; inherited grants, deny policies and actual current policies still require evidence. Do not grant broad Storage Admin or Service Usage Admin based on the generic CLI suggestion. [Storage role definitions](https://docs.cloud.google.com/storage/docs/access-control/iam-roles); [Cloud Build caller permissions](https://docs.cloud.google.com/build/docs/securing-builds/configure-access-to-resources).
+
+**Prepared owner read:** implementation **`c732a5d788c9ae1ec2a3eda8c7f1d8ccdb3ef331`**, `scripts/inspect-preview-v2-build-source.py`, blob **`521d91098d1d60a7b664cba712c0add91b19a36f`**, SHA256 **`d6e1d0cac7951dab333c36f8e17beabd26dfabaf7890e7210f045d4373ea810b`**. Only `--inspect` is accepted. It rejects credential overrides, pins owner account and exact project/number/organization, reads source-bucket metadata, selected direct bucket/project bindings for deployer/build/public principals, and relevant permissions of the three existing roles. It also reads bounded current regional service/job metadata, regional Build metadata and projected audit permission/status metadata for **2026-10-14 11:15:00Z through before 11:18:00Z**, restricted to this deployer and Storage/Cloud Build/Service Usage. No object listing/content, token or secret payload, impersonation, IAM/API change, Build submission, schema job or service mutation. Denial is never absence; a full limit is incomplete; empty audit output does not prove no attempt. Completion is a read receipt, not root-cause/readiness/retry approval.
+
+**Diagnostic validation and publication:** five focused Python cases passed (metadata-only command sequence, unrelated-policy/error containment, denied inventory, project/credential guards and full-page incompleteness), plus the Node wrapper and eight existing packaging/release regressions: nine Node tests, zero failures. Python syntax and diff checks passed. This read-only helper was published with **[skip ci]** after focused local verification; no new full CI result or cloud execution is claimed. Executable rollout/workflow/ignore/schema bytes remain exactly at validated f50c1d6. This final handoff edits only the same five Markdown checkpoints with [skip ci], preserves completed ledger/history and leaves future deployment heads held by the existing pre-authentication lineage gate.
+
+**Next Safe Action:** owner runs the one checksum-pinned `--inspect` command in NEXT-ACTION and returns its JSON receipts. Reconcile actual service/job/build state and selected permissions/audit evidence before preparing a narrowly scoped repair. No live IAM repair or new deployment source exception is authorized by the receipt alone. Never replay completed migrations, grants, secrets, media binding or bootstrap. Main remains **`bc5a5c764413498189147cc34c7e857c78aa3d2c`**, sole PR274 open/unmerged; no Production/merge/cleanup/Taxi enablement or email send. Application is not deployed; runtime media/DML/login/session/origin/Maps/mail and Floot acceptance remain pending.
+
+### Historical preparation — first rollout packaging gate subsequently passed — 2026-10-14
 
 **Superseded release safely stopped:** `b33ee1cfdfc98901b04e95524ec5b23b680eefec` passed 2,654 tests / zero fail / one optional skip (root 1,887 + backend 616 + frontend 151), Node `38553848866`, Test `38553848860`, Google `38553848871`. Before cloud access it was superseded by credential-exclusion repair `ee67cb054100436ec4a5c24805bad5a32b8e7743` [skip ci]. Preview `38553848845`, deploy job `115820081837`, stopped at **2026-10-14T11:08:36.0709746Z**, `PREVIEW_SOURCE_STALE_OR_FOREIGN_STOP`; authentication, metadata, builds/jobs/services all skipped. No credentials were created or uploaded by that deploy job. Do not rerun it.
 
@@ -514,10 +532,10 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR274 open/unmerged. Metadata parent bee54897 passed 2,648 tests; superseded first-release source b33ee1cf passed 2,654 tests and stopped before authentication. Corrected packaging/first-rollout source CI/execution pending.
-- Fresh 10:56:41.654Z metadata verified zero services/jobs and eleven required v1/latest ENABLED secrets without payloads or mutation.
-- Completed owner media/schema/grant/secret work and source-only binding/verification contracts are preserved.
-- First-rollout exception is restricted to the exact parent/message, first synchronize attempt, current open PR and unchanged main. Future heads/reruns remain held; Production/cleanup remain held.
+- Main bc5a5c7 unchanged; sole PR274 open/unmerged. Executable f50c1d6 passed 2,656 tests plus the actual Git/gcloud/Docker packaging gate; Node/Test/Google runs succeeded.
+- Preview 38554641637 passed pre-authentication/source/metadata gates and fresh zero-service/job / eleven-v1-secret baseline, then failed at first source-bucket access at 11:16:58Z. No schema or application Cloud Run operation was reached. Post-attempt cloud Build/resource reconciliation remains pending.
+- Owner diagnostic c732a5d7 is metadata-only and locally validated, published [skip ci]. Existing first-release lineage gate rejects later source/docs heads before authentication; no retry exception was added.
+- All completed owner media/schema/grant/secret work is preserved. Production/merge/cleanup remain held and Taxi trips remain off.
 
 ### Completed replacement Preview work — do not replay
 
@@ -574,14 +592,14 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Validate/publish the bounded first-rollout source and observe quality, fresh empty metadata, nine read-only schema jobs, then backend/frontend build/deployment/health/CORS in order.
-2. On any uncertain/partial failure inspect current state before correction; never rerun or replay completed schema/grants/secrets/IAM.
-3. Verify actual runtime identity/secret/media access, Google sessions, DML, deployed origins, Maps and Floot after successful deployment. No readiness conclusion from metadata or native fixtures alone.
-4. Email delivery requires a separately specified test recipient; this pass sends no email. Taxi trips stay disabled; Production/merge/cleanup remain held.
+1. Run the pinned owner build-source diagnostic from NEXT-ACTION. Read current source-bucket policies and project grants plus bounded attempt-window Build/audit metadata and regional service/job inventory.
+2. Identify the actual missing permission or policy denial; inspect any resource result before a narrow repair. A missing storage.buckets.get grant is a source-based hypothesis, not a live IAM verdict. Do not rerun f50c1d6 or any owner apply batch.
+3. After reconciliation/repair, prepare a fresh explicitly bounded deployment attempt; existing future-head hold remains. All nine verification-only schema gates must pass before application builds/services.
+4. Actual runtime identity/secret/media/DML, Google sessions, deployed origins/CORS/CSRF, Maps and Floot remain untested. Email requires a separately specified recipient and authorization; this pass sent none. Taxi stays off; no Production/merge/cleanup.
 
 ### Execution boundary and handoff discipline
 
-Only this reviewed direct-successor commit's first synchronize attempt can pass the pre-authentication source gate. A fresh metadata guard requires the observed empty service/job baseline and unchanged enabled secret versions. Existing deployment identity, pool and read-only schema gates remain mandatory. Subsequent commits and reruns stop before authentication. No owner Cloud Shell command is required now.
+The initial release attempt has ended; its first-attempt-only exception must not be reopened or rerun. The current diagnostic has only read operations and cannot grant permissions or deploy. Return the exact receipts including denied/unknown results; a read completion marker is not readiness or repair authorization. Preserve every completed migration/seed/grant/secret/media operation and original attempt marker.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
