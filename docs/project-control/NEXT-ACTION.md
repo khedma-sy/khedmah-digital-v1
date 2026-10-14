@@ -1,14 +1,18 @@
 # Next Safe Action — Khedmah
 
-## Reconcile the exact Floot origin before live Google login — 2026-10-15
+## Read the exact Floot origin metadata — 2026-10-15
 
-The hardened Floot adapter implementation is complete in source. It contains only Google login, session read and logout routes against the fixed Preview origin. Two focused spec files passed with zero failures; focused TypeScript checking is clean. A live unauthenticated sandbox session probe returned HTTP 401, `Cache-Control: no-store`, no `Set-Cookie` and the expected sanitized response. No real Firebase token, authenticated request, Floot publish, secret/database access or Production mutation occurred.
+Implementation **`ee3f4d89ccf10ade11e0f1e7da9d7773936eec68`** adds a GET-only metadata inspector for the exact published Floot origin **`https://khedma-meeting.floot.app`**. Five new tests and the six retained deployed-origin tests passed locally: **11 passed / zero failed**. No current-head GitHub Actions result is claimed yet.
 
-The exact existing published Floot origin is **`https://khedma-meeting.floot.app`**. It is not present in the last verified Firebase Preview browser-key referrer or authorized-domain inventories. A real browser exchange must remain held until current metadata is freshly read and any mismatch is corrected additively.
+Run the checksum-pinned command below **once** in the owner Cloud Shell and return its complete JSON output. It pins project `khedmah-preview-v2-20261012`, project number `1044962071847`, account `haifawi30@gmail.com`, organization `594049370623` and Firebase key identity. It verifies the exact Firebase referrer/domain inventory, all 27 API targets, Google provider and unchanged disabled local sign-in. It performs no PATCH, reads no key string or secret payload, deploys nothing and cannot touch Production.
 
-**Next Safe Action:** prepare one checksum-pinned Preview-only metadata reconciliation/read for the Firebase browser key and Auth authorized domains, explicitly comparing the exact Floot origin while preserving the 27-service API allowlist, existing Preview/Firebase origins, Google provider and local sign-in settings. If the exact origin is absent, prepare a separate narrow etag/CAS correction; do not combine the read and write or retry blindly.
+```bash
+( set -euo pipefail; umask 077; export CLOUDSDK_CORE_DISABLE_PROMPTS=true CLOUDSDK_CORE_LOG_HTTP=false CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true; khedmah_floot_origin_read="$(mktemp)"; trap 'rm -f -- "$khedmah_floot_origin_read"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/ad5edc35d4fe635fed11c7ef88167406beec52e7 --jq '.content' | base64 --decode > "$khedmah_floot_origin_read"; printf '%s  %s\n' '9080a24f9b24402d8039535945c603d73710d447ecb0e44ce575320f51ad35e3' "$khedmah_floot_origin_read" | sha256sum --check --status; python3 "$khedmah_floot_origin_read" --inspect; )
+```
 
-After the correction receipt, add the public Firebase client configuration to Floot, keep server credentials absent, and run owner-driven Google login → session reload → logout → 401 acceptance before publishing. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
+Require final stage **`PREVIEW_V2_FLOOT_ORIGIN_METADATA_READ_COMPLETED`**. If `floot_origin_present=false`, prepare a separate narrow additive correction; do not manually edit the key/domain and do not reuse the historical deployed-origin helper. If the command stops or the final stage is absent, return the output and do not retry blindly.
+
+Real Firebase token exchange, authenticated Floot session, publish, Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
 
 ## Add only the proven deployed Preview origin — 2026-10-14
 
