@@ -29,6 +29,9 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify source upload and container credential exclusions without cloud access
+        run: node scripts/deployment/verify-build-source-exclusions.mjs
       - name: Build
         run: npm run build
       - name: Tests
@@ -193,6 +196,7 @@ jobs:
         name: Deploy isolated PR services
         if: steps.gcp-check.outputs.has_gcp == 'true'
         env:
+          CLOUDSDK_GCLOUDIGNORE_ENABLED: 'true'
           GOOGLE_CLOUD_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
           ARTIFACT_REPOSITORY: ${{ vars.PREVIEW_ARTIFACT_REPOSITORY }}

@@ -5,7 +5,7 @@ import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
 // This approval is confined to the first direct successor of the verified
 // metadata source. Later documentation/source commits and reruns stay held.
-export const REVIEWED_PARENT = 'bee5489736287901d2dd1a3fe63193426e3ffa56';
+export const REVIEWED_PARENT = 'ee67cb054100436ec4a5c24805bad5a32b8e7743';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
 export const RELEASE_MESSAGE = 'release(preview): execute reviewed first replacement rollout';
 const repo = 'khedma-sy/khedmah-digital-v1';
