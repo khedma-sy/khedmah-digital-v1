@@ -1,6 +1,8 @@
 # Production reconciliation — evidence before an operation
 
-## First replacement Preview rollout prepared — verified empty baseline — 2026-10-14
+## First rollout superseded before cloud access — source credential exclusion repair — 2026-10-14
+
+**Release containment:** `b33ee1cfdfc98901b04e95524ec5b23b680eefec` is superseded while its Preview quality job is still running. The source-freshness gate must reject that old head before authentication. Review found missing explicit `gha-creds-*.json` exclusions in Git/Docker and no .gcloudignore. This [skip ci] repair excludes transient authentication files from source archives and image contexts. Do not rerun the superseded release. Verify its actual stop and test archive exclusions before a new reviewed release decision. No cloud execution or credential exposure is claimed from the running quality job.
 
 **Fresh launch evidence:** metadata implementation `bee5489736287901d2dd1a3fe63193426e3ffa56` verified project `khedmah-preview-v2-20261012` / `1044962071847` ACTIVE at **2026-10-14T10:56:41.654Z** through the existing GitHub deployer. **Zero Cloud Run services, zero jobs**, all nine pool slots accepted as absent from successful complete inventories. All **eleven required secrets** have **version 1 ENABLED and latest resolving to 1**. No payload, SQL, object access or mutation. This is metadata evidence, not actual runtime access or application readiness.
 
