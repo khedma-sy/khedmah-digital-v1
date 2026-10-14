@@ -40,7 +40,11 @@ class BuildSourceReadTests(unittest.TestCase):
             if self.foreign:
                 data['projectId'] = 'khedma-dl'
         elif cmd[1:4] == ['storage', 'buckets', 'describe']:
-            data = dict(name=reader.BUCKET, projectNumber=reader.NUMBER, location='EUROPE-WEST1')
+            if self.bucket_denied:
+                return subprocess.CompletedProcess(cmd, 1, '', 'PERMISSION_DENIED')
+            data = dict(name=reader.BUCKET, projectNumber=reader.NUMBER, location='EUROPE-WEST1',
+                        iamConfiguration={'publicAccessPrevention': 'enforced',
+                                          'uniformBucketLevelAccess': {'enabled': True}})
         elif 'get-iam-policy' in cmd:
             data = {'version': 3, 'bindings': [
                 {'role': 'roles/storage.objectAdmin', 'members': ['serviceAccount:' + reader.DEPLOYER],
@@ -60,6 +64,7 @@ class BuildSourceReadTests(unittest.TestCase):
         self.calls = []
         self.foreign = False
         self.denied = False
+        self.bucket_denied = False
         self.expected_account = reader.OWNER_ACCOUNT
 
     def execute(self, actions=False):
@@ -126,11 +131,28 @@ class BuildSourceReadTests(unittest.TestCase):
         with patch.dict(os.environ, environment, clear=True), patch.object(reader.subprocess, 'run', actions_fake), contextlib.redirect_stdout(output):
             reader.inspect(actions=True)
         self.assertIn('PREVIEW_V2_BUILD_SOURCE_RECONCILIATION_READ_COMPLETED', output.getvalue())
+        self.assertTrue(json.loads(output.getvalue().splitlines()[-1])['deployer_bucket_metadata_access_verified'])
         for changed in ({**environment, 'GITHUB_RUN_ATTEMPT': '2'},
                         {**environment, 'GOOGLE_GHA_CREDS_PATH': '/tmp/foreign.json'}):
             with patch.dict(os.environ, changed, clear=True), patch.object(reader.subprocess, 'run', lambda *a, **k: self.fail('cloud read')):
                 with self.assertRaises(SystemExit):
                     reader.inspect(actions=True)
+
+    def test_actions_mode_requires_actual_bucket_metadata_access(self):
+        environment = {
+            'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'khedma-sy/khedmah-digital-v1',
+            'GITHUB_EVENT_NAME': 'pull_request', 'GITHUB_REF': 'refs/pull/274/merge',
+            'GITHUB_RUN_ATTEMPT': '1', 'PREVIEW_PR_NUMBER': '274',
+            'PREVIEW_EVENT_ACTION': 'synchronize', 'PREVIEW_GOOGLE_CLOUD_PROJECT': reader.PROJECT,
+            'PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT': reader.DEPLOYER_ACCOUNT,
+            'GOOGLE_GHA_CREDS_PATH': '/tmp/gha-creds-inert.json',
+            'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE': '/tmp/gha-creds-inert.json',
+        }
+        self.expected_account = reader.DEPLOYER_ACCOUNT
+        self.bucket_denied = True
+        with patch.dict(os.environ, environment, clear=True), patch.object(reader.subprocess, 'run', self.fake):
+            with self.assertRaisesRegex(SystemExit, 'DEPLOYER_BUCKET_METADATA_ACCESS_UNCONFIRMED'):
+                reader.inspect(actions=True)
 
     def test_full_page_is_not_complete_inventory(self):
         output = io.StringIO()

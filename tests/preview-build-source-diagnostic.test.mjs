@@ -18,6 +18,7 @@ test('diagnostic accepts only the reviewed direct successor and current PR/main'
   const calls=[]; const result=verifyDiagnosticSource(env,runner([commit,pr,main],calls));
   assert.equal(calls.length,3); assert.equal(result.diagnostic_head,head);
   assert.equal(result.metadata_only,true); assert.equal(result.cloud_mutation,false);
+  assert.equal(result.grant_readback_only,true); assert.equal(result.rollout_authorized,false);
 });
 
 test('diagnostic rejects retries, alternate context, parent/message, PR and main before authentication',()=>{

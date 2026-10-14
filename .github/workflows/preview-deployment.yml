@@ -55,7 +55,7 @@ jobs:
           workload_identity_provider: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Read bounded build-source and attempt metadata
+      - name: Verify source-bucket metadata access as Preview deployer
         env:
           PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
           PREVIEW_EVENT_ACTION: ${{ github.event.action }}

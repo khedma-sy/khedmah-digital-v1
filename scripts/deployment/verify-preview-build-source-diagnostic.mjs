@@ -2,9 +2,9 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const DIAGNOSTIC_PARENT = 'da046f1d79d6a5e33fe722a03aae1363d4dc31bf';
+export const DIAGNOSTIC_PARENT = '1a7deaf926b0b5060c2f6f27e1f828229569b94d';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const DIAGNOSTIC_MESSAGE = 'chore(preview): execute bounded source-bucket diagnostic';
+export const DIAGNOSTIC_MESSAGE = 'chore(preview): verify source-bucket grant as deployer';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_BUILD_SOURCE_DIAGNOSTIC_' + code); };
 
@@ -32,7 +32,8 @@ export function verifyDiagnosticSource(env, run = execFileSync) {
   const main = read('/branches/main');
   if (main.commit?.sha !== REVIEWED_MAIN) stop('MAIN_CHANGED_HELD');
   return { parent: DIAGNOSTIC_PARENT, diagnostic_head: env.PREVIEW_HEAD_SHA,
-    first_attempt_only: true, metadata_only: true, cloud_mutation: false };
+    first_attempt_only: true, metadata_only: true, grant_readback_only: true,
+    rollout_authorized: false, cloud_mutation: false };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

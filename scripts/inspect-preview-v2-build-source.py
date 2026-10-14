@@ -138,15 +138,20 @@ def inspect(actions=False):
     result, bucket = cloud('storage', 'buckets', 'describe', 'gs://' + BUCKET, '--raw',
                            fields='name,projectNumber,location,iamConfiguration', account=account)
     if bucket is not None and (not isinstance(bucket, dict) or bucket.get('name') != BUCKET
-            or str(bucket.get('projectNumber')) != NUMBER or bucket.get('location') != 'EUROPE-WEST1'):
+            or str(bucket.get('projectNumber')) != NUMBER or bucket.get('location') != 'EUROPE-WEST1'
+            or bucket.get('iamConfiguration', {}).get('publicAccessPrevention') != 'enforced'
+            or not bucket.get('iamConfiguration', {}).get('uniformBucketLevelAccess', {}).get('enabled')):
         stop('SOURCE_BUCKET_IDENTITY_MISMATCH')
     emit('PREVIEW_BUILD_SOURCE_BUCKET_METADATA', **result, metadata=bucket)
+    metadata_access_verified = result['outcome'] == 'OK' and bucket is not None
+    if actions and not metadata_access_verified:
+        stop('DEPLOYER_BUCKET_METADATA_ACCESS_UNCONFIRMED')
     for stage, args in (
         ('PREVIEW_BUILD_SOURCE_DIRECT_IAM', ('storage', 'buckets', 'get-iam-policy', 'gs://' + BUCKET)),
         ('PREVIEW_BUILD_PROJECT_SELECTED_IAM', ('projects', 'get-iam-policy', PROJECT))):
         result, policy = cloud(*args, account=account)
         emit(stage, **result, policy=selected_policy(policy) if policy is not None else None)
-    for role in ('roles/storage.objectAdmin', 'roles/storage.objectViewer',
+    for role in ('roles/storage.objectAdmin', 'roles/storage.objectViewer', 'roles/storage.bucketViewer',
                  'roles/serviceusage.serviceUsageConsumer'):
         result, metadata = cloud('iam', 'roles', 'describe', role,
                                  fields='name,includedPermissions', account=account)
@@ -175,7 +180,9 @@ def inspect(actions=False):
          evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
          bounded_inventories_complete=all(complete), cloud_mutation=False,
          object_data_access=False, secret_payload_access=False, credential_values_printed=False,
-         full_effective_iam_verified=False, root_cause_proven=False, retry_authorized=False,
+         full_effective_iam_verified=False, root_cause_proven=actions and metadata_access_verified,
+         deployer_bucket_metadata_access_verified=metadata_access_verified,
+         rollout_authorized=False, retry_authorized=False,
          application_deployment_performed=False, deployment_readiness_verified=False)
 
 
