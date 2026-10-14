@@ -8,6 +8,7 @@ import {STAGES} from '../scripts/deployment/preview-schema-job-pool.mjs';
 import test from 'node:test';
 const script='scripts/deployment/deploy-cloud-run-environment.sh';
 const previewProject='khedmah-preview-v2-20261012';
+const previewMediaBucket=`${previewProject}.firebasestorage.app`;
 const previewAccount=role=>`khedmah-pv2-${role}@${previewProject}.iam.gserviceaccount.com`;
 const argument=(call,flag)=>{const i=call.args.indexOf(flag);return i>=0?call.args[i+1]:call.args.find(x=>x.startsWith(flag+'='))?.slice(flag.length+1);};
 function fixture(environment,overrides={}) {
@@ -85,7 +86,7 @@ if(a[0]==='run'&&a[1]==='jobs'){
     GOOGLE_CLOUD_REGION:region,ARTIFACT_REPOSITORY:environment==='preview'?'khedmah-preview':`${environment}-images`,
     RUNTIME_SERVICE_ACCOUNT:environment==='preview'?previewAccount('runtime'):`runtime@${project}.iam.gserviceaccount.com`,
     CLOUD_SQL_INSTANCE_CONNECTION_NAME:`${project}:${region}:${environment==='preview'?'khedmah-preview-v2-db':'isolated-db'}`,
-    GCS_MEDIA_BUCKET:`${environment}-fixture-media`,EMAIL_FROM:'noreply@staging.example',
+    GCS_MEDIA_BUCKET:environment==='preview'?'':`${environment}-fixture-media`,EMAIL_FROM:'noreply@staging.example',
     PREVIEW_SCHEMA_POOL_SERIALIZED:'true',GITHUB_ACTIONS:'true',GITHUB_WORKFLOW:'PR Preview',GITHUB_REPOSITORY:'khedma-sy/khedmah-digital-v1',...overrides};
   return{
     run(identifier=environment==='preview'?'pr-166-abcdef123':'abcdef123',extraEnv={}){
@@ -103,6 +104,11 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
     const secretArg=backend.args.find(a=>a.startsWith('--set-secrets='));if(environment==='staging'){assert.ok(secretArg?.includes('DATABASE_URL=DATABASE_URL:latest'));for(const binding of ['OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest','RESEND_API_KEY=RESEND_API_KEY:latest','FIREBASE_API_KEY=FIREBASE_API_KEY:latest'])assert.ok(secretArg.includes(binding));assert.ok(runtimeEnv?.includes('GCS_MEDIA_BUCKET=staging-fixture-media'));assert.ok(runtimeEnv?.includes('EMAIL_FROM=noreply@staging.example'));}else assert.equal(secretArg,'--set-secrets=DATABASE_URL=DATABASE_URL:1,FIREBASE_API_KEY=FIREBASE_API_KEY:1');
     const frontend=deploys.find(c=>c.args[2].includes('frontend'));
     if(environment==='preview'){
+      assert.ok(runtimeEnv.split(',').includes(`GCS_MEDIA_BUCKET=${previewMediaBucket}`));
+      // Only the backend service receives media configuration: no frontend,
+      // schema Job, build substitution, IAM change or metadata/object probe.
+      assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes('GCS_MEDIA_BUCKET')), [backend]);
+      assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes(previewMediaBucket)), [backend]);
       for(const build of builds){
         assert.equal(argument(build,'--service-account'),`projects/${previewProject}/serviceAccounts/${previewAccount('build')}`);
         assert.equal(argument(build,'--gcs-source-staging-dir'),`gs://${previewProject}-cloudbuild-source/source`);
@@ -134,6 +140,16 @@ for(const environment of ['preview','staging'])test(`${environment}: refuses mis
 });
 test('staging refuses ephemeral media or email configuration before cloud calls',()=>{
   for(const overrides of [{GCS_MEDIA_BUCKET:''},{EMAIL_FROM:''}]){const f=fixture('staging',overrides);try{assert.throws(()=>f.run());assert.equal(f.calls().length,0);}finally{f.close();}}
+});
+test('replacement Preview refuses foreign or injected media buckets before any cloud call',()=>{
+  for(const bucket of ['khedma-dl.firebasestorage.app','other-preview.firebasestorage.app',
+    `gs://${previewMediaBucket}`,`${previewMediaBucket},TAXI_TRIPS_ENABLED=true`,`${previewMediaBucket}\n`]){
+    const f=fixture('preview',{GCS_MEDIA_BUCKET:bucket});
+    try{
+      assert.throws(()=>f.run(),error=>error.status===4&&error.stderr.toString().includes('APPLICATION_PREVIEW_V2_MEDIA_BUCKET_REJECTED'));
+      assert.deepEqual(f.calls(),[]);
+    }finally{f.close();}
+  }
 });
 test('replacement application rejects drifted identities and targets before even mail metadata reads',()=>{
   for(const overrides of [
@@ -173,13 +189,14 @@ test('CORS verifier requires headers on the successful final response, not an ea
 
 
 test('preview binds an existing mail secret without copying values or changing the site origin',()=>{
-  const f=fixture('preview',{FIXTURE_PREVIEW_MAIL:'1',EMAIL_FROM:'noreply@mail.khedmah.uk'});
+  const f=fixture('preview',{FIXTURE_PREVIEW_MAIL:'1',EMAIL_FROM:'noreply@mail.khedmah.uk',GCS_MEDIA_BUCKET:previewMediaBucket});
   try {
     assert.match(f.run(),/deployment healthy/);
     const calls=f.calls();
     const backend=calls.find(c=>c.tool==='gcloud'&&c.args[0]==='run'&&c.args[1]==='deploy'&&c.args[2].includes('backend'));
     assert.equal(backend.args.find(a=>a.startsWith('--set-secrets=')),'--set-secrets=DATABASE_URL=DATABASE_URL:1,FIREBASE_API_KEY=FIREBASE_API_KEY:1,RESEND_API_KEY=RESEND_API_KEY:latest');
     assert.ok(backend.args.some(a=>a.startsWith('--set-env-vars=')&&a.includes('EMAIL_FROM=noreply@mail.khedmah.uk')));
+    assert.ok(argument(backend,'--set-env-vars').split(',').includes(`GCS_MEDIA_BUCKET=${previewMediaBucket}`));
     assert.ok(calls.some(c=>c.tool==='gcloud'&&c.args[0]==='secrets'&&c.args.includes(previewProject)));
     assert.ok(calls.every(c=>!c.args.includes('khedma-dl')&&!c.args.includes('access')));
     assert.ok(calls.some(c=>c.args.includes('--update-env-vars=CORS_ORIGIN=https://frontend-preview.example.run.app,NEXT_PUBLIC_SITE_URL=https://frontend-preview.example.run.app')));

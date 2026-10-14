@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Media IAM completion verified — one guarded owner binding next — 2026-10-14
+### Media binding completed — backend bucket wiring prepared; source CI pending — 2026-10-14
+
+**Owner cloud completion recorded:** `PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED` at **`2026-10-14T10:06:06.816624+00:00`**. Exact replacement project/bucket/runtime identity passed; the existing custom role was grantable on this bucket and its three permissions stayed unchanged (`storage.objects.create`, `storage.objects.delete`, `storage.objects.get`). The direct conditional runtime binding is verified for **`media/`**. Original attempt marker, four legacy bindings and project policy were preserved; PAP remains enforced and UBLA enabled. No role creation, bucket configuration/Firebase rules change, object/secret access or credential output. Do not repeat apply/completion, recreate the role or remove attempt markers. Full effective IAM and actual runtime object access remain unverified.
+
+Executed source: helper blob `4a17d8c3156ee232e78034e4f7033e3216455529`, SHA256 `7cf97bfa682003f253d0e0e88b8b5674071b950f70363dd77826d4a53c4e17b7`; executable implementation `0f46051167a3b56f289501e6d4954a222e86cd01`. The receipt's source_commit `9631157d5360c4df096eb00642e4e54bea80f305` is the helper's preparation baseline. This receipt supersedes the earlier pending binding handoff without rewriting its history.
+
+**Source change:** `scripts/deployment/application-execution-profile.sh` selects only `khedmah-preview-v2-20261012.firebasestorage.app` after existing replacement target/runtime/SQL guards. An empty/unset external bucket selects that canonical value; an exact explicit value is accepted; any foreign/malformed/injected nonempty override stops before cloud calls. `scripts/deployment/deploy-cloud-run-environment.sh` binds `GCS_MEDIA_BUCKET` only to the Preview backend service, selecting the existing GCS adapter. Frontend, builds, schema Jobs and Staging retain their prior configuration. No new cloud reads, grants or product behavior changes are introduced elsewhere. This is prepared source configuration, **not a deployed runtime binding**.
+
+`tests/isolated-deployment-flow.test.mjs` exercises the real shell runner with cloud fixtures: exact backend-only bucket, no propagation to frontend/builds/schema Jobs, canonical explicit override, rejection before any cloud call of foreign buckets/gs:// names/newlines/env injection, and retained Staging behavior. Local focused validation passed **26 tests / zero failures**, with shell syntax and diff checks passing; **fresh exact-source CI is pending**. Prior Test & Verify 38545296194 / Node CI 38545296185 / Google readiness 38545296229 (2,629 pass, zero fail, one optional skip) validates the previous implementation only.
+
+**Next Safe Action:** finish current-source validation, then reconcile the Preview schema deployment path against the already completed 64-table / nine-routine / twelve-trigger schema and exact runtime ACLs. Source inspection found the foundation runner has no verify-only mode and later stages are selected as apply by the application runner. Prepare an explicitly read-only Preview verification path that fails on missing/drifted schema, preserves Staging, never replays migrations/seeds/grants, and retains exact identity/secret-version/job-pool guards. Verify successor contracts (especially 027/034 media/fulfillment changes and hardened 032) and enforce a read-only database session before any release. The existing mail-metadata deployment hold remains in place while this work is unfinished.
+
+Live main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged, preparation parent `9a8e998b3773f9357b8abb57349cbc6c43baeb89`. Changes are two deployment scripts, one regression test and these same five checkpoints. Completed ledger/history is preserved. No direct assistant cloud mutation, workflow dispatch, merge, deployment/cleanup release, Production mutation, secret/migration replay or mail send. Taxi trips remain disabled. Actual runtime identity/secret access, media create/read/delete/prefix denial, DML, Google sessions, origin/CORS/CSRF, Maps/mail and Floot acceptance remain pending.
+
+### Historical checkpoint — Media IAM completion source verified — owner binding subsequently completed — 2026-10-14
 
 **The bounded audit read is complete.** Owner output received **2026-10-14T12:43:57+03:00** contains a recognizable entry at **`2026-10-14T09:24:04.340365619Z`**: `storage.setIamPermissions`, exact Preview bucket resource, status code **3**, and `Role (projects/khedmah-preview-v2-20261012/roles/khedmahPreviewMediaObjects) does not exist in the resource's hierarchy.` It ends with `MEDIA_IAM_AUDIT_READ_FINISHED_NO_RETRY_AUTHORIZED`. The pasted JSON is interleaved with echoed command text, so it is not represented as a clean parsed full log export; the method/resource/status/message/time fields are legible. Do not repeat this completed diagnostic read.
 
@@ -464,11 +478,10 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR #274 open/unmerged. Verified executable implementation 0f460511 is preserved by this final five-document [skip ci] checkpoint.
-- Test & Verify 38545296194 / Node CI 38545296185 / Google readiness 38545296229 succeeded: 2,629 pass / zero fail / one optional skip. Updated 38-case media wrapper and retained native PostgreSQL 16 regression passed; artifact 11883878992 and exact evidence are above.
-- Preview 38545296157 remains deliberately held at mail metadata; deployment/cleanup/Production gates stay closed. RESEND v1 metadata read at 09:56:28.429Z changed nothing and accessed no payload.
-- Owner audit identifies bucket storage.setIamPermissions rejection at 09:24:04.340365619Z, code 3: exact custom role not found in hierarchy. Later 09:32 metadata verifies exact role present/binding absent. Propagation cause/current grantability are not proven.
-- Next: owner executes verified --complete-binding once, with original marker, exact existing role/baseline policy and positive bucket grantability before one conditional etag CAS. Cloud completion/runtime access remain unverified; no role recreation, marker deletion or automatic retry.
+- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent 9a8e998b. New backend bucket wiring source CI pending; previous executable 0f460511 validation retained separately.
+- Owner conditional media binding completed at 10:06:06.816624Z; exact role/grantability/policy verified, PAP/UBLA preserved. Do not repeat completed cloud operations.
+- Source pins the canonical bucket to the Preview backend only; rejects foreign/injected override before cloud calls. Local focused regression validation: 26 pass / zero fail; workflow/Production/cleanup holds unchanged.
+- Next: validate this source, then prepare read-only schema verification instead of apply-capable Preview stages before any release. Actual runtime access/deployment/Floot remain pending.
 
 ### Completed replacement Preview work — do not replay
 
@@ -521,18 +534,19 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Media bucket/runtime IAM inventory | Owner `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at `2026-10-14T09:00:07Z`: exact existing bucket/project/region, PAP enforced, UBLA enabled, four legacy direct bindings etag CAI=, runtime project binding cloudsql.client only in the filtered view. No direct runtime bucket binding/public principals observed; no object/secret/credential access or mutation. Limited inventory, not full effective IAM/runtime acceptance. Do not repeat the manual read. |
 | Media IAM post-attempt reconciliation | Owner `PREVIEW_V2_MEDIA_IAM_RECONCILIATION_READ` at `2026-10-14T09:32:11.107607+00:00`: exact custom-role contract verified present; original four bucket bindings verified with intended runtime binding absent. No object/secret access or cloud mutation; no full effective IAM/runtime access or retry authorization. Current-state read complete, not grant completion. Do not repeat it or recreate the role; diagnose the original HTTP 400 from bounded audit metadata next. |
 | Media IAM failure audit diagnostic | Owner bounded read received `2026-10-14T12:43:57+03:00`: legible entry at `2026-10-14T09:24:04.340365619Z`, exact bucket, `storage.setIamPermissions`, status 3, fixed custom role not found in resource hierarchy; completion marker present. Echoed command text interleaves JSON, so no clean full-export claim. Read complete; request/reason identified, propagation cause/current grantability unproven. No mutation or retry authorization from this read. |
+| Conditional runtime media bucket binding | Owner `PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED` at `2026-10-14T10:06:06.816624+00:00`: exact existing role/grantability, three object permissions and direct `media/` conditional runtime binding verified. Role/original marker/legacy bindings/project policy preserved, PAP enforced/UBLA enabled. Cloud IAM changed only; no object/secret access, role creation, bucket configuration/rules change or credential output. Full effective IAM/runtime access and actual runtime configuration/deployment/Floot remain unverified. Do not repeat apply/completion or delete markers. |
 
 ### Actual continuation and remaining work
 
-1. Owner runs the pinned --complete-binding command once from NEXT-ACTION; exact-source CI is verified. Completed audit/metadata reads and the original --apply must not be replayed.
-2. Require PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED. The helper checks the original private marker, exact role/baseline policy and bucket grantability, journals a separate completion attempt, repeats guards and writes one version-3 conditional policy using etag CAS. On STOP or missing receipt, reconcile before further action; no automatic retry, marker deletion, role recreation or access broadening.
-3. After verified direct binding, prepare backend-only GCS_MEDIA_BUCKET wiring and actual media create/read/delete/prefix-denial acceptance.
-4. Reconcile apply-capable schema jobs against completed schema/runtime ACLs before release; never replay migrations, grants or secrets. Runtime identity/Firebase startup/Google sessions/DML/origin/Maps/mail/Floot remain acceptance gates.
+1. Validate backend-only canonical bucket wiring on the exact new source. Owner conditional binding is complete; no new Cloud Shell command is needed for this source pass.
+2. Reconcile all nine Preview schema stages with the completed 64/9/12 schema and runtime ACLs. Foundation currently lacks a verify-only mode; the application runner selects apply-capable later stages. Prepare a read-only, fail-closed verification path, preserve Staging and identity/version/pool guards, and test successor-schema compatibility before release.
+3. Preserve completed migrations, seeds, grants and secrets. Do not replay or broaden cloud access. Keep the existing deployment hold during source reconciliation.
+4. After all deployment gates pass, verify actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot through bounded acceptance steps. Source tests and direct IAM receipts alone do not establish these.
 5. Taxi trips disabled; Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-Only the verified binding-completion command is handed off. It completes the specifically reconciled role-present/binding-absent state after fresh fail-closed guards; it does not authorize the old creation/apply command or marker cleanup. Source tests and current-state evidence are separate from the pending owner cloud result. Preserve completed evidence and existing resource safeguards.
+The owner media-binding receipt completes the previously pending cloud operation. The assistant is preparing source wiring and verification only. Never replay completed apply/completion or remove markers. No new owner cloud command is needed until a concrete subsequent step has passed its own gates.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
