@@ -4,11 +4,11 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Firebase server key created — private secret staging prepared, CI pending — 2026-10-14
+### Firebase server key created — secret staging helper verified, owner execution next — 2026-10-14
 
 **Owner key creation is complete; never repeat the creation command.** `PREVIEW_V2_FIREBASE_SERVER_KEY_CREATED` at **`2026-10-14T08:01:24.927478+00:00`** confirms key `projects/1044962071847/locations/global/keys/khedmah-preview-v2-firebase-server`, UID **`7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`**, restricted to `identitytoolkit.googleapis.com`. Existing browser keys were preserved. No key/secret payload access, IAM mutation, secret container/value staging, runtime binding or deployment occurred. Client/IP restrictions, server request acceptance and actual Google sign-in remain unverified. This supersedes the pending-creation instruction below.
 
-**Next safe action:** finish source CI for `scripts/stage-preview-v2-firebase-server-config.py`, then hand off its pinned `--apply` command once. New helper blob **`f714090cd4cdddf65040e647c2e950d1207a62cc`**, SHA256 **`cf5588381a679f3c81dc569da995e19c9f77ddd5c7e0252345f408d2a1b5791f`**; baseline `8fc90fa943e3534d66915fc0912fcd0d112f110d`. Local **24 offline lifecycle/transport/security cases passed** through the Node wrapper. New-source CI is pending; do not execute the staging command yet.
+**Next owner action — source CI verified:** execute the pinned `scripts/stage-preview-v2-firebase-server-config.py --apply` command once from NEXT-ACTION. New helper blob **`f714090cd4cdddf65040e647c2e950d1207a62cc`**, SHA256 **`cf5588381a679f3c81dc569da995e19c9f77ddd5c7e0252345f408d2a1b5791f`**; baseline `8fc90fa943e3534d66915fc0912fcd0d112f110d`. Local **24 offline lifecycle/transport/security cases passed** through the Node wrapper. Fresh exact-source CI has passed as recorded below; no live secret staging receipt has yet been supplied.
 
 The helper loads the reviewed metadata guard from immutable blob `d3bd45963240d38aeb47325f05b9181e64df1064` after SHA256/Git-blob verification. It rechecks account/project/organization, exact server UID/restrictions, existing browser keys and the two existing service-account identities. It requires the backend secret absent, creates only `FIREBASE_API_KEY` with automatic replication and Preview labels, and sets only two direct secret bindings: runtime `roles/secretmanager.secretAccessor`, deployer `roles/secretmanager.viewer`. It rejects unexpected existing policy and uses the observed IAM etag for compare-and-set; no project/organization IAM or other secret is changed.
 
@@ -16,7 +16,11 @@ After policy readback, the existing server key value is captured privately in me
 
 This source preparation does not stage anything in Google Cloud. Even a future success receipt proves only private value staging and the exact **direct** secret policy, not inherited/effective IAM, actual runtime secret access, backend binding, user login or deployment readiness. The helper does not send mail, change browser restrictions, recreate the key, call user lookup, run SQL or deploy. Database grants and runtime login remain complete; schema-job mode review, durable media, actual sessions/Maps/mail/Floot acceptance remain pending.
 
-Live GitHub main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 is open/unmerged at starting parent `8fc90fa943e3534d66915fc0912fcd0d112f110d`. Prior tested source `ed64f179ef12f693471c9416f966e5b051a73563` and its 2,614-pass evidence are retained below; they are not a verdict on this new helper. No workflow edit/dispatch, merge, Production mutation or release of Preview deployment/cleanup holds. Same five checkpoint files, full completed ledger and historical tails are preserved.
+**Verified implementation: `847b127acd990eb190d84f4f841a33937a60b94c`.** **Test & Verify `38533475521` SUCCESS**, job `115750624767`: **2,615 passed / zero failed / one optional WASM skip** (root 1,848 + backend 616 + frontend 151). The new server-config wrapper passed at `2026-10-14T08:14:58.9355723Z`; retained native PostgreSQL 16 grant regression passed at `08:14:58.9373858Z`. **Node CI `38533475477` SUCCESS**, build job `115750624953`, source inventory `115750624615`; **Google readiness `38533475512` SUCCESS**, validation `115750624498`, Production secret gate `115750625999` skipped. Artifact **`11879231546`**, expires `2026-10-21T08:17:59Z`, SHA256 `cee2e1ebec8f76818adfbf096611a1cb8346bc787e9874e449ba49950daa7960`.
+
+Preview `38533475704`: quality `115750625280` and staging-baseline resolution `115752311836` succeeded; deploy `115752312696` verified source/target/WIF/isolation, read RESEND v1 ENABLED at **`2026-10-14T08:17:07.312Z`** without payload access or mutation, then **`PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`**. Inventory/schema/service rollout and review stayed skipped; cleanup `115750626648` skipped. This is the expected hold, not a deployment/readiness result.
+
+Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged. This final evidence/handoff advances the verified implementation with **the same five Markdown files only, [skip ci]**; helper/test/workflow bytes, completed ledger rows and historical tails are preserved. No new CI dispatch, workflow/Production change, merge, deployment release, SQL replay, credential rotation or mail send. Cloud secret staging/IAM remains an owner action, not an assistant-performed operation.
 
 Official API contracts reviewed: [secret creation](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/create), [version creation](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/addVersion), [secret IAM](https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/setIamPolicy).
 
@@ -372,11 +376,12 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 open/unmerged. Latest verified executable/test source: `ed64f179ef12f693471c9416f966e5b051a73563`.
-- Test & Verify `38530721770`, Node CI `38530721692` and Google readiness `38530721766` succeeded. **2,614 pass / zero fail / one optional skip**; new server-key wrapper and retained native PG16 regression passed; artifact `11878695227`.
-- Preview `38530721939` / deploy `115743243815` passed source/target/WIF/isolation, confirmed RESEND v1 ENABLED at 07:52:41 UTC without payload access/mutation, then explicitly held deployment. Schema/services/review and cleanup skipped.
-- Owner runtime login at `2026-10-14T07:30:26.095991+00:00` verified actual khedmah_app authentication, exact EXPECTED_GRANTS_PRESENT ACLs and unchanged 64/9/12, 62 zero-row SELECT successes and two expected denials. Both existing credentials v1 were private; no data-row read/output or mutation. The corrected grant COMMIT/readback at 07:18:19 UTC remains complete. Backend metadata received 10:40:22 Damascus reports no backend secret and shows the two browser keys; new dedicated-key helper has 22 offline tests and full source CI passed; owner key creation is now complete at 08:01:24 UTC with UID 7b8dabee-f3ce-4392-b1f4-ac13e208fd1e. New private staging helper has 24 local cases passed; its source CI is pending. Runtime DML/readiness remain pending.
-- Earlier source runs, failed native fixture attempts and original cloud STOP remain historical evidence, not the current code verdict. The prior five-doc [skip ci] checkpoint preserves the previously tested source; this new helper requires fresh CI.
+- Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 open/unmerged. Latest verified executable/test source: **`847b127acd990eb190d84f4f841a33937a60b94c`**.
+- Test & Verify `38533475521`, Node CI `38533475477` and Google readiness `38533475512` succeeded. **2,615 pass / zero fail / one optional skip**; new server-config wrapper and native PG16 regression passed; artifact `11879231546`. New helper also has 24 local offline cases passed.
+- Preview `38533475704` / deploy `115752312696` passed source/target/WIF/isolation, confirmed RESEND v1 ENABLED at `2026-10-14T08:17:07.312Z` without payload access/mutation, then explicitly held deployment. Schema/services/review and cleanup skipped; Production gate skipped.
+- Owner runtime grants at 07:18:19 UTC and actual database login at 07:30:26 UTC remain complete: exact EXPECTED_GRANTS_PRESENT ACLs, unchanged 64/9/12, 62 zero-row SELECT successes and two expected denials. Runtime DML and application readiness remain unverified.
+- Owner dedicated backend key creation at **08:01:24 UTC** is complete, UID **`7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`**, Identity Toolkit restriction and browser preservation verified. **Next is owner private secret staging and narrow direct secret IAM using the now-validated helper.** Secret staging, effective/runtime access and backend binding are not yet completed.
+- Final five-doc [skip ci] handoff preserves tested executable bytes, the complete ledger and historical evidence. Earlier pending-CI/creation/grant instructions below are superseded; no completed operation is replayed.
 
 ### Completed replacement Preview work — do not replay
 
@@ -428,7 +433,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. **Next:** complete CI on the prepared private server-secret helper, then execute only its reviewed pinned `--apply` command once. The server key itself is already created; secret staging/IAM have not been executed.
+1. **Next owner action:** execute only the reviewed, checksum-pinned server-secret `--apply` command once from NEXT-ACTION. Local 24-case validation and fresh exact-source CI passed. The server key itself is already created; secret staging/IAM have not been executed.
 2. Require `PREVIEW_V2_FIREBASE_SERVER_CONFIG_STAGED` and review its precise limits before preparing the Preview backend deployment binding and runtime access verification.
 3. Any STOP/uncertain write uses the new helper's metadata-only `--inspect` for reconciliation. No blind retry, existing secret adoption/overwrite, key recreation or cleanup.
 4. Database grants and actual read-only runtime login are complete. Preserve migrations, credentials, exact ACLs, ownership/defaults and rollback-table exclusion. Runtime DML and user Google sessions remain pending.
@@ -436,7 +441,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Execution boundary and handoff discipline
 
-The dedicated backend key is completed by the dated owner receipt. The next missing configuration is its private backend secret and two direct secret bindings; preparation is local/source-only until the owner executes the validated command. A direct IAM readback is not full effective access or runtime acceptance. Preserve every completed ledger row and all deployment/Production gates. New-source CI is pending; no staging success has yet been reported.
+The dedicated backend key is completed by the dated owner receipt. The next missing configuration is its private backend secret and two direct secret bindings; preparation is local/source-only until the owner executes the validated command. A direct IAM readback is not full effective access or runtime acceptance. Preserve every completed ledger row and all deployment/Production gates. New-source CI is verified; no owner staging success has yet been reported.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
