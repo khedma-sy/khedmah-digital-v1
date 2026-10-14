@@ -1,6 +1,28 @@
 # Production reconciliation — evidence before an operation
 
-## Runtime ACL ordering correction — native validation pending — 2026-10-14
+## Runtime ACL ordering correction verified — bounded owner grant next — 2026-10-14
+
+**Correction verified; next owner action is one bounded corrected Preview runtime grant.** Owner post-attempt read at `2026-10-14T06:32:52.361353+00:00` confirmed **GRANTS_NOT_APPLIED**, exact ACL/table set/ownership and 64/9/12. No later owner grant receipt has been supplied. Historic COMMIT/rollback remains unproven. That read alone did not authorize retry; source diagnosis and regression validation below now complete the reviewed correction gate.
+
+Implementation **`a5f4c7cb379cbf40aa1d44aacb7208a4f1fd51e1`** fixes a demonstrated ordering defect. Native PG16 diagnosis (`38524835170` / job `115722634754`) found **269 identical explicit ACL entries**, no observed-only/expected-only entries, but different array order. Both observed/expected ACL arrays now sort with explicit `COLLATE "C"`; complete values/counts, all seven literal GRANTs, ownership/default-ACL checks and schema fingerprints are preserved. No privilege is removed from verification or broadened. Safe failure metadata prints only SQLSTATE/source-allowlisted labels and never raw stderr, SQL or credentials. This establishes and repairs a source defect; the original Cloud Shell SQLSTATE and historic transaction result are not retrospectively proven.
+
+### Validation evidence
+
+- **Test & Verify `38525824793` SUCCESS**, job `115725803075`: **2,613 passed, zero failed, one optional WASM skip** (root 1,846 + backend 616 + frontend 151). Native PG16 regression passed at `2026-10-14T07:05:05.3944065Z` with all retained contracts unchanged.
+- Native en_US fixture reproduces the old ordering error, then verifies corrected COMMIT/readback, complete rollback on excess rollback-table access/schema drift, replay rejection, corrected applied-state reader semantics, and runtime permissions (62 zero-row SELECTs / two denials). It is a disposable network-disabled Docker fixture, not Cloud SQL execution or live runtime/password-login acceptance.
+- **Node CI `38525824734` SUCCESS**; **Google readiness `38525824741` SUCCESS**, Production secret gate skipped. Local 19 grant + 15 reader Python tests and optional PG18 WASM regression also passed.
+- Test artifact **`11876296494`**, expires `2026-10-21T07:08:05Z`, digest `eff425fea88de36a8dc96fd36cf88daa785e50b5d654e757f783f766b3b23ba1`.
+- Preview `38525824824`: quality job `115725803036` succeeded; deployment job `115727637398` passed source/target/WIF/isolation and read RESEND v1 ENABLED at `2026-10-14T07:08:28.237Z`, no payload access or mutation, then **`PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`**. Schema/service deployment and review were skipped; cleanup stayed skipped. This is the deliberate hold, not a WIF failure or readiness pass.
+
+### Pinned next step and boundaries
+
+Use only the current command in **NEXT-ACTION.md**. Corrected grant blob **`be758ce6374ad81b63ac24e86eca147b1932f2aa`**, SHA256 **`b086e77e8f64011364261b61cbda93a0828c5f76ad53874f798722120fabc10c`**. It freshly rechecks the exact fixed Preview target, existing migration secret v1, full contracts and absent-grant baseline, then grants the same reviewed permissions in one transaction and rechecks exact ACL/schema state after COMMIT. No migration replay, application DML, role/owner/default-ACL change, secret recreation, Production mutation or deployment.
+
+Require both COMMIT acknowledgement and **`PREVIEW_V2_RUNTIME_GRANTS_VERIFIED`** before moving to live runtime-login acceptance. On any STOP/missing receipt, send the complete bounded output and reconcile; never automatically repeat the apply. The corrected reader is blob `44e5429f4d74c5674f88ff5414d55859d2d1e5a6`, SHA256 `a89c33be26755c0e948e5e80c140752b978d13a039d82a9bae95f03e5692b940`; its grant pin uses the same collation correction. Older reader `be29039...` is retained as historical read evidence and must not be used for post-grant acceptance because it pins the old comparison.
+
+Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 remains open/unmerged. This final checkpoint changes only the same five Markdown files with **[skip ci]**, preserving the tested executable/workflow bytes and completed ledger. No new test/dispatch, direct assistant Cloud Shell execution or owner grant success is claimed. Application/Floot, runtime login/DML, full readiness, Taxi trips and all remaining deployment/browser/mail/media gates stay pending/held.
+
+## Historical checkpoint — Runtime ACL ordering correction — native validation pending — 2026-10-14
 
 Owner reconciliation at **2026-10-14T06:32:52.361353+00:00** confirms **GRANTS_NOT_APPLIED**, exact ACL/table set/ownership and 64/9/12 after the unconfirmed grant attempt. No runtime credential, application rows or mutation; historic COMMIT/rollback is still unproven.
 
