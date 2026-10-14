@@ -1,6 +1,22 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## Preview return ACL read completed; bounded runtime grant is next — 2026-10-14
+## Runtime grant outcome unconfirmed — read-only reconciliation next — 2026-10-14
+
+Owner ran the pinned runtime grant helper once and returned `PREVIEW_V2_RUNTIME_GRANTS_PREFLIGHT_PASSED` (project `khedmah-preview-v2-20261012`, public allowlist 60, Taxi tables 3), followed by **`STOP: RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY`**. Received **`2026-10-14T09:25:22+03:00`**; this failed attempt emitted no operation timestamp. **No COMMIT acknowledgement or `PREVIEW_V2_RUNTIME_GRANTS_VERIFIED` receipt was supplied.** The grant outcome is unknown: do not claim applied grants, rollback, unchanged database state, successful runtime login or readiness.
+
+The 06:19:13 UTC owner read remains a valid **pre-attempt** observation of GRANTS_NOT_APPLIED, exact ACLs/table set/ownership and 64/9/12. It cannot establish the state after this attempt. Source inspection of the unchanged `execute_sql` shows that this STOP covers process errors/timeouts, a nonzero psql exit, or output above the bound. Raw captured stderr is intentionally not printed; the marker does not identify the failing SQL statement or prove whether COMMIT occurred. No cause is established yet.
+
+**Next safe action: run the existing pinned `--inspect-acl` reader** from [NEXT-ACTION](docs/project-control/NEXT-ACTION.md), now specifically to reconcile the uncertain grant attempt. Reader blob **`be29039afc398c92aa250c3cfe933b9275e81087`**, SHA-256 **`85d1506e2182de13b5201ea32954e85d36acc17a5cdc94c0d06066538270e7fe`**. It privately uses migration credential v1 and read-only sessions, reads no runtime credential or application rows, and classifies exact baseline/expected ACLs. It works before or after grants; do not substitute older absent-grant-only readers or migration scripts.
+
+- `EXPECTED_GRANTS_PRESENT`: do not apply again. Review current-state evidence and remaining schema/runtime acceptance before proceeding; the historic COMMIT/digest receipt is still absent.
+- `GRANTS_NOT_APPLIED`: grants are absent at the new observation; this alone does **not** authorize retry. Diagnose the stopped execution and review any correction before another mutation.
+- Any STOP/drift/unavailable read: preserve the hold and review the output. No automatic repair, alternate credential, broader privilege or retry.
+
+The old `--apply-runtime-grants` and `--verify-runtime` commands are held until this reconciliation is reviewed. The grant helper remains unchanged (blob `4c903b4dfe3bf0e3b510ff5002d0c7e9df39fad0`); no replacement mutation command is prepared by this checkpoint. Preserve all completed migrations/secret setup, default ACLs/ownership, rollback-table exclusion, narrow Taxi permissions and disabled Taxi trips. Production and Preview deployment/cleanup gates remain closed.
+
+Live GitHub: main `bc5a5c764413498189147cc34c7e857c78aa3d2c`, sole open/unmerged PR #274 parent `17d69677e0d95f8d887bb29b8c9cb49245a3157f`. Existing CI on `ce387aa61facbfb0e66c444d2620369082739203` remains successful (2,612 pass, zero fail, one optional skip); Preview `38463786718` is the deliberate deployment hold. CI is source evidence and does not certify this cloud attempt. Same five Markdown checkpoints only, `[skip ci]`; no code/workflow change, new tests, dispatch, merge or assistant cloud mutation. Update the ledger only with the actual reconciliation result.
+
+## Historical checkpoint — pre-attempt ACL read completed — 2026-10-14
 
 Owner supplied **`PREVIEW_V2_RUNTIME_ACL_STATE_READ`** at **`2026-10-14T06:19:13.016995+00:00`** (09:19:13 Damascus), received `2026-10-14T09:19:40+03:00`. Exact target: project `khedmah-preview-v2-20261012`, instance `khedmah-preview-v2-db`, database `khedmah`. Result **`acl_state=GRANTS_NOT_APPLIED`**, `exact_acl_state_verified=true`, `expected_table_set_and_ownership_verified=true`, **64 tables / 9 routines / 12 triggers**. The return-time read is complete and must not be presented as the next missing step.
 
