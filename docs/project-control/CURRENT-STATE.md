@@ -4,7 +4,19 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Media IAM helper verified — one scoped owner grant next — 2026-10-14
+### Media IAM apply stopped — existing role observed, read-only reconciliation next — 2026-10-14
+
+**Hold media apply; do not retry, delete the attempt marker or recreate/adopt the role.** Owner output received **2026-10-14T12:27:35+03:00** shows `PREVIEW_V2_MEDIA_IAM_PREFLIGHT_PASSED` followed by **`STOP: HTTP_400_RECONCILE_NO_BLIND_RETRY`** from helper blob `a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4`. The response does not name the failed request or include a structured error body. There is no final `PREVIEW_V2_MEDIA_IAM_CONFIGURED` receipt. The original role-create/bucket-grant outcome and the exact HTTP-400 cause are not yet established. The `09:00:07Z` timestamp pasted above the attempt belongs to the earlier read, not this mutation attempt.
+
+A further interleaved paste received **2026-10-14T12:28:21+03:00** contains **`STOP: CUSTOM_ROLE_ALREADY_EXISTS_NO_ADOPTION_OR_RETRY`**. In this immutable source, that stop follows a non-absent role read and occurs before the marker or any mutation request in that invocation. It is evidence that the fixed-name role was observed present on the later attempt; it does not verify its complete permission contract or the bucket binding. Bash also attempted to execute pasted prompt/output fragments, and a corrupted GitHub request returned 404. Do not infer repository unavailability from that pasted request: current GitHub source reads succeeded. Do not replay the terminal transcript.
+
+**Next owner action: run the same verified helper with `--inspect` only**, using the pinned launcher in NEXT-ACTION. Blob **`a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4`**, SHA256 **`724a4b0d62dc2f295cf6274ddd8fc7f6dd48bce283f8ed8eadd1726f629787d2`**. This mode verifies fixed project/account/runtime identity, bucket identity/PAP/UBLA, the existing custom-role contract if present, and whether the bucket policy matches the original baseline or the exact intended conditional binding. It emits **`PREVIEW_V2_MEDIA_IAM_RECONCILIATION_READ`**, including `custom_role_present` and `expected_direct_binding_present`, with `cloud_mutation=false` and `retry_authorized=false`. Unexpected state stops for review; it is not normalized or overwritten. Only metadata is read; no objects, key/secret payloads, role creation, grants, marker deletion, SQL or deployment. An owner access token is used privately for authenticated metadata GETs and is never printed.
+
+**GitHub rechecked before choosing the action:** protected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at reconciliation parent `1488a2ba9fdfe71f9665e5fe224969c08a5906e2`. Executable source remains `fbc4ac49d0a6bcd87257a84d50299b0b38ee85e8`: Test & Verify `38540424830`, Node `38540424761`, Google readiness `38540424769` succeeded (**2,629 pass / zero fail / one optional skip**, including 22 offline media lifecycle cases through their wrapper). These tests are source validation, not proof of cloud API acceptance; the owner HTTP 400 remains unresolved. Preview `38540424805` was intentionally held at mail metadata, with no rollout; Production gate and cleanup skipped.
+
+This checkpoint changes **only the same five Markdown files, [skip ci]**. No executable/test/workflow edits, new test run/dispatch, cloud mutation, merge or deployment release. Preserve every completed ledger row and historical tail. After the actual reconciliation output, identify the rejected API request/cause and prepare a bounded correction only for the unfinished operation if supported by evidence. Do not replace this diagnostic step with another apply. Backend GCS_MEDIA_BUCKET wiring, schema-job reconciliation, actual media/secret/session/DML/Maps/mail/Floot acceptance remain pending; Taxi trips and deployment/Production holds remain closed.
+
+### Historical checkpoint — Media IAM helper verified — apply subsequently stopped; do not replay — 2026-10-14
 
 **Owner media IAM inspection is complete.** `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at **`2026-10-14T09:00:07Z`** verifies the existing bucket `khedmah-preview-v2-20261012.firebasestorage.app`, project number `1044962071847`, EUROPE-WEST1, public-access prevention **enforced** and uniform bucket-level access **enabled**. Direct bucket policy has exactly four legacy owner/editor/viewer bindings, etag `CAI=`; no runtime or public principal appears there. The filtered project policy contains only runtime `roles/cloudsql.client`. This establishes the observed direct-policy gap, not complete inherited/group/deny-policy IAM or a runtime access test. No object, credential or secret payload was read, and nothing changed. Do not repeat this completed manual inspection.
 
@@ -418,12 +430,11 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged. Verified implementation **`fbc4ac49d0a6bcd87257a84d50299b0b38ee85e8`**.
-- Test & Verify `38540424830`, Node CI `38540424761`, Google readiness `38540424769` succeeded: **2,629 pass / zero fail / one optional skip**. New media wrapper and retained native PG16 regression passed. Local 22 offline cases; artifact `11882506507`.
-- Preview `38540424805` / deploy `115775685936` passed source/target/WIF/isolation, read RESEND v1 ENABLED at 09:16:19 UTC with no mutation/payload, then deliberately held. Inventory/schema/services/review/cleanup and Production secret gate skipped.
-- Owner media inventory at 09:00:07 UTC is complete. Next cloud action is the fixed three-permission custom role and conditional bucket binding. No live grant receipt yet.
-- FIREBASE_API_KEY:1 direct IAM/value and actual database runtime login remain complete. Full effective IAM, live secret/media access, user sessions and Floot remain pending. Deployment runner/workflows unchanged by this pass.
-- Final five-document [skip ci] checkpoint preserves every ledger row and historical tail; no merge, new workflow dispatch or rollout.
+- Main remains bc5a5c7; sole PR #274 open/unmerged at reconciliation parent 1488a2ba. Executable source fbc4ac49 is unchanged.
+- Test & Verify 38540424830, Node 38540424761 and Google readiness 38540424769 succeeded: 2,629 pass / zero fail / one optional skip. Artifact 11882506507 and all previous evidence are preserved. These are source tests, not cloud API acceptance.
+- Preview 38540424805 remains deliberately held; schema/services/review/cleanup and Production gate skipped.
+- Owner media apply returned HTTP 400 after preflight; a later apply stopped on role already present before mutation. No final grant receipt. Exact rejected request/cause and binding state remain unresolved.
+- Next action is the existing helper's --inspect metadata-only reconciliation, not any apply or completed inventory replay. Same five-doc [skip ci] checkpoint only; no new tests/dispatch, cloud execution, merge or release.
 
 ### Completed replacement Preview work — do not replay
 
@@ -477,15 +488,15 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Owner executes the one pinned media-IAM apply in NEXT-ACTION; exact-source CI is verified. Review its actual receipt before backend wiring. The read-only inventory is complete; do not repeat it.
-2. After the owner custom-role/bucket-policy receipt, prepare backend-only GCS_MEDIA_BUCKET wiring and actual runtime media acceptance. Preserve PAP/UBLA/Firebase linkage/deny-all rules; do not recreate the bucket or broaden project access.
-3. Reconcile apply-capable schema jobs with completed 001–034 contracts/runtime ACLs before any Preview hold release. Never replay completed migrations, grants or secrets.
-4. A separately reviewed rollout after all gates must verify runtime identity, pinned Firebase binding, startup/access, actual Google sessions and media create/read/delete plus prefix denial. Source fixtures and direct-policy readback cannot replace runtime acceptance.
-5. Runtime DML, origin/CORS/CSRF, Maps/mail/Floot remain pending; Taxi trips disabled. No Production mutation, merge or deployment/cleanup release.
+1. Owner runs the pinned --inspect reconciliation in NEXT-ACTION. Media apply is stopped after HTTP 400; a later retry observed the role present and exited before writing. Do not rerun apply, delete markers, recreate/adopt the role or broaden permissions.
+2. Review actual role/bucket-binding state, then identify the rejected API operation/cause before preparing any bounded correction for the unfinished operation. No media grant success is recorded.
+3. After a verified grant receipt, prepare backend-only GCS_MEDIA_BUCKET wiring and actual runtime media acceptance. Preserve PAP/UBLA/Firebase linkage/deny-all rules and existing bindings.
+4. Reconcile apply-capable schema jobs with completed schema/runtime ACLs before any release. Never replay completed migrations, grants or secrets. Future rollout must separately verify runtime identity, pinned Firebase secret/startup, Google sessions and media create/read/delete/prefix denial.
+5. DML, origin/CORS/CSRF, Maps/mail/Floot remain pending; Taxi trips disabled. Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-The owner media inventory is recorded; the new helper prepares two bounded IAM writes only (custom-role creation and conditional bucket binding). Local tests and exact-source CI are verified; cloud execution is the next owner action, not a completed operation. Backend secret/grants/database login remain completed. Preserve every ledger row and earlier evidence; no background cloud work or runtime readiness is implied.
+Only the next diagnostic read is handed off. This documentation pass neither retries nor repairs the cloud mutation. Preserve all completed evidence, the durable attempt marker and current cloud resources until reconciliation. The old apply launcher is historical and must not be executed.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
