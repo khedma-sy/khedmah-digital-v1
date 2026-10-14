@@ -1,14 +1,14 @@
 # Next Safe Action — Khedmah
 
-## Implement the hardened Floot auth adapter under mocks — 2026-10-15
+## Reconcile the exact Floot origin before live Google login — 2026-10-15
 
-The owner selected the controlled server-adapter path. The Floot project now contains a formal security contract and pure adapter primitives. Eight focused Jasmine cases passed with zero failures and focused TypeScript checking is clean. No live Firebase token exchange, session forwarding, Floot publish, secret/database access or Production mutation occurred.
+The hardened Floot adapter implementation is complete in source. It contains only Google login, session read and logout routes against the fixed Preview origin. Two focused spec files passed with zero failures; focused TypeScript checking is clean. A live unauthenticated sandbox session probe returned HTTP 401, `Cache-Control: no-store`, no `Set-Cookie` and the expected sanitized response. No real Firebase token, authenticated request, Floot publish, secret/database access or Production mutation occurred.
 
-The adapter must remain transport only: Khedmah is the sole identity/session/authorization authority. Do not create a Floot user, JWT, session table or role mapping. The browser-side transport cookie is host-only, HttpOnly, Secure and SameSite=Strict with a maximum age no greater than Khedmah's one-hour session. It must remain separate from `floot_built_app_session`.
+The exact existing published Floot origin is **`https://khedma-meeting.floot.app`**. It is not present in the last verified Firebase Preview browser-key referrer or authorized-domain inventories. A real browser exchange must remain held until current metadata is freshly read and any mismatch is corrected additively.
 
-**Next Safe Action is Floot source work; no Cloud Shell command is required.** Implement exactly three fixed-upstream endpoints—Google login, session read and logout—with mocked fetch tests first. Tests must prove exact Origin rejection, fixed host/path/method, redirect/timeout/body bounds, inbound cookie/auth/forwarding-header stripping, exact `khedmah_session` extraction, sanitized 401/403/429/error mapping, no token leakage and local cookie clearing on both successful and failed logout.
+**Next Safe Action:** prepare one checksum-pinned Preview-only metadata reconciliation/read for the Firebase browser key and Auth authorized domains, explicitly comparing the exact Floot origin while preserving the 27-service API allowlist, existing Preview/Firebase origins, Google provider and local sign-in settings. If the exact origin is absent, prepare a separate narrow etag/CAS correction; do not combine the read and write or retry blindly.
 
-Do not implement a wildcard proxy. Do not run a real ID-token exchange or publish until the mocked endpoint suite passes and the actual Floot browser origin is confirmed. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
+After the correction receipt, add the public Firebase client configuration to Floot, keep server credentials absent, and run owner-driven Google login → session reload → logout → 401 acceptance before publishing. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
 
 ## Add only the proven deployed Preview origin — 2026-10-14
 
