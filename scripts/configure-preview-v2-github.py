@@ -50,7 +50,7 @@ CONDITION = ' && '.join(f"assertion.{key} == '{value}'" for key, value in CLAIMS
 # Filled from reviewed source blobs before publishing this batch. Head freshness is
 # checked separately, so documentation-only commits cannot silently change code.
 SOURCE_BLOBS = {
-    '.github/workflows/preview-deployment.yml': '9332b4478a4b9f6c538ae5355680f0c3f6e80116',
+    '.github/workflows/preview-deployment.yml': '85debddef4634065c54dc92875d50c4904822092',
     'scripts/deployment/verify-preview-v2-configuration.mjs': 'e97025878073fd9d87804c8a3c2ee7681bb2d0b7',
     'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db',
     'scripts/deployment/read-preview-mail-metadata.mjs': '613cc786f7e99ca3822de2f475978323529469ac',
@@ -61,7 +61,7 @@ SOURCE_BLOBS = {
     'scripts/deployment/verify-build-source-exclusions.mjs': '29150895fa985125ef8338b58660fab9bd24b669',
     'scripts/deployment/verify-preview-build-source-diagnostic.mjs': '0650521e634f1377511b7670e6ce85ec0b1ee6e5',
     'scripts/inspect-preview-v2-build-source.py': '2597eebfceb912f3ff6157cd181acb712a9e04bd',
-    'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs': '40e2ccc7158e39b84b759233bffacba6d77a75e3',
+    'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs': 'a61c4bed9ed468838dc5c6a9cc214516c1765e89',
     'scripts/deployment/read-preview-post-rollout-reconciliation.mjs': '7a7110700387a8b68f62a82c5449ce1a46b68830',
     '.gcloudignore': '5915bc0f2c4c471bb77c0161110f44caaddeb096',
     '.gitignore': 'f01472294b6c6cfd847502f57ad2029e23047f18',
