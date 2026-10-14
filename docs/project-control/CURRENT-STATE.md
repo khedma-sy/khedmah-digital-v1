@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Media binding completed — backend bucket wiring verified; schema verification path next — 2026-10-14
+### Preview schema verification prepared — no migration replay; native CI pending — 2026-10-14
+
+**Live continuation:** main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at preparation parent `9d59deaa1342c2132f42bfbcdffed6d4274ec06c`. The owner media binding and backend bucket wiring are complete; do not repeat them. Prior executable `5700972c50314a580ca300be04daeb8a8b62b0aa` passed 2,630 tests and retained the explicit mail-metadata deployment hold. That evidence does not validate the new source below.
+
+**Prepared source:** the application runner selects `verify` for all nine Preview schema stages and clears apply confirmations; Staging retains its existing apply path. Foundation now has an explicit verification mode that rejects empty/incomplete state and verifies the 022 category columns without applying SQL. Every schema wrapper rejects replacement Preview apply before building a job, and all nine runtime entrypoints independently reject it before database access. Verification replaces inherited PGOPTIONS with read-only defaults and bounded statement/lock timeouts; no database/role setting or credential changes. Existing project/runtime/migrator/build identities, DATABASE_MIGRATION_URL:1, serialized nine-job pool and pre-deploy/pre-execute checks remain intact.
+
+**Final existing job gate:** the Food Promotions job additionally runs bundled, checksum-pinned `preview-schema-verification.sql` in a repeatable-read, read-only transaction ending in ROLLBACK. It verifies the exact runtime effective/explicit/column/inherited/default ACL contract, 64-table set/ownership, 9 canonical function bodies/security including hardened 032, 12 trigger bindings/enabled states, role attributes, intentional unvalidated constraints and no unexpected RLS. It emits only `PREVIEW_V2_SCHEMA_AND_RUNTIME_ACL_READONLY_VERIFIED`; failures are bounded. The offline compiler reuses the immutable grant/ACL/identity contracts and canonical routine SQL without invoking cloud loaders or apply builders. SQL SHA256: `e5153751d02e0492ea0f6f05623f61466afa4d4362b76647b3ae63c5faeee581`. Existing per-stage checks retain schema and Billing configuration-seed probes. This is a bounded contract gate, not an exhaustive proof of every database field/index or application behavior.
+
+**Local validation:** 42 focused Node tests passed; 18 adjacent infrastructure/rollout checks passed (two overlap; not an additive total). The five-case Python shell execution suite covers all nine helpers, exact identities/version binding, replacement apply rejection before cloud calls and retained Staging behavior. Changed shell syntax, generated SQL reproducibility/checksum and diff checks passed. **Fresh exact-source CI, including native PostgreSQL 16 execution, is pending.** The expanded native fixture uses a newly created network-disabled disposable container only; it runs all nine real shell entrypoints after canonical schema/grants, records actual read-only sessions and checks schema/ACL preservation. Negative cases cover apply rejection before connections, ACL drift, routine body/security drift, disabled trigger, missing foundation columns, partial promotions and an empty database. No test connects to Cloud SQL or an existing database.
+
+**Next Safe Action:** complete native/current-source CI and record exact evidence. Then obtain a fresh read-only inventory of replacement Preview services/schema-job slots and required secret-version metadata using the existing bounded inventory/pool checks, retaining an explicit stop before builds/jobs/deployment. Review remaining launch gates before a separate rollout decision. Do not replay completed migrations/seeds/grants/secrets, create another test workload for IAM acceptance or widen permissions. No Cloud Shell command is needed for the current source preparation.
+
+Workflow files and the mail-metadata `exit 1` hold are unchanged; Production, merge and cleanup gates remain closed, Taxi trips off. No cloud mutation, workflow dispatch, deployment, secret payload read or email send is performed by this source pass. Runtime media/secret/DML/Google-session/origin/Maps/mail/Floot acceptance remains pending. The same five checkpoints preserve all completed ledger rows and historical tails. Session-default reference: https://www.postgresql.org/docs/16/runtime-config-client.html and https://www.postgresql.org/docs/16/config-setting.html.
+
+### Historical checkpoint — Media binding and backend bucket wiring verified — 2026-10-14
 
 **Owner cloud completion recorded:** `PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED` at **`2026-10-14T10:06:06.816624+00:00`**. Exact replacement project/bucket/runtime identity passed; the existing custom role was grantable on this bucket and its three permissions stayed unchanged (`storage.objects.create`, `storage.objects.delete`, `storage.objects.get`). The direct conditional runtime binding is verified for **`media/`**. Original attempt marker, four legacy bindings and project policy were preserved; PAP remains enforced and UBLA enabled. No role creation, bucket configuration/Firebase rules change, object/secret access or credential output. Do not repeat apply/completion, recreate the role or remove attempt markers. Full effective IAM and actual runtime object access remain unverified.
 
@@ -480,11 +494,11 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR #274 open/unmerged. Verified implementation 5700972c preserved by this final five-document [skip ci] checkpoint.
-- Test & Verify 38548161597 / Node CI 38548161727 / Google readiness 38548161723 succeeded: 2,630 pass / zero fail / one optional skip. Artifact 11886110700 and exact evidence above; native PostgreSQL 16 regression retained.
-- Owner conditional media binding completed at 10:06:06.816624Z; exact role/grantability/policy verified, PAP/UBLA preserved. Backend-only canonical bucket source wiring now verified; actual runtime binding/access remains pending.
-- Preview 38548161964 stopped at the intended mail-metadata hold; RESEND v1 ENABLED read at 10:20:02.205Z, no mutation/payload access. Schema/services/review/cleanup and Production secret gate skipped.
-- Next: prepare a read-only schema verification path instead of apply-capable Preview stages before release. Preserve completed migrations/ACLs/seeds/secrets and Staging; no new Cloud Shell command is needed for this source work.
+- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent 9d59deaa. New read-only schema source CI pending; prior 5700972c validation retained separately.
+- Completed owner conditional media binding and verified backend bucket source wiring are preserved; no owner cloud operation is repeated.
+- All nine Preview stages select verify, wrappers/entrypoints reject replacement apply, and final bundled SQL checks exact ACL/table/routine/trigger contracts. Staging apply and all identity/version/pool guards retained.
+- Local focused/adjacent tests passed; native PG16 full-path source validation pending. Preview/Production/cleanup holds unchanged.
+- After source CI: fresh bounded read-only cloud inventory and launch-gate review with a stop before any build/job/deployment. No migration/grant/secret replay.
 
 ### Completed replacement Preview work — do not replay
 
@@ -541,15 +555,15 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Owner conditional media binding and backend-only canonical bucket source wiring are complete and verified. Preserve them; no new Cloud Shell command is needed for the next source pass.
-2. Reconcile all nine Preview schema stages with the completed 64/9/12 schema and runtime ACLs. Foundation currently lacks a verify-only mode; the application runner selects apply-capable later stages. Prepare a read-only, fail-closed verification path, preserve Staging and identity/version/pool guards, and test successor-schema compatibility before release.
-3. Preserve completed migrations, seeds, grants and secrets. Do not replay or broaden cloud access. Keep the existing deployment hold during source reconciliation.
-4. After all deployment gates pass, verify actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot through bounded acceptance steps. Source tests and direct IAM receipts alone do not establish these.
+1. Complete exact-source CI, especially the expanded native PG16 test of all nine read-only entrypoints after canonical schema and runtime grants. Do not mistake local fixtures for live cloud verification.
+2. After CI, obtain fresh bounded replacement service/schema-job inventory and required secret-version metadata; retain a deliberate stop before builds/jobs/services. Review launch gates against the exact source before any rollout decision.
+3. Preserve completed migrations, seeds, grants, secrets and media binding. No replay, role recreation, marker removal or access broadening.
+4. Application deployment and actual runtime identity/secret/media create/read/delete/prefix denial, DML, Google sessions, origins/CORS/CSRF, Maps/mail and Floot remain unverified. Source catalog checks do not prove every field/index or application flow.
 5. Taxi trips disabled; Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-The owner media-binding receipt completes the previously pending cloud operation. The assistant is preparing source wiring and verification only. Never replay completed apply/completion or remove markers. No new owner cloud command is needed until a concrete subsequent step has passed its own gates.
+This source pass prepares verification-only schema execution and leaves the workflow hold unchanged. No owner Cloud Shell command is required now. Fresh current-source CI precedes any subsequent read-only inventory stage; neither stage itself authorizes Production or application rollout.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 

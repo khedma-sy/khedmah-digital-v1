@@ -10,6 +10,19 @@ mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
 production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
 
+# Completed replacement Preview migrations must never be replayed by a job.
+if [ "$project" = 'khedmah-preview-v2-20261012' ]; then
+  if [ "$environment" != 'preview' ] || [ "$production_project" != 'khedma-dl' ] || [ "$mode" != 'verify' ]; then
+    echo 'PREVIEW_V2_SCHEMA_VERIFY_ONLY' >&2
+    exit 4
+  fi
+fi
+if [ "$mode" = 'verify' ]; then
+  # Replace inherited session options; no database/role setting is changed.
+  PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000'
+  export PGOPTIONS
+fi
+
 case "$environment" in preview|staging) ;; *) exit 61 ;; esac
 case "$mode" in verify|apply) ;; *) exit 62 ;; esac
 test -n "$project" || exit 63
@@ -75,6 +88,15 @@ predecessor="$(predecessor_state)" || exit $?
 [ "$predecessor" -eq 4 ] || { echo 'MIGRATION_034_REQUIRES_FULFILLMENT_026' >&2; exit 41; }
 state="$(promotion_state)" || exit $?
 if [ "$state" -eq 12 ]; then
+  if [ "$project" = 'khedmah-preview-v2-20261012' ]; then
+    # This last existing pool job verifies completed grants and canonical
+    # routine bodies without invoking any owner apply helper or cloud API.
+    verification='/migrations/preview-schema-verification.sql'
+    printf '%s  %s\n' 'e5153751d02e0492ea0f6f05623f61466afa4d4362b76647b3ae63c5faeee581' "$verification" | sha256sum -c - >/dev/null 2>&1 || exit 69
+    result="$(psql_exec -X -Atq -v ON_ERROR_STOP=1 -f "$verification" 2>/dev/null)" || { echo 'PREVIEW_V2_SCHEMA_FINAL_VERIFICATION_FAILED' >&2; exit 44; }
+    [ "$result" = 'PREVIEW_V2_SCHEMA_AND_RUNTIME_ACL_READONLY_VERIFIED' ] || exit 44
+    printf '%s\n' "$result"
+  fi
   printf '%s\n' "MIGRATION_034_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
   exit 0
 fi

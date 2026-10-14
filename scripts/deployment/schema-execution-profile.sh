@@ -2,6 +2,7 @@
 # Source from schema helpers. This selects execution identities; it grants no IAM.
 resolve_schema_execution() {
   local environment="${1:?environment required}"
+  local schema_mode="${2:-}"
   SCHEMA_SERVICE_ACCOUNT="${RUNTIME_SERVICE_ACCOUNT:?runtime identity required}"
   SCHEMA_DATABASE_SECRET_BINDING='DATABASE_URL=DATABASE_URL:latest'
   SCHEMA_BUILD_ARGS=()
@@ -17,6 +18,12 @@ resolve_schema_execution() {
       return 4
     fi
     SCHEMA_SERVICE_ACCOUNT='khedmah-pv2-migrator@khedmah-preview-v2-20261012.iam.gserviceaccount.com'
+    # Called by application profile without a mode, and by each schema helper
+    # with its selected mode. No apply-capable replacement job may be built.
+    if [[ -n "$schema_mode" && "$schema_mode" != 'verify' ]]; then
+      echo 'SCHEMA_PREVIEW_V2_VERIFY_ONLY' >&2
+      return 4
+    fi
     # Expose the migration credential under the runners' existing variable name.
     # Version 1 was verified by the owner on 2026-10-12; no mutable latest alias.
     SCHEMA_DATABASE_SECRET_BINDING='DATABASE_URL=DATABASE_MIGRATION_URL:1'

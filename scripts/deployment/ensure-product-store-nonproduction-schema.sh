@@ -31,7 +31,7 @@ actual_sha256="$(sha256sum backend/migrations/versions/024_product_store.sql | a
 [[ "$actual_sha256" == "$migration_sha256" ]] || { echo 'Repository migration 024 checksum changed; review is required.' >&2; exit 4; }
 
 source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
-resolve_schema_execution "$environment"
+resolve_schema_execution "$environment" "$mode"
 
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/product-store-migration:${tag}"

@@ -19,6 +19,19 @@ mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
 production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
 
+# Completed replacement Preview migrations must never be replayed by a job.
+if [ "$project" = 'khedmah-preview-v2-20261012' ]; then
+  if [ "$environment" != 'preview' ] || [ "$production_project" != 'khedma-dl' ] || [ "$mode" != 'verify' ]; then
+    echo 'PREVIEW_V2_SCHEMA_VERIFY_ONLY' >&2
+    exit 4
+  fi
+fi
+if [ "$mode" = 'verify' ]; then
+  # Replace inherited session options; no database/role setting is changed.
+  PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000'
+  export PGOPTIONS
+fi
+
 case "$environment" in
   preview|staging) ;;
   *) echo 'ERROR: Fulfillment migrations 026-028 are allowed only in preview or staging.' >&2; exit 2 ;;

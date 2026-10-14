@@ -28,7 +28,7 @@ actual_git_blob="$(git hash-object "$migration")"
 [[ "$actual_git_blob" == "$migration_git_blob" ]] || { echo 'Repository food promotion migration Git blob changed.' >&2; exit 4; }
 
 source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
-resolve_schema_execution "$environment"
+resolve_schema_execution "$environment" "$mode"
 
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/food-promotions-migration:${tag}"

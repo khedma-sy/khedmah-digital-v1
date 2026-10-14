@@ -3,6 +3,8 @@ set -euo pipefail
 
 environment="${1:?usage: ensure-foundation-nonproduction-schema.sh preview|staging IDENTIFIER}"
 identifier="${2:?usage: ensure-foundation-nonproduction-schema.sh preview|staging IDENTIFIER}"
+mode="${FOUNDATION_MIGRATION_MODE:-apply}"
+[[ "$mode" == 'verify' || "$mode" == 'apply' ]] || { echo 'Foundation mode must be verify or apply.' >&2; exit 2; }
 
 [[ "$environment" == 'preview' || "$environment" == 'staging' ]] || { echo 'Only preview or staging foundation operations are allowed.' >&2; exit 2; }
 [[ "$identifier" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Invalid deployment identifier.' >&2; exit 2; }
@@ -40,7 +42,7 @@ for file in "${files[@]}"; do [[ -f "$file" ]] || { echo "Missing $file" >&2; ex
 manifest_sha256="$(cat "${files[@]}" | sha256sum | awk '{print $1}')"
 
 source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
-resolve_schema_execution "$environment"
+resolve_schema_execution "$environment" "$mode"
 
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/foundation-migrations:${tag}"
@@ -71,7 +73,7 @@ gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
   --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
-  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},FOUNDATION_MANIFEST_SHA256=${manifest_sha256}" \
+  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},FOUNDATION_MANIFEST_SHA256=${manifest_sha256}" \
   --tasks 1 \
   --parallelism 1 \
   --max-retries 0 \

@@ -2,8 +2,23 @@
 set -eu
 
 environment="${DEPLOYMENT_ENVIRONMENT:-}"
+mode="${MIGRATION_MODE:-apply}"
+case "$mode" in verify|apply) ;; *) exit 62 ;; esac
 project="${GOOGLE_CLOUD_PROJECT:-}"
 production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
+
+# Completed replacement Preview migrations must never be replayed by a job.
+if [ "$project" = 'khedmah-preview-v2-20261012' ]; then
+  if [ "$environment" != 'preview' ] || [ "$production_project" != 'khedma-dl' ] || [ "$mode" != 'verify' ]; then
+    echo 'PREVIEW_V2_SCHEMA_VERIFY_ONLY' >&2
+    exit 4
+  fi
+fi
+if [ "$mode" = 'verify' ]; then
+  # Replace inherited session options; no database/role setting is changed.
+  PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000'
+  export PGOPTIONS
+fi
 readonly EXPECTED_MIGRATIONS='
 001_core_identity_accounts
 002_create_profiles
@@ -164,8 +179,16 @@ else
 fi
 
 if [ "$state" = 'through_022' ]; then
+  if [ "$mode" = 'verify' ]; then
+    column_count="$(psql_scalar "SELECT count(*)::int FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='categories' AND column_name IN ('parent_code','visual_key','search_aliases_ar','search_aliases_en','is_featured')")" || exit 49
+    [ "$column_count" -eq 5 ] || { echo 'FOUNDATION_001_022_CATEGORY_POSTCONDITION_FAILED' >&2; exit 47; }
+  fi
   echo "FOUNDATION_001_022_ALREADY_APPLIED_AND_VERIFIED:${environment}:${project}"
   exit 0
+fi
+if [ "$mode" = 'verify' ]; then
+  echo 'FOUNDATION_001_022_MISSING_OR_PARTIAL_NO_APPLY' >&2
+  exit 42
 fi
 
 if [ "$state" = 'fresh' ]; then

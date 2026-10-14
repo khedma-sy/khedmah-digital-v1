@@ -32,6 +32,7 @@ class ExecutionTests(unittest.TestCase):
                 GOOGLE_CLOUD_PROJECT=PROJECT, GOOGLE_CLOUD_REGION='europe-west1',
                 PRODUCTION_GOOGLE_CLOUD_PROJECT='khedma-dl', ARTIFACT_REPOSITORY='khedmah-preview',
                 RUNTIME_SERVICE_ACCOUNT='khedmah-pv2-runtime@' + DOMAIN,
+                FOUNDATION_MIGRATION_MODE='verify',
                 CLOUD_SQL_INSTANCE_CONNECTION_NAME=PROJECT + ':europe-west1:khedmah-preview-v2-db')
             for path in HELPERS:
                 for key in re.findall(r'\$\{([A-Z_0-9]+_MODE):-off\}', path.read_text()): env[key] = 'verify'
@@ -61,6 +62,9 @@ class ExecutionTests(unittest.TestCase):
                     self.assertEqual(self.argument(call, '--gcs-source-staging-dir'),
                         'gs://' + PROJECT + '-cloudbuild-source/source')
                 for call in jobs:
+                    config=self.argument(call, '--set-env-vars').split(',')
+                    self.assertIn('MIGRATION_MODE=verify', config)
+                    self.assertFalse(any(v.startswith('MIGRATION_CONFIRMATION=APPLY') for v in config))
                     self.assertEqual(self.argument(call, '--service-account'), 'khedmah-pv2-migrator@' + DOMAIN)
                     self.assertEqual(self.argument(call, '--set-secrets'), 'DATABASE_URL=DATABASE_MIGRATION_URL:1')
                     self.assertEqual(self.argument(call, '--max-retries'), '0')
@@ -77,6 +81,21 @@ class ExecutionTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0); self.assertEqual(calls, [])
         result, calls = self.invoke(HELPERS[0], environment='staging')
         self.assertNotEqual(result.returncode, 0); self.assertEqual(calls, [])
+
+    def test_replacement_helpers_reject_apply_even_with_valid_confirmation(self):
+        for helper in HELPERS:
+            text=helper.read_text()
+            key=re.search(r'mode="\$\{([A-Z_0-9]+_MODE):-',text).group(1)
+            confirmation=re.search(r'expected_confirmation="(APPLY_KHEDMAH_NONPROD_[^"$]+)_\$\{environment\^\^\}"',text)
+            overrides={key:'apply'}
+            if confirmation:
+                token_key=key.removesuffix('_MODE')+'_CONFIRMATION'
+                overrides[token_key]=confirmation.group(1)+'_PREVIEW'
+            with self.subTest(helper=helper.name):
+                result,calls=self.invoke(helper,overrides=overrides)
+                self.assertNotEqual(result.returncode,0)
+                self.assertIn('SCHEMA_PREVIEW_V2_VERIFY_ONLY',result.stderr)
+                self.assertEqual(calls,[])
 
     def test_staging_retains_existing_identity_secret_and_build_behavior(self):
         project = 'khedmah-staging-fixture'

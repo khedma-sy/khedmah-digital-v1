@@ -109,6 +109,13 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
       // schema Job, build substitution, IAM change or metadata/object probe.
       assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes('GCS_MEDIA_BUCKET')), [backend]);
       assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes(previewMediaBucket)), [backend]);
+      const schemaCalls=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy');
+      assert.equal(schemaCalls.length,9);
+      for(const call of schemaCalls){
+        const config=argument(call,'--set-env-vars').split(',');
+        assert.ok(config.includes('MIGRATION_MODE=verify'));
+        assert.ok(!config.some(value=>value.startsWith('MIGRATION_CONFIRMATION=APPLY')));
+      }
       for(const build of builds){
         assert.equal(argument(build,'--service-account'),`projects/${previewProject}/serviceAccounts/${previewAccount('build')}`);
         assert.equal(argument(build,'--gcs-source-staging-dir'),`gs://${previewProject}-cloudbuild-source/source`);
@@ -125,6 +132,9 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
         assert.deepEqual(spec.containers[0].env,[{name:'DATABASE_URL',valueFrom:{secretKeyRef:{name:'DATABASE_MIGRATION_URL',key:'1'}}}]);
       }
     }else{
+      const schemaCalls=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy'&&c.args[3]!=='khedmah-release-data-integrity-staging');
+      assert.equal(schemaCalls.length,9);
+      for(const call of schemaCalls)assert.ok(argument(call,'--set-env-vars').split(',').includes('MIGRATION_MODE=apply'));
       assert.equal(argument(frontend,'--service-account'),'runtime@staging-fixture.iam.gserviceaccount.com');
       assert.ok(backend.args.includes('--add-cloudsql-instances'));
       assert.ok(!frontend.args.includes('--clear-secrets'));assert.ok(!frontend.args.includes('--clear-cloudsql-instances'));

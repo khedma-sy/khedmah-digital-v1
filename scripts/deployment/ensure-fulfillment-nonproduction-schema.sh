@@ -42,7 +42,7 @@ verify_repo_blob backend/migrations/versions/027_mobility_document_reviews.sql "
 verify_repo_blob backend/migrations/versions/028_platform_notifications.sql "$migration_028_blob"
 
 source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
-resolve_schema_execution "$environment"
+resolve_schema_execution "$environment" "$mode"
 
 tag="${environment}-${identifier}"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/fulfillment-migration:${tag}"
