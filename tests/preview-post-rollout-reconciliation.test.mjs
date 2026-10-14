@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   DIAGNOSTIC_HEAD, DIAGNOSTIC_JOB_ID, DIAGNOSTIC_RUN_ID,
   ENVIRONMENT_FAILURE_HEAD, ENVIRONMENT_FAILURE_JOB_ID, ENVIRONMENT_FAILURE_RUN_ID,
+  ENVIRONMENT_DIAGNOSTIC_HEAD, ENVIRONMENT_DIAGNOSTIC_JOB_ID, ENVIRONMENT_DIAGNOSTIC_RUN_ID,
   FAILED_RECONCILIATION_HEAD, FAILED_RECONCILIATION_JOB_ID, FAILED_RECONCILIATION_RUN_ID,
   RECONCILIATION_MESSAGE, RECONCILIATION_PARENT, REVIEWED_MAIN,
   ROLLOUT_DEPLOY_JOB_ID, ROLLOUT_MERGE, ROLLOUT_RUN_ID, ROLLOUT_SOURCE,
@@ -66,6 +67,15 @@ const sourceResponses = () => [
       { name: 'Read exact successful Preview rollout metadata and anonymous HTTP',
         status: 'completed', conclusion: 'failure' },
     ] },
+  { id: ENVIRONMENT_DIAGNOSTIC_RUN_ID, name: 'PR Preview', event: 'pull_request',
+    status: 'completed', conclusion: 'failure', run_attempt: 1,
+    head_sha: ENVIRONMENT_DIAGNOSTIC_HEAD, path: '.github/workflows/preview-deployment.yml',
+    head_repository: { full_name: repo }, pull_requests: [{ number: 274 }] },
+  { id: ENVIRONMENT_DIAGNOSTIC_JOB_ID, run_id: ENVIRONMENT_DIAGNOSTIC_RUN_ID,
+    name: 'reconcile-successful-rollout', status: 'completed', conclusion: 'failure', steps: [
+      { name: 'Read bounded Preview rollout environment metadata after held mismatch',
+        status: 'completed', conclusion: 'failure' },
+    ] },
 ];
 
 function githubRunner(responses = sourceResponses(), calls = []) {
@@ -79,10 +89,10 @@ function githubRunner(responses = sourceResponses(), calls = []) {
   };
 }
 
-test('source gate performs exactly thirteen GETs and binds all prior read-only receipts', () => {
+test('source gate performs exactly fifteen GETs and binds all prior read-only receipts', () => {
   const calls = [];
   const receipt = verifyPostRolloutSource(sourceEnv, githubRunner(sourceResponses(), calls));
-  assert.equal(calls.length, 13);
+  assert.equal(calls.length, 15);
   assert.deepEqual(calls.map(args => args[3]), [
     `repos/${repo}/git/commits/${head}`, `repos/${repo}/pulls/274`, `repos/${repo}/branches/main`,
     `repos/${repo}/git/commits/${ROLLOUT_SOURCE}`, `repos/${repo}/git/commits/${ROLLOUT_MERGE}`,
@@ -93,6 +103,8 @@ test('source gate performs exactly thirteen GETs and binds all prior read-only r
     `repos/${repo}/actions/jobs/${DIAGNOSTIC_JOB_ID}`,
     `repos/${repo}/actions/runs/${ENVIRONMENT_FAILURE_RUN_ID}`,
     `repos/${repo}/actions/jobs/${ENVIRONMENT_FAILURE_JOB_ID}`,
+    `repos/${repo}/actions/runs/${ENVIRONMENT_DIAGNOSTIC_RUN_ID}`,
+    `repos/${repo}/actions/jobs/${ENVIRONMENT_DIAGNOSTIC_JOB_ID}`,
   ]);
   assert.equal(receipt.rollout_run_conclusion, 'failure');
   assert.equal(receipt.rollout_deploy_job_conclusion, 'success');
@@ -125,6 +137,10 @@ test('source gate rejects reruns, reopen/forks, changed main, alternate lineage 
     [11, value => { value.head_sha = head; }],
     [12, value => { value.conclusion = 'success'; }],
     [12, value => { value.steps[0].conclusion = 'success'; }],
+    [13, value => { value.conclusion = 'success'; }],
+    [13, value => { value.head_sha = head; }],
+    [14, value => { value.conclusion = 'success'; }],
+    [14, value => { value.steps[0].conclusion = 'success'; }],
   ]) {
     const responses = sourceResponses(); mutate(responses[index]);
     assert.throws(() => verifyPostRolloutSource(sourceEnv, githubRunner(responses)));
@@ -292,7 +308,14 @@ test('diagnostic reports only bounded Build metadata and performs no service, jo
 });
 
 test('environment diagnostic reads only bounded service and job environment metadata', () => {
-  const fixture = cloudFixture();
+  const fixture = cloudFixture((value, call) => {
+    if (call.tool === 'gcloud' && call.args[1] === 'jobs' && call.args[2] === 'describe') {
+      for (const item of value.spec.template.spec.template.spec.containers[0].env) {
+        if (item.name === 'MIGRATION_CONFIRMATION' && item.value === '') delete item.value;
+      }
+    }
+    return value;
+  });
   const receipt = diagnoseEnvironmentContract(cloudEnv, fixture.run);
   assert.equal(receipt.services.length, 2);
   assert.equal(receipt.jobs.length, 9);
@@ -301,9 +324,23 @@ test('environment diagnostic reads only bounded service and job environment meta
   assert.equal(receipt.environment_metadata_only, true);
   assert.ok(receipt.services.flatMap(item => item.environment)
     .some(item => item.kind === 'secret_reference' && item.secret === 'DATABASE_URL'));
+  assert.ok(receipt.jobs.flatMap(item => item.environment)
+    .some(item => item.name === 'MIGRATION_CONFIRMATION' && item.value === ''));
   for (const key of ['cloud_mutation', 'secret_payload_access', 'object_data_access',
     'database_access', 'application_data_access', 'production_access',
     'rollout_retry_authorized', 'cleanup_authorized']) assert.equal(receipt[key], false);
+});
+
+test('full reader treats an omitted Cloud Run empty-string value as the intended empty value', () => {
+  const fixture = cloudFixture((value, call) => {
+    if (call.tool === 'gcloud' && call.args[1] === 'jobs' && call.args[2] === 'describe') {
+      for (const item of value.spec.template.spec.template.spec.containers[0].env) {
+        if (item.name === 'MIGRATION_CONFIRMATION' && item.value === '') delete item.value;
+      }
+    }
+    return value;
+  });
+  assert.equal(readPostRolloutReconciliation(cloudEnv, fixture.run).exact_rollout_resources_verified, true);
 });
 
 test('reader rejects every target/auth context mismatch before metadata or HTTP', () => {

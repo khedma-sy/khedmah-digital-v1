@@ -158,6 +158,10 @@ function envMap(items) {
 function sanitizedEnvironment(items) {
   const vars = envMap(items);
   return [...vars].map(([name, item]) => {
+    if (!Object.hasOwn(item, 'value') && item.valueFrom === undefined
+        && Object.keys(item).every(key => key === 'name')) {
+      return { name, kind: 'plain', value: '' };
+    }
     if (Object.hasOwn(item, 'value') && item.valueFrom === undefined
         && typeof item.value === 'string') return { name, kind: 'plain', value: item.value };
     const reference = item.valueFrom?.secretKeyRef;
@@ -171,7 +175,9 @@ function sanitizedEnvironment(items) {
 
 function requirePlain(map, name, value) {
   const item = map.get(name);
-  if (!item || item.value !== value || item.valueFrom !== undefined) stop('ENV_CONTRACT_MISMATCH');
+  const observed = item && !Object.hasOwn(item, 'value') && item.valueFrom === undefined
+    && Object.keys(item).every(key => key === 'name') ? '' : item?.value;
+  if (!item || observed !== value || item.valueFrom !== undefined) stop('ENV_CONTRACT_MISMATCH');
 }
 
 function requireSecret(map, name, secret, version) {
