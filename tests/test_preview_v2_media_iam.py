@@ -51,6 +51,7 @@ class Fake:
         self.cloud_calls = []
         self.hook = None
         self.auth_override = False
+        self.grantable_pages = [{'roles': [{'name': M.ROLE_NAME}]}]
 
     def cloud(self, command, **options):
         self.cloud_calls.append((command, options))
@@ -90,6 +91,11 @@ class Fake:
             assert body == {'roleId': M.ROLE_ID, 'role': M.ROLE}
             self.role = dict(copy.deepcopy(body['role']), name=M.ROLE_NAME, etag='role-etag')
             value = self.role
+        elif method == 'POST' and url == M.IAM_ROOT + 'roles:queryGrantableRoles':
+            assert body['fullResourceName'] == '//storage.googleapis.com/' + M.RESOURCE
+            assert body['view'] == 'BASIC' and body['pageSize'] == 200
+            assert set(body) <= {'fullResourceName', 'view', 'pageSize', 'pageToken'}
+            value = self.grantable_pages[int(body.get('pageToken', '0'))]
         elif method == 'GET' and url == M.STORAGE_ROOT + '/iam?optionsRequestedPolicyVersion=3':
             value = self.policy
         elif method == 'GET' and url.startswith(M.STORAGE_ROOT + '?fields='):
@@ -105,7 +111,8 @@ class Fake:
 
     @property
     def writes(self):
-        return [x for x in self.http_calls if x[0] != 'GET']
+        return [x for x in self.http_calls if x[0] != 'GET'
+                and x[1] != M.IAM_ROOT + 'roles:queryGrantableRoles']
 
 
 class Tests(unittest.TestCase):
@@ -316,6 +323,186 @@ class Tests(unittest.TestCase):
         self.rejects(lambda: client.request('set-policy', policy={}), 'POLICY_CHANGED_OR_UNEXPECTED')
         self.rejects(lambda: client.request('delete'), 'REQUEST_SCOPE_REJECTED')
         self.assertEqual(self.fake.http_calls, [])
+
+    def prepare_completion(self):
+        M.marker(self.directory)
+        self.fake.role = dict(copy.deepcopy(M.ROLE), name=M.ROLE_NAME, etag='role-etag')
+
+    def run_completion(self):
+        M.run(directory=self.directory, complete=True)
+
+    def test_original_hierarchy_failure_then_reviewed_completion_only_binds(self):
+        def reject_binding(method, url, body):
+            if method == 'PUT':
+                raw = json.dumps({'error': {'message': "Role (" + M.ROLE_NAME
+                    + ") does not exist in the resource's hierarchy."}}).encode()
+                raise urllib.error.HTTPError(url, 400, TOKEN, {}, io.BytesIO(raw))
+        self.fake.hook = reject_binding
+        self.rejects(pattern='HTTP_400')
+        failure = json.loads(self.output.getvalue().splitlines()[-1])
+        self.assertEqual(failure['request_kind'], 'set-policy')
+        self.assertEqual(failure['recognized_reason'], 'ROLE_NOT_IN_RESOURCE_HIERARCHY')
+        self.assertFalse(failure['retry_authorized'])
+        role = copy.deepcopy(self.fake.role)
+        original = (self.directory / 'attempt.json').read_bytes()
+        self.fake.hook = None
+        self.fake.http_calls.clear()
+        M.run(False, self.directory)
+        self.assertFalse(json.loads(self.output.getvalue().splitlines()[-1])['expected_direct_binding_present'])
+        self.run_completion()
+        self.assertEqual([x[0] for x in self.fake.writes], ['PUT'])
+        self.assertEqual(self.fake.writes[0][2], dict(version=3, etag='CAI=', bindings=M.LEGACY + [M.BINDING]))
+        self.assertEqual(self.fake.role, role)
+        self.assertEqual((self.directory / 'attempt.json').read_bytes(), original)
+        result = json.loads(self.output.getvalue().splitlines()[-1])
+        self.assertEqual(result['stage'], 'PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED')
+        for key in ('custom_role_created', 'full_effective_iam_verified', 'runtime_storage_access_verified',
+                    'object_data_access', 'secret_payload_access', 'application_deployed', 'floot_connected'):
+            self.assertFalse(result[key])
+        self.assertNotIn(TOKEN, self.output.getvalue())
+
+    def test_completion_requires_original_private_marker(self):
+        self.fake.role = dict(copy.deepcopy(M.ROLE), name=M.ROLE_NAME, etag='role-etag')
+        with self.assertRaises(OSError):
+            self.run_completion()
+        self.assertEqual(self.fake.writes, [])
+        self.prepare_completion()
+        (self.directory / 'attempt.json').chmod(0o644)
+        self.rejects(self.run_completion, 'ORIGINAL_ATTEMPT_FILE')
+        (self.directory / 'attempt.json').chmod(0o600)
+        (self.directory / 'attempt.json').write_text('{"project":"foreign"}')
+        self.rejects(self.run_completion, 'ORIGINAL_ATTEMPT_RECORD')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_completion_rejects_symlink_original_marker(self):
+        self.prepare_completion()
+        original = self.directory / 'attempt.json'
+        other = self.directory / 'saved.json'
+        original.rename(other)
+        original.symlink_to(other)
+        with self.assertRaises(OSError):
+            self.run_completion()
+        self.assertEqual(self.fake.writes, [])
+
+    def test_completion_absent_deleted_or_broad_role_never_recreated(self):
+        self.prepare_completion()
+        for role in (None, dict(self.fake.role, deleted=True),
+                     dict(self.fake.role, includedPermissions=M.PERMISSIONS + ['storage.objects.list'])):
+            self.fake.role = role
+            self.rejects(self.run_completion, 'CUSTOM_ROLE_CONTRACT')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_completion_requires_bucket_grantability_not_only_role_get(self):
+        self.prepare_completion()
+        self.fake.grantable_pages = [{'roles': [{'name': 'roles/storage.objectAdmin'}]}]
+        self.rejects(self.run_completion, 'EXISTING_ROLE_NOT_GRANTABLE')
+        self.assertEqual(self.fake.writes, [])
+        self.assertFalse((self.directory / 'binding-completion-attempt.json').exists())
+
+    def test_completion_paginates_fixed_bucket_grantability(self):
+        self.prepare_completion()
+        self.fake.grantable_pages = [{'roles': [{'name': 'roles/storage.objectViewer'}], 'nextPageToken': '1'},
+                                     {'roles': [{'name': M.ROLE_NAME}]}]
+        self.run_completion()
+        queries = [x for x in self.fake.http_calls if x[1].endswith('roles:queryGrantableRoles')]
+        self.assertEqual([x[2].get('pageToken') for x in queries], [None, '1', None, '1'])
+        self.assertEqual(len(self.fake.writes), 1)
+
+    def test_grantability_bad_pagination_or_rows_fail_closed(self):
+        self.prepare_completion()
+        for pages in ([{'roles': [{'name': M.ROLE_NAME}], 'nextPageToken': 123}],
+                      [{'roles': [{'name': M.ROLE_NAME}] * 2}],
+                      [{'nextPageToken': '1'}, {'nextPageToken': '1'}],
+                      [{'roles': [None]}]):
+            self.fake.grantable_pages = pages
+            self.rejects(self.run_completion, 'GRANTABLE_ROLES_')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_grantability_page_limit_stops_without_write(self):
+        self.prepare_completion()
+        self.fake.grantable_pages = [{'nextPageToken': str(i + 1)} for i in range(20)]
+        self.rejects(self.run_completion, 'GRANTABLE_ROLES_PAGE_LIMIT')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_grantability_denied_is_not_absence_or_automatic_retry(self):
+        self.prepare_completion()
+        def deny(method, url, body):
+            if url.endswith('roles:queryGrantableRoles'):
+                raise urllib.error.HTTPError(url, 403, TOKEN, {}, io.BytesIO(TOKEN.encode()))
+        self.fake.hook = deny
+        self.rejects(self.run_completion, 'HTTP_403')
+        self.assertEqual(self.fake.writes, [])
+        self.assertEqual(sum(x[1].endswith('roles:queryGrantableRoles') for x in self.fake.http_calls), 1)
+
+    def test_completion_rechecks_grantability_before_write(self):
+        self.prepare_completion()
+        count = 0
+        def hide_role(method, url, body):
+            nonlocal count
+            if url.endswith('roles:queryGrantableRoles'):
+                count += 1
+                if count == 2:
+                    self.fake.grantable_pages = [{}]
+        self.fake.hook = hide_role
+        self.rejects(self.run_completion, 'EXISTING_ROLE_NOT_GRANTABLE')
+        self.assertEqual(self.fake.writes, [])
+        self.assertTrue((self.directory / 'binding-completion-attempt.json').exists())
+
+    def test_completion_refuses_already_bound_or_unexpected_policy(self):
+        self.prepare_completion()
+        self.fake.policy.update(version=3, bindings=M.LEGACY + [M.BINDING])
+        self.rejects(self.run_completion, 'POLICY_CHANGED_OR_UNEXPECTED')
+        self.fake.policy['bindings'] = M.LEGACY + [{'role': 'roles/storage.admin', 'members': [M.MEMBER]}]
+        self.rejects(self.run_completion, 'POLICY_CHANGED_OR_UNEXPECTED')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_completion_prior_attempt_blocks_second_write_after_uncertain_put(self):
+        self.prepare_completion()
+        def lose_response(method, url, body):
+            if method == 'PUT':
+                raise OSError(TOKEN)
+        self.fake.hook = lose_response
+        self.rejects(self.run_completion, 'REQUEST_UNCONFIRMED')
+        self.assertEqual(len(self.fake.writes), 1)
+        self.fake.hook = None
+        self.rejects(self.run_completion, 'PREVIOUS_MEDIA_IAM_ATTEMPT')
+        self.assertEqual(len(self.fake.writes), 1)
+
+    def test_completion_cas_conflict_and_redacted_error_metadata(self):
+        self.prepare_completion()
+        def race(method, url, body):
+            if method == 'PUT':
+                self.fake.policy['etag'] = 'changed'
+        self.fake.hook = race
+        self.rejects(self.run_completion, 'HTTP_412')
+        self.assertEqual(len(self.fake.writes), 1)
+        result = json.loads(self.output.getvalue().splitlines()[-1])
+        self.assertEqual(result['request_kind'], 'set-policy')
+        self.assertEqual(result['recognized_reason'], 'UNCLASSIFIED')
+
+    def test_completion_detects_role_and_project_drift_before_write(self):
+        self.prepare_completion()
+        def drift(method, url, body):
+            if url.endswith('roles:queryGrantableRoles'):
+                self.fake.role['etag'] = 'new-role-revision'
+        self.fake.hook = drift
+        self.rejects(self.run_completion, 'COMPLETION_PREFLIGHT_CHANGED')
+        self.assertEqual(self.fake.writes, [])
+
+    def test_completion_detects_broadened_condition_in_readback(self):
+        self.prepare_completion()
+        def alter_readback(method, url, body):
+            if method == 'PUT':
+                body['bindings'][-1]['condition']['expression'] = 'true'
+        self.fake.hook = alter_readback
+        self.rejects(self.run_completion, 'POLICY_CHANGED_OR_UNEXPECTED')
+        self.assertEqual(len(self.fake.writes), 1)
+        self.assertNotIn('COMPLETION_VERIFIED', self.output.getvalue())
+
+    def test_completion_preserves_original_apply_role_exists_guard(self):
+        self.prepare_completion()
+        self.rejects(pattern='ALREADY_EXISTS_NO_ADOPTION_OR_RETRY')
+        self.assertEqual(self.fake.writes, [])
 
 
 if __name__ == '__main__':

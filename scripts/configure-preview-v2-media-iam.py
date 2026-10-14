@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Grant exactly three object permissions on the existing Preview media prefix.
 
-One custom role create and one bucket-policy CAS; no project policy write,
-object access, impersonation, credential payload, deployment or automatic retry.
+Initial mode creates a role and binds it. Reviewed completion mode requires the
+original attempt marker and an exact existing role, queries bucket grantability,
+then performs one bucket-policy CAS. No role recreation or automatic retry.
 """
 import copy
 import datetime
@@ -21,7 +22,7 @@ PROJECT = 'khedmah-preview-v2-20261012'
 NUMBER = '1044962071847'
 ACCOUNT = 'haifawi30@gmail.com'
 ORGANIZATION = '594049370623'
-SOURCE_COMMIT = '58d79e9c2b43a24cbb5eed75f9e6f52689edf79e'
+SOURCE_COMMIT = '9631157d5360c4df096eb00642e4e54bea80f305'
 BUCKET = PROJECT + '.firebasestorage.app'
 RESOURCE = 'projects/_/buckets/' + BUCKET
 RUNTIME = 'khedmah-pv2-runtime@' + PROJECT + '.iam.gserviceaccount.com'
@@ -129,8 +130,11 @@ class Client:
         self.token = token
         self.opener = urllib.request.build_opener(NoRedirect)
 
-    def request(self, kind, policy=None):
+    def request(self, kind, policy=None, page_token=None):
         body, method = None, 'GET'
+        if page_token is not None and (kind != 'grantable-roles' or not isinstance(page_token, str)
+                                       or not page_token or len(page_token) > 4096):
+            stop('REQUEST_SCOPE_REJECTED')
         if kind == 'role' and policy is None:
             url = IAM_ROOT + ROLE_NAME
         elif kind == 'create-role' and policy is None:
@@ -145,6 +149,12 @@ class Client:
             body = {'version': 3, 'etag': policy['etag'],
                     'bindings': copy.deepcopy(policy['bindings']) + [copy.deepcopy(BINDING)]}
             url, method = STORAGE_ROOT + '/iam', 'PUT'
+        elif kind == 'grantable-roles' and policy is None:
+            url, method = IAM_ROOT + 'roles:queryGrantableRoles', 'POST'
+            body = {'fullResourceName': '//storage.googleapis.com/' + RESOURCE,
+                    'view': 'BASIC', 'pageSize': 200}
+            if page_token is not None:
+                body['pageToken'] = page_token
         else:
             stop('REQUEST_SCOPE_REJECTED')
         request = urllib.request.Request(url, method=method,
@@ -164,6 +174,18 @@ class Client:
             # Absence only for an authenticated GET of this exact role; never writes/bucket reads.
             if kind == 'role' and error.code == 404:
                 return None
+            # Never print raw provider bodies, tokens, headers or request payloads.
+            reason = 'UNCLASSIFIED'
+            try:
+                raw = error.read(16385)
+                value = json.loads(raw) if len(raw) <= 16384 else {}
+                message = value.get('error', {}).get('message')
+                if message == "Role (" + ROLE_NAME + ") does not exist in the resource's hierarchy.":
+                    reason = 'ROLE_NOT_IN_RESOURCE_HIERARCHY'
+            except (OSError, ValueError, AttributeError, TypeError):
+                pass
+            emit('PREVIEW_V2_MEDIA_IAM_HTTP_FAILURE', request_kind=kind,
+                 http_status=error.code, recognized_reason=reason, retry_authorized=False)
             stop('HTTP_' + str(error.code) + '_RECONCILE_NO_BLIND_RETRY')
         except (OSError, ValueError):
             stop('REQUEST_UNCONFIRMED_RECONCILE_NO_BLIND_RETRY')
@@ -216,7 +238,9 @@ def check_role(value):
     return value
 
 
-def marker(directory):
+def marker(directory, filename='attempt.json'):
+    if filename not in ('attempt.json', 'binding-completion-attempt.json'):
+        stop('ATTEMPT_PATH_REJECTED')
     if directory.is_symlink():
         stop('ATTEMPT_PATH_REJECTED')
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -224,7 +248,7 @@ def marker(directory):
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         stop('ATTEMPT_DIRECTORY_NOT_PRIVATE')
     try:
-        fd = os.open(directory / 'attempt.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        fd = os.open(directory / filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     except FileExistsError:
         stop('PREVIOUS_MEDIA_IAM_ATTEMPT_RECONCILE_NO_BLIND_RETRY')
     with os.fdopen(fd, 'w') as stream:
@@ -238,8 +262,99 @@ def marker(directory):
         os.close(fd)
 
 
-def run(apply=False, directory=None):
+def prior_attempt(directory):
+    """Read, never delete/replace, the original private attempt record."""
+    if directory.is_symlink():
+        stop('ORIGINAL_ATTEMPT_PATH_REJECTED')
+    info = directory.stat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        stop('ORIGINAL_ATTEMPT_DIRECTORY_NOT_PRIVATE')
+    fd = os.open(directory / 'attempt.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1 or info.st_size > 4096):
+            stop('ORIGINAL_ATTEMPT_FILE_REJECTED')
+        raw = stream.read(4097)
+    value = json.loads(raw)
+    if (len(raw) > 4096 or value != {'project': PROJECT, 'bucket': BUCKET,
+                                    'role': ROLE_NAME, 'attempted': True}
+            or value.get('attempted') is not True):
+        stop('ORIGINAL_ATTEMPT_RECORD_UNCONFIRMED')
+    return info.st_dev, info.st_ino, raw
+
+
+def require_grantable(client):
+    """Read-only IAM query; paginated, bounded and fail-closed, without retries."""
+    token, seen_tokens, seen_roles = None, set(), set()
+    for _ in range(20):
+        page = client.request('grantable-roles', page_token=token)
+        roles = page.get('roles', [])
+        if not isinstance(roles, list) or len(roles) > 200:
+            stop('GRANTABLE_ROLES_RESPONSE_UNCONFIRMED')
+        for role in roles:
+            name = role.get('name') if isinstance(role, dict) else None
+            if not isinstance(name, str) or not name or name in seen_roles:
+                stop('GRANTABLE_ROLES_RESPONSE_UNCONFIRMED')
+            seen_roles.add(name)
+        token = page.get('nextPageToken', '')
+        if not isinstance(token, str) or len(token) > 4096 or token in seen_tokens:
+            stop('GRANTABLE_ROLES_PAGINATION_UNCONFIRMED')
+        if not token:
+            if ROLE_NAME not in seen_roles:
+                stop('EXISTING_ROLE_NOT_GRANTABLE_ON_BUCKET_NO_MUTATION')
+            return
+        seen_tokens.add(token)
+    stop('GRANTABLE_ROLES_PAGE_LIMIT_NO_MUTATION')
+
+
+def complete_binding(directory):
+    """Complete only the reconciled 2026-10-14 role-present/binding-absent state."""
+    preflight()
+    original_marker = prior_attempt(directory)
+    identities = identity_and_project_policy()
+    client = Client(cloud('auth', 'print-access-token').decode('ascii').strip())
+    bucket = check_bucket(client.request('bucket'))
+    role = check_role(client.request('role'))
+    policy = check_policy(client.request('policy'), LEGACY)
+    require_grantable(client)
+    marker(directory, 'binding-completion-attempt.json')
+    # No custom-role write in this mode. Recheck every guard after journaling.
+    preflight()
+    require_grantable(client)
+    if (prior_attempt(directory) != original_marker or identity_and_project_policy() != identities
+            or check_bucket(client.request('bucket')) != bucket
+            or check_role(client.request('role')) != role or client.request('policy') != policy):
+        stop('COMPLETION_PREFLIGHT_CHANGED_NO_MUTATION')
+    emit('PREVIEW_V2_MEDIA_BINDING_COMPLETION_PREFLIGHT_PASSED', project=PROJECT,
+         existing_role_contract_verified=True, role_grantable_on_bucket=True)
+    check_policy(client.request('set-policy', policy=policy), LEGACY + [BINDING])
+    check_policy(client.request('policy'), LEGACY + [BINDING])
+    if (check_role(client.request('role')) != role or identity_and_project_policy() != identities
+            or check_bucket(client.request('bucket')) != bucket
+            or prior_attempt(directory) != original_marker):
+        stop('COMPLETION_POST_GRANT_STATE_CHANGED_RECONCILE')
+    emit('PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED', project=PROJECT, bucket=BUCKET,
+         role=ROLE_NAME, runtime_service_account=RUNTIME, permissions=PERMISSIONS,
+         object_prefix='media/', existing_role_unchanged=True, custom_role_created=False,
+         original_attempt_marker_preserved=True, role_grantable_on_bucket=True,
+         direct_conditional_binding_verified=True, legacy_bindings_preserved=True,
+         project_policy_unchanged=True, public_access_prevention='enforced',
+         uniform_bucket_level_access=True, cloud_iam_mutation=True,
+         bucket_configuration_mutation=False, secret_payload_access=False,
+         object_data_access=False, credential_values_printed=False,
+         firebase_rules_mutation=False, full_effective_iam_verified=False,
+         runtime_storage_access_verified=False, runtime_binding_configured=False,
+         application_deployed=False, floot_connected=False, source_commit=SOURCE_COMMIT,
+         evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+
+def run(apply=False, directory=None, complete=False):
     os.umask(0o077)
+    if complete:
+        if apply:
+            stop('MODE_CONFLICT')
+        return complete_binding(directory or Path.home() / 'khedmah-preview-v2-media-iam')
     preflight()
     identities = identity_and_project_policy()
     client = Client(cloud('auth', 'print-access-token').decode('ascii').strip())
@@ -293,9 +408,9 @@ def run(apply=False, directory=None):
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] not in (['--apply'], ['--inspect']):
-        stop('USE_APPLY_OR_INSPECT_ONLY')
+    if sys.argv[1:] not in (['--apply'], ['--inspect'], ['--complete-binding']):
+        stop('USE_APPLY_INSPECT_OR_COMPLETE_BINDING_ONLY')
     try:
-        run(apply=sys.argv[1] == '--apply')
+        run(apply=sys.argv[1] == '--apply', complete=sys.argv[1] == '--complete-binding')
     except (OSError, ValueError, TypeError, KeyError, AttributeError, KeyboardInterrupt):
         stop('LOCAL_OR_METADATA_FAILURE_RECONCILE_NO_BLIND_RETRY')
