@@ -6,7 +6,9 @@ After the deployed-origin correction and successful Maps rendering checks, the p
 
 The existing Floot project **`Khedma Business Desk`** was then inspected. It remains an independent B2B experience layer using Floot-managed **`FLOOT_DATABASE_URL`** and its own JWT/session model; it is not yet connected to the Khedmah Preview backend. Floot development documentation was updated and checkpointed with an explicit two-phase integration gate. No Floot publish, cloud secret/database connection, custom-domain change, Production mutation or application-data write occurred.
 
-**Next Safe Action:** implement only a fixed-upstream, read-only public Preview connectivity proof in Floot. It must forward no cookies, authorization headers, Firebase tokens, Floot credentials or secret payloads and perform no application-data write. Authenticated integration remains held until a reviewed same-site custom-domain topology or controlled server-adapter design proves Khedmah cookie/origin, CSRF, logout, expiry and revocation semantics without substituting the Floot session.
+The fixed-upstream Phase A proof is now implemented at `/_api/integrations/khedmah_preview_health`. A live Floot Preview-sandbox request returned HTTP 200 at **`2026-10-14T21:03:14.421Z`**, `connected=true`, `upstreamStatus=ok` and exact upstream version **`preview-pr-274-81cd97479040774cc36fb720cdb6f948348302dd`**. The endpoint forwards no cookies, authorization headers, Firebase tokens or Floot credentials; follows redirects manually; caps time/response size; sanitizes errors; and performs no database operation. Typecheck passed and Floot checkpoint **`Verified Preview health connection`** was created. No publish occurred.
+
+**Next Safe Action:** keep authenticated Floot integration held until a reviewed same-site custom-domain topology or controlled server-adapter design proves Khedmah cookie/origin, CSRF, logout, expiry and revocation semantics without substituting the Floot session. The observed free Floot plan has no custom domain.
 
 ## Deployed origin and both Google Maps surfaces verified — 2026-10-14
 
