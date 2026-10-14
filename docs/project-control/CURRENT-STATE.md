@@ -4,7 +4,23 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Backend Firebase secret staged — held source binding verified, media IAM read next — 2026-10-14
+### Media IAM inventory received — scoped runtime grant prepared, CI pending — 2026-10-14
+
+**Owner media IAM inspection is complete.** `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at **`2026-10-14T09:00:07Z`** verifies the existing bucket `khedmah-preview-v2-20261012.firebasestorage.app`, project number `1044962071847`, EUROPE-WEST1, public-access prevention **enforced** and uniform bucket-level access **enabled**. Direct bucket policy has exactly four legacy owner/editor/viewer bindings, etag `CAI=`; no runtime or public principal appears there. The filtered project policy contains only runtime `roles/cloudsql.client`. This establishes the observed direct-policy gap, not complete inherited/group/deny-policy IAM or a runtime access test. No object, credential or secret payload was read, and nothing changed. Do not repeat this completed manual inspection.
+
+**Prepared next action:** `scripts/configure-preview-v2-media-iam.py --apply`, blob **`a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4`**, SHA256 **`724a4b0d62dc2f295cf6274ddd8fc7f6dd48bce283f8ed8eadd1726f629787d2`**. The helper creates the fixed project-defined custom role `khedmahPreviewMediaObjects` with exactly **storage.objects.create / storage.objects.delete / storage.objects.get**. It grants that role only to the existing Preview runtime service account on this bucket, with both an object-type condition and the exact `media/` prefix. Defining a project-scoped role is not a project-wide role binding. No object list/update, bucket administration, service-account impersonation, public access or project policy grant is introduced.
+
+Fresh account/project/organization/runtime-identity, PAP/UBLA, role-absence, exact bucket baseline and runtime project-policy checks precede writes. The four existing legacy bindings are preserved; only one conditional binding is appended using policy version 3 and the observed **etag compare-and-set**. Rechecks detect changed role permissions, bucket configuration, runtime identity or project policy. A private durable attempt marker precedes both writes. Existing roles are never adopted/overwritten; no automatic retry/rollback/delete. An interrupted run can leave the newly created role without its bucket grant; return bounded output and reconcile with `--inspect`, which never authorizes retry. Token authentication remains private in memory; no key/secret values, objects, SQL, Firebase rules, bucket creation/configuration, application binding or deployment are accessed/changed.
+
+**Validation:** 22 offline Python lifecycle/transport/security cases passed through the Node wrapper; exact create/body/etag/condition, preservation, role/identity/public-policy drift, authentication overrides, denied reads, redirect rejection, concurrency and replay prevention were checked. Git diff check passed. Fresh exact-source GitHub CI is pending; the owner apply remains held until it is reviewed. No live media role/grant success or runtime access is claimed.
+
+Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 is open/unmerged at preparation parent `58d79e9c2b43a24cbb5eed75f9e6f52689edf79e`. Existing Firebase source binding/CI at `62e0d031544cc723970023e54635ec788079c132` remains preserved (2,628 pass / zero fail / one optional skip). Deployment runner and workflow holds are unchanged. The same five checkpoints retain all completed ledger rows and historical tails. No Production mutation, merge, deployment/cleanup release, migration/secret replay or email send.
+
+**After the owner grant receipt:** prepare and verify backend-only `GCS_MEDIA_BUCKET` wiring. It is deliberately not configured by this helper. Then reconcile the apply-capable schema-job modes with completed schema/runtime ACLs before any hold release. Actual runtime object create/read/delete and prefix-denial acceptance, Firebase secret startup/access, Google user sessions, DML, origins/Maps/mail and Floot remain separate gates; Taxi trips remain off.
+
+API contracts reviewed: [custom-role creation](https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.roles/create), [Storage conditional access](https://docs.cloud.google.com/storage/docs/access-control/iam#conditions), [bucket policy read version](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/getIamPolicy), [bucket policy update](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/setIamPolicy).
+
+### Historical checkpoint — Backend Firebase secret staged — held source binding verified, media IAM read next — 2026-10-14
 
 **Owner secret staging is complete; do not repeat key creation, secret staging or IAM grants.** `PREVIEW_V2_FIREBASE_SERVER_CONFIG_STAGED` at **`2026-10-14T08:34:59.350251+00:00`** confirms **`FIREBASE_API_KEY:1`** in the exact replacement project, fixed server key UID `7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`, API restrictions and existing browser preservation. Container/value were created; CRC32C and private value readback passed. Exact direct secret IAM was verified: runtime accessor and deployer metadata viewer. Key/secret payloads were accessed privately, never printed. This is owner execution of immutable helper `f714090cd4cdddf65040e647c2e950d1207a62cc`, not a new assistant cloud operation.
 
@@ -398,13 +414,10 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 open/unmerged. Verified source **`62e0d031544cc723970023e54635ec788079c132`**.
-- Test & Verify `38537207630`, Node CI `38537207726` and Google readiness `38537207811` succeeded: **2,628 pass / zero fail / one optional skip**. All twelve Firebase resolver cases, early-denial deployment regression and native PG16 grant regression passed. Artifact `11880253677`. Local focused suites: 37 pass.
-- Preview `38537207713` / deploy `115765146668` verified source/target/WIF/isolation, read RESEND v1 ENABLED at `2026-10-14T08:49:57.858Z` without payload access/mutation, then deliberately held. Schema/service rollout, review and cleanup skipped; Production secret gate skipped.
-- Owner backend secret **FIREBASE_API_KEY:1** is complete at **08:34:59 UTC**: private value/checksum and exact direct runtime/deployer IAM verified. Key/browser restrictions preserved; no printed credentials. Do not restage/regrant.
-- Preview backend source binding pins version 1 and requires enabled same-project metadata before mutation; frontend/build/migrator exposure excluded. The held workflow has not applied or live-tested this binding. Actual runtime secret access and user Google login remain pending.
-- Runtime database grants/login remain complete with exact 64/9/12 and 62 allowed/two denied zero-row probes. Next owner read is bucket configuration/direct IAM plus narrowly filtered project policy, before any durable-media grant/wiring proposal. Schema-job reconciliation, DML and final sessions/Maps/mail/Floot acceptance remain pending.
-- Final five-doc [skip ci] checkpoint preserves tested source, the complete ledger and history; no additional CI dispatch, merge or cloud rollout.
+- Live main remains bc5a5c7; sole PR #274 open/unmerged, preparation parent 58d79e9c. New media helper: 22 offline cases passed, new-source CI pending.
+- Previous source 62e0d031 remains verified by Test & Verify 38537207630, Node 38537207726 and Google readiness 38537207811: 2,628 pass / zero fail / one optional skip. Preview 38537207713 deliberately held; all workflow/deployment source bytes unchanged by this media pass.
+- Owner media inventory at 09:00:07 UTC is complete. Next cloud action after source validation is the fixed custom-role/conditional-bucket binding, not another inspection or completed secret/database operation.
+- FIREBASE_API_KEY:1 direct IAM/value and actual database runtime login remain complete. Full effective IAM, live secret/media access, user sessions and Floot are still pending.
 
 ### Completed replacement Preview work — do not replay
 
@@ -454,18 +467,19 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Backend Firebase metadata inventory | Owner output received `2026-10-14T10:40:22+03:00` (operation timestamp not emitted): fixed Preview project-number guard passed; filtered backend FIREBASE_API_KEY secret list [] and completion marker. Two recognizable existing browser key entries; pasted first JSON segment is interleaved and not certified as clean parsed inventory. No key-string/secret-payload read or mutation. Do not repeat this manual read; the prepared create helper independently checks complete fresh inventory before any write. |
 | Dedicated Firebase backend key | Owner `PREVIEW_V2_FIREBASE_SERVER_KEY_CREATED` at `2026-10-14T08:01:24.927478+00:00`: fixed key name `khedmah-preview-v2-firebase-server`, UID `7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`, Identity Toolkit API only; existing browser keys preserved. No key/secret payload access, credential output, secret container/value staging, IAM or runtime binding. Client/IP restrictions, request/login acceptance, deployment and Floot remain unverified. Do not recreate or rotate this key; private backend secret staging is next after source validation. |
 | Backend Firebase secret and direct IAM | Owner `PREVIEW_V2_FIREBASE_SERVER_CONFIG_STAGED` at `2026-10-14T08:34:59.350251+00:00`: FIREBASE_API_KEY version 1 created, enabled, private value and CRC32C verified; fixed server UID and browser restrictions preserved; exact direct runtime accessor and deployer metadata-viewer policy verified. Key/secret payload access private, no credential output. Full effective IAM, actual runtime access/binding, server request/login, deployment and Floot remain unverified. Do not repeat staging, IAM grants or key creation. |
+| Media bucket/runtime IAM inventory | Owner `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at `2026-10-14T09:00:07Z`: exact existing bucket/project/region, PAP enforced, UBLA enabled, four legacy direct bindings etag CAI=, runtime project binding cloudsql.client only in the filtered view. No direct runtime bucket binding/public principals observed; no object/secret/credential access or mutation. Limited inventory, not full effective IAM/runtime acceptance. Do not repeat the manual read. |
 
 ### Actual continuation and remaining work
 
-1. **Next owner action:** run the read-only media IAM inspection from NEXT-ACTION and review its actual output. Preview backend source binding passed fresh CI. Backend secret staging/direct IAM is complete.
-2. Review bucket/runtime policy evidence before preparing narrow durable-media permission and GCS_MEDIA_BUCKET wiring. Preserve PAP/UBLA/Firebase linkage/deny-all browser rules; do not recreate the bucket.
-3. Reconcile apply-capable schema-job modes with completed 001–034 contracts and runtime ACLs before releasing any Preview hold. Do not replay completed migrations/grants/credentials.
-4. After all release gates, a separately reviewed rollout must verify the runtime identity, pinned Firebase secret binding, startup/access and actual Google sessions. Source binding, secret-value readback and direct IAM do not prove runtime access or login.
-5. Runtime DML, origin/CORS/CSRF, Maps/mail/Floot acceptance remain pending. Taxi trips stay disabled; no Production mutation, merge or deployment/cleanup hold release.
+1. Validate the new scoped media-IAM helper through exact-source CI, then hand off its one pinned owner apply in NEXT-ACTION. The read-only inventory is complete; do not repeat it.
+2. After the owner custom-role/bucket-policy receipt, prepare backend-only GCS_MEDIA_BUCKET wiring and actual runtime media acceptance. Preserve PAP/UBLA/Firebase linkage/deny-all rules; do not recreate the bucket or broaden project access.
+3. Reconcile apply-capable schema jobs with completed 001–034 contracts/runtime ACLs before any Preview hold release. Never replay completed migrations, grants or secrets.
+4. A separately reviewed rollout after all gates must verify runtime identity, pinned Firebase binding, startup/access, actual Google sessions and media create/read/delete plus prefix denial. Source fixtures and direct-policy readback cannot replace runtime acceptance.
+5. Runtime DML, origin/CORS/CSRF, Maps/mail/Floot remain pending; Taxi trips disabled. No Production mutation, merge or deployment/cleanup release.
 
 ### Execution boundary and handoff discipline
 
-Backend key creation and private secret staging are completed by dated owner receipts. This pass prepares the held source binding and limited media-policy read only. New-source CI is verified; no runtime deployment, impersonation grant, live media access or user-login acceptance has occurred. Preserve all completed ledger rows and gates.
+The owner media inventory is recorded; the new helper prepares two bounded IAM writes only (custom-role creation and conditional bucket binding). Source tests are complete, cloud execution and fresh CI pending. Backend secret/grants/database login remain completed. Preserve every ledger row and earlier evidence; no background cloud work or runtime readiness is implied.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 

@@ -1,6 +1,32 @@
 # Next Safe Action — Khedmah
 
-## Backend Firebase secret staged — held source binding verified, media IAM read next — 2026-10-14
+## Media IAM inventory received — scoped runtime grant prepared, CI pending — 2026-10-14
+
+**Owner media IAM inspection is complete.** `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at **`2026-10-14T09:00:07Z`** verifies the existing bucket `khedmah-preview-v2-20261012.firebasestorage.app`, project number `1044962071847`, EUROPE-WEST1, public-access prevention **enforced** and uniform bucket-level access **enabled**. Direct bucket policy has exactly four legacy owner/editor/viewer bindings, etag `CAI=`; no runtime or public principal appears there. The filtered project policy contains only runtime `roles/cloudsql.client`. This establishes the observed direct-policy gap, not complete inherited/group/deny-policy IAM or a runtime access test. No object, credential or secret payload was read, and nothing changed. Do not repeat this completed manual inspection.
+
+**Prepared next action:** `scripts/configure-preview-v2-media-iam.py --apply`, blob **`a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4`**, SHA256 **`724a4b0d62dc2f295cf6274ddd8fc7f6dd48bce283f8ed8eadd1726f629787d2`**. The helper creates the fixed project-defined custom role `khedmahPreviewMediaObjects` with exactly **storage.objects.create / storage.objects.delete / storage.objects.get**. It grants that role only to the existing Preview runtime service account on this bucket, with both an object-type condition and the exact `media/` prefix. Defining a project-scoped role is not a project-wide role binding. No object list/update, bucket administration, service-account impersonation, public access or project policy grant is introduced.
+
+Fresh account/project/organization/runtime-identity, PAP/UBLA, role-absence, exact bucket baseline and runtime project-policy checks precede writes. The four existing legacy bindings are preserved; only one conditional binding is appended using policy version 3 and the observed **etag compare-and-set**. Rechecks detect changed role permissions, bucket configuration, runtime identity or project policy. A private durable attempt marker precedes both writes. Existing roles are never adopted/overwritten; no automatic retry/rollback/delete. An interrupted run can leave the newly created role without its bucket grant; return bounded output and reconcile with `--inspect`, which never authorizes retry. Token authentication remains private in memory; no key/secret values, objects, SQL, Firebase rules, bucket creation/configuration, application binding or deployment are accessed/changed.
+
+**Validation:** 22 offline Python lifecycle/transport/security cases passed through the Node wrapper; exact create/body/etag/condition, preservation, role/identity/public-policy drift, authentication overrides, denied reads, redirect rejection, concurrency and replay prevention were checked. Git diff check passed. Fresh exact-source GitHub CI is pending; the owner apply remains held until it is reviewed. No live media role/grant success or runtime access is claimed.
+
+Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 is open/unmerged at preparation parent `58d79e9c2b43a24cbb5eed75f9e6f52689edf79e`. Existing Firebase source binding/CI at `62e0d031544cc723970023e54635ec788079c132` remains preserved (2,628 pass / zero fail / one optional skip). Deployment runner and workflow holds are unchanged. The same five checkpoints retain all completed ledger rows and historical tails. No Production mutation, merge, deployment/cleanup release, migration/secret replay or email send.
+
+**After the owner grant receipt:** prepare and verify backend-only `GCS_MEDIA_BUCKET` wiring. It is deliberately not configured by this helper. Then reconcile the apply-capable schema-job modes with completed schema/runtime ACLs before any hold release. Actual runtime object create/read/delete and prefix-denial acceptance, Firebase secret startup/access, Google user sessions, DML, origins/Maps/mail and Floot remain separate gates; Taxi trips remain off.
+
+API contracts reviewed: [custom-role creation](https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.roles/create), [Storage conditional access](https://docs.cloud.google.com/storage/docs/access-control/iam#conditions), [bucket policy read version](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/getIamPolicy), [bucket policy update](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/setIamPolicy).
+
+### الأمر التالي محجوز حتى نجاح CI — لا تنفذه بعد
+
+ينشئ دورًا بثلاثة أذونات ويمنحه لحساب تشغيل Preview ضمن ملفات `media/` فقط، مع الحفاظ على السياسات الحالية.
+
+```bash
+( set -euo pipefail; umask 077; khedmah_media_grant_script="$(mktemp)"; trap 'rm -f -- "$khedmah_media_grant_script"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4 --jq '.content' | base64 --decode > "$khedmah_media_grant_script"; printf '%s  %s\n' '724a4b0d62dc2f295cf6274ddd8fc7f6dd48bce283f8ed8eadd1726f629787d2' "$khedmah_media_grant_script" | sha256sum --check --status; python3 "$khedmah_media_grant_script" --apply; )
+```
+
+النتيجة المتوقعة `PREVIEW_V2_MEDIA_IAM_CONFIGURED`. عند STOP أو غيابها لا تكرر الأمر؛ أرسل الناتج للمراجعة. ربط الحاوية بالتطبيق واختبار الملفات يأتي بعد إيصال المنح.
+
+## Historical checkpoint — Backend Firebase secret staged — held source binding verified, media IAM read next — 2026-10-14
 
 **Owner secret staging is complete; do not repeat key creation, secret staging or IAM grants.** `PREVIEW_V2_FIREBASE_SERVER_CONFIG_STAGED` at **`2026-10-14T08:34:59.350251+00:00`** confirms **`FIREBASE_API_KEY:1`** in the exact replacement project, fixed server key UID `7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`, API restrictions and existing browser preservation. Container/value were created; CRC32C and private value readback passed. Exact direct secret IAM was verified: runtime accessor and deployer metadata viewer. Key/secret payloads were accessed privately, never printed. This is owner execution of immutable helper `f714090cd4cdddf65040e647c2e950d1207a62cc`, not a new assistant cloud operation.
 
@@ -22,7 +48,7 @@ Preview `38537207713`: quality `115762887852` and staging-baseline resolution `1
 
 Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged. Final evidence/handoff changes **only the same five Markdown files with [skip ci]**, preserving the verified executable/test/workflow bytes, every completed ledger row and historical tails. No new CI dispatch, Production mutation, merge, deployment/cleanup release, SQL replay, credential rotation, cloud IAM mutation or mail send by this pass. The next cloud action is the limited owner metadata read; its live result is not yet available.
 
-### الأمر الحالي — قراءة صلاحيات تخزين ملفات Preview فقط
+### أمر تاريخي مكتمل — لا تكرر قراءة صلاحيات تخزين Preview
 
 حفظ مفتاح الخادم مكتمل، وربطه بالإصدار 1 جاهز في مصدر النشر الذي ما زال متوقفًا عند البوابة. نفّذ السطر التالي لقراءة إعدادات الحاوية وصلاحياتها المباشرة، مع صلاحيات حساب التشغيل والأطراف العامة على مستوى المشروع. لا يقرأ محتوى الملفات أو الأسرار، ولا يغيّر أي إعداد.
 
