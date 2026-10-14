@@ -1,12 +1,20 @@
 # Khedmah Digital — Current State
 
+## Google Preview session accepted; Floot integration gate prepared — 2026-10-14
+
+After the deployed-origin correction and successful Maps rendering checks, the project owner completed Google sign-in at the exact Preview origin and reported that the redirect returned successfully and all expected application content appeared. This is owner-reported positive browser acceptance for login, authenticated session establishment and data loading; credentials and token values were not shared or captured. Logout and session-expiry behavior remain separate acceptance checks.
+
+The existing Floot project **`Khedma Business Desk`** was then inspected. It remains an independent B2B experience layer using Floot-managed **`FLOOT_DATABASE_URL`** and its own JWT/session model; it is not yet connected to the Khedmah Preview backend. Floot development documentation was updated and checkpointed with an explicit two-phase integration gate. No Floot publish, cloud secret/database connection, custom-domain change, Production mutation or application-data write occurred.
+
+**Next Safe Action:** implement only a fixed-upstream, read-only public Preview connectivity proof in Floot. It must forward no cookies, authorization headers, Firebase tokens, Floot credentials or secret payloads and perform no application-data write. Authenticated integration remains held until a reviewed same-site custom-domain topology or controlled server-adapter design proves Khedmah cookie/origin, CSRF, logout, expiry and revocation semantics without substituting the Floot session.
+
 ## Deployed origin and both Google Maps surfaces verified — 2026-10-14
 
 Owner receipt **`PREVIEW_V2_DEPLOYED_ORIGIN_CONFIGURED`** at **`2026-10-14T20:49:38.024788Z`** confirms the exact short Cloud Run origin was added to the Firebase browser key, Maps browser key and Firebase Auth authorized domains. Both API-key operations completed, all 27 Firebase API targets and the Maps-only target were preserved, Google provider remained enabled and local sign-in settings were unchanged. The helper printed no credential/key/secret payload, performed no deployment and reported `production_mutation=false`. Do not repeat the apply.
 
 Fresh anonymous browser verification on the exact origin then loaded real Google Maps controls/data on both **`/map`** and **`/taxi`**. The previous loading placeholders cleared; `/map` exposed the Google map, fullscreen/view controls and Maps link, while `/taxi` exposed the route-planning map and the same Google controls. Browser console inspection showed no application error; two messages belonged only to the Cloud Browser Chrome extension. This verifies restriction propagation and map rendering, not location permission, route selection, user identity or application data.
 
-The public login page loads and exposes the enabled **“تسجيل الدخول عبر Google”** action; Facebook remains intentionally disabled. **Next Safe Action:** perform one user-approved Google sign-in in Preview and verify return origin, authenticated session and logout without writing application records. Do not enter credentials through repository scripts or chat. Floot connection follows successful session acceptance; Production, merge, email delivery and application-data writes remain held.
+The public login page loads and exposes the enabled **“تسجيل الدخول عبر Google”** action; Facebook remains intentionally disabled. The subsequent owner-driven sign-in succeeded as recorded above. Logout/session-expiry remain pending; Production, merge, email delivery and application-data writes remain held.
 
 ## Exact deployed-origin mismatch confirmed; bounded Preview repair prepared — 2026-10-14
 
