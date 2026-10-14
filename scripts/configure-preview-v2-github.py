@@ -61,7 +61,7 @@ SOURCE_BLOBS = {
     'scripts/deployment/verify-build-source-exclusions.mjs': '29150895fa985125ef8338b58660fab9bd24b669',
     'scripts/deployment/verify-preview-build-source-diagnostic.mjs': '0650521e634f1377511b7670e6ce85ec0b1ee6e5',
     'scripts/inspect-preview-v2-build-source.py': '2597eebfceb912f3ff6157cd181acb712a9e04bd',
-    'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs': '4884abdded2bcd8f88411699c1cd8654caa96007',
+    'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs': 'fbc6059d11143ca879519affc7c1c69106859aad',
     'scripts/deployment/read-preview-post-rollout-reconciliation.mjs': '00d79411314b112f8b4e619fe9f023846744eb0a',
     '.gcloudignore': '5915bc0f2c4c471bb77c0161110f44caaddeb096',
     '.gitignore': 'f01472294b6c6cfd847502f57ad2029e23047f18',

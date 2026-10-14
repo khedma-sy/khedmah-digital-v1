@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  FAILED_RECONCILIATION_JOB_ID, FAILED_RECONCILIATION_RUN_ID,
+  FAILED_RECONCILIATION_HEAD, FAILED_RECONCILIATION_JOB_ID, FAILED_RECONCILIATION_RUN_ID,
   RECONCILIATION_MESSAGE, RECONCILIATION_PARENT, REVIEWED_MAIN,
   ROLLOUT_DEPLOY_JOB_ID, ROLLOUT_MERGE, ROLLOUT_RUN_ID, ROLLOUT_SOURCE,
   ROLLOUT_SOURCE_PARENT, verifyPostRolloutSource,
@@ -37,7 +37,7 @@ const sourceResponses = () => [
       { name: 'Deploy isolated PR services', status: 'completed', conclusion: 'success' },
     ] },
   { id: FAILED_RECONCILIATION_RUN_ID, name: 'PR Preview', event: 'pull_request',
-    status: 'completed', conclusion: 'failure', run_attempt: 1, head_sha: RECONCILIATION_PARENT,
+    status: 'completed', conclusion: 'failure', run_attempt: 1, head_sha: FAILED_RECONCILIATION_HEAD,
     path: '.github/workflows/preview-deployment.yml', head_repository: { full_name: repo },
     pull_requests: [{ number: 274 }] },
   { id: FAILED_RECONCILIATION_JOB_ID, run_id: FAILED_RECONCILIATION_RUN_ID,

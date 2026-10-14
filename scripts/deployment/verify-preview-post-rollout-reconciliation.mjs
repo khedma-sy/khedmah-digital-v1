@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const RECONCILIATION_PARENT = '5de460744f50e0571aea33df02e528105ca593de';
+export const RECONCILIATION_PARENT = 'a9d3d2a18b9538a0551f8539b74c01f84f78bc95';
 export const RECONCILIATION_MESSAGE = 'chore(preview): diagnose rollout metadata mismatch read-only';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
 export const ROLLOUT_SOURCE = '676e3a8d97ed09e8335ceee2b547a5247f28be6b';
@@ -12,6 +12,7 @@ export const ROLLOUT_RUN_ID = 38609320607;
 export const ROLLOUT_DEPLOY_JOB_ID = 116011073615;
 export const FAILED_RECONCILIATION_RUN_ID = 38622535259;
 export const FAILED_RECONCILIATION_JOB_ID = 116053404169;
+export const FAILED_RECONCILIATION_HEAD = '5de460744f50e0571aea33df02e528105ca593de';
 
 const REPO = 'khedma-sy/khedmah-digital-v1';
 const ROLLOUT_MESSAGE = 'release(preview): execute reviewed rollout after source grant';
@@ -84,7 +85,7 @@ export function verifyPostRolloutSource(env, run = execFileSync) {
   if (failedRun.id !== FAILED_RECONCILIATION_RUN_ID || failedRun.name !== 'PR Preview'
       || failedRun.event !== 'pull_request' || failedRun.status !== 'completed'
       || failedRun.conclusion !== 'failure' || failedRun.run_attempt !== 1
-      || failedRun.head_sha !== RECONCILIATION_PARENT
+      || failedRun.head_sha !== FAILED_RECONCILIATION_HEAD
       || failedRun.path !== '.github/workflows/preview-deployment.yml'
       || failedRun.head_repository?.full_name !== REPO
       || !Array.isArray(failedRun.pull_requests) || failedRun.pull_requests.length !== 1
