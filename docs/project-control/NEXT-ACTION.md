@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## Replacement Preview is live — reconcile read-only before origin repair — 2026-10-14
+
+Run **`38609320607`** deployed the replacement Preview successfully from source **`676e3a8d97ed09e8335ceee2b547a5247f28be6b`**; deploy job **`116011073615`** passed all 11 Builds, nine verify-only schema jobs, backend/frontend deployment, health/readiness, Classifieds smoke and credentialed CORS. Do **not** rerun this workflow: its first-attempt gate is consumed, and the current services/jobs are intentionally nonempty. Every Cloud Shell grant/migration/secret command below is historical and must not be repeated.
+
+The overall Preview run failed only in browser evidence. Artifact **`11918369949`** proves 48/64 primary scenarios passed; all 16 failures are `/map` or `/taxi`. Review used origin **`https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app`**, which differs from the previously allowlisted planned long-form origin. Classifieds passed **200/200/200**; the extended audit reached 31 passing scenarios before the job timeout.
+
+**Next action is repository-controlled; no Cloud Shell command is needed yet.** Prepare and publish one exact, one-time read-only reconciliation source that pins rollout source `676e3a8`, deployment tag SHA `81cd974`, run `38609320607` and deploy job `116011073615`. It must verify 11 successful Builds, exactly two healthy services and final revisions, nine jobs with successful terminal latest executions, Preview identities/configuration, anonymous health/root and CORS. It must explicitly authorize no rollout replay, cleanup, Production access, secret/object/database payload access or acceptance write. After its receipt, prepare a separate owner metadata inspection for the exact deployed origin versus Maps key referrers, Firebase browser-key referrers and Firebase authorized domains. Only an exact mismatch may lead to a narrowly scoped Preview-only correction.
+
+Positive Google login/session, runtime media/DML, email delivery and Floot integration remain held. Do not merge PR274 or alter Production/DNS/custom domains.
+
 ## Source-bucket repair verified under deployer — bounded rollout next — 2026-10-14
 
 The owner grant receipt at **2026-10-14T17:10:39.427332Z** and deployer readback at **2026-10-14T17:36:21.602836Z** complete the source-bucket repair. Preview deployer metadata access is verified; current service/job/build inventories are empty. Full policy/audit visibility remains intentionally unclaimed. Do not repeat the grant or diagnostic.

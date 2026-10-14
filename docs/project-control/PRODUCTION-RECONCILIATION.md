@@ -1,5 +1,11 @@
 # Production reconciliation — evidence before an operation
 
+## Replacement Preview deployed; Production remains untouched — 2026-10-14
+
+Preview run **`38609320607`**, deploy job **`116011073615`**, successfully created eleven Preview Builds, nine verify-only schema jobs/executions and two Cloud Run services in **`khedmah-preview-v2-20261012`**. Backend final revision `00002-9dn` and frontend revision `00001-k5m` reported 100% traffic; health/readiness, frontend root, CORS and Classifieds smoke passed. Production project **`khedma-dl`** appeared only as a rejection/separation guard. Google Production readiness's secret gate skipped; no Production credential, IAM, workload, database, data or release mutation occurred.
+
+The subsequent anonymous browser review failed Maps readiness for the 16 `/map` and `/taxi` variants and timed out later; it did not invoke Production. The proven review origin differs from the previously planned browser allowlist origin. Next is a Preview-only read-only reconciliation of exact Builds/services/jobs/executions and origins, followed by a separate metadata inspection of Preview Maps/Firebase restrictions. No rollout replay, Production comparison write, merge, DNS/custom-domain change, Floot connection or Production release is authorized.
+
 ## Preview source-bucket repair verified; Production unchanged — 2026-10-14
 
 Owner receipt at **2026-10-14T17:10:39.427332Z** confirms the exact bucket-scoped `roles/storage.bucketViewer` grant to the dedicated Preview deployer. Authenticated deployer readback **`f391f68`**, job **`116003740725`**, then verified exact bucket metadata access at **17:36:21.602836Z** with no cloud mutation or deployment. Services/jobs and the relevant Build window were complete and empty; policy/audit visibility remained denied and is not represented as full effective-IAM evidence.

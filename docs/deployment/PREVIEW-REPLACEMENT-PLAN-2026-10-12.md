@@ -1,5 +1,13 @@
 # Preview replacement plan — 2026-10-12
 
+## Replacement Preview deployed — post-rollout and origin readback next — 2026-10-14
+
+Source **`676e3a8d97ed09e8335ceee2b547a5247f28be6b`** completed the guarded rollout in run **`38609320607`**, deploy job **`116011073615`**. Eleven Builds and nine verify-only schema executions succeeded. Backend final revision **`khedmah-pr-274-backend-00002-9dn`** and frontend **`khedmah-pr-274-frontend-00001-k5m`** serve 100% traffic; health, ready, root, CORS and Classifieds smoke passed. The schema wrappers returned success in verify mode, but their internal `ALREADY` text was not streamed, so postconditions—not literal log markers—are the current claim.
+
+Browser artifact **`11918369949`** records 48/64 primary scenarios passed and all 16 Maps-dependent `/map`/`/taxi` scenarios failed. Review used the short service origin **`https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app`**, not the long-form origin used when the Preview Maps/Firebase restrictions were staged. Classifieds passed page/proxy/backend 200; the broader audit reached 31 passing scenarios before timeout. No positive authentication, media/DML, email or Floot test occurred.
+
+Next: one exact read-only reconciliation job pins both the rollout PR head and its merge/tag SHA, verifies the 11 Builds, two final services, nine jobs/latest executions and HTTP/CORS, and authorizes no mutation. Then inspect the exact short origin against current Preview Maps and Firebase restrictions before a separate, narrow correction. Do not rerun the rollout, replay completed schema/IAM/secret work, merge, clean up, or touch Production/Floot.
+
 ## Source-bucket repair verified under deployer — bounded rollout next — 2026-10-14
 
 The owner completed the narrow grant at **2026-10-14T17:10:39.427332Z**. It added only bucket-scoped `roles/storage.bucketViewer` for the dedicated Preview deployer and preserved object bindings, PAP and UBLA. Do not repeat it.
