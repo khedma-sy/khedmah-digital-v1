@@ -1,5 +1,17 @@
 # Next Safe Action — Khedmah
 
+## Add only the proven deployed Preview origin — 2026-10-14
+
+The successful read-only rollout reconciliation and owner metadata inspection prove one exact gap: **`https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app`** is not allowed by the Firebase browser key, Maps browser key or Firebase Auth domains. Existing long-form Preview/Firebase origins, all 27 Firebase API targets, the Maps-only API target, Google provider and local sign-in settings must be preserved.
+
+Run the checksum-pinned helper below **once** in the owner Cloud Shell. It is restricted to project `khedmah-preview-v2-20261012`; it uses etag CAS for both API keys, bounded operation reads and exact pre/post inventories. It adds only the short Cloud Run origin, never reads key strings or secret payloads, and does not deploy, access application data, send mail, touch Production or connect Floot. Require final stage `PREVIEW_V2_DEPLOYED_ORIGIN_CONFIGURED`. If it stops or the final stage is missing, return the output and do not retry blindly.
+
+```bash
+( set -euo pipefail; umask 077; export CLOUDSDK_CORE_DISABLE_PROMPTS=true CLOUDSDK_CORE_LOG_HTTP=false CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true; khedmah_origin_apply="$(mktemp)"; trap 'rm -f -- "$khedmah_origin_apply"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/961be83c606424bb1ac8d0e6ee1fb40446760006 --jq '.content' | base64 --decode > "$khedmah_origin_apply"; printf '%s  %s\n' 'fdac37018af14daaa05acdfee3efa6ad231962660724257a66ee24e68c18ba3a' "$khedmah_origin_apply" | sha256sum --check --status; python3 "$khedmah_origin_apply" --apply; )
+```
+
+After the receipt: perform browser-level Maps propagation/render verification on the exact short origin, then a user-driven Google login/session check. Runtime media/DML, mail delivery and Floot integration remain separate gates. Do not merge PR274 or alter Production/DNS/custom domains.
+
 ## Replacement Preview is live — reconcile read-only before origin repair — 2026-10-14
 
 Run **`38609320607`** deployed the replacement Preview successfully from source **`676e3a8d97ed09e8335ceee2b547a5247f28be6b`**; deploy job **`116011073615`** passed all 11 Builds, nine verify-only schema jobs, backend/frontend deployment, health/readiness, Classifieds smoke and credentialed CORS. Do **not** rerun this workflow: its first-attempt gate is consumed, and the current services/jobs are intentionally nonempty. Every Cloud Shell grant/migration/secret command below is historical and must not be repeated.

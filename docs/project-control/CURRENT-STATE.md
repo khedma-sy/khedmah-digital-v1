@@ -1,5 +1,15 @@
 # Khedmah Digital — Current State
 
+## Exact deployed-origin mismatch confirmed; bounded Preview repair prepared — 2026-10-14
+
+Post-rollout reconciliation job **`116081665730`** succeeded at **`2026-10-14T20:18:45.456Z`** and verified the exact 11 Builds, two final Cloud Run services/revisions/traffic/identities/configuration, nine successful latest job executions, backend health/readiness, frontend root and credentialed CORS. It performed no mutation or payload/application-data access. The original rollout must not be replayed.
+
+Owner metadata receipt at **`2026-10-14T20:40:47.637920Z`** confirms the actual deployed origin **`https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app`** is absent from all three browser controls: Firebase browser-key referrers, Maps browser-key referrers and Firebase Auth authorized domains. Existing API target allowlists, Google provider enabled state and disabled local sign-in methods were observed. This is the proven cause boundary for the `/map` and `/taxi` browser failures; login and map rendering are still unverified.
+
+Implementation **`2c37fe994ebc0d2739470299e1b268f629dddc9b`** adds a single Preview-only reconciliation helper. It accepts only the exact observed pre-state or exact desired post-state, preserves the Firebase 27-service allowlist and Maps-only target, uses API-key etag CAS and bounded operation polling, adds only the exact short origin/referrers, preserves Auth sign-in state and Google provider, and reads no key/secret payload. **65 focused offline tests passed** across the new helper and retained Auth/Firebase/Maps suites. No Production, deployment, data, mail, login or Floot action occurred.
+
+**Next Safe Action:** owner runs the one checksum-pinned `--apply` command in `NEXT-ACTION.md` once and returns the JSON receipts. Any missing final receipt requires reconciliation, never blind retry. After `PREVIEW_V2_DEPLOYED_ORIGIN_CONFIGURED`, verify browser propagation/map rendering, then Google login/session; Floot follows those gates.
+
 ## Reconciled continuation — completed work preserved — 2026-10-13
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
