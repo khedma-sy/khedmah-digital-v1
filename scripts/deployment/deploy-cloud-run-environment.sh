@@ -49,6 +49,8 @@ frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${
 backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_ACCESS_ENABLED=true,TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
 backend_secret_bindings="$APPLICATION_DATABASE_SECRET_BINDING"
 if [[ "$environment" == "preview" ]]; then
+  preview_firebase_binding="$(DEPLOYMENT_ENVIRONMENT=preview node scripts/deployment/resolve-preview-firebase-config.mjs)"
+  backend_secret_bindings+=",${preview_firebase_binding}"
   preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
   if [[ -n "$preview_email_from" ]]; then
     backend_runtime_env+=",EMAIL_FROM=${preview_email_from}"
