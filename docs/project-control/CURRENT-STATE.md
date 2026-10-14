@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Media IAM apply stopped — existing role observed, read-only reconciliation next — 2026-10-14
+### Media IAM reconciliation complete — role valid, bucket grant absent; audit error read next — 2026-10-14
+
+**Owner reconciliation is complete; do not repeat it or retry apply.** `PREVIEW_V2_MEDIA_IAM_RECONCILIATION_READ` at **`2026-10-14T09:32:11.107607+00:00`** reports **`custom_role_present=true`** and **`expected_direct_binding_present=false`** for the exact replacement Preview bucket. In immutable helper blob `a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4` / SHA256 `724a4b0d62dc2f295cf6274ddd8fc7f6dd48bce283f8ed8eadd1726f629787d2`, successful `--inspect` means the existing role passed the exact name/title/description/stage/three-permission contract and the bucket policy matched the original four legacy bindings. Project/account/runtime identity and bucket PAP/UBLA guards also passed. This is completed current-state metadata evidence, not a completed bucket grant or runtime storage-access test.
+
+The receipt explicitly retains `cloud_mutation=false`, `object_data_access=false`, `secret_payload_access=false`, `credential_values_printed=false`, `retry_authorized=false`, and unverified full effective IAM/runtime storage access. Application deployment and Floot remain false. Earlier interleaved Bash/404 errors are not failures of this successful final read. The role is already present and must not be recreated; preserve the durable attempt marker.
+
+**Unresolved blocker:** the original apply stopped at HTTP 400 without identifying its rejected request or returning structured error metadata. Current role/bucket state does not establish the historical request/error cause. Do not infer a rollback, grant completion, API propagation fault or policy defect from this receipt alone.
+
+**Next owner action: the bounded Cloud Audit Logs read in NEXT-ACTION.** It targets only this Preview project's Cloud Storage Admin Activity entries for this exact bucket, **2026-10-14 09:00:00Z through before 09:33:00Z**, with a maximum of **20** entries in ascending timestamp order. Output projection is only timestamp, method, resource name and status code/message; no full request/response, authentication details, object data or credential/secret payload. An explicit project/account and disabled prompts/HTTP/file logging are used; there is no cloud mutation. No method-name assumption filters away alternate Storage audit names. Empty/denied output is not proof that no request occurred and never authorizes retry; a full 20-entry result may require a narrower follow-up. The completion marker means only the read command completed. [gcloud read contract](https://docs.cloud.google.com/sdk/gcloud/reference/logging/read); [Storage audit identity/resource contract](https://docs.cloud.google.com/storage/docs/audit-logging).
+
+**Live GitHub:** protected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at reconciliation parent **`2fa8673bf7d432fb3311d449fe62819840a9fe21`**. Executable implementation **`fbc4ac49d0a6bcd87257a84d50299b0b38ee85e8`** unchanged. Test & Verify `38540424830`, Node `38540424761`, Google readiness `38540424769` succeeded: **2,629 pass / zero fail / one optional skip**; artifact `11882506507` and prior validation remain preserved. Preview `38540424805` deliberately stopped at the mail-metadata hold; rollout, Production gate and cleanup remain skipped. Source tests do not prove cloud API acceptance.
+
+Only the same five Markdown checkpoints change with **[skip ci]**; no executable/workflow edit or new CI dispatch. Launcher shell syntax and diff checks passed; completed ledger rows and historical tails are preserved. No direct assistant cloud execution, merge or deployment release. Review the actual diagnostic output before preparing any correction limited to the unfinished bucket binding. Backend `GCS_MEDIA_BUCKET` wiring, schema-job reconciliation and runtime media/secret/session/DML/origin/Maps/mail/Floot acceptance remain pending. Taxi trips and Production/deployment holds remain closed.
+
+### Historical checkpoint — Media IAM apply stopped — reconciliation subsequently completed — 2026-10-14
 
 **Hold media apply; do not retry, delete the attempt marker or recreate/adopt the role.** Owner output received **2026-10-14T12:27:35+03:00** shows `PREVIEW_V2_MEDIA_IAM_PREFLIGHT_PASSED` followed by **`STOP: HTTP_400_RECONCILE_NO_BLIND_RETRY`** from helper blob `a92f91c1e0d9faa20a75a0d2bd74c4681df2d4d4`. The response does not name the failed request or include a structured error body. There is no final `PREVIEW_V2_MEDIA_IAM_CONFIGURED` receipt. The original role-create/bucket-grant outcome and the exact HTTP-400 cause are not yet established. The `09:00:07Z` timestamp pasted above the attempt belongs to the earlier read, not this mutation attempt.
 
@@ -430,11 +444,11 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main remains bc5a5c7; sole PR #274 open/unmerged at reconciliation parent 1488a2ba. Executable source fbc4ac49 is unchanged.
-- Test & Verify 38540424830, Node 38540424761 and Google readiness 38540424769 succeeded: 2,629 pass / zero fail / one optional skip. Artifact 11882506507 and all previous evidence are preserved. These are source tests, not cloud API acceptance.
+- Main remains bc5a5c7; sole PR #274 open/unmerged at reconciliation parent 2fa8673b. Executable source fbc4ac49 is unchanged.
+- Test & Verify 38540424830, Node 38540424761 and Google readiness 38540424769 succeeded: 2,629 pass / zero fail / one optional skip. Artifact 11882506507 and all previous evidence are preserved; source tests are not cloud API acceptance.
 - Preview 38540424805 remains deliberately held; schema/services/review/cleanup and Production gate skipped.
-- Owner media apply returned HTTP 400 after preflight; a later apply stopped on role already present before mutation. No final grant receipt. Exact rejected request/cause and binding state remain unresolved.
-- Next action is the existing helper's --inspect metadata-only reconciliation, not any apply or completed inventory replay. Same five-doc [skip ci] checkpoint only; no new tests/dispatch, cloud execution, merge or release.
+- Owner read at 09:32:11.107607Z verifies the exact existing media role and original bucket policy with the desired binding absent. Reconciliation is complete; original HTTP-400 request/cause remains unresolved. No completed grant or retry authorization.
+- Next action is a bounded, projected Storage Admin Activity read for the exact bucket/time window. Same five-doc [skip ci] checkpoint only; no new tests/dispatch, executable edit, cloud execution, merge or release.
 
 ### Completed replacement Preview work — do not replay
 
@@ -485,18 +499,19 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Dedicated Firebase backend key | Owner `PREVIEW_V2_FIREBASE_SERVER_KEY_CREATED` at `2026-10-14T08:01:24.927478+00:00`: fixed key name `khedmah-preview-v2-firebase-server`, UID `7b8dabee-f3ce-4392-b1f4-ac13e208fd1e`, Identity Toolkit API only; existing browser keys preserved. No key/secret payload access, credential output, secret container/value staging, IAM or runtime binding. Client/IP restrictions, request/login acceptance, deployment and Floot remain unverified. Do not recreate or rotate this key; private backend secret staging is next after source validation. |
 | Backend Firebase secret and direct IAM | Owner `PREVIEW_V2_FIREBASE_SERVER_CONFIG_STAGED` at `2026-10-14T08:34:59.350251+00:00`: FIREBASE_API_KEY version 1 created, enabled, private value and CRC32C verified; fixed server UID and browser restrictions preserved; exact direct runtime accessor and deployer metadata-viewer policy verified. Key/secret payload access private, no credential output. Full effective IAM, actual runtime access/binding, server request/login, deployment and Floot remain unverified. Do not repeat staging, IAM grants or key creation. |
 | Media bucket/runtime IAM inventory | Owner `PREVIEW_V2_MEDIA_IAM_READ_COMPLETED_NO_MUTATION` at `2026-10-14T09:00:07Z`: exact existing bucket/project/region, PAP enforced, UBLA enabled, four legacy direct bindings etag CAI=, runtime project binding cloudsql.client only in the filtered view. No direct runtime bucket binding/public principals observed; no object/secret/credential access or mutation. Limited inventory, not full effective IAM/runtime acceptance. Do not repeat the manual read. |
+| Media IAM post-attempt reconciliation | Owner `PREVIEW_V2_MEDIA_IAM_RECONCILIATION_READ` at `2026-10-14T09:32:11.107607+00:00`: exact custom-role contract verified present; original four bucket bindings verified with intended runtime binding absent. No object/secret access or cloud mutation; no full effective IAM/runtime access or retry authorization. Current-state read complete, not grant completion. Do not repeat it or recreate the role; diagnose the original HTTP 400 from bounded audit metadata next. |
 
 ### Actual continuation and remaining work
 
-1. Owner runs the pinned --inspect reconciliation in NEXT-ACTION. Media apply is stopped after HTTP 400; a later retry observed the role present and exited before writing. Do not rerun apply, delete markers, recreate/adopt the role or broaden permissions.
-2. Review actual role/bucket-binding state, then identify the rejected API operation/cause before preparing any bounded correction for the unfinished operation. No media grant success is recorded.
-3. After a verified grant receipt, prepare backend-only GCS_MEDIA_BUCKET wiring and actual runtime media acceptance. Preserve PAP/UBLA/Firebase linkage/deny-all rules and existing bindings.
-4. Reconcile apply-capable schema jobs with completed schema/runtime ACLs before any release. Never replay completed migrations, grants or secrets. Future rollout must separately verify runtime identity, pinned Firebase secret/startup, Google sessions and media create/read/delete/prefix denial.
+1. Owner runs the projected audit-log read in NEXT-ACTION for the exact Preview bucket and 09:00–09:33 UTC attempt window. Successful 09:32 reconciliation already verifies role present and bucket binding absent; do not repeat it.
+2. Review the original rejected request/error before preparing a correction limited to the unfinished bucket binding. Empty/denied logs do not authorize retry. Preserve the role/attempt marker, exact permissions, original bindings, PAP/UBLA and deny-all browser rules.
+3. After a verified grant receipt, prepare backend-only GCS_MEDIA_BUCKET wiring and actual runtime media acceptance.
+4. Reconcile apply-capable schema jobs with completed schema/runtime ACLs before any release. Never replay completed migrations, grants or secrets. Future rollout must verify runtime identity, pinned Firebase secret/startup, Google sessions and media create/read/delete/prefix denial.
 5. DML, origin/CORS/CSRF, Maps/mail/Floot remain pending; Taxi trips disabled. Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-Only the next diagnostic read is handed off. This documentation pass neither retries nor repairs the cloud mutation. Preserve all completed evidence, the durable attempt marker and current cloud resources until reconciliation. The old apply launcher is historical and must not be executed.
+Only the next bounded diagnostic read is handed off. This pass records completed metadata reconciliation; it does not retry or repair the cloud mutation. Preserve completed evidence, the durable attempt marker and current cloud resources. Prior apply and completed inspection launchers are historical and must not be executed.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
