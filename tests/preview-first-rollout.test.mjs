@@ -31,7 +31,11 @@ test('first rollout refuses any existing service/job or unconfirmed version/pool
  for(const patch of [{service_count:1},{job_inventory:{job_count:1,oldest_jobs:[]}},{required_secrets:[...inventory.required_secrets.slice(1),{staged_version_1_enabled_and_latest:false}]},{schema_slots:inventory.schema_slots.slice(1)}])assert.throws(()=>requireEmptyFirstRolloutInventory({...inventory,...patch}));
 });
 test('workflow source decision precedes OIDC; fresh empty inventory precedes pool checks and all cloud mutations',()=>{
- const s=readFileSync('.github/workflows/preview-deployment.yml','utf8');
+ const workflow=readFileSync('.github/workflows/preview-deployment.yml','utf8');
+ const start=workflow.indexOf('  deploy-preview:');
+ const end=workflow.indexOf('\n  resolve-staging-baseline:',start);
+ assert.ok(start>0&&end>start);
+ const s=workflow.slice(start,end);
  const gate=s.indexOf('run: node scripts/deployment/verify-preview-first-rollout.mjs --source');
  const auth=s.indexOf('uses: google-github-actions/auth@v3');
  const inventory=s.indexOf('node scripts/deployment/verify-preview-first-rollout.mjs --inventory');

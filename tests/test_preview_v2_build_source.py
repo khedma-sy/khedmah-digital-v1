@@ -17,13 +17,16 @@ spec.loader.exec_module(reader)
 class BuildSourceReadTests(unittest.TestCase):
     def fake(self, cmd, **kwargs):
         self.calls.append(cmd)
-        self.assertIn('--account=' + reader.ACCOUNT, cmd)
+        self.assertIn('--account=' + self.expected_account, cmd)
         if cmd[1:4] == ['iam', 'roles', 'describe']:
             self.assertNotIn('--project=' + reader.PROJECT, cmd)
             self.assertIn('--billing-project=' + reader.PROJECT, cmd)
         else:
             self.assertIn('--project=' + reader.PROJECT, cmd)
-        self.assertEqual(kwargs['env']['CLOUDSDK_CORE_PROJECT'], reader.PROJECT)
+        if cmd[1:4] == ['iam', 'roles', 'describe']:
+            self.assertNotIn('CLOUDSDK_CORE_PROJECT', kwargs['env'])
+        else:
+            self.assertEqual(kwargs['env']['CLOUDSDK_CORE_PROJECT'], reader.PROJECT)
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_DISABLE_PROMPTS'], 'true')
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_LOG_HTTP'], 'false')
         self.assertEqual(kwargs['env']['CLOUDSDK_CORE_DISABLE_FILE_LOGGING'], 'true')
@@ -57,11 +60,12 @@ class BuildSourceReadTests(unittest.TestCase):
         self.calls = []
         self.foreign = False
         self.denied = False
+        self.expected_account = reader.OWNER_ACCOUNT
 
-    def execute(self):
+    def execute(self, actions=False):
         output = io.StringIO()
         with patch.dict(os.environ, {}, clear=True), patch.object(reader.subprocess, 'run', self.fake), contextlib.redirect_stdout(output):
-            reader.inspect()
+            reader.inspect(actions=actions)
         return output.getvalue(), [json.loads(line) for line in output.getvalue().splitlines()]
 
     def test_happy_path_is_metadata_only_and_redacts_unrelated_policy(self):
@@ -105,10 +109,33 @@ class BuildSourceReadTests(unittest.TestCase):
                 reader.inspect()
         self.assertEqual(self.calls, [])
 
+    def test_actions_mode_requires_exact_context_and_generated_credential_path(self):
+        environment = {
+            'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'khedma-sy/khedmah-digital-v1',
+            'GITHUB_EVENT_NAME': 'pull_request', 'GITHUB_REF': 'refs/pull/274/merge',
+            'GITHUB_RUN_ATTEMPT': '1', 'PREVIEW_PR_NUMBER': '274',
+            'PREVIEW_EVENT_ACTION': 'synchronize', 'PREVIEW_GOOGLE_CLOUD_PROJECT': reader.PROJECT,
+            'PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT': reader.DEPLOYER_ACCOUNT,
+            'GOOGLE_GHA_CREDS_PATH': '/tmp/gha-creds-inert.json',
+            'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE': '/tmp/gha-creds-inert.json',
+        }
+        output = io.StringIO()
+        def actions_fake(cmd, **kwargs):
+            return self.fake(cmd, **kwargs)
+        self.expected_account = reader.DEPLOYER_ACCOUNT
+        with patch.dict(os.environ, environment, clear=True), patch.object(reader.subprocess, 'run', actions_fake), contextlib.redirect_stdout(output):
+            reader.inspect(actions=True)
+        self.assertIn('PREVIEW_V2_BUILD_SOURCE_RECONCILIATION_READ_COMPLETED', output.getvalue())
+        for changed in ({**environment, 'GITHUB_RUN_ATTEMPT': '2'},
+                        {**environment, 'GOOGLE_GHA_CREDS_PATH': '/tmp/foreign.json'}):
+            with patch.dict(os.environ, changed, clear=True), patch.object(reader.subprocess, 'run', lambda *a, **k: self.fail('cloud read')):
+                with self.assertRaises(SystemExit):
+                    reader.inspect(actions=True)
+
     def test_full_page_is_not_complete_inventory(self):
         output = io.StringIO()
         with patch.object(reader, 'cloud', return_value=({'outcome': 'OK'}, [{}] * 31)), contextlib.redirect_stdout(output):
-            complete = reader.bounded_list('TEST', ('logging', 'read'), 'timestamp', 31)
+            complete = reader.bounded_list('TEST', ('logging', 'read'), 'timestamp', 31, reader.OWNER_ACCOUNT)
         self.assertFalse(complete)
         self.assertFalse(json.loads(output.getvalue())['inventory_complete'])
 

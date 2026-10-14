@@ -9,10 +9,11 @@ import subprocess
 
 PROJECT = 'khedmah-preview-v2-20261012'
 NUMBER = '1044962071847'
-ACCOUNT = 'haifawi30@gmail.com'
+OWNER_ACCOUNT = 'haifawi30@gmail.com'
+DEPLOYER_ACCOUNT = 'khedmah-pv2-deployer@' + PROJECT + '.iam.gserviceaccount.com'
 REGION = 'europe-west1'
 BUCKET = PROJECT + '-cloudbuild-source'
-DEPLOYER = 'khedmah-pv2-deployer@' + PROJECT + '.iam.gserviceaccount.com'
+DEPLOYER = DEPLOYER_ACCOUNT
 BUILD = 'khedmah-pv2-build@' + PROJECT + '.iam.gserviceaccount.com'
 MEMBERS = {'serviceAccount:' + DEPLOYER, 'serviceAccount:' + BUILD,
            'allUsers', 'allAuthenticatedUsers'}
@@ -31,15 +32,18 @@ def stop(code):
     raise SystemExit('STOP: ' + code)
 
 
-def cloud(*args, fields=None, plain=False):
+def cloud(*args, fields=None, plain=False, account=OWNER_ACCOUNT):
     env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS='true',
                CLOUDSDK_CORE_LOG_HTTP='false', CLOUDSDK_CORE_DISABLE_FILE_LOGGING='true',
                CLOUDSDK_CORE_USER_OUTPUT_ENABLED='true', CLOUDSDK_CORE_PROJECT=PROJECT, LC_ALL='C')
-    # For predefined roles, --project selects a custom-role namespace. Keep that
-    # flag off this global metadata read; quota remains pinned to Preview.
+    # For predefined roles, --project (including its core/project fallback)
+    # selects a custom-role namespace. Keep both off this global metadata read;
+    # quota remains pinned to Preview with --billing-project.
     predefined = args[:3] == ('iam', 'roles', 'describe')
+    if predefined:
+        env.pop('CLOUDSDK_CORE_PROJECT', None)
     scope = '--billing-project=' + PROJECT if predefined else '--project=' + PROJECT
-    command = ['gcloud', *args, scope, '--account=' + ACCOUNT,
+    command = ['gcloud', *args, scope, '--account=' + account,
                '--user-output-enabled', '--verbosity=error']
     if not plain:
         command.append('--format=json' + (('(' + fields + ')') if fields else ''))
@@ -83,8 +87,8 @@ def selected_policy(data):
             'full_effective_iam_verified': False}
 
 
-def bounded_list(stage, args, fields, limit):
-    result, data = cloud(*args, '--limit=' + str(limit), fields=fields)
+def bounded_list(stage, args, fields, limit, account):
+    result, data = cloud(*args, '--limit=' + str(limit), fields=fields, account=account)
     if data is not None and not isinstance(data, list):
         result, data = {'outcome': 'INVALID_METADATA'}, None
     complete = data is not None and len(data) < limit
@@ -93,17 +97,38 @@ def bounded_list(stage, args, fields, limit):
     return complete
 
 
-def inspect():
+def inspect(actions=False):
+    account = DEPLOYER_ACCOUNT if actions else OWNER_ACCOUNT
+    if actions:
+        expected = {
+            'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'khedma-sy/khedmah-digital-v1',
+            'GITHUB_EVENT_NAME': 'pull_request', 'GITHUB_REF': 'refs/pull/274/merge',
+            'GITHUB_RUN_ATTEMPT': '1', 'PREVIEW_PR_NUMBER': '274',
+            'PREVIEW_EVENT_ACTION': 'synchronize', 'PREVIEW_GOOGLE_CLOUD_PROJECT': PROJECT,
+            'PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT': DEPLOYER_ACCOUNT,
+        }
+        if any(os.environ.get(key) != value for key, value in expected.items()):
+            stop('ACTIONS_CONTEXT_HELD')
+        credential = os.environ.get('GOOGLE_GHA_CREDS_PATH', '')
+        if (not re.search(r'(^|/)gha-creds-[^/]+[.]json$', credential)
+                or os.environ.get('CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE') != credential
+                or os.environ.get('CLOUDSDK_AUTH_ACCESS_TOKEN')
+                or os.environ.get('CLOUDSDK_AUTH_ACCESS_TOKEN_FILE')
+                or os.environ.get('CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT')):
+            stop('ACTIONS_AUTH_CONTEXT_HELD')
+    else:
+        credential = ''
     for key in ('CLOUDSDK_AUTH_ACCESS_TOKEN', 'CLOUDSDK_AUTH_ACCESS_TOKEN_FILE',
                 'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE', 'CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT'):
-        if os.environ.get(key):
+        if not actions and os.environ.get(key):
             stop('AUTH_OVERRIDE_PRESENT')
-    for key in ('impersonate_service_account', 'access_token_file', 'credential_file_override'):
-        result, value = cloud('config', 'get-value', 'auth/' + key, plain=True)
-        if result['outcome'] != 'OK' or value not in ('', '(unset)'):
-            stop('AUTH_CONFIGURATION_UNCONFIRMED')
+    if not actions:
+        for key in ('impersonate_service_account', 'access_token_file', 'credential_file_override'):
+            result, value = cloud('config', 'get-value', 'auth/' + key, plain=True, account=account)
+            if result['outcome'] != 'OK' or value not in ('', '(unset)'):
+                stop('AUTH_CONFIGURATION_UNCONFIRMED')
     result, project = cloud('projects', 'describe', PROJECT,
-                            fields='projectId,projectNumber,lifecycleState,parent')
+                            fields='projectId,projectNumber,lifecycleState,parent', account=account)
     if (result['outcome'] != 'OK' or not isinstance(project, dict)
             or project.get('projectId') != PROJECT or str(project.get('projectNumber')) != NUMBER
             or project.get('lifecycleState') != 'ACTIVE'
@@ -111,7 +136,7 @@ def inspect():
         stop('PROJECT_IDENTITY_UNCONFIRMED')
     emit('PREVIEW_BUILD_SOURCE_PROJECT_VERIFIED', project=PROJECT, project_number=NUMBER)
     result, bucket = cloud('storage', 'buckets', 'describe', 'gs://' + BUCKET, '--raw',
-                           fields='name,projectNumber,location,iamConfiguration')
+                           fields='name,projectNumber,location,iamConfiguration', account=account)
     if bucket is not None and (not isinstance(bucket, dict) or bucket.get('name') != BUCKET
             or str(bucket.get('projectNumber')) != NUMBER or bucket.get('location') != 'EUROPE-WEST1'):
         stop('SOURCE_BUCKET_IDENTITY_MISMATCH')
@@ -119,11 +144,12 @@ def inspect():
     for stage, args in (
         ('PREVIEW_BUILD_SOURCE_DIRECT_IAM', ('storage', 'buckets', 'get-iam-policy', 'gs://' + BUCKET)),
         ('PREVIEW_BUILD_PROJECT_SELECTED_IAM', ('projects', 'get-iam-policy', PROJECT))):
-        result, policy = cloud(*args)
+        result, policy = cloud(*args, account=account)
         emit(stage, **result, policy=selected_policy(policy) if policy is not None else None)
     for role in ('roles/storage.objectAdmin', 'roles/storage.objectViewer',
                  'roles/serviceusage.serviceUsageConsumer'):
-        result, metadata = cloud('iam', 'roles', 'describe', role, fields='name,includedPermissions')
+        result, metadata = cloud('iam', 'roles', 'describe', role,
+                                 fields='name,includedPermissions', account=account)
         if metadata is not None and (not isinstance(metadata, dict) or metadata.get('name') != role
                 or not isinstance(metadata.get('includedPermissions'), list)):
             stop('ROLE_METADATA_MISMATCH')
@@ -132,10 +158,10 @@ def inspect():
     complete = []
     for kind in ('services', 'jobs'):
         complete.append(bounded_list('PREVIEW_BUILD_RECONCILE_' + kind.upper(),
-            ('run', kind, 'list', '--region=' + REGION), 'metadata.name,metadata.namespace', 101))
+            ('run', kind, 'list', '--region=' + REGION), 'metadata.name,metadata.namespace', 101, account))
     complete.append(bounded_list('PREVIEW_BUILD_ATTEMPT_WINDOW',
         ('builds', 'list', '--region=' + REGION, '--filter=createTime>="' + START + '" AND createTime<"' + END + '"',
-         '--sort-by=createTime'), 'id,status,createTime,finishTime,serviceAccount', 101))
+         '--sort-by=createTime'), 'id,status,createTime,finishTime,serviceAccount', 101, account))
     query = ('timestamp>="' + START + '" AND timestamp<"' + END + '" '
              'AND protoPayload.authenticationInfo.principalEmail="' + DEPLOYER + '" '
              'AND (protoPayload.serviceName="storage.googleapis.com" OR '
@@ -144,7 +170,7 @@ def inspect():
     complete.append(bounded_list('PREVIEW_BUILD_ATTEMPT_AUDIT_METADATA',
         ('logging', 'read', query, '--order=asc'),
         'timestamp,protoPayload.serviceName,protoPayload.methodName,protoPayload.resourceName,'
-        'protoPayload.status.code,protoPayload.authorizationInfo.permission,protoPayload.authorizationInfo.granted', 31))
+        'protoPayload.status.code,protoPayload.authorizationInfo.permission,protoPayload.authorizationInfo.granted', 31, account))
     emit('PREVIEW_V2_BUILD_SOURCE_RECONCILIATION_READ_COMPLETED', project=PROJECT,
          evidence_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
          bounded_inventories_complete=all(complete), cloud_mutation=False,
@@ -155,7 +181,9 @@ def inspect():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--inspect', action='store_true', required=True)
-    parser.parse_args()
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--inspect', action='store_true')
+    mode.add_argument('--inspect-actions', action='store_true')
+    args = parser.parse_args()
     os.umask(0o077)
-    inspect()
+    inspect(actions=args.inspect_actions)
