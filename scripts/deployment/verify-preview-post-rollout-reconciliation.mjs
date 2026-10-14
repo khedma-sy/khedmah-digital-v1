@@ -2,8 +2,8 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const RECONCILIATION_PARENT = 'a9d3d2a18b9538a0551f8539b74c01f84f78bc95';
-export const RECONCILIATION_MESSAGE = 'chore(preview): diagnose rollout metadata mismatch read-only';
+export const RECONCILIATION_PARENT = '5bd2dc3ce5fd943a4058f50d7d51a75c4cd3f4f3';
+export const RECONCILIATION_MESSAGE = 'fix(preview): reconcile successful rollout read-only';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
 export const ROLLOUT_SOURCE = '676e3a8d97ed09e8335ceee2b547a5247f28be6b';
 export const ROLLOUT_SOURCE_PARENT = '3cdb0ad2e7e67e1e9d8f1062ac69b0cb9d5172ed';
@@ -13,6 +13,9 @@ export const ROLLOUT_DEPLOY_JOB_ID = 116011073615;
 export const FAILED_RECONCILIATION_RUN_ID = 38622535259;
 export const FAILED_RECONCILIATION_JOB_ID = 116053404169;
 export const FAILED_RECONCILIATION_HEAD = '5de460744f50e0571aea33df02e528105ca593de';
+export const DIAGNOSTIC_RUN_ID = 38623524120;
+export const DIAGNOSTIC_JOB_ID = 116056789860;
+export const DIAGNOSTIC_HEAD = '5bd2dc3ce5fd943a4058f50d7d51a75c4cd3f4f3';
 
 const REPO = 'khedma-sy/khedmah-digital-v1';
 const ROLLOUT_MESSAGE = 'release(preview): execute reviewed rollout after source grant';
@@ -103,6 +106,26 @@ export function verifyPostRolloutSource(env, run = execFileSync) {
     stop('FAILED_RECONCILIATION_JOB_HELD');
   }
 
+  const diagnosticRun = read('/actions/runs/' + DIAGNOSTIC_RUN_ID);
+  if (diagnosticRun.id !== DIAGNOSTIC_RUN_ID || diagnosticRun.name !== 'PR Preview'
+      || diagnosticRun.event !== 'pull_request' || diagnosticRun.status !== 'completed'
+      || diagnosticRun.conclusion !== 'failure' || diagnosticRun.run_attempt !== 1
+      || diagnosticRun.head_sha !== DIAGNOSTIC_HEAD
+      || diagnosticRun.path !== '.github/workflows/preview-deployment.yml'
+      || diagnosticRun.head_repository?.full_name !== REPO
+      || !Array.isArray(diagnosticRun.pull_requests) || diagnosticRun.pull_requests.length !== 1
+      || diagnosticRun.pull_requests[0]?.number !== 274) stop('DIAGNOSTIC_RUN_HELD');
+
+  const diagnosticJob = read('/actions/jobs/' + DIAGNOSTIC_JOB_ID);
+  const diagnosticStep = diagnosticJob.steps?.find(step =>
+    step.name === 'Read bounded Preview rollout Build metadata after held mismatch');
+  if (diagnosticJob.id !== DIAGNOSTIC_JOB_ID || diagnosticJob.run_id !== DIAGNOSTIC_RUN_ID
+      || diagnosticJob.name !== 'reconcile-successful-rollout'
+      || diagnosticJob.status !== 'completed' || diagnosticJob.conclusion !== 'success'
+      || diagnosticStep?.status !== 'completed' || diagnosticStep.conclusion !== 'success') {
+    stop('DIAGNOSTIC_JOB_HELD');
+  }
+
   return {
     reconciliation_parent: RECONCILIATION_PARENT,
     reconciliation_head: env.PREVIEW_HEAD_SHA,
@@ -114,7 +137,9 @@ export function verifyPostRolloutSource(env, run = execFileSync) {
     rollout_deploy_job_conclusion: 'success',
     failed_reconciliation_run_id: FAILED_RECONCILIATION_RUN_ID,
     failed_reconciliation_job_id: FAILED_RECONCILIATION_JOB_ID,
-    diagnostic_only: true,
+    diagnostic_run_id: DIAGNOSTIC_RUN_ID,
+    diagnostic_job_id: DIAGNOSTIC_JOB_ID,
+    diagnostic_only: false,
     first_attempt_only: true,
     read_only_reconciliation: true,
     rollout_retry_authorized: false,

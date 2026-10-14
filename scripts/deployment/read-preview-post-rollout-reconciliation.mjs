@@ -177,7 +177,7 @@ function buildReceipt(metadata, expected) {
   const images = metadata?.results?.images;
   if (metadata?.id !== expected.id || metadata.status !== 'SUCCESS'
       || metadata.projectId !== PROJECT
-      || metadata.name !== `projects/${PROJECT}/locations/${REGION}/builds/${expected.id}`
+      || metadata.name !== `projects/${PROJECT_NUMBER}/locations/${REGION}/builds/${expected.id}`
       || metadata.serviceAccount !== BUILD_ACCOUNT
       || source?.bucket !== SOURCE_BUCKET || source.object !== expected.sourceObject
       || resolved?.bucket !== SOURCE_BUCKET || resolved.object !== expected.sourceObject

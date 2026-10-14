@@ -112,7 +112,7 @@ jobs:
           workload_identity_provider: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Read bounded Preview rollout Build metadata after held mismatch
+      - name: Read exact successful Preview rollout metadata and anonymous HTTP
         timeout-minutes: 10
         env:
           PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -127,7 +127,7 @@ jobs:
           PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_RUNTIME_SERVICE_ACCOUNT }}
           PRODUCTION_GOOGLE_CLOUD_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
           PRODUCTION_FIREBASE_PROJECT_ID: ${{ vars.PRODUCTION_FIREBASE_PROJECT_ID }}
-        run: node scripts/deployment/read-preview-post-rollout-reconciliation.mjs --diagnose-builds
+        run: node scripts/deployment/read-preview-post-rollout-reconciliation.mjs
 
   quality-gates:
     if: github.event.action != 'closed'
