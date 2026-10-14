@@ -4,7 +4,7 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Media IAM rejected request identified — binding-only completion prepared; CI pending — 2026-10-14
+### Media IAM completion verified — one guarded owner binding next — 2026-10-14
 
 **The bounded audit read is complete.** Owner output received **2026-10-14T12:43:57+03:00** contains a recognizable entry at **`2026-10-14T09:24:04.340365619Z`**: `storage.setIamPermissions`, exact Preview bucket resource, status code **3**, and `Role (projects/khedmah-preview-v2-20261012/roles/khedmahPreviewMediaObjects) does not exist in the resource's hierarchy.` It ends with `MEDIA_IAM_AUDIT_READ_FINISHED_NO_RETRY_AUTHORIZED`. The pasted JSON is interleaved with echoed command text, so it is not represented as a clean parsed full log export; the method/resource/status/message/time fields are legible. Do not repeat this completed diagnostic read.
 
@@ -14,11 +14,13 @@ This identifies the rejected **bucket IAM binding** operation. The later **09:32
 
 Only after that gate, a **new exclusive `binding-completion-attempt.json`** is written beside the preserved original marker. All identities/policies/role/marker/grantability checks are repeated, then exactly one bucket-policy PUT uses the observed etag and policy version 3. It preserves the four original legacy bindings and appends the same runtime member, three-permission custom role and object-type plus exact `media/` prefix condition. No create/update/delete role, project IAM write, expanded permission, secret/object access, Firebase rules change or deployment. Returned and fresh policies plus role/identity/bucket readbacks must match. No automatic retry or marker cleanup; any uncertain result requires `--inspect` reconciliation. New bounded HTTP diagnostics name the request kind/status and classify only the exact known hierarchy message; raw provider text/credentials remain private.
 
-**Local validation: 38 offline Python lifecycle/HTTP cases passed**, including reproduction of the reported initial hierarchy rejection followed by one binding-only completion, missing grantability with role GET succeeding, pagination/denial/limits, private markers/replays, etag conflicts, permission/policy drift and unsafe readback. The existing Node wrapper passes; launcher syntax and diff checks pass. These tests model the reported failure and validate source safeguards, not the historical propagation mechanism or live grant acceptance. **Fresh exact-source GitHub CI is pending; do not run the completion command yet.**
+**Verified implementation: `0f46051167a3b56f289501e6d4954a222e86cd01`.** **Test & Verify `38545296194` SUCCESS**, test job `115789725553`: **2,629 passed / zero failed / one optional WASM skip** (root 1,862 + backend 616 + frontend 151). Updated media completion wrapper passed at **2026-10-14T09:52:53.5585795Z**; retained native PostgreSQL 16 regression passed at **09:52:53.5589438Z**. Local 38 offline lifecycle/HTTP cases and Node wrapper passed; launcher syntax/diff checks passed. **Node CI `38545296185` SUCCESS**, build `115789726454`, inventory `115789726074`; **Google readiness `38545296229` SUCCESS**, validation `115789725636`, Production secret gate `115789727819` skipped. Artifact **`11883878992`**, expires **2026-10-21T09:56:09Z**, SHA256 **`a88878eaf1fd7c53eceb6236c486643aecdda4c845b1a1111a9941bd644f248f`**. These tests validate the completion safeguards, not the historical propagation mechanism or live binding acceptance.
 
-Live main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged at preparation parent `9631157d5360c4df096eb00642e4e54bea80f305`. Prior executable `fbc4ac49` CI (Test & Verify 38540424830 / Node 38540424761 / Google readiness 38540424769; 2,629 pass / zero fail / one optional skip) is preserved, not reused as validation of this new source. Preview workflow's explicit mail-metadata `exit 1` hold and cleanup/Production gates are unchanged. No direct assistant cloud mutation, workflow dispatch, merge or release.
+Preview **`38545296157`**: quality `115789725231` and baseline `115791991764` succeeded. Deploy `115791993821` passed source/target/WIF/isolation checks, read RESEND v1 ENABLED at **2026-10-14T09:56:28.429Z**, with **cloud_mutation=false / secret_payload_access=false**, then stopped at **`PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`**. Inventory/schema/services and review `115792172354` skipped; cleanup `115789727744` skipped. This is the preserved explicit hold, not a deployment or runtime readiness verdict.
 
-Relevant changes: existing helper and its Python tests/Node wrapper, plus these same five checkpoints. All completed ledger rows and historical tails are preserved. After current-source CI, release only the pinned completion command in NEXT-ACTION. Require `PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED` before backend GCS_MEDIA_BUCKET wiring; runtime acceptance and apply-capable schema-job reconciliation remain separate gates. No migration/secret replay; Taxi trips remain off.
+**Next owner action:** run the checksum-pinned **--complete-binding** command once in NEXT-ACTION. Fresh source validation is complete; live grantability and bucket binding remain unexecuted/unverified. Require **`PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED`** before backend GCS_MEDIA_BUCKET wiring. If a gate fails or the final receipt is missing, return output and reconcile; do not replay this command or the original apply, delete markers or recreate the role.
+
+Main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 open/unmerged. This final evidence/handoff changes **only the same five Markdown files with [skip ci]**, preserving the tested helper/tests/workflows, every completed ledger row and historical tails. No new CI dispatch, direct assistant cloud mutation, merge or release. Actual runtime media/secret/session/DML/origin/Maps/mail/Floot acceptance and apply-capable schema-job reconciliation remain pending. No migration/secret replay; Taxi trips stay off.
 
 API contracts: [grantable roles query](https://docs.cloud.google.com/iam/docs/reference/rest/v1/roles/queryGrantableRoles), [bucket full resource name](https://docs.cloud.google.com/iam/docs/full-resource-names), [version-3 bucket policy/etag update](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/setIamPolicy).
 
@@ -462,10 +464,11 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 
 ### Repository and validation observed in this reconciliation
 
-- Main bc5a5c7; sole PR #274 open/unmerged at preparation parent 9631157d. Fresh completion-source CI pending; previous executable fbc4ac49 remains retained evidence only.
-- Owner audit identifies storage.setIamPermissions rejection at 09:24:04.340365619Z, code 3: exact custom role not found in bucket hierarchy. Later 09:32 metadata verifies role present/binding absent; current grantability and propagation mechanism are not established.
-- 38 offline lifecycle/HTTP cases and Node wrapper passed; no live completion execution claimed. Same three source/test files and five checkpoints only; workflow holds unchanged.
-- Next: verify new-source CI, then hand off --complete-binding with exact existing-role/bucket/marker checks, paginated grantability query and one bucket-policy etag CAS. No role recreation or marker deletion.
+- Main bc5a5c7; sole PR #274 open/unmerged. Verified executable implementation 0f460511 is preserved by this final five-document [skip ci] checkpoint.
+- Test & Verify 38545296194 / Node CI 38545296185 / Google readiness 38545296229 succeeded: 2,629 pass / zero fail / one optional skip. Updated 38-case media wrapper and retained native PostgreSQL 16 regression passed; artifact 11883878992 and exact evidence are above.
+- Preview 38545296157 remains deliberately held at mail metadata; deployment/cleanup/Production gates stay closed. RESEND v1 metadata read at 09:56:28.429Z changed nothing and accessed no payload.
+- Owner audit identifies bucket storage.setIamPermissions rejection at 09:24:04.340365619Z, code 3: exact custom role not found in hierarchy. Later 09:32 metadata verifies exact role present/binding absent. Propagation cause/current grantability are not proven.
+- Next: owner executes verified --complete-binding once, with original marker, exact existing role/baseline policy and positive bucket grantability before one conditional etag CAS. Cloud completion/runtime access remain unverified; no role recreation, marker deletion or automatic retry.
 
 ### Completed replacement Preview work — do not replay
 
@@ -521,15 +524,15 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Actual continuation and remaining work
 
-1. Review fresh exact-source CI for the binding-only completion helper; local 38-case lifecycle suite passed. Do not replay the original apply or repeat completed audit/metadata reads.
-2. After CI, owner runs the pinned --complete-binding command once. It requires the existing private original marker, exact existing role/baseline policy and positive bucket grantability, then one conditional policy CAS with a new durable attempt marker. On any STOP, reconcile; no automatic retry, role recreation, marker deletion or access broadening.
-3. Require verified direct conditional-binding receipt before backend-only GCS_MEDIA_BUCKET wiring and actual media create/read/delete/prefix-denial acceptance.
-4. Reconcile apply-capable schema jobs against completed schema/runtime ACLs before any release; never replay migrations, grants or secrets. Runtime identity/Firebase startup/Google sessions/DML/origin/Maps/mail/Floot remain acceptance gates.
+1. Owner runs the pinned --complete-binding command once from NEXT-ACTION; exact-source CI is verified. Completed audit/metadata reads and the original --apply must not be replayed.
+2. Require PREVIEW_V2_MEDIA_BINDING_COMPLETION_VERIFIED. The helper checks the original private marker, exact role/baseline policy and bucket grantability, journals a separate completion attempt, repeats guards and writes one version-3 conditional policy using etag CAS. On STOP or missing receipt, reconcile before further action; no automatic retry, marker deletion, role recreation or access broadening.
+3. After verified direct binding, prepare backend-only GCS_MEDIA_BUCKET wiring and actual media create/read/delete/prefix-denial acceptance.
+4. Reconcile apply-capable schema jobs against completed schema/runtime ACLs before release; never replay migrations, grants or secrets. Runtime identity/Firebase startup/Google sessions/DML/origin/Maps/mail/Floot remain acceptance gates.
 5. Taxi trips disabled; Production, merge and deployment/cleanup holds remain closed.
 
 ### Execution boundary and handoff discipline
 
-The audit request/reason and later role-present/binding-absent state support preparing a bounded completion; they do not prove current grantability or authorize the old apply. The candidate new command stays held pending exact-source CI. Preserve the role, original marker, existing bindings and completed evidence.
+Only the verified binding-completion command is handed off. It completes the specifically reconciled role-present/binding-absent state after fresh fail-closed guards; it does not authorize the old creation/apply command or marker cleanup. Source tests and current-state evidence are separate from the pending owner cloud result. Preserve completed evidence and existing resource safeguards.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
