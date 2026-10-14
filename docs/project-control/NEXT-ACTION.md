@@ -1,6 +1,32 @@
 # Next Safe Action — Khedmah
 
-## Runtime grants committed and verified — actual runtime login read next — 2026-10-14
+## Runtime login verified — backend Firebase metadata next — 2026-10-14
+
+**Live database runtime login is verified. Do not repeat grants or the completed login read.** Owner `PREVIEW_V2_RUNTIME_LOGIN_READONLY_VERIFIED` at **`2026-10-14T07:30:26.095991+00:00`** reports `EXPECTED_GRANTS_PRESENT`, exact ACLs and table set/ownership, **64 tables / nine routines / twelve triggers**, **62 allowed zero-row SELECT probes / two denied SELECT probes**, and `runtime_login_verified=true`. The corrected reader blob `44e5429f4d74c5674f88ff5414d55859d2d1e5a6` / SHA256 `a89c33be26755c0e948e5e80c140752b978d13a039d82a9bae95f03e5692b940` used the existing migration and runtime secret versions **1** privately. No application rows or credentials were printed; no application rows were read and no schema, grants or cloud configuration changed. This is actual database-account authentication, not Google user sign-in or runtime DML acceptance.
+
+The preceding grant COMMIT/readback at 07:18:19 UTC remains complete. `prior_attempt_commit_or_rollback_proven=false` in this reader describes its limited historical-proof scope; it does not invalidate that separately supplied grant receipt. Full schema contracts were not re-run by this read, and full schema/deployment readiness, application deployment, Floot and Taxi trips remain false.
+
+**Next safe action: read only the replacement project's API-key restrictions and the presence of the backend `FIREBASE_API_KEY` secret container**, using the current command in NEXT-ACTION.md. This is a fresh backend-configuration question, not a repeat database or browser SDK inspection. The command verifies project number `1044962071847`, explicitly targets `khedmah-preview-v2-20261012` with the established account, prints only key resource names/restrictions and matching secret resource names, and stops on a failed read. It neither gets key strings nor accesses secret versions/payloads. A completed empty secret list is inventory evidence; a failed/denied read is not absence. Review the result before preparing a dedicated server-key/secret/IAM change; do not recreate or loosen the existing browser key.
+
+Focused source review at parent **`b0b1d8ffb6b66220a2a820919ab87cbccdf21b15`** confirms:
+- `apps/backend/src/identity/google-auth.service.ts` requires `FIREBASE_API_KEY` for its server-side Identity Toolkit `accounts:lookup` call.
+- `scripts/deployment/deploy-cloud-run-environment.sh` currently binds that secret for Staging only; Preview binds database and optional Resend. `scripts/bootstrap-preview-v2.py` does not provision the backend Firebase secret. These are source findings, not a new live-cloud absence claim.
+- Preview also lacks `GCS_MEDIA_BUCKET` wiring and uses the intentional in-memory adapter; durable media/IAM remains pending. The deployment script still selects apply-capable schema jobs, requiring reconciliation with the completed schema/ACLs before any release.
+- The Production identity validator assumes equal browser/server keys. It is unchanged and must not be used as proof of a future separate Preview server-key design. No Production configuration or validator change is authorized by this metadata handoff.
+
+Live main is unchanged at `bc5a5c764413498189147cc34c7e857c78aa3d2c`; sole PR #274 is open/unmerged. Tested executable source remains `a5f4c7cb379cbf40aa1d44aacb7208a4f1fd51e1`: Test & Verify `38525824793`, Node `38525824734`, Google readiness `38525824741` successful (**2,613 pass / zero fail / one optional skip**). Preview `38525824824` remains deliberately held at mail metadata; deployment, cleanup and Production gates are unchanged. Same five Markdown files only, **[skip ci]**, preserving every existing ledger row and historical tail. No code/workflow change, new CI dispatch, merge, direct assistant cloud action, key creation, IAM change or mail send. Backend metadata read is prepared, not yet executed; actual Google sessions, DML, durable media, deployment and Floot still need their own acceptance.
+
+### الأمر الحالي — قراءة متطلبات Firebase الخاصة بالخادم
+
+نجح اتصال حساب قاعدة البيانات. نفّذ هذا السطر لقراءة أسماء مفاتيح Preview وقيودها ووجود حاوية سرّ الخادم فقط، دون أي قيمة مفتاح أو محتوى سر. المشروع الافتراضي الظاهر في Cloud Shell لا يغيّر الهدف المحدد في الأوامر.
+
+```bash
+( set -euo pipefail; export CLOUDSDK_CORE_DISABLE_PROMPTS=true; export CLOUDSDK_CORE_LOG_HTTP=false; export CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true; khedmah_preview_number="$(gcloud projects describe khedmah-preview-v2-20261012 --account=haifawi30@gmail.com --user-output-enabled --verbosity=error --format='value(projectNumber)')"; [[ "$khedmah_preview_number" == '1044962071847' ]] || { printf 'STOP: PROJECT_IDENTITY_MISMATCH\n' >&2; exit 1; }; printf 'PREVIEW_BACKEND_AUTH_KEY_METADATA\n'; gcloud services api-keys list --project=khedmah-preview-v2-20261012 --account=haifawi30@gmail.com --user-output-enabled --verbosity=error --format='json(name,restrictions)'; printf 'PREVIEW_BACKEND_AUTH_SECRET_NAMES\n'; gcloud secrets list --project=khedmah-preview-v2-20261012 --account=haifawi30@gmail.com --user-output-enabled --verbosity=error --filter='name~"/secrets/FIREBASE_API_KEY$"' --format='json(name)'; printf 'BACKEND_AUTH_METADATA_READ_FINISHED_NOT_A_READINESS_VERDICT\n'; )
+```
+
+أرسل الناتج كاملًا. لا تُعد المنح أو فحص قاعدة البيانات؛ ولا تنشئ مفتاحًا أو تعدّل قيود المفتاح الحالي حتى مراجعة هذه النتيجة. عند أي خطأ لا يُعتبر المورد مفقودًا ولا يُعاد إنشاؤه تلقائيًا.
+
+## Historical checkpoint — Runtime grants committed and verified — actual runtime login read next — 2026-10-14
 
 **Owner runtime grants are complete. Do not repeat the apply.** The owner returned `PREVIEW_V2_RUNTIME_GRANTS_COMMIT_ACKNOWLEDGED` and **`PREVIEW_V2_RUNTIME_GRANTS_VERIFIED`** at **`2026-10-14T07:18:19.287615+00:00`**, for project `khedmah-preview-v2-20261012`, instance `khedmah-preview-v2-db`, database `khedmah`. Corrected grant blob `be758ce6374ad81b63ac24e86eca147b1932f2aa` / SHA256 `b086e77e8f64011364261b61cbda93a0828c5f76ad53874f798722120fabc10c` matches the reviewed source; its pinned dependency source is `8e5da7031c592036b25d90112b7c85c427a72cf6`.
 
@@ -12,7 +38,7 @@ Live GitHub rechecked: protected main `bc5a5c764413498189147cc34c7e857c78aa3d2c`
 
 This checkpoint changes only the same five Markdown files with **[skip ci]**; no new test run/dispatch, code/workflow change, merge or assistant cloud execution. This owner grant receipt does not establish runtime DML, full schema/deployment readiness, browser/session/Maps/mail acceptance or Floot connection. Taxi trips remain disabled and Production gates remain closed. The completed ledger and historical evidence are preserved; earlier pending-grant instructions below are superseded.
 
-### الأمر الحالي — فحص الدخول الفعلي بحساب التطبيق للقراءة فقط
+### أمر تاريخي مكتمل — لا تكرر فحص الدخول الفعلي
 
 اكتمل منح الصلاحيات بإيصال الحفظ والتحقق. نفّذ هذا الأمر وحده، ثم أرسل الناتج كاملًا. يتصل بحساب التطبيق الفعلي داخل Preview المحدد في السكربت؛ لا يحتاج تغيير مشروع Cloud Shell الافتراضي ولا يقرأ صفوف التطبيق أو يعدلها.
 
