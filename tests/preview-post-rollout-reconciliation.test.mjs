@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   DIAGNOSTIC_HEAD, DIAGNOSTIC_JOB_ID, DIAGNOSTIC_RUN_ID,
+  ENVIRONMENT_FAILURE_HEAD, ENVIRONMENT_FAILURE_JOB_ID, ENVIRONMENT_FAILURE_RUN_ID,
   FAILED_RECONCILIATION_HEAD, FAILED_RECONCILIATION_JOB_ID, FAILED_RECONCILIATION_RUN_ID,
   RECONCILIATION_MESSAGE, RECONCILIATION_PARENT, REVIEWED_MAIN,
   ROLLOUT_DEPLOY_JOB_ID, ROLLOUT_MERGE, ROLLOUT_RUN_ID, ROLLOUT_SOURCE,
@@ -10,7 +11,7 @@ import {
 } from '../scripts/deployment/verify-preview-post-rollout-reconciliation.mjs';
 import {
   BUILDS, JOBS, PROJECT, PROJECT_NUMBER, REGION, ROLLOUT_TAG, SERVICES,
-  diagnoseBuildContract, readPostRolloutReconciliation,
+  diagnoseBuildContract, diagnoseEnvironmentContract, readPostRolloutReconciliation,
 } from '../scripts/deployment/read-preview-post-rollout-reconciliation.mjs';
 
 const repo = 'khedma-sy/khedmah-digital-v1';
@@ -56,6 +57,15 @@ const sourceResponses = () => [
       { name: 'Read bounded Preview rollout Build metadata after held mismatch',
         status: 'completed', conclusion: 'success' },
     ] },
+  { id: ENVIRONMENT_FAILURE_RUN_ID, name: 'PR Preview', event: 'pull_request',
+    status: 'completed', conclusion: 'failure', run_attempt: 1,
+    head_sha: ENVIRONMENT_FAILURE_HEAD, path: '.github/workflows/preview-deployment.yml',
+    head_repository: { full_name: repo }, pull_requests: [{ number: 274 }] },
+  { id: ENVIRONMENT_FAILURE_JOB_ID, run_id: ENVIRONMENT_FAILURE_RUN_ID,
+    name: 'reconcile-successful-rollout', status: 'completed', conclusion: 'failure', steps: [
+      { name: 'Read exact successful Preview rollout metadata and anonymous HTTP',
+        status: 'completed', conclusion: 'failure' },
+    ] },
 ];
 
 function githubRunner(responses = sourceResponses(), calls = []) {
@@ -69,10 +79,10 @@ function githubRunner(responses = sourceResponses(), calls = []) {
   };
 }
 
-test('source gate performs exactly eleven GETs and binds lineage, rollout receipts, held mismatch and diagnostic', () => {
+test('source gate performs exactly thirteen GETs and binds all prior read-only receipts', () => {
   const calls = [];
   const receipt = verifyPostRolloutSource(sourceEnv, githubRunner(sourceResponses(), calls));
-  assert.equal(calls.length, 11);
+  assert.equal(calls.length, 13);
   assert.deepEqual(calls.map(args => args[3]), [
     `repos/${repo}/git/commits/${head}`, `repos/${repo}/pulls/274`, `repos/${repo}/branches/main`,
     `repos/${repo}/git/commits/${ROLLOUT_SOURCE}`, `repos/${repo}/git/commits/${ROLLOUT_MERGE}`,
@@ -81,6 +91,8 @@ test('source gate performs exactly eleven GETs and binds lineage, rollout receip
     `repos/${repo}/actions/jobs/${FAILED_RECONCILIATION_JOB_ID}`,
     `repos/${repo}/actions/runs/${DIAGNOSTIC_RUN_ID}`,
     `repos/${repo}/actions/jobs/${DIAGNOSTIC_JOB_ID}`,
+    `repos/${repo}/actions/runs/${ENVIRONMENT_FAILURE_RUN_ID}`,
+    `repos/${repo}/actions/jobs/${ENVIRONMENT_FAILURE_JOB_ID}`,
   ]);
   assert.equal(receipt.rollout_run_conclusion, 'failure');
   assert.equal(receipt.rollout_deploy_job_conclusion, 'success');
@@ -109,6 +121,10 @@ test('source gate rejects reruns, reopen/forks, changed main, alternate lineage 
     [9, value => { value.head_sha = head; }],
     [10, value => { value.conclusion = 'failure'; }],
     [10, value => { value.steps[0].conclusion = 'failure'; }],
+    [11, value => { value.conclusion = 'success'; }],
+    [11, value => { value.head_sha = head; }],
+    [12, value => { value.conclusion = 'success'; }],
+    [12, value => { value.steps[0].conclusion = 'success'; }],
   ]) {
     const responses = sourceResponses(); mutate(responses[index]);
     assert.throws(() => verifyPostRolloutSource(sourceEnv, githubRunner(responses)));
@@ -275,6 +291,21 @@ test('diagnostic reports only bounded Build metadata and performs no service, jo
     'rollout_retry_authorized', 'cleanup_authorized']) assert.equal(receipt[key], false);
 });
 
+test('environment diagnostic reads only bounded service and job environment metadata', () => {
+  const fixture = cloudFixture();
+  const receipt = diagnoseEnvironmentContract(cloudEnv, fixture.run);
+  assert.equal(receipt.services.length, 2);
+  assert.equal(receipt.jobs.length, 9);
+  assert.equal(fixture.calls.filter(call => call.tool === 'gcloud').length, 14);
+  assert.equal(fixture.calls.filter(call => call.tool === 'curl').length, 0);
+  assert.equal(receipt.environment_metadata_only, true);
+  assert.ok(receipt.services.flatMap(item => item.environment)
+    .some(item => item.kind === 'secret_reference' && item.secret === 'DATABASE_URL'));
+  for (const key of ['cloud_mutation', 'secret_payload_access', 'object_data_access',
+    'database_access', 'application_data_access', 'production_access',
+    'rollout_retry_authorized', 'cleanup_authorized']) assert.equal(receipt[key], false);
+});
+
 test('reader rejects every target/auth context mismatch before metadata or HTTP', () => {
   for (const key of Object.keys(cloudEnv)) {
     assert.throws(() => readPostRolloutReconciliation({ ...cloudEnv, [key]: 'foreign' },
@@ -339,7 +370,7 @@ test('workflow job is independent, first-attempt-only, exact-gated before WIF an
   const testStep = job.indexOf('node --test tests/preview-post-rollout-reconciliation.test.mjs');
   const gate = job.indexOf('node scripts/deployment/verify-preview-post-rollout-reconciliation.mjs');
   const auth = job.indexOf('uses: google-github-actions/auth@v3');
-  const read = job.indexOf('node scripts/deployment/read-preview-post-rollout-reconciliation.mjs');
+  const read = job.indexOf('node scripts/deployment/read-preview-post-rollout-reconciliation.mjs --diagnose-environment');
   assert.ok(gate > 0 && gate < testStep && testStep < auth && auth < read);
   for (const permission of ['actions: read', 'contents: read', 'id-token: write', 'pull-requests: read']) {
     assert.match(job, new RegExp(permission));
@@ -348,7 +379,7 @@ test('workflow job is independent, first-attempt-only, exact-gated before WIF an
   assert.match(job, /group: khedmah-preview-cloud-mutations/);
   assert.match(job, /persist-credentials: false/);
   assert.match(job, /GITHUB_RUN_ATTEMPT: \$\{\{ github\.run_attempt \}\}/);
-  assert.match(job, /Read exact successful Preview rollout metadata and anonymous HTTP/);
+  assert.match(job, /Read bounded Preview rollout environment metadata after held mismatch/);
   assert.doesNotMatch(job, /--diagnose-builds/);
   assert.doesNotMatch(job, /\b(?:builds submit|run deploy|run jobs (?:deploy|execute|delete)|services (?:update|delete)|projects add-iam-policy-binding|storage (?:cp|rm)|secrets versions access)\b/);
   assert.doesNotMatch(job, /needs:|workflow_dispatch|repository_dispatch/);

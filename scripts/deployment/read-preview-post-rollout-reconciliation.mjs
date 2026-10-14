@@ -155,6 +155,20 @@ function envMap(items) {
   return map;
 }
 
+function sanitizedEnvironment(items) {
+  const vars = envMap(items);
+  return [...vars].map(([name, item]) => {
+    if (Object.hasOwn(item, 'value') && item.valueFrom === undefined
+        && typeof item.value === 'string') return { name, kind: 'plain', value: item.value };
+    const reference = item.valueFrom?.secretKeyRef;
+    if (reference && typeof reference.name === 'string' && reference.key !== undefined) {
+      return { name, kind: 'secret_reference', secret: reference.name,
+        version: String(reference.key) };
+    }
+    stop('ENV_METADATA_INVALID');
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function requirePlain(map, name, value) {
   const item = map.get(name);
   if (!item || item.value !== value || item.valueFrom !== undefined) stop('ENV_CONTRACT_MISMATCH');
@@ -366,6 +380,57 @@ export function diagnoseBuildContract(env, run = execFileSync) {
   };
 }
 
+export function diagnoseEnvironmentContract(env, run = execFileSync) {
+  exactContext(env);
+  const project = jsonRead(run, env, ['projects', 'describe', PROJECT],
+    'projectId,projectNumber,lifecycleState');
+  if (project?.projectId !== PROJECT || String(project.projectNumber) !== PROJECT_NUMBER
+      || project.lifecycleState !== 'ACTIVE') stop('PROJECT_IDENTITY_UNCONFIRMED');
+
+  const serviceInventory = jsonRead(run, env,
+    ['run', 'services', 'list', '--region=' + REGION, '--limit=3'],
+    'metadata.name,metadata.namespace,metadata.labels');
+  const serviceNames = exactInventory(serviceInventory, SERVICES.map(item => item.name), 3, item => {
+    if (String(item?.metadata?.namespace) !== PROJECT_NUMBER
+        || item?.metadata?.labels?.['cloud.googleapis.com/location'] !== REGION) return undefined;
+    return item.metadata.name;
+  });
+  const services = SERVICES.map(expected => {
+    const metadata = jsonRead(run, env,
+      ['run', 'services', 'describe', expected.name, '--region=' + REGION],
+      'metadata.name,metadata.namespace,metadata.labels,spec.template.spec.containers[].env');
+    return { name: expected.name,
+      environment: sanitizedEnvironment(metadata?.spec?.template?.spec?.containers?.[0]?.env) };
+  });
+
+  const jobInventory = jsonRead(run, env, ['run', 'jobs', 'list', '--region=' + REGION, '--limit=10'],
+    'metadata.name,metadata.namespace,metadata.labels');
+  const jobNames = exactInventory(jobInventory, JOBS.map(item => item.name), 10, item => {
+    if (String(item?.metadata?.namespace) !== PROJECT_NUMBER
+        || item?.metadata?.labels?.['cloud.googleapis.com/location'] !== REGION) return undefined;
+    return item.metadata.name;
+  });
+  const jobs = JOBS.map(expected => {
+    const metadata = jsonRead(run, env,
+      ['run', 'jobs', 'describe', expected.name, '--region=' + REGION],
+      'metadata.name,metadata.namespace,metadata.labels,'
+      + 'spec.template.spec.template.spec.containers[].env');
+    return { name: expected.name, stage: expected.stage,
+      environment: sanitizedEnvironment(
+        metadata?.spec?.template?.spec?.template?.spec?.containers?.[0]?.env) };
+  });
+
+  return {
+    evidence_utc: new Date().toISOString(), project: PROJECT,
+    service_inventory_names: serviceNames, services,
+    job_inventory_names: jobNames, jobs,
+    diagnostic_only: true, environment_metadata_only: true,
+    cloud_mutation: false, secret_payload_access: false, object_data_access: false,
+    database_access: false, application_data_access: false, production_access: false,
+    rollout_retry_authorized: false, cleanup_authorized: false,
+  };
+}
+
 export function readPostRolloutReconciliation(env, run = execFileSync) {
   exactContext(env);
   const project = jsonRead(run, env, ['projects', 'describe', PROJECT],
@@ -462,6 +527,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log('PREVIEW_POST_ROLLOUT_BUILD_DIAGNOSTIC='
         + JSON.stringify(diagnoseBuildContract(process.env)));
       console.log('PREVIEW_POST_ROLLOUT_BUILD_DIAGNOSTIC_READ_COMPLETED_NO_MUTATION');
+    } else if (process.argv.length === 3 && process.argv[2] === '--diagnose-environment') {
+      console.log('PREVIEW_POST_ROLLOUT_ENVIRONMENT_DIAGNOSTIC='
+        + JSON.stringify(diagnoseEnvironmentContract(process.env)));
+      console.log('PREVIEW_POST_ROLLOUT_ENVIRONMENT_DIAGNOSTIC_READ_COMPLETED_NO_MUTATION');
     } else {
       if (process.argv.length !== 2) stop('ARGUMENTS_HELD');
       console.log('PREVIEW_POST_ROLLOUT_RECONCILIATION='
