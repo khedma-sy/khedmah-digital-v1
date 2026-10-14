@@ -324,6 +324,48 @@ function corsReceipt(run, env) {
   return { status: response.code, origin, credentialed_origin_verified: true };
 }
 
+export function diagnoseBuildContract(env, run = execFileSync) {
+  exactContext(env);
+  const project = jsonRead(run, env, ['projects', 'describe', PROJECT],
+    'projectId,projectNumber,lifecycleState');
+  if (project?.projectId !== PROJECT || String(project.projectNumber) !== PROJECT_NUMBER
+      || project.lifecycleState !== 'ACTIVE') stop('PROJECT_IDENTITY_UNCONFIRMED');
+  const inventory = jsonRead(run, env,
+    ['builds', 'list', '--region=' + REGION, '--filter=substitutions._IMAGE_TAG=' + ROLLOUT_TAG, '--limit=12'],
+    'id,status,substitutions');
+  const ids = exactInventory(inventory, BUILDS.map(item => item.id), 12, item => {
+    if (item?.status !== 'SUCCESS' || item?.substitutions?._IMAGE_TAG !== ROLLOUT_TAG) return undefined;
+    return item.id;
+  });
+  const builds = BUILDS.map(expected => {
+    const metadata = jsonRead(run, env, ['builds', 'describe', expected.id, '--region=' + REGION],
+      'id,name,projectId,status,serviceAccount,substitutions,source.storageSource,'
+      + 'sourceProvenance.resolvedStorageSource,results.images');
+    return {
+      expected_id: expected.id,
+      id: metadata?.id ?? null,
+      name: metadata?.name ?? null,
+      project_id: metadata?.projectId ?? null,
+      status: metadata?.status ?? null,
+      service_account: metadata?.serviceAccount ?? null,
+      source: metadata?.source?.storageSource ?? null,
+      resolved_source: metadata?.sourceProvenance?.resolvedStorageSource ?? null,
+      images: Array.isArray(metadata?.results?.images) ? metadata.results.images : null,
+      substitutions: Object.fromEntries(Object.entries(metadata?.substitutions ?? {})
+        .filter(([name]) => ['_IMAGE_TAG', '_REGION', '_REPOSITORY',
+          '_NEXT_PUBLIC_API_URL', '_NEXT_PUBLIC_CLASSIFIEDS_ENABLED'].includes(name))),
+    };
+  });
+  return {
+    evidence_utc: new Date().toISOString(), project: PROJECT, rollout_tag: ROLLOUT_TAG,
+    build_inventory_ids: ids, builds,
+    diagnostic_only: true, read_only_reconciliation: true, cloud_mutation: false,
+    secret_payload_access: false, object_data_access: false, database_access: false,
+    application_data_access: false, production_access: false,
+    rollout_retry_authorized: false, cleanup_authorized: false,
+  };
+}
+
 export function readPostRolloutReconciliation(env, run = execFileSync) {
   exactContext(env);
   const project = jsonRead(run, env, ['projects', 'describe', PROJECT],
@@ -416,10 +458,16 @@ export function readPostRolloutReconciliation(env, run = execFileSync) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (process.argv.length !== 2) stop('ARGUMENTS_HELD');
-    console.log('PREVIEW_POST_ROLLOUT_RECONCILIATION='
-      + JSON.stringify(readPostRolloutReconciliation(process.env)));
-    console.log('PREVIEW_POST_ROLLOUT_RECONCILIATION_READ_COMPLETED_NO_MUTATION');
+    if (process.argv.length === 3 && process.argv[2] === '--diagnose-builds') {
+      console.log('PREVIEW_POST_ROLLOUT_BUILD_DIAGNOSTIC='
+        + JSON.stringify(diagnoseBuildContract(process.env)));
+      console.log('PREVIEW_POST_ROLLOUT_BUILD_DIAGNOSTIC_READ_COMPLETED_NO_MUTATION');
+    } else {
+      if (process.argv.length !== 2) stop('ARGUMENTS_HELD');
+      console.log('PREVIEW_POST_ROLLOUT_RECONCILIATION='
+        + JSON.stringify(readPostRolloutReconciliation(process.env)));
+      console.log('PREVIEW_POST_ROLLOUT_RECONCILIATION_READ_COMPLETED_NO_MUTATION');
+    }
   } catch (error) {
     console.error('STOP: ' + (/^PREVIEW_POST_ROLLOUT_READ_[A-Z_]+$/.test(error?.message ?? '')
       ? error.message : 'PREVIEW_POST_ROLLOUT_READ_UNCONFIRMED_HELD'));

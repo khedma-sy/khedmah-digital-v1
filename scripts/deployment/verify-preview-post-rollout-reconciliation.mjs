@@ -2,14 +2,16 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const RECONCILIATION_PARENT = 'db05027bdb258fcbe04c05b65d9b8b6595f8a84e';
-export const RECONCILIATION_MESSAGE = 'chore(preview): reconcile successful rollout read-only';
+export const RECONCILIATION_PARENT = '5de460744f50e0571aea33df02e528105ca593de';
+export const RECONCILIATION_MESSAGE = 'chore(preview): diagnose rollout metadata mismatch read-only';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
 export const ROLLOUT_SOURCE = '676e3a8d97ed09e8335ceee2b547a5247f28be6b';
 export const ROLLOUT_SOURCE_PARENT = '3cdb0ad2e7e67e1e9d8f1062ac69b0cb9d5172ed';
 export const ROLLOUT_MERGE = '81cd97479040774cc36fb720cdb6f948348302dd';
 export const ROLLOUT_RUN_ID = 38609320607;
 export const ROLLOUT_DEPLOY_JOB_ID = 116011073615;
+export const FAILED_RECONCILIATION_RUN_ID = 38622535259;
+export const FAILED_RECONCILIATION_JOB_ID = 116053404169;
 
 const REPO = 'khedma-sy/khedmah-digital-v1';
 const ROLLOUT_MESSAGE = 'release(preview): execute reviewed rollout after source grant';
@@ -78,6 +80,28 @@ export function verifyPostRolloutSource(env, run = execFileSync) {
       || !deploy.steps.some(step => step.name === 'Deploy isolated PR services'
         && step.status === 'completed' && step.conclusion === 'success')) stop('ROLLOUT_DEPLOY_JOB_HELD');
 
+  const failedRun = read('/actions/runs/' + FAILED_RECONCILIATION_RUN_ID);
+  if (failedRun.id !== FAILED_RECONCILIATION_RUN_ID || failedRun.name !== 'PR Preview'
+      || failedRun.event !== 'pull_request' || failedRun.status !== 'completed'
+      || failedRun.conclusion !== 'failure' || failedRun.run_attempt !== 1
+      || failedRun.head_sha !== RECONCILIATION_PARENT
+      || failedRun.path !== '.github/workflows/preview-deployment.yml'
+      || failedRun.head_repository?.full_name !== REPO
+      || !Array.isArray(failedRun.pull_requests) || failedRun.pull_requests.length !== 1
+      || failedRun.pull_requests[0]?.number !== 274) stop('FAILED_RECONCILIATION_RUN_HELD');
+
+  const failedJob = read('/actions/jobs/' + FAILED_RECONCILIATION_JOB_ID);
+  const exactStep = name => failedJob.steps?.find(step => step.name === name);
+  if (failedJob.id !== FAILED_RECONCILIATION_JOB_ID
+      || failedJob.run_id !== FAILED_RECONCILIATION_RUN_ID
+      || failedJob.name !== 'reconcile-successful-rollout'
+      || failedJob.status !== 'completed' || failedJob.conclusion !== 'failure'
+      || exactStep('Verify the exact post-rollout reconciliation source before authentication')?.conclusion !== 'success'
+      || exactStep('Run google-github-actions/auth@v3')?.conclusion !== 'success'
+      || exactStep('Read exact successful Preview rollout metadata and anonymous HTTP')?.conclusion !== 'failure') {
+    stop('FAILED_RECONCILIATION_JOB_HELD');
+  }
+
   return {
     reconciliation_parent: RECONCILIATION_PARENT,
     reconciliation_head: env.PREVIEW_HEAD_SHA,
@@ -87,6 +111,9 @@ export function verifyPostRolloutSource(env, run = execFileSync) {
     rollout_run_conclusion: 'failure',
     rollout_deploy_job_id: ROLLOUT_DEPLOY_JOB_ID,
     rollout_deploy_job_conclusion: 'success',
+    failed_reconciliation_run_id: FAILED_RECONCILIATION_RUN_ID,
+    failed_reconciliation_job_id: FAILED_RECONCILIATION_JOB_ID,
+    diagnostic_only: true,
     first_attempt_only: true,
     read_only_reconciliation: true,
     rollout_retry_authorized: false,

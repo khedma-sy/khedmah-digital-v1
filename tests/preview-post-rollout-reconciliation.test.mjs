@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  FAILED_RECONCILIATION_JOB_ID, FAILED_RECONCILIATION_RUN_ID,
   RECONCILIATION_MESSAGE, RECONCILIATION_PARENT, REVIEWED_MAIN,
   ROLLOUT_DEPLOY_JOB_ID, ROLLOUT_MERGE, ROLLOUT_RUN_ID, ROLLOUT_SOURCE,
   ROLLOUT_SOURCE_PARENT, verifyPostRolloutSource,
 } from '../scripts/deployment/verify-preview-post-rollout-reconciliation.mjs';
 import {
   BUILDS, JOBS, PROJECT, PROJECT_NUMBER, REGION, ROLLOUT_TAG, SERVICES,
-  readPostRolloutReconciliation,
+  diagnoseBuildContract, readPostRolloutReconciliation,
 } from '../scripts/deployment/read-preview-post-rollout-reconciliation.mjs';
 
 const repo = 'khedma-sy/khedmah-digital-v1';
@@ -35,6 +36,16 @@ const sourceResponses = () => [
     status: 'completed', conclusion: 'success', steps: [
       { name: 'Deploy isolated PR services', status: 'completed', conclusion: 'success' },
     ] },
+  { id: FAILED_RECONCILIATION_RUN_ID, name: 'PR Preview', event: 'pull_request',
+    status: 'completed', conclusion: 'failure', run_attempt: 1, head_sha: RECONCILIATION_PARENT,
+    path: '.github/workflows/preview-deployment.yml', head_repository: { full_name: repo },
+    pull_requests: [{ number: 274 }] },
+  { id: FAILED_RECONCILIATION_JOB_ID, run_id: FAILED_RECONCILIATION_RUN_ID,
+    name: 'reconcile-successful-rollout', status: 'completed', conclusion: 'failure', steps: [
+      { name: 'Verify the exact post-rollout reconciliation source before authentication', conclusion: 'success' },
+      { name: 'Run google-github-actions/auth@v3', conclusion: 'success' },
+      { name: 'Read exact successful Preview rollout metadata and anonymous HTTP', conclusion: 'failure' },
+    ] },
 ];
 
 function githubRunner(responses = sourceResponses(), calls = []) {
@@ -48,14 +59,16 @@ function githubRunner(responses = sourceResponses(), calls = []) {
   };
 }
 
-test('source gate performs exactly seven GETs and binds direct lineage, immutable rollout merge, failed run and successful deploy job', () => {
+test('source gate performs exactly nine GETs and binds lineage, rollout receipts and the held reconciliation mismatch', () => {
   const calls = [];
   const receipt = verifyPostRolloutSource(sourceEnv, githubRunner(sourceResponses(), calls));
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 9);
   assert.deepEqual(calls.map(args => args[3]), [
     `repos/${repo}/git/commits/${head}`, `repos/${repo}/pulls/274`, `repos/${repo}/branches/main`,
     `repos/${repo}/git/commits/${ROLLOUT_SOURCE}`, `repos/${repo}/git/commits/${ROLLOUT_MERGE}`,
     `repos/${repo}/actions/runs/${ROLLOUT_RUN_ID}`, `repos/${repo}/actions/jobs/${ROLLOUT_DEPLOY_JOB_ID}`,
+    `repos/${repo}/actions/runs/${FAILED_RECONCILIATION_RUN_ID}`,
+    `repos/${repo}/actions/jobs/${FAILED_RECONCILIATION_JOB_ID}`,
   ]);
   assert.equal(receipt.rollout_run_conclusion, 'failure');
   assert.equal(receipt.rollout_deploy_job_conclusion, 'success');
@@ -78,6 +91,8 @@ test('source gate rejects reruns, reopen/forks, changed main, alternate lineage 
     [5, value => { value.head_sha = ROLLOUT_MERGE; }],
     [6, value => { value.conclusion = 'failure'; }],
     [6, value => { value.steps[0].conclusion = 'failure'; }],
+    [7, value => { value.head_sha = head; }],
+    [8, value => { value.steps[2].conclusion = 'success'; }],
   ]) {
     const responses = sourceResponses(); mutate(responses[index]);
     assert.throws(() => verifyPostRolloutSource(sourceEnv, githubRunner(responses)));
@@ -232,6 +247,18 @@ test('reader verifies exactly eleven builds, two v1 services, nine jobs/executio
   }
 });
 
+test('diagnostic reports only bounded Build metadata and performs no service, job, HTTP or payload read', () => {
+  const fixture = cloudFixture();
+  const receipt = diagnoseBuildContract(cloudEnv, fixture.run);
+  assert.equal(receipt.builds.length, 11);
+  assert.equal(fixture.calls.filter(call => call.tool === 'gcloud').length, 13);
+  assert.equal(fixture.calls.filter(call => call.tool === 'curl').length, 0);
+  assert.equal(receipt.diagnostic_only, true);
+  for (const key of ['cloud_mutation', 'secret_payload_access', 'object_data_access',
+    'database_access', 'application_data_access', 'production_access',
+    'rollout_retry_authorized', 'cleanup_authorized']) assert.equal(receipt[key], false);
+});
+
 test('reader rejects every target/auth context mismatch before metadata or HTTP', () => {
   for (const key of Object.keys(cloudEnv)) {
     assert.throws(() => readPostRolloutReconciliation({ ...cloudEnv, [key]: 'foreign' },
@@ -296,7 +323,7 @@ test('workflow job is independent, first-attempt-only, exact-gated before WIF an
   const testStep = job.indexOf('node --test tests/preview-post-rollout-reconciliation.test.mjs');
   const gate = job.indexOf('node scripts/deployment/verify-preview-post-rollout-reconciliation.mjs');
   const auth = job.indexOf('uses: google-github-actions/auth@v3');
-  const read = job.indexOf('node scripts/deployment/read-preview-post-rollout-reconciliation.mjs');
+  const read = job.indexOf('node scripts/deployment/read-preview-post-rollout-reconciliation.mjs --diagnose-builds');
   assert.ok(gate > 0 && gate < testStep && testStep < auth && auth < read);
   for (const permission of ['actions: read', 'contents: read', 'id-token: write', 'pull-requests: read']) {
     assert.match(job, new RegExp(permission));
@@ -305,6 +332,7 @@ test('workflow job is independent, first-attempt-only, exact-gated before WIF an
   assert.match(job, /group: khedmah-preview-cloud-mutations/);
   assert.match(job, /persist-credentials: false/);
   assert.match(job, /GITHUB_RUN_ATTEMPT: \$\{\{ github\.run_attempt \}\}/);
+  assert.match(job, /Read bounded Preview rollout Build metadata after held mismatch/);
   assert.doesNotMatch(job, /\b(?:builds submit|run deploy|run jobs (?:deploy|execute|delete)|services (?:update|delete)|projects add-iam-policy-binding|storage (?:cp|rm)|secrets versions access)\b/);
   assert.doesNotMatch(job, /needs:|workflow_dispatch|repository_dispatch/);
 });
