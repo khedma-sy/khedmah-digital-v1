@@ -160,7 +160,7 @@ jobs:
             echo "has_gcp=false" >> "$GITHUB_OUTPUT"
             echo "::notice::GCP_WORKLOAD_IDENTITY_PROVIDER is not configured in the preview environment"
           fi
-      - name: Verify the reviewed first Preview rollout before authentication
+      - name: Verify the reviewed post-repair Preview rollout before authentication
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}

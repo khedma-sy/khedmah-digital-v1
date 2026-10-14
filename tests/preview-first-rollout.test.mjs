@@ -10,6 +10,7 @@ const main={commit:{sha:REVIEWED_MAIN}};
 const runner=(responses,calls=[])=> (tool,args,options)=>{calls.push(args);assert.equal(tool,'gh');assert.equal(args[0],'api');assert.ok(!args.includes('--method'));assert.equal(options.timeout,30000);return JSON.stringify(responses.shift());};
 test('first rollout accepts only the reviewed direct successor, current open same-repository PR and unchanged main',()=>{
  const calls=[];const result=verifyFirstRolloutSource(env,runner([commit,pr,main],calls));assert.equal(calls.length,3);assert.equal(result.release_head,head);assert.equal(result.cloud_mutation,false);
+ assert.equal(result.source_bucket_repair_verified,true);
 });
 test('reruns, reopen, wrong PR/fork/ref/event and malformed heads stop before all external reads',()=>{
  for(const key of Object.keys(env)) assert.throws(()=>verifyFirstRolloutSource({...env,[key]:'other'},()=>assert.fail('read')));

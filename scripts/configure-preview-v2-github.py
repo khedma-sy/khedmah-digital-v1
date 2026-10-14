@@ -50,14 +50,14 @@ CONDITION = ' && '.join(f"assertion.{key} == '{value}'" for key, value in CLAIMS
 # Filled from reviewed source blobs before publishing this batch. Head freshness is
 # checked separately, so documentation-only commits cannot silently change code.
 SOURCE_BLOBS = {
-    '.github/workflows/preview-deployment.yml': '867e9e22807aca53b45d4cf9e068182932ed84f9',
+    '.github/workflows/preview-deployment.yml': 'c83b9fca24ec1d3dfdfba4dbf779693884ae3847',
     'scripts/deployment/verify-preview-v2-configuration.mjs': 'e97025878073fd9d87804c8a3c2ee7681bb2d0b7',
     'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db',
     'scripts/deployment/read-preview-mail-metadata.mjs': '613cc786f7e99ca3822de2f475978323529469ac',
     'scripts/deployment/verify-preview-source.mjs': '447f7b82a6316f82b4c46f0728e72fac839a98d8',
     'scripts/deployment/schema-execution-profile.sh': 'c651a4055fe771dca5a3168b3860e21fe1c5aeda',
     'scripts/deployment/read-preview-launch-metadata.mjs': 'be29bc008786079fc3a8a2de6dd6780a73fb4935',
-    'scripts/deployment/verify-preview-first-rollout.mjs': '27c136ac6b1f81afa48f4a32c8c3a730b00d5ac0',
+    'scripts/deployment/verify-preview-first-rollout.mjs': '90caeee1f375aff6710a95a15f18de14603fd68a',
     'scripts/deployment/verify-build-source-exclusions.mjs': '29150895fa985125ef8338b58660fab9bd24b669',
     'scripts/deployment/verify-preview-build-source-diagnostic.mjs': '0650521e634f1377511b7670e6ce85ec0b1ee6e5',
     'scripts/inspect-preview-v2-build-source.py': '2597eebfceb912f3ff6157cd181acb712a9e04bd',

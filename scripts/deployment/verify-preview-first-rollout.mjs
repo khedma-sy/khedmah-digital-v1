@@ -3,11 +3,12 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
-// This approval is confined to the first direct successor of the verified
-// metadata source. Later documentation/source commits and reruns stay held.
-export const REVIEWED_PARENT = 'ee67cb054100436ec4a5c24805bad5a32b8e7743';
+// This approval is confined to the first direct successor of the checkpoint
+// that records the owner grant and successful deployer readback. Later
+// documentation/source commits and reruns stay held.
+export const REVIEWED_PARENT = '3cdb0ad2e7e67e1e9d8f1062ac69b0cb9d5172ed';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const RELEASE_MESSAGE = 'release(preview): execute reviewed first replacement rollout';
+export const RELEASE_MESSAGE = 'release(preview): execute reviewed rollout after source grant';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_FIRST_ROLLOUT_' + code); };
 export function verifyFirstRolloutSource(env, run = execFileSync) {
@@ -30,7 +31,8 @@ export function verifyFirstRolloutSource(env, run = execFileSync) {
   const main = read('/branches/main');
   if (main.commit?.sha !== REVIEWED_MAIN) stop('MAIN_CHANGED_HELD');
   return { reviewed_parent: REVIEWED_PARENT, release_head: env.PREVIEW_HEAD_SHA,
-    first_attempt_only: true, source_review_passed: true, cloud_mutation: false };
+    first_attempt_only: true, source_bucket_repair_verified: true,
+    source_review_passed: true, cloud_mutation: false };
 }
 export function requireEmptyFirstRolloutInventory(report) {
   if (report?.project !== 'khedmah-preview-v2-20261012' || report.project_number !== '1044962071847'
