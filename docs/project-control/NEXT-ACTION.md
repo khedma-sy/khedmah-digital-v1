@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## Google Preview session acceptance — user interaction required — 2026-10-14
+
+The origin repair completed at **`2026-10-14T20:49:38.024788Z`** and must not be repeated. Anonymous browser verification now proves Google Maps renders on both `/map` and `/taxi` at the exact short Cloud Run origin. The login page also loads and exposes the enabled Google button.
+
+**Next action requires the owner:** open the exact Preview login page, choose **“تسجيل الدخول عبر Google”**, complete Google authentication, and return to Preview. Then verify the authenticated account shell and logout. This test must not create business, listing, order, taxi, media or billing records and must not send email. Credentials, passwords and one-time codes stay in Google's sign-in UI and must never be pasted into chat or Cloud Shell.
+
+Preview login: `https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app/auth/login`
+
+Return the visible result after Google redirects back: either the authenticated account/header state or the exact sanitized error text. After a successful session/logout receipt, prepare Floot connection acceptance. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
+
 ## Add only the proven deployed Preview origin — 2026-10-14
 
 The successful read-only rollout reconciliation and owner metadata inspection prove one exact gap: **`https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app`** is not allowed by the Firebase browser key, Maps browser key or Firebase Auth domains. Existing long-form Preview/Firebase origins, all 27 Firebase API targets, the Maps-only API target, Google provider and local sign-in settings must be preserved.

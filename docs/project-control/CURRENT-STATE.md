@@ -1,5 +1,13 @@
 # Khedmah Digital — Current State
 
+## Deployed origin and both Google Maps surfaces verified — 2026-10-14
+
+Owner receipt **`PREVIEW_V2_DEPLOYED_ORIGIN_CONFIGURED`** at **`2026-10-14T20:49:38.024788Z`** confirms the exact short Cloud Run origin was added to the Firebase browser key, Maps browser key and Firebase Auth authorized domains. Both API-key operations completed, all 27 Firebase API targets and the Maps-only target were preserved, Google provider remained enabled and local sign-in settings were unchanged. The helper printed no credential/key/secret payload, performed no deployment and reported `production_mutation=false`. Do not repeat the apply.
+
+Fresh anonymous browser verification on the exact origin then loaded real Google Maps controls/data on both **`/map`** and **`/taxi`**. The previous loading placeholders cleared; `/map` exposed the Google map, fullscreen/view controls and Maps link, while `/taxi` exposed the route-planning map and the same Google controls. Browser console inspection showed no application error; two messages belonged only to the Cloud Browser Chrome extension. This verifies restriction propagation and map rendering, not location permission, route selection, user identity or application data.
+
+The public login page loads and exposes the enabled **“تسجيل الدخول عبر Google”** action; Facebook remains intentionally disabled. **Next Safe Action:** perform one user-approved Google sign-in in Preview and verify return origin, authenticated session and logout without writing application records. Do not enter credentials through repository scripts or chat. Floot connection follows successful session acceptance; Production, merge, email delivery and application-data writes remain held.
+
 ## Exact deployed-origin mismatch confirmed; bounded Preview repair prepared — 2026-10-14
 
 Post-rollout reconciliation job **`116081665730`** succeeded at **`2026-10-14T20:18:45.456Z`** and verified the exact 11 Builds, two final Cloud Run services/revisions/traffic/identities/configuration, nine successful latest job executions, backend health/readiness, frontend root and credentialed CORS. It performed no mutation or payload/application-data access. The original rollout must not be replayed.
