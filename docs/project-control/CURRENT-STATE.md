@@ -8,7 +8,9 @@ The existing Floot project **`Khedma Business Desk`** was then inspected. It rem
 
 The fixed-upstream Phase A proof is now implemented at `/_api/integrations/khedmah_preview_health`. A live Floot Preview-sandbox request returned HTTP 200 at **`2026-10-14T21:03:14.421Z`**, `connected=true`, `upstreamStatus=ok` and exact upstream version **`preview-pr-274-81cd97479040774cc36fb720cdb6f948348302dd`**. The endpoint forwards no cookies, authorization headers, Firebase tokens or Floot credentials; follows redirects manually; caps time/response size; sanitizes errors; and performs no database operation. Typecheck passed and Floot checkpoint **`Verified Preview health connection`** was created. No publish occurred.
 
-**Next Safe Action:** keep authenticated Floot integration held until a reviewed same-site custom-domain topology or controlled server-adapter design proves Khedmah cookie/origin, CSRF, logout, expiry and revocation semantics without substituting the Floot session. The observed free Floot plan has no custom domain.
+The owner selected the controlled server-adapter path. Floot now contains a written security contract plus pure primitives for exact browser-origin validation, exact Khedmah/adapter cookie handling and hardened cookie clearing. Eight focused Jasmine cases passed in one spec file with zero failures; focused TypeScript checking is clean. The design creates no Floot user/JWT/session record, imports no Floot database/auth authority and has not performed a live Firebase exchange.
+
+**Next Safe Action:** implement only the three allowlisted adapter endpoints—Google login, session read and logout—behind mocked upstream tests. Keep live token exchange and publish held until redirect/timeout/body/header stripping, response sanitization, cookie attributes, foreign-origin rejection and logout-on-failure behavior all pass.
 
 ## Deployed origin and both Google Maps surfaces verified — 2026-10-14
 
