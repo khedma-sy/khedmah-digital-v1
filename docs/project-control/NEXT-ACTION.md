@@ -1,14 +1,14 @@
 # Next Safe Action — Khedmah
 
-## Google Preview session acceptance — user interaction required — 2026-10-14
+## Floot public read-only connectivity proof — 2026-10-14
 
-The origin repair completed at **`2026-10-14T20:49:38.024788Z`** and must not be repeated. Anonymous browser verification now proves Google Maps renders on both `/map` and `/taxi` at the exact short Cloud Run origin. The login page also loads and exposes the enabled Google button.
+The owner completed Google sign-in at the exact Preview origin and reported successful return with all expected application content visible. Treat this as positive owner-reported login/session/data-load acceptance. Logout and session-expiry are not yet verified.
 
-**Next action requires the owner:** open the exact Preview login page, choose **“تسجيل الدخول عبر Google”**, complete Google authentication, and return to Preview. Then verify the authenticated account shell and logout. This test must not create business, listing, order, taxi, media or billing records and must not send email. Credentials, passwords and one-time codes stay in Google's sign-in UI and must never be pasted into chat or Cloud Shell.
+The existing Floot project was inspected and its development handoff/plan updated at checkpoint **`Prepared safe Preview integration gate`**. It currently uses a Floot-managed database and Floot-local JWT/session and has no Khedmah Preview adapter. Those mechanisms must not become a second Khedmah authority.
 
-Preview login: `https://khedmah-pr-274-frontend-xlslq22k6a-ew.a.run.app/auth/login`
+**Next Safe Action is repository/Floot source work; no Cloud Shell command is required.** Implement one fixed-upstream server endpoint that calls only a public read-only Preview health/config resource. It must forward no cookies, authorization headers, Firebase tokens or Floot credentials; read no secret payload; follow no cross-host redirect; use bounded timeout/response size; sanitize failures; and write no application data. Do not publish the Floot project during this proof.
 
-Return the visible result after Google redirects back: either the authenticated account/header state or the exact sanitized error text. After a successful session/logout receipt, prepare Floot connection acceptance. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
+Authenticated Floot integration remains held. Before enabling it, select and prove either a same-site custom-domain topology or a controlled server adapter that preserves the Khedmah Firebase exchange and session-cookie lifecycle, including CSRF/origin rules, logout, expiry and revocation. The current free Floot project has no custom domain. Production, merge, DNS/custom-domain changes, mail delivery and application-data writes remain held.
 
 ## Add only the proven deployed Preview origin — 2026-10-14
 
