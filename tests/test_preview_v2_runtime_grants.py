@@ -108,6 +108,15 @@ class SQLTests(unittest.TestCase):
         self.assertNotIn('setconfig',m.SCHEMA_QUERY)
         self.assertIn("to_jsonb(p)-'proacl'",m.SCHEMA_QUERY)
 
+    def test_acl_array_order_is_explicit_and_manifest_drift_stops(self):
+        actual=m.inventory_query(acl);expected=m.expected_query()
+        for fields in ('subject,kind,object,privilege','kind,object,grantee,privilege'):
+            order='ORDER BY '+','.join(name+' COLLATE "C"' for name in fields.split(','))
+            self.assertEqual(actual.count(order),2)
+            self.assertEqual(expected.count(order),1)
+        with patch.object(acl,'INVENTORY_SQL',acl.INVENTORY_SQL.replace('ORDER BY subject,kind,object,privilege','ORDER BY subject')):
+            with self.assertRaisesRegex(SystemExit,'ORDER_MANIFEST'):m.inventory_query(acl)
+
     def test_post_commit_readback_is_read_only_and_checks_same_digest(self):
         sql=m.build_readback_sql(acl,DIGEST)
         self.assertTrue(sql.startswith('BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY;'))
@@ -155,6 +164,21 @@ class ExecutionTests(unittest.TestCase):
     def test_readback_requires_exact_marker(self):
         self.assertIsNone(self.run_sql(result=subprocess.CompletedProcess([],0,'PREVIEW_V2_RUNTIME_GRANTS_READBACK_ACK\n',''),readback=True))
         with self.assertRaises(SystemExit):self.run_sql(result=subprocess.CompletedProcess([],0,m.COMMIT_ACK,''),readback=True)
+
+    def test_failure_metadata_contains_only_allowlisted_label_and_sqlstate(self):
+        sql="RAISE EXCEPTION 'RUNTIME_GRANTS_EXACT_ACL_MISMATCH';"
+        for stderr,label,state in (
+            ('ERROR:  P0001: RUNTIME_GRANTS_EXACT_ACL_MISMATCH\nDETAIL: '+PASSWORD,'RUNTIME_GRANTS_EXACT_ACL_MISMATCH','P0001'),
+            ('ERROR:  42501: permission denied '+TOKEN+'\nCONTEXT: '+PASSWORD,None,'42501'),
+            ('ERROR:  P0001: '+PASSWORD,None,'P0001'),
+            (TOKEN+'\n'+PASSWORD,None,None)):
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):
+                m.report_sql_failure('psql_failure',sql,False,subprocess.CompletedProcess([],3,PASSWORD,stderr))
+            text=output.getvalue();value=json.loads(text)
+            self.assertEqual(value['contract_label'],label);self.assertEqual(value['sqlstate'],state)
+            self.assertFalse(value['retry_authorized']);self.assertFalse(value['raw_diagnostics_printed'])
+            self.assertNotIn(PASSWORD,text);self.assertNotIn(TOKEN,text)
 
 
 class OrchestrationTests(unittest.TestCase):

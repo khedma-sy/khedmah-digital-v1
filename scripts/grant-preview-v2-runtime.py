@@ -15,7 +15,7 @@ import tempfile
 import time
 
 REPO='khedma-sy/khedmah-digital-v1'
-SOURCE_COMMIT='1b480cbfcb8d2eade13d1d44b4ca4fb2a7620f31'
+SOURCE_COMMIT='8e5da7031c592036b25d90112b7c85c427a72cf6'
 ACL_BLOB='6c9d5415f60902288c69f0910513d65479f2d950'
 ACL_SHA256='13f93b5ffdc8a4f3cdec501bd965e2673be4f4418fe656484242c969e3cb2bb2'
 PUBLIC_TABLES=tuple('''ad_free_slots ad_listings ad_moderation_events ad_request_receipts
@@ -116,6 +116,13 @@ def inventory_query(acl):
     # Entire arrays are compared inside PostgreSQL, never printed or truncated.
     sql=acl.INVENTORY_SQL.strip().removesuffix(';')
     if sql.count('LIMIT 300')!=4:stop('ACL_INVENTORY_MANIFEST_MISMATCH')
+    # Catalog name expressions and text manifests can inherit different
+    # collations. Compare complete arrays in the same bytewise order; do not
+    # drop rows, deduplicate privileges or relax any value comparison.
+    for fields in ('subject,kind,object,privilege','kind,object,grantee,privilege'):
+        order='ORDER BY '+fields
+        if sql.count(order)!=2:stop('ACL_INVENTORY_ORDER_MANIFEST_MISMATCH')
+        sql=sql.replace(order,'ORDER BY '+','.join(name+' COLLATE "C"' for name in fields.split(',')))
     return sql.replace('LIMIT 300','')
 
 
@@ -154,9 +161,9 @@ table_acl(kind,object,privilege) AS (
 SELECT $baseline$BASELINE$baseline$::jsonb || jsonb_build_object(
  'read_only',current_setting('transaction_read_only'),
  'explicit_count',(SELECT count(*) FROM explicit_expected),
- 'explicit_privileges',(SELECT jsonb_agg(to_jsonb(e) ORDER BY kind,object,grantee,privilege) FROM explicit_expected e),
+ 'explicit_privileges',(SELECT jsonb_agg(to_jsonb(e) ORDER BY kind COLLATE "C",object COLLATE "C",grantee COLLATE "C",privilege COLLATE "C") FROM explicit_expected e),
  'effective_count',(SELECT count(*) FROM effective_expected),
- 'effective_privileges',(SELECT jsonb_agg(to_jsonb(e) ORDER BY subject,kind,object,privilege) FROM effective_expected e))
+ 'effective_privileges',(SELECT jsonb_agg(to_jsonb(e) ORDER BY subject COLLATE "C",kind COLLATE "C",object COLLATE "C",privilege COLLATE "C") FROM effective_expected e))
 """.replace('PUBLIC_VALUES',values(PUBLIC_TABLES)).replace('DRIVER_VALUES',values(DRIVER_COLUMNS)).replace(
         'VEHICLE_VALUES',values(VEHICLE_COLUMNS)).replace('BASELINE',base)
 
@@ -235,6 +242,22 @@ def build_readback_sql(acl,digest):
         "END $readback$;\nROLLBACK;\nSELECT 'PREVIEW_V2_RUNTIME_GRANTS_READBACK_ACK';\n")
 
 
+def report_sql_failure(reason,sql,readback,result=None):
+    # Only a SQLSTATE and exact exception labels present in this pinned SQL
+    # may leave the process. Never echo stderr, statements, paths or values.
+    sqlstate=None;label=None
+    if result is not None and isinstance(result.stderr,str):
+        match=re.search(r'^(?:ERROR|FATAL):[ \t]+([0-9A-Z]{5}):[ \t]+([^\r\n]*)$',result.stderr,re.M)
+        if match:
+            sqlstate=match[1]
+            allowed=set(re.findall(r"RAISE EXCEPTION '([A-Z][A-Z0-9_]+)'",sql))
+            if match[2] in allowed:label=match[2]
+    print(json.dumps(dict(stage='PREVIEW_V2_RUNTIME_GRANTS_SQL_UNCONFIRMED',
+        phase='readback' if readback else 'grant_transaction',reason=reason,
+        sqlstate=sqlstate,contract_label=label,raw_diagnostics_printed=False,
+        retry_authorized=False),sort_keys=True),flush=True)
+
+
 def execute_sql(reader,work,password,sql,readback=False):
     if not re.fullmatch('[0-9a-f]{64}',password):stop('PASSWORD_FORMAT_REJECTED')
     socket_dir=str(work/reader.CONNECTION);pgpass=work/'runtime-grants.pgpass'
@@ -246,11 +269,15 @@ def execute_sql(reader,work,password,sql,readback=False):
         PGOPTIONS='-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000')
     try:
         result=subprocess.run(['psql','-X','-w','-q','-A','-t','-h',socket_dir,'-p','5432',
-            '-U',reader.USER,'-d',reader.DATABASE,'-v','ON_ERROR_STOP=1','-P','pager=off'],
+            '-U',reader.USER,'-d',reader.DATABASE,'-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-P','pager=off'],
             input=sql,text=True,capture_output=True,timeout=600,env=env)
-    except (OSError,subprocess.TimeoutExpired):stop('RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY')
+    except (OSError,subprocess.TimeoutExpired) as exc:
+        report_sql_failure('timeout' if isinstance(exc,subprocess.TimeoutExpired) else 'process_error',sql,readback)
+        stop('RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY')
     finally:pgpass.unlink(missing_ok=True)
-    if result.returncode or len(result.stdout)>4096:stop('RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY')
+    if result.returncode or len(result.stdout)>4096:
+        report_sql_failure('psql_failure' if result.returncode else 'oversized_output',sql,readback,result)
+        stop('RUNTIME_GRANTS_RESULT_UNCONFIRMED_READ_BEFORE_RETRY')
     lines=[line.strip() for line in result.stdout.splitlines() if line.strip()]
     if readback:
         if lines!=['PREVIEW_V2_RUNTIME_GRANTS_READBACK_ACK']:stop('RUNTIME_GRANTS_READBACK_UNCONFIRMED')

@@ -25,7 +25,9 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     '--env', 'POSTGRES_PASSWORD=' + randomBytes(24).toString('hex'), 'postgres:16');
   assert.equal(created.status, 0, created.stderr);
   const deadline = Date.now() + 45000;
-  while (docker('exec', fixture, 'pg_isready', '-U', 'postgres').status !== 0) {
+  // The image's temporary initialization server listens only on its socket.
+  // Wait for final-server TCP readiness inside the network-disabled container.
+  while (docker('exec', fixture, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres').status !== 0) {
     assert.ok(Date.now() < deadline, 'Disposable PostgreSQL 16 startup timed out.');
     await new Promise(resolve => setTimeout(resolve, 250));
   }
@@ -40,7 +42,7 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     return result.stdout.split('\n').map(line => line.trim()).filter(Boolean);
   };
   assert.match(ok(sql('SHOW server_version_num;', 'postgres', 'postgres', false), 'version')[0], /^16\d{4}$/);
-  ok(sql('CREATE ROLE cloudsqlsuperuser NOLOGIN; CREATE DATABASE khedmah OWNER cloudsqlsuperuser;',
+  ok(sql("CREATE ROLE cloudsqlsuperuser NOLOGIN; CREATE DATABASE khedmah OWNER cloudsqlsuperuser TEMPLATE template0 LC_COLLATE 'en_US.utf8' LC_CTYPE 'en_US.utf8';",
     'postgres', 'postgres', false), 'create isolated database');
   ok(sql(`
     CREATE ROLE khedmah_runtime_role NOLOGIN;
@@ -68,6 +70,25 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   // particular, do not discard the PG16 guards or normalize SQL output.
   // PostgreSQL json_agg(record) may embed newlines in a single JSON value.
   assert.deepEqual(JSON.parse(ok(sql(pack.readonly), 'full preflight').join('\n')), pack.baseline);
+  const baseline = () => assert.deepEqual(JSON.parse(ok(sql(pack.readonly), 'baseline preserved').join('\n')), pack.baseline);
+  assert.equal(ok(sql(`SELECT
+    (SELECT array_agg(n ORDER BY n COLLATE "default") FROM (VALUES ('max_redemptions'),('maximum_discount')) t(n)) <>
+    (SELECT array_agg(n ORDER BY n COLLATE "C") FROM (VALUES ('max_redemptions'),('maximum_discount')) t(n));`), 'locale fixture')[0], 't');
+  // The old implicit ordering must reproduce the defect under a non-C locale.
+  const legacy = sql(pack.apply.replaceAll(' COLLATE "C"', ''));
+  assert.notEqual(legacy.status, 0);
+  assert.match(legacy.stderr, /RUNTIME_GRANTS_EXACT_ACL_MISMATCH/);
+  baseline();
+  const extraAcl = sql(pack.apply.replace(pack.grants, pack.grants +
+    'GRANT SELECT ON public.category_taxonomy_022_before_image TO khedmah_runtime_role;\n'));
+  assert.notEqual(extraAcl.status, 0);
+  assert.match(extraAcl.stderr, /RUNTIME_GRANTS_EXACT_ACL_MISMATCH/);
+  baseline();
+  const changedSchema = sql(pack.apply.replace(pack.grants, pack.grants +
+    'ALTER TABLE public.food_promo_codes ADD COLUMN unexpected_fixture text;\n'));
+  assert.notEqual(changedSchema.status, 0);
+  assert.match(changedSchema.stderr, /RUNTIME_GRANTS_SCHEMA_CHANGED/);
+  baseline();
   const result = sql(pack.apply);
   if (result.status !== 0) {
     const after = sql(pack.readonly);
@@ -81,11 +102,15 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     for (const key of Object.keys(comparison.observed)) {
       const observed = comparison.observed[key], expected = comparison.expected[key];
       if (JSON.stringify(observed) === JSON.stringify(expected)) continue;
-      difference[key] = Array.isArray(observed) && Array.isArray(expected) ? {
-        observed_only: observed.filter(row => !expected.some(e => JSON.stringify(e) === JSON.stringify(row))),
-        expected_only: expected.filter(row => !observed.some(e => JSON.stringify(e) === JSON.stringify(row))),
-        counts: [observed.length, expected.length],
-      } : { observed, expected };
+      if (Array.isArray(observed) && Array.isArray(expected)) {
+        const observedSet = new Set(observed.map(row => JSON.stringify(row)));
+        const expectedSet = new Set(expected.map(row => JSON.stringify(row)));
+        difference[key] = {
+          observed_only: observed.filter(row => !expectedSet.has(JSON.stringify(row))),
+          expected_only: expected.filter(row => !observedSet.has(JSON.stringify(row))),
+          counts: [observed.length, expected.length],
+        };
+      } else difference[key] = { observed, expected };
     }
     t.diagnostic('Disposable fixture ACL difference: ' + JSON.stringify(difference));
   }
@@ -100,4 +125,11 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   const replay = sql(pack.apply);
   assert.notEqual(replay.status, 0, 'Completed grants must reject replay.');
   assert.deepEqual(ok(sql(readback), 'readback after rejected replay'), ['PREVIEW_V2_RUNTIME_GRANTS_READBACK_ACK']);
+  const verifySource = run('python3', [fileURLToPath(new URL('./test_preview_v2_runtime_verify.py', import.meta.url)), '--sql-lab-pack']);
+  assert.equal(verifySource.status, 0, verifySource.stderr);
+  const verify = JSON.parse(verifySource.stdout);
+  assert.equal(JSON.parse(ok(sql(verify.state), 'state reader').join('\n')).acl_state, 'EXPECTED_GRANTS_PRESENT');
+  const runtime = JSON.parse(ok(sql(verify.runtime, 'khedmah_app'), 'runtime permissions').join('\n'));
+  assert.equal(runtime.allowed_select_probes, 62);
+  assert.equal(runtime.denied_select_probes, 2);
 });

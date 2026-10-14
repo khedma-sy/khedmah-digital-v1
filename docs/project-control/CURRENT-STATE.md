@@ -4,7 +4,21 @@
 
 This is the compact authority for continuation. It restores completed evidence from this PR's Git history that later checkpoint replacements omitted. Keep this ledger when advancing the next action; do not replace it with only the newest component result. Older instructions below are historical wherever they request a completed operation.
 
-### Post-attempt ACL reconciliation complete — native diagnosis next — 2026-10-14
+### Runtime ACL ordering correction — native validation pending — 2026-10-14
+
+Owner reconciliation at **2026-10-14T06:32:52.361353+00:00** confirms **GRANTS_NOT_APPLIED**, exact ACL/table set/ownership and 64/9/12 after the unconfirmed grant attempt. No runtime credential, application rows or mutation; historic COMMIT/rollback is still unproven.
+
+**A source defect is now reproduced on native PostgreSQL 16.** Unchanged SQL fails `RUNTIME_GRANTS_EXACT_ACL_MISMATCH` before COMMIT in disposable fixtures. Run `38524835170`, job `115722634754`, records the exact difference: only `explicit_privileges` differs; observed-only and expected-only arrays are both empty, and both contain **269 entries**. The values agree but their order differs. Catalog-derived names and text literals can inherit different collations; the old expected/observed JSON arrays used implicit ordering. This native reproduction establishes a source defect, not the original cloud SQLSTATE or a historic cloud rollback.
+
+The correction gives both complete observed and expected ACL arrays explicit `COLLATE "C"` ordering. It does not remove, deduplicate or normalize privilege values, change the seven GRANTs, broaden roles, change defaults/owners or remove the exact comparison. The reader pin advances to the corrected grant contract so post-grant classification uses the same ordering. Bounded failure metadata now prints only SQLSTATE and a source-allowlisted exception label; raw stderr, SQL, paths and values stay private, and failures still stop without retry.
+
+The native regression keeps all retained PG16 contracts, uses an explicit en_US locale, demonstrates the old ordering failure, then checks the correction, rollback on excess ACL/schema change, post-COMMIT readback, replay rejection and runtime SELECT allow/deny probes. It uses only a new network-disabled Docker container without host mounts/ports or existing-database fallback. A fixture-only multiline JSON parser error in `5060a23621afb93be49fbb18b8a2d24342a642a3` was fixed at `309dd4cd4ee77b897aeac5597e1a901e7d8b2659`; a temporary Docker-init socket readiness race is also corrected by waiting for the final server's loopback TCP readiness.
+
+Local validation: **19 grant Python tests + 15 reader Python tests passed**, JavaScript syntax and diff checks passed; optional PG18 WASM rollback/ACL/digest/readback suite passed. **Native CI on this correction is pending. Next: review that result before releasing a new owner command.** Old grant and runtime-login commands remain held. Prepared grant blob `be758ce6374ad81b63ac24e86eca147b1932f2aa`, SHA256 `b086e77e8f64011364261b61cbda93a0828c5f76ad53874f798722120fabc10c`; not owner-executed.
+
+Main `bc5a5c764413498189147cc34c7e857c78aa3d2c` and open/unmerged PR #274 are retained; implementation parent `8e5da7031c592036b25d90112b7c85c427a72cf6`. Preview deployment/cleanup and Production gates remain unchanged. No workflow dispatch, migration replay, secret recreation, owner cloud mutation or live runtime-login/readiness claim. The completed ledger and historical evidence remain preserved.
+
+### Historical checkpoint — Post-attempt ACL reconciliation complete — native diagnosis next — 2026-10-14
 
 Owner post-attempt reconciliation completed at **2026-10-14T06:32:52.361353+00:00**, received 09:33:23 Damascus. `PREVIEW_V2_RUNTIME_ACL_STATE_READ` reports **GRANTS_NOT_APPLIED**, exact ACL state and expected table set/ownership verified, **64 tables / 9 routines / 12 triggers**. Migration credential v1 was read privately; no runtime credential, application rows, runtime probes or mutation. Full retained schema contracts were not reverified. Historic COMMIT/rollback remains unproven; this current-state read does not authorize retry.
 
@@ -279,7 +293,7 @@ The owner supplied the complete output ending `INVENTORY_FINISHED_NOT_A_READINES
 - Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c` (merged #273). PR #274 is open/unmerged; latest verified executable/test source is `ce387aa61facbfb0e66c444d2620369082739203`.
 - Current-source Test & Verify `38463786773`, Node CI `38463786754` and Google source/Android `38463786803` succeeded. Tests: 2,612 pass, zero failures, one optional WASM-lab skip; evidence artifact `11848071087`. The final five-document `[skip ci]` checkpoint preserves those executable/test/workflow bytes exactly.
 - Preview `38463786718`, deployment job `115527807196`, passed current-source/target/WIF/isolation checks and freshly verified RESEND latest v1 ENABLED at `2026-10-13T20:39:15.655Z`, without payload access or mutation, then intentionally exited at `PREVIEW_MAIL_METADATA_COMPLETE_DEPLOYMENT_HELD`. Deployment/review evidence and cleanup were skipped. This is not a failed WIF connection, mail delivery or deployment.
-- The post-attempt 06:32:52 UTC owner read confirms GRANTS_NOT_APPLIED, exact ACL/table-set/ownership and 64/9/12. This reconciliation is complete; historic COMMIT/rollback remains unproven. Native PostgreSQL 16 diagnosis is next; no retry is authorized.
+- The post-attempt 06:32:52 UTC owner read confirms GRANTS_NOT_APPLIED, exact ACL/table-set/ownership and 64/9/12. Native PG16 now reproduces an ordering-only 269-entry explicit-ACL mismatch; the correction is prepared and awaiting native CI. No owner retry yet.
 - Historical full-source runs at `f99479268f036c098bdd0fd828d5295aeb11ef39` and Preview `38277607448` remain historical evidence, superseded for current source/mail metadata by the runs above. No Production gate release or merge.
 
 ### Completed replacement Preview work — do not replay
@@ -324,10 +338,11 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 | Consolidated schema and ACL inspection | Owner `PREVIEW_V2_SCHEMA_ACL_READ_COMPLETED_NO_MUTATION` at `2026-10-13T19:43:50.327004+00:00`: complete 64 tables/nine routines/twelve triggers, two schemas, zero sequences; all contracts through 034 verified. Runtime has only inherited CONNECT/public USAGE, no object grants or owned objects. Two owner-only default function ACLs, no role-setting rows and two intentional NOT VALID FKs preserved. Existing migration secret read privately; no runtime credential/login test, schema/grant/cloud mutation, credential/data-row output or readiness claim. Inspection complete; bounded runtime grant is next. |
 | Fresh GitHub Preview mail metadata read | Run `38463786718`, job `115527807196`, at `2026-10-13T20:39:15.655Z`: source/target/WIF/isolation guards passed; RESEND container visible, enabled version present, latest v1 ENABLED. No payload access, cloud mutation, runtime-access or delivery verification. Explicit deployment hold fired; schema/services/review evidence and cleanup skipped. |
 | Return-time exact ACL read | Owner `PREVIEW_V2_RUNTIME_ACL_STATE_READ` at `2026-10-14T06:19:13.016995+00:00`: GRANTS_NOT_APPLIED, exact ACL state and table set/ownership verified, 64/9/12. Migration credential v1 private; no runtime credential/login/probes, application rows or mutations. Full schema contracts not reverified; prior transaction outcome not proven and automatic retry not authorized. Read complete; the existing first bounded grant is next. |
+| Post-attempt exact ACL reconciliation | Owner read at `2026-10-14T06:32:52.361353+00:00`: GRANTS_NOT_APPLIED, exact ACL/table set/ownership and 64/9/12. Migration credential v1 private; no runtime credential/login, application rows or mutation. Historic COMMIT/rollback unproven; no automatic retry. Reconciliation complete; source diagnosis/correction follows. |
 
 ### Actual continuation and remaining work
 
-1. **Next:** diagnose the unchanged grant SQL on native PostgreSQL 16 in a fresh isolated CI container; review its concrete failure before preparing a correction.
+1. **Next:** verify the corrected ACL ordering on native PostgreSQL 16, then publish a pinned bounded owner grant command only after the regression passes.
 2. The 06:32:52 UTC post-attempt reconciliation is complete and confirms current grants absent. No new identical cloud read or blind grant retry is requested.
 3. Runtime login verification remains held; no successful grant, historical rollback or full readiness is claimed.
 4. Preserve completed migrations/secrets, owners/default ACLs, narrow Taxi grants and rollback-table exclusions. Taxi trips remain disabled.
@@ -335,7 +350,7 @@ Exact project: `khedmah-preview-v2-20261012` / `1044962071847`, region `europe-w
 
 ### Execution boundary and handoff discipline
 
-Owner grant attempt passed preflight then stopped without COMMIT/final acknowledgement. The subsequent exact ACL read now confirms GRANTS_NOT_APPLIED at 06:32:52 UTC, without proving historic COMMIT/rollback. Diagnose the source before another mutation. The new native regression uses only disposable Docker resources in CI; no cloud credentials or existing database fallback. No direct authenticated assistant Cloud Shell surface is confirmed. No new owner command is issued in this diagnosis checkpoint. Preserve the full completion ledger.
+Owner grant attempt passed preflight then stopped without COMMIT/final acknowledgement. Post-attempt read confirms current grants absent. Native isolated fixtures reproduce an ordering-only exact-ACL mismatch; correction is prepared, not owner-executed. No new cloud command until native regression validation. Full prior ledger, all completed migrations/secrets, narrow privileges and deployment/Production holds are preserved. No direct authenticated assistant Cloud Shell access is claimed.
 
 ## Component inspection received — bounded Storage setup next — 2026-10-13
 
