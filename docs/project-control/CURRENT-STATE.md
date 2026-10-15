@@ -1,5 +1,19 @@
 # Khedmah Digital — Current State
 
+## Public Food directory and menus moved into Floot sandbox — 2026-10-15
+
+Supersedes the previous next action to begin Food migration. Added **/platform/food**, **/platform/restaurants**, and **/platform/restaurants/:businessId**; homepage Food links and product-to-menu return routes now stay local. Existing Google backend remains the public data/auth authority. Quantities, cart and confirmation still use the explicitly labeled existing-site handoff; no local checkout, order, quote, payment or stock writes were added.
+
+Floot checkpoint **f4e06683-b617-4c67-8d59-c66db02cca81**, version **1792078219836** (final plan write; code validated before this documentation-only write). Implementation resides in Floot, not GitHub application-code commits: components/KhedmahFoodView*, pages/platform.food*, pages/platform.restaurants*, helpers/khedmahFood*, endpoints/integrations/khedmah_food_GET*, Store return-link integration, homepage and existing integration plan.
+
+Reviewed Food landing, restaurants directory and restaurant menu source at PR 274 head **d3cd31b5950279612991965bf4469f0b566eb01c**. Directory reads six fixed categories, twenty rows per category, deduplicates IDs and sorts featured/name. Explicit submission conserves six-way traffic compared with source per-keystroke search. Partial category failures show named failures, omit totals and prevent advance until retry. Menu validates the public approved active parent before and after products, rejects cross-owner data, projects only public fields and preserves explicit stock/control flags. Mixed currencies or no eligible products block the order handoff. Fixed credential-free upstream, bounded time/body reads and confined local return paths retained.
+
+Validation: **5 public spec files passed, 48 cases** (11 Food + 37 prior public cases); final code typecheck clean. Live directory 200/no-store with **zero published restaurants**, missing menu 404, invalid category/reserved ID/caller URL 400. Browser search submission, category filter and clear URL behavior passed. Desktop Food landing and a **393x852 staged menu** visually inspected; fixture data is labeled test-only. Initial iPhone preset capture was clipped; custom narrow capture rendered correctly. No real populated merchant/media/cart/order acceptance claimed.
+
+No deployment, Production/GCP/IAM/DNS mutation, Maps mutation, flag activation, secret connection or message send. PR remains open/unmerged; these docs-only [skip ci] commits do not certify newer Floot bytes through GitHub CI. Existing Safari, session expiry/revocation, RBAC, populated-data/media, authenticated order and release holds remain open.
+
+**Next safe action:** review the original public delivery/mobility directory contracts, then migrate the bounded public display where supported. Keep embedded Maps/referrer changes, taxi/trip activation and authenticated lifecycle behind their existing separate gates.
+
 ## Public Store and product details moved into Floot sandbox — 2026-10-15
 
 Supersedes the previous next action to begin Store migration. Added **/platform/store** and **/platform/store/products/:productId**, with local homepage navigation, URL-owned filters and constrained filter-preserving return links. Existing seller creation/management, restaurant menu and eligible cash-checkout routes remain explicitly labeled existing-site handoffs, with separate-session notice. No cart/order/quote/payment/stock mutation or authenticated write route added.
