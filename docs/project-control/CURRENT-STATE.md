@@ -1,5 +1,22 @@
 # Khedmah Digital — Current State
 
+## Floot origin absent verified; narrow additive helper prepared — 2026-10-15
+
+Owner receipt at **2026-10-15T12:08:35.845623Z** completed the bounded metadata read: exact Preview project/key, all 27 Firebase API targets and Google provider verified; **floot_origin_present=false**, cloud/Production mutation false. The preceding AUTH_CONFIG_CONFLICT was the inspector's strict representation check: the selected Auth response returns **signIn={}**, rather than explicit false fields. A temporary in-memory expected-value adjustment completed the owner read. The repository inspector now accepts exactly either observed empty representation or the full explicit-false representation; enabled, missing/null and numerically false values remain rejected. This is a metadata receipt, not a new live login/session test.
+
+New standalone helper [configure-preview-v2-floot-origin.py](../../scripts/configure-preview-v2-floot-origin.py), blob **4684fa1e45c741864e8e1b92656ae71e959ddeb1**, SHA256 **175cb9cb9baf38e5ea20a9d4106180840cb1d788ff191a7b58413df3fba309b5**, adds only the exact Floot origin to the Firebase browser key referrers and Auth authorizedDomains in Preview project khedmah-preview-v2-20261012 / 1044962071847. It retains project/account/organization guards, key identity, all 27 API targets and the exact existing domains/referrers, verifies fresh metadata before mutation, uses the key etag, waits boundedly, and verifies final readback with unchanged signIn. It has no Maps resource route, key-string/secret payload read, deployment, application-data operation, email send, DNS or Production operation. If both additions already exist it only verifies; a partial/unknown state stops without replay. API-key and Auth writes are not atomic: a failure can leave partial state and must be reconciled. Auth domain PATCH has no etag CAS in this helper; an immediately preceding equality check detects observed drift but cannot rule out a change between GET and PATCH.
+
+Local offline validation: **23 passed / zero failed** (6 retained deployed-origin + 7 inspector + 10 additive-helper tests), and both changed executable files compile. Tests use inert credentials and closed fake clients/HTTP; they do not prove live Google writes, browser/Floot acceptance or full CI. The old deployed-origin helper and workflow definitions are unchanged. Existing exact-lineage source gates continue to hold later heads before cloud authentication; no rollout retry or merge is requested.
+
+**Next Safe Action:** owner executes the checksum-pinned standalone command below once and returns its complete output. Require **PREVIEW_V2_FLOOT_ORIGIN_CONFIGURED**. On STOP, timeout or missing final receipt, return output and do not retry blindly. Only after successful readback continue controlled user-driven Firebase login/session/logout acceptance through the existing Floot adapter. This command adds cloud allowlists; it does not certify or publish the integration.
+
+```bash
+( set -euo pipefail; umask 077; export CLOUDSDK_CORE_DISABLE_PROMPTS=true CLOUDSDK_CORE_LOG_HTTP=false CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true; khedmah_floot_apply="$(mktemp)"; trap 'rm -f -- "$khedmah_floot_apply"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/4684fa1e45c741864e8e1b92656ae71e959ddeb1 --jq '.content' | base64 --decode > "$khedmah_floot_apply"; printf '%s  %s\n' '175cb9cb9baf38e5ea20a9d4106180840cb1d788ff191a7b58413df3fba309b5' "$khedmah_floot_apply" | sha256sum --check --status; python3 "$khedmah_floot_apply" --apply; )
+```
+
+Protected main remains bc5a5c764413498189147cc34c7e857c78aa3d2c; PR274 remains open/unmerged. Existing positive owner Preview Google-login report remains historical evidence for its Cloud Run origin. Live Floot login/logout, publish, runtime DML/media, mail and Production remain unverified/held.
+
+
 ## Google Preview session accepted; Floot integration gate prepared — 2026-10-14
 
 After the deployed-origin correction and successful Maps rendering checks, the project owner completed Google sign-in at the exact Preview origin and reported that the redirect returned successfully and all expected application content appeared. This is owner-reported positive browser acceptance for login, authenticated session establishment and data loading; credentials and token values were not shared or captured. Logout and session-expiry behavior remain separate acceptance checks.

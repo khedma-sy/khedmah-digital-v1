@@ -51,7 +51,8 @@ def inspect(client):
             or auth.get("name") not in (BASE.CONFIG_PATH,
                 "projects/" + BASE.NUMBER + "/config")
             or auth.get("subtype") != "FIREBASE_AUTH"
-            or auth.get("signIn") != EXPECTED_SIGN_IN):
+            or json.dumps(auth.get("signIn"), sort_keys=True) not in
+                ("{}", json.dumps(EXPECTED_SIGN_IN, sort_keys=True))):
         stop("AUTH_CONFIG_CONFLICT")
     domains = exact_inventory(auth.get("authorizedDomains"), CURRENT_DOMAINS,
                               FLOOT_DOMAINS, "AUTH_DOMAIN_INVENTORY_CONFLICT")

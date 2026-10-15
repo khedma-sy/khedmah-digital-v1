@@ -56,6 +56,21 @@ class FakeClient:
 
 
 class InspectionTests(unittest.TestCase):
+    def test_empty_signin_receipt_is_accepted_without_writes(self):
+        client = FakeClient(False)
+        client.config["signIn"] = {}
+        self.assertFalse(self.receipt(client)["floot_origin_present"])
+        self.assertFalse(any(body is not None for _, body, _ in client.calls))
+
+    def test_enabled_or_malformed_signin_is_rejected(self):
+        for value in (None, {"email": {"enabled": True}},
+                      {"email": {"enabled": 0, "passwordRequired": False},
+                       "anonymous": {"enabled": False}, "phoneNumber": {"enabled": False}}):
+            client = FakeClient(False)
+            client.config["signIn"] = value
+            with self.subTest(value=value), self.assertRaisesRegex(SystemExit, "AUTH_CONFIG"):
+                self.receipt(client)
+
     def receipt(self, client):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
@@ -111,4 +126,3 @@ class InspectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
