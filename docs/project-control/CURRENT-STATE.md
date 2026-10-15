@@ -1,5 +1,19 @@
 # Khedmah Digital — Current State
 
+## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
+
+Floot checkpoint **9e84c139-8f3e-44e7-897a-a2d7e786f9e2**, documentation version **1792080274730**. Implementation remains in Floot; these are documentation-only GitHub updates.
+
+Continuation on PR274 head 252f583544da8d3d725d5c63bb824433caf432ea, open/unmerged, base bc5a5c764413498189147cc34c7e857c78aa3d2c; filtered workflow list empty. Existing authenticated-route expansion holds remain in force.
+
+Found readAdapterSessionCookie selected the first duplicate adapter cookie. Added a regression which failed on the old bytes, then changed it to require exactly one matching __Host-khedmah_preview_session cookie. Equal-value duplicates are also rejected; duplicate unrelated cookies do not affect the exact-cookie read. No new auth path, origin, role or session authority.
+
+Added an explicit manual evidence recorder within /khedmah-preview: after confirmed session display, user can begin a record, reload and manually observe the existing session endpoint. Timestamp/browser-family/elapsed-seconds/present-or-absent-or-unavailable only; no email, user ID, raw user agent, token or cookie. Bounded forty observations, guarded optional sessionStorage, safe projection on reload and clipboard export only on user click. Browser family is a self-report heuristic (including iOS Chrome/Edge/Firefox exclusions), not independent Safari evidence. No timers, polling or background tasks. Network failure cannot be interpreted as logout; an absent session after an hour is explicitly an observation, not proof of expiration cause. Manual logout, new login/revocation and device clock changes must be considered.
+
+Final validation: five targeted spec files passed, zero failed, including six new evidence cases and the duplicate-cookie regression; full typecheck clean. Browser confirmed recorder present, start/check/copy disabled while signed out, and no horizontal overflow. Narrow screenshot inspected for page/section entry; no real session or Safari/one-hour outcome manufactured. Relevant files: helpers/khedmahAdapterSecurity.tsx/.spec.tsx, helpers/khedmahSessionEvidence.tsx/.spec.tsx, components/KhedmahSessionEvidence.tsx/.module.css and pages/khedmah-preview.tsx.
+
+Next requires owner browser interaction: open the actual preview in Safari, sign in, start the recorder, reload and record a session observation; after at least one hour without new login or manual logout, record again and share the non-secret record. This is acceptance evidence collection, not permission to bypass other authority/data/policy/release gates. No publish/cloud/database/feature/role mutation, credential access or message send.
+
 ## Public mobility, directory, account display and navigation completed in sandbox — 2026-10-15
 
 Owner requested sustained completion. This pass advances the remaining public surfaces up to the existing authenticated-integration gates; it does not certify a finished product or cutover.
