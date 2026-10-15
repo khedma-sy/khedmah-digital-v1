@@ -16,6 +16,8 @@ Implementation **`ee3f4d89ccf10ade11e0f1e7da9d7773936eec68`** adds a read-only, 
 
 Exact-source GitHub validation is complete. Node.js CI **`38639360557`**, Test & Verify **`38639360519`** and Google production readiness **`38639360564`** succeeded. PR Preview **`38639360554`** is overall FAILURE only because its cloud-capable jobs rejected the superseded source after documentation head `8374660b71354333992a8c55997070b86209fa19` became current: `PREVIEW_BUILD_SOURCE_DIAGNOSTIC_LINEAGE_HELD`, `PREVIEW_POST_ROLLOUT_SOURCE_LINEAGE_HELD` and `PREVIEW_SOURCE_STALE_OR_FOREIGN_STOP`. Quality gates succeeded; authentication and all later diagnostic/deploy cloud steps were skipped. Do not rerun that workflow. Protected main remains `bc5a5c764413498189147cc34c7e857c78aa3d2c`; PR #274 remains open/unmerged.
 
+The first owner launcher stopped locally before preflight with `FileNotFoundError` because it downloaded only the inspector while the reviewed inspector imports sibling `configure-preview-v2-deployed-origin.py`. No gcloud call, token request or cloud mutation occurred. The corrected launcher in `NEXT-ACTION.md` creates one private temporary directory, downloads both exact checksum-pinned blobs under their reviewed filenames, verifies both SHA-256 values and only then runs `--inspect`. Do not repeat the incomplete single-file launcher.
+
 **Next Safe Action:** owner runs the one checksum-pinned `--inspect` command in `NEXT-ACTION.md` and returns the single JSON receipt. Require `PREVIEW_V2_FLOOT_ORIGIN_METADATA_READ_COMPLETED`; do not retry a STOP blindly. Only an exact absent state may authorize a separate additive Preview-only correction.
 
 ## Deployed origin and both Google Maps surfaces verified — 2026-10-14
