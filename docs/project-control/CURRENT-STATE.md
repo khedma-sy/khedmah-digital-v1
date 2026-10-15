@@ -1,5 +1,18 @@
 # Khedmah Digital — Current State
 
+## Actual Floot sandbox origin proven; exact additive helper prepared — 2026-10-15
+
+After owner confirmed Floot Pro, focused TypeScript checking of the SDK helper/page was clean and the affected acceptance spec passed (one spec file, zero failed). The actual open-browser read after navigation to /khedmah-preview returned **initialized=true**, correct Preview Web configuration, no initialization error, anonymous session and disabled login/logout at the origin gate. Exact observed origin: **https://5e271f43-96a6-40de-a634-ec3eae023a49.sandbox.floot.app**. No Google popup, token exchange or live session was attempted.
+
+Prepared standalone helper [configure-preview-v2-floot-sandbox-origin.py](../../scripts/configure-preview-v2-floot-sandbox-origin.py), immutable blob **a6185fac6579d564a92a497308ad152eedde3e8a**, SHA256 **6ffaf48732952ae596d9646ade491922d61a849a53b5b456a1d160b8aea9800e**. It adds only that exact sandbox host to Preview Auth domains and its two exact HTTPS Firebase browser-key referrers. All existing Cloud Run/Firebase/published-Floot entries, 27 API targets, account/project/organization/key guards and local signIn representation are retained. Maps has no request route. Etag CAS protects the key; Auth uses a fresh equality check before its field-only PATCH (the existing GET/PATCH race limitation remains). It rejects unknown/partial state and never blindly resumes a partial write. No secrets/key strings, SQL, IAM, app deployment, mail, DNS or Production action. **11 focused offline tests passed**, including exact observed target and preservation of published origin; full new-head CI not yet claimed.
+
+**Next Safe Action:** owner runs the single checksum-pinned command once and returns its complete receipt. Require **PREVIEW_V2_FLOOT_SANDBOX_ORIGIN_CONFIGURED**; STOP or absent receipt means reconcile without retry. Then update the Floot adapter login/logout POST origin lists and browser gate with only this verified exact sandbox origin, run affected tests and visually verify before owner Google consent. Do not remove the published origin or add a wildcard. No Production/merge/Floot publish is authorized.
+
+```bash
+( set -euo pipefail; umask 077; export CLOUDSDK_CORE_DISABLE_PROMPTS=true CLOUDSDK_CORE_LOG_HTTP=false CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true; khedmah_sandbox_apply="$(mktemp)"; trap 'rm -f -- "$khedmah_sandbox_apply"' EXIT; gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/a6185fac6579d564a92a497308ad152eedde3e8a --jq '.content' | base64 --decode > "$khedmah_sandbox_apply"; printf '%s  %s\n' '6ffaf48732952ae596d9646ade491922d61a849a53b5b456a1d160b8aea9800e' "$khedmah_sandbox_apply" | sha256sum --check --status; python3 "$khedmah_sandbox_apply" --apply; )
+```
+
+
 ## Release eligibility audit and current Floot blocker — 2026-10-15
 
 Reviewed exact candidate **b84fd9b0995b956788dd72874f096488f585a83f** and protected main **bc5a5c764413498189147cc34c7e857c78aa3d2c**. See [the eligibility matrix](RELEASE-ELIGIBILITY.md) for source/run evidence, completed Google operations, open Production/Floot gates and one prepared metadata-only Cloud Shell read. Source tests: **2674 passed / zero failed / one optional skip**; Node/Test/Google source validation succeeded. The PR live Production secret gate was skipped, latest returned main live certification remains failed, and Preview intentionally stopped at exact-lineage gates before authentication. One moderate Next.js audit entry remains. No formal PR approval exists at the read.
