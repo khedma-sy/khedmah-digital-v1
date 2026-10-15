@@ -1,5 +1,18 @@
 # Next Safe Action — Khedmah
 
+## Release eligibility audit and current Floot blocker — 2026-10-15
+
+Reviewed exact candidate **b84fd9b0995b956788dd72874f096488f585a83f** and protected main **bc5a5c764413498189147cc34c7e857c78aa3d2c**. See [the eligibility matrix](RELEASE-ELIGIBILITY.md) for source/run evidence, completed Google operations, open Production/Floot gates and one prepared metadata-only Cloud Shell read. Source tests: **2674 passed / zero failed / one optional skip**; Node/Test/Google source validation succeeded. The PR live Production secret gate was skipped, latest returned main live certification remains failed, and Preview intentionally stopped at exact-lineage gates before authentication. One moderate Next.js audit entry remains. No formal PR approval exists at the read.
+
+Owner Floot-origin receipt at 12:28:13.859205Z verifies the final exact published-origin allowlists with changed=false. Floot browser configuration connection subsequently succeeded and browser config GET returned 200 for the correct Preview project/app. Do not repeat those completed steps. The actual Preview browser origin observed is the exact project sandbox host, which is not covered by the recorded published-origin additions or adapter POST origin list.
+
+Floot SDK npm imports failed with Component auth has not been registered yet; a pinned official 13.0.0 compat-script browser probe initialized successfully with memory-only persistence. Helper/page repair was applied at Floot version **1792069446232**, but its final typecheck/tests were **refused at the daily build limit**. Earlier tests do not certify these latest bytes. No real Floot Google login/session/logout or publish occurred. Main-platform page migration remains distinct from the existing Business Desk.
+
+**Next safe action:** after the owner reports capacity/payment, re-read latest Floot files/version and run the affected checks; then reconcile the exact sandbox origin narrowly before owner-driven Google consent, session restore/logout/expiry and browser acceptance. While Floot is blocked, the only prepared owner cloud command is the metadata-only SQL instance read in the eligibility matrix. No Cloud Shell/GCP session exists in this workspace; no new full Google audit, SQL/schema/HARDEN/deployment/IAM/secret/DNS mutation, workflow rerun or merge is claimed. Production schema/HARDEN and runtime/media/mail/final-domain gates remain separately open. Preserve all completed operator work.
+
+The earlier day-and-a-half and 3–6-week full-completion statements are not measured release schedules. Estimate only the sized remaining scope after the gate inventory; do not represent CI readiness as complete platform/Production eligibility.
+
+
 ## Floot origin absent verified; narrow additive helper prepared — 2026-10-15
 
 Owner receipt at **2026-10-15T12:08:35.845623Z** completed the bounded metadata read: exact Preview project/key, all 27 Firebase API targets and Google provider verified; **floot_origin_present=false**, cloud/Production mutation false. The preceding AUTH_CONFIG_CONFLICT was the inspector's strict representation check: the selected Auth response returns **signIn={}**, rather than explicit false fields. A temporary in-memory expected-value adjustment completed the owner read. The repository inspector now accepts exactly either observed empty representation or the full explicit-false representation; enabled, missing/null and numerically false values remain rejected. This is a metadata receipt, not a new live login/session test.
