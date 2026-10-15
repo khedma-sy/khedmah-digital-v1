@@ -2,7 +2,7 @@
 
 ## Read the exact Floot origin metadata — 2026-10-15
 
-Implementation **`ee3f4d89ccf10ade11e0f1e7da9d7773936eec68`** adds a GET-only metadata inspector for the exact published Floot origin **`https://khedma-meeting.floot.app`**. Five new tests and the six retained deployed-origin tests passed locally: **11 passed / zero failed**. No current-head GitHub Actions result is claimed yet.
+Implementation **`ee3f4d89ccf10ade11e0f1e7da9d7773936eec68`** adds a GET-only metadata inspector for the exact published Floot origin **`https://khedma-meeting.floot.app`**. Five new tests and the six retained deployed-origin tests passed locally: **11 passed / zero failed**. Node.js CI **`38639360557`**, Test & Verify **`38639360519`** and Google production readiness **`38639360564`** succeeded. PR Preview **`38639360554`** safely stopped its cloud-capable jobs before authentication because the source was superseded by documentation head `8374660b71354333992a8c55997070b86209fa19`; quality gates succeeded and no cloud/deploy step ran. Do not rerun it.
 
 Run the checksum-pinned command below **once** in the owner Cloud Shell and return its complete JSON output. It pins project `khedmah-preview-v2-20261012`, project number `1044962071847`, account `haifawi30@gmail.com`, organization `594049370623` and Firebase key identity. It verifies the exact Firebase referrer/domain inventory, all 27 API targets, Google provider and unchanged disabled local sign-in. It performs no PATCH, reads no key string or secret payload, deploys nothing and cannot touch Production.
 
