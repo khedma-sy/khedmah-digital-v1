@@ -14,8 +14,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name 
 const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
 
-test('canonical schema 034 passes when every release contract anchor is present', () => {
-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '034');
+test('canonical schema 035 passes when every release contract anchor is present', () => {
+  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '035');
   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
 });
 
@@ -34,12 +34,13 @@ for (const scenario of [
   ['missing 032 taxi profile trust gate', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.kind === 'function' && a.name === 'profile_trust_gate'],
   ['missing 033 billing admin authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'admin_roles_role_check_billing_admin'],
   ['missing 034 food promotion claims', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'food_promo_claims' && a.kind === 'table'],
-  ['missing 034 fulfillment discount snapshot', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.name === 'discount_amount']
+  ['missing 034 fulfillment discount snapshot', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.name === 'discount_amount'],
+  ['missing 035 specialized admin authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'admin_roles_role_check_specialized_admins']
 ] as const) {
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=034 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=035 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });
@@ -60,6 +61,8 @@ test('catalog verification includes public and khedmah_taxi schemas and performs
   assert.match(calls[0], /khedmah_taxi/);
   assert.match(calls[0], /profile_trust_gate/);
   assert.match(calls[0], /billing_admin/);
+  assert.match(calls[0], /taxi_pricing_admin/);
+  assert.match(calls[0], /category_admin/);
   assert.doesNotMatch(calls[0], /\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE)\b/i);
 });
 

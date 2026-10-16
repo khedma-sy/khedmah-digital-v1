@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '034';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '035';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index' | 'function';
 
@@ -134,6 +134,7 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   fn('taxi-ops', '032', 'khedmah_taxi.resolve_actor_locked', 'profile_trust_gate'),
 
   constraint('billing', '033', 'admin_roles', 'admin_roles_role_check_billing_admin'),
+  constraint('specialized-admin', '035', 'admin_roles', 'admin_roles_role_check_specialized_admins'),
 
   table('food-promotions', '034', 'food_promo_codes'),
   table('food-promotions', '034', 'food_promo_claims'),
@@ -195,7 +196,15 @@ FROM pg_catalog.pg_constraint con
 JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname = 'admin_roles' AND con.conname = 'admin_roles_role_check'
-  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%billing_admin%'`;
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%billing_admin%'
+UNION ALL
+SELECT 'constraint', 'admin_roles', 'admin_roles_role_check_specialized_admins'
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = 'admin_roles' AND con.conname = 'admin_roles_role_check'
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%taxi_pricing_admin%'
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%category_admin%'`;
 
 
 interface RuntimePrivilegeRow extends Record<string, unknown> { hardened: boolean }

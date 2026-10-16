@@ -66,6 +66,7 @@ jobs:
             032_taxi_operational_profile_gate
             033_billing_admin_role
             034_food_order_promotions
+            035_specialized_admin_roles
           )
 
           for migration in "${migrations[@]}"; do
@@ -92,6 +93,15 @@ jobs:
               grep -Fq 'CREATE TABLE food_promo_claims' "$forward"
               grep -Fq 'MIGRATION_034_ROLLBACK_BLOCKED' "$rollback"
               grep -Fq 'discount_amount <> 0' "$rollback"
+            elif [[ "$migration" == "035_specialized_admin_roles" ]]; then
+              grep -Fq "'taxi_pricing_admin'" "$forward"
+              grep -Fq "'category_admin'" "$forward"
+              grep -Fq 'MIGRATION_035_ROLLBACK_BLOCKED: specialized admin assignments exist' "$rollback"
+              grep -Eq 'IF[[:space:]]+EXISTS[[:space:]]*\(' "$rollback"
+              if grep -Eq '\b(DELETE[[:space:]]+FROM|TRUNCATE|DROP[[:space:]]+TABLE)\b' "$forward" "$rollback"; then
+                echo 'Migration 035 must preserve admin role assignments.' >&2
+                exit 1
+              fi
             else
               grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             fi
@@ -172,6 +182,8 @@ jobs:
             033_billing_admin_role_rollback.sql \
             034_food_order_promotions.sql \
             034_food_order_promotions_rollback.sql \
+            035_specialized_admin_roles.sql \
+            035_specialized_admin_roles_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"

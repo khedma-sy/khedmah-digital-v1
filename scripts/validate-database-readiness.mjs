@@ -82,6 +82,8 @@ const EXPECTED_MIGRATIONS = [
   '033_billing_admin_role_rollback.sql',
   '034_food_order_promotions.sql',
   '034_food_order_promotions_rollback.sql',
+  '035_specialized_admin_roles.sql',
+  '035_specialized_admin_roles_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'];
