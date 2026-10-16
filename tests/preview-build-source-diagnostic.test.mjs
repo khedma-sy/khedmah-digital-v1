@@ -44,4 +44,5 @@ test('diagnostic workflow has only read intent and exact gate before OIDC',()=>{
   assert.ok(current>0&&current<focused&&focused<exact&&exact<auth&&auth<read);
   assert.doesNotMatch(s,/\bgcloud\s+(?:builds submit|run deploy|run jobs deploy|projects add-iam-policy-binding|storage buckets add-iam-policy-binding|services enable)\b/);
   assert.match(s,/GITHUB_RUN_ATTEMPT/);
+  assert.match(s,/if: false/);
 });
