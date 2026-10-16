@@ -25,13 +25,15 @@ test('unavailable or malformed GitHub responses are held without exposing provid
  let calls=0;assert.throws(()=>verifyFirstRolloutSource(env,()=>{calls++;throw new Error('TOKEN_DO_NOT_PRINT');}),/^Error: PREVIEW_FIRST_ROLLOUT_SOURCE_READ_HELD$/);assert.equal(calls,1);
  assert.throws(()=>verifyFirstRolloutSource(env,()=>'{bad'),/^Error: PREVIEW_FIRST_ROLLOUT_SOURCE_READ_HELD$/);
 });
-const inventory={project:'khedmah-preview-v2-20261012',project_number:'1044962071847',service_count:0,service_names:[],job_inventory:{job_count:0,oldest_jobs:[]},completed_secret_metadata_matches:true,required_secrets:Array.from({length:11},()=>({staged_version_1_enabled_and_latest:true})),schema_slots:Array.from({length:9},()=>({before_deploy_check_passed:true})),cloud_mutation:false,secret_payload_access:false,database_access:false};
-test('first rollout refuses any existing service/job or unconfirmed version/pool state; no adoption or replay',()=>{
+const expectedServices=['khedmah-pr-274-backend','khedmah-pr-274-frontend'];
+const jobs=Array.from({length:9},(_,index)=>({name:'khedmah-preview-schema-'+index,labels:{'khedmah-schema-pool':'bounded-v1'}}));
+const inventory={project:'khedmah-preview-v2-20261012',project_number:'1044962071847',service_count:2,service_names:expectedServices,job_inventory:{job_count:9,oldest_jobs:jobs},completed_secret_metadata_matches:true,required_secrets:Array.from({length:11},()=>({staged_version_1_enabled_and_latest:true})),schema_slots:Array.from({length:9},()=>({before_deploy_check_passed:true})),cloud_mutation:false,secret_payload_access:false,database_access:false};
+test('governed update requires exactly the existing PR services, bounded schema jobs and confirmed secret/pool state',()=>{
  requireEmptyFirstRolloutInventory(inventory);
  for(const key of Object.keys(inventory))assert.throws(()=>requireEmptyFirstRolloutInventory({...inventory,[key]:undefined}));
- for(const patch of [{service_count:1},{job_inventory:{job_count:1,oldest_jobs:[]}},{required_secrets:[...inventory.required_secrets.slice(1),{staged_version_1_enabled_and_latest:false}]},{schema_slots:inventory.schema_slots.slice(1)}])assert.throws(()=>requireEmptyFirstRolloutInventory({...inventory,...patch}));
+ for(const patch of [{service_count:0},{service_names:expectedServices.slice(1)},{service_names:[...expectedServices,'foreign']},{job_inventory:{job_count:8,oldest_jobs:jobs.slice(1)}},{job_inventory:{job_count:9,oldest_jobs:jobs.map((job,index)=>index?job:{...job,labels:{}})}},{required_secrets:[...inventory.required_secrets.slice(1),{staged_version_1_enabled_and_latest:false}]},{schema_slots:inventory.schema_slots.slice(1)}])assert.throws(()=>requireEmptyFirstRolloutInventory({...inventory,...patch}));
 });
-test('workflow source decision precedes OIDC; fresh empty inventory precedes pool checks and all cloud mutations',()=>{
+test('workflow source decision precedes OIDC; governed existing-resource inventory precedes pool checks and all cloud mutations',()=>{
  const workflow=readFileSync('.github/workflows/preview-deployment.yml','utf8');
  const start=workflow.indexOf('  deploy-preview:');
  const end=workflow.indexOf('\n  resolve-staging-baseline:',start);
