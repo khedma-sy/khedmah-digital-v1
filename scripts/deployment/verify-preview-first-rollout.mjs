@@ -5,7 +5,7 @@ import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
 // This one-shot approval is confined to the direct successor of the reviewed
 // schema-035 and workflow-repair chain. Reruns and later heads stay held.
-export const REVIEWED_PARENT = '31d0899d13770c55593002d742cd3d98143901b2';
+export const REVIEWED_PARENT = 'b301e85e5dd1e145eea73cafca7b16fcc9cf81d6';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
 export const RELEASE_MESSAGE = 'release(preview): deploy governed schema-035 update';
 const repo = 'khedma-sy/khedmah-digital-v1';
@@ -49,6 +49,7 @@ export function requireEmptyFirstRolloutInventory(report) {
       || report.cloud_mutation !== false || report.secret_payload_access !== false || report.database_access !== false) {
     stop('INVENTORY_HELD');
   }
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
