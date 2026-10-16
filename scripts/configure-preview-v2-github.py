@@ -57,7 +57,7 @@ SOURCE_BLOBS = {
     'scripts/deployment/verify-preview-source.mjs': '447f7b82a6316f82b4c46f0728e72fac839a98d8',
     'scripts/deployment/schema-execution-profile.sh': 'c651a4055fe771dca5a3168b3860e21fe1c5aeda',
     'scripts/deployment/read-preview-launch-metadata.mjs': 'be29bc008786079fc3a8a2de6dd6780a73fb4935',
-    'scripts/deployment/verify-preview-first-rollout.mjs': 'e2b7d91f0b249a928c4f8d3c77c623e85c7fbff4',
+    'scripts/deployment/verify-preview-first-rollout.mjs': 'b6ca429ff33b5da0ef9334f4293475a801b13c86',
     'scripts/deployment/verify-build-source-exclusions.mjs': '29150895fa985125ef8338b58660fab9bd24b669',
     'scripts/deployment/verify-preview-build-source-diagnostic.mjs': '0650521e634f1377511b7670e6ce85ec0b1ee6e5',
     'scripts/inspect-preview-v2-build-source.py': '2597eebfceb912f3ff6157cd181acb712a9e04bd',
