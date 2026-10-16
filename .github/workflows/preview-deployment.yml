@@ -8,8 +8,9 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Historical one-shot diagnostics are retained as evidence but must not run on later PR heads.
   inspect-build-source:
-    if: github.event.action == 'synchronize'
+    if: false
     runs-on: ubuntu-latest
     environment: preview
     concurrency:
@@ -64,8 +65,9 @@ jobs:
           PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
         run: python3 scripts/inspect-preview-v2-build-source.py --inspect-actions
 
+  # Historical post-rollout reconciliation is immutable evidence, not a steady-state gate.
   reconcile-successful-rollout:
-    if: github.event.action == 'synchronize'
+    if: false
     runs-on: ubuntu-latest
     environment: preview
     timeout-minutes: 15
