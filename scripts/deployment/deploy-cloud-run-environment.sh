@@ -51,7 +51,7 @@ backend_secret_bindings="$APPLICATION_DATABASE_SECRET_BINDING"
 if [[ "$environment" == "preview" ]]; then
   backend_runtime_env+=",GCS_MEDIA_BUCKET=${APPLICATION_MEDIA_BUCKET}"
   preview_firebase_binding="$(DEPLOYMENT_ENVIRONMENT=preview node scripts/deployment/resolve-preview-firebase-config.mjs)"
-  backend_secret_bindings+=",${preview_firebase_binding}"
+  backend_secret_bindings+=",${preview_firebase_binding},OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest"
   preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
   if [[ -n "$preview_email_from" ]]; then
     backend_runtime_env+=",EMAIL_FROM=${preview_email_from}"

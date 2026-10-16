@@ -5,9 +5,9 @@ import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
 // This one-shot approval is confined to the direct successor of the reviewed
 // schema-035 and workflow-repair chain. Reruns and later heads stay held.
-export const REVIEWED_PARENT = '8172fdb860a37e83a11a791c6f1ff35d34ee576c';
+export const REVIEWED_PARENT = '8221a02095322358a2a6de456037d401f9f4643d';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const RELEASE_MESSAGE = 'release(preview): align billing verifier with schema 035';
+export const RELEASE_MESSAGE = 'release(preview): persist owner role binding';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_FIRST_ROLLOUT_' + code); };
 export function verifyFirstRolloutSource(env, run = execFileSync) {
@@ -43,7 +43,7 @@ export function requireEmptyFirstRolloutInventory(report) {
       || report.service_count !== expectedServices.length
       || JSON.stringify(report.service_names) !== JSON.stringify(expectedServices)
       || !boundedJobs
-      || report.completed_secret_metadata_matches !== true || report.required_secrets?.length !== 11
+      || report.completed_secret_metadata_matches !== true || report.required_secrets?.length !== 12
       || report.required_secrets.some(x => x.staged_version_1_enabled_and_latest !== true)
       || report.schema_slots?.length !== 9 || report.schema_slots.some(x => x.before_deploy_check_passed !== true)
       || report.cloud_mutation !== false || report.secret_payload_access !== false || report.database_access !== false) {
