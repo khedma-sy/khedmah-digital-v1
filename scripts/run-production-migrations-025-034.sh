@@ -72,8 +72,32 @@ case "${MIGRATION_NUMBER:-}" in
     )"
     GUARD="to_regclass('public.food_promo_codes')"
     ;;
+  035)
+    MIGRATION_NAME='035_specialized_admin_roles'
+    PREDECESSOR_SQL="SELECT to_regclass('public.food_promo_codes') IS NOT NULL
+      AND to_regclass('public.food_promo_claims') IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM pg_constraint c
+        JOIN pg_class t ON t.oid=c.conrelid
+        JOIN pg_namespace n ON n.oid=t.relnamespace
+        WHERE n.nspname='public' AND t.relname='admin_roles'
+          AND c.conname='admin_roles_role_check'
+          AND pg_get_constraintdef(c.oid) LIKE '%billing_admin%'
+      )"
+    GUARD="CASE WHEN EXISTS (
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_class t ON t.oid=c.conrelid
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname='public' AND t.relname='admin_roles'
+        AND c.conname='admin_roles_role_check'
+        AND (
+          pg_get_constraintdef(c.oid) LIKE '%taxi_pricing_admin%'
+          OR pg_get_constraintdef(c.oid) LIKE '%category_admin%'
+        )
+    ) THEN 1 ELSE NULL END"
+    ;;
   *)
-    echo 'ERROR: MIGRATION_NUMBER must be one of 025..034.' >&2
+    echo 'ERROR: MIGRATION_NUMBER must be one of 025..035.' >&2
     exit 1
     ;;
 esac
@@ -368,8 +392,8 @@ fi
 
 PREDECESSOR_EXPRESSION="${PREDECESSOR_SQL#SELECT }"
 
-if [ "$MIGRATION_NUMBER" = '033' ] || [ "$MIGRATION_NUMBER" = '034' ]; then
-  # These reviewed files contain their own BEGIN/COMMIT blocks. Hold a session
+if [ "$MIGRATION_NUMBER" = '033' ] || [ "$MIGRATION_NUMBER" = '034' ] || [ "$MIGRATION_NUMBER" = '035' ]; then
+  # These reviewed files (033 through 035) contain their own BEGIN/COMMIT blocks. Hold a session
   # advisory lock around the include rather than nesting another transaction.
   psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
 SELECT pg_advisory_lock(hashtextextended('khedmah-production-schema-change', 0));
@@ -448,6 +472,16 @@ case "$MIGRATION_NUMBER" in
       SELECT 1 FROM information_schema.columns
       WHERE table_schema='public' AND table_name='fulfillment_orders' AND column_name='discount_amount'
     )" ;;
+  035) VERIFY_SQL="SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='public' AND t.relname='admin_roles'
+      AND c.conname='admin_roles_role_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%billing_admin%'
+      AND pg_get_constraintdef(c.oid) LIKE '%taxi_pricing_admin%'
+      AND pg_get_constraintdef(c.oid) LIKE '%category_admin%'
+  )" ;;
 esac
 
 verified="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$VERIFY_SQL")"

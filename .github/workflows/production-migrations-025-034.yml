@@ -1,4 +1,4 @@
-name: Production Migrations 025-034
+name: Production Migrations 025-035
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
         description: Canonical migration to apply
         required: true
         type: choice
-        options: ['025','026','027','028','029','030','031','032','033','034']
+        options: ['025','026','027','028','029','030','031','032','033','034','035']
       commit_sha:
         description: Exact latest main commit SHA
         required: true
@@ -79,6 +79,7 @@ jobs:
             032) MIGRATION_NAME=032_taxi_operational_profile_gate ;;
             033) MIGRATION_NAME=033_billing_admin_role ;;
             034) MIGRATION_NAME=034_food_order_promotions ;;
+            035) MIGRATION_NAME=035_specialized_admin_roles ;;
             *) echo 'Unsupported migration.' >&2; exit 1 ;;
           esac
           MIGRATION_FILE="backend/migrations/versions/${MIGRATION_NAME}.sql"
