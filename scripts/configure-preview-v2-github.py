@@ -50,7 +50,7 @@ CONDITION = ' && '.join(f"assertion.{key} == '{value}'" for key, value in CLAIMS
 # Filled from reviewed source blobs before publishing this batch. Head freshness is
 # checked separately, so documentation-only commits cannot silently change code.
 SOURCE_BLOBS = {
-    '.github/workflows/preview-deployment.yml': 'a7f1fb6480b67ab866f5b6511b54deda0518f5ea',
+    '.github/workflows/preview-deployment.yml': '204461a9dd72f1b57b0090c52f90cf5b1e5d77e6',
     'scripts/deployment/verify-preview-v2-configuration.mjs': 'e97025878073fd9d87804c8a3c2ee7681bb2d0b7',
     'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db',
     'scripts/deployment/read-preview-mail-metadata.mjs': '613cc786f7e99ca3822de2f475978323529469ac',

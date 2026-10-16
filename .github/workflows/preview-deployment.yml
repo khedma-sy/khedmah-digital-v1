@@ -184,7 +184,10 @@ jobs:
       group: khedmah-preview-cloud-mutations
       queue: max
       cancel-in-progress: false
-    if: github.event.action != 'closed'
+    # The replacement Preview environment was a reviewed, one-shot rollout for
+    # PR 274. Keep quality gates active for later PRs without reopening cloud
+    # mutation authority for a different pull-request lineage.
+    if: github.event.action != 'closed' && github.event.pull_request.number == 274
     needs: quality-gates
     runs-on: ubuntu-latest
     environment: preview
@@ -335,7 +338,7 @@ jobs:
         run: scripts/deployment/deploy-cloud-run-environment.sh preview "pr-${{ github.event.pull_request.number }}-${GITHUB_SHA}"
 
   resolve-staging-baseline:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.number == 274
     needs: quality-gates
     runs-on: ubuntu-latest
     environment: preview
@@ -449,7 +452,7 @@ jobs:
       group: khedmah-preview-cloud-mutations
       queue: max
       cancel-in-progress: false
-    if: github.event.action == 'closed'
+    if: github.event.action == 'closed' && github.event.pull_request.number == 274
     runs-on: ubuntu-latest
     environment: preview
     steps:
