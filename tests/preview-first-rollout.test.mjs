@@ -27,7 +27,7 @@ test('unavailable or malformed GitHub responses are held without exposing provid
 });
 const expectedServices=['khedmah-pr-274-backend','khedmah-pr-274-frontend'];
 const jobs=Array.from({length:9},(_,index)=>({name:'khedmah-preview-schema-'+index,labels:{'khedmah-schema-pool':'bounded-v1'}}));
-const inventory={project:'khedmah-preview-v2-20261012',project_number:'1044962071847',service_count:2,service_names:expectedServices,job_inventory:{job_count:9,oldest_jobs:jobs},completed_secret_metadata_matches:true,required_secrets:Array.from({length:11},()=>({staged_version_1_enabled_and_latest:true})),schema_slots:Array.from({length:9},()=>({before_deploy_check_passed:true})),cloud_mutation:false,secret_payload_access:false,database_access:false};
+const inventory={project:'khedmah-preview-v2-20261012',project_number:'1044962071847',service_count:2,service_names:expectedServices,job_inventory:{job_count:9,oldest_jobs:jobs},completed_secret_metadata_matches:true,required_secrets:Array.from({length:12},()=>({staged_version_1_enabled_and_latest:true})),schema_slots:Array.from({length:9},()=>({before_deploy_check_passed:true})),cloud_mutation:false,secret_payload_access:false,database_access:false};
 test('governed update requires exactly the existing PR services, bounded schema jobs and confirmed secret/pool state',()=>{
  requireEmptyFirstRolloutInventory(inventory);
  for(const key of Object.keys(inventory))assert.throws(()=>requireEmptyFirstRolloutInventory({...inventory,[key]:undefined}));

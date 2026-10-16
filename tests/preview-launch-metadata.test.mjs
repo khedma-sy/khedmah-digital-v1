@@ -27,7 +27,7 @@ function fixture(change = x => x) {
 }
 test('launch metadata reads the completed version baseline and all nine pool slots with no payloads or writes',()=>{
   const f=fixture(); const report=readPreviewLaunchMetadata(env,f.run);
-  assert.equal(f.calls.length,34); assert.equal(report.schema_slots.length,9);
+  assert.equal(f.calls.length,36); assert.equal(report.schema_slots.length,9);
   assert.equal(report.required_secrets.length,12);
   assert.ok(report.required_secrets.some(item=>item.secret==='OPERATIONS_PRODUCT_ROLE_BINDINGS')); assert.equal(report.completed_secret_metadata_matches,true);
   assert.equal(report.service_count,0); assert.equal(report.job_inventory.job_count,0);

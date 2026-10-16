@@ -5,9 +5,9 @@ import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
 // This one-shot approval is confined to the direct successor of the reviewed
 // schema-035 and workflow-repair chain. Reruns and later heads stay held.
-export const REVIEWED_PARENT = '8221a02095322358a2a6de456037d401f9f4643d';
+export const REVIEWED_PARENT = '3c26efa425eec4f82579df18df84d68622f7b3fc';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const RELEASE_MESSAGE = 'release(preview): persist owner role binding';
+export const RELEASE_MESSAGE = 'release(preview): align owner role inventory fixtures';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_FIRST_ROLLOUT_' + code); };
 export function verifyFirstRolloutSource(env, run = execFileSync) {
