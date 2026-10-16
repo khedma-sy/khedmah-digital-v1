@@ -3,12 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
-// This approval is confined to the first direct successor of the checkpoint
-// that records the owner grant and successful deployer readback. Later
-// documentation/source commits and reruns stay held.
-export const REVIEWED_PARENT = '3cdb0ad2e7e67e1e9d8f1062ac69b0cb9d5172ed';
+// This one-shot approval is confined to the direct successor of the reviewed
+// schema-035 and workflow-repair chain. Reruns and later heads stay held.
+export const REVIEWED_PARENT = '31d0899d13770c55593002d742cd3d98143901b2';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const RELEASE_MESSAGE = 'release(preview): execute reviewed rollout after source grant';
+export const RELEASE_MESSAGE = 'release(preview): deploy governed schema-035 update';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_FIRST_ROLLOUT_' + code); };
 export function verifyFirstRolloutSource(env, run = execFileSync) {
@@ -35,14 +34,22 @@ export function verifyFirstRolloutSource(env, run = execFileSync) {
     source_review_passed: true, cloud_mutation: false };
 }
 export function requireEmptyFirstRolloutInventory(report) {
+  const expectedServices = ['khedmah-pr-274-backend', 'khedmah-pr-274-frontend'];
+  const jobs = report?.job_inventory;
+  const boundedJobs = jobs?.job_count === 9 && jobs.oldest_jobs?.length === 9
+    && new Set(jobs.oldest_jobs.map(item => item?.name)).size === 9
+    && jobs.oldest_jobs.every(item => item?.labels?.['khedmah-schema-pool'] === 'bounded-v1');
   if (report?.project !== 'khedmah-preview-v2-20261012' || report.project_number !== '1044962071847'
-      || report.service_count !== 0 || report.service_names?.length !== 0
-      || report.job_inventory?.job_count !== 0 || report.job_inventory?.oldest_jobs?.length !== 0
+      || report.service_count !== expectedServices.length
+      || JSON.stringify(report.service_names) !== JSON.stringify(expectedServices)
+      || !boundedJobs
       || report.completed_secret_metadata_matches !== true || report.required_secrets?.length !== 11
       || report.required_secrets.some(x => x.staged_version_1_enabled_and_latest !== true)
       || report.schema_slots?.length !== 9 || report.schema_slots.some(x => x.before_deploy_check_passed !== true)
-      || report.cloud_mutation !== false || report.secret_payload_access !== false || report.database_access !== false) stop('INVENTORY_HELD');
-}
+      || report.cloud_mutation !== false || report.secret_payload_access !== false || report.database_access !== false) {
+    stop('INVENTORY_HELD');
+  }
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     if (process.argv.length !== 3) stop('ARGUMENTS_HELD');
@@ -54,7 +61,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const report = readPreviewLaunchMetadata(process.env);
       console.log('PREVIEW_LAUNCH_METADATA=' + JSON.stringify(report));
       requireEmptyFirstRolloutInventory(report);
-      console.log('PREVIEW_FIRST_ROLLOUT_EMPTY_INVENTORY_VERIFIED');
+      console.log('PREVIEW_GOVERNED_UPDATE_INVENTORY_VERIFIED');
     } else stop('ARGUMENTS_HELD');
   } catch (error) {
     console.error('STOP: ' + (/^PREVIEW_[A-Z_]+$/.test(error?.message ?? '') ? error.message : 'PREVIEW_FIRST_ROLLOUT_UNCONFIRMED_HELD'));
