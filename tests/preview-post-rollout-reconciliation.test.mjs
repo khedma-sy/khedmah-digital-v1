@@ -428,7 +428,7 @@ test('workflow job is independent, first-attempt-only, exact-gated before WIF an
   for (const permission of ['actions: read', 'contents: read', 'id-token: write', 'pull-requests: read']) {
     assert.match(job, new RegExp(permission));
   }
-  assert.match(job, /if: github\.event\.action == 'synchronize'/);
+  assert.match(job, /if: false/);
   assert.match(job, /group: khedmah-preview-cloud-mutations/);
   assert.match(job, /persist-credentials: false/);
   assert.match(job, /GITHUB_RUN_ATTEMPT: \$\{\{ github\.run_attempt \}\}/);
