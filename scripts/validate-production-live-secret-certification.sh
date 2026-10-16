@@ -116,8 +116,10 @@ permanent_secret_names=(
   DATABASE_MIGRATION_URL
 )
 
+# Android Maps was activated after the reviewed release fingerprint was
+# established; its latest version must now pass the active-secret checks.
+# Server Maps has no approved consumer and must still have zero versions.
 deferred_secret_names=(
-  GOOGLE_MAPS_ANDROID_API_KEY
   GOOGLE_MAPS_SERVER_API_KEY
 )
 
@@ -235,7 +237,16 @@ role_grants_secret_payload_access() {
       return 2
       ;;
   esac
-  jq -e '.includedPermissions // [] | index("secretmanager.versions.access") != null' <<<"$role_json" >/dev/null
+  # Distinguish a verified non-payload role from unreadable or malformed metadata.
+  # Do not turn an unknown role into an empty, supposedly harmless permission set.
+  jq -se --arg role "$role" '
+    length == 1 and (.[0] |
+      type == "object" and .name == $role and
+      (.includedPermissions | type == "array") and
+      all(.includedPermissions[]; type == "string")
+    )
+  ' <<<"$role_json" >/dev/null || return 2
+  jq -e '.includedPermissions | index("secretmanager.versions.access") != null' <<<"$role_json" >/dev/null
 }
 
 verify_no_inherited_secret_access() {
@@ -249,12 +260,14 @@ verify_no_inherited_secret_access() {
     return 1
   }
 
-  local row attached role condition_json members_json
+  local row attached role condition_json members_json status
   while IFS=$'\t' read -r attached role condition_json members_json; do
     test -n "$role" || continue
-    if ! role_grants_secret_payload_access "$role"; then
+    if role_grants_secret_payload_access "$role"; then
+      : # Payload access must pass the bounded human-Owner exception below.
+    else
       status=$?
-      if test "$status" -eq 2; then
+      if test "$status" -ne 1; then
         echo 'ERROR: Could not resolve an inherited IAM role while certifying Secret Manager payload access.' >&2
         return 1
       fi
@@ -294,8 +307,8 @@ test "${#permanent_secret_names[@]}" -eq 17 || {
   echo 'ERROR: Permanent Secret Manager inventory count drifted from 17.' >&2
   exit 1
 }
-test "${#deferred_secret_names[@]}" -eq 2 || {
-  echo 'ERROR: Deferred Maps secret inventory count drifted from 2.' >&2
+test "${#deferred_secret_names[@]}" -eq 1 || {
+  echo 'ERROR: Deferred Maps secret inventory count drifted from 1.' >&2
   exit 1
 }
 
@@ -353,3 +366,4 @@ echo "READY: LIVE_SECRET_PROJECT=$GOOGLE_CLOUD_PROJECT"
 echo 'READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY'
 echo 'READY: SECRET_PAYLOADS_READ=0'
 echo 'NOTE: BOOTSTRAP_ADMIN_SECRET is one-time and is certified separately by Production Bootstrap Admin before mutation.'
+

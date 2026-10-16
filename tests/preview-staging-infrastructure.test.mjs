@@ -41,7 +41,7 @@ test('preview cleanup refuses the production project before invoking gcloud', ()
 });
 
 
-test('staging Cloud Build uses the project-owned source bucket without changing Preview staging', () => {
+test('Staging application builds retain their project-owned source bucket', () => {
   const script = readFileSync('scripts/deployment/deploy-cloud-run-environment.sh', 'utf8');
   assert.match(script, /if \[\[ "\$environment" == "staging" \]\]; then/);
   assert.match(script, /--gcs-source-staging-dir "gs:\/\/\$\{GOOGLE_CLOUD_PROJECT\}-cloudbuild-source\/source"/);

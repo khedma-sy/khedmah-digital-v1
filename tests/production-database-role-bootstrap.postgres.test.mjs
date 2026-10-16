@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
@@ -122,6 +123,77 @@ test('production database role bootstrap enforces PostgreSQL 16 role isolation',
         const completed = runBootstrap(fixture, 'role-state');
         assertBootstrapSuccess(completed, 'lexical-order completed role-state probe');
         assert.equal(completed.stdout.trim(), 'DATABASE_ROLE_PREPARE_STATE=completed');
+      });
+    });
+
+
+    await t.test('mixed-state ACL staging preserves credentials and reaches existing isolation after separate cutover', async () => {
+      await withFixture(adminUrl, {}, async (fixture) => {
+        createMixedRepairFixture(fixture);
+        const before = query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl');
+        const premature = runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture));
+        assert.notEqual(premature.status, 0, 'Owner stage must require migrator defaults first.');
+        assert.match(premature.stderr, /REPAIR_RUN_MIGRATOR_STAGE_FIRST/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), before);
+        const badDigest = runPsql(fixture.migrationUrl,
+          mixedRepairSql(fixture).replaceAll(fixture.systemRoleManifestSha256, '0'.repeat(64)));
+        assert.notEqual(badDigest.status, 0);
+        assert.match(badDigest.stderr, /REPAIR_SYSTEM_MANIFEST_MISMATCH/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), '0');
+        assertBootstrapSuccess(runPsql(fixture.migrationUrl, mixedRepairSql(fixture)), 'limited migrator default stage');
+        assertBootstrapSuccess(runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture)), 'owner ACL stage');
+        assertBootstrapSuccess(runPsql(runtimeRepairUrl(fixture), mixedRepairSql(fixture)), 'idempotent SQL owner stage');
+        assert.equal(query(runtimeRepairUrl(fixture), 'SELECT current_user'), fixture.runtimeUser);
+        assert.equal(query(fixture.migrationUrl, 'SELECT current_user'), fixture.migrationUser);
+        assert.equal(query(adminUrl, `SELECT rolcreaterole AND rolcreatedb FROM pg_roles WHERE rolname=${literal(fixture.runtimeUser)}`), 't',
+          'Phase A must not demote the runtime or pretend isolation is complete.');
+        assert.equal(runBootstrap(fixture, 'role-state').status, 12,
+          'The existing classifier must continue to reject the mixed membership state.');
+        const restartFence = query(adminUrl,
+          'SELECT floor(extract(epoch FROM pg_postmaster_start_time()) * 1000)::bigint - 1');
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false,
+          'Phase B must reject the still-privileged runtime after Phase A.');
+        replaceRuntimeMembership(fixture, { runtimeInherit: true, runtimeAdmin: false });
+        assertBootstrapSuccess(runBootstrap(fixture, 'verify'),
+          'existing isolation verifier after separately simulated control-plane demotion');
+        for (const url of [fixture.migrationUrl, runtimeRepairUrl(fixture),
+          ...['postgres', 'template1'].map((databaseName) => connectionUrl({ baseUrl: fixture.migrationUrl, databaseName }))]) {
+          const evidence = runtimeCutoverRead(fixture, url, restartFence);
+          assert.equal(evidence.read_only, 'on');
+          assert.equal(evidence.system_role_manifest_sha256, fixture.systemRoleManifestSha256);
+          for (const key of ['restart_proven', 'role_isolation', 'prebaseline_fresh', 'runtime_footprint_clear', 'instance_inventory_safe']) {
+            assert.equal(evidence[key], true, `Phase B ${key} must pass after simulated cutover: ${JSON.stringify(evidence)}`);
+          }
+        }
+        const afterStartupFence = String(BigInt(restartFence) + 2n);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, afterStartupFence).restart_proven, false,
+          'Membership isolation alone cannot establish a later server restart.');
+        execute(adminUrl, `ALTER ROLE ${identifier(fixture.runtimeUser)} CREATEDB`);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false,
+          'Control-plane membership is insufficient while a privileged role attribute remains.');
+        execute(adminUrl, `ALTER ROLE ${identifier(fixture.runtimeUser)} NOCREATEDB`);
+        execute(fixture.adminDatabaseUrl, `GRANT TEMPORARY ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.runtimeRole)}`);
+        assert.equal(runtimeCutoverRead(fixture, fixture.migrationUrl, restartFence).role_isolation, false);
+        execute(fixture.adminDatabaseUrl, `REVOKE TEMPORARY ON DATABASE ${identifier(fixture.databaseName)} FROM ${identifier(fixture.runtimeRole)}`);
+        const postgresAdmin = connectionUrl({ baseUrl: adminUrl, databaseName: 'postgres' });
+        const postgresMigration = connectionUrl({ baseUrl: fixture.migrationUrl, databaseName: 'postgres' });
+        try {
+          execute(postgresAdmin, 'CREATE TABLE public.cutover_persistence_probe(id integer)');
+          assert.equal(runtimeCutoverRead(fixture, postgresMigration, restartFence).prebaseline_fresh, false,
+            'Persistence in another reviewed database must block Phase B completion.');
+        } finally {
+          execute(postgresAdmin, 'DROP TABLE IF EXISTS public.cutover_persistence_probe');
+        }
+      });
+    });
+    await t.test('mixed-state ACL staging rolls back when catalog footprint changes', async () => {
+      await withFixture(adminUrl, {}, async (fixture) => {
+        createMixedRepairFixture(fixture);
+        execute(fixture.adminDatabaseUrl, 'CREATE TABLE public.repair_guard_probe(id integer)');
+        const result = runPsql(fixture.migrationUrl, mixedRepairSql(fixture));
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /REPAIR_CATALOG_NOT_EMPTY_OR_TRUSTED/);
+        assert.equal(query(fixture.adminDatabaseUrl, 'SELECT count(*) FROM pg_default_acl'), '0');
       });
     });
 
@@ -1817,4 +1889,62 @@ function literal(value) {
 
 function diagnostic(message, result) {
   return [message, result.error?.message, result.stdout, result.stderr].filter(Boolean).join('\n');
+}
+
+function createMixedRepairFixture(fixture) {
+  execute(fixture.adminUrl, `
+    ALTER ROLE ${identifier(fixture.runtimeUser)} CREATEROLE CREATEDB;
+    CREATE ROLE ${identifier(fixture.runtimeRole)} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+    CREATE ROLE ${identifier(fixture.migrationRole)} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+  `);
+  demoteMigrationMembership(fixture);
+  execute(fixture.adminDatabaseUrl, `
+    GRANT CONNECT ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.runtimeRole)};
+    GRANT CONNECT, CREATE ON DATABASE ${identifier(fixture.databaseName)} TO ${identifier(fixture.migrationRole)};
+    GRANT USAGE ON SCHEMA public TO ${identifier(fixture.runtimeRole)};
+    GRANT USAGE, CREATE ON SCHEMA public TO ${identifier(fixture.migrationRole)};
+  `);
+  fixture.systemRoleManifestSha256 = captureSystemRoleManifest(fixture);
+}
+function runtimeRepairUrl(fixture) {
+  return connectionUrl({
+    baseUrl: fixture.adminUrl,
+    databaseName: fixture.databaseName,
+    username: fixture.runtimeUser,
+    password: fixture.runtimePassword,
+  });
+}
+function mixedRepairSql(fixture) {
+  let sql = readFileSync(resolve(repositoryRoot, 'scripts/production-database-mixed-acl-prepare.sql'), 'utf8');
+  const names = {
+    khedmah_app: fixture.runtimeUser,
+    khedmah_migrator: fixture.migrationUser,
+    khedmah_runtime_role: fixture.runtimeRole,
+    khedmah_migration_role: fixture.migrationRole,
+  };
+  for (const [name, replacement] of Object.entries(names)) sql = sql.replaceAll(name, replacement);
+  sql = sql.replaceAll("'khedmah'", literal(fixture.databaseName))
+    .replaceAll('DATABASE khedmah ', `DATABASE ${identifier(fixture.databaseName)} `)
+    .replaceAll('656ccf46a96a6ea32a3c0a9f3ea8ced8a266390b544d2cee6dbbb221a2e614cf', fixture.systemRoleManifestSha256);
+  return sql;
+}
+
+function runtimeCutoverRead(fixture, databaseUrl, restartFence) {
+  assert.match(restartFence, /^[0-9]{13}$/);
+  let sql = readFileSync(resolve(repositoryRoot, 'scripts/production-database-runtime-cutover-check.sql'), 'utf8');
+  for (const [name, replacement] of Object.entries({
+    khedmah_app: fixture.runtimeUser,
+    khedmah_migrator: fixture.migrationUser,
+    khedmah_runtime_role: fixture.runtimeRole,
+    khedmah_migration_role: fixture.migrationRole,
+  })) sql = sql.replaceAll(name, replacement);
+  sql = sql.replaceAll("'khedmah'", literal(fixture.databaseName))
+    .replaceAll('__RESTART_MILLIS__', restartFence)
+    // This allowance is test-only; production SQL keeps the strict inventory.
+    .replaceAll('AND NOT (false)', () => "AND NOT (database.datname ~ '(_ci|_test)$')");
+  const result = runPsql(databaseUrl, sql, { PGOPTIONS: '-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on' });
+  assertBootstrapSuccess(result, 'Phase B read-only postflight SQL');
+  const records = result.stdout.split('\n').filter((line) => line.startsWith('{'));
+  assert.equal(records.length, 1, result.stdout);
+  return JSON.parse(records[0]);
 }

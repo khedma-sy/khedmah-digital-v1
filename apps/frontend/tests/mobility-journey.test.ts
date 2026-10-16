@@ -34,7 +34,12 @@ test('legacy mobility keeps Google discovery while canonical Taxi navigation ope
   assert.match(page, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(page, /https:\/\/www\.google\.com\/maps\/dir\//);
   assert.match(page, /travelmode/);
-  assert.match(map, /libraries=places/);
+  // Nearby discovery uses the base Maps API. Mobility loads Places itself,
+  // including when the shared script was previously inserted by /map.
+  assert.match(map, /maps\.googleapis\.com\/maps\/api\/js/);
+  assert.match(map, /callback=initKhedmahMap/);
+  assert.doesNotMatch(map, /libraries=places/);
+  assert.match(page, /maps\.importLibrary\('places'\)/);
   assert.match(navigation, /href: '\/taxi', label: 'تكسي'/);
   assert.match(home, /href="\/taxi"/);
 });

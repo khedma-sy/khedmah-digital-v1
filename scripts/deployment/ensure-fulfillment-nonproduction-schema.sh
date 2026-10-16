@@ -41,31 +41,41 @@ verify_repo_blob backend/migrations/versions/026_cash_fulfillment_orders.sql "$m
 verify_repo_blob backend/migrations/versions/027_mobility_document_reviews.sql "$migration_027_blob"
 verify_repo_blob backend/migrations/versions/028_platform_notifications.sql "$migration_028_blob"
 
-tag="${environment}-${identifier}"
-short_identifier="$(printf '%s' "$identifier" | sha256sum | cut -c1-10)"
-image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/fulfillment-migration:${tag}"
-job="khedmah-${environment}-fulfillment-026-028-${short_identifier}"
+source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
+resolve_schema_execution "$environment" "$mode"
 
-gcloud builds submit . \
+tag="${environment}-${identifier}"
+image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/fulfillment-migration:${tag}"
+job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" fulfillment-026-028)"
+pool_label_args=()
+if [[ "$environment" == 'preview' ]]; then
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=fulfillment-026-028")
+fi
+
+gcloud builds submit . "${SCHEMA_BUILD_ARGS[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --config cloudbuild.fulfillment-migration.yaml \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" \
   --quiet
 
-gcloud run jobs deploy "$job" \
+node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" fulfillment-026-028
+
+gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
-  --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+  --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-  --set-secrets='DATABASE_URL=DATABASE_URL:latest' \
+  --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
   --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_CONFIRMATION=${FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION:-}" \
   --tasks 1 \
   --parallelism 1 \
   --max-retries 0 \
   --task-timeout 10m \
   --quiet
+
+node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" fulfillment-026-028
 
 set +e
 execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait 2>&1)"
@@ -100,3 +110,4 @@ if [[ "$execution_status" -ne 0 ]]; then
   exit "$execution_status"
 fi
 printf 'Fulfillment migrations 026-028 %s completed and verified for %s.\n' "$mode" "$environment"
+

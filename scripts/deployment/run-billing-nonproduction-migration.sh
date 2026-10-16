@@ -17,6 +17,19 @@ mode="${MIGRATION_MODE:-verify}"
 project="${GOOGLE_CLOUD_PROJECT:-}"
 production_project="${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}"
 
+# Completed replacement Preview migrations must never be replayed by a job.
+if [ "$project" = 'khedmah-preview-v2-20261012' ]; then
+  if [ "$environment" != 'preview' ] || [ "$production_project" != 'khedma-dl' ] || [ "$mode" != 'verify' ]; then
+    echo 'PREVIEW_V2_SCHEMA_VERIFY_ONLY' >&2
+    exit 4
+  fi
+fi
+if [ "$mode" = 'verify' ]; then
+  # Replace inherited session options; no database/role setting is changed.
+  PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000'
+  export PGOPTIONS
+fi
+
 case "$environment" in
   preview|staging) ;;
   *) echo 'ERROR: Billing migrations 030 and 033 are allowed only in preview or staging.' >&2; exit 2 ;;
@@ -110,7 +123,7 @@ schema_state_033() {
   [ "$constraint_count" -eq 1 ] || { printf '%s' 'partial_or_unverified'; return 0; }
 
   predecessor_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c' AND d.definition LIKE '%bootstrap_admin%' AND d.definition LIKE '%platform_admin%' AND d.definition LIKE '%moderator%' AND d.definition NOT LIKE '%billing_admin%' AND (length(d.definition)-length(replace(d.definition,'''','')))/2=3")" || return $?
-  target_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c' AND d.definition LIKE '%bootstrap_admin%' AND d.definition LIKE '%platform_admin%' AND d.definition LIKE '%moderator%' AND d.definition LIKE '%billing_admin%' AND (length(d.definition)-length(replace(d.definition,'''','')))/2=4")" || return $?
+  target_count="$(probe_count "SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace CROSS JOIN LATERAL (SELECT pg_get_constraintdef(c.oid) AS definition) d WHERE n.nspname='public' AND t.relname='admin_roles' AND c.conname='admin_roles_role_check' AND c.contype='c' AND d.definition LIKE '%bootstrap_admin%' AND d.definition LIKE '%platform_admin%' AND d.definition LIKE '%moderator%' AND d.definition LIKE '%billing_admin%' AND (((length(d.definition)-length(replace(d.definition,'''','')))/2=4 AND d.definition NOT LIKE '%taxi_pricing_admin%' AND d.definition NOT LIKE '%category_admin%' AND d.definition NOT LIKE '%security_admin%') OR ((length(d.definition)-length(replace(d.definition,'''','')))/2=6 AND d.definition LIKE '%taxi_pricing_admin%' AND d.definition LIKE '%category_admin%' AND d.definition NOT LIKE '%security_admin%'))")" || return $?
 
   if [ "$target_count" -eq 1 ]; then printf '%s' 'verified'; return 0; fi
   if [ "$predecessor_count" -eq 1 ]; then printf '%s' 'not_applied'; return 0; fi

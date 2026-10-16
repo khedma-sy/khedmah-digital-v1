@@ -29,6 +29,10 @@ test('Billing 030 and 033 are preview/staging only, identity-bound and fail clos
     "pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-billing-033',0))",
     'pg_get_constraintdef(c.oid)',
     "d.definition LIKE '%billing_admin%'",
+    "d.definition LIKE '%taxi_pricing_admin%'",
+    "d.definition LIKE '%category_admin%'",
+    "d.definition NOT LIKE '%security_admin%'",
+    "/2=6",
     'SYP_NEW_2026',
     'KHEDMA30'
   ]) assert.match(runner, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -49,7 +53,7 @@ test('Billing 033 reviewed identity is computed from the current canonical migra
   assert.match(ensure, new RegExp(gitBlob));
 });
 
-test('Billing 033 is checked only after 030 verification and uses a separate apply lock', () => {
+test('Billing 033 and canonical 035 superset are checked only after 030 verification and use a separate apply lock', () => {
   const execution = runner.slice(runner.indexOf('state="$(schema_state_030)"'));
   const alreadyVerified030 = execution.indexOf('MIGRATION_030_ALREADY_APPLIED_AND_VERIFIED');
   const verify033 = execution.indexOf('state_033="$(schema_state_033)"');

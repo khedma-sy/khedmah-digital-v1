@@ -158,6 +158,14 @@ case "$*" in
     test ! -f "$root/role-read-failure"
     cat "$root/role.json" ;;
   "iam roles describe roles/owner --format=json")
+    if test -f "$root/inherited-role-read-failure"; then
+      printf 'PERMISSION_DENIED: inherited role lookup\\n' >&2
+      exit 7
+    fi
+    if test -f "$root/inherited-role.json"; then
+      cat "$root/inherited-role.json"
+      exit 0
+    fi
     printf '%s\\n' '{"name":"roles/owner","includedPermissions":["secretmanager.versions.access"]}' ;;
   "iam roles describe roles/secretmanager.secretAccessor --format=json")
     printf '%s\\n' '{"name":"roles/secretmanager.secretAccessor","includedPermissions":["secretmanager.versions.access"]}' ;;
@@ -170,13 +178,24 @@ case "$*" in
   "secrets versions describe latest --secret "*" --project ${fixtureProject} --format=value(state)")
     test "$#" -eq 9
     test -f "$root/policies/$6.json"
-    case "$6" in GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY) exit 98 ;; esac
-    printf '%s\\n' ENABLED ;;
+    case "$6" in GOOGLE_MAPS_SERVER_API_KEY) exit 98 ;; esac
+    if test -f "$root/version-unavailable-$6"; then
+      printf 'NOT_FOUND: latest version of %s\\n' "$6" >&2
+      exit 1
+    fi
+    if test -f "$root/version-state-$6"; then
+      cat "$root/version-state-$6"
+    else
+      printf '%s\\n' ENABLED
+    fi ;;
   "secrets versions list "*" --project ${fixtureProject} --format=value(name)")
     test "$#" -eq 7
     test -f "$root/policies/$4.json"
     case "$4" in
-      GOOGLE_MAPS_ANDROID_API_KEY|GOOGLE_MAPS_SERVER_API_KEY)
+      GOOGLE_MAPS_ANDROID_API_KEY)
+        printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$4"
+        ;;
+      GOOGLE_MAPS_SERVER_API_KEY)
         if test -f "$root/deferred-version-$4"; then
           printf 'projects/${fixtureProject}/secrets/%s/versions/1\\n' "$4"
         fi
@@ -225,7 +244,13 @@ async function certify(mutate = () => {}) {
     await writeFile(join(directory, 'calls'), '');
     await writeFile(join(directory, 'role.json'), metadata.rawRole ?? JSON.stringify(metadata.role));
     if (metadata.roleReadFailure) await writeFile(join(directory, 'role-read-failure'), '');
+    if (metadata.inheritedRoleReadFailure) await writeFile(join(directory, 'inherited-role-read-failure'), '');
+    if (metadata.rawInheritedRole !== undefined) await writeFile(join(directory, 'inherited-role.json'), metadata.rawInheritedRole);
     if (metadata.deferredVersion) await writeFile(join(directory, `deferred-version-${metadata.deferredVersion}`), '');
+    if (metadata.versionUnavailable) await writeFile(join(directory, `version-unavailable-${metadata.versionUnavailable}`), '');
+    for (const [name, state] of Object.entries(metadata.versionStates ?? {})) {
+      await writeFile(join(directory, `version-state-${name}`), state);
+    }
     for (const name of allSecrets) {
       await writeFile(join(directory, `policies/${name}.json`), JSON.stringify(metadata.policies[name]));
       if (metadata.analysis[name]) await writeFile(join(directory, `analysis/${name}.json`), JSON.stringify(metadata.analysis[name]));
@@ -251,8 +276,8 @@ test('offline certification accepts the canonical three-binding migration policy
   const result = await certify();
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
-  assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=15/);
-  assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
+  assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=16/);
+  assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=1/);
   assert.match(result.stdout, /READY: BREAK_GLASS_PROJECT_OWNER_ACCESS=HUMAN_PROJECT_OWNER_ONLY/);
   assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
   assert.equal(result.calls.filter((call) => call === 'iam roles describe khedmahDatabaseMigrationAliasManager --project certification-fixture --format=json').length, 1);
@@ -281,8 +306,8 @@ for (const stage of [undefined, 'ALPHA', 'BETA', 'DEPRECATED', 'EAP']) {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
-  assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=15/);
-  assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=2/);
+    assert.match(result.stdout, /READY: LIVE_SECRET_ENABLED_VERSION_COUNT=16/);
+    assert.match(result.stdout, /READY: DEFERRED_SECRET_COUNT=1/);
   });
 }
 
@@ -338,6 +363,41 @@ test('offline certification rejects an unexpected deferred Maps secret version',
   assert.doesNotMatch(result.stdout, /READY:/);
 });
 
+test('offline certification requires an enabled Android Maps version and retains its direct IAM allowlist', async () => {
+  const result = await certify();
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.calls.includes('secrets versions describe latest --secret GOOGLE_MAPS_ANDROID_API_KEY --project certification-fixture --format=value(state)'));
+  assert.ok(result.calls.includes('secrets get-iam-policy GOOGLE_MAPS_ANDROID_API_KEY --project certification-fixture --format=json'));
+  assert.ok(!result.calls.some((call) => call.startsWith('secrets versions list GOOGLE_MAPS_ANDROID_API_KEY ')));
+});
+
+for (const state of ['DISABLED', 'DESTROYED', '']) {
+  test(`offline certification rejects Android Maps latest version state ${state || 'empty'}`, async () => {
+    const result = await certify((metadata) => { metadata.versionStates = { GOOGLE_MAPS_ANDROID_API_KEY: state }; });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /An active Production secret has no ENABLED latest version/);
+    assert.doesNotMatch(result.stdout, /READY:/);
+  });
+}
+
+test('offline certification rejects a missing Android Maps latest version without a fallback', async () => {
+  const result = await certify((metadata) => { metadata.versionUnavailable = 'GOOGLE_MAPS_ANDROID_API_KEY'; });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /NOT_FOUND: latest version of GOOGLE_MAPS_ANDROID_API_KEY/);
+  assert.doesNotMatch(result.stdout, /READY:/);
+});
+
+for (const role of ['roles/secretmanager.secretAccessor', 'roles/secretmanager.secretVersionManager']) {
+  test(`offline certification rejects an active Android Maps secret missing ${role}`, async () => {
+    const result = await certify((metadata) => {
+      metadata.policies.GOOGLE_MAPS_ANDROID_API_KEY.bindings = metadata.policies.GOOGLE_MAPS_ANDROID_API_KEY.bindings.filter((item) => item.role !== role);
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /exact canonical role\/member allowlist for GOOGLE_MAPS_ANDROID_API_KEY/);
+    assert.doesNotMatch(result.stdout, /READY:/);
+  });
+}
+
 for (const [name, mutate] of [
   ['missing role name', (m) => { delete m.role.name; }],
   ['wrong role name', (m) => { m.role.name += 'Other'; }],
@@ -375,3 +435,41 @@ test('offline certification refuses role lookup failure without a fallback or su
   assert.equal(result.calls.filter((call) => call.startsWith('iam roles describe ')).length, 1);
   assert.ok(!result.calls.some((call) => call.startsWith('secrets ') || call.startsWith('asset ')));
 });
+
+test('offline certification rejects an inherited role lookup failure instead of certifying unknown access', async () => {
+  const result = await certify((metadata) => { metadata.inheritedRoleReadFailure = true; });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Could not resolve an inherited IAM role/);
+  assert.doesNotMatch(result.stdout, /READY:/);
+});
+
+for (const [name, raw] of [
+  ['malformed JSON', '{'],
+  ['empty response', ''],
+  ['non-object metadata', 'null'],
+  ['multiple documents', '{"name":"roles/owner","includedPermissions":[]}\n{"name":"roles/owner","includedPermissions":[]}'],
+  ['missing name', '{"includedPermissions":[]}'],
+  ['wrong name', '{"name":"roles/editor","includedPermissions":[]}'],
+  ['missing permissions', '{"name":"roles/owner"}'],
+  ['non-array permissions', '{"name":"roles/owner","includedPermissions":{}}'],
+  ['non-string permission', '{"name":"roles/owner","includedPermissions":[null]}'],
+]) {
+  test(`offline certification rejects inherited role ${name} without a success marker`, async () => {
+    const result = await certify((metadata) => { metadata.rawInheritedRole = raw; });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Could not resolve an inherited IAM role/);
+    assert.doesNotMatch(result.stdout, /READY:/);
+  });
+}
+
+for (const permissions of [[], ['resourcemanager.projects.get']]) {
+  test(`offline certification accepts a verified inherited non-payload permission set ${JSON.stringify(permissions)}`, async () => {
+    const result = await certify((metadata) => {
+      metadata.rawInheritedRole = JSON.stringify({ name: 'roles/owner', includedPermissions: permissions });
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /READY: LIVE_SECRET_METADATA_COUNT=17/);
+    assert.match(result.stdout, /READY: SECRET_PAYLOADS_READ=0/);
+  });
+}
+

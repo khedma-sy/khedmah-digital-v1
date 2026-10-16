@@ -1,5 +1,7 @@
 # Schema and release gates — repository review, not execution approval
 
+Current reconciliation — 2026-10-11: owner-operated Phase A/B completed. Four fresh read-only postflight connections at 14:05:55–14:05:56 UTC verified role isolation, restart containment, prebaseline freshness and the reviewed system manifest; see [current evidence](CURRENT-STATE.md). Canonical schema and HARDEN remain pending. The next database stage is baseline 001–020, subject to its own fresh guards, backup, exact latest-main source and owner approval. The cutover backup is not a substitute for the baseline-specific backup. PR #274 currently has a separate Preview JobsPerProject quota blocker (1000/1000); integration and live certification remain open. Historical statements below about unestablished role state are superseded by this new evidence; no schema execution is authorized here.
+
 Initial review: 2026-10-04 at `5a961be5035dce1197ba2d0c65519e86f65ca4c6`. Reconciled 2026-10-05 with main `a2a26f8b27e63a2e041e43d5657cf2ce78700c24` in `khedma-sy/khedmah-digital-v1`; the schema/release source-map files below are unchanged between those commits. #250 changed role-bootstrap classification and tests, not the schema lineage.
 
 The current operating mode allows one reviewed read-only Cloud Shell command at a time. This document does not authorize Production workflows, credential rotation, database writes, DNS changes or Floot changes. Continue [Production reconciliation](PRODUCTION-RECONCILIATION.md) before selecting an operation.

@@ -79,3 +79,7 @@ temp/
 *.tmp
 *.log
 apps/android/app/google-services.json
+
+# Exclude transient Google GitHub Actions credentials from source and images.
+gha-creds-*.json
+**/gha-creds-*.json

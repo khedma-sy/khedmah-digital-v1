@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import { summarizeExecutions } from './preview-job-candidate-review.mjs';
+
+export const STAGES = Object.freeze({
+  'foundation-001-022': 'foundation-migrations',
+  'product-store-024': 'product-store-migration',
+  'classifieds-025': 'classifieds-migration',
+  'fulfillment-026-028': 'fulfillment-migration',
+  'taxi-pricing-029': 'taxi-pricing-migration',
+  'billing-030-033': 'billing-migration',
+  'taxi-operational-031': 'taxi-operational-migration',
+  'taxi-operational-032': 'taxi-operational-profile-gate-migration',
+  'food-promotions-034': 'food-promotions-migration',
+});
+const POLICY = Object.freeze({
+  project_sha256: 'b299ab462a1e169173551bb6a47c508bcdfb30860f21b551d455cb7704f80e4f',
+  namespace: '1044962071847', region: 'europe-west1',
+});
+const hash = value => createHash('sha256').update(value).digest('hex');
+const stop = code => { throw new Error('PREVIEW_SCHEMA_POOL_' + code); };
+
+const replacementProject = 'khedmah-preview-v2-20261012';
+const schemaIdentity = env => env.GOOGLE_CLOUD_PROJECT === replacementProject
+  ? 'khedmah-pv2-migrator@' + replacementProject + '.iam.gserviceaccount.com'
+  : env.RUNTIME_SERVICE_ACCOUNT;
+
+export function schemaJobName(environment, identifier, stage) {
+  if (!Object.hasOwn(STAGES, stage) || !['preview', 'staging'].includes(environment)
+      || !/^[a-zA-Z0-9._-]+$/.test(identifier)) stop('ARGUMENTS_REJECTED');
+  if (environment === 'staging') return `khedmah-staging-${stage}-${hash(identifier).slice(0, 10)}`;
+  if (!/^pr-[1-9][0-9]*-[a-f0-9]{7,40}$/.test(identifier)) stop('IDENTIFIER_REJECTED');
+  return 'khedmah-preview-schema-' + stage;
+}
+
+export function validatePoolTarget(env, policy = POLICY) {
+  const project = env.GOOGLE_CLOUD_PROJECT;
+  if (typeof project !== 'string' || !/^khedmah-preview-[a-z0-9-]+$/.test(project)
+      || hash(project) !== policy.project_sha256 || env.GOOGLE_CLOUD_REGION !== policy.region
+      || env.PRODUCTION_GOOGLE_CLOUD_PROJECT !== 'khedma-dl'
+      || env.PRODUCTION_FIREBASE_PROJECT_ID !== 'khedma-dl'
+      || project === 'khedma-dl'
+      || env.PREVIEW_SCHEMA_POOL_SERIALIZED !== 'true'
+      || env.GITHUB_ACTIONS !== 'true' || env.GITHUB_WORKFLOW !== 'PR Preview'
+      || env.GITHUB_REPOSITORY !== 'khedma-sy/khedmah-digital-v1'
+      || !/^[a-z][a-z0-9-]{0,62}$/.test(env.ARTIFACT_REPOSITORY ?? '')
+      || !new RegExp('^[a-z][a-z0-9-]+@' + project + '\\.iam\\.gserviceaccount\\.com$').test(env.RUNTIME_SERVICE_ACCOUNT ?? '')
+      || !env.CLOUD_SQL_INSTANCE_CONNECTION_NAME?.startsWith(project + ':' + policy.region + ':')) {
+    stop('TARGET_OR_SERIALIZATION_REJECTED');
+  }
+}
+
+// This read guard is not a distributed lock. All Preview cloud mutation jobs
+// share the workflow concurrency group; external/manual writers must stay stopped.
+export function checkSchemaJob(env, environment, identifier, stage, phase, run = execFileSync, policy = POLICY) {
+  const name = schemaJobName(environment, identifier, stage);
+  if (!['before-deploy', 'before-execute'].includes(phase)) stop('PHASE_REJECTED');
+  if (environment === 'staging') return name; // Preserve Staging's existing resource names and calls.
+  validatePoolTarget(env, policy);
+  const options = { encoding: 'utf8', timeout: 45000, maxBuffer: 8 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...env, CLOUDSDK_CORE_LOG_HTTP: 'false', CLOUDSDK_CORE_USER_OUTPUT_ENABLED: 'true' } };
+  const read = (args, fields) => {
+    try {
+      return JSON.parse(run('gcloud', [...args, '--project=' + env.GOOGLE_CLOUD_PROJECT,
+        '--region=' + policy.region, '--user-output-enabled', '--format=json(' + fields + ')'], options));
+    } catch { stop('READ_FAILED_STOP_NO_RETRY'); }
+  };
+  // Absence is accepted only after a successful complete list, never from a failed describe.
+  const inventory = read(['run', 'jobs', 'list', '--limit=2000'], 'metadata.name');
+  if (!Array.isArray(inventory) || inventory.length >= 2000
+      || inventory.some(x => !/^[a-z][a-z0-9-]{0,62}$/.test(x?.metadata?.name ?? ''))
+      || new Set(inventory.map(x => x.metadata.name)).size !== inventory.length) stop('INVENTORY_INVALID');
+  if (!inventory.some(x => x.metadata.name === name)) {
+    if (phase === 'before-execute') stop('JOB_MISSING_AFTER_DEPLOY');
+    return name;
+  }
+  const job = read(['run', 'jobs', 'describe', name],
+    'metadata.name,metadata.uid,metadata.namespace,metadata.generation,metadata.deletionTimestamp,metadata.labels,'
+    + 'spec.template.metadata.annotations,spec.template.spec.template.spec.serviceAccountName,'
+    + 'spec.template.spec.template.spec.containers[].image,spec.template.spec.template.spec.containers[].env,'
+    + 'status.observedGeneration,status.conditions,status.executionCount,status.latestCreatedExecution');
+  const meta = job?.metadata, status = job?.status, spec = job?.spec?.template?.spec?.template?.spec;
+  const ready = status?.conditions?.filter(x => x.type === 'Ready');
+  if (meta?.name !== name || meta.namespace !== policy.namespace || !/^[a-f0-9-]{20,64}$/.test(meta.uid ?? '')
+      || meta.deletionTimestamp || meta.labels?.['cloud.googleapis.com/location'] !== policy.region
+      || meta.labels?.['khedmah-schema-pool'] !== 'bounded-v1' || meta.labels?.['khedmah-schema-stage'] !== stage
+      || !Number.isSafeInteger(meta.generation) || meta.generation < 1 || status?.observedGeneration !== meta.generation
+      || ready?.length !== 1 || ready[0].status !== 'True'
+      || !Number.isSafeInteger(status.executionCount ?? 0) || (status.executionCount ?? 0) < 0
+      || spec?.serviceAccountName !== schemaIdentity(env)
+      || !Array.isArray(spec?.containers) || spec.containers.length !== 1
+      || job.spec.template.metadata?.annotations?.['run.googleapis.com/cloudsql-instances'] !== env.CLOUD_SQL_INSTANCE_CONNECTION_NAME) {
+    stop('OWNERSHIP_OR_RECONCILIATION_REJECTED');
+  }
+  if (env.GOOGLE_CLOUD_PROJECT === replacementProject) {
+    const database = spec.containers[0]?.env?.filter(item => item.name === 'DATABASE_URL');
+    if (database?.length !== 1 || Object.hasOwn(database[0], 'value')
+        || database[0]?.valueFrom?.secretKeyRef?.name !== 'DATABASE_MIGRATION_URL'
+        || database[0]?.valueFrom?.secretKeyRef?.key !== '1') {
+      stop('MIGRATION_SECRET_BINDING_REJECTED');
+    }
+  }
+  const imageBase = policy.region + '-docker.pkg.dev/' + env.GOOGLE_CLOUD_PROJECT + '/'
+    + env.ARTIFACT_REPOSITORY + '/' + STAGES[stage] + ':preview-';
+  const image = spec.containers[0]?.image;
+  if (typeof image !== 'string' || !image.startsWith(imageBase)
+      || !/^pr-[1-9][0-9]*-[a-f0-9]{7,40}$/.test(image.slice(imageBase.length))
+      || (phase === 'before-execute' && image !== imageBase + identifier)) stop('IMAGE_REJECTED');
+  const items = read(['run', 'jobs', 'executions', 'list', '--job=' + name, '--limit=1001'],
+    'metadata.name,metadata.namespace,metadata.creationTimestamp,metadata.labels,'
+    + 'status.startTime,status.completionTime,status.runningCount,status.succeededCount,'
+    + 'status.failedCount,status.cancelledCount,status.conditions');
+  const summary = summarizeExecutions(items, name, policy.namespace);
+  const count = status.executionCount ?? 0;
+  if (summary.nonterminal_or_unknown_count !== 0 || (count > 0 && !items.length)
+      || items.length > count || (count > 0 && !items.some(x => x.metadata.name === status.latestCreatedExecution?.name))) {
+    stop('ACTIVE_OR_UNVERIFIED_EXECUTION');
+  }
+  return name;
+}
+
+export function schemaPoolCommand(args, env, run = execFileSync, policy = POLICY) {
+  if (args.length !== 4) stop('ARGUMENTS_REJECTED');
+  const [phase, environment, identifier, stage] = args;
+  if (phase === 'name') {
+    const name = schemaJobName(environment, identifier, stage);
+    if (environment === 'preview') validatePoolTarget(env, policy);
+    return name;
+  }
+  checkSchemaJob(env, environment, identifier, stage, phase, run, policy);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    const output = schemaPoolCommand(process.argv.slice(2), process.env);
+    if (output !== undefined) console.log(output);
+  } catch (error) {
+    console.error('STOP: ' + error.message);
+    process.exitCode = 1;
+  }
+}

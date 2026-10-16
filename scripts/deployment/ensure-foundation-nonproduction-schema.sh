@@ -3,6 +3,8 @@ set -euo pipefail
 
 environment="${1:?usage: ensure-foundation-nonproduction-schema.sh preview|staging IDENTIFIER}"
 identifier="${2:?usage: ensure-foundation-nonproduction-schema.sh preview|staging IDENTIFIER}"
+mode="${FOUNDATION_MIGRATION_MODE:-apply}"
+[[ "$mode" == 'verify' || "$mode" == 'apply' ]] || { echo 'Foundation mode must be verify or apply.' >&2; exit 2; }
 
 [[ "$environment" == 'preview' || "$environment" == 'staging' ]] || { echo 'Only preview or staging foundation operations are allowed.' >&2; exit 2; }
 [[ "$identifier" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Invalid deployment identifier.' >&2; exit 2; }
@@ -39,16 +41,22 @@ files=(
 for file in "${files[@]}"; do [[ -f "$file" ]] || { echo "Missing $file" >&2; exit 4; }; done
 manifest_sha256="$(cat "${files[@]}" | sha256sum | awk '{print $1}')"
 
+source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
+resolve_schema_execution "$environment" "$mode"
+
 tag="${environment}-${identifier}"
-short_identifier="$(printf '%s' "$identifier" | sha256sum | cut -c1-10)"
 image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/foundation-migrations:${tag}"
-job="khedmah-${environment}-foundation-001-022-${short_identifier}"
+job="$(node scripts/deployment/preview-schema-job-pool.mjs name "$environment" "$identifier" foundation-001-022)"
+pool_label_args=()
+if [[ "$environment" == 'preview' ]]; then
+  pool_label_args=(--labels="khedmah-schema-pool=bounded-v1,khedmah-schema-stage=foundation-001-022")
+fi
 source_args=()
 if [[ "$environment" == 'staging' ]]; then
   source_args=(--gcs-source-staging-dir "gs://${GOOGLE_CLOUD_PROJECT}-cloudbuild-source/source")
 fi
 
-gcloud builds submit . \
+gcloud builds submit . "${SCHEMA_BUILD_ARGS[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   "${source_args[@]}" \
@@ -56,19 +64,23 @@ gcloud builds submit . \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}" \
   --quiet
 
-gcloud run jobs deploy "$job" \
+node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment" "$identifier" foundation-001-022
+
+gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --image "$image" \
-  --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+  --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
-  --set-secrets='DATABASE_URL=DATABASE_URL:latest' \
-  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},FOUNDATION_MANIFEST_SHA256=${manifest_sha256}" \
+  --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
+  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},FOUNDATION_MANIFEST_SHA256=${manifest_sha256}" \
   --tasks 1 \
   --parallelism 1 \
   --max-retries 0 \
   --task-timeout 15m \
   --quiet
+
+node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" foundation-001-022
 
 gcloud run jobs execute "$job" \
   --project "$GOOGLE_CLOUD_PROJECT" \
@@ -76,3 +88,4 @@ gcloud run jobs execute "$job" \
   --wait
 
 printf 'Foundation 001-022 completed and verified for %s.\n' "$environment"
+

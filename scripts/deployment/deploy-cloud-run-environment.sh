@@ -29,6 +29,9 @@ if [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" != "${GOOGLE_CLOUD_PROJECT}:${GOOGLE
   else echo 'Staging Cloud SQL instance must belong to the staging project and region.' >&2; fi
   exit 4
 fi
+source "$(dirname "${BASH_SOURCE[0]}")/application-execution-profile.sh"
+resolve_application_execution "$environment"
+cloudbuild_source_args+=("${APPLICATION_BUILD_ARGS[@]}")
 if [[ "$environment" == "preview" ]]; then
   [[ "$identifier" =~ ^pr-[0-9]+-[0-9a-f]{7,40}$ ]] || { echo 'Preview identifier must be pr-N-SHA.' >&2; exit 2; }
   pr_number="$(cut -d- -f2 <<<"$identifier")"
@@ -44,8 +47,11 @@ backend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${A
 frontend_image="${GOOGLE_CLOUD_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}/frontend:${tag}"
 # Taxi authority can be enabled after Migration 031 while trip execution remains independently fail-closed.
 backend_runtime_env="NODE_ENV=${environment},APP_VERSION=${tag},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},CLASSIFIEDS_ENABLED=${CLASSIFIEDS_ENABLED},TAXI_ACCESS_ENABLED=true,TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}"
-backend_secret_bindings="DATABASE_URL=DATABASE_URL:latest"
+backend_secret_bindings="$APPLICATION_DATABASE_SECRET_BINDING"
 if [[ "$environment" == "preview" ]]; then
+  backend_runtime_env+=",GCS_MEDIA_BUCKET=${APPLICATION_MEDIA_BUCKET}"
+  preview_firebase_binding="$(DEPLOYMENT_ENVIRONMENT=preview node scripts/deployment/resolve-preview-firebase-config.mjs)"
+  backend_secret_bindings+=",${preview_firebase_binding},OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest"
   preview_email_from="$(DEPLOYMENT_ENVIRONMENT=preview bash scripts/deployment/resolve-preview-email-config.sh)"
   if [[ -n "$preview_email_from" ]]; then
     backend_runtime_env+=",EMAIL_FROM=${preview_email_from}"
@@ -60,18 +66,27 @@ if [[ "$environment" == "staging" ]]; then
 fi
 
 # Product Store 024 is the direct predecessor of Classifieds 025.
-# Keep schema ordering explicit in isolated non-production and fail closed on partial state.
-PRODUCT_STORE_MIGRATION_024_MODE='apply'
-PRODUCT_STORE_MIGRATION_024_CONFIRMATION="APPLY_KHEDMAH_NONPROD_024_${environment^^}"
+# Keep schema ordering explicit. Completed Preview stages are verification-only;
+# Staging retains its existing application behavior. Missing state fails closed.
+schema_mode='apply'
+if [[ "$environment" == 'preview' ]]; then schema_mode='verify'; fi
+FOUNDATION_MIGRATION_MODE="$schema_mode"
+export FOUNDATION_MIGRATION_MODE
+PRODUCT_STORE_MIGRATION_024_MODE="$schema_mode"
+PRODUCT_STORE_MIGRATION_024_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then PRODUCT_STORE_MIGRATION_024_CONFIRMATION="APPLY_KHEDMAH_NONPROD_024_${environment^^}"; fi
 export PRODUCT_STORE_MIGRATION_024_MODE PRODUCT_STORE_MIGRATION_024_CONFIRMATION
-bash # Ensure the canonical non-production foundation through 022 before Product Store 024.
+# Ensure the canonical non-production foundation through 022 before Product Store 024.
 bash scripts/deployment/ensure-foundation-nonproduction-schema.sh "$environment" "$identifier"
 bash scripts/deployment/ensure-product-store-nonproduction-schema.sh "$environment" "$identifier"
 
 # Fulfillment 027 extends the Migration 025 media contract. The schema prerequisite
 # is therefore applied in isolated non-production even when Classifieds feature
 # flags remain disabled. Feature exposure and schema presence stay separate.
-if [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' ]]; then
+if [[ "$environment" == 'preview' ]]; then
+  CLASSIFIEDS_MIGRATION_025_MODE='verify'
+  CLASSIFIEDS_MIGRATION_025_CONFIRMATION=''
+elif [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' ]]; then
   CLASSIFIEDS_MIGRATION_025_MODE='apply'
   CLASSIFIEDS_MIGRATION_025_CONFIRMATION="APPLY_KHEDMAH_NONPROD_025_${environment^^}"
   echo 'Migration 025 schema is required as the predecessor of fulfillment 026-028; Classifieds feature flags are unchanged.'
@@ -79,38 +94,43 @@ fi
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
 
-# Orders, driver-document review and durable notifications are runtime contracts,
-# not optional Preview cosmetics. Apply atomically before building/deploying backend.
-FULFILLMENT_MIGRATIONS_026_028_MODE='apply'
-FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION="APPLY_KHEDMAH_NONPROD_026_028_${environment^^}"
+# Orders, driver-document review and notifications must be verified before the
+# backend build. Only Staging may apply missing migrations through this path.
+FULFILLMENT_MIGRATIONS_026_028_MODE="$schema_mode"
+FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION="APPLY_KHEDMAH_NONPROD_026_028_${environment^^}"; fi
 export FULFILLMENT_MIGRATIONS_026_028_MODE FULFILLMENT_MIGRATIONS_026_028_CONFIRMATION
 scripts/deployment/ensure-fulfillment-nonproduction-schema.sh "$environment" "$identifier"
 
 # Taxi pricing history is governed separately from the candidate-only Taxi trip schema.
 # Apply the append-only pricing ledger before backend deployment; this does not enable trips.
-TAXI_PRICING_MIGRATION_029_MODE='apply'
-TAXI_PRICING_MIGRATION_029_CONFIRMATION="APPLY_KHEDMAH_NONPROD_029_${environment^^}"
+TAXI_PRICING_MIGRATION_029_MODE="$schema_mode"
+TAXI_PRICING_MIGRATION_029_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then TAXI_PRICING_MIGRATION_029_CONFIRMATION="APPLY_KHEDMAH_NONPROD_029_${environment^^}"; fi
 export TAXI_PRICING_MIGRATION_029_MODE TAXI_PRICING_MIGRATION_029_CONFIRMATION
 scripts/deployment/ensure-taxi-pricing-nonproduction-schema.sh "$environment" "$identifier"
 
 # Product V2 Billing is active backend runtime. Its append-only ledger, subscriptions,
 # welcome grants and promo contract must exist before the backend can serve Billing APIs.
-BILLING_MIGRATION_030_MODE='apply'
-BILLING_MIGRATION_030_CONFIRMATION="APPLY_KHEDMAH_NONPROD_030_${environment^^}"
+BILLING_MIGRATION_030_MODE="$schema_mode"
+BILLING_MIGRATION_030_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then BILLING_MIGRATION_030_CONFIRMATION="APPLY_KHEDMAH_NONPROD_030_${environment^^}"; fi
 export BILLING_MIGRATION_030_MODE BILLING_MIGRATION_030_CONFIRMATION
 scripts/deployment/ensure-billing-nonproduction-schema.sh "$environment" "$identifier"
 
 # Taxi operational authority is intentionally narrower than trip execution. It promotes
 # document-reviewed driver/vehicle/zone approvals and actor resolution only. Trips stay off.
-TAXI_OPERATIONAL_MIGRATION_031_MODE='apply'
-TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environment^^}"
+TAXI_OPERATIONAL_MIGRATION_031_MODE="$schema_mode"
+TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION="APPLY_KHEDMAH_NONPROD_031_${environment^^}"; fi
 export TAXI_OPERATIONAL_MIGRATION_031_MODE TAXI_OPERATIONAL_MIGRATION_031_CONFIRMATION
 bash scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh "$environment" "$identifier"
 
 # Restaurant-funded food promotion pricing is part of the cash-order contract.
 # Apply its claim ledger before backend rollout; no payment gateway or platform subsidy is enabled.
-FOOD_PROMOTIONS_MIGRATION_034_MODE='apply'
-FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environment^^}"
+FOOD_PROMOTIONS_MIGRATION_034_MODE="$schema_mode"
+FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environment^^}"; fi
 export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION
 bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
 
@@ -150,10 +170,12 @@ backend_deploy_args=(
   --allow-unauthenticated
   --quiet
 )
-backend_deploy_args+=(
-  --add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
-  --set-secrets="$backend_secret_bindings"
-)
+if [[ "$environment" == "preview" ]]; then
+  backend_deploy_args+=(--set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+else
+  backend_deploy_args+=(--add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+fi
+backend_deploy_args+=(--set-secrets="$backend_secret_bindings")
 "${backend_deploy_args[@]}"
 backend_url="$(gcloud run services describe "$backend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 
@@ -165,7 +187,7 @@ fi
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "$config" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag},_NEXT_PUBLIC_API_URL=${backend_url},_NEXT_PUBLIC_CLASSIFIEDS_ENABLED=${NEXT_PUBLIC_CLASSIFIEDS_ENABLED}"
 
-gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$RUNTIME_SERVICE_ACCOUNT" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
+gcloud run deploy "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$frontend_image" --service-account "$APPLICATION_FRONTEND_SERVICE_ACCOUNT" "${APPLICATION_FRONTEND_ISOLATION_ARGS[@]}" --set-env-vars="NODE_ENV=${environment},APP_VERSION=${tag},TAXI_TRIPS_ENABLED=${TAXI_TRIPS_ENABLED}" --allow-unauthenticated --quiet
 frontend_url="$(gcloud run services describe "$frontend_service" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
 [[ "$frontend_url" == https://*run.app ]] || { echo 'Isolated frontend URL is not a Cloud Run URL.' >&2; exit 5; }
 # The runtime allowlist and action-link origin must match this deployment.
