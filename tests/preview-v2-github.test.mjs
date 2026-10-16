@@ -42,6 +42,16 @@ test('workflow verifies current source and all identity variables before OIDC an
   assert.equal(result.status, 1); assert.ok(!result.stdout.includes('MUST_NOT_AUTHENTICATE'));
 });
 
+test('replacement Preview cloud authority remains scoped to PR 274', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/preview-deployment.yml', import.meta.url), 'utf8');
+  const deploy = workflow.split('  deploy-preview:\n')[1].split('  resolve-staging-baseline:')[0];
+  const baseline = workflow.split('  resolve-staging-baseline:\n')[1].split('  review-evidence:')[0];
+  const cleanup = workflow.split('  cleanup-preview:\n')[1];
+  assert.match(deploy, /if: github\.event\.action != 'closed' && github\.event\.pull_request\.number == 274/);
+  assert.match(baseline, /if: github\.event\.action != 'closed' && github\.event\.pull_request\.number == 274/);
+  assert.match(cleanup, /if: github\.event\.action == 'closed' && github\.event\.pull_request\.number == 274/);
+});
+
 test('mail metadata accepts the replacement numeric namespace under its real pinned pool policy', () => {
   const project = PREVIEW_V2_VARIABLES.PREVIEW_GOOGLE_CLOUD_PROJECT;
   const env = { DEPLOYMENT_ENVIRONMENT: 'preview', GOOGLE_CLOUD_PROJECT: project,
