@@ -5,9 +5,9 @@ import { readPreviewLaunchMetadata } from './read-preview-launch-metadata.mjs';
 
 // This one-shot approval is confined to the direct successor of the reviewed
 // schema-035 and workflow-repair chain. Reruns and later heads stay held.
-export const REVIEWED_PARENT = 'b1f6c82819e49e96ef99eb9fb13b61ec00523354';
+export const REVIEWED_PARENT = '8172fdb860a37e83a11a791c6f1ff35d34ee576c';
 export const REVIEWED_MAIN = 'bc5a5c764413498189147cc34c7e857c78aa3d2c';
-export const RELEASE_MESSAGE = 'release(preview): accept governed schema-035 role superset';
+export const RELEASE_MESSAGE = 'release(preview): align billing verifier with schema 035';
 const repo = 'khedma-sy/khedmah-digital-v1';
 const stop = code => { throw new Error('PREVIEW_FIRST_ROLLOUT_' + code); };
 export function verifyFirstRolloutSource(env, run = execFileSync) {

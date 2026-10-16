@@ -31,8 +31,8 @@ test('Billing 030 and 033 are preview/staging only, identity-bound and fail clos
     "d.definition LIKE '%billing_admin%'",
     "d.definition LIKE '%taxi_pricing_admin%'",
     "d.definition LIKE '%category_admin%'",
-    "d.definition LIKE '%security_admin%'",
-    "/2=7",
+    "d.definition NOT LIKE '%security_admin%'",
+    "/2=6",
     'SYP_NEW_2026',
     'KHEDMA30'
   ]) assert.match(runner, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
