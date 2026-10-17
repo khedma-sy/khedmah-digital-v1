@@ -28,7 +28,18 @@ export class DatabasePool implements OnModuleInit {
     const cloudSqlInstance = process.env.CLOUD_SQL_INSTANCE_CONNECTION_NAME;
     let poolOptions: import('pg').PoolConfig;
     if (cloudSqlInstance) {
-      const parsed = new URL(databaseUrl);
+      // The canonical Cloud SQL secret is a libpq-style URI whose authority has
+      // credentials but intentionally no TCP hostname:
+      // postgresql://user:password@/database?host=/cloudsql/project:region:instance
+      // WHATWG URL rejects that valid node-postgres shape. Add a parse-only
+      // placeholder hostname; the Pool still receives the attached Unix socket
+      // explicitly below, so no TCP fallback or secret rewrite is introduced.
+      const parsed = new URL(
+        databaseUrl.replace(
+          /^((?:postgres|postgresql):\/\/[^/?#]*@)\//,
+          '$1localhost/'
+        )
+      );
       poolOptions = {
         host: `/cloudsql/${cloudSqlInstance}`,
         user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
