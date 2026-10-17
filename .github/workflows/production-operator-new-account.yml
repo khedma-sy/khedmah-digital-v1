@@ -308,12 +308,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BACKEND_URL="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
-          FRONTEND_URL="$(gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
+          PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+          [[ "$PROJECT_NUMBER" =~ ^[0-9]+$ ]]
+          BACKEND_URL="https://${OPERATIONS_BACKEND_SERVICE}-${PROJECT_NUMBER}.${GOOGLE_CLOUD_REGION}.run.app"
+          FRONTEND_URL="https://${OPERATIONS_FRONTEND_SERVICE}-${PROJECT_NUMBER}.${GOOGLE_CLOUD_REGION}.run.app"
+          SERVICE_BACKEND_URL="$(gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
+          SERVICE_FRONTEND_URL="$(gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format='value(status.url)')"
+          [[ "$SERVICE_BACKEND_URL" == https://*run.app ]]
+          [[ "$SERVICE_FRONTEND_URL" == https://*run.app ]]
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$BACKEND_URL/api/v1/health" >/dev/null
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$BACKEND_URL/api/v1/health/ready" >/dev/null
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$FRONTEND_URL/" >/dev/null
-          bash scripts/validate-firebase-social-auth-readiness.sh
+          PRODUCTION_FRONTEND_URL="$FRONTEND_URL" bash scripts/validate-firebase-social-auth-readiness.sh
           BROWSER="$(command -v google-chrome || command -v google-chrome-stable || true)"
           test -n "$BROWSER" || { echo 'Chrome is required for live Maps certification.' >&2; exit 1; }
           MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"

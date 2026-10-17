@@ -48,14 +48,19 @@ command -v curl >/dev/null 2>&1 || { echo 'curl is required.' >&2; exit 3; }
 
 revision_exists_for_service() {
   local service="$1" revision="$2" found
-  found="$(gcloud run revisions list \
-    --service "$service" \
+  found="$(gcloud run revisions describe "$revision" \
     --project "$GOOGLE_CLOUD_PROJECT" \
     --region "$GOOGLE_CLOUD_REGION" \
-    --filter="metadata.name=${revision}" \
-    --format='value(metadata.name)' \
-    --limit=1)"
-  [[ "$found" == "$revision" ]]
+    --format=json 2>/dev/null | node -e '
+      let input = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", chunk => { input += chunk; });
+      process.stdin.on("end", () => {
+        const revision = JSON.parse(input);
+        process.stdout.write(revision.metadata?.labels?.["serving.knative.dev/service"] ?? "");
+      });
+    ')"
+  [[ "$found" == "$service" ]]
 }
 
 single_serving_revision() {

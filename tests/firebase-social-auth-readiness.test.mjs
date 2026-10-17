@@ -14,6 +14,9 @@ test('production readiness requires Google and gates Facebook behind the product
   assert.match(prerequisites, /identitytoolkit\.googleapis\.com/);
   assert.match(validator, /\.authorizedDomains/);
   assert.match(validator, /NEXT_PUBLIC_SITE_URL/);
+  assert.match(validator, /PRODUCTION_FRONTEND_URL/);
+  assert.match(validator, /PROJECT_NUMBER/);
+  assert.match(validator, /\.\$\{GOOGLE_CLOUD_REGION\}\.run\.app/);
   assert.match(validator, /CANONICAL_HOST/);
   assert.match(validator, /FIREBASE_AUTHORIZED_DOMAINS/);
   assert.match(validator, /required_providers=\(google\.com\)/);
@@ -27,5 +30,6 @@ test('production readiness requires Google and gates Facebook behind the product
   assert.match(validator, /\.clientId/);
   assert.doesNotMatch(validator, /clientSecret|set \+x/);
   assert.match(workflow, /bash scripts\/validate-firebase-social-auth-readiness\.sh/);
+  assert.match(workflow, /PRODUCTION_FRONTEND_URL="\$FRONTEND_URL"/);
   assert.match(workflow, /FACEBOOK_AUTH_ENABLED: \$\{\{ vars\.FACEBOOK_AUTH_ENABLED \|\| 'false' \}\}/);
 });

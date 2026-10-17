@@ -24,12 +24,17 @@ for command_name in curl gcloud jq; do
   }
 done
 
-FRONTEND_URL="$(gcloud run services describe "$FRONTEND_SERVICE" \
-  --project "$GOOGLE_CLOUD_PROJECT" \
-  --region "$GOOGLE_CLOUD_REGION" \
-  --format='value(status.url)')"
-if [[ "$FRONTEND_URL" != https://* ]]; then
-  echo "ERROR: Cloud Run frontend does not expose a valid HTTPS URL." >&2
+FRONTEND_URL="${PRODUCTION_FRONTEND_URL:-}"
+if [[ -z "$FRONTEND_URL" ]]; then
+  PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" --format='value(projectNumber)')"
+  [[ "$PROJECT_NUMBER" =~ ^[0-9]+$ ]] || {
+    echo 'ERROR: Unable to resolve the Google Cloud project number.' >&2
+    exit 1
+  }
+  FRONTEND_URL="https://${FRONTEND_SERVICE}-${PROJECT_NUMBER}.${GOOGLE_CLOUD_REGION}.run.app"
+fi
+if [[ "$FRONTEND_URL" != https://*run.app ]]; then
+  echo "ERROR: Production frontend does not expose the deterministic regional HTTPS URL." >&2
   exit 1
 fi
 FRONTEND_HOST="${FRONTEND_URL#https://}"
