@@ -1,5 +1,16 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production backend startup URL repair candidate — 2026-10-17
+
+Owner-authorized Production sequence completed canonical migrations through 035, database role HARDEN, independent VERIFY, and release-readiness VERIFY_ONLY on exact main `a6860a1288b9eb8a43f549f80be912d47a970528`. Deployment workflow run `39027150222` passed all predeploy gates but Cloud Build `72f2dfe9-1c96-420a-8f3d-ba70cc2aaacb` failed while creating the first Backend revision `backend-00001-djl`; Frontend deployment and live certification did not run, and no prior serving Production revision pair existed for rollback.
+
+Cloud Run evidence showed `ERR_INVALID_URL` before the application listener started. The runtime secret uses the canonical Cloud SQL Unix-socket form with credentials and an intentionally empty TCP hostname. `DatabasePool` passed that libpq/node-postgres form directly to WHATWG `URL`, which rejects `@/database`. This repair adds a parse-only `localhost` placeholder for that exact hostless PostgreSQL URI shape, while continuing to give node-postgres the attached `/cloudsql/<instance>` socket explicitly. It does not change secrets, credentials, database roles, schema, IAM, Cloud Run configuration, feature flags or public behavior.
+
+Regression coverage validates username/password decoding, database path, socket query preservation, and continued explicit socket selection. Relevant files: `apps/backend/src/database/database.pool.ts` and `tests/production-runtime-config-wiring.test.mjs`.
+
+**Next safe action:** require CI on the exact repair head and review its diff. Only after merge to a new latest `main` may the owner run fresh `VERIFY_ONLY`; a new `DEPLOY_PRODUCTION` requires separate explicit approval and the new exact main SHA. Do not rerun failed run `39027150222` or reuse its stale source authority.
+
+
 ## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
 
 Floot checkpoint **9e84c139-8f3e-44e7-897a-a2d7e786f9e2**, documentation version **1792080274730**. Implementation remains in Floot; these are documentation-only GitHub updates.
