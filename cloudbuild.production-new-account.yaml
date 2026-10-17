@@ -146,11 +146,14 @@ steps:
           --update-env-vars '^|^GOOGLE_CLOUD_PROJECT=$PROJECT_ID|GOOGLE_CLOUD_REGION=${_REGION}|CLOUD_SQL_INSTANCE_CONNECTION_NAME=${_CLOUD_SQL_INSTANCE}|CORS_ORIGIN=${_CORS_ORIGIN}|NEXT_PUBLIC_SITE_URL=${_SITE_URL}|EMAIL_FROM=${_EMAIL_FROM}|GCS_MEDIA_BUCKET=${_GCS_MEDIA_BUCKET}|CLASSIFIEDS_ENABLED=${_CLASSIFIEDS_ENABLED}|TAXI_ACCESS_ENABLED=${_TAXI_ACCESS_ENABLED}|TAXI_TRIPS_ENABLED=${_TAXI_TRIPS_ENABLED}|GOOGLE_LOGGING_ENABLED=${_GOOGLE_LOGGING_ENABLED}|GOOGLE_MONITORING_ENABLED=${_GOOGLE_MONITORING_ENABLED}|GOOGLE_ERROR_REPORTING_ENABLED=${_GOOGLE_ERROR_REPORTING_ENABLED}' \
           --set-secrets 'DATABASE_URL=DATABASE_URL:latest,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest,FIREBASE_PROJECT_ID=NEXT_PUBLIC_FIREBASE_PROJECT_ID:latest' \
           --quiet
-        ACTUAL_BACKEND_URL="$$(gcloud run services describe '${_BACKEND_SERVICE}' --region '${_REGION}' --format='value(status.url)')"
-        test "$$ACTUAL_BACKEND_URL" = "$$EXPECTED_BACKEND_URL" || {
-          printf 'ERROR: Deterministic Backend URL mismatch. EXPECTED=%s ACTUAL=%s\n' "$$EXPECTED_BACKEND_URL" "$$ACTUAL_BACKEND_URL" >&2
+        SERVICE_BACKEND_URL="$$(gcloud run services describe '${_BACKEND_SERVICE}' --region '${_REGION}' --format='value(status.url)')"
+        [[ "$$SERVICE_BACKEND_URL" == https://*run.app ]] || {
+          printf 'ERROR: Cloud Run did not return a valid Backend service URL: %s\n' "$$SERVICE_BACKEND_URL" >&2
           exit 1
         }
+        curl --fail --silent --show-error --retry 6 --retry-all-errors \
+          "$$EXPECTED_BACKEND_URL/api/v1/health" >/dev/null
+        printf 'PRODUCTION_BACKEND_SERVICE_URL=%s\n' "$$SERVICE_BACKEND_URL"
 
   - id: deploy-frontend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

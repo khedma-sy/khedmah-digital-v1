@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production first-deploy stopped by Cloud Run URL alias comparison — 2026-10-17
+
+Production operator run `39040302149` locked exact `main` `a53b2b64b25c6bcc232b9a223f137db6fb54ef26`; its pre-deploy Google/Firebase/operations and hardened-database-role gates passed. Cloud Build `3a900f4f-dd53-4fe3-a81c-03098b935a71` passed tests (**617 backend + 151 frontend, zero failures**), built and pushed both images, and successfully deployed Backend revision `backend-00001-mf9` at 100% traffic. The prior hostless Cloud SQL URL startup failure did not recur.
+
+The build then stopped before Frontend deployment because the deploy step required byte equality between the deterministic regional Backend URL used to compile Frontend (`https://<service>-<project-number>.<region>.run.app`) and the legacy-shaped `status.url` alias (`https://<service>-<opaque-hash>-<region-code>.a.run.app`). Cloud Run reported the first URL from the successful deploy while the service resource exposed the second alias; this URL-shape difference is not a workload failure. Live certification did not run, Frontend was not deployed, and rollback was correctly unavailable because there was no previously serving pair.
+
+This repair removes only the invalid alias-equality assertion. It still requires `status.url` to be an HTTPS `run.app` URL and now probes the exact deterministic URL's `/api/v1/health` endpoint before allowing Frontend deployment. The existing final health/readiness/Frontend checks remain unchanged. No Production, database, IAM, DNS, secret, feature flag, or service mutation is performed by this source repair.
+
+**Next Safe Action:** validate this exact source, open and merge a reviewed repair PR, then reconcile the partial Backend-only state. Do not rerun Production while exactly one of Backend/Frontend exists; after explicit owner approval, remove only the failed-attempt Backend service, rerun `VERIFY_ONLY` on the new exact `main`, and request separate approval for a fresh `DEPLOY_PRODUCTION` dispatch.
+
 ## Production backend startup URL repair candidate — 2026-10-17
 
 Owner-authorized Production sequence completed canonical migrations through 035, database role HARDEN, independent VERIFY, and release-readiness VERIFY_ONLY on exact main `a6860a1288b9eb8a43f549f80be912d47a970528`. Deployment workflow run `39027150222` passed all predeploy gates but Cloud Build `72f2dfe9-1c96-420a-8f3d-ba70cc2aaacb` failed while creating the first Backend revision `backend-00001-djl`; Frontend deployment and live certification did not run, and no prior serving Production revision pair existed for rollback.

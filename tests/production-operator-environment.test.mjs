@@ -82,7 +82,9 @@ test('new-account Cloud Build derives the frontend API URL deterministically bef
   assert.match(build, /production-backend-url/);
   assert.match(build, /gcloud projects describe/);
   assert.match(build, /PREDICTED_PRODUCTION_BACKEND_URL/);
-  assert.match(build, /Deterministic Backend URL mismatch/);
+  assert.match(build, /PRODUCTION_BACKEND_SERVICE_URL/);
+  assert.match(build, /"\$\$EXPECTED_BACKEND_URL\/api\/v1\/health"/);
+  assert.doesNotMatch(build, /test "\$\$ACTUAL_BACKEND_URL" = "\$\$EXPECTED_BACKEND_URL"/);
   assert.match(build, /--build-arg NEXT_PUBLIC_API_URL="\$\$BACKEND_URL"/);
   assert.match(build, /id: bind-live-frontend-origin/);
   assert.match(build, /CORS_ORIGIN=\$\$ALLOWED_ORIGINS/);
