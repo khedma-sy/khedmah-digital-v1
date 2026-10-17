@@ -324,6 +324,7 @@ jobs:
           test -n "$BROWSER" || { echo 'Chrome is required for live Maps certification.' >&2; exit 1; }
           MAP_DOM=''
           MAP_STATUS=''
+          MAP_ERROR_REASON=''
           for attempt in 1 2 3; do
             if ! MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"; then
               MAP_DOM=''
@@ -336,10 +337,11 @@ jobs:
               break
             fi
             MAP_STATUS="$(grep -m1 -oE 'data-map-status="[^"]+"' <<<"$MAP_DOM" || true)"
-            echo "Maps certification attempt ${attempt}/3 did not reach ready (${MAP_STATUS:-status-missing})." >&2
+            MAP_ERROR_REASON="$(grep -m1 -oE 'data-map-error-reason="[^"]+"' <<<"$MAP_DOM" || true)"
+            echo "Maps certification attempt ${attempt}/3 did not reach ready (${MAP_STATUS:-status-missing}; ${MAP_ERROR_REASON:-reason-missing})." >&2
           done
           if [[ "$MAP_STATUS" != 'ready' ]]; then
-            echo "ERROR: live Maps certification did not reach ready after 3 attempts (${MAP_STATUS:-status-missing})." >&2
+            echo "ERROR: live Maps certification did not reach ready after 3 attempts (${MAP_STATUS:-status-missing}; ${MAP_ERROR_REASON:-reason-missing})." >&2
             exit 1
           fi
           echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_STEP_SUMMARY"
