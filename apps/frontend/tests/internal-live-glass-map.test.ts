@@ -53,7 +53,7 @@ function assertControlledMapScript(page: string) {
   assert.match(page, /MAP_SCRIPT_ID = 'khedmah-google-maps'/);
   assert.match(page, /callback=initKhedmahMap/);
   assert.match(page, /data-map-status=\{mapStatus\}/);
-  assert.match(page, /data-map-error-reason=\{mapErrorReason \|\| undefined\}/);
+  assert.match(page, /data-map-error-reason=\{mapErrorReason \|\| 'none'\}/);
   assert.match(page, /failMap\('auth'/);
   assert.match(page, /failMap\('script'/);
   assert.match(page, /failMap\('timeout'/);

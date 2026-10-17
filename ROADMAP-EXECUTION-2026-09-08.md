@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps page-root diagnostic repair — 2026-10-17
+
+Owner-approved Production run `39061622738` on exact `main` `8059c49ae3f729666bbbd14c4bb83ef2c69bb9b6` passed Google/Firebase/operations readiness, hardened database-role verification and Cloud Build. Its three live browser captures again failed certification, and the new diagnostic reported `data-map-status="error"` with `reason-missing`. The emergency rollback succeeded and independently verified Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` at 100% traffic. Database schema and data were not rolled back.
+
+The prior workflow searched the complete dumped DOM independently for status and reason. This repair scopes both values to the same rendered `<main id="foundation-content">` start tag and makes the non-secret reason attribute explicit as `none` until a bounded application failure reason is set. This prevents unrelated DOM text from supplying status and makes absence of the new attribute distinguishable from a legitimate no-error state. The exact ready requirement remains unchanged. Targeted validation passes **46 tests, zero failures** and the Frontend TypeScript check is clean.
+
+No Production, database, IAM, Firebase, Maps, DNS, secret, feature-flag or traffic mutation is performed by this source repair. **Next Safe Action:** complete exact-source CI and reviewed merge, then run fresh `VERIFY_ONLY`. A new `DEPLOY_PRODUCTION` attempt requires separate owner approval; do not rerun `39061622738`.
+
 ## Production Maps explicit failure-reason diagnostics — 2026-10-17
 
 Owner-approved Production run `39059173183` on exact `main` `e52f5d8faf96c1ee2e10fc91459455a4d6200426` passed the readiness and hardened database-role gates, completed Cloud Build and deployed both workloads. Live Maps certification then reached an explicit application `data-map-status="error"` on all three bounded browser attempts. The workflow did not record whether the application selected its auth, script-load, initialization or timeout failure path. The emergency rollback succeeded and restored Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` to 100% traffic. Database schema and data were not rolled back.

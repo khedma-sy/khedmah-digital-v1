@@ -10,8 +10,11 @@ const certification = await readFile(new URL('../scripts/run-live-production-cer
 const evidence = await readFile(new URL('../scripts/collect-live-production-evidence.sh', import.meta.url), 'utf8');
 const operator = await readFile(new URL('../.github/workflows/production-operator-new-account.yml', import.meta.url), 'utf8');
 
-test('Maps certification does not create a false pipefail after grep finds a large DOM match', () => {
-  assert.match(operator, /grep -F 'data-map-status="ready"' >\/dev\/null <<<"\$MAP_DOM"/);
+test('Maps certification scopes readiness to the rendered page root without a producer pipe', () => {
+  assert.match(operator, /MAP_ROOT=.*<main\[\^>\]\*id="foundation-content"/);
+  assert.match(operator, /data-map-status=.*<<<"\$MAP_ROOT"/);
+  assert.match(operator, /data-map-error-reason=.*<<<"\$MAP_ROOT"/);
+  assert.match(operator, /\[\[ "\$MAP_STATUS" == 'data-map-status="ready"' \]\]/);
   assert.doesNotMatch(operator, /printf '[^']*' "\$MAP_DOM" \| grep/);
 });
 
