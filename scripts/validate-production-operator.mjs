@@ -55,7 +55,8 @@ for (const contract of [
   'production-backend-url',
   'gcloud projects describe "$PROJECT_ID"',
   'PREDICTED_PRODUCTION_BACKEND_URL',
-  'Deterministic Backend URL mismatch',
+  'PRODUCTION_BACKEND_SERVICE_URL',
+  '"$$EXPECTED_BACKEND_URL/api/v1/health"',
   'id: bind-live-frontend-origin'
 ]) {
   if (!cloudBuild.includes(contract)) throw new Error(`Production Cloud Build missing runtime contract: ${contract}`);
