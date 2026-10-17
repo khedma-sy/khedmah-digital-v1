@@ -85,6 +85,7 @@ function MapDiscovery() {
   const [viewportError, setViewportError] = useState('');
   const [result, setResult] = useState<{ key: string; providers: PublicBusinessProfile[]; total: number; error: string }>({ key: '', providers: [], total: 0, error: '' });
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(MAPS_KEY ? 'loading' : 'error');
+  const [mapErrorReason, setMapErrorReason] = useState<'missing-key' | 'initialize' | 'auth' | 'script' | 'timeout' | ''>(MAPS_KEY ? '' : 'missing-key');
   const [mapError, setMapError] = useState(MAPS_KEY ? '' : 'إعداد خريطة Google غير متوفر حالياً. يمكنك متابعة البحث من عرض النتائج.');
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
   const waitingForMetadata = (!!cityCode && citiesLoading) || (!!categoryCode && categoriesLoading);
@@ -308,9 +309,10 @@ function MapDiscovery() {
     let insertedScript: HTMLScriptElement | null = null;
     const previousAuthFailure = window.gm_authFailure;
     const previousInitializer = window.initKhedmahMap;
-    const failMap = (message: string) => {
+    const failMap = (reason: 'initialize' | 'auth' | 'script' | 'timeout', message: string) => {
       if (cancelled) return;
       setMapStatus('error');
+      setMapErrorReason(reason);
       setMapError(message);
       clearMap();
       pendingLocation.current = undefined;
@@ -322,9 +324,9 @@ function MapDiscovery() {
     const initialize = () => {
       if (cancelled) return;
       try { initializeMapRef.current(); }
-      catch { failMap('تعذر تجهيز الخريطة. يمكنك متابعة البحث من عرض النتائج أو إعادة المحاولة.'); }
+      catch { failMap('initialize', 'تعذر تجهيز الخريطة. يمكنك متابعة البحث من عرض النتائج أو إعادة المحاولة.'); }
     };
-    const authFailure = () => failMap('رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
+    const authFailure = () => failMap('auth', 'رفضت Google Maps مفتاح هذا النطاق. يمكنك متابعة البحث من النتائج إلى حين تصحيح الإعداد.');
     window.initKhedmahMap = initialize;
     window.gm_authFailure = authFailure;
 
@@ -337,12 +339,12 @@ function MapDiscovery() {
       insertedScript.async = true;
       insertedScript.defer = true;
       insertedScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&language=ar&region=SY&loading=async&callback=initKhedmahMap`;
-      insertedScript.onerror = () => failMap('تعذر الاتصال بخدمة خرائط Google. تحقق من الاتصال أو تابع من عرض النتائج.');
+      insertedScript.onerror = () => failMap('script', 'تعذر الاتصال بخدمة خرائط Google. تحقق من الاتصال أو تابع من عرض النتائج.');
       document.head.appendChild(insertedScript);
     }
 
     const timeout = window.setTimeout(() => {
-      if (!map.current || renderedMap.current !== map.current) failMap('استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
+      if (!map.current || renderedMap.current !== map.current) failMap('timeout', 'استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
     }, 20000);
 
     return () => {
@@ -358,6 +360,7 @@ function MapDiscovery() {
     clearMap();
     setMapTilesLoaded(false);
     setMapStatus('loading');
+    setMapErrorReason('');
     setMapError('');
     setActiveView('map');
     setMapLoadAttempt((attempt) => attempt + 1);
@@ -430,7 +433,7 @@ function MapDiscovery() {
   const status = isLoading ? 'جاري تحديث النتائج…' : providers.length
     ? `عرض ${providers.length} من ${result.total} نشاط ${resultsScope}` : `لا توجد أنشطة مطابقة ${resultsScope}`;
 
-  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} data-map-render-status={mapStatus === 'error' ? 'error' : mapTilesLoaded ? 'ready' : 'loading'} dir="rtl">
+  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} data-map-render-status={mapStatus === 'error' ? 'error' : mapTilesLoaded ? 'ready' : 'loading'} data-map-error-reason={mapErrorReason || undefined} dir="rtl">
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
