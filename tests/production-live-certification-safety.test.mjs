@@ -35,6 +35,9 @@ test('Production revision switch is paired, validates revision ownership and com
   assert.match(rollback, /OPERATIONS_APPROVED_PRODUCTION/);
   assert.match(rollback, /PRODUCTION_GOOGLE_CLOUD_PROJECT/);
   assert.match(rollback, /revision_exists_for_service/);
+  assert.match(rollback, /gcloud run revisions describe "\$revision"/);
+  assert.match(rollback, /serving\.knative\.dev\/service/);
+  assert.doesNotMatch(rollback, /--filter="metadata\.name=\$\{revision\}"/);
   assert.match(rollback, /single_serving_revision/);
   assert.match(rollback, /traffic\.length !== 1/);
   assert.match(rollback, /Number\(traffic\[0\]\.percent\) !== 100/);

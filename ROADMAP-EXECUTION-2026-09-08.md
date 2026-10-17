@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production live-certification URL and rollback lookup repair — 2026-10-17
+
+Production operator run `39046858186` on exact `main` `53522b81338d7b240fb08f23c55052f0db43b8fd` passed all predeploy gates and two Cloud Builds. The second attempt verified Backend health/readiness, Frontend reachability, Firebase authorized domains and Google provider readiness. Live certification then failed at Maps because it opened the legacy-shaped Cloud Run `status.url`, while the protected Maps browser key is intentionally restricted to the deterministic regional Cloud Run origin. The currently serving latest Backend and Frontend revisions are both Ready and each receives 100% traffic; no outage is evidenced.
+
+The emergency rollback also stopped before moving traffic. Its list-filter lookup reported the captured Backend revision absent, while an independent complete revision inventory immediately showed that exact Ready revision still present. This repair makes live health, Firebase and Maps certification use the same deterministic regional origins already used by the build and Maps IaC. It retains independent validation that both service-reported URLs are HTTPS Cloud Run URLs. Rollback ownership validation now describes the exact revision directly and verifies its immutable `serving.knative.dev/service` label before any traffic mutation, instead of depending on the faulty list filter.
+
+No Production, database, IAM, Firebase, Maps, DNS, secret, feature flag or traffic mutation is performed by this source repair. **Next Safe Action:** require exact-source CI and reviewed merge. Do not rerun deployment or manually move traffic before the repaired source is merged and a fresh owner-approved verification path is selected.
+
 ## Production first-deploy stopped by Cloud Run URL alias comparison — 2026-10-17
 
 Production operator run `39040302149` locked exact `main` `a53b2b64b25c6bcc232b9a223f137db6fb54ef26`; its pre-deploy Google/Firebase/operations and hardened-database-role gates passed. Cloud Build `3a900f4f-dd53-4fe3-a81c-03098b935a71` passed tests (**617 backend + 151 frontend, zero failures**), built and pushed both images, and successfully deployed Backend revision `backend-00001-mf9` at 100% traffic. The prior hostless Cloud SQL URL startup failure did not recur.
