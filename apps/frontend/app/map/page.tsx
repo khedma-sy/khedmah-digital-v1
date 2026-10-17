@@ -307,10 +307,12 @@ function MapDiscovery() {
 
     let cancelled = false;
     let insertedScript: HTMLScriptElement | null = null;
+    let timeout: number | undefined;
     const previousAuthFailure = window.gm_authFailure;
     const previousInitializer = window.initKhedmahMap;
     const failMap = (reason: 'initialize' | 'auth' | 'script' | 'timeout', message: string) => {
       if (cancelled) return;
+      if (timeout !== undefined) window.clearTimeout(timeout);
       setMapStatus('error');
       setMapErrorReason(reason);
       setMapError(message);
@@ -343,13 +345,13 @@ function MapDiscovery() {
       document.head.appendChild(insertedScript);
     }
 
-    const timeout = window.setTimeout(() => {
+    timeout = window.setTimeout(() => {
       if (!map.current || renderedMap.current !== map.current) failMap('timeout', 'استغرق تحميل الخريطة وقتاً أطول من المتوقع. يمكنك إعادة المحاولة أو متابعة النتائج.');
     }, 20000);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeout);
+      if (timeout !== undefined) window.clearTimeout(timeout);
       if (window.gm_authFailure === authFailure) window.gm_authFailure = previousAuthFailure;
       if (window.initKhedmahMap === initialize) window.initKhedmahMap = previousInitializer;
       if (insertedScript && !window.google?.maps) insertedScript.remove();
