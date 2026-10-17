@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps transient-browser certification repair — 2026-10-17
+
+Owner-approved Production run `39056698092` on exact `main` `9924bec8041a0d4c813f7a930f404cf01580ffd7` passed all predeploy gates and Cloud Build, then failed only when its single headless-Chrome DOM capture did not contain `data-map-status="ready"`. Firebase authorized-domain and Google-provider readiness passed first. The corrected emergency rollback succeeded and restored the previously serving revision pair to 100% traffic; no database rollback was attempted.
+
+Independent read-only browser evidence on the same deterministic Frontend origin rendered Google map tiles and exposed both runtime and render status as `ready`. The one-shot CI browser probe is therefore insufficient evidence of a workload failure during transient client hydration. This repair keeps the exact ready marker mandatory but permits at most three independent, bounded Chrome captures and emits the final observed status when all three fail. It does not weaken readiness to HTTP reachability or accept `loading`, `error`, or a missing marker.
+
+No Production, database, IAM, Firebase, Maps, DNS, secret, feature flag or traffic mutation is performed by this source repair. **Next Safe Action:** validate, review and merge the exact repair before selecting another owner-approved Production attempt. Do not rerun `39056698092`.
+
 ## Production Maps certification false-negative repair — 2026-10-17
 
 Owner-approved Production run `39053124709` on exact `main` `b3d2b51a46ecd1840c8102cc85feb899cdb30843` passed predeploy gates and Cloud Build twice. The first live certification attempt correctly exposed the missing deterministic Frontend host in Firebase `authorizedDomains`; after the owner approved adding only that host, Firebase and Google-provider readiness passed. Both failed attempts completed the repaired emergency rollback successfully and restored Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` to 100% traffic. Database state was not rolled back or mutated by that traffic restoration.
