@@ -30,6 +30,28 @@ test('Production Cloud SQL sessions use a deterministic catalog-first search pat
   assert.doesNotMatch(cloudSqlBranch, /search_path=(?:"?\$user"?|public),/);
 });
 
+
+test('Production Cloud SQL accepts the canonical hostless runtime secret URI', () => {
+  const canonical =
+    'postgresql://khedmah_app:encoded%40password@/khedmah?host=/cloudsql/project:region:instance';
+  const normalized = canonical.replace(
+    /^((?:postgres|postgresql):\/\/[^/?#]*@)\//,
+    '$1localhost/'
+  );
+  const parsed = new URL(normalized);
+
+  assert.equal(parsed.hostname, 'localhost');
+  assert.equal(decodeURIComponent(parsed.username), 'khedmah_app');
+  assert.equal(decodeURIComponent(parsed.password), 'encoded@password');
+  assert.equal(parsed.pathname, '/khedmah');
+  assert.equal(parsed.searchParams.get('host'), '/cloudsql/project:region:instance');
+
+  const cloudSqlBranch = databasePool.split('if (cloudSqlInstance) {')[1]?.split('} else {')[0] ?? '';
+  assert.match(cloudSqlBranch, /databaseUrl\.replace\(/);
+  assert.match(cloudSqlBranch, /\$1localhost\//);
+  assert.match(cloudSqlBranch, /host: `\/cloudsql\/\$\{cloudSqlInstance\}`/);
+});
+
 test('Production Classifieds readiness targets the canonical schema independently of current_schema', () => {
   assert.doesNotMatch(classifiedsSchemaGuard, /current_schema\s*\(/);
   for (const relation of ['ad_listings', 'ad_free_slots', 'ad_request_receipts', 'ad_moderation_events']) {
