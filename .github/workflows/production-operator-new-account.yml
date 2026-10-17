@@ -323,6 +323,7 @@ jobs:
           BROWSER="$(command -v google-chrome || command -v google-chrome-stable || true)"
           test -n "$BROWSER" || { echo 'Chrome is required for live Maps certification.' >&2; exit 1; }
           MAP_DOM=''
+          MAP_ROOT=''
           MAP_STATUS=''
           MAP_ERROR_REASON=''
           for attempt in 1 2 3; do
@@ -333,12 +334,13 @@ jobs:
               echo "Maps certification attempt ${attempt}/3 failed to capture the DOM (${MAP_STATUS})." >&2
               continue
             fi
-            if grep -F 'data-map-status="ready"' >/dev/null <<<"$MAP_DOM"; then
+            MAP_ROOT="$(grep -m1 -oE '<main[^>]*id="foundation-content"[^>]*>' <<<"$MAP_DOM" || true)"
+            MAP_STATUS="$(grep -m1 -oE 'data-map-status="[^"]+"' <<<"$MAP_ROOT" || true)"
+            MAP_ERROR_REASON="$(grep -m1 -oE 'data-map-error-reason="[^"]+"' <<<"$MAP_ROOT" || true)"
+            if [[ "$MAP_STATUS" == 'data-map-status="ready"' ]]; then
               MAP_STATUS='ready'
               break
             fi
-            MAP_STATUS="$(grep -m1 -oE 'data-map-status="[^"]+"' <<<"$MAP_DOM" || true)"
-            MAP_ERROR_REASON="$(grep -m1 -oE 'data-map-error-reason="[^"]+"' <<<"$MAP_DOM" || true)"
             echo "Maps certification attempt ${attempt}/3 did not reach ready (${MAP_STATUS:-status-missing}; ${MAP_ERROR_REASON:-reason-missing})." >&2
           done
           if [[ "$MAP_STATUS" != 'ready' ]]; then
