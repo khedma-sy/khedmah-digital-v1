@@ -15,6 +15,15 @@ test('Maps certification does not create a false pipefail after grep finds a lar
   assert.doesNotMatch(operator, /printf '[^']*' "\$MAP_DOM" \| grep/);
 });
 
+test('Maps certification bounds transient browser retries and reports the final runtime status', () => {
+  assert.match(operator, /for attempt in 1 2 3/);
+  assert.match(operator, /if ! MAP_DOM=.*--dump-dom/);
+  assert.match(operator, /MAP_STATUS='browser-exit'/);
+  assert.match(operator, /Maps certification attempt \$\{attempt\}\/3 did not reach ready/);
+  assert.match(operator, /live Maps certification did not reach ready after 3 attempts/);
+  assert.match(operator, /grep -m1 -oE 'data-map-status=/);
+});
+
 test('manual Production deployment is explicitly approved, project-bound and locked to latest main', () => {
   assert.match(deploy, /OPERATIONS_APPROVED_PRODUCTION/);
   assert.match(deploy, /PRODUCTION_GOOGLE_CLOUD_PROJECT/);

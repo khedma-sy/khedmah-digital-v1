@@ -322,8 +322,26 @@ jobs:
           PRODUCTION_FRONTEND_URL="$FRONTEND_URL" bash scripts/validate-firebase-social-auth-readiness.sh
           BROWSER="$(command -v google-chrome || command -v google-chrome-stable || true)"
           test -n "$BROWSER" || { echo 'Chrome is required for live Maps certification.' >&2; exit 1; }
-          MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"
-          grep -F 'data-map-status="ready"' >/dev/null <<<"$MAP_DOM"
+          MAP_DOM=''
+          MAP_STATUS=''
+          for attempt in 1 2 3; do
+            if ! MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"; then
+              MAP_DOM=''
+              MAP_STATUS='browser-exit'
+              echo "Maps certification attempt ${attempt}/3 failed to capture the DOM (${MAP_STATUS})." >&2
+              continue
+            fi
+            if grep -F 'data-map-status="ready"' >/dev/null <<<"$MAP_DOM"; then
+              MAP_STATUS='ready'
+              break
+            fi
+            MAP_STATUS="$(grep -m1 -oE 'data-map-status="[^"]+"' <<<"$MAP_DOM" || true)"
+            echo "Maps certification attempt ${attempt}/3 did not reach ready (${MAP_STATUS:-status-missing})." >&2
+          done
+          if [[ "$MAP_STATUS" != 'ready' ]]; then
+            echo "ERROR: live Maps certification did not reach ready after 3 attempts (${MAP_STATUS:-status-missing})." >&2
+            exit 1
+          fi
           echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "Android/clients API variable after approval: NEXT_PUBLIC_API_URL=$BACKEND_URL" >> "$GITHUB_STEP_SUMMARY"
