@@ -435,7 +435,7 @@ function MapDiscovery() {
   const status = isLoading ? 'جاري تحديث النتائج…' : providers.length
     ? `عرض ${providers.length} من ${result.total} نشاط ${resultsScope}` : `لا توجد أنشطة مطابقة ${resultsScope}`;
 
-  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} data-map-render-status={mapStatus === 'error' ? 'error' : mapTilesLoaded ? 'ready' : 'loading'} data-map-error-reason={mapErrorReason || undefined} dir="rtl">
+  return <main id="foundation-content" tabIndex={-1} aria-label="الأنشطة على الخريطة" className={`${styles.mapPage} ${activeView === 'list' ? styles.listView : ''}`} data-map-status={mapStatus} data-map-render-status={mapStatus === 'error' ? 'error' : mapTilesLoaded ? 'ready' : 'loading'} data-map-error-reason={mapErrorReason || 'none'} dir="rtl">
     <aside className={styles.mapPanel}>
       <header><Link className={styles.mapBrand} href="/">خدمة</Link><h1>الخدمات بالقرب منك</h1><p className={styles.meta}>حرّك الخريطة أو ابحث عن خدمة لعرض الأنشطة المنشورة ضمن المنطقة.</p></header>
       <nav className={styles.viewSwitch} aria-label="طريقة عرض النتائج">
