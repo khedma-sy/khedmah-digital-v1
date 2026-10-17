@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps explicit failure-reason diagnostics — 2026-10-17
+
+Owner-approved Production run `39059173183` on exact `main` `e52f5d8faf96c1ee2e10fc91459455a4d6200426` passed the readiness and hardened database-role gates, completed Cloud Build and deployed both workloads. Live Maps certification then reached an explicit application `data-map-status="error"` on all three bounded browser attempts. The workflow did not record whether the application selected its auth, script-load, initialization or timeout failure path. The emergency rollback succeeded and restored Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` to 100% traffic. Database schema and data were not rolled back.
+
+This source-only diagnostic repair adds a non-secret `data-map-error-reason` enum to the existing map surface and records it when live certification fails. The exact `data-map-status="ready"` requirement remains unchanged; no error, loading or missing marker is accepted. Targeted map and Production safety validation passes **46 tests, zero failures** and the Frontend TypeScript check is clean. No Production, database, IAM, Firebase, Maps, DNS, secret, feature-flag or traffic mutation is performed by this repair.
+
+**Next Safe Action:** complete exact-source CI and reviewed merge. After merge, run fresh `VERIFY_ONLY`; a new `DEPLOY_PRODUCTION` attempt requires separate owner approval. Do not rerun `39059173183` or infer that the underlying Maps configuration is repaired until the new diagnostic identifies the failure path.
+
 ## Production Maps transient-browser certification repair — 2026-10-17
 
 Owner-approved Production run `39056698092` on exact `main` `9924bec8041a0d4c813f7a930f404cf01580ffd7` passed all predeploy gates and Cloud Build, then failed only when its single headless-Chrome DOM capture did not contain `data-map-status="ready"`. Firebase authorized-domain and Google-provider readiness passed first. The corrected emergency rollback succeeded and restored the previously serving revision pair to 100% traffic; no database rollback was attempted.
