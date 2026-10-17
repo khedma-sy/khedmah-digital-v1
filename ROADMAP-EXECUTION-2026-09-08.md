@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps certification false-negative repair — 2026-10-17
+
+Owner-approved Production run `39053124709` on exact `main` `b3d2b51a46ecd1840c8102cc85feb899cdb30843` passed predeploy gates and Cloud Build twice. The first live certification attempt correctly exposed the missing deterministic Frontend host in Firebase `authorizedDomains`; after the owner approved adding only that host, Firebase and Google-provider readiness passed. Both failed attempts completed the repaired emergency rollback successfully and restored Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` to 100% traffic. Database state was not rolled back or mutated by that traffic restoration.
+
+The second attempt failed only at the Maps DOM assertion. Independent read-only browser evidence on the same deterministic Frontend origin showed the live map, Google tiles and both `data-map-status="ready"` and `data-map-render-status="ready"`. The workflow used `printf "$MAP_DOM" | grep ...` under `set -o pipefail`; with the large rendered Maps DOM, `grep` can exit immediately after its match and leave `printf` failing with SIGPIPE, turning a successful match into a false failure. This repair gives `grep` the captured DOM through a here-string, eliminating that producer pipe while preserving the exact readiness assertion.
+
+No Production, database, IAM, Firebase, Maps, DNS, secret, feature flag or traffic mutation is performed by this source repair. **Next Safe Action:** run targeted and operator validation, require exact-source CI and reviewed merge, then select a fresh owner-approved Production verification/deployment path. Do not rerun the failed deployment before the repair is merged.
+
 ## Production live-certification URL and rollback lookup repair — 2026-10-17
 
 Production operator run `39046858186` on exact `main` `53522b81338d7b240fb08f23c55052f0db43b8fd` passed all predeploy gates and two Cloud Builds. The second attempt verified Backend health/readiness, Frontend reachability, Firebase authorized domains and Google provider readiness. Live certification then failed at Maps because it opened the legacy-shaped Cloud Run `status.url`, while the protected Maps browser key is intentionally restricted to the deterministic regional Cloud Run origin. The currently serving latest Backend and Frontend revisions are both Ready and each receives 100% traffic; no outage is evidenced.
