@@ -57,6 +57,7 @@ function assertControlledMapScript(page: string) {
   assert.match(page, /failMap\('auth'/);
   assert.match(page, /failMap\('script'/);
   assert.match(page, /failMap\('timeout'/);
+  assert.match(page, /if \(timeout !== undefined\) window\.clearTimeout\(timeout\);/);
   assert.doesNotMatch(page, /from 'next\/script'/);
 }
 
