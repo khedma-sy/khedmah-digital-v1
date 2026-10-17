@@ -326,6 +326,7 @@ jobs:
           MAP_STATUS=''
           MAP_ERROR_REASON=''
           for attempt in 1 2 3; do
+            MAP_ERROR_REASON=''
             if ! MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"; then
               MAP_DOM=''
               MAP_STATUS='browser-exit'
