@@ -22,6 +22,8 @@ test('Maps certification bounds transient browser retries and reports the final 
   assert.match(operator, /Maps certification attempt \$\{attempt\}\/3 did not reach ready/);
   assert.match(operator, /live Maps certification did not reach ready after 3 attempts/);
   assert.match(operator, /grep -m1 -oE 'data-map-status=/);
+  assert.match(operator, /grep -m1 -oE 'data-map-error-reason=/);
+  assert.match(operator, /\$\{MAP_ERROR_REASON:-reason-missing\}/);
 });
 
 test('manual Production deployment is explicitly approved, project-bound and locked to latest main', () => {
