@@ -8,6 +8,12 @@ const deploy = await readFile(new URL('../scripts/google-production-deploy.sh', 
 const rollback = await readFile(new URL('../scripts/google-production-rollback.sh', import.meta.url), 'utf8');
 const certification = await readFile(new URL('../scripts/run-live-production-certification.sh', import.meta.url), 'utf8');
 const evidence = await readFile(new URL('../scripts/collect-live-production-evidence.sh', import.meta.url), 'utf8');
+const operator = await readFile(new URL('../.github/workflows/production-operator-new-account.yml', import.meta.url), 'utf8');
+
+test('Maps certification does not create a false pipefail after grep finds a large DOM match', () => {
+  assert.match(operator, /grep -F 'data-map-status="ready"' >\/dev\/null <<<"\$MAP_DOM"/);
+  assert.doesNotMatch(operator, /printf '[^']*' "\$MAP_DOM" \| grep/);
+});
 
 test('manual Production deployment is explicitly approved, project-bound and locked to latest main', () => {
   assert.match(deploy, /OPERATIONS_APPROVED_PRODUCTION/);
