@@ -1,5 +1,28 @@
 # Next Safe Action — Khedmah
 
+## Execute next — fresh Safari logout denial; keep Preview unpublished — 2026-10-18
+
+Completed evidence on protected-main base **f2a2b33d65bbcd4d3e12df9a6032176f680c1e36**:
+
+- Actual-Safari recorder run began **2026-10-18T19:01:36.868Z**.
+- Session was present at **0s**, **132s** and **143s**.
+- Session was absent with **401** at **3698s** (2026-10-18T20:03:15.436Z).
+- The owner reports no new login or manual logout during the interval.
+- The copied record contained no email, account identifier, cookie or session token.
+- Unpublished Floot Preview hardening checkpoints **66b6346b-87f0-493a-baf0-1311a8f880e7** and **1982aa11-de42-4c68-8037-ddcd83fb5cf5** passed the final full run: **14 spec files, zero failed**, clean TypeScript, and anonymous meeting-AI probes returned 401/no-store.
+
+The post-hour 401 is an observation, not proof of its exact timing or cause. It could result from the adapter-cookie limit, upstream expiration/revocation, or another 401 condition. The recorder's Safari value is self-reported. IA-03, server-side revocation/replay and RBAC/admin acceptance remain open.
+
+Execute only the next bounded browser check:
+
+1. Open the actual Preview in real Safari and start a fresh login.
+2. Confirm the session is present.
+3. Invoke the rendered logout action.
+4. Immediately read the session again and record the expected unauthenticated/401 result.
+5. Share only the existing non-secret record.
+
+Stop if the result is unavailable or a network error; neither is logout evidence. Do not reuse the already absent post-hour session, wait another hour, expand authentication routes, enable public widget or external meeting access, publish or cut over Floot, or mutate Production, database data, IAM, DNS, secrets, roles, feature flags or traffic. Older next-action sections below are historical and superseded.
+
 ## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
 
 Floot checkpoint **9e84c139-8f3e-44e7-897a-a2d7e786f9e2**, documentation version **1792080274730**. Implementation remains in Floot; these are documentation-only GitHub updates.
