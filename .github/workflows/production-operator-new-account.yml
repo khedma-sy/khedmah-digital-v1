@@ -328,7 +328,7 @@ jobs:
           MAP_ERROR_REASON=''
           for attempt in 1 2 3; do
             MAP_ERROR_REASON=''
-            if ! MAP_DOM="$($BROWSER --headless --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$FRONTEND_URL/map")"; then
+            if ! MAP_DOM="$(node scripts/capture-live-map-dom.mjs "$BROWSER" "$FRONTEND_URL/map" 30000)"; then
               MAP_DOM=''
               MAP_STATUS='browser-exit'
               echo "Maps certification attempt ${attempt}/3 failed to capture the DOM (${MAP_STATUS})." >&2

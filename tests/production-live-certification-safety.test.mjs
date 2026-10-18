@@ -9,6 +9,7 @@ const rollback = await readFile(new URL('../scripts/google-production-rollback.s
 const certification = await readFile(new URL('../scripts/run-live-production-certification.sh', import.meta.url), 'utf8');
 const evidence = await readFile(new URL('../scripts/collect-live-production-evidence.sh', import.meta.url), 'utf8');
 const operator = await readFile(new URL('../.github/workflows/production-operator-new-account.yml', import.meta.url), 'utf8');
+const mapCapture = await readFile(new URL('../scripts/capture-live-map-dom.mjs', import.meta.url), 'utf8');
 
 test('Maps certification scopes readiness to the rendered page root without a producer pipe', () => {
   assert.match(operator, /MAP_ROOT=.*<main\[\^>\]\*id="foundation-content"/);
@@ -18,9 +19,20 @@ test('Maps certification scopes readiness to the rendered page root without a pr
   assert.doesNotMatch(operator, /printf '[^']*' "\$MAP_DOM" \| grep/);
 });
 
+test('Maps browser capture polls terminal application and rendered readiness under a wall-clock deadline', () => {
+  assert.match(mapCapture, /Date\.now\(\) < deadline/);
+  assert.match(mapCapture, /document\.querySelector\('main#foundation-content'\)/);
+  assert.match(mapCapture, /value\?\.status === 'error'/);
+  assert.match(mapCapture, /value\?\.status === 'ready' && value\?\.renderStatus === 'ready'/);
+  assert.match(mapCapture, /await delay\(250\)/);
+  assert.doesNotMatch(mapCapture, /virtual-time-budget/);
+});
+
 test('Maps certification bounds transient browser retries and reports the final runtime status', () => {
   assert.match(operator, /for attempt in 1 2 3/);
-  assert.match(operator, /if ! MAP_DOM=.*--dump-dom/);
+  assert.match(operator, /if ! MAP_DOM=.*capture-live-map-dom\.mjs/s);
+  assert.match(operator, /node scripts\/capture-live-map-dom\.mjs "\$BROWSER" "\$FRONTEND_URL\/map" 30000/);
+  assert.doesNotMatch(operator, /--virtual-time-budget|--timeout=30000 --dump-dom/);
   assert.match(operator, /MAP_STATUS='browser-exit'/);
   assert.match(operator, /Maps certification attempt \$\{attempt\}\/3 did not reach ready/);
   assert.match(operator, /live Maps certification did not reach ready after 3 attempts/);

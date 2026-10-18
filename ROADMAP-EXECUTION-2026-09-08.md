@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps wall-clock certification repair — 2026-10-18
+
+Owner-approved Production run `39064733824` on exact `main` `6c1cfbadd9ce8907f0ccbd1acee7b3955f75321f` passed protected readiness, hardened database-role verification and Cloud Build. Its live Maps step reported application error on all three browser attempts; the emergency rollback succeeded and verified Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` at 100% traffic. Database schema and data were not rolled back.
+
+Read-only follow-up reproduced the legacy service-host referrer rejection but, critically, the governed deterministic Cloud Run host used by the workflow reached both application and rendered Maps readiness without a Maps console error. The workflow already targets that deterministic host. The remaining false-negative mechanism is its use of Chromium virtual time: it advances the application's 20-second failure timer while asynchronous Maps network work is pending. A plain Chromium `--timeout` is also insufficient because it is a navigation deadline, not a post-load readiness wait. This repair uses the Chrome DevTools Protocol to poll the page root under an external 30-second wall-clock deadline until the application reports an explicit error or both application and rendered Maps readiness. It retains three attempts, page-root scoping and emergency rollback, and adds regression assertions prohibiting virtual-time certification.
+
+No Production, database, IAM, Firebase, Maps-key, DNS, secret, feature-flag or traffic mutation is performed by this source repair. **Next Safe Action:** complete exact-source CI and reviewed merge, then run fresh `VERIFY_ONLY`. A new `DEPLOY_PRODUCTION` attempt requires separate owner approval; do not rerun `39064733824`.
+
 ## Production Maps page-root diagnostic repair — 2026-10-17
 
 Owner-approved Production run `39061622738` on exact `main` `8059c49ae3f729666bbbd14c4bb83ef2c69bb9b6` passed Google/Firebase/operations readiness, hardened database-role verification and Cloud Build. Its three live browser captures again failed certification, and the new diagnostic reported `data-map-status="error"` with `reason-missing`. The emergency rollback succeeded and independently verified Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` at 100% traffic. Database schema and data were not rolled back.
