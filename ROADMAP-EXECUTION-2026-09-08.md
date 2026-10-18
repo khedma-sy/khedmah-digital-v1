@@ -1,5 +1,11 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Production Maps certification completed — 2026-10-18
+
+Owner-approved Production run `39124093630` deployed exact merged `main` `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`. Protected Google/Firebase/operations readiness, hardened database-role verification, exact-source Cloud Build, live revision verification and the wall-clock Maps certification all completed successfully. The live certification recorded `MAP_STATUS=ready`; the emergency rollback step was skipped because the deployed revision pair passed certification.
+
+No follow-up Production mutation is authorized by this record. **Next Safe Action:** retain run `39124093630` as the deployment evidence for this release and continue only through the next independently reviewed roadmap item.
+
 ## Production Maps wall-clock certification repair — 2026-10-18
 
 Owner-approved Production run `39064733824` on exact `main` `6c1cfbadd9ce8907f0ccbd1acee7b3955f75321f` passed protected readiness, hardened database-role verification and Cloud Build. Its live Maps step reported application error on all three browser attempts; the emergency rollback succeeded and verified Backend `backend-00004-msr` and Frontend `frontend-00002-jl7` at 100% traffic. Database schema and data were not rolled back.
