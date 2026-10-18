@@ -21,6 +21,8 @@ test('Maps certification scopes readiness to the rendered page root without a pr
 test('Maps certification bounds transient browser retries and reports the final runtime status', () => {
   assert.match(operator, /for attempt in 1 2 3/);
   assert.match(operator, /if ! MAP_DOM=.*--dump-dom/);
+  assert.match(operator, /--timeout=30000 --dump-dom/);
+  assert.doesNotMatch(operator, /--virtual-time-budget/);
   assert.match(operator, /MAP_STATUS='browser-exit'/);
   assert.match(operator, /Maps certification attempt \$\{attempt\}\/3 did not reach ready/);
   assert.match(operator, /live Maps certification did not reach ready after 3 attempts/);
