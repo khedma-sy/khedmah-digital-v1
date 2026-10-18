@@ -4,7 +4,7 @@
 
 Owner-approved Production run `39124093630` deployed exact merged `main` `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`. Protected Google/Firebase/operations readiness, hardened database-role verification, exact-source Cloud Build, live revision verification and the wall-clock Maps certification all completed successfully. The live certification recorded `MAP_STATUS=ready`; the emergency rollback step was skipped because the deployed revision pair passed certification.
 
-No follow-up Production mutation is authorized by this record. **Next Safe Action:** retain run `39124093630` as the deployment evidence for this release and continue only through the next independently reviewed roadmap item.
+No follow-up Production mutation is authorized by this record. **Next Safe Action:** perform a read-only post-deployment reconciliation of `docs/project-control/CURRENT-STATE.md` and the top of `ROADMAP-EXECUTION-2026-09-08.md` against exact `main` `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63` and run `39124093630`; if either document is stale, update only those project-control records through reviewed CI. The evidence boundary is the successful workflow jobs and their non-secret summaries; do not change Production, database, IAM, DNS, secrets, feature flags or traffic during that reconciliation.
 
 ## Production Maps wall-clock certification repair — 2026-10-18
 
