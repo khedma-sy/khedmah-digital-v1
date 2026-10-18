@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Safari acceptance advanced; unpublished Preview security hardened — 2026-10-18
+
+Against protected-main base **f2a2b33d65bbcd4d3e12df9a6032176f680c1e36**, the owner's actual-Safari receipt recorded the session present at **0s**, **132s** and **143s**, then absent with **401** at **3698s**. The run began 2026-10-18T19:01:36.868Z; the final observation was 2026-10-18T20:03:15.436Z. No email, account identifier, cookie or session token was included. The browser-family value is recorder self-report, and the owner reports no intervening login or manual logout.
+
+The receipt establishes observed login/reload persistence and post-hour absence, not the exact loss instant or cause. Adapter-cookie lifetime, upstream expiration/revocation and other 401 conditions remain possible, so IA-03 stays open. Explicit logout in a fresh Safari session followed immediately by a 401 session read remains the next browser check; server-side revocation/replay and RBAC/admin acceptance remain separate.
+
+Unpublished Floot Preview checkpoints **66b6346b-87f0-493a-baf0-1311a8f880e7** and **1982aa11-de42-4c68-8037-ddcd83fb5cf5** harden owner/staff/external agent isolation, widget session/thread boundaries, internal agent and Business/Gmail authorization, invitation acceptance, public access intake, meeting-AI access, server-side meeting-brief confidentiality and Floot-local session expiry. The final Floot run passed **14 spec files, zero failed**, with clean TypeScript; anonymous AI probes returned 401/no-store. Floot's fixed 24-hour local session is distinct from the one-hour Khedmah adapter session, and Khedmah remains the Khedmah identity/authorization authority.
+
+**Next Safe Action:** use a fresh real Safari session, sign in, invoke the rendered logout action, and immediately verify the session read is unauthenticated/401. Record only the existing non-secret evidence fields. Do not infer logout from the earlier post-hour absence, expand authenticated routes, enable public widget or external meeting access, publish Floot, or mutate Production, database data, IAM, DNS, secrets, roles, feature flags or traffic.
+
 ## Production Maps certification completed — 2026-10-18
 
 Owner-approved Production run `39124093630` deployed exact merged `main` `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`. Protected Google/Firebase/operations readiness, hardened database-role verification, exact-source Cloud Build, live revision verification and the wall-clock Maps certification all completed successfully. The live certification recorded `MAP_STATUS=ready`; the emergency rollback step was skipped because the deployed revision pair passed certification.
