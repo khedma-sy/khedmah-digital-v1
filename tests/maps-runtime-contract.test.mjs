@@ -26,7 +26,7 @@ test('Web map never offers a retry that can hang when the Maps key is absent', a
 test('new-account Production deploy opens the live map in a browser and requires ready state', async () => {
   const workflow = await read('.github/workflows/production-operator-new-account.yml');
   assert.match(workflow, /--headless/);
-  assert.match(workflow, /--timeout=30000/);
+  assert.match(workflow, /scripts\/capture-live-map-dom\.mjs/);
   assert.match(workflow, /data-map-status=\\"ready\\"|data-map-status="ready"/);
   assert.match(workflow, /MAP_STATUS=ready/);
 });
