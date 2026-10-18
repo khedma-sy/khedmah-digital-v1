@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## Safari post-hour absence observed; Floot Preview boundaries hardened — 2026-10-18
+
+This receipt was prepared against protected-main base **f2a2b33d65bbcd4d3e12df9a6032176f680c1e36**; it does not identify the eventual documentation-only merge as the current main. The owner reports an actual Safari run beginning **2026-10-18T19:01:36.868Z**, with no new login or manual logout during the interval. The non-secret recorder reported the session present at **0s**, **132s** (2026-10-18T19:03:49.597Z) and **143s** (2026-10-18T19:04:00.130Z), then absent with **401** at **3698s** (2026-10-18T20:03:15.436Z). No email, account identifier, cookie or session token was included. The recorder's browser-family value remains self-reported rather than cryptographic proof of Safari.
+
+This supplies real-Safari login/reload persistence and the required post-hour absence observation. It does **not** establish the exact instant or cause of session loss: the 401 could reflect the adapter-cookie limit, upstream session expiration or revocation, or another condition that returns 401. It therefore narrows but does not close IA-03. Explicit logout in a fresh real Safari session, followed immediately by an unauthenticated/401 session read, remains pending; the already absent post-hour session must not be reused as logout evidence. Server-side revocation/replay and RBAC/admin acceptance remain independent gates.
+
+Unpublished Floot Preview checkpoints **66b6346b-87f0-493a-baf0-1311a8f880e7** and **1982aa11-de42-4c68-8037-ddcd83fb5cf5** close the discovered agent-surface tool/memory bypasses, fail closed on missing surfaces, keep public widget chat disabled by default, separate widget thread namespaces, admin-gate internal agent and Business/Gmail operations, bind Google-token selection to the authenticated admin email, prevent invitation acceptance from overwriting an existing account, and pause untrusted public CRM intake. The second checkpoint also admin-gates the meeting page and both AI endpoints, keeps the fixed H World brief server-side instead of browser-bundled or caller-supplied, returns sensitive AI responses with no-store, and enforces a fixed 24-hour Floot-local session maximum with strict HS256 and database-expiry checks. That 24-hour Floot policy is independent of the one-hour Khedmah adapter lifecycle and grants no Khedmah identity or role.
+
+The final Floot run passed **14 spec files, zero failed**, TypeScript was clean, and anonymous interview/transcription probes each returned **401** with **Cache-Control: no-store**. Non-admin 403 and admin-success AI acceptance remain pending because no disposable role session was used and no AI credit was consumed for this documentation pass. External meeting access remains closed until a separately reviewed signed-invite, isolation and rate/quota design exists.
+
+No Floot publish or cutover, Production/application deployment, database-data, IAM, DNS, secret, feature-flag, role, traffic or message mutation occurred. Older dated sections below remain historical; their Safari next-action wording is superseded by this checkpoint.
+
 ## Production deployment and Maps certification reconciled — 2026-10-18
 
 The reconciliation started from `41fd759cce282a59605fb3f533d897605180da2e`, the documentation-only merge of PR #284. This control-document checkpoint is a documentation-only successor; the exact application source deployed to Production remains `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`, merged through PR #283.
