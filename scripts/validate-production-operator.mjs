@@ -30,7 +30,7 @@ for (const contract of [
   'bash scripts/validate-production-deployment-readiness.sh',
   '/api/v1/health',
   '/api/v1/health/ready',
-  '--timeout=30000',
+  'scripts/capture-live-map-dom.mjs',
   'data-map-status=\"ready\"',
   'MAP_STATUS=ready'
 ]) {
