@@ -30,7 +30,7 @@ test('Maps browser capture polls terminal application and rendered readiness und
 
 test('Maps certification bounds transient browser retries and reports the final runtime status', () => {
   assert.match(operator, /for attempt in 1 2 3/);
-  assert.match(operator, /if ! MAP_DOM=.*--dump-dom/);
+  assert.match(operator, /if ! MAP_DOM=.*capture-live-map-dom\\.mjs/);
   assert.match(operator, /node scripts\/capture-live-map-dom\.mjs "\\$BROWSER" "\\$FRONTEND_URL\/map" 30000/);
   assert.doesNotMatch(operator, /--virtual-time-budget|--timeout=30000 --dump-dom/);
   assert.match(operator, /MAP_STATUS='browser-exit'/);
