@@ -8,7 +8,7 @@ Owner-approved Production workflow run `39124093630` completed successfully on i
 
 PR #274 is merged as `bfe684967c6552ab2acbd5f3598d65d347034189`; it is no longer open. Older dated sections below remain historical evidence, but their statements describing the current `main`, open PR state, workflow inventory or global next action are superseded by this checkpoint.
 
-No further Production, database, IAM, DNS, secret, feature-flag or traffic mutation is authorized by this reconciliation. After this documentation-only checkpoint is reviewed and merged, the next unresolved product gate is real Safari session acceptance: sign in on the actual Preview, start the existing non-secret recorder, reload and record one observation, then—after at least one hour without a new login or manual logout—record a second observation. Logout behavior must also be observed. Do not expand authentication routes or infer session-expiry cause from a single absence.
+No further Production, database, IAM, DNS, secret, feature-flag or traffic mutation is authorized by this reconciliation. After this documentation-only checkpoint is reviewed and merged, the next unresolved product gate is real Safari session acceptance: sign in on the actual Preview, start the existing non-secret recorder, reload and record one observation, then—after at least one hour without a new login or manual logout—record a second observation. Only after that delayed observation, test logout in the same session or a separate fresh session. Do not expand authentication routes or infer session-expiry cause from a single absence.
 
 
 ## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
