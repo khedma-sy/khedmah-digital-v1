@@ -1,5 +1,16 @@
 # Khedmah Digital — Current State
 
+## Production deployment and Maps certification reconciled — 2026-10-18
+
+Protected `main` is `41fd759cce282a59605fb3f533d897605180da2e`, the documentation-only merge of PR #284. The exact application source deployed to Production remains `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`, merged through PR #283.
+
+Owner-approved Production workflow run `39124093630` completed successfully on its first attempt. The `verify` job passed protected Google/Firebase/operations readiness and hardened database-role verification. The `deploy` job passed exact-main locking, account-neutral Cloud Build `3c2a55b0-f6a2-45f6-b0d6-e58e7231aaa7`, live revision and health checks, Firebase social-auth readiness, and wall-clock Maps certification with `MAP_STATUS=ready`. The emergency rollback step was skipped because certification succeeded.
+
+PR #274 is merged as `bfe684967c6552ab2acbd5f3598d65d347034189`; it is no longer open. Older dated sections below remain historical evidence, but their statements describing the current `main`, open PR state, workflow inventory or global next action are superseded by this checkpoint.
+
+No further Production, database, IAM, DNS, secret, feature-flag or traffic mutation is authorized by this reconciliation. After this documentation-only checkpoint is reviewed and merged, the next unresolved product gate is real Safari session acceptance: sign in on the actual Preview, start the existing non-secret recorder, reload and record one observation, then—after at least one hour without a new login or manual logout—record a second observation. Logout behavior must also be observed. Do not expand authentication routes or infer session-expiry cause from a single absence.
+
+
 ## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
 
 Floot checkpoint **9e84c139-8f3e-44e7-897a-a2d7e786f9e2**, documentation version **1792080274730**. Implementation remains in Floot; these are documentation-only GitHub updates.
