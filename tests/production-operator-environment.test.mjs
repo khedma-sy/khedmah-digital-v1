@@ -56,7 +56,7 @@ test('new-account operator injects media, runtime and canonical origin configura
 test('production deployment proves the JavaScript map reaches ready state in Chrome', () => {
   const workflow = readFileSync(operatorPath, 'utf8');
   assert.match(workflow, /google-chrome/);
-  assert.match(workflow, /--timeout=30000/);
+  assert.match(workflow, /scripts\/capture-live-map-dom\.mjs/);
   assert.match(workflow, /data-map-status=\\?"ready\\?"/);
   assert.match(workflow, /MAP_STATUS=ready/);
 });
