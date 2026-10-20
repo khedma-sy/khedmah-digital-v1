@@ -138,7 +138,8 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   // The retained ACL baseline intentionally validates the reviewed 030 routine
   // body first. Apply the governed 036 replacement only after that proof, then
   // require every real deployment entrypoint to verify the successor schema.
-  ok(sql(readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
+  ok(sql('SET search_path=public,pg_catalog;\n' +
+    readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
     'khedmah_migrator', 'khedmah', false), 'classifieds quota migration fixture');
 
   // Run the real nine deployment entrypoints against the completed successor
