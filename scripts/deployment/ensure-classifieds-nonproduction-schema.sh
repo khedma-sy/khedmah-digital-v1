@@ -5,6 +5,7 @@ environment="${1:?usage: ensure-classifieds-nonproduction-schema.sh preview|stag
 identifier="${2:?usage: ensure-classifieds-nonproduction-schema.sh preview|staging IDENTIFIER}"
 mode="${CLASSIFIEDS_MIGRATION_025_MODE:-off}"
 readonly migration_sha256='0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d'
+readonly quota_migration_sha256='8ed732624b0baf5f5457d138692622214fe2d7b2dd556b79974d23bd0c76093b'
 
 [[ "$environment" == 'preview' || "$environment" == 'staging' ]] || { echo 'Only preview or staging Classifieds schema operations are allowed.' >&2; exit 2; }
 [[ "$identifier" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Invalid deployment identifier.' >&2; exit 2; }
@@ -25,6 +26,8 @@ fi
 
 actual_sha256="$(sha256sum backend/migrations/versions/025_classifieds.sql | awk '{print $1}')"
 [[ "$actual_sha256" == "$migration_sha256" ]] || { echo 'Repository migration 025 checksum changed; review is required.' >&2; exit 4; }
+actual_quota_sha256="$(sha256sum backend/migrations/versions/036_classifieds_rolling_publication_quota.sql | awk '{print $1}')"
+[[ "$actual_quota_sha256" == "$quota_migration_sha256" ]] || { echo 'Repository migration 036 checksum changed; review is required.' >&2; exit 4; }
 
 source "$(dirname "${BASH_SOURCE[0]}")/schema-execution-profile.sh"
 resolve_schema_execution "$environment" "$mode"
@@ -53,7 +56,7 @@ gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" \
   --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
-  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_SHA256=${migration_sha256},MIGRATION_CONFIRMATION=${CLASSIFIEDS_MIGRATION_025_CONFIRMATION:-}" \
+  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_SHA256=${migration_sha256},MIGRATION_036_SHA256=${quota_migration_sha256},MIGRATION_CONFIRMATION=${CLASSIFIEDS_MIGRATION_025_CONFIRMATION:-}" \
   --tasks 1 \
   --parallelism 1 \
   --max-retries 0 \
