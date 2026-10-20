@@ -24,6 +24,7 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
     if (!productState?.exists) await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/024_product_store.sql'), 'utf8'));
     const [adState] = await db.query<{ exists: boolean }>(`SELECT to_regclass('public.ad_listings') IS NOT NULL AS exists`);
     if (!adState?.exists) await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/025_classifieds.sql'), 'utf8'));
+    await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/036_classifieds_rolling_publication_quota.sql'), 'utf8'));
 
     for (const [id, identityReference] of [
       ['classifieds_media_owner', 'identity_classifieds_media_owner'],
@@ -79,32 +80,32 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       await assert.rejects(() => media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0003', uploaded.contentRevision)), NotFoundException);
     });
 
-    await t.test('reviewer can inspect pending media while public cannot until approval', async () => {
+    await t.test('submitted media is public immediately and remains locked against owner mutation', async () => {
       const ad = await createAd('classifieds-media-ad-create-0003', 'إعلان مراجعة الصور');
       const uploaded = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0004', ad.contentRevision));
-      const pending = await ads.submit(undefined, ad.id, {
+      const published = await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0001', expectedContentRevision: uploaded.contentRevision
       });
-      await assert.rejects(() => media.readPublic(uploaded.image.id), NotFoundException);
+      assert.equal(published.status, 'active');
+      assert.deepEqual((await media.readPublic(uploaded.image.id)).data, png);
       await assert.rejects(() => media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0005', uploaded.contentRevision)), ConflictException);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const reviewed = await media.readForReview(undefined, uploaded.image.id);
       assert.deepEqual(reviewed.data, png);
-      const approved = await ads.moderate(undefined, ad.id, { expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved' });
-      assert.equal(approved.status, 'active');
-      assert.deepEqual((await media.readPublic(uploaded.image.id)).data, png);
       actor = { id: 'classifieds_media_owner', email: 'owner@example.test' };
       await assert.rejects(() => media.remove(undefined, ad.id, uploaded.image.id, {
-        clientRequestId: 'classifieds-media-delete-locked-0001', expectedContentRevision: approved.contentRevision
+        clientRequestId: 'classifieds-media-delete-locked-0001', expectedContentRevision: published.contentRevision
       }), ConflictException);
     });
 
     await t.test('media edit after rejection returns the ad to draft and invalidates the reviewed content', async () => {
       const ad = await createAd('classifieds-media-ad-create-0004', 'إعلان مرفوض للتعديل');
       const firstImage = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0006', ad.contentRevision));
-      const pending = await ads.submit(undefined, ad.id, {
+      await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0002', expectedContentRevision: firstImage.contentRevision
       });
+      await db.query(`UPDATE ad_listings SET status='pending_review',review_revision=review_revision+1 WHERE id=$1`, [ad.id]);
+      const pending = await ads.getMine(undefined, ad.id);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const rejected = await ads.moderate(undefined, ad.id, {
         expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'rejected', reason: 'الصورة تحتاج تحديثًا'
