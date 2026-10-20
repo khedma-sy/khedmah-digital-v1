@@ -76,8 +76,12 @@ test('Classifieds shell and startup schema gates reject pre-025 and verify post-
     );
 
     await db.query(await readFile(migration025Path, 'utf8'));
+    const beforeQuota = runProbe(disposableDatabaseUrl());
+    assert.equal(beforeQuota.status, 49, `post-025 probe failed unexpectedly: ${beforeQuota.stderr || beforeQuota.stdout}`);
+
+    await db.query(await readFile(migration036Path, 'utf8'));
     const after = runProbe(disposableDatabaseUrl());
-    assert.equal(after.status, 0, `post-025 probe failed unexpectedly: ${after.stderr || after.stdout}`);
+    assert.equal(after.status, 0, `post-036 probe failed unexpectedly: ${after.stderr || after.stdout}`);
     assert.match(after.stdout, /MIGRATION_025_ALREADY_APPLIED_AND_VERIFIED/);
 
     const runtimeClient = await rawPool.connect();
