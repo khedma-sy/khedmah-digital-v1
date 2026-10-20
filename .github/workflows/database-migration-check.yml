@@ -103,6 +103,16 @@ jobs:
                 echo 'Migration 035 must preserve admin role assignments.' >&2
                 exit 1
               fi
+            elif [[ "$migration" == "036_classifieds_rolling_publication_quota" ]]; then
+              grep -Fq "interval '24 hours'" "$forward"
+              grep -Fq "interval '7 days'" "$forward"
+              grep -Fq 'AD_DAILY_QUOTA_EXHAUSTED' "$forward"
+              grep -Fq 'AD_WEEKLY_QUOTA_EXHAUSTED' "$forward"
+              grep -Fq 'AD_FREE_QUOTA_EXHAUSTED' "$rollback"
+              if grep -Eq '\b(DELETE[[:space:]]+FROM|TRUNCATE|DROP[[:space:]]+TABLE)\b' "$forward" "$rollback"; then
+                echo 'Migration 036 must preserve immutable publication receipts.' >&2
+                exit 1
+              fi
             else
               grep -Eq '\b(CREATE|ALTER)[[:space:]]+TABLE\b' "$forward"
             fi
