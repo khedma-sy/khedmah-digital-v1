@@ -225,7 +225,7 @@ for (const scenario of [
     await f.reject(attempt, scenario.issue());
 
     assert.equal(errorText(f.page), scenario.message, 'reconciliation must preserve the primary decoded error');
-    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك إرسالها للمراجعة أو بدء إعلان آخر/);
+    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك نشرها أو بدء إعلان آخر/);
     assert.match(f.page.text, /الصور المحفوظة: 1 من 5/);
     assert.deepEqual(f.calls.getMine, ['ad-1']);
     assert.deepEqual(f.calls.listImages, ['ad-1', 'ad-1'], 'one pre-upload read and one reconciliation read');
