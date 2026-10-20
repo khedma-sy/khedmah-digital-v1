@@ -9,6 +9,7 @@ for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION ARTIFACT_REPOSITORY RUNTIME
 CLASSIFIEDS_ENABLED="${CLASSIFIEDS_ENABLED:-false}"
 NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${NEXT_PUBLIC_CLASSIFIEDS_ENABLED:-false}"
 CLASSIFIEDS_MIGRATION_025_MODE="${CLASSIFIEDS_MIGRATION_025_MODE:-off}"
+CLASSIFIEDS_QUOTA_MIGRATION_036_MODE="${CLASSIFIEDS_QUOTA_MIGRATION_036_MODE:-off}"
 TAXI_TRIPS_ENABLED="${TAXI_TRIPS_ENABLED:-false}"
 for value in "$CLASSIFIEDS_ENABLED" "$NEXT_PUBLIC_CLASSIFIEDS_ENABLED"; do
   [[ "$value" == 'true' || "$value" == 'false' ]] || { echo 'Classifieds feature flags must be literal true or false.' >&2; exit 2; }
@@ -16,6 +17,7 @@ done
 [[ "$TAXI_TRIPS_ENABLED" == 'true' || "$TAXI_TRIPS_ENABLED" == 'false' ]] || { echo 'TAXI_TRIPS_ENABLED must be literal true or false.' >&2; exit 2; }
 [[ "$TAXI_TRIPS_ENABLED" != 'true' ]] || { echo 'Taxi trips cannot be enabled by this deployment path while the Taxi SQL remains candidate-only.' >&2; exit 4; }
 [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' || "$CLASSIFIEDS_MIGRATION_025_MODE" == 'verify' || "$CLASSIFIEDS_MIGRATION_025_MODE" == 'apply' ]] || { echo 'CLASSIFIEDS_MIGRATION_025_MODE must be off, verify, or apply.' >&2; exit 2; }
+[[ "$CLASSIFIEDS_QUOTA_MIGRATION_036_MODE" == 'off' || "$CLASSIFIEDS_QUOTA_MIGRATION_036_MODE" == 'verify' || "$CLASSIFIEDS_QUOTA_MIGRATION_036_MODE" == 'apply' ]] || { echo 'CLASSIFIEDS_QUOTA_MIGRATION_036_MODE must be off, verify, or apply.' >&2; exit 2; }
 [[ "$NEXT_PUBLIC_CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_ENABLED" == 'true' ]] || { echo 'Frontend Classifieds cannot be enabled before backend Classifieds.' >&2; exit 4; }
 [[ "$CLASSIFIEDS_ENABLED" != 'true' || "$CLASSIFIEDS_MIGRATION_025_MODE" != 'off' ]] || { echo 'Backend Classifieds requires migration 025 verification before enablement.' >&2; exit 4; }
 tag="${environment}-${identifier}"
@@ -93,6 +95,13 @@ elif [[ "$CLASSIFIEDS_MIGRATION_025_MODE" == 'off' ]]; then
 fi
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
+
+# Install the rolling quota contract before any backend reports daily/weekly limits.
+CLASSIFIEDS_QUOTA_MIGRATION_036_MODE="$schema_mode"
+CLASSIFIEDS_QUOTA_MIGRATION_036_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then CLASSIFIEDS_QUOTA_MIGRATION_036_CONFIRMATION="APPLY_KHEDMAH_NONPROD_036_${environment^^}"; fi
+export CLASSIFIEDS_QUOTA_MIGRATION_036_MODE CLASSIFIEDS_QUOTA_MIGRATION_036_CONFIRMATION
+scripts/deployment/ensure-classifieds-quota-nonproduction-schema.sh "$environment" "$identifier"
 
 # Orders, driver-document review and notifications must be verified before the
 # backend build. Only Staging may apply missing migrations through this path.
