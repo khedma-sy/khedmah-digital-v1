@@ -184,6 +184,7 @@ chmod -R a+rX /schema-scripts /migrations
       // The entrypoint must replace this unsafe inherited setting.
       PGOPTIONS: '-c default_transaction_read_only=off', FOUNDATION_MANIFEST_SHA256: manifest,
       MIGRATION_SHA256: source.match(/APPROVED_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
+      MIGRATION_036_SHA256: source.match(/APPROVED_036_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_GIT_BLOB: source.match(/APPROVED_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_SHA256: source.match(/APPROVED_033_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_GIT_BLOB: source.match(/APPROVED_033_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',
