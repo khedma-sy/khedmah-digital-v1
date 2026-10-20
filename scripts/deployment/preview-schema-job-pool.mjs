@@ -8,7 +8,6 @@ export const STAGES = Object.freeze({
   'foundation-001-022': 'foundation-migrations',
   'product-store-024': 'product-store-migration',
   'classifieds-025': 'classifieds-migration',
-  'classifieds-quota-036': 'classifieds-quota-migration',
   'fulfillment-026-028': 'fulfillment-migration',
   'taxi-pricing-029': 'taxi-pricing-migration',
   'billing-030-033': 'billing-migration',
