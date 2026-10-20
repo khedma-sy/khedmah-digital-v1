@@ -70,7 +70,12 @@ export interface AdImage {
   readonly createdAt: string;
 }
 
-export interface AdQuota { readonly used: number; readonly limit: 3 }
+export interface AdQuota {
+  readonly used: number;
+  readonly limit: 5;
+  readonly daily: { readonly used: number; readonly limit: 3 };
+  readonly weekly: { readonly used: number; readonly limit: 5 };
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`, {

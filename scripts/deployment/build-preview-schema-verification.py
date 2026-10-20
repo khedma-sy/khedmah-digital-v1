@@ -33,7 +33,7 @@ def build():
         'a89c33be26755c0e948e5e80c140752b978d13a039d82a9bae95f03e5692b940')
     routines = {}
     triggers = []
-    for prefix in ('025', '027', '029', '030', '031', '032'):
+    for prefix in ('025', '027', '029', '030', '031', '032', '036'):
         files = [p for p in (ROOT / 'backend/migrations/versions').glob(prefix + '_*.sql')
                  if not p.stem.endswith('_rollback')]
         if len(files) != 1:

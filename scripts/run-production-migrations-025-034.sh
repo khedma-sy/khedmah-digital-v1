@@ -96,8 +96,17 @@ case "${MIGRATION_NUMBER:-}" in
         )
     ) THEN 1 ELSE NULL END"
     ;;
+  036)
+    MIGRATION_NAME='036_classifieds_rolling_publication_quota'
+    PREDECESSOR_SQL="SELECT to_regclass('public.ad_listings') IS NOT NULL
+      AND to_regclass('public.ad_free_slots') IS NOT NULL
+      AND to_regprocedure('public.enforce_ad_free_slot_limit()') IS NOT NULL"
+    GUARD="CASE WHEN position('interval ''24 hours''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+      AND position('interval ''7 days''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+      THEN 1 ELSE NULL END"
+    ;;
   *)
-    echo 'ERROR: MIGRATION_NUMBER must be one of 025..035.' >&2
+    echo 'ERROR: MIGRATION_NUMBER must be one of 025..036.' >&2
     exit 1
     ;;
 esac
@@ -482,6 +491,10 @@ case "$MIGRATION_NUMBER" in
       AND pg_get_constraintdef(c.oid) LIKE '%taxi_pricing_admin%'
       AND pg_get_constraintdef(c.oid) LIKE '%category_admin%'
   )" ;;
+  036) VERIFY_SQL="SELECT position('interval ''24 hours''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+    AND position('interval ''7 days''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+    AND position('AD_DAILY_QUOTA_EXHAUSTED' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+    AND position('AD_WEEKLY_QUOTA_EXHAUSTED' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0" ;;
 esac
 
 verified="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$VERIFY_SQL")"

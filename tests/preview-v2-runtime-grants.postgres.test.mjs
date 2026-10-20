@@ -134,9 +134,16 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   assert.equal(runtime.allowed_select_probes, 62);
   assert.equal(runtime.denied_select_probes, 2);
 
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  // The retained ACL baseline intentionally validates the reviewed 030 routine
+  // body first. Apply the governed 036 replacement only after that proof, then
+  // require every real deployment entrypoint to verify the successor schema.
+  ok(sql('SET search_path=public,pg_catalog;\n' +
+    readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
+    'khedmah_migrator', 'khedmah', false), 'classifieds quota migration fixture');
+
   // Run the real nine deployment entrypoints against the completed successor
   // schema and grants. The disposable container stays network-disabled.
-  const root = fileURLToPath(new URL('..', import.meta.url));
   const migrationNames = [
     'foundation-nonproduction-migrations', 'product-store-nonproduction-migration',
     'classifieds-nonproduction-migration', 'fulfillment-nonproduction-migrations',
@@ -184,6 +191,7 @@ chmod -R a+rX /schema-scripts /migrations
       // The entrypoint must replace this unsafe inherited setting.
       PGOPTIONS: '-c default_transaction_read_only=off', FOUNDATION_MANIFEST_SHA256: manifest,
       MIGRATION_SHA256: source.match(/APPROVED_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
+      MIGRATION_036_SHA256: source.match(/APPROVED_036_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_GIT_BLOB: source.match(/APPROVED_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_SHA256: source.match(/APPROVED_033_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_GIT_BLOB: source.match(/APPROVED_033_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',

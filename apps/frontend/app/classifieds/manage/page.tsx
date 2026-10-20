@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { classifiedsApi, type OwnerAdListing } from '../../../lib/classifieds-client';
+import { classifiedsApi, type AdQuota, type OwnerAdListing } from '../../../lib/classifieds-client';
 import { AD_KIND_LABELS, AD_STATUS_LABELS, CLASSIFIEDS_ENABLED, formatAdPrice } from '../../../lib/classifieds';
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 import { PlatformIcon } from '../../components/platform-icon';
@@ -11,7 +11,7 @@ import styles from '../classifieds.module.css';
 export default function ManageClassifiedsPage() {
   const router = useRouter();
   const [ads, setAds] = useState<OwnerAdListing[]>([]);
-  const [quota, setQuota] = useState<{ used: number; limit: 3 } | null>(null);
+  const [quota, setQuota] = useState<AdQuota | null>(null);
   const [loading, setLoading] = useState(CLASSIFIEDS_ENABLED);
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
@@ -35,8 +35,8 @@ export default function ManageClassifiedsPage() {
   if (!CLASSIFIEDS_ENABLED) return <PageShell className={styles.page} label="إعلاناتي"><StatusMessage tone="warning">إعلانات خدمة غير متاحة مؤقتًا في هذه البيئة.</StatusMessage><ActionLink href="/classifieds" variant="secondary">العودة للإعلانات</ActionLink></PageShell>;
 
   return <PageShell className={styles.page} label="إعلاناتي">
-    <PageHeader eyebrow="مساحة المعلن" title="إعلاناتي" description="تابع المسودات والمراجعة والإعلانات المنشورة من مكان واحد." actions={<ActionLink href="/classifieds/new">أضف إعلانًا</ActionLink>}/>
-    {quota && <Surface className={styles.quota}><strong>الحصة المجانية</strong><span>{quota.used} من {quota.limit} مستخدمة</span></Surface>}
+    <PageHeader eyebrow="مساحة المعلن" title="إعلاناتي" description="تابع المسودات والإعلانات المنشورة من مكان واحد." actions={<ActionLink href="/classifieds/new">أضف إعلانًا</ActionLink>}/>
+    {quota && <Surface className={styles.quota}><strong>حدود النشر</strong><span>{quota.daily.used} من 3 خلال 24 ساعة · {quota.weekly.used} من 5 خلال 7 أيام</span></Surface>}
     {error && <StatusMessage tone="danger">{error} <ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton></StatusMessage>}
     {loading ? <SkeletonGrid count={4}/> : error ? null : ads.length ? <section className={styles.grid} aria-label="إعلاناتي">
       {ads.map((ad) => <Surface as="article" className={styles.card} key={ad.id}>
@@ -51,6 +51,6 @@ export default function ManageClassifiedsPage() {
           {ad.status === 'active' && <ActionLink href={`/classifieds/${encodeURIComponent(ad.id)}`}>عرض الصفحة العامة</ActionLink>}
         </div>
       </Surface>)}
-    </section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لم تضف إعلانات بعد" description="أنشئ أول إعلان مستقل؛ المسودة لا تستهلك الحصة حتى إرسالها للمراجعة." actions={<ActionLink href="/classifieds/new">أضف أول إعلان</ActionLink>}/>} 
+    </section> : <EmptyState icon={<PlatformIcon name="briefcase" size={34}/>} title="لم تضف إعلانات بعد" description="أنشئ أول إعلان مستقل؛ المسودة لا تستهلك الحصة حتى نشرها." actions={<ActionLink href="/classifieds/new">أضف أول إعلان</ActionLink>}/>} 
   </PageShell>;
 }

@@ -94,6 +94,7 @@ fi
 export CLASSIFIEDS_MIGRATION_025_MODE CLASSIFIEDS_MIGRATION_025_CONFIRMATION
 scripts/deployment/ensure-classifieds-nonproduction-schema.sh "$environment" "$identifier"
 
+
 # Orders, driver-document review and notifications must be verified before the
 # backend build. Only Staging may apply missing migrations through this path.
 FULFILLMENT_MIGRATIONS_026_028_MODE="$schema_mode"

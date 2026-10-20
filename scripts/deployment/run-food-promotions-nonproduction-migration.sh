@@ -92,7 +92,7 @@ if [ "$state" -eq 12 ]; then
     # This last existing pool job verifies completed grants and canonical
     # routine bodies without invoking any owner apply helper or cloud API.
     verification='/migrations/preview-schema-verification.sql'
-    printf '%s  %s\n' 'e5153751d02e0492ea0f6f05623f61466afa4d4362b76647b3ae63c5faeee581' "$verification" | sha256sum -c - >/dev/null 2>&1 || exit 69
+    printf '%s  %s\n' '6d7c1cc3b61adb0a766059bffc7f3c715212924e09cbb2333416bd5439f87ab4' "$verification" | sha256sum -c - >/dev/null 2>&1 || exit 69
     result="$(psql_exec -X -Atq -v ON_ERROR_STOP=1 -f "$verification" 2>/dev/null)" || { echo 'PREVIEW_V2_SCHEMA_FINAL_VERIFICATION_FAILED' >&2; exit 44; }
     [ "$result" = 'PREVIEW_V2_SCHEMA_AND_RUNTIME_ACL_READONLY_VERIFIED' ] || exit 44
     printf '%s\n' "$result"

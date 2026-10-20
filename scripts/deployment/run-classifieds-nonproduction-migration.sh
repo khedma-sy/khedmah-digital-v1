@@ -4,6 +4,9 @@ set -eu
 readonly MIGRATION_VERSION='025_classifieds'
 readonly DEFAULT_MIGRATION_FILE='/migrations/025_classifieds.sql'
 readonly APPROVED_SHA256='0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d'
+readonly APPROVED_036_SHA256='8ed732624b0baf5f5457d138692622214fe2d7b2dd556b79974d23bd0c76093b'
+QUOTA_MIGRATION_FILE="${CLASSIFIEDS_QUOTA_MIGRATION_FILE:-/migrations/036_classifieds_rolling_publication_quota.sql}"
+readonly QUOTA_MIGRATION_FILE
 
 migration_file="${CLASSIFIEDS_MIGRATION_FILE:-$DEFAULT_MIGRATION_FILE}"
 environment="${DEPLOYMENT_ENVIRONMENT:-}"
@@ -37,11 +40,13 @@ test -n "$production_project" || { echo 'ERROR: PRODUCTION_GOOGLE_CLOUD_PROJECT 
 [ "$project" != "$production_project" ] || { echo 'ERROR: Refusing Classifieds migration 025 against the production project.' >&2; exit 3; }
 test -n "${DATABASE_URL:-}" || { echo 'ERROR: DATABASE_URL is required.' >&2; exit 2; }
 [ "${MIGRATION_SHA256:-}" = "$APPROVED_SHA256" ] || { echo 'ERROR: Migration 025 approval checksum does not match.' >&2; exit 3; }
+[ "${MIGRATION_036_SHA256:-}" = "$APPROVED_036_SHA256" ] || { echo 'ERROR: Migration 036 approval checksum does not match.' >&2; exit 3; }
 if [ "$mode" = 'apply' ]; then
   expected_confirmation="APPLY_KHEDMAH_NONPROD_025_$(printf '%s' "$environment" | tr '[:lower:]' '[:upper:]')"
   [ "${MIGRATION_CONFIRMATION:-}" = "$expected_confirmation" ] || { echo 'ERROR: Explicit non-production migration confirmation is required.' >&2; exit 3; }
 fi
 printf '%s  %s\n' "$APPROVED_SHA256" "$migration_file" | sha256sum -c - >/dev/null
+printf '%s  %s\n' "$APPROVED_036_SHA256" "$QUOTA_MIGRATION_FILE" | sha256sum -c - >/dev/null
 
 # Cloud Run exposes an attached Cloud SQL instance through a Unix socket.
 # DATABASE_URL is the credential source only; its TCP host must not override
@@ -152,6 +157,12 @@ schema_state() {
     return 0
   fi
 
+  rolling_count="$(probe_count "SELECT ((position('interval ''24 hours''' in pg_get_functiondef(to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()'))) > 0)::int + (position('interval ''7 days''' in pg_get_functiondef(to_regprocedure(current_schema() || '.enforce_ad_free_slot_limit()'))) > 0)::int)")" || return $?
+  if [ "$rolling_count" -lt 2 ]; then
+    printf '%s' 'missing_036'
+    return 0
+  fi
+
   printf '%s' 'verified'
 }
 
@@ -164,6 +175,7 @@ exit_for_schema_state() {
     missing_triggers) exit 45 ;;
     missing_functions) exit 46 ;;
     missing_media) exit 47 ;;
+    missing_036) exit 49 ;;
     *) exit 48 ;;
   esac
 }
@@ -186,8 +198,9 @@ if [ "$mode" = 'verify' ]; then
   exit_for_schema_state "$state"
 fi
 
-[ "$state" = 'not_applied' ] || exit_for_schema_state "$state"
+[ "$state" = 'not_applied' ] || [ "$state" = 'missing_036' ] || exit_for_schema_state "$state"
 
+if [ "$state" = 'not_applied' ]; then
 psql_exec -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-classifieds-025', 0));
@@ -217,6 +230,14 @@ BEGIN
 END
 \$guard\$;
 \ir ${migration_file}
+COMMIT;
+SQL
+fi
+
+psql_exec -X -v ON_ERROR_STOP=1 <<SQL
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('khedmah-nonproduction-classifieds-036', 0));
+\ir ${QUOTA_MIGRATION_FILE}
 COMMIT;
 SQL
 

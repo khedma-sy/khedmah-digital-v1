@@ -225,7 +225,7 @@ for (const scenario of [
     await f.reject(attempt, scenario.issue());
 
     assert.equal(errorText(f.page), scenario.message, 'reconciliation must preserve the primary decoded error');
-    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك إرسالها للمراجعة أو بدء إعلان آخر/);
+    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك نشرها أو بدء إعلان آخر/);
     assert.match(f.page.text, /الصور المحفوظة: 1 من 5/);
     assert.deepEqual(f.calls.getMine, ['ad-1']);
     assert.deepEqual(f.calls.listImages, ['ad-1', 'ad-1'], 'one pre-upload read and one reconciliation read');
@@ -244,7 +244,7 @@ for (const code of ['request_error', null, 'AD_FREE_QUOTA_EXHAUSTED']) {
     const ad = draftAd({ revision: 9, contentRevision: 7 });
     const f = fixture({ editor: true, ad });
     await f.ready();
-    f.page.click('إرسال للمراجعة');
+    f.page.click('نشر الإعلان');
     const attempt = f.calls.submits[0];
     await f.reject(attempt, code === 'AD_FREE_QUOTA_EXHAUSTED' ? quotaError() : generic429(code));
 
@@ -258,13 +258,12 @@ for (const code of ['request_error', null, 'AD_FREE_QUOTA_EXHAUSTED']) {
     assert.deepEqual(f.calls.listImages, ['ad-1']);
     assert.deepEqual(f.navigations, []);
 
-    f.page.click('إرسال للمراجعة');
+    f.page.click('نشر الإعلان');
     assert.equal(f.calls.submits.length, 2);
     assert.deepEqual(f.calls.submits[1].input, attempt.input, 'the unchanged draft retries with its original key and content revision');
-    await f.settle(f.calls.submits[1], { ad: draftAd({ status: 'pending_review', revision: 10, contentRevision: 7, reviewRevision: 1 }) });
+    await f.settle(f.calls.submits[1], { ad: draftAd({ status: 'active', revision: 10, contentRevision: 7, reviewRevision: 0 }) });
     assert.equal(f.storage.size, 0, 'the submit key clears only after acknowledgement');
-    assert.match(f.page.text, /تم إرسال الإعلان للمراجعة/);
-    assert.match(f.page.text, /الإعلان وصوره مقفلة أثناء المراجعة/);
+    assert.match(f.page.text, /تم نشر الإعلان/);
     assert.deepEqual(f.navigations, []);
   });
 }
