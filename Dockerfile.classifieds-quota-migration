@@ -1,0 +1,9 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/036_classifieds_rolling_publication_quota.sql /migrations/036_classifieds_rolling_publication_quota.sql
+COPY scripts/deployment/run-classifieds-quota-nonproduction-migration.sh /usr/local/bin/run-classifieds-quota-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-classifieds-quota-nonproduction-migration /migrations/036_classifieds_rolling_publication_quota.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-classifieds-quota-nonproduction-migration"]
