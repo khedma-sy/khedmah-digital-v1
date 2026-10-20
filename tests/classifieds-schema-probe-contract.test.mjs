@@ -11,7 +11,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const runner = read('scripts/deployment/run-classifieds-nonproduction-migration.sh');
 const runnerPath = fileURLToPath(new URL('../scripts/deployment/run-classifieds-nonproduction-migration.sh', import.meta.url));
 const migrationPath = fileURLToPath(new URL('../backend/migrations/versions/025_classifieds.sql', import.meta.url));
+const quotaMigrationPath = fileURLToPath(new URL('../backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', import.meta.url));
 const migrationSha = '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d';
+const quotaMigrationSha = '8ed732624b0baf5f5457d138692622214fe2d7b2dd556b79974d23bd0c76093b';
 
 test('Classifieds schema probe exposes stable read-only diagnostic exit codes', () => {
   const expected = new Map([
@@ -46,7 +48,7 @@ test('connectivity is checked separately before schema catalog introspection', (
 
 test('verify mode cannot enter the migration apply transaction', () => {
   const verifyGate = runner.indexOf("if [ \"$mode\" = 'verify' ]; then");
-  const applyGate = runner.indexOf("[ \"$state\" = 'not_applied' ] || exit_for_schema_state");
+  const applyGate = runner.indexOf("[ \"$state\" = 'not_applied' ] || [ \"$state\" = 'missing_036' ]");
   const transaction = runner.indexOf('BEGIN;');
   assert.ok(verifyGate > 0);
   assert.ok(applyGate > verifyGate);
@@ -123,7 +125,9 @@ esac
         PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production-protected',
         CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-preview-safe:europe-west1:preview-db',
         MIGRATION_SHA256: migrationSha,
+        MIGRATION_036_SHA256: quotaMigrationSha,
         CLASSIFIEDS_MIGRATION_FILE: migrationPath,
+        CLASSIFIEDS_QUOTA_MIGRATION_FILE: quotaMigrationPath,
         PROBE_CAPTURE_FILE: capture,
         PROBE_EXPECTED_PASSWORD: 'p@ss:word'
       },
