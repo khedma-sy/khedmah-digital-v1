@@ -135,8 +135,10 @@ export default function NewClassifiedPage() {
     if (pending.current) return;
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const intent: 'draft' | 'review' = submitter?.value === 'draft' ? 'draft' : 'review';
-    if (intent === 'review' && quota && (quota.daily.used >= quota.daily.limit || quota.weekly.used >= quota.weekly.limit)) {
-      setError('بلغت حد النشر الحالي. يمكنك حفظ الإعلان كمسودة ونشره بعد تجدد الحصة.');
+    const daily = quota?.daily ?? { used: quota?.used ?? 0, limit: 3 };
+    const weekly = quota?.weekly ?? { used: quota?.used ?? 0, limit: 5 };
+    if (intent === 'review' && quota && (daily.used >= daily.limit || weekly.used >= weekly.limit)) {
+      setError('تم استهلاك الحصة الحالية. يمكنك حفظ الإعلان كمسودة ونشره بعد تجدد الحصة.');
       return;
     }
     const validation = clientValidation();
@@ -214,7 +216,7 @@ export default function NewClassifiedPage() {
       } else if (issue?.code === 'AD_WEEKLY_QUOTA_EXHAUSTED') {
         setError('بلغت الحد الأسبوعي: 5 إعلانات خلال 7 أيام.');
       } else if (issue?.code === 'AD_FREE_QUOTA_EXHAUSTED') {
-        setError('تم استهلاك الحصة الحالية للإعلانات.');
+        setError('تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.');
       } else if (issue?.code === 'AD_IMAGE_LIMIT_REACHED') {
         setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان.`);
       } else if (issue?.statusCode === 409) {
@@ -239,10 +241,16 @@ export default function NewClassifiedPage() {
   if (!CLASSIFIEDS_ENABLED) return <PageShell className={styles.page} label="إضافة إعلان"><StatusMessage tone="warning">إعلانات خدمة غير متاحة مؤقتًا في هذه البيئة.</StatusMessage><ActionLink href="/classifieds" variant="secondary">العودة للإعلانات</ActionLink></PageShell>;
   if (loading) return <PageShell className={styles.page} label="إضافة إعلان"><SkeletonGrid count={3}/></PageShell>;
 
+  // Keep the page usable during a rolling deployment where an older API or a
+  // cached response can still expose only the legacy aggregate quota fields.
+  const dailyQuota = quota?.daily ?? { used: quota?.used ?? 0, limit: 3 as const };
+  const weeklyQuota = quota?.weekly ?? { used: quota?.used ?? 0, limit: 5 as const };
+  const publicationQuotaFull = dailyQuota.used >= dailyQuota.limit || weeklyQuota.used >= weeklyQuota.limit;
+
   return <PageShell className={styles.page} label="إضافة إعلان"><div className={styles.formShell}>
     <PageHeader eyebrow="إعلانات خدمة" title="إضافة إعلان" description="أنشئ إعلانًا مستقلاً عن متجر خدمة. إنشاء المسودة لا يستهلك الحصة؛ النشر مباشر بحد 3 إعلانات خلال 24 ساعة و5 خلال 7 أيام." actions={<ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink>}/>
-    {quota && <Surface className={styles.quota}><strong>حدود النشر</strong><span>{quota.daily.used} من 3 خلال 24 ساعة · {quota.weekly.used} من 5 خلال 7 أيام</span></Surface>}
-    {quota && (quota.daily.used >= quota.daily.limit || quota.weekly.used >= quota.weekly.limit) && <StatusMessage tone="warning">يمكنك حفظ مسودة الآن، ثم نشرها بعد تجدد الحصة.</StatusMessage>}
+    {quota && <Surface className={styles.quota}><strong>حدود النشر</strong><span>{dailyQuota.used} من 3 خلال 24 ساعة · {weeklyQuota.used} من 5 خلال 7 أيام</span></Surface>}
+    {quota && publicationQuotaFull && <StatusMessage tone="warning">يمكنك حفظ مسودة الآن، ثم نشرها بعد تجدد الحصة.</StatusMessage>}
     {error && <StatusMessage tone="danger">{error}{createConflict && <div className={styles.actions}><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء محاولة إعلان جديدة</ActionButton><ActionLink href="/classifieds/manage" variant="secondary">مراجعة إعلاناتي</ActionLink></div>}</StatusMessage>}
     {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
     {draft?.status === 'draft' && <Surface className={styles.quota}><span>هذه المسودة محفوظة؛ يمكنك نشرها أو بدء إعلان آخر.</span><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء إعلان جديد</ActionButton></Surface>}
@@ -274,7 +282,7 @@ export default function NewClassifiedPage() {
         <p className={styles.notice}>كل صورة حتى 5 ميغابايت. الصور المحفوظة: {images.length} من {CLASSIFIEDS_MAX_IMAGES}. حفظ المسودة لا يستهلك حصة، ولا تنشئ هذه العملية طلب شراء أو دفعة.</p>
         <div className={styles.actions}>
           <ActionButton type="submit" name="intent" value="draft" variant="secondary" disabled={saving || categoryLoading || !!categoryError}>{savingIntent === 'draft' ? 'جارٍ حفظ المسودة…' : 'حفظ كمسودة'}</ActionButton>
-          <ActionButton type="submit" name="intent" value="review" disabled={saving || categoryLoading || !!categoryError || Boolean(quota && (quota.daily.used >= quota.daily.limit || quota.weekly.used >= quota.weekly.limit))}>{savingIntent === 'review' ? 'جارٍ الحفظ والنشر…' : 'حفظ ونشر الإعلان'}</ActionButton>
+          <ActionButton type="submit" name="intent" value="review" disabled={saving || categoryLoading || !!categoryError || Boolean(quota && publicationQuotaFull)}>{savingIntent === 'review' ? 'جارٍ الحفظ والنشر…' : 'حفظ ونشر الإعلان'}</ActionButton>
         </div>
       </fieldset>
     </Surface>
