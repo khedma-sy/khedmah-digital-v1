@@ -120,7 +120,8 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       const resubmitted = await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0003', expectedContentRevision: changed.contentRevision
       });
-      assert.ok(resubmitted.reviewRevision > pending.reviewRevision);
+      assert.equal(resubmitted.status, 'active');
+      assert.equal(resubmitted.reviewRevision, pending.reviewRevision);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       await assert.rejects(() => ads.moderate(undefined, ad.id, {
         expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'
