@@ -27,7 +27,7 @@ test('quota API and creation UI expose both rolling windows', async () => {
   const [service, page] = await Promise.all([readFile(servicePath, 'utf8'), readFile(newPagePath, 'utf8')]);
   assert.match(service, /daily: \{ used: number; limit: 3 \}/);
   assert.match(service, /weekly: \{ used: number; limit: 5 \}/);
-  assert.match(page, /quota\.daily\.used >= quota\.daily\.limit/);
-  assert.match(page, /quota\.weekly\.used >= quota\.weekly\.limit/);
+  assert.match(page, /daily\.used >= daily\.limit/);
+  assert.match(page, /weekly\.used >= weekly\.limit/);
   assert.match(page, /حفظ ونشر الإعلان/);
 });
