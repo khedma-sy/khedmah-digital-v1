@@ -67,6 +67,7 @@ jobs:
             033_billing_admin_role
             034_food_order_promotions
             035_specialized_admin_roles
+            036_classifieds_rolling_publication_quota
           )
 
           for migration in "${migrations[@]}"; do
@@ -184,6 +185,8 @@ jobs:
             034_food_order_promotions_rollback.sql \
             035_specialized_admin_roles.sql \
             035_specialized_admin_roles_rollback.sql \
+            036_classifieds_rolling_publication_quota.sql \
+            036_classifieds_rolling_publication_quota_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"
@@ -210,6 +213,12 @@ jobs:
             if [[ "$file" == *019_remove_out_of_scope_subscription_schema.sql ]]; then
               grep -Eq '\bDROP[[:space:]]+TABLE\b' "$file"
               echo "Verified teardown migration: $file"
+              continue
+            fi
+            if [[ "$file" == *036_classifieds_rolling_publication_quota.sql ]]; then
+              grep -Fq 'CREATE OR REPLACE FUNCTION enforce_ad_free_slot_limit' "$file"
+              grep -Fq 'pg_advisory_xact_lock' "$file"
+              echo "Verified Classifieds rolling quota: $file"
               continue
             fi
             if [[ "$file" == *032_taxi_operational_profile_gate.sql ]]; then
