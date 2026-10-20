@@ -43,13 +43,13 @@ function fixture() {
   return f;
 }
 
-test('many PRs and revisions use exactly ten names; Staging keeps its old name formula', () => {
+test('many PRs and revisions use exactly nine names; Staging keeps its old name formula', () => {
   const names = new Set();
   for (const s of Object.keys(STAGES)) for (const id of [identifier, 'pr-999-' + 'b'.repeat(40)]) {
     names.add(schemaJobName('preview', id, s));
     assert.equal(schemaJobName('staging', id, s), 'khedmah-staging-' + s + '-' + hash(id).slice(0, 10));
   }
-  assert.equal(names.size, 10);
+  assert.equal(names.size, 9);
   for (const n of names) assert.ok(n.length <= 54);
   assert.throws(() => schemaJobName('production', identifier, stage));
   assert.throws(() => schemaJobName('preview', 'not-a-pr', stage));
@@ -143,10 +143,10 @@ test('post-deploy check requires this exact revision image before executing', ()
   assert.throws(() => f.check(), /IMAGE_REJECTED/);
 });
 
-test('all ten helpers guard deploy and execution while preserving image revisions and Staging labels', () => {
+test('all nine helpers guard deploy and execution while preserving image revisions and Staging labels', () => {
   const root = new URL('../scripts/deployment/', import.meta.url);
   const files = readdirSync(root).filter(p => /^ensure-.*nonproduction-schema\.sh$/.test(p));
-  assert.equal(files.length, 10);
+  assert.equal(files.length, 9);
   for (const p of files) {
     const s = readFileSync(new URL(p, root), 'utf8');
     assert.ok(s.indexOf('preview-schema-job-pool.mjs name') < s.indexOf('gcloud builds submit'));
