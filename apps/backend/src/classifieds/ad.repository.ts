@@ -128,12 +128,13 @@ export class AdRepository {
       if (!['draft', 'inactive', 'rejected'].includes(ad.status)) throw new ConflictException({ code: 'AD_NOT_SUBMITTABLE' });
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
 
+      await this.assertBusinessPublishable(client, ad.businessProfileId);
       const existingSlot = await client.query(`SELECT ad_id FROM ad_free_slots WHERE ad_id=$1 AND owner_user_id=$2`, [id, ownerUserId]);
       if (!existingSlot.rowCount) {
         await client.query(`INSERT INTO ad_free_slots(ad_id,owner_user_id) VALUES($1,$2)`, [id, ownerUserId]);
       }
       await client.query(
-        `UPDATE ad_listings SET status='pending_review',rejection_reason=NULL,review_revision=review_revision+1,revision=revision+1,
+        `UPDATE ad_listings SET status='active',rejection_reason=NULL,revision=revision+1,
           submitted_at=clock_timestamp(),updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
          WHERE id=$1 AND owner_user_id=$2`, [id, ownerUserId]
       );
@@ -166,7 +167,8 @@ export class AdRepository {
       if (ad.revision !== expectedRevision) throw new ConflictException({ code: 'REVISION_CONFLICT' });
       if (ad.status !== 'inactive') throw new ConflictException({ code: 'AD_NOT_INACTIVE' });
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
-      await client.query(`UPDATE ad_listings SET status='pending_review',review_revision=review_revision+1,revision=revision+1,
+      await this.assertBusinessPublishable(client, ad.businessProfileId);
+      await client.query(`UPDATE ad_listings SET status='active',revision=revision+1,
         submitted_at=clock_timestamp(),updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
         WHERE id=$1 AND owner_user_id=$2`, [id, ownerUserId]);
       const saved = await this.requireById(client, id);
@@ -236,9 +238,16 @@ export class AdRepository {
     return (await this.db.query<AdRow>(`SELECT ${projection} FROM ad_listings a WHERE a.status='pending_review' ORDER BY a.submitted_at ASC,a.updated_at ASC LIMIT 200`)).map(map);
   }
 
-  async quota(ownerUserId: string): Promise<{ used: number; limit: 3 }> {
-    const rows = await this.db.query<{ count: number }>(`SELECT count(*)::int AS count FROM ad_free_slots WHERE owner_user_id=$1`, [ownerUserId]);
-    return { used: rows[0]?.count ?? 0, limit: 3 };
+  async quota(ownerUserId: string): Promise<{ used: number; limit: 5; daily: { used: number; limit: 3 }; weekly: { used: number; limit: 5 } }> {
+    const rows = await this.db.query<{ daily_used: number; weekly_used: number }>(
+      `SELECT
+         count(*) FILTER (WHERE consumed_at > clock_timestamp() - interval '24 hours')::int AS daily_used,
+         count(*) FILTER (WHERE consumed_at > clock_timestamp() - interval '7 days')::int AS weekly_used
+       FROM ad_free_slots WHERE owner_user_id=$1`, [ownerUserId]
+    );
+    const dailyUsed = rows[0]?.daily_used ?? 0;
+    const weeklyUsed = rows[0]?.weekly_used ?? 0;
+    return { used: weeklyUsed, limit: 5, daily: { used: dailyUsed, limit: 3 }, weekly: { used: weeklyUsed, limit: 5 } };
   }
 
   private publicWhere(filters: PublicFilters): { where: string; params: unknown[] } {
