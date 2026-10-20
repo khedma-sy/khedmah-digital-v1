@@ -8,9 +8,11 @@ import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 
 const MIGRATION_025_SHA256 = '0956abab007839d76e3aeca1d310835898e3b97bdc3adb784861f5fcd7c1cf5d';
+const MIGRATION_036_SHA256 = '8ed732624b0baf5f5457d138692622214fe2d7b2dd556b79974d23bd0c76093b';
 const repositoryRoot = resolve(__dirname, '../../../..');
 const migration024Path = resolve(repositoryRoot, 'backend/migrations/versions/024_product_store.sql');
 const migration025Path = resolve(repositoryRoot, 'backend/migrations/versions/025_classifieds.sql');
+const migration036Path = resolve(repositoryRoot, 'backend/migrations/versions/036_classifieds_rolling_publication_quota.sql');
 const probePath = resolve(repositoryRoot, 'scripts/deployment/run-classifieds-nonproduction-migration.sh');
 
 function disposableDatabaseUrl(): string {
@@ -37,7 +39,9 @@ function runProbe(databaseUrl: string) {
       GOOGLE_CLOUD_PROJECT: 'khedmah-preview-ci',
       PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production-protected',
       MIGRATION_SHA256: MIGRATION_025_SHA256,
-      CLASSIFIEDS_MIGRATION_FILE: migration025Path
+      MIGRATION_036_SHA256,
+      CLASSIFIEDS_MIGRATION_FILE: migration025Path,
+      CLASSIFIEDS_QUOTA_MIGRATION_FILE: migration036Path
     },
     encoding: 'utf8'
   });
