@@ -84,7 +84,7 @@ export class AdService {
     return ad;
   }
 
-  async quota(cookie: string | undefined): Promise<{ used: number; limit: 3 }> {
+  async quota(cookie: string | undefined): Promise<{ used: number; limit: 5; daily: { used: number; limit: 3 }; weekly: { used: number; limit: 5 } }> {
     this.assertEnabled();
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
     return this.runRepository(() => this.repository.quota(actor.id));
@@ -140,7 +140,14 @@ export class AdService {
   private rethrowRepositoryError(error: unknown): never {
     if (error instanceof HttpException) throw error;
     const pg = error as { code?: string; message?: string; detail?: string };
-    if (pg.code === '23514' && `${pg.message ?? ''} ${pg.detail ?? ''}`.includes('AD_FREE_QUOTA_EXHAUSTED')) {
+    const quotaFailure = `${pg.message ?? ''} ${pg.detail ?? ''}`;
+    if (pg.code === '23514' && quotaFailure.includes('AD_DAILY_QUOTA_EXHAUSTED')) {
+      throw new HttpException({ code: 'AD_DAILY_QUOTA_EXHAUSTED', message: 'يمكن نشر 3 إعلانات كحد أقصى خلال 24 ساعة.' }, 429);
+    }
+    if (pg.code === '23514' && quotaFailure.includes('AD_WEEKLY_QUOTA_EXHAUSTED')) {
+      throw new HttpException({ code: 'AD_WEEKLY_QUOTA_EXHAUSTED', message: 'يمكن نشر 5 إعلانات كحد أقصى خلال 7 أيام.' }, 429);
+    }
+    if (pg.code === '23514' && quotaFailure.includes('AD_FREE_QUOTA_EXHAUSTED')) {
       throw new HttpException({ code: 'AD_FREE_QUOTA_EXHAUSTED', message: 'تم استهلاك الحصة المجانية الحالية للإعلانات.' }, 429);
     }
     if (['3F000', '42P01', '42703', '42883', '42501', '40P01', '40001', '55P03', '57014'].includes(pg.code ?? '')) {
