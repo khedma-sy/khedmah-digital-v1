@@ -238,7 +238,7 @@ def sql_lab_pack():
     """Optional local WASM SQL laboratory; never invokes cloud or a live DB."""
     foundation=args[5]
     names=[name for name,blob in foundation.MIGRATIONS]
-    for prefix in ('024','025','026','027','028','029','030','033','031','032','034','036'):
+    for prefix in ('024','025','026','027','028','029','030','033','031','032','034'):
         matches=[p.name for p in (ROOT/'backend/migrations/versions').glob(prefix+'_*.sql') if not p.stem.endswith('_rollback')]
         if len(matches)!=1:raise RuntimeError('Canonical fixture migration missing')
         names+=matches
