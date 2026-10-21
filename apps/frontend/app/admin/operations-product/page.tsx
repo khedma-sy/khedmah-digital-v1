@@ -45,7 +45,8 @@ export default function OperationsProductPage() {
     return <main id="foundation-content" className="operations-shell"><section className="operations-panel"><h1>مركز التشغيل غير متاح</h1><p className="form-error" role="alert">{error || 'تعذر فتح مركز التشغيل.'}</p><Link href="/admin">العودة إلى لوحة الإدارة</Link></section></main>;
   }
 
-  const canManageModeration = overview.permissions.includes('security.manage');
+  const canReviewContent = overview.permissions.includes('security.manage') ||
+    overview.permissions.includes('content.approvals.approve');
 
   return <main id="foundation-content" className="operations-shell" dir="rtl">
     <header className="operations-header">
@@ -55,7 +56,7 @@ export default function OperationsProductPage() {
 
     <nav className="admin-navigation" aria-label="التنقل الإداري">
       <Link href="/admin">لوحة الإدارة</Link>
-      {canManageModeration ? <Link href="/admin/moderation">المراجعة والبلاغات</Link> : null}
+      {canReviewContent ? <Link href="/admin/moderation">مراجعة المحتوى</Link> : null}
       <Link href="/categories">التصنيفات الحية</Link>
     </nav>
 

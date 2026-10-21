@@ -23,6 +23,8 @@ export class MediaController {
   }
 
   @Get(':ownerType/:ownerId')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async listForOwner(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('ownerType') ownerType: string,

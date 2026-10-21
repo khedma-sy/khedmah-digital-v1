@@ -129,12 +129,8 @@ export class AdRepository {
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
 
       await this.assertBusinessPublishable(client, ad.businessProfileId);
-      const existingSlot = await client.query(`SELECT ad_id FROM ad_free_slots WHERE ad_id=$1 AND owner_user_id=$2`, [id, ownerUserId]);
-      if (!existingSlot.rowCount) {
-        await client.query(`INSERT INTO ad_free_slots(ad_id,owner_user_id) VALUES($1,$2)`, [id, ownerUserId]);
-      }
       await client.query(
-        `UPDATE ad_listings SET status='active',rejection_reason=NULL,revision=revision+1,
+        `UPDATE ad_listings SET status='pending_review',rejection_reason=NULL,revision=revision+1,review_revision=review_revision+1,
           submitted_at=clock_timestamp(),updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
          WHERE id=$1 AND owner_user_id=$2`, [id, ownerUserId]
       );
@@ -168,7 +164,8 @@ export class AdRepository {
       if (ad.status !== 'inactive') throw new ConflictException({ code: 'AD_NOT_INACTIVE' });
       if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new BadRequestException({ code: 'AD_EXPIRY_INVALID' });
       await this.assertBusinessPublishable(client, ad.businessProfileId);
-      await client.query(`UPDATE ad_listings SET status='active',revision=revision+1,
+      await client.query(`UPDATE ad_listings SET status='pending_review',rejection_reason=NULL,revision=revision+1,
+        review_revision=review_revision+1,
         submitted_at=clock_timestamp(),updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
         WHERE id=$1 AND owner_user_id=$2`, [id, ownerUserId]);
       const saved = await this.requireById(client, id);
@@ -184,9 +181,16 @@ export class AdRepository {
       if (ad.status !== 'pending_review' || ad.reviewRevision !== expectedReviewRevision) {
         throw new ConflictException({ code: 'REVIEW_REVISION_CONFLICT' });
       }
+      if (decision === 'approved' && ad.ownerUserId === reviewerUserId) {
+        throw new ForbiddenException('A reviewer cannot approve their own classified ad.');
+      }
       if (decision === 'approved') {
         if (ad.expiresAt && !await this.isFuture(client, ad.expiresAt)) throw new ConflictException({ code: 'AD_EXPIRED_BEFORE_APPROVAL' });
         await this.assertBusinessPublishable(client, ad.businessProfileId);
+        const existingSlot = await client.query(`SELECT ad_id FROM ad_free_slots WHERE ad_id=$1 AND owner_user_id=$2`, [id, ad.ownerUserId]);
+        if (!existingSlot.rowCount) {
+          await client.query(`INSERT INTO ad_free_slots(ad_id,owner_user_id) VALUES($1,$2)`, [id, ad.ownerUserId]);
+        }
       }
       const nextStatus = decision === 'approved' ? 'active' : 'rejected';
       await client.query(`UPDATE ad_listings SET status=$2,rejection_reason=$3,revision=revision+1,

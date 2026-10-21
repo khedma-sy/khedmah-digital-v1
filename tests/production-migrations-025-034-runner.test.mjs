@@ -5,10 +5,10 @@ import test from 'node:test';
 const source = await readFile(new URL('../scripts/run-production-migrations-025-034.sh', import.meta.url), 'utf8');
 const workflow = await readFile(new URL('../.github/workflows/production-migrations-025-034.yml', import.meta.url), 'utf8');
 
-test('production migration runner is checksum-bound and lineage ordered through 036', () => {
+test('production migration runner is checksum-bound and lineage ordered through 037', () => {
   assert.match(source, /MIGRATION_SHA256 must be a lowercase SHA-256/);
   assert.match(source, /sha256sum -c -/);
-  for (const number of ['025','026','027','028','029','030','031','032','033','034','035','036']) {
+  for (const number of ['025','026','027','028','029','030','031','032','033','034','035','036','037']) {
     assert.match(source, new RegExp(`\\b${number}\\)\\s+MIGRATION_NAME=`));
   }
   for (const predecessor of [
@@ -58,7 +58,7 @@ test('migration lineage and replay guards are repeated after acquiring the share
 });
 
 
-test('025-036 workflow uses only the dedicated migration identity and elevated database secret', () => {
+test('025-037 workflow uses only the dedicated migration identity and elevated database secret', () => {
   assert.match(workflow, /OPERATIONS_MIGRATION_SERVICE_ACCOUNT/);
   assert.match(workflow, /--service-account "\$OPERATIONS_MIGRATION_SERVICE_ACCOUNT"/);
   assert.match(workflow, /gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL/);
@@ -69,14 +69,14 @@ test('025-036 workflow uses only the dedicated migration identity and elevated d
   assert.doesNotMatch(workflow, /DATABASE_URL=DATABASE_URL:latest/);
 });
 
-test('025-036 verifies the committed migration secret alias before backup evidence and build mutation', () => {
+test('025-037 verifies the committed migration secret alias before backup evidence and build mutation', () => {
   const alias = workflow.indexOf('gcloud secrets versions describe active --secret DATABASE_MIGRATION_URL');
   const backup = workflow.indexOf('gcloud sql backups describe');
   const build = workflow.indexOf('gcloud builds submit');
   assert.ok(alias >= 0 && backup > alias && build > backup);
 });
 
-test('025-036 backup and migration target are scoped to the protected project and region', () => {
+test('025-037 backup and migration target are scoped to the protected project and region', () => {
   const target = workflow.split('- name: Verify production target and recent backup')[1]
     ?.split('- name: Build checksum-bound migration image')[0] ?? '';
   const guard = '[[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]]';
@@ -107,4 +107,16 @@ test('migration 036 requires Classifieds 025 and verifies both rolling windows',
   assert.match(section, /enforce_ad_free_slot_limit/);
   assert.match(section, /interval ''24 hours''/);
   assert.match(section, /interval ''7 days''/);
+});
+
+test('migration 037 requires the canonical media and rolling-quota predecessors and verifies both evidence constraints', () => {
+  const section = source.split("037)")[1]?.split("*)")[0] ?? '';
+  assert.match(section, /media_assets/);
+  assert.match(section, /mobility_document_reviews/);
+  assert.match(section, /interval ''24 hours''/);
+  assert.match(section, /interval ''7 days''/);
+  assert.match(section, /media_assets_asset_type_check/);
+  assert.match(section, /business_verification_evidence/);
+  assert.match(section, /professional_verification_evidence/);
+  assert.match(section, /media_assets_verification_evidence_private_check/);
 });

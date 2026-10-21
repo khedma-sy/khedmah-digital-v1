@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
@@ -17,6 +19,7 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
   const previous=process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS;
   try {
     await resetCanonicalTestSchema(pool);
+    await pool.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/037_verification_evidence_media.sql'), 'utf8'));
     const identityRepo=new IdentityRepository(db);const now=new Date().toISOString();
     for(const id of ['review_owner','review_moderator']) {
       await identityRepo.saveAccount({id,email:`${id}@example.test`,passwordHash:'fixture-not-a-login',status:'active',createdAt:now,updatedAt:now});
@@ -33,6 +36,16 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
     assert.ok(category);
     const business=await businessService.create(undefined,{name:'نشاط مراجعة',categoryCode:category.code,cityCode:'damascus',countryCode:'SY'});
     const professional=await professionalService.createOrUpdate(undefined,{headlineAr:'مهني مراجعة',cityCode:'damascus',countryCode:'SY',skills:['خبرة']});
+    await db.query(
+      `INSERT INTO media_assets
+         (id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,public_url,asset_type,sort_order,created_at,updated_at)
+       VALUES
+         ('profile-review-business-evidence','review_owner','business_profile',$1,'business-proof.png','image/png',8,'private',
+          'verification/profile-review-business-proof.png',NULL,'business_verification_evidence',0,clock_timestamp(),clock_timestamp()),
+         ('profile-review-professional-evidence','review_owner','professional_profile',$2,'professional-proof.png','image/png',8,'private',
+          'verification/profile-review-professional-proof.png',NULL,'professional_verification_evidence',0,clock_timestamp(),clock_timestamp())`,
+      [business.id, professional.id]
+    );
     assert.equal((await professionalService.getMine(undefined)).contactEligibility?.lifecycleStatus,'created');
     for(const kind of ['business','professional'] as const){
       const id=kind==='business'?business.id:professional.id;

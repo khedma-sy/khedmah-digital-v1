@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Param, Post } from '@nestjs/common';
 import { TaxiOperationalApprovalService } from './taxi-operational-approval.service';
 
 @Controller('taxi-operational-approvals')
@@ -6,16 +6,22 @@ export class TaxiOperationalApprovalController {
   constructor(private readonly approvals: TaxiOperationalApprovalService) {}
 
   @Get('candidates')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   candidates(@Headers('cookie') cookie: string | undefined) {
     return this.approvals.listCandidates(cookie);
   }
 
   @Get(':businessProfileId')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   status(@Headers('cookie') cookie: string | undefined, @Param('businessProfileId') businessProfileId: string) {
     return this.approvals.status(cookie, businessProfileId);
   }
 
   @Post(':businessProfileId/approve')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   approve(
     @Headers('cookie') cookie: string | undefined,
     @Param('businessProfileId') businessProfileId: string,
@@ -25,6 +31,8 @@ export class TaxiOperationalApprovalController {
   }
 
   @Post(':businessProfileId/suspend')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   suspend(
     @Headers('cookie') cookie: string | undefined,
     @Param('businessProfileId') businessProfileId: string,
@@ -34,6 +42,8 @@ export class TaxiOperationalApprovalController {
   }
 
   @Post(':businessProfileId/revoke')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   revoke(
     @Headers('cookie') cookie: string | undefined,
     @Param('businessProfileId') businessProfileId: string,

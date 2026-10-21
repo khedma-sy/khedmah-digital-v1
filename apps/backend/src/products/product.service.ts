@@ -89,13 +89,17 @@ export class ProductService {
   async listPending(cookie: string | undefined) { await this.authorizeAdmin(cookie); return this.repository.listPending(); }
 
   async review(cookie: string | undefined, id: string, status: 'approved' | 'rejected', reason?: string, expectedRevision?: unknown) {
-    await this.authorizeAdmin(cookie);
+    if (status !== 'approved' && status !== 'rejected') throw new BadRequestException('Moderation status is invalid.');
     if (typeof expectedRevision !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(expectedRevision)) {
       throw new BadRequestException('حدّث قائمة المراجعة للحصول على نسخة المنتج الحالية.');
     }
-    if (status !== 'approved' && status !== 'rejected') throw new BadRequestException('Moderation status is invalid.');
+    if (status === 'rejected' && (typeof reason !== 'string' || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
+    const actor = await this.authorizeAdmin(cookie, status);
     const product = await this.repository.findById(id);
     if (!product) throw new NotFoundException('Product was not found.');
+    if (status === 'approved' && product.ownerUserId === actor.id) {
+      throw new ForbiddenException('A reviewer cannot approve their own product.');
+    }
     if (product.revision !== expectedRevision) throw new ConflictException('تغير المنتج أو صوره. حدّث قائمة المراجعة وراجع النسخة الحالية.');
     if (product.status !== 'active' || product.moderationStatus !== 'pending') throw new BadRequestException('Product is not awaiting moderation.');
     if (!await this.repository.hasPublicImage(id)) throw new BadRequestException('Product image is required.');
@@ -105,9 +109,8 @@ export class ProductService {
         throw new BadRequestException('Seller business must be public, approved, trusted, and active before product publication.');
       }
     }
-    if (status === 'rejected' && (typeof reason !== 'string' || reason.trim().length < 5)) throw new BadRequestException('A rejection reason is required.');
     const updated: ProductListing = { ...product, moderationStatus: status, rejectionReason: status === 'rejected' ? reason!.trim() : undefined, updatedAt: new Date().toISOString() };
-    return this.repository.update(updated, product.revision);
+    return this.repository.review(updated, product.revision, actor.id);
   }
 
   private assertCreateReplay(product: ProductListing, actorId: string, input: ReturnType<typeof validateProductWrite>): ProductListing {
@@ -121,9 +124,11 @@ export class ProductService {
     return product;
   }
 
-  private async authorizeAdmin(cookie: string | undefined) {
+  private async authorizeAdmin(cookie: string | undefined, decision?: 'approved' | 'rejected') {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    this.rbac.assert(actor.email, 'security.manage');
+    if (decision === 'rejected') this.rbac.assert(actor.email, 'security.manage');
+    else this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
+    return actor;
   }
 
   private async requireOwner(ownerUserId: string, id: string) {

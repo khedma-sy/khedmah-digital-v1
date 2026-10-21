@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
@@ -14,11 +16,12 @@ test('verification review is request-bound, revision-bound, audited, and never a
   const professional = 'professional_profile_verification_review_1234';
   const profile = 'profile_verification_review_1234';
   const identity = { getCurrentUser: async () => ({ id: reviewer, email: 'verification-reviewer@example.test' }) } as any;
-  const rbac = { assert: () => undefined } as any;
+  const rbac = { assert: () => undefined, assertAny: () => undefined } as any;
   const service = new VerificationReviewService(db, identity, rbac);
 
   try {
     await resetCanonicalTestSchema(pool);
+    await pool.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/037_verification_evidence_media.sql'), 'utf8'));
     await db.query(
       `INSERT INTO core_user_accounts
          (user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification)
@@ -49,6 +52,14 @@ test('verification review is request-bound, revision-bound, audited, and never a
        VALUES ($1,'نشاط للتحقق',$2,'public','pending','pending','active',$3,'damascus','SY')`,
       [business, owner, category.code]
     );
+    await db.query(
+      `INSERT INTO media_assets
+         (id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,public_url,asset_type,sort_order,created_at,updated_at)
+       VALUES
+         ('verification-business-evidence',$1,'business_profile',$2,'business-proof.png','image/png',8,'private','verification/business-proof.png',NULL,'business_verification_evidence',0,clock_timestamp(),clock_timestamp()),
+         ('verification-professional-evidence',$1,'professional_profile',$3,'professional-proof.png','image/png',8,'private','verification/professional-proof.png',NULL,'professional_verification_evidence',0,clock_timestamp(),clock_timestamp())`,
+      [owner, business, professional]
+    );
 
     await db.query(
       `INSERT INTO verification_requests (id,entity_type,entity_id,requester_id,status,created_at,updated_at)
@@ -63,7 +74,17 @@ test('verification review is request-bound, revision-bound, audited, and never a
       const pending = await service.listPending(undefined);
       assert.equal(pending.length, 2);
       assert.equal(pending.some((item) => item.requestId === 'verification-business-old'), false);
-      for (const item of pending) assert.match(item.profileRevision, /\.\d{6}Z$/);
+      for (const item of pending) {
+        assert.match(item.profileRevision, /\.\d{6}Z$/);
+        assert.equal(item.evidence.length, 1);
+        assert.equal(item.profileSummary.entityType, item.entityType);
+        assert.equal('ownerUserId' in item.profileSummary, false);
+        assert.equal('owner_user_id' in item.profileSummary, false);
+      }
+      const businessItem = pending.find((item) => item.entityType === 'business')!;
+      assert.equal(businessItem.profileSummary.entityType === 'business' && businessItem.profileSummary.categoryCode, category.code);
+      const professionalItem = pending.find((item) => item.entityType === 'professional')!;
+      assert.equal(professionalItem.profileSummary.entityType === 'professional' && professionalItem.profileSummary.headlineAr, 'مهني للمراجعة');
     });
 
     await t.test('an older request cannot be approved after a newer request exists', async () => {
@@ -74,6 +95,23 @@ test('verification review is request-bound, revision-bound, audited, and never a
       );
       const [row] = await db.query<{ status: string }>(`SELECT status FROM verification_requests WHERE id='verification-business-old'`);
       assert.equal(row.status, 'pending');
+    });
+
+    await t.test('an approval-only reviewer cannot approve their own verification request', async () => {
+      const current = (await service.listPending(undefined)).find((item) => item.entityType === 'business')!;
+      const ownerService = new VerificationReviewService(
+        db,
+        { getCurrentUser: async () => ({ id: owner, email: 'owner-reviewer@example.test' }) } as any,
+        rbac
+      );
+      await assert.rejects(
+        ownerService.approve(undefined, current.requestId, current.profileRevision, 'Owner cannot attest their own verification evidence.'),
+        ForbiddenException
+      );
+      const [request] = await db.query<{ status: string; reviewed_by: string | null }>(
+        `SELECT status,reviewed_by FROM verification_requests WHERE id=$1`, [current.requestId]
+      );
+      assert.deepEqual(request, { status: 'pending', reviewed_by: null });
     });
 
     await t.test('business approval commits exact request, reviewer, audit, and trust without changing moderation', async () => {
@@ -157,9 +195,28 @@ test('verification review is request-bound, revision-bound, audited, and never a
       const denied = new VerificationReviewService(
         db,
         identity,
-        { assert: () => { throw new ForbiddenException('denied'); } } as any
+        {
+          assert: () => { throw new ForbiddenException('denied'); },
+          assertAny: () => { throw new ForbiddenException('denied'); }
+        } as any
       );
       await assert.rejects(denied.listPending(undefined), ForbiddenException);
+    });
+
+    await t.test('bounded trust approval permission cannot reject verification requests', async () => {
+      const approvalOnly = new VerificationReviewService(
+        db,
+        identity,
+        {
+          assertAny: () => undefined,
+          assert: () => { throw new ForbiddenException('security.manage required'); }
+        } as any
+      );
+      const current = (await service.listPending(undefined)).find((item) => item.requestId === 'verification-professional-next')!;
+      await assert.rejects(
+        approvalOnly.reject(undefined, current.requestId, current.profileRevision, 'Only security operations can reject this request.'),
+        ForbiddenException
+      );
     });
   } finally {
     await pool.end();

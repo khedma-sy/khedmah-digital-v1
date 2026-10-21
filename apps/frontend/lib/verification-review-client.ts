@@ -9,6 +9,28 @@ export interface VerificationReviewItem {
   readonly label: string;
   readonly profileRevision: string;
   readonly createdAt: string;
+  readonly evidence: readonly VerificationEvidenceItem[];
+  readonly profileSummary: VerificationProfileSummary;
+}
+
+export type VerificationProfileSummary =
+  | {
+      readonly entityType: 'business'; readonly name: string; readonly descriptionAr?: string; readonly descriptionEn?: string;
+      readonly categoryCode: string; readonly cityCode: string; readonly phone?: string; readonly email?: string;
+      readonly website?: string; readonly addressAr?: string;
+    }
+  | {
+      readonly entityType: 'professional'; readonly headlineAr: string; readonly headlineEn?: string; readonly bioAr?: string;
+      readonly bioEn?: string; readonly skills: readonly string[]; readonly cityCode: string; readonly countryCode: string;
+    };
+
+export interface VerificationEvidenceItem {
+  readonly id: string;
+  readonly filename: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly createdAt: string;
+  readonly secureUrl: string;
 }
 
 export interface VerificationReviewResult extends VerificationReviewItem {

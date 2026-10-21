@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../../../lib/api-client';
 import {
   taxiOperationalReviewApi,
   type TaxiDocumentStatus,
@@ -49,6 +50,8 @@ const isOperationalExpired = (candidate: TaxiOperationalCandidate) => candidate.
   && Number.isFinite(operationalExpiry(candidate)) && operationalExpiry(candidate) <= Date.now();
 const isOperationalEligible = (candidate: TaxiOperationalCandidate) => candidate.operationalStatus === 'approved'
   && candidate.profileReady && Number.isFinite(operationalExpiry(candidate)) && operationalExpiry(candidate) > Date.now();
+const requiresSecurityForOperationalApproval = (candidate: TaxiOperationalCandidate) =>
+  candidate.operationalStatus === 'suspended' || candidate.operationalStatus === 'revoked';
 
 export default function TaxiDriversAdminPage() {
   const router = useRouter();
@@ -67,16 +70,35 @@ export default function TaxiDriversAdminPage() {
   const [decisionReason, setDecisionReason] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [saving, setSaving] = useState(false);
+  const [hasSecurityAuthority, setHasSecurityAuthority] = useState(false);
   const requestSequence = useRef(0);
   const actionInFlight = useRef(false);
 
   const loadCandidates = useCallback(async () => {
     const request = ++requestSequence.current;
     setLoading(true);
+    setHasSecurityAuthority(false);
+    setDocumentDialog((current) => current && (current.decision === 'rejected' || current.document.reviewStatus === 'rejected') ? null : current);
+    setOperationalDialog((current) => current && (current.action !== 'approve' || requiresSecurityForOperationalApproval(current.candidate)) ? null : current);
     try {
-      const result = await taxiOperationalReviewApi.candidates();
+      const [result, securityAuthority] = await Promise.all([
+        taxiOperationalReviewApi.candidates(),
+        (async () => {
+          try {
+            const { operationsProduct } = await api.operationsProduct.overview();
+            return operationsProduct.permissions.includes('security.manage');
+          } catch {
+            return false;
+          }
+        })()
+      ]);
       if (request !== requestSequence.current) return;
       setCandidates(result);
+      setHasSecurityAuthority(securityAuthority);
+      if (!securityAuthority) {
+        setDocumentDialog((current) => current && (current.decision === 'rejected' || current.document.reviewStatus === 'rejected') ? null : current);
+        setOperationalDialog((current) => current && (current.action !== 'approve' || requiresSecurityForOperationalApproval(current.candidate)) ? null : current);
+      }
       setError('');
       setSelected((current) => current ? result.find((candidate) => candidate.businessProfileId === current.businessProfileId) ?? null : null);
     } catch (cause) {
@@ -100,9 +122,10 @@ export default function TaxiDriversAdminPage() {
   const metrics = useMemo(() => ({
     total: candidates.length,
     documentsReady: candidates.filter((candidate) => candidate.documentsApproved).length,
-    readyForApproval: candidates.filter((candidate) => candidate.documentsApproved && candidate.profileReady && !isOperationalEligible(candidate)).length,
+    readyForApproval: candidates.filter((candidate) => candidate.documentsApproved && candidate.profileReady && !isOperationalEligible(candidate)
+      && (hasSecurityAuthority || !requiresSecurityForOperationalApproval(candidate))).length,
     operational: candidates.filter(isOperationalEligible).length
-  }), [candidates]);
+  }), [candidates, hasSecurityAuthority]);
 
   const latestDocuments = useMemo(() => documentTypes.flatMap((type) => {
     const matching = documents
@@ -128,13 +151,16 @@ export default function TaxiDriversAdminPage() {
   }
 
   function openDocumentDecision(document: TaxiDriverDocument, decision: 'approved' | 'rejected') {
-    if (saving) return;
+    if (saving || (decision === 'rejected' && !hasSecurityAuthority)) return;
+    if (decision === 'approved' && document.reviewStatus === 'rejected' && !hasSecurityAuthority) return;
     setDocumentReason('');
     setDocumentDialog({ document, decision });
   }
 
   async function saveDocumentDecision() {
     if (!documentDialog || actionInFlight.current) return;
+    if (documentDialog.decision === 'rejected' && !hasSecurityAuthority) return;
+    if (documentDialog.decision === 'approved' && documentDialog.document.reviewStatus === 'rejected' && !hasSecurityAuthority) return;
     if (documentDialog.decision === 'rejected' && documentReason.trim().length < 5) return;
     actionInFlight.current = true;
     setSaving(true);
@@ -161,7 +187,8 @@ export default function TaxiDriversAdminPage() {
   }
 
   function openOperationalDecision(candidate: TaxiOperationalCandidate, action: OperationalDialog['action']) {
-    if (saving) return;
+    if (saving || (action !== 'approve' && !hasSecurityAuthority)) return;
+    if (action === 'approve' && requiresSecurityForOperationalApproval(candidate) && !hasSecurityAuthority) return;
     setOperationalDialog({ candidate, action });
     setZoneCode(candidate.zoneCode ?? candidate.cityCode ?? '');
     setVerificationReference('');
@@ -185,6 +212,8 @@ export default function TaxiDriversAdminPage() {
 
   async function saveOperationalDecision() {
     if (!operationalDialog || actionInFlight.current) return;
+    if (operationalDialog.action !== 'approve' && !hasSecurityAuthority) return;
+    if (operationalDialog.action === 'approve' && requiresSecurityForOperationalApproval(operationalDialog.candidate) && !hasSecurityAuthority) return;
     const reference = verificationReference.trim();
     const reason = decisionReason.trim();
     if (reference.length < 5 || reason.length < 10) return;
@@ -201,12 +230,16 @@ export default function TaxiDriversAdminPage() {
           zoneCode: zoneCode.trim(),
           verificationReference: reference,
           reason,
-          expiresAt: expiry.toISOString()
+          expiresAt: expiry.toISOString(),
+          expectedDriverRevision: candidate.driverRevision,
+          expectedVehicleRevision: candidate.vehicleRevision
         });
       } else {
         await taxiOperationalReviewApi.restrict(candidate.businessProfileId, action, {
           verificationReference: reference,
-          reason
+          reason,
+          expectedDriverRevision: candidate.driverRevision,
+          expectedVehicleRevision: candidate.vehicleRevision
         });
       }
       resetOperationalDialog();
@@ -260,7 +293,9 @@ export default function TaxiDriversAdminPage() {
 
     <section className="operations-panel">
       <h2>حدود التشغيل الحالية</h2>
-      <p>هذه الشاشة تمنح أو تعلق أو تلغي سلطة السائق والسيارة والمنطقة فقط. أهلية الربط تتطلب أيضًا ملف Taxi منشورًا ومعتمدًا وموثوقًا ونشطًا واعتمادًا غير منتهي. استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة حتى اعتماد طبقة الرحلات والإثباتات الموثوقة.</p>
+      <p>{hasSecurityAuthority
+        ? 'هذه الشاشة تمنح أو تعلق أو تلغي سلطة السائق والسيارة والمنطقة فقط. أهلية الربط تتطلب أيضًا ملف Taxi منشورًا ومعتمدًا وموثوقًا ونشطًا واعتمادًا غير منتهي. استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة حتى اعتماد طبقة الرحلات والإثباتات الموثوقة.'
+        : 'هذه الشاشة تتيح اعتماد أو تجديد سلطة السائق والسيارة والمنطقة فقط. أهلية الربط تتطلب أيضًا ملف Taxi منشورًا ومعتمدًا وموثوقًا ونشطًا واعتمادًا غير منتهي. استقبال الرحلات والـdispatch يظلان خلف بوابة تشغيل مستقلة حتى اعتماد طبقة الرحلات والإثباتات الموثوقة.'}</p>
     </section>
 
     {error && <p className="moderation-feedback error" role="alert">{error} <button type="button" onClick={() => void loadCandidates()}>إعادة المحاولة</button></p>}
@@ -270,7 +305,9 @@ export default function TaxiDriversAdminPage() {
       <div className="panel-heading"><h2 id="taxi-driver-queue-title">طابور ملفات التكسي</h2><span>{candidates.length}</span></div>
       {candidates.length === 0 ? <p className={styles.empty}>لا توجد ملفات تكسي بانتظار أو تحت الاعتماد حاليًا.</p> : <div className="moderation-list">
         {candidates.map((candidate) => {
-          const canApprove = candidate.profileReady && candidate.documentsApproved;
+          const securityOnlyReapproval = requiresSecurityForOperationalApproval(candidate);
+          const baseApprovalReady = candidate.profileReady && candidate.documentsApproved;
+          const canApprove = baseApprovalReady && (hasSecurityAuthority || !securityOnlyReapproval);
           const eligible = isOperationalEligible(candidate);
           const expired = isOperationalExpired(candidate);
           const profileBlocked = candidate.operationalStatus === 'approved' && !candidate.profileReady;
@@ -297,13 +334,14 @@ export default function TaxiDriversAdminPage() {
               {candidate.expiresAt && <p><small>انتهاء الاعتماد: {new Date(candidate.expiresAt).toLocaleString('ar-SY')}</small></p>}
               {expired && <p className={styles.blocker}>انتهت صلاحية الاعتماد. لا توجد أهلية ربط حتى تسجيل قرار تجديد صالح.</p>}
               {profileBlocked && <p className={styles.blocker}>الاعتماد المسجل لا يكفي: ملف Taxi لم يعد public + approved moderation + approved trust + active، لذلك بوابة السائق مغلقة.</p>}
-              {!canApprove && <p className={styles.blocker}>لا يمكن الاعتماد حتى تصبح أحدث الوثائق الأربع معتمدة ويصبح ملف النشاط public + approved moderation + approved trust + active.</p>}
+              {!hasSecurityAuthority && securityOnlyReapproval && <p className={styles.blocker}>إعادة اعتماد ملف تكسي معلّق أو ملغى تتطلب مراجعة مسؤول الأمن.</p>}
+              {!baseApprovalReady && <p className={styles.blocker}>لا يمكن الاعتماد حتى تصبح أحدث الوثائق الأربع معتمدة ويصبح ملف النشاط public + approved moderation + approved trust + active.</p>}
             </div>
             <div className="moderation-actions">
               <button type="button" disabled={saving} onClick={() => void openDocuments(candidate)}>مراجعة المستندات</button>
               <button type="button" className="moderation-approve" disabled={saving || !canApprove} onClick={() => openOperationalDecision(candidate, 'approve')}>{candidate.operationalStatus === 'approved' ? 'تجديد الاعتماد' : 'اعتماد تشغيلي'}</button>
-              {candidate.operationalStatus === 'approved' && <button type="button" disabled={saving} onClick={() => openOperationalDecision(candidate, 'suspend')}>تعليق</button>}
-              {(candidate.operationalStatus === 'approved' || candidate.operationalStatus === 'suspended') && <button type="button" className="moderation-reject" disabled={saving} onClick={() => openOperationalDecision(candidate, 'revoke')}>إلغاء الاعتماد</button>}
+              {hasSecurityAuthority && candidate.operationalStatus === 'approved' && <button type="button" disabled={saving} onClick={() => openOperationalDecision(candidate, 'suspend')}>تعليق</button>}
+              {hasSecurityAuthority && (candidate.operationalStatus === 'approved' || candidate.operationalStatus === 'suspended') && <button type="button" className="moderation-reject" disabled={saving} onClick={() => openOperationalDecision(candidate, 'revoke')}>إلغاء الاعتماد</button>}
             </div>
           </article>;
         })}
@@ -325,8 +363,8 @@ export default function TaxiDriversAdminPage() {
             </div>
             <div className="moderation-actions">
               <a href={document.secureUrl} target="_blank" rel="noreferrer">فتح المستند الخاص</a>
-              <button type="button" className="moderation-approve" disabled={saving || document.reviewStatus === 'approved'} onClick={() => openDocumentDecision(document, 'approved')}>اعتماد</button>
-              <button type="button" className="moderation-reject" disabled={saving} onClick={() => openDocumentDecision(document, 'rejected')}>رفض</button>
+              {hasSecurityAuthority || document.reviewStatus !== 'rejected' ? <button type="button" className="moderation-approve" disabled={saving || document.reviewStatus === 'approved'} onClick={() => openDocumentDecision(document, 'approved')}>اعتماد</button> : <p className={styles.blocker}>ارفع نسخة جديدة بعد الرفض، أو اطلب مراجعة مسؤول الأمن.</p>}
+              {hasSecurityAuthority && <button type="button" className="moderation-reject" disabled={saving} onClick={() => openDocumentDecision(document, 'rejected')}>رفض</button>}
             </div>
           </article>;
         })}

@@ -1,7 +1,19 @@
 export type MediaOwnerType = 'business_profile' | 'professional_profile' | 'product_listing' | 'user';
 export type MediaVisibility = 'public' | 'private';
 export type MediaMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
-export type MediaAssetType = 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image' | 'driver_photo' | 'identity_card' | 'driving_license' | 'vehicle_license';
+export type MediaAssetType =
+  | 'logo'
+  | 'cover'
+  | 'gallery'
+  | 'profile_image'
+  | 'service_image'
+  | 'product_image'
+  | 'business_verification_evidence'
+  | 'professional_verification_evidence'
+  | 'driver_photo'
+  | 'identity_card'
+  | 'driving_license'
+  | 'vehicle_license';
 
 export interface MediaAsset {
   readonly id: string;

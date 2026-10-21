@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TaxiOperationalApprovalService } from './taxi-operational-approval.service';
@@ -32,15 +32,17 @@ function serviceHarness(options: {
   driverApproval?: Record<string, unknown>;
   vehicleApproval?: Record<string, unknown>;
   denyRbac?: boolean;
+  approvalOnly?: boolean;
   concurrentDriverConflict?: boolean;
 } = {}) {
   const writes: Array<{ sql: string; params?: readonly unknown[] }> = [];
+  const rbacCalls: Array<{ kind: 'one' | 'any'; permissions: readonly string[] }> = [];
   const selectedBusiness = options.business ?? business;
   const documents = options.documents ?? approvedDocuments;
   const client = {
     async query(sql: string, params?: readonly unknown[]) {
       if (sql.includes('FROM business_profiles') && sql.includes('FOR UPDATE')) return { rows: [selectedBusiness] };
-      if (sql.includes('FROM mobility_document_reviews')) return { rows: documents };
+      if (sql.includes('latest_assets') && sql.includes('mobility_document_reviews')) return { rows: documents };
       if (sql.includes('FROM khedmah_taxi.vehicle_approvals') && sql.includes('FOR UPDATE')) return { rows: options.vehicleApproval ? [options.vehicleApproval] : [] };
       if (sql.includes('FROM khedmah_taxi.driver_approvals') && sql.includes('FOR UPDATE')) return { rows: options.driverApproval ? [options.driverApproval] : [] };
       writes.push({ sql, params });
@@ -58,16 +60,27 @@ function serviceHarness(options: {
     async transaction<T>(work: (transactionClient: typeof client) => Promise<T>) { return work(client); }
   };
   const identity = { async getCurrentUser() { return options.actor ?? admin; } };
-  const rbac = { assert() { if (options.denyRbac) throw new ForbiddenException('denied'); } };
+  const rbac = {
+    assert(_email: string, permission: string) {
+      rbacCalls.push({ kind: 'one', permissions: [permission] });
+      if (options.denyRbac || options.approvalOnly) throw new ForbiddenException('denied');
+    },
+    assertAny(_email: string, permissions: readonly string[]) {
+      rbacCalls.push({ kind: 'any', permissions });
+      if (options.denyRbac) throw new ForbiddenException('denied');
+    }
+  };
   const service = new TaxiOperationalApprovalService(db as never, identity as never, rbac as never);
-  return { service, writes };
+  return { service, writes, rbacCalls };
 }
 
-const approvalInput = () => ({
+const approvalInput = (expectedDriverRevision = '0', expectedVehicleRevision = '0') => ({
   zoneCode: 'damascus-central',
   verificationReference: 'review-case-1001',
   reason: 'All identity, driving and vehicle requirements were reviewed by Khedmah operations.',
-  expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  expectedDriverRevision,
+  expectedVehicleRevision
 });
 
 test('Taxi operational approval is unavailable until canonical Migration 031 is present', async () => {
@@ -75,10 +88,28 @@ test('Taxi operational approval is unavailable until canonical Migration 031 is 
   await assert.rejects(service.approve('session=example', business.id, approvalInput()), ServiceUnavailableException);
 });
 
-test('Taxi operational candidate queue and decisions remain security.manage gated', async () => {
+test('Taxi candidate queue and approval accept only security or bounded mobility approval authority', async () => {
   const { service } = serviceHarness({ denyRbac: true });
   await assert.rejects(service.listCandidates('session=example'), ForbiddenException);
   await assert.rejects(service.approve('session=example', business.id, approvalInput()), ForbiddenException);
+});
+
+test('bounded mobility authority can approve but cannot suspend or revoke Taxi operations', async () => {
+  const { service, rbacCalls } = serviceHarness({ approvalOnly: true });
+  const result = await service.approve('session=example', business.id, approvalInput());
+  assert.equal(result.status, 'approved');
+  assert.deepEqual(rbacCalls[0], {
+    kind: 'any',
+    permissions: ['security.manage', 'mobility.approvals.approve']
+  });
+  await assert.rejects(
+    service.restrict('session=example', business.id, 'suspended', {
+      verificationReference: 'review-case-1002',
+      reason: 'Security restriction requires the broader security permission.'
+    }),
+    ForbiddenException
+  );
+  assert.deepEqual(rbacCalls.at(-1), { kind: 'one', permissions: ['security.manage'] });
 });
 
 test('a reviewer can never operationally approve their own Taxi profile', async () => {
@@ -114,9 +145,36 @@ test('Taxi activation increments existing approval revisions instead of replacin
     vehicleApproval: { business_profile_id: business.id, driver_user_id: owner.id, id: `taxi_vehicle_${business.id}`, status: 'approved', revision: '7', expires_at: new Date(Date.now() + 100000) },
     driverApproval: { business_profile_id: business.id, user_id: owner.id, vehicle_id: `taxi_vehicle_${business.id}`, zone_code: 'old-zone', status: 'approved', revision: '9', expires_at: new Date(Date.now() + 100000) }
   });
-  const result = await service.approve('session=example', business.id, approvalInput());
+  const result = await service.approve('session=example', business.id, approvalInput('9', '7'));
   assert.equal(result.vehicleRevision, '8');
   assert.equal(result.driverRevision, '10');
+});
+
+test('bounded mobility authority cannot reactivate suspended or revoked Taxi approvals', async () => {
+  const { service, writes, rbacCalls } = serviceHarness({
+    approvalOnly: true,
+    vehicleApproval: { business_profile_id: business.id, driver_user_id: owner.id, id: `taxi_vehicle_${business.id}`, status: 'revoked', revision: '7', expires_at: new Date(Date.now() + 100000) },
+    driverApproval: { business_profile_id: business.id, user_id: owner.id, vehicle_id: `taxi_vehicle_${business.id}`, zone_code: 'old-zone', status: 'suspended', revision: '9', expires_at: new Date(Date.now() + 100000) }
+  });
+  await assert.rejects(
+    service.approve('session=example', business.id, approvalInput('9', '7')),
+    ForbiddenException
+  );
+  assert.equal(writes.length, 0);
+  assert.deepEqual(rbacCalls.at(-1), { kind: 'one', permissions: ['security.manage'] });
+});
+
+test('security authority can explicitly reactivate suspended or revoked Taxi approvals', async () => {
+  const { service, writes, rbacCalls } = serviceHarness({
+    vehicleApproval: { business_profile_id: business.id, driver_user_id: owner.id, id: `taxi_vehicle_${business.id}`, status: 'revoked', revision: '7', expires_at: new Date(Date.now() + 100000) },
+    driverApproval: { business_profile_id: business.id, user_id: owner.id, vehicle_id: `taxi_vehicle_${business.id}`, zone_code: 'old-zone', status: 'suspended', revision: '9', expires_at: new Date(Date.now() + 100000) }
+  });
+  const result = await service.approve('session=example', business.id, approvalInput('9', '7'));
+  assert.equal(result.status, 'approved');
+  assert.equal(result.vehicleRevision, '8');
+  assert.equal(result.driverRevision, '10');
+  assert.equal(writes.length, 3);
+  assert.deepEqual(rbacCalls.at(-1), { kind: 'one', permissions: ['security.manage'] });
 });
 
 test('one driver cannot silently activate a second Taxi business profile', async () => {
@@ -130,4 +188,47 @@ test('a driver binding created after the precheck rejects approval before the au
   const { service, writes } = serviceHarness({ concurrentDriverConflict: true });
   await assert.rejects(service.approve('session=example', business.id, approvalInput()), ConflictException);
   assert.equal(writes.some(write => write.sql.includes('INSERT INTO khedmah_taxi.operational_approval_events')), false);
+});
+
+test('Taxi approval requires explicit canonical expected revisions', async () => {
+  const { service, writes } = serviceHarness();
+  const input = approvalInput() as Record<string, unknown>;
+  delete input.expectedDriverRevision;
+  await assert.rejects(service.approve('session=example', business.id, input), BadRequestException);
+  assert.equal(writes.length, 0);
+
+  await assert.rejects(
+    service.approve('session=example', business.id, { ...approvalInput(), expectedVehicleRevision: '01' }),
+    BadRequestException
+  );
+  assert.equal(writes.length, 0);
+});
+
+test('Taxi approval rejects a stale reviewed revision under row locks before any write', async () => {
+  const { service, writes } = serviceHarness({
+    vehicleApproval: { business_profile_id: business.id, driver_user_id: owner.id, id: `taxi_vehicle_${business.id}`, status: 'approved', revision: '7', expires_at: new Date(Date.now() + 100000) },
+    driverApproval: { business_profile_id: business.id, user_id: owner.id, vehicle_id: `taxi_vehicle_${business.id}`, zone_code: 'old-zone', status: 'approved', revision: '9', expires_at: new Date(Date.now() + 100000) }
+  });
+  await assert.rejects(
+    service.approve('session=example', business.id, approvalInput('8', '7')),
+    ConflictException
+  );
+  assert.equal(writes.length, 0);
+});
+
+test('Taxi restriction rejects a stale reviewed revision under row locks before any write', async () => {
+  const { service, writes } = serviceHarness({
+    vehicleApproval: { business_profile_id: business.id, driver_user_id: owner.id, id: `taxi_vehicle_${business.id}`, status: 'approved', revision: '7', expires_at: new Date(Date.now() + 100000) },
+    driverApproval: { business_profile_id: business.id, user_id: owner.id, vehicle_id: `taxi_vehicle_${business.id}`, zone_code: 'old-zone', status: 'approved', revision: '9', expires_at: new Date(Date.now() + 100000) }
+  });
+  await assert.rejects(
+    service.restrict('session=example', business.id, 'suspended', {
+      verificationReference: 'review-case-1003',
+      reason: 'Security restriction based on the reviewed operational state.',
+      expectedDriverRevision: '9',
+      expectedVehicleRevision: '6'
+    }),
+    ConflictException
+  );
+  assert.equal(writes.length, 0);
 });

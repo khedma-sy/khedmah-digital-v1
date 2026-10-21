@@ -1,8 +1,9 @@
 import { PROFESSIONAL_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeProfessionalSuspension } from '../moderation/profile-review-write';
-import { MediaAsset, ProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
+import { MediaAsset, ProfessionalProfile, ProfessionalProfileModerationRecord, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
+import type { ServiceListing } from '../service-catalog/service-catalog.types';
 
 interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly id: string;
@@ -22,6 +23,7 @@ interface ProfessionalProfileRow extends Record<string, unknown> {
   readonly revision: string;
   readonly content_revision: string;
   readonly review_image_urls?: string[];
+  readonly review_service_listings?: ServiceListing[];
 }
 
 @Injectable()
@@ -169,15 +171,28 @@ export class ProfessionalProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async listPendingModeration(): Promise<ProfessionalProfile[]> {
+  async listPendingModeration(): Promise<ProfessionalProfileModerationRecord[]> {
     const rows = await this.db.query<ProfessionalProfileRow>(
       `SELECT professional_profile_identifier AS id, user_identifier AS user_id, headline_ar, headline_en, bio_ar, bio_en, availability, city_code, country_code, skills, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision,
-              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='professional_profile' AND m.owner_id=professional_profiles.professional_profile_identifier AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls
-       FROM professional_profiles
+              COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='professional_profile' AND m.owner_id=p.professional_profile_identifier AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+                  'id',sl.id,'ownerType',sl.owner_type,'ownerId',sl.owner_id,
+                  'titleAr',sl.title_ar,'titleEn',sl.title_en,
+                  'descriptionAr',sl.description_ar,'descriptionEn',sl.description_en,
+                  'categoryCode',sl.category_code,
+                  'categoryNameAr',(SELECT c.name_ar FROM categories c WHERE c.code=sl.category_code),
+                  'price',sl.price,'priceCurrency',sl.price_currency,'priceType',sl.price_type,
+                  'status',sl.status,'isFeatured',COALESCE(sl.is_featured,FALSE),'featuredAt',sl.featured_at,
+                  'createdAt',sl.created_at,'updatedAt',sl.updated_at
+                )) ORDER BY sl.created_at,sl.id)
+                FROM service_listings sl WHERE sl.owner_type='professional' AND sl.owner_id=p.professional_profile_identifier
+              ),'[]'::jsonb) AS review_service_listings
+       FROM professional_profiles p
        WHERE moderation_status = 'pending'
        ORDER BY created_at ASC`
     );
-    return rows.map((row) => this.map(row));
+    return rows.map((row) => this.mapModerationRecord(row));
   }
 
   async updateModerationStatus(id: string, moderationStatus: string, updatedAt: string): Promise<void> {
@@ -220,6 +235,18 @@ export class ProfessionalProfileRepository {
     };
   }
 
+  private mapModerationRecord(row: ProfessionalProfileRow): ProfessionalProfileModerationRecord {
+    const profile = this.map(row);
+    return {
+      ...profile,
+      reviewSnapshot: {
+        exactRevision: row.revision,
+        reviewImageUrls: row.review_image_urls ?? [],
+        serviceListings: row.review_service_listings ?? []
+      }
+    };
+  }
+
   async saveMediaAsset(asset: MediaAsset): Promise<void> {
     await this.db.query(
       `INSERT INTO media_assets
@@ -243,7 +270,7 @@ export class ProfessionalProfileRepository {
       `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
               public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 AND visibility='public' ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -267,6 +294,15 @@ export class ProfessionalProfileRepository {
         `SELECT user_identifier FROM professional_profiles WHERE professional_profile_identifier=$1 FOR UPDATE`,[req.entityId]);
       if (!parent.rows[0]) throw new NotFoundException('Professional profile not found.');
       if (parent.rows[0].user_identifier !== req.requesterId) throw new ForbiddenException('Access denied');
+      const evidence = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM media_assets
+         WHERE owner_type='professional_profile' AND owner_id=$1
+           AND asset_type='professional_verification_evidence' AND visibility='private'`,
+        [req.entityId]
+      );
+      const evidenceCount = evidence.rows[0]?.count ?? 0;
+      if (evidenceCount < 1) throw new BadRequestException('أضف صورة إثبات واحدة على الأقل قبل طلب التحقق.');
+      if (evidenceCount > 3) throw new BadRequestException('يجب ألا تتجاوز صور إثبات التحقق 3 صور.');
       const result = await client.query(
         `SELECT * FROM verification_requests WHERE entity_type='professional' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,[req.entityId]);
       const existing = result.rows[0];

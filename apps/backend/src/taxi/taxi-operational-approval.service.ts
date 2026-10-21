@@ -63,8 +63,8 @@ export interface TaxiOperationalCandidate {
   readonly operationalStatus?: OperationalStatus;
   readonly zoneCode?: string;
   readonly expiresAt?: string;
-  readonly driverRevision?: string;
-  readonly vehicleRevision?: string;
+  readonly driverRevision: string;
+  readonly vehicleRevision: string;
 }
 
 @Injectable()
@@ -77,7 +77,7 @@ export class TaxiOperationalApprovalService {
 
   async listCandidates(cookieHeader: string | undefined): Promise<TaxiOperationalCandidate[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'mobility.approvals.approve']);
     await this.assertSchemaReady();
     const businesses = await this.db.query<BusinessRow>(
       `SELECT id,name,owner_user_id,city_code,visibility,moderation_status,trust_status,status
@@ -98,18 +98,22 @@ export class TaxiOperationalApprovalService {
       [businessProfileId]
     );
     if (!business) throw new NotFoundException('Taxi business profile was not found.');
-    if (business.owner_user_id !== actor.id) this.rbac.assert(actor.email, 'security.manage');
+    if (business.owner_user_id !== actor.id) {
+      this.rbac.assertAny(actor.email, ['security.manage', 'mobility.approvals.approve']);
+    }
     return this.buildCandidate(business);
   }
 
   async approve(cookieHeader: string | undefined, businessProfileId: string, input: Record<string, unknown>) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'mobility.approvals.approve']);
     await this.assertSchemaReady();
     const zoneCode = this.zoneCode(input.zoneCode);
     const verificationReference = this.reference(input.verificationReference);
     const reason = this.reason(input.reason);
     const expiresAt = this.expiry(input.expiresAt);
+    const expectedDriverRevision = this.expectedRevision(input.expectedDriverRevision, 'driver');
+    const expectedVehicleRevision = this.expectedRevision(input.expectedVehicleRevision, 'vehicle');
 
     return this.db.transaction(async (client) => {
       const business = await this.lockBusiness(client, businessProfileId);
@@ -134,11 +138,20 @@ export class TaxiOperationalApprovalService {
       );
       const currentVehicle = vehicle.rows[0];
       const currentDriver = driver.rows[0];
+      this.assertExpectedRevisions(
+        currentDriver,
+        currentVehicle,
+        expectedDriverRevision,
+        expectedVehicleRevision
+      );
       if (currentVehicle?.driver_user_id && currentVehicle.driver_user_id !== business.owner_user_id) {
         throw new ConflictException('Taxi vehicle approval belongs to another driver.');
       }
       if (currentDriver?.business_profile_id && currentDriver.business_profile_id !== business.id) {
         throw new ConflictException('This driver already has another Taxi operational profile.');
+      }
+      if ([currentVehicle?.status, currentDriver?.status].some((status) => status === 'suspended' || status === 'revoked')) {
+        this.rbac.assert(actor.email, 'security.manage');
       }
       const vehicleRevision = BigInt(currentVehicle?.revision ?? '0') + 1n;
       const driverRevision = BigInt(currentDriver?.revision ?? '0') + 1n;
@@ -206,6 +219,8 @@ export class TaxiOperationalApprovalService {
     await this.assertSchemaReady();
     const verificationReference = this.reference(input.verificationReference);
     const reason = this.reason(input.reason);
+    const expectedDriverRevision = this.expectedRevision(input.expectedDriverRevision, 'driver');
+    const expectedVehicleRevision = this.expectedRevision(input.expectedVehicleRevision, 'vehicle');
 
     return this.db.transaction(async (client) => {
       const business = await this.lockBusiness(client, businessProfileId);
@@ -222,6 +237,12 @@ export class TaxiOperationalApprovalService {
       );
       const currentVehicle = vehicle.rows[0];
       const currentDriver = driver.rows[0];
+      this.assertExpectedRevisions(
+        currentDriver,
+        currentVehicle,
+        expectedDriverRevision,
+        expectedVehicleRevision
+      );
       if (!currentVehicle || !currentDriver || !currentDriver.zone_code || !currentDriver.vehicle_id) {
         throw new ConflictException('Taxi operational approval does not exist.');
       }
@@ -305,21 +326,24 @@ export class TaxiOperationalApprovalService {
       operationalStatus: driver?.status,
       zoneCode: driver?.zone_code,
       expiresAt: driver?.expires_at?.toISOString(),
-      driverRevision: driver?.revision,
-      vehicleRevision: vehicle?.revision
+      driverRevision: driver?.revision ?? '0',
+      vehicleRevision: vehicle?.revision ?? '0'
     };
   }
 
   private latestDocumentsSql(): string {
-    return `SELECT DISTINCT ON (r.document_type)
-         r.document_type,r.status,r.media_asset_id,m.created_at
-       FROM mobility_document_reviews r
-       JOIN media_assets m ON m.id=r.media_asset_id
-       WHERE r.business_profile_id=$1
-         AND m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private'
-         AND m.asset_type=r.document_type
-         AND r.document_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
-       ORDER BY r.document_type,m.created_at DESC,m.id DESC`;
+    return `WITH latest_assets AS (
+         SELECT DISTINCT ON (m.asset_type)
+           m.id AS media_asset_id,m.asset_type AS document_type,m.created_at
+         FROM media_assets m
+         WHERE m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private'
+           AND m.asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+         ORDER BY m.asset_type,m.created_at DESC,m.id DESC
+       )
+       SELECT a.document_type,COALESCE(r.status,'pending') AS status,a.media_asset_id,a.created_at
+       FROM latest_assets a
+       LEFT JOIN mobility_document_reviews r ON r.media_asset_id=a.media_asset_id
+       ORDER BY a.document_type`;
   }
 
   private latestDocumentsFromPool(businessProfileId: string): Promise<LatestDocumentRow[]> {
@@ -384,6 +408,30 @@ export class TaxiOperationalApprovalService {
       throw new BadRequestException('Taxi operational expiry must be between one hour and two years from now.');
     }
     return date;
+  }
+
+  private expectedRevision(value: unknown, subject: 'driver' | 'vehicle'): bigint {
+    if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)$/.test(value)) {
+      throw new BadRequestException(`Expected Taxi ${subject} revision is invalid.`);
+    }
+    const revision = BigInt(value);
+    if (revision > 9223372036854775807n) {
+      throw new BadRequestException(`Expected Taxi ${subject} revision is invalid.`);
+    }
+    return revision;
+  }
+
+  private assertExpectedRevisions(
+    currentDriver: ApprovalRow | undefined,
+    currentVehicle: ApprovalRow | undefined,
+    expectedDriverRevision: bigint,
+    expectedVehicleRevision: bigint
+  ): void {
+    const currentDriverRevision = BigInt(currentDriver?.revision ?? '0');
+    const currentVehicleRevision = BigInt(currentVehicle?.revision ?? '0');
+    if (currentDriverRevision !== expectedDriverRevision || currentVehicleRevision !== expectedVehicleRevision) {
+      throw new ConflictException('Taxi operational approval changed while it was being reviewed.');
+    }
   }
 
   private async insertEvent(client: PoolClient, input: {

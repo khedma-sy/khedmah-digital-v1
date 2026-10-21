@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { AdService } from './ad.service';
+import { CLASSIFIEDS_SMART_ADMIN_VERSION } from './ad-moderation-assessment';
 import type { AdRepository } from './ad.repository';
 import type { IdentityService } from '../identity/identity.service';
 import type { OperationsRbacService } from '../operations-product/operations-rbac.service';
@@ -22,7 +23,7 @@ function makeService(repositoryOverrides: Partial<AdRepository> = {}) {
     ...repositoryOverrides
   } as unknown as AdRepository;
   const identity = { getCurrentUser: async () => ({ id: 'user-1', email: 'owner@example.com' }) } as unknown as IdentityService;
-  const rbac = { assert: () => undefined } as unknown as OperationsRbacService;
+  const rbac = { assert: () => undefined, assertAny: () => undefined } as unknown as OperationsRbacService;
   return new AdService(repository, identity, rbac);
 }
 
@@ -84,4 +85,49 @@ test('create derives deterministic identity from actor and request key', async (
   assert.equal(capturedId, firstId);
   assert.equal(first.id, second.id);
   assert.match(firstId, /^[a-f0-9]{64}$/);
+});
+
+test('classified review queue accepts the bounded content approval permission without granting rejection authority', async () => {
+  let checked: readonly string[] = [];
+  const repository = { listPending: async () => [] } as unknown as AdRepository;
+  const identity = { getCurrentUser: async () => ({ id: 'reviewer', email: 'reviewer@example.test' }) } as unknown as IdentityService;
+  const rbac = {
+    assertAny: (_email: string, permissions: readonly string[]) => { checked = permissions; },
+    assert: () => { throw new Error('security.manage must not be required merely to read the approval queue'); }
+  } as unknown as OperationsRbacService;
+  const service = new AdService(repository, identity, rbac);
+
+  await withFlag('true', () => service.listPending('khedmah_session=reviewer'));
+  assert.deepEqual(checked, ['security.manage', 'content.approvals.approve']);
+});
+
+test('bounded content approval authority can approve but cannot reject a classified ad', async () => {
+  const decisions: string[] = [];
+  const repository = {
+    moderate: async (_actorId: string, _id: string, _revision: number, decision: string) => {
+      decisions.push(decision);
+      return sampleAd();
+    }
+  } as unknown as AdRepository;
+  const identity = { getCurrentUser: async () => ({ id: 'reviewer', email: 'reviewer@example.test' }) } as unknown as IdentityService;
+  const rbac = {
+    assertAny: () => undefined,
+    assert: () => { throw new ForbiddenException('security.manage required'); }
+  } as unknown as OperationsRbacService;
+  const service = new AdService(repository, identity, rbac);
+  const baseDecision = { expectedReviewRevision: 2, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION };
+
+  await withFlag('true', () => service.moderate('khedmah_session=reviewer', 'ad-1', {
+    ...baseDecision,
+    decision: 'approved'
+  }));
+  await assert.rejects(
+    withFlag('true', () => service.moderate('khedmah_session=reviewer', 'ad-1', {
+      ...baseDecision,
+      decision: 'rejected',
+      reason: 'Content does not meet publication policy.'
+    })),
+    ForbiddenException
+  );
+  assert.deepEqual(decisions, ['approved']);
 });

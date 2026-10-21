@@ -117,8 +117,8 @@ export class AdService {
 
   async moderate(cookie: string | undefined, id: string, body: unknown): Promise<AdListing> {
     this.assertEnabled();
-    const actor = await this.authorizeReviewer(cookie);
     const request = validateAdModeration(body);
+    const actor = await this.authorizeReviewer(cookie, request.decision);
     return this.runRepository(() => this.repository.moderate(actor.id, id, request.expectedReviewRevision, request.decision, request.reason));
   }
 
@@ -126,9 +126,10 @@ export class AdService {
     if (process.env.CLASSIFIEDS_ENABLED !== 'true') throw new ServiceUnavailableException('Classifieds are not enabled.');
   }
 
-  private async authorizeReviewer(cookie: string | undefined) {
+  private async authorizeReviewer(cookie: string | undefined, decision?: 'approved' | 'rejected') {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    this.rbac.assert(actor.email, 'security.manage');
+    if (decision === 'rejected') this.rbac.assert(actor.email, 'security.manage');
+    else this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
     return actor;
   }
 

@@ -18,6 +18,7 @@ test('media bytes and owner lists follow parent eligibility on PostgreSQL',async
     await resetCanonicalTestSchema(pool);
     await db.query(await readFile(resolve(__dirname,'../../../../backend/migrations/versions/024_product_store.sql'),'utf8'));
     await db.query(`INSERT INTO core_user_accounts(user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification) VALUES('media_owner','identity_media_owner001','individual_user','active','active','private')`);
+    await db.query(`INSERT INTO core_user_accounts(user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification) VALUES('reviewer','identity_media_reviewer001','individual_user','active','active','private')`);
     await db.query(`INSERT INTO profiles(profile_identifier,user_identifier,profile_type,display_name,lifecycle_status,visibility) VALUES('profile_mediafixture001','media_owner','personal_profile','مالك صور','active','private')`);
     await db.query(`INSERT INTO professional_profiles(professional_profile_identifier,profile_identifier,user_identifier,profession_type,lifecycle_status,visibility,moderation_status,headline_ar,city_code,country_code) VALUES('professional_profile_mediafixture001','profile_mediafixture001','media_owner','freelancer','pending','private','pending','مهني صور','damascus','SY')`);
     const [category]=await db.query<{code:string}>(`SELECT code FROM categories WHERE status='active' AND parent_code IS NOT NULL LIMIT 1`);assert.ok(category);
@@ -66,7 +67,7 @@ test('media bytes and owner lists follow parent eligibility on PostgreSQL',async
         const before=await approve();const image=await upload(ownerType,id,kind==='business'?'gallery':'profile_image');
         const current=(await repo.findById(id))!;assert.notEqual(current.revision,before.revision);
         const pending=(await repo.listPendingModeration()).find(row=>row.id===id)!;assert.ok(pending);assert.equal(pending.revision,current.revision);assert.ok(pending.reviewImageUrls?.includes(image.publicUrl!));
-        await assert.rejects(()=>repo.review(id,'media_owner','approved',before.revision),ConflictException);
+        await assert.rejects(()=>repo.review(id,'reviewer','approved',before.revision),ConflictException);
         await assert.rejects(()=>service.readPublic(image.id),NotFoundException);
       });
       await t.test(`${kind}: image deletion revokes approval and removes the old media id`,async()=>{

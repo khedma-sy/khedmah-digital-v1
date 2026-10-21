@@ -1,8 +1,9 @@
 import { BUSINESS_CONTENT_REVISION_SQL } from '../moderation/profile-content-revision';
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL, writeProfileReview, writeBusinessTrust } from '../moderation/profile-review-write';
-import { BusinessBranch, BusinessProfile, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+import { BusinessBranch, BusinessProfile, BusinessProfileModerationRecord, BusinessProfileTrustStatus, BusinessSocialLink, MediaAsset, OpeningHours, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+import type { ServiceListing } from '../service-catalog/service-catalog.types';
 import { withBusinessOwnerWrite } from './business-owner-transaction';
 
 interface BusinessProfileRow extends Record<string, unknown> {
@@ -33,6 +34,10 @@ interface BusinessProfileRow extends Record<string, unknown> {
   readonly revision: string;
   readonly content_revision: string;
   readonly review_image_urls?: string[];
+  readonly review_service_listings?: ServiceListing[];
+  readonly review_opening_hours?: OpeningHours[];
+  readonly review_branches?: BusinessBranch[];
+  readonly review_social_links?: BusinessSocialLink[];
   readonly service_radius?: string;
   readonly availability?: string;
   readonly rating?: string;
@@ -185,7 +190,7 @@ export class BusinessProfileRepository {
     return rows.map((row) => this.map(row));
   }
 
-  async listPendingModeration(): Promise<BusinessProfile[]> {
+  async listPendingModeration(): Promise<BusinessProfileModerationRecord[]> {
     const rows = await this.db.query<BusinessProfileRow>(
       `SELECT id, name, description_ar, description_en, owner_user_id, organization_id, visibility, moderation_status, trust_status,
               status, phone, email, website, category_code,
@@ -193,6 +198,40 @@ export class BusinessProfileRepository {
               city_code, country_code,
               lat, lng, address_ar, is_featured, featured_at, created_at, updated_at, ${PROFILE_REVISION_SQL} AS revision, ${BUSINESS_CONTENT_REVISION_SQL} AS content_revision,
               COALESCE((SELECT array_agg(m.public_url ORDER BY m.sort_order,m.created_at,m.id) FROM media_assets m WHERE m.owner_type='business_profile' AND m.owner_id=b.id AND m.visibility='public' AND m.public_url IS NOT NULL),ARRAY[]::text[]) AS review_image_urls,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+                  'id',sl.id,'ownerType',sl.owner_type,'ownerId',sl.owner_id,
+                  'titleAr',sl.title_ar,'titleEn',sl.title_en,
+                  'descriptionAr',sl.description_ar,'descriptionEn',sl.description_en,
+                  'categoryCode',sl.category_code,
+                  'categoryNameAr',(SELECT c.name_ar FROM categories c WHERE c.code=sl.category_code),
+                  'price',sl.price,'priceCurrency',sl.price_currency,'priceType',sl.price_type,
+                  'status',sl.status,'isFeatured',COALESCE(sl.is_featured,FALSE),'featuredAt',sl.featured_at,
+                  'createdAt',sl.created_at,'updatedAt',sl.updated_at
+                )) ORDER BY sl.created_at,sl.id)
+                FROM service_listings sl WHERE sl.owner_type='business' AND sl.owner_id=b.id
+              ),'[]'::jsonb) AS review_service_listings,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id',h.id,'businessProfileId',h.business_profile_id,'dayOfWeek',h.day_of_week,
+                  'openTime',h.open_time,'closeTime',h.close_time,'isClosed',h.is_closed
+                ) ORDER BY h.day_of_week,h.id)
+                FROM business_opening_hours h WHERE h.business_profile_id=b.id
+              ),'[]'::jsonb) AS review_opening_hours,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+                  'id',br.id,'businessProfileId',br.business_profile_id,'nameAr',br.name_ar,
+                  'nameEn',br.name_en,'addressAr',br.address_ar,'phone',br.phone,
+                  'cityCode',br.city_code,'lat',br.lat,'lng',br.lng,'isMain',br.is_main
+                )) ORDER BY br.is_main DESC,br.id)
+                FROM business_branches br WHERE br.business_profile_id=b.id
+              ),'[]'::jsonb) AS review_branches,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id',l.id,'businessProfileId',l.business_profile_id,'platform',l.platform,'url',l.url
+                ) ORDER BY l.platform,l.id)
+                FROM business_social_links l WHERE l.business_profile_id=b.id
+              ),'[]'::jsonb) AS review_social_links,
               COALESCE(to_jsonb(b)->>'service_radius', to_jsonb(b)->>'service_radius_km') AS service_radius,
               to_jsonb(b)->>'availability' AS availability,
               to_jsonb(b)->>'rating' AS rating,
@@ -201,7 +240,7 @@ export class BusinessProfileRepository {
        WHERE moderation_status = 'pending'
        ORDER BY created_at ASC`
     );
-    return rows.map((row) => this.map(row));
+    return rows.map((row) => this.mapModerationRecord(row));
   }
 
   async listPublicApproved(filters: { categoryCode?: string; cityCode?: string; q?: string; boundaries?: { south: number; west: number; north: number; east: number } }, limit = 20, offset = 0): Promise<BusinessProfile[]> {
@@ -321,7 +360,7 @@ export class BusinessProfileRepository {
       `SELECT id, owner_type AS entity_type, owner_id AS entity_id, asset_type,
               public_url AS url, storage_key AS storage_path, mime_type, size_bytes, sort_order, created_at
        FROM media_assets
-       WHERE owner_type = $1 AND owner_id = $2 ${assetTypeClause}
+       WHERE owner_type = $1 AND owner_id = $2 AND visibility='public' ${assetTypeClause}
        ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -344,7 +383,23 @@ export class BusinessProfileRepository {
       const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [businessProfileId]);
       if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
       if (parent.rows[0].owner_user_id !== actorId) throw new ForbiddenException('Access denied.');
-      const removed = await client.query(`DELETE FROM media_assets WHERE id=$1 AND owner_type='business_profile' AND owner_id=$2 RETURNING id`, [id,businessProfileId]);
+      const asset = await client.query<{ asset_type: string | null; visibility: string }>(
+        `SELECT asset_type,visibility FROM media_assets
+         WHERE id=$1 AND owner_type='business_profile' AND owner_id=$2
+         FOR UPDATE`,
+        [id,businessProfileId]
+      );
+      if (!asset.rows[0]) throw new NotFoundException('Media asset not found.');
+      if (asset.rows[0].visibility !== 'public' || !['logo','cover','gallery'].includes(asset.rows[0].asset_type ?? '')) {
+        throw new BadRequestException('Protected business media must be managed through the governed media service.');
+      }
+      const removed = await client.query(
+        `DELETE FROM media_assets
+         WHERE id=$1 AND owner_type='business_profile' AND owner_id=$2
+           AND visibility='public' AND asset_type IN ('logo','cover','gallery')
+         RETURNING id`,
+        [id,businessProfileId]
+      );
       if (!removed.rowCount) throw new NotFoundException('Media asset not found.');
       await client.query(`UPDATE business_profiles SET moderation_status=CASE WHEN moderation_status='suspended' THEN 'suspended' ELSE 'pending' END,
         updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond') WHERE id=$1`, [businessProfileId]);
@@ -438,6 +493,15 @@ export class BusinessProfileRepository {
       const parent = await client.query<{ owner_user_id: string }>(`SELECT owner_user_id FROM business_profiles WHERE id=$1 FOR UPDATE`, [req.entityId]);
       if (!parent.rows[0]) throw new NotFoundException('Business profile not found.');
       if (parent.rows[0].owner_user_id !== req.requesterId) throw new ForbiddenException('Access denied.');
+      const evidence = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM media_assets
+         WHERE owner_type='business_profile' AND owner_id=$1
+           AND asset_type='business_verification_evidence' AND visibility='private'`,
+        [req.entityId]
+      );
+      const evidenceCount = evidence.rows[0]?.count ?? 0;
+      if (evidenceCount < 1) throw new BadRequestException('أضف صورة إثبات واحدة على الأقل قبل طلب التحقق.');
+      if (evidenceCount > 3) throw new BadRequestException('يجب ألا تتجاوز صور إثبات التحقق 3 صور.');
       const result = await client.query(`SELECT * FROM verification_requests WHERE entity_type='business' AND entity_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`, [req.entityId]);
       const existing = result.rows[0];
       if (existing && ['pending','approved'].includes(existing.status)) return { id:existing.id,entityType:'business',entityId:existing.entity_id,requesterId:existing.requester_id,status:existing.status,notes:existing.notes ?? undefined,reviewedBy:existing.reviewed_by ?? undefined,reviewedAt:existing.reviewed_at?.toISOString(),createdAt:existing.created_at.toISOString(),updatedAt:existing.updated_at.toISOString() };
@@ -573,6 +637,21 @@ export class BusinessProfileRepository {
       availability: (row.availability ?? 'available') as BusinessProfile['availability'],
       rating: Number(row.rating ?? 0),
       responseSpeedMinutes: Number(row.response_speed_minutes ?? 1440)
+    };
+  }
+
+  private mapModerationRecord(row: BusinessProfileRow): BusinessProfileModerationRecord {
+    const profile = this.map(row);
+    return {
+      ...profile,
+      reviewSnapshot: {
+        exactRevision: row.revision,
+        reviewImageUrls: row.review_image_urls ?? [],
+        serviceListings: row.review_service_listings ?? [],
+        openingHours: row.review_opening_hours ?? [],
+        branches: row.review_branches ?? [],
+        socialLinks: row.review_social_links ?? []
+      }
     };
   }
 

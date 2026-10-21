@@ -48,11 +48,12 @@ test('concurrent first Taxi approvals preserve one driver binding and roll back 
   };
   const service = new TaxiOperationalApprovalService(racingDb as never,
     { async getCurrentUser() { return { id: adminId, email: 'reviewer@example.test' }; } } as never,
-    { assert() {} } as never);
+    { assert() {}, assertAny() {} } as never);
   const input = {
     zoneCode: 'damascus-test', verificationReference: 'disposable-concurrency-fixture',
     reason: 'Synthetic documents reviewed for an isolated concurrency regression.',
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    expectedDriverRevision: '0', expectedVehicleRevision: '0'
   };
   try {
     await resetCanonicalTestSchema(pool);
@@ -103,7 +104,11 @@ test('concurrent first Taxi approvals preserve one driver binding and roll back 
 
     // The conditional conflict update still permits a legitimate renewal of
     // the winning profile and preserves both audit revisions.
-    const renewed = await service.approve('test-fixture', winningProfile, input);
+    const renewed = await service.approve('test-fixture', winningProfile, {
+      ...input,
+      expectedDriverRevision: '1',
+      expectedVehicleRevision: '1'
+    });
     assert.equal(renewed.driverRevision, '2');
     assert.equal(renewed.vehicleRevision, '2');
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM khedmah_taxi.operational_approval_events')).rows[0].n, 2);

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
@@ -10,10 +12,20 @@ import { ProfessionalProfileService } from './professional-profile.service';
 test('professional verification requests serialize on the owned parent in PostgreSQL',async(t)=>{
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
   try{
-    await resetCanonicalTestSchema(pool);const identities=new IdentityRepository(db);const now=new Date().toISOString();
+    await resetCanonicalTestSchema(pool);
+    await pool.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/037_verification_evidence_media.sql'), 'utf8'));
+    const identities=new IdentityRepository(db);const now=new Date().toISOString();
     for(const id of ['verify_owner','verify_other']){await identities.saveAccount({id,email:`${id}@example.test`,passwordHash:'fixture-not-a-login',status:'active',createdAt:now,updatedAt:now});await identities.saveProfile({userId:id,displayName:id,locale:'ar',createdAt:now,updatedAt:now});}
     const repository=new ProfessionalProfileRepository(db);let actor='verify_owner';const service=new ProfessionalProfileService(repository,{getCurrentUser:async()=>({id:actor})} as any,{} as any);
     const profile=await service.createOrUpdate(undefined,{headlineAr:'مهني توثيق',cityCode:'damascus',countryCode:'SY'});
+    await db.query(
+      `INSERT INTO media_assets
+         (id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,public_url,asset_type,sort_order,created_at,updated_at)
+       VALUES
+         ('professional-verification-write-evidence','verify_owner','professional_profile',$1,'professional-proof.png','image/png',8,'private',
+          'verification/professional-verification-write-proof.png',NULL,'professional_verification_evidence',0,clock_timestamp(),clock_timestamp())`,
+      [profile.id]
+    );
     let request=await service.requestVerification(undefined,profile.id);
     await t.test('repeated and concurrent owner requests return one pending record',async()=>{
       const results=await Promise.all([service.requestVerification(undefined,profile.id),service.requestVerification(undefined,profile.id)]);assert.equal(results[0].id,request.id);assert.equal(results[1].id,request.id);

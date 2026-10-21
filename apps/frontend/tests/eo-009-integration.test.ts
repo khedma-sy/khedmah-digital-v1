@@ -45,8 +45,11 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
 
   for (const href of ['/admin/moderation', '/categories', '/admin/operations-product']) assert.match(admin, new RegExp(`href=\\"${href}\\"`));
   assert.match(admin, /api\.operationsProduct\.overview\(\)/);
-  assert.match(admin, /canManageModeration \? <Link href="\/admin\/moderation"/);
+  assert.match(admin, /canReviewContent \? <Link href="\/admin\/moderation"/);
   assert.match(admin, /overview\.permissions\.includes\('security\.manage'\)/);
+  for (const permission of ['content', 'trust', 'mobility']) {
+    assert.match(admin, new RegExp(`${permission}\\.approvals\\.approve`));
+  }
   assert.doesNotMatch(admin, /organizations|منظمات/);
 });
 

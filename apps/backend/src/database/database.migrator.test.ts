@@ -14,8 +14,8 @@ const completeCatalog = () => CANONICAL_SCHEMA_ANCHORS.map(({ kind, table, name 
 const without = (predicate: (anchor: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => boolean) =>
   CANONICAL_SCHEMA_ANCHORS.filter((anchor) => !predicate(anchor)).map(({ kind, table, name }) => ({ kind, table_name: table, name }));
 
-test('canonical schema 035 passes when every release contract anchor is present', () => {
-  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '035');
+test('canonical schema 037 passes when every release contract anchor is present', () => {
+  assert.equal(REQUIRED_CANONICAL_SCHEMA_VERSION, '037');
   assert.doesNotThrow(() => verifyCanonicalSchema(completeCatalog()));
 });
 
@@ -35,12 +35,14 @@ for (const scenario of [
   ['missing 033 billing admin authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'admin_roles_role_check_billing_admin'],
   ['missing 034 food promotion claims', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'food_promo_claims' && a.kind === 'table'],
   ['missing 034 fulfillment discount snapshot', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.table === 'fulfillment_orders' && a.name === 'discount_amount'],
-  ['missing 035 specialized admin authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'admin_roles_role_check_specialized_admins']
+  ['missing 035 specialized admin authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'admin_roles_role_check_specialized_admins'],
+  ['missing 037 evidence media type authority', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'media_assets_asset_type_check_verification_evidence'],
+  ['missing 037 private evidence constraint', (a: (typeof CANONICAL_SCHEMA_ANCHORS)[number]) => a.name === 'media_assets_verification_evidence_private_check']
 ] as const) {
   test(`${scenario[0]} fails closed without exposing credentials`, () => {
     assert.throws(() => verifyCanonicalSchema(without(scenario[1])), (error: unknown) => {
       assert.ok(error instanceof CanonicalSchemaError);
-      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=035 missing=/);
+      assert.match(error.message, /CANONICAL_SCHEMA_INCOMPATIBLE required=037 missing=/);
       assert.doesNotMatch(error.message, /DATABASE_URL|postgres(?:ql)?:\/\//i);
       return true;
     });

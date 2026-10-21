@@ -1,4 +1,4 @@
-name: Production Migrations 025-036
+name: Production Migrations 025-037
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
         description: Canonical migration to apply
         required: true
         type: choice
-        options: ['025','026','027','028','029','030','031','032','033','034','035','036']
+        options: ['025','026','027','028','029','030','031','032','033','034','035','036','037']
       commit_sha:
         description: Exact latest main commit SHA
         required: true
@@ -81,6 +81,7 @@ jobs:
             034) MIGRATION_NAME=034_food_order_promotions ;;
             035) MIGRATION_NAME=035_specialized_admin_roles ;;
             036) MIGRATION_NAME=036_classifieds_rolling_publication_quota ;;
+            037) MIGRATION_NAME=037_verification_evidence_media ;;
             *) echo 'Unsupported migration.' >&2; exit 1 ;;
           esac
           MIGRATION_FILE="backend/migrations/versions/${MIGRATION_NAME}.sql"

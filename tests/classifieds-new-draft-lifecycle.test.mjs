@@ -98,7 +98,7 @@ const errorText = (page) => {
 };
 const generic429 = (code = 'request_error') => Object.assign(new Error('تعذر إكمال الطلب.'), { statusCode: 429, ...(code && { code }) });
 const quotaError = () => Object.assign(new Error('legacy quota error'), { statusCode: 429, code: 'AD_FREE_QUOTA_EXHAUSTED' });
-const quotaMessage = 'تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.';
+const quotaMessage = 'تم استهلاك حصة النشر الحالية للحساب.';
 
 test('Save Draft is separate from review and the saved draft can then be submitted', async () => {
   const f = fixture();
@@ -136,25 +136,30 @@ test('creation retries reuse an unacknowledged key and a new ad gets a fresh key
   assert.notEqual(f.calls.creates[2].input.clientRequestId, firstKey);
 });
 
-test('the new-ad UI rejects a sixth image and still permits draft saving when review quota is full', async () => {
-  const full = fixture({ quota: { used: 3, limit: 3 } });
-  await full.ready();
-  const reviewButton = full.page.find((node) => node.type === 'ActionButton' && node.props.value === 'review');
-  assert.equal(reviewButton.props.disabled, true);
-  full.submit('review');
-  assert.equal(full.calls.creates.length, 0, 'the confirmed quota response also guards the submit handler');
-  assert.match(errorText(full.page), /تم استهلاك الحصة الحالية/);
+test('the new-ad UI rejects a sixth image but still permits human-review submission when publication quota is full', async () => {
+  const quotaFull = fixture({ quota: { used: 3, limit: 3 } });
+  await quotaFull.ready();
+  const reviewButton = quotaFull.page.find((node) => node.type === 'ActionButton' && node.props.value === 'review');
+  assert.equal(reviewButton.props.disabled, false);
+  quotaFull.submit('review');
+  assert.equal(quotaFull.calls.creates.length, 1, 'publication quota must not block draft creation or review submission');
+  await quotaFull.settle(quotaFull.calls.creates[0], { ad: draftAd() });
+  assert.equal(quotaFull.calls.submits.length, 1);
+  await quotaFull.settle(quotaFull.calls.submits[0], { ad: draftAd({ status: 'pending_review', revision: 2, reviewRevision: 1 }) });
+  assert.deepEqual(quotaFull.navigations, ['/classifieds/manage']);
 
-  full.imageInput.files = Array.from({ length: 6 }, (_, index) => ({
+  const images = fixture({ quota: { used: 3, limit: 3 } });
+  await images.ready();
+  images.imageInput.files = Array.from({ length: 6 }, (_, index) => ({
     name: `image-${index}.png`, type: 'image/png', size: 8, lastModified: index
   }));
-  full.submit('draft');
-  assert.equal(full.calls.creates.length, 0);
-  assert.match(full.page.text, /5 صور كحد أقصى/);
+  images.submit('draft');
+  assert.equal(images.calls.creates.length, 0);
+  assert.match(images.page.text, /5 صور كحد أقصى/);
 
-  full.imageInput.files = [];
-  full.submit('draft');
-  assert.equal(full.calls.creates.length, 1, 'full review quota must not block saving a draft');
+  images.imageInput.files = [];
+  images.submit('draft');
+  assert.equal(images.calls.creates.length, 1, 'full publication quota must not block saving a draft');
 });
 
 for (const code of ['request_error', null]) {
@@ -225,7 +230,7 @@ for (const scenario of [
     await f.reject(attempt, scenario.issue());
 
     assert.equal(errorText(f.page), scenario.message, 'reconciliation must preserve the primary decoded error');
-    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك نشرها أو بدء إعلان آخر/);
+    assert.match(f.page.text, /هذه المسودة محفوظة؛ يمكنك إرسالها للمراجعة أو بدء إعلان آخر/);
     assert.match(f.page.text, /الصور المحفوظة: 1 من 5/);
     assert.deepEqual(f.calls.getMine, ['ad-1']);
     assert.deepEqual(f.calls.listImages, ['ad-1', 'ad-1'], 'one pre-upload read and one reconciliation read');
@@ -244,7 +249,7 @@ for (const code of ['request_error', null, 'AD_FREE_QUOTA_EXHAUSTED']) {
     const ad = draftAd({ revision: 9, contentRevision: 7 });
     const f = fixture({ editor: true, ad });
     await f.ready();
-    f.page.click('نشر الإعلان');
+    f.page.click('إرسال للمراجعة');
     const attempt = f.calls.submits[0];
     await f.reject(attempt, code === 'AD_FREE_QUOTA_EXHAUSTED' ? quotaError() : generic429(code));
 
@@ -258,12 +263,13 @@ for (const code of ['request_error', null, 'AD_FREE_QUOTA_EXHAUSTED']) {
     assert.deepEqual(f.calls.listImages, ['ad-1']);
     assert.deepEqual(f.navigations, []);
 
-    f.page.click('نشر الإعلان');
+    f.page.click('إرسال للمراجعة');
     assert.equal(f.calls.submits.length, 2);
     assert.deepEqual(f.calls.submits[1].input, attempt.input, 'the unchanged draft retries with its original key and content revision');
-    await f.settle(f.calls.submits[1], { ad: draftAd({ status: 'active', revision: 10, contentRevision: 7, reviewRevision: 0 }) });
+    await f.settle(f.calls.submits[1], { ad: draftAd({ status: 'pending_review', revision: 10, contentRevision: 7, reviewRevision: 1 }) });
     assert.equal(f.storage.size, 0, 'the submit key clears only after acknowledgement');
-    assert.match(f.page.text, /تم نشر الإعلان/);
+    assert.match(f.page.text, /تم إرسال الإعلان للمراجعة/);
+    assert.doesNotMatch(f.page.text, /تم نشر الإعلان/);
     assert.deepEqual(f.navigations, []);
   });
 }

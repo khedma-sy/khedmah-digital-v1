@@ -10,7 +10,8 @@ const base = { id: 'p', businessProfileId: 'b', ownerUserId: 'owner', titleAr: '
   categoryCode: 'general', availability: 'in_stock', status: 'active', moderationStatus: 'pending',
   createdAt: revision, updatedAt: revision, revision, contentRevision: 'a'.repeat(64) } as ProductListing & { revision: string };
 function fixture() {
-  let product = { ...base }; let actor = 'owner'; let image = true; let authorized = true;
+  let product = { ...base }; let actor = 'reviewer'; let image = true; let authorized = true;
+  const permissionChecks: string[][] = [];
   let businessRead = async () => ({ ownerUserId: 'owner', visibility: 'public', moderationStatus: 'approved', trustStatus: 'approved', status: 'active' });
   const writes: unknown[] = [];
   const repository = {
@@ -19,14 +20,22 @@ function fixture() {
       writes.push({ next, expected });
       if (expected !== undefined && expected !== product.revision) throw new ConflictException('changed');
       product = { ...next, revision: nextRevision }; return { ...product };
+    },
+    review: async (next: typeof product, expected: string, reviewerUserId: string) => {
+      writes.push({ next, expected, reviewerUserId });
+      if (expected !== product.revision) throw new ConflictException('changed');
+      product = { ...next, revision: nextRevision }; return { ...product };
     }
   };
   const service = new ProductService(repository as any, { findById: () => businessRead() } as any,
     { assertActiveCategory: async () => {} } as any, { getCurrentUser: async () => ({ id: actor, email: actor }) } as any,
-    { assert() { if (!authorized) throw new ForbiddenException(); } } as any);
+    {
+      assert(_email: string, permission: string) { permissionChecks.push([permission]); if (!authorized) throw new ForbiddenException(); },
+      assertAny(_email: string, permissions: readonly string[]) { permissionChecks.push([...permissions]); if (!authorized) throw new ForbiddenException(); }
+    } as any);
   return { service, writes, get product() { return product; }, set product(value) { product = value; },
     set actor(value: string) { actor = value; }, set image(value: boolean) { image = value; }, set authorized(value: boolean) { authorized = value; },
-    set businessRead(value: typeof businessRead) { businessRead = value; } };
+    set businessRead(value: typeof businessRead) { businessRead = value; }, permissionChecks };
 }
 // Extra argument reproduces a client-supplied version even before the API is upgraded.
 const review = (f: ReturnType<typeof fixture>, expected: unknown = revision, status = 'approved', reason?: string) =>
@@ -48,30 +57,39 @@ test('concurrent edit cannot be overwritten by a review awaiting seller validati
 });
 test('current review succeeds and rejection requires a meaningful reason', async () => {
   const f = fixture(); const result = await review(f) as ProductListing; assert.equal(result.moderationStatus, 'approved');
+  assert.equal((f.writes[0] as { reviewerUserId?: string }).reviewerUserId, 'reviewer');
+  assert.deepEqual(f.permissionChecks[0], ['security.manage', 'content.approvals.approve']);
   const rejected = fixture(); await assert.rejects(() => review(rejected, revision, 'rejected', 'no'), BadRequestException);
   await review(rejected, revision, 'rejected', 'صورة غير مناسبة'); assert.equal(rejected.product.rejectionReason, 'صورة غير مناسبة');
+  assert.deepEqual(rejected.permissionChecks.at(-1), ['security.manage']);
+});
+test('a reviewer cannot approve their own product even with approval permission', async () => {
+  const f = fixture(); f.actor = 'owner';
+  await assert.rejects(() => review(f), ForbiddenException);
+  assert.equal(f.writes.length, 0);
 });
 test('cross-owner edits and unauthorized reviews are denied', async () => {
   const f = fixture(); f.actor = 'other'; await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'محاولة تعديل' }), ForbiddenException);
   f.authorized = false; await assert.rejects(() => review(f), ForbiddenException); assert.equal(f.writes.length, 0);
 });
 test('missing images cannot be submitted or approved', async () => {
-  const f = fixture(); f.image = false; await assert.rejects(() => f.service.submit(undefined, 'p'), BadRequestException); await assert.rejects(() => review(f), BadRequestException);
+  const f = fixture(); f.image = false; f.actor = 'owner'; await assert.rejects(() => f.service.submit(undefined, 'p'), BadRequestException);
+  f.actor = 'reviewer'; await assert.rejects(() => review(f), BadRequestException);
 });
 
 test('an owner cannot save a stale content draft over another tab', async () => {
-  const f = fixture(); f.product = { ...f.product, contentRevision: 'b'.repeat(64), titleAr: 'تعديل تبويب آخر' };
+  const f = fixture(); f.actor = 'owner'; f.product = { ...f.product, contentRevision: 'b'.repeat(64), titleAr: 'تعديل تبويب آخر' };
   await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'مسودة قديمة', expectedContentRevision: 'a'.repeat(64) }), ConflictException);
   assert.equal(f.product.titleAr, 'تعديل تبويب آخر'); assert.equal(f.writes.length, 0);
 });
 test('owner writes require the content reference but tolerate their own image-only changes', async () => {
-  const f = fixture(); await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'مسودة' }), BadRequestException);
+  const f = fixture(); f.actor = 'owner'; await assert.rejects(() => f.service.update(undefined, 'p', { titleAr: 'مسودة' }), BadRequestException);
   f.product = { ...f.product, revision: nextRevision };
   await f.service.update(undefined, 'p', { titleAr: 'تعديل بعد الصورة', expectedContentRevision: 'a'.repeat(64) });
   assert.equal(f.product.titleAr, 'تعديل بعد الصورة');
 });
 test('an explicitly cleared description is saved instead of retaining the old text', async () => {
-  const f = fixture(); f.product = { ...f.product, descriptionAr: 'وصف قديم' };
+  const f = fixture(); f.actor = 'owner'; f.product = { ...f.product, descriptionAr: 'وصف قديم' };
   await f.service.update(undefined, 'p', { descriptionAr: '', expectedContentRevision: 'a'.repeat(64) });
   assert.equal(f.product.descriptionAr, undefined);
 });

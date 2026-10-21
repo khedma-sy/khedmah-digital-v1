@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile, VerificationRequest } from '../../../../lib/api-client';
+import { api, BusinessBranch, BusinessSocialLink, MediaAsset, OpeningHours, ProviderContactInquiry, PublicBusinessProfile, PublicServiceListing, PublicUserProfile, UploadedMediaAsset, VerificationRequest } from '../../../../lib/api-client';
 import { useCategories } from '../../../../lib/use-categories';
 import { useSyrianCities } from '../../../../lib/use-syrian-cities';
 import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../../components/ui-primitives';
@@ -38,6 +38,7 @@ export default function ManageBusinessProfilePage() {
   const [branches, setBranches] = useState<BusinessBranch[]>([]);
   const [socialLinks, setSocialLinks] = useState<BusinessSocialLink[]>([]);
   const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [verificationEvidence, setVerificationEvidence] = useState<UploadedMediaAsset[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [mediaType, setMediaType] = useState<'logo' | 'cover' | 'gallery'>('gallery');
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +79,14 @@ export default function ManageBusinessProfilePage() {
       setUser(session.user); setBusiness(owned); setServices(ownerServices.services); setInquiries(received.inquiries);
       setBranches(storedBranches.branches); setSocialLinks(storedLinks.links); setVerification(verificationState.status);
       setMedia(storedMedia.assets); setMediaReadFailed(false);
+      try {
+        const storedPrivateMedia = await api.media.listForOwner('business_profile', id);
+        if (!active()) return;
+        setVerificationEvidence(storedPrivateMedia.filter((asset) => asset.assetType === 'business_verification_evidence'));
+      } catch {
+        if (!active()) return;
+        setVerificationEvidence([]);
+      }
       setHasSavedHours(storedHours.hours.length === 7);
       setHours(storedHours.hours.length === 7 ? storedHours.hours : defaultHours().map((hour) => ({ ...hour, businessProfileId: id })));
       setProfileForm({ name: owned.name, descriptionAr: owned.descriptionAr ?? '', phone: owned.phone ?? '', email: owned.email ?? '', website: owned.website ?? '', categoryCode: owned.categoryCode });
@@ -242,7 +251,52 @@ export default function ManageBusinessProfilePage() {
     catch { failed('تعذر حذف الصورة.', active); }
   }
 
+  async function refreshVerificationEvidence(active: () => boolean) {
+    const [assets, verificationState] = await Promise.all([
+      api.media.listForOwner('business_profile', id),
+      api.businesses.getVerificationStatus(id)
+    ]);
+    if (!active()) return;
+    setVerificationEvidence(assets.filter((asset) => asset.assetType === 'business_verification_evidence'));
+    setVerification(verificationState.status);
+  }
+
+  async function uploadVerificationEvidence(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (verificationEvidence.length >= 3) { setError('يمكن رفع 3 صور إثبات كحد أقصى.'); return; }
+    const input = event.currentTarget.elements.namedItem('verificationEvidence') as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) { setError('اختر صورة إثبات أولاً.'); return; }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])) { setError('صور الإثبات المقبولة: JPG أو PNG أو WebP فقط.'); return; }
+    if (file.size <= 0 || file.size > 5 * 1024 * 1024) { setError('حجم صورة الإثبات يجب ألا يتجاوز 5 ميغابايت.'); return; }
+    const active = begin('verification-evidence'); if (!active) return;
+    try {
+      const content = await fileContent(file); if (!active()) return;
+      await api.media.uploadVerificationEvidence('business_profile', id, {
+        filename: file.name,
+        mimeType: file.type as typeof ALLOWED_IMAGE_TYPES[number],
+        sizeBytes: file.size,
+        content,
+        sortOrder: verificationEvidence.length
+      });
+      if (!active()) return;
+      input.value = '';
+      await refreshVerificationEvidence(active);
+      succeeded('تم حفظ صورة الإثبات بشكل خاص. أي تحقق سابق يحتاج مراجعة بشرية جديدة بعد تغيير الأدلة.', active);
+    } catch { failed('تعذر رفع صورة الإثبات. راجع القائمة قبل المحاولة مجددًا.', active); }
+  }
+
+  async function deleteVerificationEvidence(assetId: string) {
+    const active = begin(`verification-evidence-${assetId}`); if (!active) return;
+    try {
+      await api.media.delete(assetId); if (!active()) return;
+      await refreshVerificationEvidence(active);
+      succeeded('تم حذف صورة الإثبات وإلغاء صلاحية أي تحقق سابق مرتبط بالأدلة القديمة.', active);
+    } catch { failed('تعذر حذف صورة الإثبات.', active); }
+  }
+
   async function requestVerification() {
+    if (verificationEvidence.length === 0) { setError('أضف صورة إثبات واحدة على الأقل قبل طلب التحقق.'); return; }
     const active = begin('verification'); if (!active) return;
     try { const result = await api.businesses.requestVerification(id); if (!active()) return; setVerification(result.request); succeeded('تم إرسال طلب التوثيق للمراجعة البشرية.', active); }
     catch { failed('تعذر إرسال طلب التوثيق.', active); }
@@ -283,7 +337,7 @@ export default function ManageBusinessProfilePage() {
       <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الفروع</h2><span>{branches.length}</span></div>{branches.length > 0 && <div className={styles.list}>{branches.map((branch) => <article className={styles.compactItem} key={branch.id}><strong>{branch.nameAr}</strong><span>{cities.find((city) => city.code === branch.cityCode)?.nameAr ?? branch.cityCode}{branch.isMain ? ' · الفرع الرئيسي' : ''}</span>{branch.addressAr && <small>{branch.addressAr}</small>}</article>)}</div>}<form className={styles.nestedForm} onSubmit={addBranch}><label>اسم الفرع<input value={branchForm.nameAr} onChange={(event) => setBranchForm((current) => ({ ...current, nameAr: event.target.value }))} required/></label><label>المدينة<select value={branchForm.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => setBranchForm((current) => ({ ...current, cityCode: event.target.value }))} required><option value="">اختر مدينة</option>{cities.map((city) => <option value={city.code} key={city.code}>{city.nameAr}</option>)}</select></label><label>العنوان<input value={branchForm.addressAr} onChange={(event) => setBranchForm((current) => ({ ...current, addressAr: event.target.value }))}/></label><label>الهاتف<input type="tel" value={branchForm.phone} onChange={(event) => setBranchForm((current) => ({ ...current, phone: event.target.value }))}/></label><label className={styles.check}><input type="checkbox" checked={branchForm.isMain} onChange={(event) => setBranchForm((current) => ({ ...current, isMain: event.target.checked }))}/> فرع رئيسي</label><ActionButton type="submit" variant="secondary" disabled={!!busyAction}>إضافة الفرع</ActionButton></form></Surface>
       <Surface className={styles.section}><div className={styles.sectionHeading}><h2>روابط التواصل</h2><span>{socialLinks.length}</span></div>{socialLinks.length > 0 && <div className={styles.list}>{socialLinks.map((link) => <article className={styles.linkItem} key={link.id}><a href={link.url} target="_blank" rel="noopener noreferrer">{PLATFORMS.find((item) => item.value === link.platform)?.label ?? link.platform}</a><button type="button" onClick={() => void deleteSocialLink(link.id)} disabled={!!busyAction}>حذف</button></article>)}</div>}<form className={styles.nestedForm} onSubmit={addSocialLink}><label>المنصة<select value={socialForm.platform} onChange={(event) => setSocialForm((current) => ({ ...current, platform: event.target.value }))}>{PLATFORMS.map((platform) => <option key={platform.value} value={platform.value}>{platform.label}</option>)}</select></label><label>الرابط<input type="url" dir="ltr" value={socialForm.url} onChange={(event) => setSocialForm((current) => ({ ...current, url: event.target.value }))} placeholder="https://" required/></label><ActionButton type="submit" variant="secondary" disabled={!!busyAction}>إضافة الرابط</ActionButton></form></Surface>
       <Surface className={styles.section}><div className={styles.sectionHeading}><h2>الاستفسارات الواردة</h2><span>{inquiries.length}</span></div>{inquiries.length === 0 ? <p className={styles.empty}>لا توجد استفسارات جديدة.</p> : <div className={styles.list}>{inquiries.map((inquiry) => <article key={inquiry.id} className={styles.inquiry}><div><h3>{inquiry.name}</h3><time dateTime={inquiry.createdAt}>{new Date(inquiry.createdAt).toLocaleDateString('ar-SY')}</time></div><p>{inquiry.message}</p><a href={`mailto:${inquiry.contactEmail}`} dir="ltr">{inquiry.contactEmail}</a></article>)}</div>}</Surface>
-      <Surface className={styles.section}><h2>الثقة والمراجعة</h2>{business?.categoryCode==='delivery_courier'&&<ActionLink href="/courier-signup" variant="secondary">استكمال وثائق مندوب التوصيل</ActionLink>}<p>قرار النشر والتوثيق نهائيّاً بيد فريق المراجعة البشري. لا يظهر النشاط للعامة قبل الاعتماد.</p><dl className={styles.statusList}><div><dt>المراجعة</dt><dd>{business?.moderationStatus === 'approved' ? 'معتمد' : business?.moderationStatus === 'rejected' ? 'مطلوب تعديل' : 'قيد المراجعة'}</dd></div><div><dt>التوثيق</dt><dd>{verification?.status === 'approved' ? 'موثّق' : verification?.status === 'rejected' ? 'مرفوض' : verification?.status === 'pending' ? 'قيد المراجعة' : 'لم يُطلب'}</dd></div></dl><div className={styles.actions}><ActionButton type="button" variant="secondary" onClick={() => void requestVerification()} disabled={!!busyAction || verification?.status === 'pending' || verification?.status === 'approved'}>طلب التوثيق</ActionButton><ActionButton type="button" onClick={() => setShowReviewConfirm(true)} disabled={!!busyAction || showReviewConfirm}>{busyAction === 'submit' ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>{isPublic && <ActionLink href={`/business-profiles/${id}`} variant="quiet">معاينة الصفحة العامة</ActionLink>}</div></Surface>
+      <Surface className={styles.section}><h2>الثقة والمراجعة</h2>{business?.categoryCode==='delivery_courier'&&<ActionLink href="/courier-signup" variant="secondary">استكمال وثائق مندوب التوصيل</ActionLink>}<p>قرار النشر والتحقق نهائيّاً بيد فريق المراجعة البشري. صورة الإثبات خاصة ولا تظهر للعملاء، ولا تعني أصالتها أو قبولها قبل مراجعتها.</p><dl className={styles.statusList}><div><dt>المراجعة</dt><dd>{business?.moderationStatus === 'approved' ? 'معتمد' : business?.moderationStatus === 'rejected' ? 'مطلوب تعديل' : 'قيد المراجعة'}</dd></div><div><dt>التحقق</dt><dd>{verification?.status === 'approved' ? 'تحقق بشري معتمد' : verification?.status === 'rejected' ? 'مرفوض' : verification?.status === 'pending' ? 'قيد المراجعة' : 'لم يُطلب'}</dd></div></dl><div className={styles.list}>{verificationEvidence.map((asset, index) => <article key={asset.id} className={styles.compactItem}><strong>صورة إثبات {index + 1}</strong><span>{asset.filename}</span><div className={styles.actions}><a href={`/api/v1/media/public/${encodeURIComponent(asset.id)}`} target="_blank" rel="noopener noreferrer">فتح خاص</a><button type="button" onClick={() => void deleteVerificationEvidence(asset.id)} disabled={!!busyAction}>حذف</button></div></article>)}</div>{verificationEvidence.length < 3 && <form className={styles.nestedForm} onSubmit={uploadVerificationEvidence}><label>صورة إثبات النشاط<input name="verificationEvidence" type="file" accept="image/jpeg,image/png,image/webp" required/></label><small>من 1 إلى 3 صور، بحد أقصى 5 ميغابايت للصورة. تغيير الدليل يلغي صلاحية تحقق سابق ويعيده للمراجعة.</small><ActionButton type="submit" variant="secondary" disabled={!!busyAction}>{busyAction === 'verification-evidence' ? 'جارٍ الرفع…' : 'رفع صورة إثبات خاصة'}</ActionButton></form>}<div className={styles.actions}><ActionButton type="button" variant="secondary" onClick={() => void requestVerification()} disabled={!!busyAction || verificationEvidence.length === 0 || verification?.status === 'pending' || verification?.status === 'approved'}>طلب التحقق</ActionButton><ActionButton type="button" onClick={() => setShowReviewConfirm(true)} disabled={!!busyAction || showReviewConfirm}>{busyAction === 'submit' ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>{isPublic && <ActionLink href={`/business-profiles/${id}`} variant="quiet">معاينة الصفحة العامة</ActionLink>}</div></Surface>
     </div>
     </fieldset>
   </PageShell>;

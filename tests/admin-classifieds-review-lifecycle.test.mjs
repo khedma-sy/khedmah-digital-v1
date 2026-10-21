@@ -46,6 +46,7 @@ function fixture({ enabled = true } = {}) {
   let pendingCalls = 0;
   const call = (list) => { const d = deferred(); list.push(d); return d.promise; };
   const api = {
+    operationsProduct: { overview: async () => ({ operationsProduct: { permissions: ['security.manage'] } }) },
     moderation: { listPending: async () => ({ businesses: [], professionals: [] }), listReports: async () => ({ reports: [] }) },
     adminProducts: { pending: async () => ({ products: [] }) },
     businesses: { approveModeration: async () => ({}), rejectModeration: async () => ({}) },

@@ -7,7 +7,7 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 import { CategoryService } from '../categories/category.service';
 import { BUSINESS_PROFILE_ACCESS_DENIED_MESSAGE, BUSINESS_PROFILE_NOT_FOUND_MESSAGE } from './business-profile.errors';
 import { BusinessProfileRepository } from './business-profile.repository';
-import { BusinessBranch, BusinessProfile, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
+import { BusinessBranch, BusinessProfile, BusinessSocialLink, MediaAsset, OpeningHours, PublicBusinessProfile, PublicBusinessProfileModerationReview, TrustHistoryEntry, VerificationRequest } from './business-profile.types';
 import { CreateBusinessProfileRequest, SearchBusinessProfilesRequest, UpdateBusinessProfileRequest, UpdateTrustStatusRequest } from './dto/business-profile.dto';
 import { validateBusinessProfileSearch, validateCreateBusinessProfile, validateUpdateBusinessProfile, validateUpdateTrustStatus } from './business-profile.validation';
 
@@ -154,11 +154,11 @@ export class BusinessProfileService {
     return profiles.map((p) => this.toPublic(p));
   }
 
-  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicBusinessProfile[]> {
+  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicBusinessProfileModerationReview[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
     const profiles = await this.repository.listPendingModeration();
-    return profiles.map((p) => this.toPublic(p));
+    return profiles.map((p) => ({ ...this.toPublic(p), reviewSnapshot: p.reviewSnapshot }));
   }
 
   // --- Moderation ---
@@ -300,7 +300,7 @@ export class BusinessProfileService {
 
   async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicBusinessProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
     await this.repository.review(id, actor.id, 'approved', expectedRevision);
     return this.toPublic(await this.requireProfile(id));
   }

@@ -68,6 +68,7 @@ jobs:
             034_food_order_promotions
             035_specialized_admin_roles
             036_classifieds_rolling_publication_quota
+            037_verification_evidence_media
           )
 
           for migration in "${migrations[@]}"; do
@@ -111,6 +112,15 @@ jobs:
               grep -Fq 'AD_FREE_QUOTA_EXHAUSTED' "$rollback"
               if grep -Eq '\b(DELETE[[:space:]]+FROM|TRUNCATE|DROP[[:space:]]+TABLE)\b' "$forward" "$rollback"; then
                 echo 'Migration 036 must preserve immutable publication receipts.' >&2
+                exit 1
+              fi
+            elif [[ "$migration" == "037_verification_evidence_media" ]]; then
+              grep -Fq 'business_verification_evidence' "$forward"
+              grep -Fq 'professional_verification_evidence' "$forward"
+              grep -Fq 'media_assets_verification_evidence_private_check' "$forward"
+              grep -Fq 'MIGRATION_037_ROLLBACK_BLOCKED: verification evidence exists' "$rollback"
+              if grep -Eq '\b(DELETE[[:space:]]+FROM|UPDATE[[:space:]]+[^;]+SET|TRUNCATE|DROP[[:space:]]+TABLE)\b' "$forward" "$rollback"; then
+                echo 'Migration 037 must preserve verification evidence.' >&2
                 exit 1
               fi
             else
@@ -197,6 +207,8 @@ jobs:
             035_specialized_admin_roles_rollback.sql \
             036_classifieds_rolling_publication_quota.sql \
             036_classifieds_rolling_publication_quota_rollback.sql \
+            037_verification_evidence_media.sql \
+            037_verification_evidence_media_rollback.sql \
             | sort > "$expected"
           find backend/migrations/versions -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > "$actual"
           diff -u "$expected" "$actual"

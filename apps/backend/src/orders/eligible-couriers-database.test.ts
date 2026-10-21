@@ -35,7 +35,7 @@ test('courier selection paginates real eligible profiles and excludes a newer pe
     await pool.query(`UPDATE mobility_document_reviews SET created_at=NOW()+INTERVAL '1 second' WHERE media_asset_id=$1`,[media]);
     const refreshed=await repo.eligibleCouriers('damascus',1);
     assert.equal(refreshed.total,21);assert.ok(refreshed.couriers.every(c=>c.id!==profiles[0]));
-    const reviews=new DriverDocumentReviewService(db,{getCurrentUser:async()=>({id:reviewer,email:'reviewer@example.test'})} as never,{assert(){}} as never);
+    const reviews=new DriverDocumentReviewService(db,{getCurrentUser:async()=>({id:reviewer,email:'reviewer@example.test'})} as never,{assertAny(){}} as never);
     const queue=await reviews.reviewQueue('fixture');
     assert.equal(queue.businesses.length,1);assert.equal(queue.businesses[0].businessProfileId,profiles[0]);assert.equal(queue.businesses[0].pendingDocuments,1);
     const missingReviewMedia=randomUUID();

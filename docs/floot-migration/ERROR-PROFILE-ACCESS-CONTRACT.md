@@ -6,6 +6,8 @@ Reviewed source commit: `5a961be5035dce1197ba2d0c65519e86f65ca4c6`.
 Review date: 2026-10-04.
 Companion: [authentication transport contract](AUTH-API-CONTRACT.md).
 
+Current-state follow-up (2026-10-20): Sections 4–5 also reflect the bounded `smart_admin_approver` role and restricted overview branch added after the pinned historical review. The older decoder evidence below remains scoped to its stated source commit.
+
 ## 1. Scope and source owners
 
 This slice maps the shared error decoder, two personal-profile routes, and six Operations Product routes. It is NOT a complete inventory of every product, business/professional profile, administrator role, or account-deletion API.
@@ -22,7 +24,7 @@ This slice maps the shared error decoder, two personal-profile routes, and six O
 | [operations-product.controller.ts](../../apps/backend/src/operations-product/operations-product.controller.ts) | Six Operations Product routes. |
 | [operations-product.service.ts](../../apps/backend/src/operations-product/operations-product.service.ts) | Permission checks, configuration summaries and requested changes. |
 | [operations-rbac.service.ts](../../apps/backend/src/operations-product/operations-rbac.service.ts) | Server-owned email-to-role bindings and permission assertions. |
-| [operations-product.types.ts](../../apps/backend/src/operations-product/operations-product.types.ts) | Eight Operations Product roles and seven permission names. |
+| [operations-product.types.ts](../../apps/backend/src/operations-product/operations-product.types.ts) | Nine Operations Product roles and ten permission names, including the bounded human-approval role. |
 | [operations-product.dto.ts](../../apps/backend/src/operations-product/dto/operations-product.dto.ts) | Change/incident/rollback request fields and validation decorators. |
 | [operations-product.repository.ts](../../apps/backend/src/operations-product/operations-product.repository.ts) | In-process arrays for Operations Product changes, incidents and its local audit list. |
 
@@ -91,8 +93,9 @@ Observed binding behavior:
 | `release_manager` | `operations.read`, `releases.manage` |
 | `security_operations_engineer` | `operations.read`, `security.manage`, `incidents.manage` |
 | `site_reliability_engineer` | `operations.read`, `deployments.manage`, `incidents.manage` |
+| `smart_admin_approver` | `content.approvals.approve`, `trust.approvals.approve`, `mobility.approvals.approve` |
 
-This is only the Operations Product map. It must not be conflated with PostgreSQL roles or the separate `admin_roles` mechanism. `ai.manage` is not in this inspected current-main map; a legacy draft's AI permission is not proof of current access. The existence of `rbac.manage` also does not prove a role-editing endpoint exists in this controller.
+This is only the Operations Product map. It must not be conflated with PostgreSQL roles or the separate `admin_roles` mechanism. The bounded `smart_admin_approver` has exactly the three approval permissions shown above: it does not inherit `operations.read`, `security.manage`, rejection/suspension authority or infrastructure controls. `ai.manage` is not in this inspected current-main map; a legacy draft's AI permission is not proof of current access. The existence of `rbac.manage` also does not prove a role-editing endpoint exists in this controller.
 
 ## 5. Six protected Operations Product routes
 
@@ -100,7 +103,7 @@ Base path: `/api/v1/admin/operations-product`. All routes first resolve an authe
 
 | Method/path suffix | Required permission | Body fields | Observed response/behavior |
 | --- | --- | --- | --- |
-| GET `/overview` | `operations.read` | None | `{ operationsProduct }`, including roles/permissions, configuration summary and repository counts. |
+| GET `/overview` | Any one of `operations.read`, `content.approvals.approve`, `trust.approvals.approve`, `mobility.approvals.approve` | None | Full Operations readers receive roles/permissions, configuration summary and repository counts. A bounded approver receives a restricted shell with its roles/permissions, `health.status: 'restricted'`, empty `services`, and zero incident/change counts; the service does not read repository counts for that branch. |
 | GET `/inventory` | `operations.read` | None | `{ resources }` generated from a static list of service names, marked `configuration_driven`. |
 | GET `/history` | `operations.read` | None | `builds`, `deployments`, `releases`, `changes`, `incidents`, `audit`; first three arrays are empty in this implementation. |
 | POST `/changes` | `infrastructure.manage` | `area`, `action`, `reason` | `{ change }` with `status: 'pending_approval'`, authenticated actor and generated ID/time. No cloud executor is called here. |
@@ -111,7 +114,7 @@ DTO rules observed: `area` is one of `google-cloud`, `firebase`, `ci-cd`, `produ
 
 ### Important truthfulness and durability limits
 
-The overview sets `health.status` to the literal `ready` and `productionTrafficEnabled` to the literal `false`. Google/Firebase statuses inspect whether environment values are present; monitoring/logging statuses inspect flags. This method does not query live cloud health. The returned service inventory is likewise not a discovery of actual provisioned resources.
+For an `operations.read` caller, the overview sets `health.status` to the literal `ready` and `productionTrafficEnabled` to the literal `false`. Google/Firebase statuses inspect whether environment values are present; monitoring/logging statuses inspect flags. This method does not query live cloud health. A bounded approval-only caller instead receives the restricted shell described above and cannot use `/inventory` or `/history`, which still require `operations.read`. The returned service inventory is likewise not a discovery of actual provisioned resources.
 
 The repository keeps changes, incidents and its Operations Product audit list in instance arrays. That is not proof of a durable, cross-instance approval queue. The service also calls `IdentityRepository.appendAuditLog` for relevant actions; do not misdescribe all audit behavior as memory-only. This review does not certify end-to-end audit durability or an approval executor elsewhere.
 

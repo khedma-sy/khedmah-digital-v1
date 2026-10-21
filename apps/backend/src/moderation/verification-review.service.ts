@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { IdentityService } from '../identity/identity.service';
 import { readSessionToken } from '../identity/session-cookie';
@@ -16,6 +16,28 @@ export interface VerificationReviewItem {
   readonly label: string;
   readonly profileRevision: string;
   readonly createdAt: string;
+  readonly evidence: readonly VerificationEvidenceItem[];
+  readonly profileSummary: VerificationProfileSummary;
+}
+
+export type VerificationProfileSummary =
+  | {
+      readonly entityType: 'business'; readonly name: string; readonly descriptionAr?: string; readonly descriptionEn?: string;
+      readonly categoryCode: string; readonly cityCode: string; readonly phone?: string; readonly email?: string;
+      readonly website?: string; readonly addressAr?: string;
+    }
+  | {
+      readonly entityType: 'professional'; readonly headlineAr: string; readonly headlineEn?: string; readonly bioAr?: string;
+      readonly bioEn?: string; readonly skills: readonly string[]; readonly cityCode: string; readonly countryCode: string;
+    };
+
+export interface VerificationEvidenceItem {
+  readonly id: string;
+  readonly filename: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly createdAt: string;
+  readonly secureUrl: string;
 }
 
 export interface VerificationReviewResult extends VerificationReviewItem {
@@ -28,13 +50,21 @@ const targets = {
   business: {
     table: 'business_profiles',
     id: 'id',
-    projection: `name AS label, trust_status, moderation_status, status, NULL::text AS lifecycle_status`
+    projection: `name AS label, owner_user_id, trust_status, moderation_status, status, NULL::text AS lifecycle_status,
+      jsonb_strip_nulls(jsonb_build_object(
+        'entityType','business','name',name,'descriptionAr',description_ar,'descriptionEn',description_en,
+        'categoryCode',category_code,'cityCode',city_code,'phone',phone,'email',email,'website',website,'addressAr',address_ar
+      )) AS profile_summary`
   },
   professional: {
     table: 'professional_profiles',
     id: 'professional_profile_identifier',
-    projection: `COALESCE(NULLIF(BTRIM(headline_ar),''), professional_profile_identifier) AS label,
-      NULL::text AS trust_status, moderation_status, NULL::text AS status, lifecycle_status`
+    projection: `COALESCE(NULLIF(BTRIM(headline_ar),''), professional_profile_identifier) AS label, user_identifier AS owner_user_id,
+      NULL::text AS trust_status, moderation_status, NULL::text AS status, lifecycle_status,
+      jsonb_strip_nulls(jsonb_build_object(
+        'entityType','professional','headlineAr',headline_ar,'headlineEn',headline_en,'bioAr',bio_ar,'bioEn',bio_en,
+        'skills',skills,'cityCode',city_code,'countryCode',country_code
+      )) AS profile_summary`
   }
 } as const;
 
@@ -52,7 +82,7 @@ export class VerificationReviewService {
   ) {}
 
   async listPending(cookieHeader: string | undefined): Promise<VerificationReviewItem[]> {
-    await this.requireReviewer(cookieHeader);
+    await this.requireReviewer(cookieHeader, true);
     const rows = await this.db.query<{
       request_id: string;
       entity_type: VerificationEntityType;
@@ -60,6 +90,8 @@ export class VerificationReviewService {
       label: string;
       profile_revision: string;
       request_created_at: Date;
+      evidence: Array<{ id: string; filename: string; mimeType: string; sizeBytes: number; createdAt: string }>;
+      profile_summary: VerificationProfileSummary;
     }>(`
       WITH latest AS (
         SELECT DISTINCT ON (entity_type, entity_id)
@@ -69,7 +101,24 @@ export class VerificationReviewService {
       )
       SELECT vr.id AS request_id, vr.entity_type, vr.entity_id, b.name AS label,
         to_char(b.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS profile_revision,
-        vr.created_at AS request_created_at
+        vr.created_at AS request_created_at,
+        jsonb_strip_nulls(jsonb_build_object(
+          'entityType','business','name',b.name,'descriptionAr',b.description_ar,'descriptionEn',b.description_en,
+          'categoryCode',b.category_code,'cityCode',b.city_code,'phone',b.phone,'email',b.email,
+          'website',b.website,'addressAr',b.address_ar
+        )) AS profile_summary,
+        COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'id',m.id,'filename',m.filename,'mimeType',m.mime_type,'sizeBytes',m.size_bytes,
+            'createdAt',to_char(m.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+          ) ORDER BY m.created_at,m.id)
+          FROM (
+            SELECT id,filename,mime_type,size_bytes,created_at FROM media_assets
+            WHERE owner_type='business_profile' AND owner_id=b.id
+              AND asset_type='business_verification_evidence' AND visibility='private'
+            ORDER BY created_at,id LIMIT 4
+          ) m
+        ),'[]'::jsonb) AS evidence
       FROM latest vr
       JOIN business_profiles b ON vr.entity_type='business' AND b.id=vr.entity_id
       WHERE vr.status='pending'
@@ -77,7 +126,23 @@ export class VerificationReviewService {
       SELECT vr.id AS request_id, vr.entity_type, vr.entity_id,
         COALESCE(NULLIF(BTRIM(p.headline_ar),''), p.professional_profile_identifier) AS label,
         to_char(p.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS profile_revision,
-        vr.created_at AS request_created_at
+        vr.created_at AS request_created_at,
+        jsonb_strip_nulls(jsonb_build_object(
+          'entityType','professional','headlineAr',p.headline_ar,'headlineEn',p.headline_en,
+          'bioAr',p.bio_ar,'bioEn',p.bio_en,'skills',p.skills,'cityCode',p.city_code,'countryCode',p.country_code
+        )) AS profile_summary,
+        COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'id',m.id,'filename',m.filename,'mimeType',m.mime_type,'sizeBytes',m.size_bytes,
+            'createdAt',to_char(m.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+          ) ORDER BY m.created_at,m.id)
+          FROM (
+            SELECT id,filename,mime_type,size_bytes,created_at FROM media_assets
+            WHERE owner_type='professional_profile' AND owner_id=p.professional_profile_identifier
+              AND asset_type='professional_verification_evidence' AND visibility='private'
+            ORDER BY created_at,id LIMIT 4
+          ) m
+        ),'[]'::jsonb) AS evidence
       FROM latest vr
       JOIN professional_profiles p ON vr.entity_type='professional' AND p.professional_profile_identifier=vr.entity_id
       WHERE vr.status='pending'
@@ -89,7 +154,12 @@ export class VerificationReviewService {
       entityId: row.entity_id,
       label: row.label,
       profileRevision: row.profile_revision,
-      createdAt: row.request_created_at.toISOString()
+      createdAt: row.request_created_at.toISOString(),
+      profileSummary: row.profile_summary,
+      evidence: (Array.isArray(row.evidence) ? row.evidence : []).map((item) => ({
+        ...item,
+        secureUrl: `/api/v1/media/public/${encodeURIComponent(item.id)}`
+      }))
     }));
   }
 
@@ -108,10 +178,10 @@ export class VerificationReviewService {
     decision: VerificationDecision,
     notesValue: unknown
   ): Promise<VerificationReviewResult> {
-    const actor = await this.requireReviewer(cookieHeader);
     const requestId = this.requireRequestId(requestIdValue);
     const revision = this.requireRevision(expectedRevision);
     const notes = this.requireNotes(notesValue);
+    const actor = await this.requireReviewer(cookieHeader, decision === 'approved');
 
     return this.db.transaction(async (client) => {
       // Read immutable routing fields first. Parent-first locking below matches owner submission
@@ -129,11 +199,13 @@ export class VerificationReviewService {
       const target = targets[entityType];
       const parent = await client.query<{
         label: string;
+        owner_user_id: string;
         trust_status: string | null;
         moderation_status: string;
         status: string | null;
         lifecycle_status: string | null;
         revision: string;
+        profile_summary: VerificationProfileSummary;
       }>(
         `SELECT ${target.projection}, ${PROFILE_REVISION_SQL} AS revision
          FROM ${target.table} WHERE ${target.id}=$1 FOR UPDATE`,
@@ -141,6 +213,9 @@ export class VerificationReviewService {
       );
       const current = parent.rows[0];
       if (!current) throw new ConflictException('The verification target no longer exists.');
+      if (decision === 'approved' && current.owner_user_id === actor.id) {
+        throw new ForbiddenException('A reviewer cannot approve their own verification request.');
+      }
 
       const latest = await client.query<{ id: string; status: string; created_at: Date }>(
         `SELECT id,status,created_at FROM verification_requests
@@ -156,6 +231,24 @@ export class VerificationReviewService {
       }
       if (current.revision !== revision) {
         throw new ConflictException('The profile changed. Reload the verification queue before deciding.');
+      }
+      const evidenceOwnerType = entityType === 'business' ? 'business_profile' : 'professional_profile';
+      const evidenceAssetType = entityType === 'business' ? 'business_verification_evidence' : 'professional_verification_evidence';
+      const evidence = await client.query<{
+        id: string; filename: string; mime_type: string; size_bytes: number; created_at: Date;
+      }>(
+        `SELECT id,filename,mime_type,size_bytes,created_at FROM media_assets
+         WHERE owner_type=$1 AND owner_id=$2 AND asset_type=$3 AND visibility='private'
+         ORDER BY created_at,id LIMIT 4`,
+        [evidenceOwnerType, entityId, evidenceAssetType]
+      );
+      if (decision === 'approved') {
+        if (!evidence.rows[0]) {
+          throw new ConflictException('Verification evidence is missing. Ask the owner to upload evidence and submit the request again.');
+        }
+        if (evidence.rows.length > 3) {
+          throw new ConflictException('Verification evidence exceeds the three-image limit. Ask the owner to correct the evidence set.');
+        }
       }
       if (entityType === 'business' && decision === 'approved' &&
           (current.trust_status === 'suspended' || current.status === 'suspended')) {
@@ -198,15 +291,28 @@ export class VerificationReviewService {
         label: current.label,
         profileRevision: revision,
         createdAt: latest.rows[0].created_at.toISOString(),
+        profileSummary: current.profile_summary,
+        evidence: evidence.rows.map((item) => ({
+          id: item.id,
+          filename: item.filename,
+          mimeType: item.mime_type,
+          sizeBytes: item.size_bytes,
+          createdAt: item.created_at.toISOString(),
+          secureUrl: `/api/v1/media/public/${encodeURIComponent(item.id)}`
+        })),
         status: decision,
         reviewedAt: reviewed.rows[0].reviewed_at.toISOString()
       };
     });
   }
 
-  private async requireReviewer(cookieHeader: string | undefined) {
+  private async requireReviewer(cookieHeader: string | undefined, allowBoundedApproval: boolean) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    if (allowBoundedApproval) {
+      this.rbac.assertAny(actor.email, ['security.manage', 'trust.approvals.approve']);
+    } else {
+      this.rbac.assert(actor.email, 'security.manage');
+    }
     return actor;
   }
 

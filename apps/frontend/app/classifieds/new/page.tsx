@@ -135,12 +135,6 @@ export default function NewClassifiedPage() {
     if (pending.current) return;
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const intent: 'draft' | 'review' = submitter?.value === 'draft' ? 'draft' : 'review';
-    const daily = quota?.daily ?? { used: quota?.used ?? 0, limit: 3 };
-    const weekly = quota?.weekly ?? { used: quota?.used ?? 0, limit: 5 };
-    if (intent === 'review' && quota && (daily.used >= daily.limit || weekly.used >= weekly.limit)) {
-      setError('تم استهلاك الحصة الحالية. يمكنك حفظ الإعلان كمسودة ونشره بعد تجدد الحصة.');
-      return;
-    }
     const validation = clientValidation();
     if (validation) { setError(validation); return; }
     const input = event.currentTarget.elements.namedItem('adImages') as HTMLInputElement;
@@ -216,7 +210,7 @@ export default function NewClassifiedPage() {
       } else if (issue?.code === 'AD_WEEKLY_QUOTA_EXHAUSTED') {
         setError('بلغت الحد الأسبوعي: 5 إعلانات خلال 7 أيام.');
       } else if (issue?.code === 'AD_FREE_QUOTA_EXHAUSTED') {
-        setError('تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.');
+        setError('تم استهلاك حصة النشر الحالية للحساب.');
       } else if (issue?.code === 'AD_IMAGE_LIMIT_REACHED') {
         setError(`يمكن حفظ ${CLASSIFIEDS_MAX_IMAGES} صور كحد أقصى للإعلان.`);
       } else if (issue?.statusCode === 409) {
@@ -248,12 +242,12 @@ export default function NewClassifiedPage() {
   const publicationQuotaFull = dailyQuota.used >= dailyQuota.limit || weeklyQuota.used >= weeklyQuota.limit;
 
   return <PageShell className={styles.page} label="إضافة إعلان"><div className={styles.formShell}>
-    <PageHeader eyebrow="إعلانات خدمة" title="إضافة إعلان" description="أنشئ إعلانًا مستقلاً عن متجر خدمة. إنشاء المسودة لا يستهلك الحصة؛ النشر مباشر بحد 3 إعلانات خلال 24 ساعة و5 خلال 7 أيام." actions={<ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink>}/>
-    {quota && <Surface className={styles.quota}><strong>حدود النشر</strong><span>{dailyQuota.used} من 3 خلال 24 ساعة · {weeklyQuota.used} من 5 خلال 7 أيام</span></Surface>}
-    {quota && publicationQuotaFull && <StatusMessage tone="warning">يمكنك حفظ مسودة الآن، ثم نشرها بعد تجدد الحصة.</StatusMessage>}
+    <PageHeader eyebrow="إعلانات خدمة" title="إضافة إعلان" description="أنشئ إعلانًا مستقلاً عن متجر خدمة. يُرسل الإعلان لمراجعة بشرية، ولا يظهر للعامة إلا بعد اعتماده. حد نشر الإعلانات الجديدة 3 خلال 24 ساعة و5 خلال 7 أيام." actions={<ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink>}/>
+    {quota && <Surface className={styles.quota}><strong>حصة نشر الإعلانات الجديدة</strong><span>{dailyQuota.used} من 3 خلال 24 ساعة · {weeklyQuota.used} من 5 خلال 7 أيام</span></Surface>}
+    {quota && publicationQuotaFull && <StatusMessage tone="warning">استهلكت حصة النشر الحالية. يمكنك إرسال الإعلان للمراجعة الآن، لكنه لن يظهر للعامة قبل الاعتماد وتوفر الحصة.</StatusMessage>}
     {error && <StatusMessage tone="danger">{error}{createConflict && <div className={styles.actions}><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء محاولة إعلان جديدة</ActionButton><ActionLink href="/classifieds/manage" variant="secondary">مراجعة إعلاناتي</ActionLink></div>}</StatusMessage>}
     {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
-    {draft?.status === 'draft' && <Surface className={styles.quota}><span>هذه المسودة محفوظة؛ يمكنك نشرها أو بدء إعلان آخر.</span><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء إعلان جديد</ActionButton></Surface>}
+    {draft?.status === 'draft' && <Surface className={styles.quota}><span>هذه المسودة محفوظة؛ يمكنك إرسالها للمراجعة أو بدء إعلان آخر.</span><ActionButton type="button" variant="secondary" disabled={saving} onClick={startAnotherAd}>بدء إعلان جديد</ActionButton></Surface>}
     {categoryError && <StatusMessage tone="danger">{categoryError}</StatusMessage>}
     {cityError && <StatusMessage tone="danger">{cityError}</StatusMessage>}
     <Surface as="form" className={styles.form} onSubmit={submit} aria-busy={saving}>
@@ -282,7 +276,7 @@ export default function NewClassifiedPage() {
         <p className={styles.notice}>كل صورة حتى 5 ميغابايت. الصور المحفوظة: {images.length} من {CLASSIFIEDS_MAX_IMAGES}. حفظ المسودة لا يستهلك حصة، ولا تنشئ هذه العملية طلب شراء أو دفعة.</p>
         <div className={styles.actions}>
           <ActionButton type="submit" name="intent" value="draft" variant="secondary" disabled={saving || categoryLoading || !!categoryError}>{savingIntent === 'draft' ? 'جارٍ حفظ المسودة…' : 'حفظ كمسودة'}</ActionButton>
-          <ActionButton type="submit" name="intent" value="review" disabled={saving || categoryLoading || !!categoryError || Boolean(quota && publicationQuotaFull)}>{savingIntent === 'review' ? 'جارٍ الحفظ والنشر…' : 'حفظ ونشر الإعلان'}</ActionButton>
+          <ActionButton type="submit" name="intent" value="review" disabled={saving || categoryLoading || !!categoryError}>{savingIntent === 'review' ? 'جارٍ الحفظ والإرسال…' : 'حفظ وإرسال للمراجعة'}</ActionButton>
         </div>
       </fieldset>
     </Surface>

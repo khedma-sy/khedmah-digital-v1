@@ -1,3 +1,5 @@
+import type { ServiceListing } from '../service-catalog/service-catalog.types';
+
 export type ProfessionalAvailability = 'available' | 'busy' | 'unavailable';
 
 export interface ProfessionalProfile {
@@ -41,6 +43,22 @@ export interface PublicProfessionalProfile {
     readonly lifecycleStatus: 'created' | 'pending' | 'active' | 'suspended' | 'archived';
     readonly eligible: boolean;
   };
+}
+
+/** Reviewer-only aggregate. It must never be added by the public profile mapper. */
+export interface ProfessionalProfileReviewSnapshot {
+  /** Exact parent revision that must be sent back as expectedRevision. */
+  readonly exactRevision: string;
+  readonly reviewImageUrls: readonly string[];
+  readonly serviceListings: readonly ServiceListing[];
+}
+
+export interface ProfessionalProfileModerationRecord extends ProfessionalProfile {
+  readonly reviewSnapshot: ProfessionalProfileReviewSnapshot;
+}
+
+export interface PublicProfessionalProfileModerationReview extends PublicProfessionalProfile {
+  readonly reviewSnapshot: ProfessionalProfileReviewSnapshot;
 }
 
 export interface MediaAsset {
