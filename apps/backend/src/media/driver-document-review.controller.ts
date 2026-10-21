@@ -39,8 +39,8 @@ export class DriverDocumentReviewController {
   review(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('id') id: string,
-    @Body() body: { status?: unknown; reason?: unknown }
+    @Body() body: { status?: unknown; reason?: unknown; expectedReviewStatus?: unknown }
   ) {
-    return this.documents.review(cookieHeader, id, body?.status, body?.reason).then(review => ({ review }));
+    return this.documents.review(cookieHeader, id, body?.status, body?.reason, body?.expectedReviewStatus).then(review => ({ review }));
   }
 }

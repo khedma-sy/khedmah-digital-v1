@@ -137,10 +137,14 @@ export class DriverDocumentReviewService {
     cookieHeader: string | undefined,
     id: string,
     status: unknown,
-    reason: unknown
+    reason: unknown,
+    expectedReviewStatus?: unknown
   ): Promise<{ id: string; status: 'approved' | 'rejected'; reason?: string; reviewedAt: string }> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
     if (status !== 'approved' && status !== 'rejected') throw new BadRequestException('Document review status is invalid.');
+    if (expectedReviewStatus !== undefined && expectedReviewStatus !== 'pending') {
+      throw new BadRequestException('expectedReviewStatus must be pending when provided.');
+    }
     const normalizedReason = typeof reason === 'string' && reason.trim() ? reason.trim() : undefined;
     if (status === 'rejected' && (!normalizedReason || normalizedReason.length < 5)) {
       throw new BadRequestException('A rejection reason of at least five characters is required.');
@@ -193,6 +197,11 @@ export class DriverDocumentReviewService {
         `SELECT status FROM mobility_document_reviews WHERE media_asset_id=$1 FOR UPDATE`,
         [id]
       );
+      // An explicit pending snapshot is binding even for a security reviewer.
+      // Omission retains the separate legacy security override below.
+      if (expectedReviewStatus === 'pending' && (currentReview.rows[0]?.status ?? 'pending') !== 'pending') {
+        throw new ConflictException('The document review changed. Reload the current document before deciding.');
+      }
       if (status === 'approved' && currentReview.rows[0] && currentReview.rows[0].status !== 'pending') {
         this.rbac.assert(actor.email, 'security.manage');
       }
