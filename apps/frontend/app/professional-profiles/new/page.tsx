@@ -26,7 +26,7 @@ export default function ProfessionalProfileEditorPage() {
   const lifecycle = useRef(0);
   const submissionInProgress = useRef(false);
   const evidenceInProgress = useRef(false);
-  const [form, setForm] = useState({ headlineAr: '', headlineEn: '', bioAr: '', availability: 'available' as PublicProfessionalProfile['availability'], cityCode: '', skills: '' });
+  const [form, setForm] = useState({ headlineAr: '', headlineEn: '', bioAr: '', availability: 'available' as PublicProfessionalProfile['availability'], visibility: 'private' as 'public' | 'private' | 'internal', cityCode: '', skills: '' });
   const [isPrefilling, setIsPrefilling] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [prefillFailed, setPrefillFailed] = useState(false);
@@ -49,12 +49,14 @@ export default function ProfessionalProfileEditorPage() {
     let active = true;
     void api.professionals.getMine().then(async ({ professional }) => {
       if (!active || !professional) return;
+      const visibility = professional.contactEligibility?.visibility;
+      const hasVisibility = visibility === 'public' || visibility === 'private' || visibility === 'internal';
       setProfileId(professional.id);
       setContentRevision(professional.contentRevision);
-      setRequiresReload(!professional.contentRevision);
-      if (!professional.contentRevision) setError('تعذر تأكيد نسخة الملف. أعد تحميله قبل الحفظ.');
+      setRequiresReload(!professional.contentRevision || !hasVisibility);
+      if (!professional.contentRevision || !hasVisibility) setError('تعذر تأكيد نسخة الملف وحالة ظهوره. أعد تحميله قبل الحفظ.');
       setBioEn(professional.bioEn);
-      setForm({ headlineAr: professional.headlineAr, headlineEn: professional.headlineEn ?? '', bioAr: professional.bioAr ?? '', availability: professional.availability, cityCode: professional.cityCode, skills: professional.skills.join('، ') });
+      setForm({ headlineAr: professional.headlineAr, headlineEn: professional.headlineEn ?? '', bioAr: professional.bioAr ?? '', availability: professional.availability, visibility: hasVisibility ? visibility : 'private', cityCode: professional.cityCode, skills: professional.skills.join('، ') });
       try {
         const [assets, verificationState] = await Promise.all([
           api.media.listForOwner('professional_profile', professional.id),
@@ -96,7 +98,7 @@ export default function ProfessionalProfileEditorPage() {
     setIsSubmitting(true); setError('');
     const skills = form.skills.split(/[،,]+/).map((value) => value.trim()).filter(Boolean);
     try {
-      await api.professionals.createOrUpdate({ expectedContentRevision: contentRevision, headlineAr: form.headlineAr.trim(), headlineEn: form.headlineEn.trim() || undefined, bioAr: form.bioAr.trim() || undefined, bioEn, availability: form.availability, cityCode: form.cityCode, countryCode: 'SY', skills: skills.length ? skills : undefined });
+      await api.professionals.createOrUpdate({ expectedContentRevision: contentRevision, headlineAr: form.headlineAr.trim(), headlineEn: form.headlineEn.trim() || undefined, bioAr: form.bioAr.trim() || undefined, bioEn, availability: form.availability, visibility: form.visibility === 'internal' ? undefined : form.visibility, cityCode: form.cityCode, countryCode: 'SY', skills: skills.length ? skills : undefined });
       if (generation === lifecycle.current) router.push('/professional-profiles');
     } catch (cause) {
       if (generation !== lifecycle.current) return;
@@ -172,8 +174,9 @@ export default function ProfessionalProfileEditorPage() {
       {citiesError && <StatusMessage tone="warning"><p>{citiesError}</p><ActionButton type="button" variant="secondary" onClick={() => void retryCities()}>إعادة تحميل المدن</ActionButton></StatusMessage>}
       <div className={styles.formLayout}>
         <Surface as="form" className={styles.form} onSubmit={submit} aria-busy={isPrefilling || isSubmitting}>
-          <fieldset className={styles.formFields} disabled={isPrefilling || isSubmitting || prefillFailed}><section className={styles.section}><h2>الهوية المهنية</h2><label>العنوان المهني بالعربية <span className={styles.required}>*</span><input name="headlineAr" value={form.headlineAr} onChange={(event) => update('headlineAr', event.target.value)} minLength={3} maxLength={160} required placeholder="مثال: مهندس مدني متخصص في الإشراف والتنفيذ" /></label><label>العنوان بالإنجليزية<input name="headlineEn" value={form.headlineEn} onChange={(event) => update('headlineEn', event.target.value)} maxLength={160} dir="ltr" placeholder="Civil engineer" /></label><label>نبذة مهنية<textarea name="bioAr" value={form.bioAr} onChange={(event) => update('bioAr', event.target.value)} maxLength={2000} placeholder="اكتب خبرتك والتخصصات ونطاق الخدمات التي تقدمها" /><span className={styles.help}>{form.bioAr.length.toLocaleString('ar-SY')} / ٢٠٠٠</span></label></section>
+          <fieldset className={styles.formFields} disabled={isPrefilling || isSubmitting || prefillFailed}><section className={styles.section}><h2>الهوية المهنية</h2><label>العنوان المهني بالعربية <span className={styles.required}>*</span><input name="headlineAr" value={form.headlineAr} onChange={(event) => update('headlineAr', event.target.value)} minLength={2} maxLength={200} required placeholder="مثال: مهندس مدني متخصص في الإشراف والتنفيذ" /></label><label>العنوان بالإنجليزية<input name="headlineEn" value={form.headlineEn} onChange={(event) => update('headlineEn', event.target.value)} maxLength={200} dir="ltr" placeholder="Civil engineer" /></label><label>نبذة مهنية<textarea name="bioAr" value={form.bioAr} onChange={(event) => update('bioAr', event.target.value)} maxLength={2000} placeholder="اكتب خبرتك والتخصصات ونطاق الخدمات التي تقدمها" /><span className={styles.help}>{form.bioAr.length.toLocaleString('ar-SY')} / ٢٠٠٠</span></label></section>
           <section className={styles.section}><h2>التوفر والموقع</h2><div className={styles.fieldGrid}><label>حالة التوفر<select name="availability" value={form.availability} onChange={(event) => update('availability', event.target.value)}><option value="available">متاح للعمل</option><option value="busy">مشغول حالياً</option><option value="unavailable">غير متاح حالياً</option></select></label><label>المدينة <span className={styles.required}>*</span><select name="cityCode" value={form.cityCode} disabled={citiesLoading || !!citiesError} onChange={(event) => update('cityCode', event.target.value)} required><option value="">اختر مدينة سورية</option>{cities.map((city) => <option key={city.code} value={city.code}>{city.nameAr}</option>)}</select></label></div></section>
+          <section className={styles.section}><h2>ظهور الملف</h2><label>اختيارك للظهور<select name="visibility" value={form.visibility} disabled={form.visibility === 'internal'} onChange={(event) => update('visibility', event.target.value)}><option value="private">خاص — لا يظهر للعملاء</option><option value="public">عام بعد المراجعة والاعتماد</option>{form.visibility === 'internal' && <option value="internal">داخلي — يتطلب قرارًا مخولًا لتغييره</option>}</select></label><p className={styles.help}>اختيار العام لا ينشر الملف تلقائيًا. أرسل الملف للمراجعة، ويظهر للعملاء بعد الاعتماد وبقاء الملف نشطًا. تغيير الظهور يعيد المراجعة؛ الإبقاء على الخاص يمنع النشر حتى بعد الاعتماد.</p></section>
           <section className={styles.section}><h2>المهارات والتخصصات</h2><label>اكتب المهارات مفصولة بفاصلة<input name="skills" value={form.skills} onChange={(event) => update('skills', event.target.value)} placeholder="إشراف هندسي، إدارة مشاريع، مخططات تنفيذية" /><span className={styles.help}>أضف مهارات حقيقية ومحددة تساعد في ظهور ملفك بنتائج البحث المناسبة.</span></label></section>
           <footer className={styles.footer}><ActionLink href="/professional-profiles" variant="secondary">إلغاء والعودة</ActionLink><ActionButton type="submit" disabled={isSubmitting || isPrefilling || prefillFailed || requiresReload || citiesLoading || !!citiesError || !form.headlineAr.trim() || !form.cityCode}>{isSubmitting ? 'جارٍ حفظ الملف…' : profileId ? 'حفظ التعديلات' : 'إنشاء الملف'}</ActionButton></footer></fieldset>
         </Surface>

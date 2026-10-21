@@ -42,14 +42,14 @@ export class ProfessionalProfileRepository {
     await writeProfileReview(this.db, 'professional', id, actorId, { status: 'pending', ownerSubmission: true });
   }
 
-  async save(profile: ProfessionalProfile): Promise<void> {
+  async save(profile: ProfessionalProfile, visibility: 'public' | 'private' = 'private'): Promise<void> {
     await this.db.query(
       `INSERT INTO professional_profiles (
          professional_profile_identifier, profile_identifier, user_identifier, profession_type,
          lifecycle_status, visibility, moderation_status, headline_ar, headline_en, bio_ar, bio_en,
          availability, city_code, country_code, skills, created_at, updated_at
        )
-       SELECT $1, p.profile_identifier, $2, 'freelancer', 'created', 'private', 'pending',
+       SELECT $1, p.profile_identifier, $2, 'freelancer', 'created', $13, 'pending',
               $3,$4,$5,$6,$7,$8,$9,$10,$11,$12
        FROM profiles p WHERE p.user_identifier = $2
        ON CONFLICT (professional_profile_identifier) DO UPDATE SET
@@ -78,25 +78,29 @@ export class ProfessionalProfileRepository {
         profile.countryCode,
         [...profile.skills],
         profile.createdAt,
-        profile.updatedAt
+        profile.updatedAt,
+        visibility
       ]
     );
   }
 
-  async updateOwner(profile: ProfessionalProfile, expected: string, actorId: string): Promise<ProfessionalProfile> {
+  async updateOwner(profile: ProfessionalProfile, expected: string, actorId: string, visibility?: 'public' | 'private'): Promise<ProfessionalProfile> {
     const rows = await this.db.query<ProfessionalProfileRow>(
       `UPDATE professional_profiles SET
         moderation_status = CASE WHEN moderation_status='suspended' THEN 'suspended'
-          WHEN ROW(headline_ar,headline_en,bio_ar,bio_en,city_code,country_code,skills)
+          WHEN visibility IS DISTINCT FROM COALESCE($12::text,visibility)
+            OR ROW(headline_ar,headline_en,bio_ar,bio_en,city_code,country_code,skills)
             IS DISTINCT FROM ROW($2::text,$3::text,$4::text,$5::text,$7::text,$8::text,$9::text[]) THEN 'pending'
           ELSE moderation_status END,
         headline_ar=$2,headline_en=$3,bio_ar=$4,bio_en=$5,availability=$6,city_code=$7,country_code=$8,skills=$9,
+        visibility=COALESCE($12::text,visibility),
         updated_at=GREATEST(clock_timestamp(),updated_at+interval '1 microsecond')
        WHERE professional_profile_identifier=$1 AND user_identifier=$10 AND ${PROFESSIONAL_CONTENT_REVISION_SQL}=$11
+         AND ($12::text IS NULL OR visibility <> 'internal')
        RETURNING *,professional_profile_identifier AS id,user_identifier AS user_id,
          ${PROFILE_REVISION_SQL} AS revision,${PROFESSIONAL_CONTENT_REVISION_SQL} AS content_revision`,
       [profile.id,profile.headlineAr,profile.headlineEn??null,profile.bioAr??null,profile.bioEn??null,profile.availability,
-        profile.cityCode,profile.countryCode,[...profile.skills],actorId,expected]);
+        profile.cityCode,profile.countryCode,[...profile.skills],actorId,expected,visibility??null]);
     if (!rows[0]) throw new ConflictException('Profile content changed. Reload before saving.');
     return this.map(rows[0]);
   }
@@ -189,7 +193,7 @@ export class ProfessionalProfileRepository {
                 FROM service_listings sl WHERE sl.owner_type='professional' AND sl.owner_id=p.professional_profile_identifier
               ),'[]'::jsonb) AS review_service_listings
        FROM professional_profiles p
-       WHERE moderation_status = 'pending'
+       WHERE moderation_status = 'pending' AND lifecycle_status <> 'created'
        ORDER BY created_at ASC`
     );
     return rows.map((row) => this.mapModerationRecord(row));

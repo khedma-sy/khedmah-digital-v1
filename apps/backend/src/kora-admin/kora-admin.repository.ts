@@ -69,8 +69,8 @@ export class KoraAdminRepository {
       (SELECT COUNT(*)::text FROM provider_reports WHERE status IN ('submitted','in_review') AND reason_code IN ('impersonation','inappropriate_content')) AS provider_reports_sensitive_open,
       (SELECT COUNT(*)::text FROM business_profiles WHERE moderation_status='pending') AS business_profiles_pending_review,
       (SELECT COUNT(*)::text FROM business_profiles WHERE moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS business_profiles_review_overdue_24h,
-      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending') AS professional_profiles_pending_review,
-      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending' AND updated_at < NOW()-INTERVAL '24 hours') AS professional_profiles_review_overdue_24h,
+      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending' AND lifecycle_status <> 'created') AS professional_profiles_pending_review,
+      (SELECT COUNT(*)::text FROM professional_profiles WHERE moderation_status='pending' AND lifecycle_status <> 'created' AND updated_at < NOW()-INTERVAL '24 hours') AS professional_profiles_review_overdue_24h,
       (SELECT COUNT(*)::text FROM (
         WITH latest AS (
           SELECT DISTINCT ON (entity_type,entity_id) id,entity_type,entity_id,status,created_at

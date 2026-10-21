@@ -55,8 +55,8 @@ export class ProfessionalProfileService {
           updatedAt: now
         };
 
-    if (existing) return this.toPublic(await this.repository.updateOwner(profile, expected!, actor.id));
-    try { await this.repository.save(profile); } catch (cause) {
+    if (existing) return this.toPublic(await this.repository.updateOwner(profile, expected!, actor.id, input.visibility));
+    try { await this.repository.save(profile, input.visibility); } catch (cause) {
       if ((cause as { code?: string }).code === '23505') throw new ConflictException('A professional profile already exists. Reload it before editing.');
       throw cause;
     }
@@ -80,8 +80,8 @@ export class ProfessionalProfileService {
   }
 
   async getProfile(id: string): Promise<PublicProfessionalProfile> {
-    const profile = await this.requirePublicProfile(id);
-    return this.toPublic(profile);
+    const { profile, eligibility } = await this.requirePublicProfile(id);
+    return { ...this.toPublic(profile), contactEligibility: { ...eligibility, eligible: true } };
   }
 
   async search(request: SearchProfessionalProfilesRequest): Promise<{ readonly professionals: PublicProfessionalProfile[]; readonly page: number; }> {
@@ -216,7 +216,7 @@ export class ProfessionalProfileService {
     return profile;
   }
 
-  private async requirePublicProfile(id: string): Promise<ProfessionalProfile> {
+  private async requirePublicProfile(id: string) {
     const profile = await this.requireProfile(id);
     const eligibility = await this.repository.findContactEligibility(id);
 
@@ -229,7 +229,7 @@ export class ProfessionalProfileService {
       throw new NotFoundException(PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE);
     }
 
-    return profile;
+    return { profile, eligibility };
   }
 
   private toPublic(profile: ProfessionalProfile): PublicProfessionalProfile {

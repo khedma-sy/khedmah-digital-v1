@@ -620,6 +620,7 @@ export const api = {
   professionals: {
     createOrUpdate(data: {
       expectedContentRevision?: string;
+      visibility?: 'public' | 'private';
       headlineAr: string;
       headlineEn?: string;
       bioAr?: string;

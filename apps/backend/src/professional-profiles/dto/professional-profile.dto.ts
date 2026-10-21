@@ -5,6 +5,8 @@ export interface CreateProfessionalProfileRequest {
   readonly bioAr?: unknown;
   readonly bioEn?: unknown;
   readonly availability?: unknown;
+  /** Owner publication intent; omitted creates private and preserves existing visibility. */
+  readonly visibility?: unknown;
   readonly cityCode?: unknown;
   readonly countryCode?: unknown;
   readonly skills?: unknown;
@@ -16,6 +18,7 @@ export interface UpdateProfessionalProfileRequest {
   readonly bioAr?: unknown;
   readonly bioEn?: unknown;
   readonly availability?: unknown;
+  readonly visibility?: unknown;
   readonly cityCode?: unknown;
   readonly countryCode?: unknown;
   readonly skills?: unknown;

@@ -38,6 +38,11 @@ function validateAvailability(value: unknown): ProfessionalAvailability {
   throw new BadRequestException("availability must be one of 'available', 'busy', or 'unavailable'.");
 }
 
+function validateOwnerVisibility(value: unknown): 'public' | 'private' | undefined {
+  if (value === undefined || value === 'public' || value === 'private') return value;
+  throw new BadRequestException("visibility must be either 'public' or 'private'.");
+}
+
 function validateSkills(value: unknown): readonly string[] {
   if (value === undefined || value === null) {
     return [];
@@ -86,6 +91,7 @@ export function validateProfessionalProfileUpsert(request: CreateProfessionalPro
     bioAr: optionalString(request.bioAr, 'bioAr', 2000),
     bioEn: optionalString(request.bioEn, 'bioEn', 2000),
     availability: request.availability === undefined ? 'available' as const : validateAvailability(request.availability),
+    visibility: validateOwnerVisibility(request.visibility),
     cityCode: validateCityCode(request.cityCode),
     countryCode: requiredString(request.countryCode, 'countryCode', 2, 10),
     skills: validateSkills(request.skills)

@@ -40,6 +40,9 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
         throw new ForbiddenException('A reviewer cannot approve their own profile.');
       }
       if (current.revision !== decision.expectedRevision) throw new ConflictException('The profile changed. Reload the queue before deciding.');
+      if (kind === 'professional' && current.lifecycle === 'created') {
+        throw new ConflictException('The owner must submit the professional draft before a review decision.');
+      }
       if (current.moderation_status === 'suspended' || ['suspended','archived'].includes(current.lifecycle) ||
           (decision.status === 'approved' ? current.moderation_status !== 'pending' : !['pending','approved'].includes(current.moderation_status))) {
         throw new ConflictException('This profile is no longer eligible for this review decision.');
