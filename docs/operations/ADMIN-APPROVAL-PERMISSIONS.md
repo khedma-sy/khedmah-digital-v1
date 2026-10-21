@@ -31,13 +31,21 @@ The role does not receive `operations.read`. The existing `overview` endpoint ac
 
 ## Activation boundary
 
-Source support does not change a live account or environment. Activation requires a reviewed role-binding update for the intended administrator, Preview/Staging negative tests (including rejection/suspension denial and self-approval denial), a reviewed merge, and a separately authorized deployment. No Floot operation, IAM change, secret write, database migration, or Production deployment is part of this source change.
+Source support for this **additional bounded role** does not change a live account or environment. Activating that role requires a reviewed binding, Preview/Staging negative tests (including rejection/suspension denial and self-approval denial), a reviewed merge, and a separately authorized deployment. It is not a prerequisite for an already working director account. No Floot operation, IAM change, secret write, database migration, or Production deployment is part of this source change.
+
+### Existing administrator and published site — reconciled 2026-10-21
+
+The designated application administrator `khedmasy@gmail.com` is already bound to `operations_product_director`; the owner confirms it is activated and working. Floot's integration plan records real admin 200 at `2026-10-18T20:53:11.527Z`, with the director's seven permissions. Safari login/reload, post-hour absence and explicit logout-to-401 are also accepted. This evidence covers the recorded overview/inventory and session slices; it does not grant cloud IAM or certify every submodule.
+
+Floot is published/public and its live Firebase configuration and health adapter identify the existing Preview V2 connection. On October 21 the backend declared `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a`, which identifies a Preview source snapshot predating PR287/288. The tag is not an image-digest or schema attestation. The global next action is the serving artifact/schema reconciliation in [NEXT-ACTION](../project-control/NEXT-ACTION.md), not reactivation of the administrator. Detailed primary receipts are in [CURRENT-STATE](../project-control/CURRENT-STATE.md).
+
+Preserve the existing director mapping. Adding a bounded role to a broadly authorized director does not reduce their effective permissions, and that account cannot establish approval-only denial tests. A separately approved limited test identity is required for those tests if this new-role rollout is selected.
 
 ## Nonproduction activation handoff — 2026-10-21
 
 The owner resumed the completed admin-permissions work after the previous session stopped. [PR #288](https://github.com/khedma-sy/khedmah-digital-v1/pull/288) is already merged into `main` at `63b0fa3c6f886eebe8034f70780715a044c2d4d5`. [PR #289](https://github.com/khedma-sy/khedmah-digital-v1/pull/289) contains the remaining 035/037 schema-stage integration and its reviewed source repair. Its tested head is `5229089f449668ca5bebdb5c1186f668e905e7b9`; the control-document successor does not change application, migration, workflow or test source. Do not rebuild the role or repeat completed Preview bootstrap/grants.
 
-The proposed continuation uses the existing **Staging** helper. It is a preparation proposal, not a recorded activation or permission to execute it. GitHub's configured Staging target and protection settings were read directly on 2026-10-21 at 13:28 UTC, as recorded below. Actual cloud resources, database state, dedicated-workflow WIF acceptance and the intended application reviewer remain unverified. Configured GitHub values are not proof of current cloud state.
+The earlier proposal uses the existing **Staging** helper. It is retained as a conditional preparation proposal if a separate Staging rollout is selected; it is not the global website next action, a recorded activation or permission to execute. GitHub's configured Staging target and protection settings were read directly on 2026-10-21 at 13:28 UTC, as recorded below. Actual cloud resources, database state, dedicated-workflow WIF acceptance and the choice of an additional bounded reviewer for that target remain unverified. The existing application administrator is known and working. Configured GitHub values are not proof of current cloud state.
 
 ### What each migration does
 
@@ -71,7 +79,7 @@ The readback established concrete configuration gaps before any activation:
 | `STAGING_DATABASE_MIGRATION_SECRET_VERSION` | Absent from Staging's 15 variables; repository has no variables | Read the enabled numeric version metadata from the Staging migration secret; do not guess or copy Preview's version. |
 | Staging Environment protection | Required reviewers unchecked; wait timer unchecked; administrator bypass enabled; deployment branches/tags show `No restriction` | The current environment is not evidence of the protected approval boundary required by the future activation workflow. Prepare and approve that boundary explicitly. |
 
-These findings concern deployment configuration. They do not invalidate the completed admin feature or establish any live database/account state. The immediate continuation is the cloud metadata/schema readback for this configured target plus the narrowly scoped configuration/activation proposal; no workflow dispatch or `develop` push is justified by these observations.
+These findings concern the proposed Staging deployment configuration. They do not invalidate the completed admin feature, working director or published site, and do not establish live database/account state. If that separate rollout is selected, its next prerequisite is target metadata/schema readback plus the narrowly scoped configuration/activation proposal. The current global next action is serving Preview V2 reconciliation; no workflow dispatch or `develop` push is justified by these observations.
 
 ### Required target record
 
@@ -86,7 +94,7 @@ Read back environment-specific target values before finalizing the runnable acti
 | Schema state | Exact 034/036 definitions and 036 function ownership; classify 035/037 as predecessor, resumable or complete with the existing runner's contract | No live Staging receipt |
 | Activation authority | Dedicated workflow, protected Environment review, exact repository/develop WIF condition and scoped cloud permissions | Workflow absent; current Staging has no required reviewer/branch restriction; cloud WIF/IAM unverified |
 | Runtime readiness | Existing Staging Firebase/media/email bindings, current application revision and role-binding version metadata | GitHub target references present; actual runtime and role-binding version not read back |
-| Human reviewer | Owner-confirmed application sign-in identity and proposed additive role change | Not confirmed; no email may be inferred from GitHub or cloud-operator identity |
+| Additional bounded reviewer | Explicit choice of application identity and proposed additive role change for this Staging rollout | Existing director identity is known; the separate bounded delegation/test identity is not selected. Do not infer it from GitHub/cloud-operator identity or replace the director. |
 
 The existing [Staging discovery script](../../scripts/deployment/discover-staging-github-config.sh) reads resource metadata and secret-version states without secret payloads. Reuse it with a confirmed target and explicit region; then use the existing [configuration validator](../../scripts/deployment/validate-staging-deployment-config.sh) and [cloud-resource validator](../../scripts/deployment/validate-staging-cloud-resources.sh) where their prerequisites are met. Discovery checks the **general** Staging workflow's WIF reference, so its success does not prove the dedicated activation workflow's authority. A Cloud Run helper invoked in `verify` mode still builds an image and deploys/executes a Job; it is not a cloud-read-only metadata operation.
 
@@ -120,4 +128,4 @@ Use a reviewer with only the bounded role, a separate ordinary account and separ
 | Driver/vehicle documents and Taxi authority | Open and accept latest pending documents; approve an eligible driver/vehicle/zone only after all four current documents pass | Self-review, superseded documents, missing prerequisites, stale revisions, rejection and suspend/revoke denial; no trip activation |
 | Admin shell and audit | Open the bounded shell and observe the domain's authenticated review/audit record | No operational inventory, KORA, security, RBAC, billing or release authority; ordinary account cannot enter approval routes |
 
-Real Safari session acceptance remains a separate unfinished Floot integration gate. It does not replace this admin continuation or authorize expansion of Floot's authenticated adapter. Production migration, deployment and role binding retain their separate release gates.
+The recorded real Safari lifecycle and positive director acceptance are complete within their scope. Real signed-in non-admin denial, safe server-side revocation/replay and the new bounded role's domain acceptance remain separate receipts; do not reopen the completed owner/Safari tests merely because old notes request them. Production migration, deployment and role binding retain their separate release gates.
