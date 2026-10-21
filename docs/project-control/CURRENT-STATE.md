@@ -1,5 +1,29 @@
 # Khedmah Digital — Current State
 
+## Admin source complete; controlled nonproduction activation remains — 2026-10-21
+
+The owner resumed today's admin-permissions work from the uploaded handoff. This checkpoint reconciles live GitHub with that mission. It supersedes older sections' current-head, PR-state and global-next-action statements while retaining their historical receipts and independent release gates.
+
+| Area | Verified state |
+| --- | --- |
+| `main` | `63b0fa3c6f886eebe8034f70780715a044c2d4d5`, the merged [PR #288](https://github.com/khedma-sy/khedmah-digital-v1/pull/288) |
+| Classifieds publication | [PR #287](https://github.com/khedma-sy/khedmah-digital-v1/pull/287) merged as `090b50c62f46a3d77c42b7c9a2edeb1e7efabeb2`; source implements server-validated publication with 3 per rolling 24 hours and 5 per rolling 7 days |
+| Human admin approvals | PR288 implements `smart_admin_approver` for current content, private business/professional verification evidence, current driver/vehicle documents and eligible Taxi authority; no autonomous KORA decision authority |
+| Remaining source integration | Only open [PR #289](https://github.com/khedma-sy/khedmah-digital-v1/pull/289), Draft/unmerged; tested head `5229089f449668ca5bebdb5c1186f668e905e7b9`; this reconciliation is a documentation-only successor |
+| Recovered repair | Published source `d1d4f18a21b2c09911816df0af134c5027511aac` exactly reproduces retained local `f068319b65ad68d30c470284afc91c5d2a491364`, tree `503dfc5e86195097b28f4135c16c1cde0f3dd9bb` |
+| Live activation | No persistent 035/037 activation or human reviewer binding is established by this continuation; current source does not prove a deployed account capability |
+| Last GitHub-evidenced Production release | [Run 39124093630](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39124093630) deployed source `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63` on October 18; no newer deployment receipt was found in the reconciliation |
+
+All five CI workflows on exact head `5229089f` passed: [Node](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39603512007), [Test & Verify](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39603512073), [PR Preview](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39603512432), [Migration Validation](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39603511894), and [Google readiness](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39603512216). Each full Node/Test workflow reports root **1951 pass / 0 fail / 1 skip**, Backend **709/709**, Frontend **152/152**; native PostgreSQL 16 complete-contract execution passed. Preview live-deployment/baseline/evidence and the production-secret gate were skipped, so these receipts are not live acceptance. The original P1 was repaired and independently reviewed; its outdated thread remains unresolved for human review. [Automated Codex review stopped at the account usage limit](https://github.com/khedma-sy/khedmah-digital-v1/pull/289#issuecomment-6316567075), not at a new code finding.
+
+The general Preview/Staging path now verifies 035/037 and rejects activation inputs before cloud access. The dedicated Staging activation workflow is deliberately absent. Its future implementation needs verified target metadata, protected Environment/WIF/identity authority and a pinned enabled migration-secret version. Canonical 034 and exact 036 with migrator function ownership are prerequisites; pushing `develop` to make earlier migrations run is not the next action. Migration 035 does not assign the reviewer role; that role is bound only through server-side `OPERATIONS_PRODUCT_ROLE_BINDINGS`.
+
+Live GitHub configuration was read at **13:28 UTC**: Staging points to `khedmah-digital-staging-503812` / `238556897388` in `me-central1`, with SQL `khedmah-digital-staging-503812:me-central1:khedmah-staging-db`. Its Preview/Production separation references are stale. The migration service-account secret name is absent from the inspected Staging/repository lists, the pinned migration-version variable is absent, and the current Staging Environment has no required reviewer or branch restriction. Those are observed GitHub configuration gaps; actual cloud resources, database state, secret values/versions and IAM/WIF were not inspected. The [activation handoff](../operations/ADMIN-APPROVAL-PERMISSIONS.md#live-github-configuration-readback) records exact values and settings links.
+
+**Next Safe Action for the active admin mission:** follow the prepared [nonproduction activation handoff](../operations/ADMIN-APPROVAL-PERMISSIONS.md#nonproduction-activation-handoff--2026-10-21), starting with actual cloud metadata/schema evidence for the configured Staging target, then the narrow configuration and separate activation source proposal. The intended application reviewer identity is still unconfirmed. Preserve existing Preview schema/grant receipts; do not repeat them. PR289 remains source-only, Draft and unmerged under the current boundary. No GitHub setting change, merge, dispatch, role binding, secret/IAM/database write, deployment or Production mutation was performed by this reconciliation.
+
+The prior Safari/one-hour session acceptance remains unfinished for Floot's authenticated integration. It is a separate gate and does not replace the current admin continuation. See the synchronized [execution checkpoint](../../ROADMAP-EXECUTION-2026-09-08.md) and [next-action record](NEXT-ACTION.md).
+
 ## Production deployment and Maps certification reconciled — 2026-10-18
 
 The reconciliation started from `41fd759cce282a59605fb3f533d897605180da2e`, the documentation-only merge of PR #284. This control-document checkpoint is a documentation-only successor; the exact application source deployed to Production remains `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`, merged through PR #283.

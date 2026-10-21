@@ -1,5 +1,24 @@
 # Next Safe Action — Khedmah
 
+## Continue the completed admin-permissions mission — 2026-10-21
+
+The active owner instruction is to continue today's admin work from the uploaded handoff. This checkpoint supersedes older global next-action and open-PR statements. PR287 and PR288 are merged; `main` is `63b0fa3c6f886eebe8034f70780715a044c2d4d5`. The bounded human reviewer role is implemented. Only [PR #289](https://github.com/khedma-sy/khedmah-digital-v1/pull/289) remains open, Draft and unmerged; its tested source/checkpoint head is `5229089f449668ca5bebdb5c1186f668e905e7b9` and all five CI workflows passed. The current follow-up changes control/operations documentation only. Source evidence and its live-acceptance limits are recorded in [CURRENT-STATE](CURRENT-STATE.md).
+
+Read-only GitHub settings inspection at **13:28 UTC** established configured Staging project `khedmah-digital-staging-503812`, number `238556897388`, region `me-central1`, and SQL connection `khedmah-digital-staging-503812:me-central1:khedmah-staging-db`. Staging's Preview/Production separation values are stale; its migration service-account reference and pinned version are absent from the inspected Environment/repository configuration; required reviewers and branch restrictions are not configured. Exact values and source links are in the [live configuration readback](../operations/ADMIN-APPROVAL-PERMISSIONS.md#live-github-configuration-readback). No setting was changed.
+
+**Immediate action:** collect actual cloud resource metadata and exact 034/036/035/037 schema state for that configured Staging target through an authorized read-only channel. Use the [prepared activation handoff](../operations/ADMIN-APPROVAL-PERMISSIONS.md#nonproduction-activation-handoff--2026-10-21) as the required target record. GitHub's configured values do not prove the cloud identities, enabled migration-secret version, dedicated-workflow WIF permission, database state or intended application reviewer. An unresolved field must not be supplied from an old conversation or an assumed naming convention. Cloud Run helper `verify` mode creates/executes cloud resources and is not a read-only metadata shortcut.
+
+After that evidence is available, continue in this order:
+
+1. Prepare the exact repair/execution proposal for any missing or drifted 034/036 through its existing reviewed migration path, and obtain the relevant owner authorization before any persistent change. Exact 036 ownership must be `khedmah_migrator`; the general Staging runtime credential is not sufficient evidence. Do not replay a whole deployment to prepare the schema.
+2. Prepare and review the separate dedicated Staging activation workflow/environment/WIF boundary, reusing the accepted 035/037 helper. Obtain the corresponding owner authorization before integration or execution; PR289's source-only scope does not itself authorize merge, cloud changes or database apply.
+3. Complete and record 035 then 037 (or prove already completed state). Confirm the human reviewer's application identity; prepare the additive `smart_admin_approver` mapping while preserving existing bindings. Migration 035 is not that binding.
+4. Perform the authorized Staging application deployment with the reviewed binding and run the documented positive/negative acceptance matrix on approved fixtures. Record exact schema, revision, role and audit evidence. Keep Taxi trips disabled and Production under its separate gates.
+
+No additional admin feature implementation is required by the current source inventory. Preserve the recovered repair and completed Preview setup/grants. Automated Codex review is unavailable at the account usage limit; the original P1 thread is outdated but awaits human resolution. Existing independent review and passing CI must not be relabeled as completed automated or human approval.
+
+The Safari/one-hour session acceptance below remains an independent Floot integration task. It does not replace this admin mission or authorize new Floot authenticated routes. No source merge, workflow dispatch, cloud/secret/IAM/database mutation, reviewer binding or deployment was performed by this documentation pass.
+
 ## Session-cookie ambiguity rejected; browser evidence recorder added — 2026-10-15
 
 Floot checkpoint **9e84c139-8f3e-44e7-897a-a2d7e786f9e2**, documentation version **1792080274730**. Implementation remains in Floot; these are documentation-only GitHub updates.
