@@ -136,13 +136,13 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
 
   const root = fileURLToPath(new URL('..', import.meta.url));
   // The retained ACL baseline intentionally validates the reviewed 030 routine
-  // body first. Apply the governed 036 replacement only after that proof, then
-  // require every real deployment entrypoint to verify the successor schema.
+  // body first. Migration 036 remains owned by Classifieds; the real governed
+  // entrypoint below must apply 035 and 037 rather than fixture SQL doing so.
   ok(sql('SET search_path=public,pg_catalog;\n' +
     readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
     'khedmah_migrator', 'khedmah', false), 'classifieds quota migration fixture');
 
-  // Run the real nine deployment entrypoints against the completed successor
+  // Run the real ten deployment entrypoints against the completed successor
   // schema and grants. The disposable container stays network-disabled.
   const migrationNames = [
     'foundation-nonproduction-migrations', 'product-store-nonproduction-migration',
@@ -150,6 +150,7 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     'taxi-pricing-nonproduction-migration', 'billing-nonproduction-migration',
     'taxi-operational-approval-nonproduction-migration',
     'taxi-operational-profile-gate-nonproduction-migration', 'food-promotions-nonproduction-migration',
+    'approval-prerequisites-035-037-nonproduction-migration',
   ];
   ok(docker('cp', root + '/backend/migrations/versions', fixture + ':/migrations'), 'copy canonical SQL');
   ok(docker('cp', root + '/scripts/deployment', fixture + ':/schema-scripts'), 'copy real entrypoints');
@@ -157,22 +158,29 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
     fixture + ':/migrations/reconcile_legacy_165_mobility_documents.sql'), 'copy retained legacy checksum source');
   ok(docker('cp', root + '/scripts/deployment/preview-schema-verification.sql',
     fixture + ':/migrations/preview-schema-verification.sql'), 'copy final verification');
-  // Debian postgres lacks Python. Only the unchanged Git-blob hashing call is
-  // translated to the same SHA1 algorithm; no SQL, query result or guard is mocked.
+  // Debian postgres lacks Python. The adapter implements only the reviewed
+  // Git-blob hash and the one hostless local-test URL; SQL and catalog guards
+  // still execute unchanged on native PostgreSQL.
   const setup = `set -eu
 mkdir -p /tmp/schema-tools
 cat > /tmp/schema-tools/python3 <<'SH'
 #!/bin/sh
 set -eu
-[ "$#" = 2 ] && [ "$1" = '-' ] && [ -f "$2" ] || exit 95
-cat >/dev/null
-( printf 'blob %s\\000' "$(wc -c < "$2" | tr -d ' ')"; cat "$2" ) | sha1sum | cut -d ' ' -f1
+if [ "$#" = 2 ] && [ "$1" = '-' ] && [ -f "$2" ]; then
+  cat >/dev/null
+  ( printf 'blob %s\\000' "$(wc -c < "$2" | tr -d ' ')"; cat "$2" ) | sha1sum | cut -d ' ' -f1
+elif [ "$#" = 1 ] && [ "$1" = '-' ] && [ "$DATABASE_URL" = 'postgresql:///khedmah?user=khedmah_migrator' ]; then
+  grep -q 'local tests require a hostless URL' || exit 95
+  printf '%s\\n' 'PGDATABASE=khedmah' 'PGUSER=khedmah_migrator' 'PGHOST=/var/run/postgresql' "PGPASSWORD=''"
+else
+  exit 95
+fi
 SH
 cat > /tmp/schema-tools/psql <<'SH'
 #!/bin/sh
 set -eu
 readonly_state="$(/usr/bin/psql -X -Atq -d "$DATABASE_URL" -c 'SHOW transaction_read_only;')"
-[ "$readonly_state" = 'on' ] || exit 96
+[ "$readonly_state" = "\${EXPECTED_SCHEMA_READONLY:-on}" ] || exit 96
 printf '%s\\n' "$readonly_state" >> /tmp/schema-sessions.log
 exec /usr/bin/psql "$@"
 SH
@@ -181,12 +189,13 @@ chmod -R a+rX /schema-scripts /migrations
 `;
   ok(run('docker', ['exec', '-i', fixture, 'sh'], setup), 'read-only session recorder');
   const manifest = createHash('sha256').update(pack.migrations.slice(0, 22).map(m => m.sql).join('')).digest('hex');
-  const runMigration = (name, mode = 'verify', extra = {}) => {
+  const migrationEnvironment = (name, mode = 'verify', extra = {}) => {
     const source = readFileSync(root + '/scripts/deployment/run-' + name + '.sh', 'utf8');
-    const env = {
+    return {
       PATH: '/tmp/schema-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       DEPLOYMENT_ENVIRONMENT: 'preview', GOOGLE_CLOUD_PROJECT: 'khedmah-preview-v2-20261012',
-      PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl', MIGRATION_MODE: mode,
+      GOOGLE_CLOUD_REGION: 'europe-west1', PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
+      MIGRATION_MODE: mode, ALLOW_LOCAL_SCHEMA_TESTS: 'true',
       DATABASE_URL: 'postgresql:///khedmah?user=khedmah_migrator',
       // The entrypoint must replace this unsafe inherited setting.
       PGOPTIONS: '-c default_transaction_read_only=off', FOUNDATION_MANIFEST_SHA256: manifest,
@@ -195,8 +204,13 @@ chmod -R a+rX /schema-scripts /migrations
       MIGRATION_GIT_BLOB: source.match(/APPROVED_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_SHA256: source.match(/APPROVED_033_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       MIGRATION_033_GIT_BLOB: source.match(/APPROVED_033_GIT_BLOB='([a-f0-9]+)'/)?.[1] ?? '',
+      MIGRATION_035_SHA256: source.match(/APPROVED_035_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
+      MIGRATION_037_SHA256: source.match(/APPROVED_037_SHA256='([a-f0-9]+)'/)?.[1] ?? '',
       ...extra,
     };
+  };
+  const runMigration = (name, mode = 'verify', extra = {}) => {
+    const env = migrationEnvironment(name, mode, extra);
     return run('docker', ['exec', ...Object.entries(env).flatMap(([k,v]) => ['--env', k + '=' + v]),
       fixture, 'sh', '/schema-scripts/run-' + name + '.sh']);
   };
@@ -204,6 +218,262 @@ chmod -R a+rX /schema-scripts /migrations
     schema: ok(sql(pack.schema), 'schema digest'),
     acl: JSON.parse(ok(sql(pack.inventory), 'complete ACL metadata').join('\n')),
   });
+  const approvalStage = 'approval-prerequisites-035-037-nonproduction-migration';
+  const beforeApproval = snapshot();
+  const applied = ok(runMigration(approvalStage, 'apply', {
+    DEPLOYMENT_ENVIRONMENT: 'staging',
+    GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+    MIGRATION_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+    EXPECTED_SCHEMA_READONLY: 'off',
+  }), 'real approval prerequisite apply');
+  assert.ok(applied.some(line => line.includes('MIGRATIONS_035_037_APPLIED_AND_VERIFIED')));
+  assert.notEqual(snapshot(), beforeApproval, 'The real apply path must install both governed successors.');
+  const appliedSnapshot = snapshot();
+  const approvalReplay = ok(runMigration(approvalStage, 'apply', {
+    DEPLOYMENT_ENVIRONMENT: 'staging',
+    GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+    MIGRATION_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+    EXPECTED_SCHEMA_READONLY: 'off',
+  }), 'idempotent approval prerequisite replay');
+  assert.ok(approvalReplay.some(line => line.includes('MIGRATIONS_035_037_ALREADY_APPLIED_AND_VERIFIED')));
+  assert.equal(snapshot(), appliedSnapshot);
+
+  const verifyRejectsConstraintDrift = (ddl, label) => {
+    ok(sql(ddl, 'khedmah_migrator', 'khedmah', false), label + ' fixture');
+    const drifted = snapshot();
+    const rejected = runMigration(approvalStage);
+    assert.notEqual(rejected.status, 0, label + ' must fail exact-state verification');
+    assert.match(rejected.stderr, /PARTIAL_OR_UNVERIFIED_STATE|REQUIRE_CANONICAL_034_036/);
+    assert.equal(snapshot(), drifted, label + ' verification must not repair drift');
+  };
+  const restore035 = () => ok(sql('SET search_path=public,pg_catalog;\n' +
+    readFileSync(root + '/backend/migrations/versions/035_specialized_admin_roles.sql', 'utf8'),
+    'khedmah_migrator', 'khedmah', false), 'restore canonical migration 035');
+  const restore037 = () => ok(sql('SET search_path=public,pg_catalog;\n' +
+    readFileSync(root + '/backend/migrations/versions/037_verification_evidence_media.sql', 'utf8'),
+    'khedmah_migrator', 'khedmah', false), 'restore canonical migration 037');
+
+  verifyRejectsConstraintDrift(`ALTER TABLE public.admin_roles
+    DROP CONSTRAINT admin_roles_role_check,
+    ADD CONSTRAINT admin_roles_role_check CHECK (role NOT IN
+      ('bootstrap_admin','platform_admin','moderator','billing_admin','taxi_pricing_admin','category_admin'));`,
+    'inverted specialized-role constraint');
+  restore035();
+  verifyRejectsConstraintDrift(`ALTER TABLE public.media_assets
+    DROP CONSTRAINT media_assets_asset_type_check,
+    ADD CONSTRAINT media_assets_asset_type_check CHECK (
+      asset_type IN ('logo','cover','gallery','profile_image','service_image','product_image','ad_image',
+        'driver_photo','identity_card','driving_license','vehicle_license',
+        'business_verification_evidence','professional_verification_evidence') OR asset_type IS NOT NULL);`,
+    'widened evidence asset constraint');
+  restore037();
+  verifyRejectsConstraintDrift(`ALTER TABLE public.media_assets
+    DROP CONSTRAINT media_assets_verification_evidence_private_check,
+    ADD CONSTRAINT media_assets_verification_evidence_private_check CHECK (
+      ((asset_type IS NULL OR asset_type='business_verification_evidence')
+        AND owner_type='business_profile' AND visibility='private')
+      OR (asset_type='professional_verification_evidence'
+        AND owner_type='professional_profile' AND visibility='private')
+      OR asset_type NOT IN ('business_verification_evidence','professional_verification_evidence'));`,
+    'same-token regrouped evidence privacy constraint');
+  restore037();
+  assert.equal(runMigration(approvalStage).status, 0, 'restored exact constraints must verify');
+
+  ok(sql('ALTER TABLE public.ad_free_slots DISABLE TRIGGER ad_free_slot_limit_before_insert;',
+    'khedmah_migrator', 'khedmah', false), 'disable rolling-quota trigger');
+  const disabledQuotaSnapshot = snapshot();
+  const disabledQuota = runMigration(approvalStage);
+  assert.notEqual(disabledQuota.status, 0, 'disabled rolling-quota trigger must fail verification');
+  assert.match(disabledQuota.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), disabledQuotaSnapshot, 'verification must not enable a disabled trigger');
+  ok(sql('ALTER TABLE public.ad_free_slots ENABLE TRIGGER ad_free_slot_limit_before_insert;',
+    'khedmah_migrator', 'khedmah', false), 'restore rolling-quota trigger');
+
+  const quotaDefinitionResult = sql(
+    "SELECT pg_get_functiondef('public.enforce_ad_free_slot_limit()'::regprocedure);");
+  assert.equal(quotaDefinitionResult.status, 0, quotaDefinitionResult.stderr);
+  const quotaDefinition = quotaDefinitionResult.stdout.trim();
+  const driftedQuotaDefinition = quotaDefinition.replace("interval '24 hours'", "interval '23 hours'");
+  assert.notEqual(driftedQuotaDefinition, quotaDefinition, 'quota body fixture must change the function');
+  ok(sql(driftedQuotaDefinition, 'khedmah_migrator', 'khedmah', false), 'drift rolling-quota body');
+  const quotaBodySnapshot = snapshot();
+  const quotaBodyRejected = runMigration(approvalStage);
+  assert.notEqual(quotaBodyRejected.status, 0, 'rolling-quota body drift must fail verification');
+  assert.match(quotaBodyRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), quotaBodySnapshot, 'verification must not rewrite a drifted quota function');
+  ok(sql(quotaDefinition, 'khedmah_migrator', 'khedmah', false), 'restore rolling-quota body');
+
+  ok(sql('ALTER FUNCTION public.enforce_ad_free_slot_limit() OWNER TO postgres;',
+    'postgres', 'khedmah', false), 'drift rolling-quota owner');
+  const quotaOwnerSnapshot = snapshot();
+  const quotaOwnerRejected = runMigration(approvalStage);
+  assert.notEqual(quotaOwnerRejected.status, 0, 'rolling-quota owner drift must fail verification');
+  assert.match(quotaOwnerRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), quotaOwnerSnapshot, 'verification must not repair function ownership');
+  ok(sql('ALTER FUNCTION public.enforce_ad_free_slot_limit() OWNER TO khedmah_migrator;',
+    'postgres', 'khedmah', false), 'restore rolling-quota owner');
+
+  ok(sql(`DROP TRIGGER ad_free_slot_limit_before_insert ON public.ad_free_slots;
+    CREATE TRIGGER ad_free_slot_limit_before_insert BEFORE INSERT ON public.ad_free_slots
+    FOR EACH ROW EXECUTE FUNCTION public.protect_ad_listing_identity();`,
+    'khedmah_migrator', 'khedmah', false), 'drift rolling-quota trigger binding');
+  const quotaBindingSnapshot = snapshot();
+  const quotaBindingRejected = runMigration(approvalStage);
+  assert.notEqual(quotaBindingRejected.status, 0, 'rolling-quota trigger binding drift must fail verification');
+  assert.match(quotaBindingRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), quotaBindingSnapshot, 'verification must not rebind the quota trigger');
+  ok(sql(`DROP TRIGGER ad_free_slot_limit_before_insert ON public.ad_free_slots;
+    CREATE TRIGGER ad_free_slot_limit_before_insert BEFORE INSERT ON public.ad_free_slots
+    FOR EACH ROW EXECUTE FUNCTION public.enforce_ad_free_slot_limit();`,
+    'khedmah_migrator', 'khedmah', false), 'restore rolling-quota trigger binding');
+
+  ok(sql(`CREATE TRIGGER fixture_extra_ad_free_slot_insert BEFORE INSERT ON public.ad_free_slots
+    FOR EACH ROW EXECUTE FUNCTION public.enforce_ad_free_slot_limit();`,
+    'khedmah_migrator', 'khedmah', false), 'add extra rolling-quota insert trigger');
+  const extraInsertTriggerSnapshot = snapshot();
+  const extraInsertTriggerRejected = runMigration(approvalStage);
+  assert.notEqual(extraInsertTriggerRejected.status, 0, 'extra insert trigger must fail verification');
+  assert.match(extraInsertTriggerRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), extraInsertTriggerSnapshot, 'verification must not remove an extra insert trigger');
+  ok(sql('DROP TRIGGER fixture_extra_ad_free_slot_insert ON public.ad_free_slots;',
+    'khedmah_migrator', 'khedmah', false), 'remove extra rolling-quota insert trigger');
+
+  ok(sql(`CREATE RULE fixture_ad_free_slot_insert AS ON INSERT TO public.ad_free_slots
+    DO INSTEAD NOTHING;`, 'khedmah_migrator', 'khedmah', false), 'add rolling-quota insert rewrite rule');
+  const insertRuleSnapshot = snapshot();
+  const insertRuleRejected = runMigration(approvalStage);
+  assert.notEqual(insertRuleRejected.status, 0, 'insert rewrite rule must fail verification');
+  assert.match(insertRuleRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  assert.equal(snapshot(), insertRuleSnapshot, 'verification must not remove an insert rewrite rule');
+  ok(sql('DROP RULE fixture_ad_free_slot_insert ON public.ad_free_slots;',
+    'khedmah_migrator', 'khedmah', false), 'remove rolling-quota insert rewrite rule');
+  assert.equal(runMigration(approvalStage).status, 0, 'restored quota function and trigger must verify');
+
+  const verifyRejectsColumnDrift = (ddl, restore, label, expected) => {
+    ok(sql(ddl, 'khedmah_migrator', 'khedmah', false), label + ' fixture');
+    const drifted = snapshot();
+    const rejected = runMigration(approvalStage);
+    assert.notEqual(rejected.status, 0, label + ' must fail exact-state verification');
+    assert.match(rejected.stderr, expected);
+    assert.equal(snapshot(), drifted, label + ' verification must not repair drift');
+    ok(sql(restore, 'khedmah_migrator', 'khedmah', false), 'restore ' + label);
+    assert.equal(runMigration(approvalStage).status, 0, 'restored ' + label + ' must verify');
+  };
+  verifyRejectsColumnDrift(`ALTER TABLE public.ad_free_slots
+      ALTER COLUMN consumed_at DROP NOT NULL,
+      ALTER COLUMN consumed_at DROP DEFAULT;`, `ALTER TABLE public.ad_free_slots
+      ALTER COLUMN consumed_at SET DEFAULT NOW(),
+      ALTER COLUMN consumed_at SET NOT NULL;`, 'rolling-quota timestamp invariants',
+    /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  verifyRejectsColumnDrift(`ALTER TABLE public.ad_free_slots
+      ALTER COLUMN owner_user_id DROP NOT NULL,
+      ALTER COLUMN owner_user_id SET DEFAULT 'fixture-owner';`, `ALTER TABLE public.ad_free_slots
+      ALTER COLUMN owner_user_id DROP DEFAULT,
+      ALTER COLUMN owner_user_id SET NOT NULL;`,
+    'rolling-quota owner invariant', /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
+  verifyRejectsColumnDrift(`ALTER TABLE public.admin_roles
+      ALTER COLUMN role DROP NOT NULL,
+      ALTER COLUMN role SET DEFAULT 'moderator';`, `ALTER TABLE public.admin_roles
+      ALTER COLUMN role DROP DEFAULT,
+      ALTER COLUMN role SET NOT NULL;`,
+    'administrator role invariant', /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+  verifyRejectsColumnDrift('ALTER TABLE public.admin_roles ALTER COLUMN role TYPE text COLLATE "C";',
+    'ALTER TABLE public.admin_roles ALTER COLUMN role TYPE text COLLATE "default";',
+    'administrator role collation invariant', /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+  verifyRejectsColumnDrift(`ALTER TABLE public.media_assets
+      ALTER COLUMN asset_type SET NOT NULL,
+      ALTER COLUMN asset_type SET DEFAULT 'logo';`, `ALTER TABLE public.media_assets
+      ALTER COLUMN asset_type DROP DEFAULT,
+      ALTER COLUMN asset_type DROP NOT NULL;`,
+    'evidence asset type invariant', /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+  verifyRejectsColumnDrift(`ALTER TABLE public.media_assets
+      ALTER COLUMN visibility DROP NOT NULL,
+      ALTER COLUMN visibility DROP DEFAULT;`, `ALTER TABLE public.media_assets
+      ALTER COLUMN visibility SET DEFAULT 'private'::text,
+      ALTER COLUMN visibility SET NOT NULL;`,
+    'evidence visibility invariant', /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+  verifyRejectsColumnDrift(`ALTER TABLE public.media_assets
+      ALTER COLUMN owner_type DROP NOT NULL,
+      ALTER COLUMN owner_type SET DEFAULT 'business_profile';`, `ALTER TABLE public.media_assets
+      ALTER COLUMN owner_type DROP DEFAULT,
+      ALTER COLUMN owner_type SET NOT NULL;`,
+    'evidence owner invariant', /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+
+  // A stable predecessor/target inversion is invalid and must not be repaired.
+  ok(sql(`ALTER TABLE public.admin_roles
+    DROP CONSTRAINT admin_roles_role_check,
+    ADD CONSTRAINT admin_roles_role_check CHECK (role IN
+      ('bootstrap_admin','platform_admin','moderator','billing_admin'));`,
+    'khedmah_migrator', 'khedmah', false), 'create inverted successor state');
+  const invertedSuccessor = snapshot();
+  const invertedRejected = runMigration(approvalStage);
+  assert.notEqual(invertedRejected.status, 0);
+  assert.match(invertedRejected.stderr, /MIGRATIONS_035_037_PARTIAL_OR_UNVERIFIED_STATE/);
+  assert.equal(snapshot(), invertedSuccessor, 'Invalid predecessor/target state must remain untouched.');
+  restore035();
+  assert.equal(runMigration(approvalStage).status, 0, 'restored successor state must verify');
+
+  // Two apply runners may both classify the predecessor before either writes.
+  // Advisory/table locks must make exactly one runner install each migration,
+  // while both converge successfully instead of rejecting a transient mix.
+  ok(sql(`ALTER TABLE public.media_assets
+      DROP CONSTRAINT media_assets_verification_evidence_private_check,
+      DROP CONSTRAINT media_assets_asset_type_check,
+      ADD CONSTRAINT media_assets_asset_type_check CHECK (asset_type IN
+        ('logo','cover','gallery','profile_image','service_image','product_image','ad_image',
+         'driver_photo','identity_card','driving_license','vehicle_license'));
+    ALTER TABLE public.admin_roles
+      DROP CONSTRAINT admin_roles_role_check,
+      ADD CONSTRAINT admin_roles_role_check CHECK (role IN
+        ('bootstrap_admin','platform_admin','moderator','billing_admin'));`,
+    'khedmah_migrator', 'khedmah', false), 'reset both approval prerequisite migrations');
+  const beforeConcurrentApply = snapshot();
+  const concurrentEnv = migrationEnvironment(approvalStage, 'apply', {
+    DEPLOYMENT_ENVIRONMENT: 'staging',
+    GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+    MIGRATION_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+    EXPECTED_SCHEMA_READONLY: 'off',
+  });
+  const concurrentApply = run('docker', ['exec',
+    ...Object.entries(concurrentEnv).flatMap(([k,v]) => ['--env', k + '=' + v]), fixture, 'sh', '-c', `
+set +e
+sh /schema-scripts/run-${approvalStage}.sh > /tmp/approval-a.out 2> /tmp/approval-a.err & a=$!
+sh /schema-scripts/run-${approvalStage}.sh > /tmp/approval-b.out 2> /tmp/approval-b.err & b=$!
+wait "$a"; sa=$?
+wait "$b"; sb=$?
+printf 'A_STATUS=%s B_STATUS=%s\\n' "$sa" "$sb"
+cat /tmp/approval-a.out /tmp/approval-b.out
+cat /tmp/approval-a.err /tmp/approval-b.err >&2
+[ "$sa" -eq 0 ] && [ "$sb" -eq 0 ]
+`]);
+  assert.equal(concurrentApply.status, 0, concurrentApply.stderr || concurrentApply.stdout);
+  assert.match(concurrentApply.stdout, /A_STATUS=0 B_STATUS=0/);
+  assert.equal((concurrentApply.stdout.match(/MIGRATION_035_APPLIED_AFTER_LOCK/g) ?? []).length, 1);
+  assert.equal((concurrentApply.stdout.match(/MIGRATION_037_APPLIED_AFTER_LOCK/g) ?? []).length, 1);
+  assert.notEqual(snapshot(), beforeConcurrentApply, 'Concurrent apply must install both successors.');
+  assert.equal(runMigration(approvalStage).status, 0, 'Concurrent result must verify exactly.');
+
+  // Prove the supported resume point: 035 is retained while 037 is reset to
+  // its exact Migration 027 predecessor, then the governed runner applies 037.
+  ok(sql(`ALTER TABLE public.media_assets
+    DROP CONSTRAINT media_assets_verification_evidence_private_check,
+    DROP CONSTRAINT media_assets_asset_type_check,
+    ADD CONSTRAINT media_assets_asset_type_check CHECK (asset_type IN
+      ('logo','cover','gallery','profile_image','service_image','product_image','ad_image',
+       'driver_photo','identity_card','driving_license','vehicle_license'));`,
+    'khedmah_migrator', 'khedmah', false), 'reset only migration 037');
+  const reset037Snapshot = snapshot();
+  const resumed = ok(runMigration(approvalStage, 'apply', {
+    DEPLOYMENT_ENVIRONMENT: 'staging',
+    GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+    MIGRATION_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+    EXPECTED_SCHEMA_READONLY: 'off',
+  }), 'resume after migration 035');
+  assert.ok(resumed.some(line => line.includes('MIGRATIONS_035_037_APPLIED_AND_VERIFIED')));
+  assert.notEqual(snapshot(), reset037Snapshot, 'Resume must replace the predecessor constraints.');
+  assert.equal(runMigration(approvalStage).status, 0, 'Resumed canonical constraints must verify read-only.');
+
+  ok(docker('exec', fixture, 'sh', '-c', ': > /tmp/schema-sessions.log'), 'reset session evidence after apply');
   const completed = snapshot();
   for (const name of migrationNames) await t.test('read-only completed schema: ' + name, () => {
     const output = ok(runMigration(name), name);
@@ -221,8 +491,8 @@ chmod -R a+rX /schema-scripts /migrations
   assert.deepEqual(ok(docker('exec', fixture, 'cat', '/tmp/schema-sessions.log'), 'no apply connections'), sessions);
 
   await t.test('final verification rejects ACL drift, changed routine bodies and security', () => {
-    const last = migrationNames.at(-1);
-    const reject = () => assert.notEqual(runMigration(last).status, 0);
+    const finalVerifier = 'food-promotions-nonproduction-migration';
+    const reject = () => assert.notEqual(runMigration(finalVerifier).status, 0);
     ok(sql('GRANT SELECT ON public.category_taxonomy_022_before_image TO khedmah_runtime_role;',
       'khedmah_migrator', 'khedmah', false), 'fixture ACL drift');
     reject();
@@ -243,7 +513,7 @@ chmod -R a+rX /schema-scripts /migrations
     reject();
     ok(sql('ALTER TABLE public.media_assets ENABLE TRIGGER media_assets_pending_mobility_document_review;',
       'khedmah_migrator', 'khedmah', false), 'restore fixture trigger');
-    ok(runMigration(last), 'final restored verification');
+    ok(runMigration(finalVerifier), 'final restored verification');
   });
   await t.test('missing foundation/partial successor schema fails without repair', () => {
     ok(sql('ALTER TABLE public.categories RENAME COLUMN visual_key TO fixture_visual_key;',
@@ -256,7 +526,7 @@ chmod -R a+rX /schema-scripts /migrations
     ok(sql('ALTER TABLE public.food_promo_codes RENAME TO fixture_food_promo_codes;',
       'khedmah_migrator', 'khedmah', false), 'partial promotion state');
     const partial = snapshot();
-    assert.notEqual(runMigration(migrationNames.at(-1)).status, 0);
+    assert.notEqual(runMigration('food-promotions-nonproduction-migration').status, 0);
     assert.equal(snapshot(), partial);
     ok(sql('ALTER TABLE public.fixture_food_promo_codes RENAME TO food_promo_codes;',
       'khedmah_migrator', 'khedmah', false), 'restore promotion state');

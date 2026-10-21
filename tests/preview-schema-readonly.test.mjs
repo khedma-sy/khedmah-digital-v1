@@ -10,7 +10,7 @@ const directory = 'scripts/deployment';
 const runners = readdirSync(directory).filter(name => /^run-.*-nonproduction-migrations?\.sh$/.test(name));
 
 test('replacement Preview entrypoints refuse apply before connecting or loading migration files', () => {
-  assert.equal(runners.length, 9);
+  assert.equal(runners.length, 10);
   const temp = mkdtempSync(join(tmpdir(), 'preview-schema-refusal-'));
   try {
     const marker = join(temp, 'connected');

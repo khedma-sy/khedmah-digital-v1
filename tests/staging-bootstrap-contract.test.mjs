@@ -20,6 +20,7 @@ test('staging bootstrap example is locked to the isolated staging workflow trust
   expectValue('artifact_registry_repository_id', 'khedmah-staging');
   expectValue('runtime_service_account_id', 'khedmah-v1-staging-runtime');
   expectValue('deployer_service_account_id', 'khedmah-v1-staging-deployer');
+  expectValue('migration_service_account_id', 'khedmah-v1-staging-migrator');
   assert.match(vars, /REPLACE_WITH_ISOLATED_STAGING_PROJECT_ID/);
   assert.doesNotMatch(vars, /khedmah-preview-[0-9]{6,}/);
   assert.doesNotMatch(vars, /production-operator\.yml/);

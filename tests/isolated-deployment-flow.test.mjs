@@ -85,6 +85,8 @@ if(a[0]==='run'&&a[1]==='jobs'){
     GOOGLE_CLOUD_PROJECT:project,PRODUCTION_GOOGLE_CLOUD_PROJECT:'khedma-dl',PRODUCTION_FIREBASE_PROJECT_ID:'khedma-dl',
     GOOGLE_CLOUD_REGION:region,ARTIFACT_REPOSITORY:environment==='preview'?'khedmah-preview':`${environment}-images`,
     RUNTIME_SERVICE_ACCOUNT:environment==='preview'?previewAccount('runtime'):`runtime@${project}.iam.gserviceaccount.com`,
+    STAGING_MIGRATION_SERVICE_ACCOUNT:`migration@${project}.iam.gserviceaccount.com`,
+    STAGING_DATABASE_MIGRATION_SECRET_VERSION:'7',
     CLOUD_SQL_INSTANCE_CONNECTION_NAME:`${project}:${region}:${environment==='preview'?'khedmah-preview-v2-db':'isolated-db'}`,
     GCS_MEDIA_BUCKET:environment==='preview'?'':`${environment}-fixture-media`,EMAIL_FROM:'noreply@staging.example',
     PREVIEW_SCHEMA_POOL_SERIALIZED:'true',GITHUB_ACTIONS:'true',GITHUB_WORKFLOW:'PR Preview',GITHUB_REPOSITORY:'khedma-sy/khedmah-digital-v1',...overrides};
@@ -98,7 +100,7 @@ if(a[0]==='run'&&a[1]==='jobs'){
   };
 }
 for(const environment of ['preview','staging'])test(`${environment}: deploys isolated backend first, builds its matching frontend and verifies credentialed CORS`,()=>{
-  const f=fixture(environment);try{assert.match(f.run(),/deployment healthy/);const calls=f.calls();const builds=calls.filter(c=>c.tool==='gcloud'&&c.args[0]==='builds');assert.equal(builds.length,11);assert.ok(builds[0].args.includes('cloudbuild.foundation-nonproduction.yaml'));assert.ok(builds[1].args.includes('cloudbuild.product-store-migration.yaml'));assert.ok(builds[2].args.includes('cloudbuild.classifieds-migration.yaml'));assert.ok(builds[3].args.includes('cloudbuild.fulfillment-migration.yaml'));assert.ok(builds[4].args.includes('cloudbuild.taxi-pricing-migration.yaml'));assert.ok(builds[5].args.includes('cloudbuild.billing-migration.yaml'));assert.ok(builds[6].args.includes('cloudbuild.taxi-operational-migration.yaml'));assert.ok(builds[7].args.includes('cloudbuild.taxi-operational-profile-gate-migration.yaml'));assert.ok(builds[8].args.includes('cloudbuild.food-promotions-migration.yaml'));assert.ok(builds[9].args.includes(`cloudbuild.${environment}-backend.yaml`));assert.ok(builds[10].args.some(a=>a.includes(`_NEXT_PUBLIC_API_URL=https://backend-${environment}.example.run.app`)));
+  const f=fixture(environment);try{assert.match(f.run(),/deployment healthy/);const calls=f.calls();const builds=calls.filter(c=>c.tool==='gcloud'&&c.args[0]==='builds');assert.equal(builds.length,12);assert.ok(builds[0].args.includes('cloudbuild.foundation-nonproduction.yaml'));assert.ok(builds[1].args.includes('cloudbuild.product-store-migration.yaml'));assert.ok(builds[2].args.includes('cloudbuild.classifieds-migration.yaml'));assert.ok(builds[3].args.includes('cloudbuild.fulfillment-migration.yaml'));assert.ok(builds[4].args.includes('cloudbuild.taxi-pricing-migration.yaml'));assert.ok(builds[5].args.includes('cloudbuild.billing-migration.yaml'));assert.ok(builds[6].args.includes('cloudbuild.taxi-operational-migration.yaml'));assert.ok(builds[7].args.includes('cloudbuild.taxi-operational-profile-gate-migration.yaml'));assert.ok(builds[8].args.includes('cloudbuild.food-promotions-migration.yaml'));assert.ok(builds[9].args.includes('cloudbuild.approval-prerequisites-migration.yaml'));assert.ok(builds[10].args.includes(`cloudbuild.${environment}-backend.yaml`));assert.ok(builds[11].args.some(a=>a.includes(`_NEXT_PUBLIC_API_URL=https://backend-${environment}.example.run.app`)));
     const deploys=calls.filter(c=>c.tool==='gcloud'&&c.args[1]==='deploy');assert.equal(deploys.length,2);const backend=deploys.find(c=>c.args[2].includes('backend'));assert.ok(backend.args.includes(environment==='preview'?`${previewProject}:europe-west1:khedmah-preview-v2-db`:'staging-fixture:me-central1:isolated-db'));
     const runtimeEnv=backend.args.find(a=>a.startsWith('--set-env-vars='));assert.ok(runtimeEnv?.includes('TAXI_ACCESS_ENABLED=true'));assert.ok(runtimeEnv?.includes('TAXI_TRIPS_ENABLED=false'));
     const secretArg=backend.args.find(a=>a.startsWith('--set-secrets='));if(environment==='staging'){assert.ok(secretArg?.includes('DATABASE_URL=DATABASE_URL:latest'));for(const binding of ['OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest','RESEND_API_KEY=RESEND_API_KEY:latest','FIREBASE_API_KEY=FIREBASE_API_KEY:latest'])assert.ok(secretArg.includes(binding));assert.ok(runtimeEnv?.includes('GCS_MEDIA_BUCKET=staging-fixture-media'));assert.ok(runtimeEnv?.includes('EMAIL_FROM=noreply@staging.example'));}else assert.equal(secretArg,'--set-secrets=DATABASE_URL=DATABASE_URL:1,FIREBASE_API_KEY=FIREBASE_API_KEY:1,OPERATIONS_PRODUCT_ROLE_BINDINGS=OPERATIONS_PRODUCT_ROLE_BINDINGS:latest');
@@ -110,7 +112,7 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
       assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes('GCS_MEDIA_BUCKET')), [backend]);
       assert.deepEqual(calls.filter(c=>JSON.stringify(c.args).includes(previewMediaBucket)), [backend]);
       const schemaCalls=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy');
-      assert.equal(schemaCalls.length,9);
+      assert.equal(schemaCalls.length,10);
       for(const call of schemaCalls){
         const config=argument(call,'--set-env-vars').split(',');
         assert.ok(config.includes('MIGRATION_MODE=verify'));
@@ -133,8 +135,11 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
       }
     }else{
       const schemaCalls=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy'&&c.args[3]!=='khedmah-release-data-integrity-staging');
-      assert.equal(schemaCalls.length,9);
+      assert.equal(schemaCalls.length,10);
       for(const call of schemaCalls)assert.ok(argument(call,'--set-env-vars').split(',').includes('MIGRATION_MODE=apply'));
+      const approvalCall=schemaCalls.find(call=>call.args[3].includes('approval-prerequisites-035-037'));
+      assert.equal(argument(approvalCall,'--service-account'),'migration@staging-fixture.iam.gserviceaccount.com');
+      assert.equal(argument(approvalCall,'--set-secrets'),'DATABASE_URL=DATABASE_MIGRATION_URL:7');
       assert.equal(argument(frontend,'--service-account'),'runtime@staging-fixture.iam.gserviceaccount.com');
       assert.ok(backend.args.includes('--add-cloudsql-instances'));
       assert.ok(!frontend.args.includes('--clear-secrets'));assert.ok(!frontend.args.includes('--clear-cloudsql-instances'));
@@ -149,7 +154,12 @@ for(const environment of ['preview','staging'])test(`${environment}: refuses mis
   for(const overrides of [{CLOUD_SQL_INSTANCE_CONNECTION_NAME:''},{CLOUD_SQL_INSTANCE_CONNECTION_NAME:'other-project:me-central1:database'},{GOOGLE_CLOUD_PROJECT:'khedma-dl'}]){const f=fixture(environment,overrides);try{assert.throws(()=>f.run());assert.equal(f.calls().length,0);}finally{f.close();}}
 });
 test('staging refuses ephemeral media or email configuration before cloud calls',()=>{
-  for(const overrides of [{GCS_MEDIA_BUCKET:''},{EMAIL_FROM:''}]){const f=fixture('staging',overrides);try{assert.throws(()=>f.run());assert.equal(f.calls().length,0);}finally{f.close();}}
+  for(const overrides of [
+    {GCS_MEDIA_BUCKET:''},{EMAIL_FROM:''},{STAGING_MIGRATION_SERVICE_ACCOUNT:''},
+    {STAGING_MIGRATION_SERVICE_ACCOUNT:'migration@other-project.iam.gserviceaccount.com'},
+    {STAGING_MIGRATION_SERVICE_ACCOUNT:'runtime@staging-fixture.iam.gserviceaccount.com'},
+    {STAGING_DATABASE_MIGRATION_SECRET_VERSION:'latest'},
+  ]){const f=fixture('staging',overrides);try{assert.throws(()=>f.run());assert.equal(f.calls().length,0);}finally{f.close();}}
 });
 test('replacement Preview refuses foreign or injected media buckets before any cloud call',()=>{
   for(const bucket of ['khedma-dl.firebasestorage.app','other-preview.firebasestorage.app',
@@ -228,14 +238,14 @@ test('unavailable or drifted Preview Firebase metadata stops before schema, buil
 });
 
 
-test('successive Preview PRs reuse the same nine guarded schema Jobs',()=>{
+test('successive Preview PRs reuse the same ten guarded schema Jobs',()=>{
   const f=fixture('preview');
   try {
     f.run();f.run('pr-167-defabc456');
     const calls=f.calls();const names=Object.keys(STAGES).map(stage=>'khedmah-preview-schema-'+stage);
     assert.deepEqual(Object.keys(f.jobs()).sort(),names.sort());
     const deploys=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy');
-    assert.equal(deploys.length,18);assert.equal(new Set(deploys.map(c=>c.args[3])).size,9);
+    assert.equal(deploys.length,20);assert.equal(new Set(deploys.map(c=>c.args[3])).size,10);
     for(const stage of Object.keys(STAGES)){
       const checks=calls.filter(c=>c.tool==='schema-pool'&&c.args[3]===stage);
       assert.deepEqual(checks.map(c=>c.args[0]),['name','before-deploy','before-execute','name','before-deploy','before-execute']);
@@ -243,7 +253,7 @@ test('successive Preview PRs reuse the same nine guarded schema Jobs',()=>{
       assert.equal(entry.job.status.executionCount,2);
       assert.match(entry.job.spec.template.spec.template.spec.containers[0].image,/:preview-pr-167-defabc456$/);
     }
-    assert.equal(calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs describe').length,27);
+    assert.equal(calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs describe').length,30);
   } finally {f.close();}
 });
 

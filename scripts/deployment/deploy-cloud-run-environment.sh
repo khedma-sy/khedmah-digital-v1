@@ -5,7 +5,16 @@ identifier="${2:?usage: deploy-cloud-run-environment.sh preview|staging IDENTIFI
 [[ "$environment" == "preview" || "$environment" == "staging" ]] || { echo 'Only preview or staging deployment is allowed.' >&2; exit 2; }
 [[ "$identifier" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Invalid deployment identifier.' >&2; exit 2; }
 for name in GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_REGION ARTIFACT_REPOSITORY RUNTIME_SERVICE_ACCOUNT PRODUCTION_GOOGLE_CLOUD_PROJECT; do [[ -n "${!name:-}" ]] || { echo "Missing $name" >&2; exit 3; }; done
-[[ "$GOOGLE_CLOUD_PROJECT" != "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || { echo 'Refusing to deploy to the production project.' >&2; exit 4; }
+[[ "$PRODUCTION_GOOGLE_CLOUD_PROJECT" == 'khedma-dl' ]] || { echo 'Canonical production project identity is missing or invalid.' >&2; exit 4; }
+[[ "$GOOGLE_CLOUD_PROJECT" != 'khedma-dl' && "$GOOGLE_CLOUD_PROJECT" != "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || { echo 'Refusing to deploy to the production project.' >&2; exit 4; }
+if [[ "$environment" == 'staging' ]]; then
+  for name in STAGING_MIGRATION_SERVICE_ACCOUNT STAGING_DATABASE_MIGRATION_SECRET_VERSION; do
+    [[ -n "${!name:-}" ]] || { echo "Missing $name; Staging migration identity is not configured." >&2; exit 3; }
+  done
+  [[ "$STAGING_MIGRATION_SERVICE_ACCOUNT" == *"@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" ]] || { echo 'Staging migration service account must belong to the Staging project.' >&2; exit 4; }
+  [[ "$STAGING_MIGRATION_SERVICE_ACCOUNT" != "$RUNTIME_SERVICE_ACCOUNT" ]] || { echo 'Staging migration and runtime service accounts must be distinct.' >&2; exit 4; }
+  [[ "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]] || { echo 'Staging database migration secret version must be a pinned positive integer.' >&2; exit 4; }
+fi
 CLASSIFIEDS_ENABLED="${CLASSIFIEDS_ENABLED:-false}"
 NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${NEXT_PUBLIC_CLASSIFIEDS_ENABLED:-false}"
 CLASSIFIEDS_MIGRATION_025_MODE="${CLASSIFIEDS_MIGRATION_025_MODE:-off}"
@@ -134,6 +143,15 @@ FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION=''
 if [[ "$schema_mode" == 'apply' ]]; then FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION="APPLY_KHEDMAH_NONPROD_034_${environment^^}"; fi
 export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMATION
 bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
+
+# Complete the governed approval prerequisites after 034. Migration 036 is
+# already owned by the Classifieds stage; this resumable stage applies 035 and
+# then 037. It does not bind a reviewer role or enable autonomous decisions.
+APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE="$schema_mode"
+APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION=''
+if [[ "$schema_mode" == 'apply' ]]; then APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION="APPLY_KHEDMAH_NONPROD_035_037_${environment^^}"; fi
+export APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION
+bash scripts/deployment/ensure-approval-prerequisites-035-037-nonproduction-schema.sh "$environment" "$identifier"
 
 gcloud builds submit . --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${cloudbuild_source_args[@]}" --config "cloudbuild.${environment}-backend.yaml" \
   --substitutions="_REGION=${GOOGLE_CLOUD_REGION},_REPOSITORY=${ARTIFACT_REPOSITORY},_IMAGE_TAG=${tag}"

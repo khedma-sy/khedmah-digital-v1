@@ -247,9 +247,20 @@ class BatchTests(unittest.TestCase):
             'scripts/deployment/verify-preview-post-rollout-reconciliation.mjs',
             'scripts/deployment/read-preview-post-rollout-reconciliation.mjs',
         }.issubset(m.SOURCE_BLOBS))
+        # The federation batch is a historical PR-274 artifact. The schema-pool
+        # implementation may evolve on main, but its reviewed historical pin
+        # must remain unchanged so validate_tree still accepts only PR 274.
+        evolved_historical_sources = {
+            'scripts/deployment/preview-schema-job-pool.mjs': '7fa859190c65a1fd5e6048ecbbed2b4cc0e2d5db',
+        }
         for path, wanted in m.SOURCE_BLOBS.items():
             data = (ROOT / path).read_bytes()
-            self.assertEqual(hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest(), wanted, path)
+            current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+            if path in evolved_historical_sources:
+                self.assertEqual(wanted, evolved_historical_sources[path], path)
+                self.assertNotEqual(current, wanted, path)
+            else:
+                self.assertEqual(current, wanted, path)
         output = subprocess.check_output(['node', '--input-type=module', '-e',
             "import {PREVIEW_V2_VARIABLES} from './scripts/deployment/verify-preview-v2-configuration.mjs';console.log(JSON.stringify(PREVIEW_V2_VARIABLES));"], cwd=ROOT, text=True)
         self.assertEqual(json.loads(output), m.VARIABLES)

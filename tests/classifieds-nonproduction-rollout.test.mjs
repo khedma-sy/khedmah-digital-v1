@@ -21,7 +21,7 @@ const baseEnv = {
   ARTIFACT_REPOSITORY: 'khedmah-preview',
   RUNTIME_SERVICE_ACCOUNT: 'preview-runtime@example.invalid',
   CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-preview-safe:europe-west1:preview-db',
-  PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production-protected'
+  PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl'
 };
 
 function runBash(script, args, env = {}) {
@@ -48,9 +48,8 @@ test('migration 025 checksum remains the reviewed non-production artifact', () =
 
 test('non-production deploy rejects Production and invalid feature ordering before cloud execution', () => {
   const production = runBash(deployScript, ['preview', 'pr-166-11901ac'], {
-    GOOGLE_CLOUD_PROJECT: 'same-project',
-    PRODUCTION_GOOGLE_CLOUD_PROJECT: 'same-project',
-    CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'same-project:europe-west1:preview-db'
+    GOOGLE_CLOUD_PROJECT: 'khedma-dl',
+    CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedma-dl:europe-west1:preview-db'
   });
   assert.equal(production.status, 4);
   assert.match(production.stderr, /Refusing to deploy to the production project/);

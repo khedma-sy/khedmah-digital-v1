@@ -54,15 +54,24 @@ test('Staging workflow validates protected configuration before WIF authenticati
   const authIndex = text.indexOf('google-github-actions/auth@v3');
   assert.ok(preflightIndex >= 0, 'Staging configuration preflight must exist');
   assert.ok(authIndex > preflightIndex, 'configuration preflight must run before GCP auth');
-  assert.match(text, /validate-staging-deployment-config\.sh/);
-  assert.match(text, /GCP_WORKLOAD_IDENTITY_PROVIDER: \$\{\{ secrets\.GCP_WORKLOAD_IDENTITY_PROVIDER \}\}/);
-  assert.match(text, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT \}\}/);
-  assert.match(text, /GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT \}\}/);
-  assert.match(text, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: \$\{\{ vars\.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME \}\}/);
+  const preflight = text.slice(preflightIndex, authIndex);
+  assert.match(preflight, /validate-staging-deployment-config\.sh/);
+  assert.match(preflight, /GCP_WORKLOAD_IDENTITY_PROVIDER: \$\{\{ secrets\.GCP_WORKLOAD_IDENTITY_PROVIDER \}\}/);
+  assert.match(preflight, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /STAGING_DATABASE_MIGRATION_SECRET_VERSION: \$\{\{ vars\.STAGING_DATABASE_MIGRATION_SECRET_VERSION \}\}/);
+  assert.match(preflight, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: \$\{\{ vars\.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME \}\}/);
 });
 
 test('Staging workflow uses repository stage outputs and never production rollout variables', async () => {
   const text = await readFile(workflow, 'utf8');
+  const deployStart = text.indexOf('- id: deploy');
+  const deployEnd = text.indexOf('- id: observe', deployStart);
+  assert.ok(deployStart >= 0 && deployEnd > deployStart, 'Staging deploy step must be bounded');
+  const deployStep = text.slice(deployStart, deployEnd);
+  assert.match(deployStep, /STAGING_MIGRATION_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(deployStep, /STAGING_DATABASE_MIGRATION_SECRET_VERSION: \$\{\{ vars\.STAGING_DATABASE_MIGRATION_SECRET_VERSION \}\}/);
   assert.match(text, /Resolve Classifieds Staging rollout stage/);
   assert.match(text, /resolve-classifieds-staging-stage\.sh/);
   assert.match(text, /CLASSIFIEDS_ENABLED: \$\{\{ steps\.classifieds-stage\.outputs\.backend_enabled \}\}/);
