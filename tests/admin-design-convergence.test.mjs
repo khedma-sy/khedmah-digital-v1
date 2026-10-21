@@ -16,6 +16,9 @@ test('administration uses a dedicated convergence layer after shared primitives'
 test('admin product logic remains permission-gated', async () => {
   const page = await read('apps/frontend/app/admin/page.tsx');
   assert.match(page, /overview\.permissions\.includes\('security\.manage'\)/);
+  assert.match(page, /content\.approvals\.approve/);
+  assert.match(page, /trust\.approvals\.approve/);
+  assert.match(page, /mobility\.approvals\.approve/);
   assert.match(page, /api\.operationsProduct\.overview\(\)/);
   assert.match(page, /\/admin\/moderation/);
 });

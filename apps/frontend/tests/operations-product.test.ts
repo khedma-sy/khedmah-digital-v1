@@ -11,7 +11,8 @@ test('Operations Product dashboard is permission-gated and renders reported back
   assert.match(page, /overview\.openIncidents/);
   assert.match(page, /overview\.pendingChanges/);
   assert.match(page, /overview\.permissions\.includes\('security\.manage'\)/);
-  assert.match(page, /canManageModeration \? <Link href="\/admin\/moderation"/);
+  assert.match(page, /overview\.permissions\.includes\('content\.approvals\.approve'\)/);
+  assert.match(page, /canReviewContent \? <Link href="\/admin\/moderation"/);
   assert.doesNotMatch(page, /<strong>0<\/strong>|disabled title=|حالة الخدمات الفعلية|خدمات مراقبة/);
   assert.match(page, /ليس فحصاً حياً/);
   assert.match(page, /مؤقتة في ذاكرة عملية الخادم/);

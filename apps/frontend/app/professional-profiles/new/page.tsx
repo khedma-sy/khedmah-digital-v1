@@ -2,10 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, type PublicProfessionalProfile } from '../../../lib/api-client';
+import { api, type PublicProfessionalProfile, type UploadedMediaAsset, type VerificationRequest } from '../../../lib/api-client';
 import { useSyrianCities } from '../../../lib/use-syrian-cities';
 import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../../components/ui-primitives';
 import styles from '../../../components/owner-workspace.module.css';
+
+const ALLOWED_EVIDENCE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const fileContent = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('read_failed'));
+  reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+  reader.readAsDataURL(file);
+});
 
 export default function ProfessionalProfileEditorPage() {
   const router = useRouter();
@@ -17,11 +25,16 @@ export default function ProfessionalProfileEditorPage() {
   const [retryCount, setRetryCount] = useState(0);
   const lifecycle = useRef(0);
   const submissionInProgress = useRef(false);
+  const evidenceInProgress = useRef(false);
   const [form, setForm] = useState({ headlineAr: '', headlineEn: '', bioAr: '', availability: 'available' as PublicProfessionalProfile['availability'], cityCode: '', skills: '' });
   const [isPrefilling, setIsPrefilling] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [prefillFailed, setPrefillFailed] = useState(false);
   const [error, setError] = useState('');
+  const [verificationEvidence, setVerificationEvidence] = useState<UploadedMediaAsset[]>([]);
+  const [verification, setVerification] = useState<VerificationRequest | null>(null);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [evidenceNotice, setEvidenceNotice] = useState('');
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
   useEffect(() => {
@@ -34,7 +47,7 @@ export default function ProfessionalProfileEditorPage() {
     setPrefillFailed(false);
     setError('');
     let active = true;
-    void api.professionals.getMine().then(({ professional }) => {
+    void api.professionals.getMine().then(async ({ professional }) => {
       if (!active || !professional) return;
       setProfileId(professional.id);
       setContentRevision(professional.contentRevision);
@@ -42,6 +55,18 @@ export default function ProfessionalProfileEditorPage() {
       if (!professional.contentRevision) setError('تعذر تأكيد نسخة الملف. أعد تحميله قبل الحفظ.');
       setBioEn(professional.bioEn);
       setForm({ headlineAr: professional.headlineAr, headlineEn: professional.headlineEn ?? '', bioAr: professional.bioAr ?? '', availability: professional.availability, cityCode: professional.cityCode, skills: professional.skills.join('، ') });
+      try {
+        const [assets, verificationState] = await Promise.all([
+          api.media.listForOwner('professional_profile', professional.id),
+          api.professionals.getVerificationStatus(professional.id)
+        ]);
+        if (!active) return;
+        setVerificationEvidence(assets.filter((asset) => asset.assetType === 'professional_verification_evidence'));
+        setVerification(verificationState.status);
+      } catch {
+        if (!active) return;
+        setEvidenceNotice('تعذر تحميل أدلة التحقق الآن. يمكنك متابعة تعديل الملف ثم إعادة المحاولة.');
+      }
     }).catch((cause) => {
       if (!active) return;
       const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
@@ -83,6 +108,63 @@ export default function ProfessionalProfileEditorPage() {
     } finally { if (generation === lifecycle.current) { submissionInProgress.current = false; setIsSubmitting(false); } }
   }
 
+  async function refreshVerificationEvidence(id: string) {
+    const [assets, verificationState] = await Promise.all([
+      api.media.listForOwner('professional_profile', id),
+      api.professionals.getVerificationStatus(id)
+    ]);
+    setVerificationEvidence(assets.filter((asset) => asset.assetType === 'professional_verification_evidence'));
+    setVerification(verificationState.status);
+  }
+
+  async function uploadVerificationEvidence(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profileId || evidenceInProgress.current) return;
+    if (verificationEvidence.length >= 3) { setError('يمكن رفع 3 صور إثبات كحد أقصى.'); return; }
+    const input = event.currentTarget.elements.namedItem('verificationEvidence') as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !ALLOWED_EVIDENCE_TYPES.includes(file.type as typeof ALLOWED_EVIDENCE_TYPES[number]) || file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      setError('اختر صورة JPG أو PNG أو WebP بحجم لا يتجاوز 5 ميغابايت.'); return;
+    }
+    evidenceInProgress.current = true; setEvidenceBusy(true); setError(''); setEvidenceNotice('');
+    try {
+      const content = await fileContent(file);
+      await api.media.uploadVerificationEvidence('professional_profile', profileId, {
+        filename: file.name,
+        mimeType: file.type as typeof ALLOWED_EVIDENCE_TYPES[number],
+        sizeBytes: file.size,
+        content,
+        sortOrder: verificationEvidence.length
+      });
+      input.value = '';
+      await refreshVerificationEvidence(profileId);
+      setEvidenceNotice('تم حفظ صورة الإثبات بشكل خاص. تغيير الأدلة يلغي صلاحية تحقق سابق ويعيده للمراجعة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر رفع صورة الإثبات.'); }
+    finally { evidenceInProgress.current = false; setEvidenceBusy(false); }
+  }
+
+  async function deleteVerificationEvidence(id: string) {
+    if (!profileId || evidenceInProgress.current) return;
+    evidenceInProgress.current = true; setEvidenceBusy(true); setError(''); setEvidenceNotice('');
+    try {
+      await api.media.delete(id);
+      await refreshVerificationEvidence(profileId);
+      setEvidenceNotice('تم حذف صورة الإثبات وإلغاء صلاحية أي تحقق سابق مرتبط بالأدلة القديمة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر حذف صورة الإثبات.'); }
+    finally { evidenceInProgress.current = false; setEvidenceBusy(false); }
+  }
+
+  async function requestVerification() {
+    if (!profileId || evidenceInProgress.current || verificationEvidence.length === 0) return;
+    evidenceInProgress.current = true; setEvidenceBusy(true); setError(''); setEvidenceNotice('');
+    try {
+      const result = await api.professionals.requestVerification(profileId);
+      setVerification(result.request);
+      setEvidenceNotice('تم إرسال طلب التحقق للمراجعة البشرية.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إرسال طلب التحقق.'); }
+    finally { evidenceInProgress.current = false; setEvidenceBusy(false); }
+  }
+
   return <PageShell className={styles.page} label={profileId ? 'تعديل الملف المهني' : 'إنشاء ملف مهني'}>
     <div className={styles.formShell}>
       <PageHeader eyebrow="مساحة مقدم الخدمة" title={profileId ? 'تعديل ملفك المهني' : 'إنشاء ملف مهني'} description="عرّف بخبرتك ومهاراتك بوضوح حتى يتمكن المستخدم من مقارنة الخدمات والتواصل معك." />
@@ -97,6 +179,7 @@ export default function ProfessionalProfileEditorPage() {
         </Surface>
         <Surface as="aside" className={styles.guide}><h2>ملف مهني قوي</h2><ol><li>استخدم عنواناً يشرح تخصصك بدلاً من اسم عام.</li><li>أضف خبرتك والمهارات التي تقدمها فعلياً.</li><li>أكمل خدماتك وصور أعمالك بعد حفظ الملف.</li><li>أرسل الملف للمراجعة قبل ظهوره للعامة.</li></ol><p className={styles.notice}>لا تعرض معلومات شخصية حساسة. التواصل يتم عبر الاستفسارات المنظمة في «خدمة».</p></Surface>
       </div>
+      {profileId && <Surface className={styles.form}><h2>أدلة التحقق الخاصة</h2><p>ارفع من صورة إلى 3 صور إثبات خاصة. لا تظهر للعملاء ولا تعني أصالتها أو قبولها قبل المراجعة البشرية.</p>{evidenceNotice && <StatusMessage tone="success">{evidenceNotice}</StatusMessage>}<div>{verificationEvidence.map((asset, index) => <article key={asset.id}><strong>صورة إثبات {index + 1}: {asset.filename}</strong><div className={styles.actions}><a href={`/api/v1/media/public/${encodeURIComponent(asset.id)}`} target="_blank" rel="noopener noreferrer">فتح خاص</a><ActionButton type="button" variant="secondary" disabled={evidenceBusy} onClick={() => void deleteVerificationEvidence(asset.id)}>حذف</ActionButton></div></article>)}</div>{verificationEvidence.length < 3 && <form onSubmit={uploadVerificationEvidence}><label>صورة إثبات<input name="verificationEvidence" type="file" accept="image/jpeg,image/png,image/webp" required disabled={evidenceBusy}/></label><ActionButton type="submit" variant="secondary" disabled={evidenceBusy}>{evidenceBusy ? 'جارٍ التنفيذ…' : 'رفع صورة إثبات'}</ActionButton></form>}<p>حالة التحقق: {verification?.status === 'approved' ? 'تحقق بشري معتمد' : verification?.status === 'pending' ? 'قيد المراجعة' : verification?.status === 'rejected' ? 'مرفوض' : 'لم يُطلب'}</p><ActionButton type="button" disabled={evidenceBusy || verificationEvidence.length === 0 || verification?.status === 'pending' || verification?.status === 'approved'} onClick={() => void requestVerification()}>طلب التحقق</ActionButton></Surface>}
     </div>
   </PageShell>;
 }

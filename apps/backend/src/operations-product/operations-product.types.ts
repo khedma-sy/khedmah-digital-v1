@@ -1,9 +1,20 @@
 export const OPERATIONS_PRODUCT_ROLES = [
   'operations_product_director', 'infrastructure_manager', 'cloud_administrator', 'devops_engineer',
-  'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer'
+  'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer',
+  'smart_admin_approver'
 ] as const;
 export type OperationsProductRole = typeof OPERATIONS_PRODUCT_ROLES[number];
-export type OperationsPermission = 'operations.read' | 'infrastructure.manage' | 'deployments.manage' | 'releases.manage' | 'security.manage' | 'incidents.manage' | 'rbac.manage';
+export type OperationsPermission =
+  | 'operations.read'
+  | 'infrastructure.manage'
+  | 'deployments.manage'
+  | 'releases.manage'
+  | 'security.manage'
+  | 'incidents.manage'
+  | 'rbac.manage'
+  | 'content.approvals.approve'
+  | 'trust.approvals.approve'
+  | 'mobility.approvals.approve';
 export const ROLE_PERMISSIONS: Readonly<Record<OperationsProductRole, readonly OperationsPermission[]>> = Object.freeze({
   operations_product_director: ['operations.read', 'infrastructure.manage', 'deployments.manage', 'releases.manage', 'security.manage', 'incidents.manage', 'rbac.manage'],
   infrastructure_manager: ['operations.read', 'infrastructure.manage', 'deployments.manage'],
@@ -12,7 +23,12 @@ export const ROLE_PERMISSIONS: Readonly<Record<OperationsProductRole, readonly O
   production_engineer: ['operations.read', 'deployments.manage', 'incidents.manage'],
   release_manager: ['operations.read', 'releases.manage'],
   security_operations_engineer: ['operations.read', 'security.manage', 'incidents.manage'],
-  site_reliability_engineer: ['operations.read', 'deployments.manage', 'incidents.manage']
+  site_reliability_engineer: ['operations.read', 'deployments.manage', 'incidents.manage'],
+  smart_admin_approver: [
+    'content.approvals.approve',
+    'trust.approvals.approve',
+    'mobility.approvals.approve'
+  ]
 });
 export type OperationsArea = 'google-cloud' | 'firebase' | 'ci-cd' | 'production' | 'monitoring' | 'security';
 export interface OperationsChange { readonly id: string; readonly area: OperationsArea; readonly action: string; readonly reason: string; readonly status: 'pending_approval'; readonly actorUserId: string; readonly createdAt: string; }

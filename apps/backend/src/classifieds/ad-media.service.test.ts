@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { AdMediaService } from './ad-media.service';
 
 function makeService(dbOverride?: unknown) {
@@ -49,6 +49,88 @@ test('classifieds media maps missing migration 025 to service unavailable', asyn
     transaction: async () => { throw { code: '42P01', message: 'relation does not exist' }; }
   });
   await assert.rejects(() => withFlag('true', () => service.listMine(undefined, 'ad-1')), ServiceUnavailableException);
+});
+
+test('bounded content approver can inspect the exact image under review', async () => {
+  const permissions: string[][] = [];
+  const db = {
+    query: async (sql: string) => {
+      assert.match(sql, /FROM media_assets m JOIN ad_listings a/);
+      assert.match(sql, /a\.status='pending_review'/);
+      return [{
+        id: 'image-1', owner_user_id: 'owner', owner_id: 'ad-1', filename: 'review.png',
+        mime_type: 'image/png', size_bytes: 8, visibility: 'public', storage_key: 'review/object',
+        public_url: '/api/v1/classifieds/media/public/image-1', sort_order: 0, created_at: new Date(0)
+      }];
+    }
+  };
+  const identity = { getCurrentUser: async () => ({ id: 'reviewer', email: 'reviewer@example.test' }) } as any;
+  const rbac = {
+    assertAny: (_email: string, requested: string[]) => { permissions.push(requested); },
+    assert: () => { throw new ForbiddenException('bounded reviewer'); }
+  } as any;
+  const service = new AdMediaService(db as any, identity, rbac);
+  Object.defineProperty(service, 'storage', { value: {
+    read: async () => ({ data: Buffer.from('review'), mimeType: 'image/png' })
+  } });
+
+  const result = await withFlag('true', () => service.readForReview('khedmah_session=reviewer', 'image-1'));
+  assert.equal(result.data.toString(), 'review');
+  assert.deepEqual(permissions, [
+    ['security.manage', 'content.approvals.approve'],
+    ['security.manage', 'content.approvals.approve']
+  ]);
+});
+
+test('bounded content approver cannot read active or rejected classified media outside the pending queue', async () => {
+  let storageReads = 0;
+  const db = {
+    query: async (sql: string) => {
+      assert.match(sql, /a\.status='pending_review'/);
+      return [];
+    }
+  };
+  const service = new AdMediaService(
+    db as any,
+    { getCurrentUser: async () => ({ id: 'reviewer', email: 'reviewer@example.test' }) } as any,
+    {
+      assertAny: () => undefined,
+      assert: () => { throw new ForbiddenException('bounded reviewer'); }
+    } as any
+  );
+  Object.defineProperty(service, 'storage', { value: {
+    read: async () => { storageReads += 1; return { data: Buffer.from('hidden'), mimeType: 'image/png' }; }
+  } });
+
+  await assert.rejects(
+    withFlag('true', () => service.readForReview('khedmah_session=reviewer', 'image-1')),
+    NotFoundException
+  );
+  assert.equal(storageReads, 0);
+});
+
+test('security authority retains governed access to non-pending classified media', async () => {
+  const db = {
+    query: async (sql: string) => {
+      assert.match(sql, /a\.status IN \('pending_review','active','rejected'\)/);
+      return [{
+        id: 'image-1', owner_user_id: 'owner', owner_id: 'ad-1', filename: 'review.png',
+        mime_type: 'image/png', size_bytes: 8, visibility: 'public', storage_key: 'review/object',
+        public_url: '/api/v1/classifieds/media/public/image-1', sort_order: 0, created_at: new Date(0)
+      }];
+    }
+  };
+  const service = new AdMediaService(
+    db as any,
+    { getCurrentUser: async () => ({ id: 'security', email: 'security@example.test' }) } as any,
+    { assertAny: () => undefined, assert: () => undefined } as any
+  );
+  Object.defineProperty(service, 'storage', { value: {
+    read: async () => ({ data: Buffer.from('review'), mimeType: 'image/png' })
+  } });
+
+  const result = await withFlag('true', () => service.readForReview('khedmah_session=security', 'image-1'));
+  assert.equal(result.data.toString(), 'review');
 });
 
 test('classifieds media rejects a sixth image while the ad row lock serializes the limit', async () => {

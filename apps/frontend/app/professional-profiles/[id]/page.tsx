@@ -82,7 +82,7 @@ export default function ProfessionalProfilePage() {
         <div className={styles.portrait}>{portrait ? <img src={portrait.url} alt={`صورة ${profile.headlineAr}`} /> : <span aria-hidden="true">{profile.headlineAr.charAt(0)}</span>}</div>
         <div className={styles.heading}>
           <div><p className={styles.eyebrow}>مقدم خدمة محترف</p><h1>{profile.headlineAr}</h1>{profile.headlineEn && <p className={styles.english}>{profile.headlineEn}</p>}<p className={styles.meta}><PlatformIcon name="pin" size={16}/><span>{localizedCity}</span><span>·</span><span>{profile.countryCode.toUpperCase()}</span></p></div>
-          <div className={styles.badges}><span className={`${styles.badge} ${profile.availability === 'available' ? styles.available : styles.badgeMuted}`}>{availabilityLabel(profile.availability)}</span>{verification?.status === 'approved' && <span className={styles.badge}><PlatformIcon name="check" size={15}/> موثّق</span>}</div>
+          <div className={styles.badges}><span className={`${styles.badge} ${profile.availability === 'available' ? styles.available : styles.badgeMuted}`}>{availabilityLabel(profile.availability)}</span>{verification?.status === 'approved' && <span className={styles.badge}><PlatformIcon name="check" size={15}/> تحقق بشري</span>}</div>
         </div>
         <div className={styles.actions}>
           {eligible && <ContactInquiryForm target={{ type: 'professional', id: profile.id }} providerName={profile.headlineAr} />}
@@ -95,7 +95,7 @@ export default function ProfessionalProfilePage() {
 
       {unavailableSections.length > 0 && <StatusMessage tone="warning"><p>تعذر تحميل: {unavailableSections.join('، ')}. يمكنك إعادة المحاولة لعرض المعلومات الحالية.</p><ActionButton type="button" variant="secondary" onClick={retryLoad}>إعادة تحميل التفاصيل</ActionButton></StatusMessage>}
 
-      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق هوية مقدم الخدمة' : verification.status === 'rejected' ? 'طلب التوثيق غير معتمد' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تحقق بشري معتمد' : verification.status === 'rejected' ? 'طلب التحقق غير معتمد' : 'طلب التحقق قيد المراجعة'}</strong>{verification.status === 'approved' && <p>يعني أن مشرفًا راجع الأدلة المقدمة؛ لا يعني تحققًا آليًا من أصالة الوثيقة.</p>}{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>
@@ -106,7 +106,7 @@ export default function ProfessionalProfilePage() {
         </div>
 
         <aside className={styles.aside} aria-label="ملخص الملف المهني">
-          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{unavailableSections.includes('الخدمات') ? 'غير متاحة الآن' : activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{unavailableSections.includes('حالة التوثيق') ? 'تعذر تحميل حالة التوثيق' : verification?.status === 'approved' ? 'موثّق' : 'منشور'}</dd></div></dl></Surface>
+          <Surface className={styles.summary}><h2>معلومات سريعة</h2><dl><div><dt>المدينة</dt><dd>{localizedCity}</dd></div><div><dt>حالة التوفر</dt><dd>{availabilityLabel(profile.availability)}</dd></div><div><dt>الخدمات المنشورة</dt><dd>{unavailableSections.includes('الخدمات') ? 'غير متاحة الآن' : activeServices.length.toLocaleString('ar-SY')}</dd></div><div><dt>حالة الملف</dt><dd>{unavailableSections.includes('حالة التوثيق') ? 'تعذر تحميل حالة التحقق' : verification?.status === 'approved' ? 'تحقق بشري معتمد' : 'منشور'}</dd></div></dl></Surface>
           <Surface className={styles.safety}><span><PlatformIcon name="lock" size={22}/></span><div><h2>تواصل آمن وواضح</h2><p>راجع تفاصيل الخدمة واتفق مباشرة مع مقدمها. لا توفر «خدمة» دفعاً أو دردشة فورية في الإصدار الحالي.</p></div></Surface>
           <Surface className={styles.discover}><h2>تبحث عن تخصص آخر؟</h2><p>قارن بين الملفات المنشورة حسب المهارة والمدينة.</p><Link href="/professional-profiles/search">تصفح جميع المهنيين</Link></Surface>
         </aside>

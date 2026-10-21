@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { ConflictException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
@@ -22,6 +24,7 @@ test('two authorized administrators cannot overwrite the same verification decis
 
   try {
     await resetCanonicalTestSchema(pool);
+    await pool.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/037_verification_evidence_media.sql'), 'utf8'));
 
     await db.query(
       `INSERT INTO core_user_accounts
@@ -45,6 +48,15 @@ test('two authorized administrators cannot overwrite the same verification decis
           moderation_status,headline_ar,city_code,country_code)
        VALUES ($1,$2,$3,'consultant','pending','public','pending','مهني متعدد الإدارة','damascus','SY')`,
       [professional, profile, owner]
+    );
+
+    await db.query(
+      `INSERT INTO media_assets
+         (id,owner_user_id,owner_type,owner_id,filename,mime_type,size_bytes,visibility,storage_key,public_url,asset_type,sort_order,created_at,updated_at)
+       VALUES
+         ('verification-multi-admin-evidence',$1,'professional_profile',$2,'professional-proof.png','image/png',8,'private',
+          'verification/multi-admin-professional-proof.png',NULL,'professional_verification_evidence',0,clock_timestamp(),clock_timestamp())`,
+      [owner, professional]
     );
 
     await db.query(

@@ -34,7 +34,7 @@ export interface OperationsProductOverview {
   readonly roles: string[];
   readonly permissions: string[];
   readonly health: {
-    readonly status: 'ready';
+    readonly status: 'ready' | 'restricted';
     readonly productionTrafficEnabled: boolean;
   };
   readonly services: Array<{
@@ -139,6 +139,8 @@ export interface ProductListing {
   readonly currency: 'SYP' | 'USD';
   readonly categoryCode: string;
   readonly availability: 'in_stock' | 'out_of_stock' | 'made_to_order';
+  readonly requiresPrescription: boolean;
+  readonly controlledItem: boolean;
   readonly status: 'draft' | 'active' | 'inactive';
   readonly moderationStatus: 'pending' | 'approved' | 'rejected';
   readonly rejectionReason?: string;
@@ -155,7 +157,10 @@ export interface MediaAsset {
   readonly id: string;
   readonly entityType: string;
   readonly entityId: string;
-  readonly assetType: 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image';
+  readonly assetType:
+    | 'logo' | 'cover' | 'gallery' | 'profile_image' | 'service_image' | 'product_image'
+    | 'business_verification_evidence' | 'professional_verification_evidence'
+    | 'driver_photo' | 'identity_card' | 'driving_license' | 'vehicle_license';
   readonly url: string;
   readonly storagePath: string;
   readonly mimeType: string;
@@ -205,6 +210,30 @@ export interface BusinessSocialLink {
   readonly businessProfileId: string;
   readonly platform: string;
   readonly url: string;
+}
+
+/** Reviewer-only aggregate returned exclusively by the pending moderation queue. */
+export interface BusinessProfileReviewSnapshot {
+  readonly exactRevision: string;
+  readonly reviewImageUrls: readonly string[];
+  readonly serviceListings: readonly PublicServiceListing[];
+  readonly openingHours: readonly OpeningHours[];
+  readonly branches: readonly BusinessBranch[];
+  readonly socialLinks: readonly BusinessSocialLink[];
+}
+
+export interface ProfessionalProfileReviewSnapshot {
+  readonly exactRevision: string;
+  readonly reviewImageUrls: readonly string[];
+  readonly serviceListings: readonly PublicServiceListing[];
+}
+
+export interface PublicBusinessProfileModerationReview extends PublicBusinessProfile {
+  readonly reviewSnapshot: BusinessProfileReviewSnapshot;
+}
+
+export interface PublicProfessionalProfileModerationReview extends PublicProfessionalProfile {
+  readonly reviewSnapshot: ProfessionalProfileReviewSnapshot;
 }
 
 export interface VerificationRequest {
@@ -412,6 +441,13 @@ export const api = {
       return request<UploadedMediaAsset>('/media', {
         method: 'POST',
         body: JSON.stringify({ ownerType: 'product_listing', ownerId: id, visibility: 'public', assetType: 'product_image', ...data })
+      });
+    },
+    uploadVerificationEvidence(ownerType: 'business_profile' | 'professional_profile', ownerId: string, data: { filename: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sizeBytes: number; content: string; sortOrder?: number }) {
+      const assetType = ownerType === 'business_profile' ? 'business_verification_evidence' : 'professional_verification_evidence';
+      return request<UploadedMediaAsset>('/media', {
+        method: 'POST',
+        body: JSON.stringify({ ownerType, ownerId, visibility: 'private', assetType, ...data })
       });
     },
     listForOwner(ownerType: UploadedMediaAsset['ownerType'], ownerId: string) {
@@ -657,7 +693,7 @@ export const api = {
   },
   moderation: {
     listPending() {
-      return request<{ businesses: PublicBusinessProfile[]; professionals: PublicProfessionalProfile[] }>('/admin/moderation/pending');
+      return request<{ businesses: PublicBusinessProfileModerationReview[]; professionals: PublicProfessionalProfileModerationReview[] }>('/admin/moderation/pending');
     },
     listReports() {
       return request<{ reports: ModerationProviderReport[] }>('/admin/reports');

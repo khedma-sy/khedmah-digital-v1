@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import type { ProductListing } from './product.types';
@@ -47,6 +48,29 @@ export class ProductRepository {
           product.availability, product.status, product.moderationStatus, product.rejectionReason ?? null, expectedRevision]
       );
       if (!updated.rowCount) throw new ConflictException('تغير المنتج أو صوره. حدّث البيانات وراجع النسخة الحالية قبل إعادة المحاولة.');
+      const result = await client.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1`, [product.id]);
+      return map(result.rows[0]);
+    });
+  }
+
+  async review(product: ProductListing, expectedRevision: string, reviewerUserId: string): Promise<ProductListing> {
+    return this.db.transaction(async (client) => {
+      const updated = await client.query(
+        `UPDATE product_listings SET moderation_status=$2,rejection_reason=$3,
+         updated_at=GREATEST(clock_timestamp(), updated_at + interval '1 microsecond')
+         WHERE id=$1 AND updated_at=$4::timestamptz AND moderation_status='pending' AND status='active'
+         RETURNING id`,
+        [product.id, product.moderationStatus, product.rejectionReason ?? null, expectedRevision]
+      );
+      if (!updated.rowCount) throw new ConflictException('تغير المنتج أو صوره. حدّث البيانات وراجع النسخة الحالية قبل إعادة المحاولة.');
+      await client.query(
+        `INSERT INTO trust_history (id,entity_type,entity_id,old_status,new_status,changed_by,reason,created_at)
+         VALUES($1,'product',$2,'pending',$3,$4,$5,clock_timestamp())`,
+        [randomUUID(), product.id, product.moderationStatus, reviewerUserId,
+          product.moderationStatus === 'approved'
+            ? `Approved by authenticated product moderator at review revision ${expectedRevision}`
+            : product.rejectionReason ?? `Rejected at review revision ${expectedRevision}`]
+      );
       const result = await client.query<ProductRow>(`SELECT ${projection} FROM product_listings p JOIN business_profiles b ON b.id=p.business_profile_id WHERE p.id=$1`, [product.id]);
       return map(result.rows[0]);
     });

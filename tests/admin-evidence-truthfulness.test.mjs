@@ -6,11 +6,11 @@ import ts from 'typescript';
 
 // Executes actual page source using inert JSX and a controlled hook scheduler.
 // Verifies content and permission flow, not browser layout or React DOM behavior.
-function fixture(path, { permissions = [], failure, productionTrafficEnabled = false } = {}) {
+function fixture(path, { permissions = ['operations.read'], roles = ['operations_product_director'], failure, productionTrafficEnabled = false } = {}) {
   const slots = []; const effects = []; const redirects = [];
   let cursor = 0, dirty = false, output;
   const overview = {
-    roles: ['operations_product_director'], permissions,
+    roles, permissions,
     health: { status: 'ready', productionTrafficEnabled },
     services: [{ id: 'ci-cd', label: 'CI/CD', status: 'configured' }],
     openIncidents: 2, pendingChanges: 3
@@ -86,11 +86,13 @@ for (const path of ['apps/frontend/app/admin/page.tsx', 'apps/frontend/app/admin
     assert.doesNotMatch(f.text, /حالة الخدمات الفعلية|خدمات مراقبة|حركة الإنتاج مفعّلة|حركة الإنتاج مقفلة|(?:^|\s)جاهز(?:\s|$)/);
     assert.match(f.text, /مؤقتة في ذاكرة عملية الخادم/);
   });
-  test(`${path}: moderation is hidden without permission and visible with security.manage`, async () => {
+  test(`${path}: moderation is hidden without permission and visible with either bounded approval or security authority`, async () => {
     const denied = fixture(path); await denied.flush();
     assert.ok(!denied.links.includes('/admin/moderation'));
-    const allowed = fixture(path, { permissions: ['security.manage'] }); await allowed.flush();
-    assert.ok(allowed.links.includes('/admin/moderation'));
+    for (const permission of ['content.approvals.approve', 'security.manage']) {
+      const allowed = fixture(path, { permissions: [permission] }); await allowed.flush();
+      assert.ok(allowed.links.includes('/admin/moderation'));
+    }
   });
   test(`${path}: 401 redirects safely; 403 is not misrepresented as a login failure`, async () => {
     const unauthenticated = fixture(path, { failure: 401 }); await unauthenticated.flush();
@@ -100,6 +102,20 @@ for (const path of ['apps/frontend/app/admin/page.tsx', 'apps/frontend/app/admin
     assert.equal(forbidden.redirects.length, 0); assert.match(forbidden.text, /لا يملك صلاحية/);
   });
 }
+
+test('approval-only admin exposes only its bounded review routes', async () => {
+  const f = fixture('apps/frontend/app/admin/page.tsx', {
+    roles: ['smart_admin_approver'],
+    permissions: ['content.approvals.approve', 'trust.approvals.approve', 'mobility.approvals.approve']
+  });
+  await f.flush();
+  for (const href of ['/admin/moderation', '/admin/verification', '/admin/driver-documents', '/admin/taxi-drivers']) {
+    assert.ok(f.links.includes(href), `missing bounded route ${href}`);
+  }
+  for (const href of ['/admin/kora', '/admin/billing', '/admin/taxi-pricing', '/admin/categories', '/orders/merchant', '/admin/operations-product']) {
+    assert.ok(!f.links.includes(href), `approval-only role leaked ${href}`);
+  }
+});
 
 test('operations display never treats either static traffic flag as live production evidence', async () => {
   for (const productionTrafficEnabled of [false, true]) {

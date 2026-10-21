@@ -47,7 +47,7 @@ const DEFAULT_SERVICE_METRICS: Record<string, number> = {
 
 function createService(overrides: {
   histories?: () => Promise<{ incidents: Array<Record<string, unknown>>; changes: Array<Record<string, unknown>> }>;
-  overview?: () => Promise<unknown>;
+  assertOperationsRead?: () => Promise<void>;
   countUsers?: () => Promise<number>;
   countSearchActionsSince?: (since: string) => Promise<number>;
   serviceMetrics?: () => Promise<Record<string,number>>;
@@ -60,7 +60,7 @@ function createService(overrides: {
   } as unknown as KoraAdminRepository;
   const operations = {
     histories: overrides.histories ?? (async () => ({ incidents: [], changes: [] })),
-    overview: overrides.overview ?? (async () => ({})),
+    assertOperationsRead: overrides.assertOperationsRead ?? (async () => undefined),
     recordSupervisedAdminAudit: async (cookie: string | undefined, eventType: KoraAuditCall['eventType'], resource: string) => {
       overrides.audits?.push({ cookie, eventType, resource });
     }
@@ -80,6 +80,21 @@ test('Kora authorizes metrics before any aggregate database read', async () => {
   await assert.rejects(service.readMetrics(undefined), /OPERATIONS_READ_DENIED/);
   assert.equal(usersRead, false);
   assert.equal(searchesRead, false);
+});
+
+test('Kora always requires the explicit operations.read guard', async () => {
+  let metricsRead = false;
+  const service = createService({
+    assertOperationsRead: async () => { throw new Error('OPERATIONS_READ_DENIED'); },
+    serviceMetrics: async () => { metricsRead = true; return { ...DEFAULT_SERVICE_METRICS }; }
+  });
+
+  await assert.rejects(service.evaluateUiObservation(undefined, {
+    checkId: 'taxi_embedded_map',
+    status: 'pass',
+    evidence: 'No private operational access should be inferred from approval permissions.'
+  }), /OPERATIONS_READ_DENIED/);
+  assert.equal(metricsRead, false);
 });
 
 test('Kora reports measured values, never invents zero for missing telemetry, and audits direct metric reads', async () => {

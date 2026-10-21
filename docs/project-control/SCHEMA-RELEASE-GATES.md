@@ -16,15 +16,15 @@ All links below refer to repository paths reviewed at the source SHA above. Re-r
 
 | Stage | Source authority | What is established in source | Live evidence still required |
 | --- | --- | --- | --- |
-| Lineage | [backend/migrations/README.md](../../backend/migrations/README.md) | Canonical forward/rollback lineage through 035, with 023 intentionally unused; startup verifies but does not apply migrations. | Installed schema/catalog level and historical execution records. |
+| Lineage | [backend/migrations/README.md](../../backend/migrations/README.md) | Canonical forward/rollback lineage through 037, with 023 intentionally unused; startup verifies but does not apply migrations. | Installed schema/catalog level and historical execution records. |
 | Baseline 001–020 | [production-baseline-001-020.yml](../../.github/workflows/production-baseline-001-020.yml) | Fresh-database initialization; exact latest-main SHA, confirmation and recent successful backup gates; baseline manifest derived from twenty named SQL files. | A proven fresh database if initialization is needed, role isolation, reviewed manifest, and successful baseline evidence. |
 | 021 / 022 / 024 | [production-operator.yml](../../.github/workflows/production-operator.yml) and [run-production-migration.sh](../../scripts/run-production-migration.sh) | Separate schema operator with three explicit APPLY modes; runner accepts only the three approved names and pinned checksums. | Which retained versions are installed, checksum/identity checks, and backup evidence for the selected operation. |
-| 025–035 | [production-migrations-025-034.yml](../../.github/workflows/production-migrations-025-034.yml) | Exactly one selected migration per workflow; explicit migration number, latest-main SHA, confirmation and backup inputs. The retained filename is historical; the workflow now governs through 035. | Prerequisite schema, execution-specific success/postcondition evidence and the correct backup for each approved operation. |
+| 025–037 | [production-migrations-025-034.yml](../../.github/workflows/production-migrations-025-034.yml) | Exactly one selected migration per workflow; explicit migration number, latest-main SHA, confirmation and backup inputs. The retained filename is historical; the workflow and its paired `run-production-migrations-025-034.sh` runner now govern through 037. | Prerequisite schema, execution-specific success/postcondition evidence and the correct backup for each approved operation. |
 | Release | [production-operator-new-account.yml](../../.github/workflows/production-operator-new-account.yml) | Separate VERIFY_ONLY / DEPLOY_PRODUCTION modes. The hardened-role predeploy job runs only for DEPLOY_PRODUCTION. Taxi trips must remain false in this source. | Actual hardened database, release readiness, owner approval and postdeployment acceptance. |
 
 ## Governed order for a proven fresh database
 
-Role cutover and verification → baseline 001–020 → 021 → 022 → 024 → 025 → 026 → 027 → 028 → 029 → 030 → 031 → 032 → 033 → 034 → 035 → HARDEN and verification → release readiness → approved deployment and acceptance.
+Role cutover and verification → baseline 001–020 → 021 → 022 → 024 → 025 → 026 → 027 → 028 → 029 → 030 → 031 → 032 → 033 → 034 → 035 → 036 → 037 → HARDEN and verification → release readiness → approved deployment and acceptance.
 
 This is a dependency map, not a command queue. On an existing database, first determine which steps have already been applied. Baseline initialization is not a generic repair operation. Never create version 023 to fill the intentional gap.
 
@@ -47,6 +47,8 @@ This is a dependency map, not a command queue. On an existing database, first de
 | 033 | `033_billing_admin_role` |
 | 034 | `034_food_order_promotions` |
 | 035 | `035_specialized_admin_roles` |
+| 036 | `036_classifieds_rolling_publication_quota` |
+| 037 | `037_verification_evidence_media` |
 
 The obsolete draft PR #172's `026_ai_admin_control_plane` is not the canonical 026 above and must not be reinstated.
 
@@ -56,7 +58,7 @@ The database role-bootstrap workflow is different from the schema workflows belo
 
 The reviewed baseline workflow requires backup status SUCCESSFUL, description `khedmah-before-baseline-<sha7>`, and end time no more than 86,400 seconds old. Its confirmation pattern is `INITIALIZE_KHEDMAH_SCHEMA_001_020_<sha7>`.
 
-The reviewed 025–035 workflow requires backup status SUCCESSFUL, description `khedmah-before-<NNN>-<sha7>`, and end time no more than 86,400 seconds old. Its confirmation pattern is `APPLY_KHEDMAH_MIGRATION_<NNN>_<sha7>`.
+The reviewed 025–037 workflow requires backup status SUCCESSFUL, description `khedmah-before-<NNN>-<sha7>`, and end time no more than 86,400 seconds old. Its confirmation pattern is `APPLY_KHEDMAH_MIGRATION_<NNN>_<sha7>`.
 
 These are patterns extracted from the source, not ready-to-run confirmations. Recompute against the actual latest approved main. Do not reuse an old backup identifier without checking instance, operation description, completion time, and recovery suitability. This review has not tested a restore or the current PITR state.
 

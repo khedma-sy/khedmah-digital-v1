@@ -4,10 +4,13 @@ import { UploadMediaRequest } from './media.types';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const OWNER_TYPES = new Set(['business_profile', 'professional_profile', 'product_listing', 'user']);
 const DRIVER_DOCUMENT_TYPES = new Set(['driver_photo', 'identity_card', 'driving_license', 'vehicle_license']);
-const ASSET_TYPES = new Set(['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image', ...DRIVER_DOCUMENT_TYPES]);
+const BUSINESS_VERIFICATION_EVIDENCE = 'business_verification_evidence';
+const PROFESSIONAL_VERIFICATION_EVIDENCE = 'professional_verification_evidence';
+const VERIFICATION_EVIDENCE_TYPES = new Set([BUSINESS_VERIFICATION_EVIDENCE, PROFESSIONAL_VERIFICATION_EVIDENCE]);
+const ASSET_TYPES = new Set(['logo', 'cover', 'gallery', 'profile_image', 'service_image', 'product_image', ...VERIFICATION_EVIDENCE_TYPES, ...DRIVER_DOCUMENT_TYPES]);
 const MAX_SIZE = 5 * 1024 * 1024;
-const businessAssetTypes = new Set(['logo', 'cover', 'gallery', ...DRIVER_DOCUMENT_TYPES]);
-const professionalAssetTypes = new Set(['profile_image','service_image']);
+const businessAssetTypes = new Set(['logo', 'cover', 'gallery', BUSINESS_VERIFICATION_EVIDENCE, ...DRIVER_DOCUMENT_TYPES]);
+const professionalAssetTypes = new Set(['profile_image','service_image', PROFESSIONAL_VERIFICATION_EVIDENCE]);
 
 const clean = (value: unknown, field: string, max: number) => {
   if (typeof value !== 'string' || !value.trim() || value.trim().length > max) throw new BadRequestException(`${field} is invalid.`);
@@ -33,6 +36,12 @@ export function validateUploadMediaRequest(request: UploadMediaRequest): Require
   if (ownerType === 'product_listing' && assetType !== 'product_image') throw new BadRequestException('Product media requires product_image assetType.');
   if (assetType && DRIVER_DOCUMENT_TYPES.has(assetType) && (ownerType !== 'business_profile' || visibility !== 'private')) {
     throw new BadRequestException('Driver documents must be private business media.');
+  }
+  if (assetType && VERIFICATION_EVIDENCE_TYPES.has(assetType)) {
+    const expectedOwner = assetType === BUSINESS_VERIFICATION_EVIDENCE ? 'business_profile' : 'professional_profile';
+    if (ownerType !== expectedOwner || visibility !== 'private') {
+      throw new BadRequestException('Verification evidence must be private media owned by the matching profile type.');
+    }
   }
   const sortOrder = request.sortOrder ?? 0;
   if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 100) throw new BadRequestException('sortOrder is invalid.');

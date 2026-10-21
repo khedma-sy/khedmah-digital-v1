@@ -19,8 +19,8 @@ export interface TaxiOperationalCandidate {
   readonly operationalStatus?: TaxiOperationalStatus;
   readonly zoneCode?: string;
   readonly expiresAt?: string;
-  readonly driverRevision?: string;
-  readonly vehicleRevision?: string;
+  readonly driverRevision: string;
+  readonly vehicleRevision: string;
 }
 
 export interface TaxiDriverDocument {
@@ -40,6 +40,8 @@ export interface TaxiDriverDocument {
 export interface TaxiOperationalDecisionInput {
   readonly verificationReference: string;
   readonly reason: string;
+  readonly expectedDriverRevision: string;
+  readonly expectedVehicleRevision: string;
   readonly zoneCode?: string;
   readonly expiresAt?: string;
 }
@@ -87,7 +89,7 @@ export const taxiOperationalReviewApi = {
       { method: 'POST', body: JSON.stringify(input) }
     );
   },
-  restrict(businessProfileId: string, decision: 'suspend' | 'revoke', input: Pick<TaxiOperationalDecisionInput, 'verificationReference' | 'reason'>) {
+  restrict(businessProfileId: string, decision: 'suspend' | 'revoke', input: Pick<TaxiOperationalDecisionInput, 'verificationReference' | 'reason' | 'expectedDriverRevision' | 'expectedVehicleRevision'>) {
     return request<{ businessProfileId: string; status: 'suspended' | 'revoked'; driverRevision: string; vehicleRevision: string }>(
       `/taxi-operational-approvals/${encodeURIComponent(businessProfileId)}/${decision}`,
       { method: 'POST', body: JSON.stringify(input) }

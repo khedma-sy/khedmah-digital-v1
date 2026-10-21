@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   Inject,
   Injectable,
@@ -199,10 +200,11 @@ export class AdMediaService {
   async readForReview(cookie: string | undefined, mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
     this.assertEnabled();
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
-    this.rbac.assert(actor.email, 'security.manage');
-    const before = await this.readReadableMetadata(mediaId, true);
+    const beforeScope = this.reviewReadScope(actor.email);
+    const before = await this.readReadableMetadata(mediaId, beforeScope);
     const object = await this.storage.read(before.storage_key);
-    const after = await this.readReadableMetadata(mediaId, true);
+    const afterScope = this.reviewReadScope(actor.email);
+    const after = await this.readReadableMetadata(mediaId, afterScope);
     if (after.storage_key !== before.storage_key || after.owner_id !== before.owner_id) throw new NotFoundException('Ad image was not found.');
     return { data: object.data, mimeType: after.mime_type || object.mimeType };
   }
@@ -295,9 +297,21 @@ export class AdMediaService {
     });
   }
 
-  private async readReadableMetadata(mediaId: string, reviewer: boolean): Promise<MediaRow> {
+  private reviewReadScope(email: string): 'bounded' | 'security' {
+    this.rbac.assertAny(email, ['security.manage', 'content.approvals.approve']);
+    try {
+      this.rbac.assert(email, 'security.manage');
+      return 'security';
+    } catch (cause) {
+      if (cause instanceof ForbiddenException) return 'bounded';
+      throw cause;
+    }
+  }
+
+  private async readReadableMetadata(mediaId: string, reviewer: false | 'bounded' | 'security'): Promise<MediaRow> {
     return this.guardDatabase(async () => {
-      const statusClause = reviewer ? "a.status IN ('pending_review','active','rejected')" : "a.status='active'";
+      const statusClause = reviewer === 'bounded' ? "a.status='pending_review'"
+        : reviewer === 'security' ? "a.status IN ('pending_review','active','rejected')" : "a.status='active'";
       const businessClause = reviewer ? '' : `AND (a.business_profile_id IS NULL OR EXISTS(
         SELECT 1 FROM business_profiles b WHERE b.id=a.business_profile_id AND b.visibility='public'
           AND b.moderation_status='approved' AND b.trust_status='approved' AND b.status='active'))`;

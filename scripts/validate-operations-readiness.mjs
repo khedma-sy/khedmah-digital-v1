@@ -67,8 +67,14 @@ for (const file of runtimeCritical) {
 check('google-cloud', 'no legacy production binding', legacyRuntimeBindings.length === 0, legacyRuntimeBindings.join(', ') || 'runtime-critical production assignments are account-neutral');
 
 const roleSource = await read('apps/backend/src/operations-product/operations-product.types.ts');
-const roles = ['operations_product_director', 'infrastructure_manager', 'cloud_administrator', 'devops_engineer', 'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer'];
+const roles = ['operations_product_director', 'infrastructure_manager', 'cloud_administrator', 'devops_engineer', 'production_engineer', 'release_manager', 'security_operations_engineer', 'site_reliability_engineer', 'smart_admin_approver'];
 for (const role of roles) check('rbac', role, roleSource.includes(`${role}:`), 'role has an explicit permission mapping');
+const smartAdminMapping = roleSource.match(/smart_admin_approver:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
+const smartAdminPermissions = ['content.approvals.approve', 'trust.approvals.approve', 'mobility.approvals.approve'];
+check('rbac', 'Smart Admin approval-only permissions',
+  smartAdminPermissions.every((permission) => smartAdminMapping.includes(`'${permission}'`)) &&
+    !/operations\.read|security\.manage|infrastructure\.manage|deployments\.manage|releases\.manage|incidents\.manage|rbac\.manage/.test(smartAdminMapping),
+  'human reviewer can accept bounded queues without general operations read, rejection, security, infrastructure, deployment, release, incident, or RBAC authority');
 const rbacSource = await read('apps/backend/src/operations-product/operations-rbac.service.ts');
 check('rbac', 'deny by default', rbacSource.includes('if (!raw) return []') && rbacSource.includes('ForbiddenException'), 'unbound users receive no operations role');
 check('governance', 'authority isolation', !roleSource.match(/board|executive|codex/i), 'operations role catalog contains no governance authority role');

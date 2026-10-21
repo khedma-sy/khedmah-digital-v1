@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabasePool } from './database.pool';
 
-export const REQUIRED_CANONICAL_SCHEMA_VERSION = '035';
+export const REQUIRED_CANONICAL_SCHEMA_VERSION = '037';
 
 export type SchemaAnchorKind = 'table' | 'column' | 'constraint' | 'index' | 'function';
 
@@ -53,6 +53,8 @@ export const CANONICAL_SCHEMA_ANCHORS: readonly SchemaAnchor[] = [
   table('media', '011', 'media_assets'),
   ...['owner_user_id', 'owner_type', 'owner_id', 'storage_key', 'public_url'].map((name) => column('media', '006', 'media_assets', name)),
   ...['asset_type', 'sort_order'].map((name) => column('media', '011', 'media_assets', name)),
+  constraint('verification-evidence', '037', 'media_assets', 'media_assets_asset_type_check_verification_evidence'),
+  constraint('verification-evidence', '037', 'media_assets', 'media_assets_verification_evidence_private_check'),
   table('nearby', '012', 'nearby_preferences'),
   ...['user_identifier', 'coverage_radius', 'location_identifier'].map((name) => column('nearby', '012', 'nearby_preferences', name)),
   table('notifications', '013', 'nearby_notifications'),
@@ -204,7 +206,15 @@ JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname = 'admin_roles' AND con.conname = 'admin_roles_role_check'
   AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%taxi_pricing_admin%'
-  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%category_admin%'`;
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%category_admin%'
+UNION ALL
+SELECT 'constraint', 'media_assets', 'media_assets_asset_type_check_verification_evidence'
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = 'media_assets' AND con.conname = 'media_assets_asset_type_check'
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%business_verification_evidence%'
+  AND pg_catalog.pg_get_constraintdef(con.oid) LIKE '%professional_verification_evidence%'`;
 
 
 interface RuntimePrivilegeRow extends Record<string, unknown> { hardened: boolean }

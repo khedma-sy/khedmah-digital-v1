@@ -174,13 +174,13 @@ export default function EditClassifiedPage() {
         clientRequestId: requestId(storageKey), expectedContentRevision: ad.contentRevision
       });
       clearRequestId(storageKey);
-      setAd(result.ad); setForm(fromAd(result.ad)); setNotice('تم نشر الإعلان.');
+      setAd(result.ad); setForm(fromAd(result.ad)); setNotice('تم إرسال الإعلان للمراجعة. لن يظهر للعامة قبل الاعتماد البشري.');
     } catch (cause) {
       const issue = cause instanceof Error ? cause as Error & { statusCode?: number; code?: string } : undefined;
       setError(issue?.code === 'AD_DAILY_QUOTA_EXHAUSTED' ? 'بلغت الحد اليومي: 3 إعلانات خلال 24 ساعة.'
         : issue?.code === 'AD_WEEKLY_QUOTA_EXHAUSTED' ? 'بلغت الحد الأسبوعي: 5 إعلانات خلال 7 أيام.'
-        : issue?.code === 'AD_FREE_QUOTA_EXHAUSTED' ? 'تم استهلاك الحصة الحالية: ثلاثة إعلانات مجانية للحساب.'
-        : issue?.message || 'تعذر نشر الإعلان.');
+        : issue?.code === 'AD_FREE_QUOTA_EXHAUSTED' ? 'تم استهلاك حصة النشر الحالية للحساب.'
+        : issue?.message || 'تعذر إرسال الإعلان للمراجعة.');
     } finally { operation.current = false; setSaving(false); }
   }
 
@@ -216,6 +216,6 @@ export default function EditClassifiedPage() {
       <h2>صور الإعلان</h2>
       {images.length ? <div className={styles.editorImages}>{images.map((image) => <figure key={image.id}><img src={`/api/v1/classifieds/${encodeURIComponent(ad.id)}/media/${encodeURIComponent(image.id)}`} alt={image.filename}/><figcaption><span>{image.filename}</span><button type="button" disabled={saving || locked} onClick={() => void removeImage(image)}>حذف الصورة</button></figcaption></figure>)}</div> : <p className={styles.notice}>لا توجد صور محفوظة لهذا الإعلان.</p>}
     </Surface>
-    {!locked && <div className={styles.actions}><ActionButton type="button" disabled={saving} onClick={() => void submitForReview()}>نشر الإعلان</ActionButton><ActionLink href="/classifieds/manage" variant="secondary">العودة إلى إعلاناتي</ActionLink></div>}
+    {!locked && <div className={styles.actions}><ActionButton type="button" disabled={saving} onClick={() => void submitForReview()}>إرسال للمراجعة</ActionButton><ActionLink href="/classifieds/manage" variant="secondary">العودة إلى إعلاناتي</ActionLink></div>}
   </div></PageShell>;
 }

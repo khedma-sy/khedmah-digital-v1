@@ -5,12 +5,12 @@ import { createContext, Script } from 'node:vm';
 import ts from 'typescript';
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const revision = '2026-09-08T01:00:00.123456Z';
-const product = { id: 'p', revision, titleAr: 'منتج', descriptionAr: 'الوصف الكامل', price: 100, currency: 'SYP', categoryCode: 'general', availability: 'in_stock', imageUrls: ['/first', '/second'] };
+const product = { id: 'p', revision, titleAr: 'منتج', descriptionAr: 'الوصف الكامل', price: 100, currency: 'SYP', categoryCode: 'general', availability: 'in_stock', requiresPrescription: true, controlledItem: false, imageUrls: ['/first', '/second'] };
 function load(source, adapters, globals = {}) {
   const exports = {}; const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } });
   new Script(compiled.outputText).runInContext(createContext({ exports, Error, URLSearchParams, ...globals, require(id) { assert.ok(id in adapters, id); return adapters[id]; } })); return exports;
 }
-function fixture() {
+function fixture(productPayload = product) {
   const slots = [], pending = new Map(), calls = []; let cursor = 0, dirty, tree, failure, queueFailure, queueReads = 0;
   const hooks = {
     useState(initial) { const i = cursor++; const s = slots[i] ??= { value: initial }; return [s.value, v => { const next = typeof v === 'function' ? v(s.value) : v; if (!Object.is(next, s.value)) { s.value = next; dirty = true; } }]; },
@@ -18,7 +18,7 @@ function fixture() {
     useEffect(setup, deps) { const i = cursor++; const s = slots[i] ??= {}; if (!s.deps || !deps.every((v,j) => Object.is(v,s.deps[j]))) { s.deps = deps; pending.set(i,setup); } }
   };
   const api = { moderation: { listPending: async () => ({ businesses: [], professionals: [] }), listReports: async () => ({ reports: [] }) },
-    adminProducts: { pending: async () => { queueReads++; if (queueFailure) throw queueFailure; return { products: [{ ...product }] }; }, review: async (...args) => { calls.push(args); if (failure) throw failure; return { product }; } } };
+    adminProducts: { pending: async () => { queueReads++; if (queueFailure) throw queueFailure; return { products: [{ ...productPayload }] }; }, review: async (...args) => { calls.push(args); if (failure) throw failure; return { product }; } } };
   const jsx = (type, props) => ({ type, props });
   const page = load(read('apps/frontend/app/admin/moderation/page.tsx'), { react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../../../lib/api-client': { api },
     '../../../lib/classifieds-client': { adminClassifiedsApi: { pending: async () => ({ ads: [] }) } },
@@ -29,6 +29,7 @@ function fixture() {
   const text = n => Array.isArray(n) ? n.map(text).join('') : n && typeof n === 'object' ? text(n.props?.children) : n == null || typeof n === 'boolean' ? '' : String(n);
   render();
   return { calls, get queueReads() { return queueReads; }, get text() { return text(tree); }, get images() { return [...walk(tree)].filter(n => n.type === 'a').map(n => n.props.href); },
+    get publishDisabled() { return [...walk(tree)].find(n => n.type === 'button' && text(n) === 'نشر')?.props.disabled; },
     get dialog() { return [...walk(tree)].some(n => n.props?.role === 'dialog'); },
     set failure(value) { failure = value; }, set queueFailure(value) { queueFailure = value; },
     click(label) { const b = [...walk(tree)].find(n => n.type === 'button' && text(n) === label); assert.ok(b, label); assert.ok(!b.props.disabled); b.props.onClick(); render(); },
@@ -36,8 +37,15 @@ function fixture() {
   };
 }
 test('review sends the displayed revision and presents every image and description', async () => {
-  const f = fixture(); await f.flush(); assert.deepEqual(f.images, ['/first', '/second']); assert.match(f.text, /الوصف الكامل/);
+  const f = fixture(); await f.flush(); assert.deepEqual(f.images, ['/first', '/second']); assert.match(f.text, /الوصف الكامل/); assert.match(f.text, /يتطلب وصفة طبية: نعم/); assert.match(f.text, /صنف مقيّد: لا/);
   f.click('نشر'); f.click('تأكيد القرار'); await f.flush(); assert.deepEqual(f.calls[0], ['p','approved',revision,undefined]); assert.equal(f.dialog, false);
+});
+test('missing product safety booleans fail closed instead of defaulting before publication', async () => {
+  const { requiresPrescription: _requiresPrescription, controlledItem: _controlledItem, ...incomplete } = product;
+  const f = fixture(incomplete); await f.flush();
+  assert.match(f.text, /حقلا الوصفة الطبية والصنف المقيّد مفقودان أو غير صالحين/);
+  assert.equal(f.publishDisabled, true);
+  assert.equal(f.calls.length, 0);
 });
 test('409 refreshes the queue and requires a new explicit decision', async () => {
   const f = fixture(); await f.flush(); f.failure = Object.assign(new Error('conflict'), { statusCode: 409 });

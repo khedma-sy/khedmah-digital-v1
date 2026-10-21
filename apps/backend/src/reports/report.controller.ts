@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Inject, Param, Patch, Post } from '@nestjs/common';
 import { ReviewProviderReportRequest, SubmitProviderReportRequest } from './dto/report.dto';
 import { ReportService } from './report.service';
 
@@ -21,7 +21,10 @@ export class ProfessionalReportController {
 @Controller('admin/reports')
 export class AdminReportController {
   constructor(@Inject(ReportService) private readonly reports: ReportService) {}
-  @Get() async list(@Headers('cookie') cookie: string | undefined) { return { reports: await this.reports.listForModeration(cookie) }; }
+  @Get()
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async list(@Headers('cookie') cookie: string | undefined) { return { reports: await this.reports.listForModeration(cookie) }; }
   @Patch(':reportId') async review(@Headers('cookie') cookie: string | undefined, @Param('reportId') id: string, @Body() body: ReviewProviderReportRequest) {
     return { report: await this.reports.review(cookie, id, body) };
   }

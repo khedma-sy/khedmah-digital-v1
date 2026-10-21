@@ -24,6 +24,16 @@ test('verification review UI requires human notes for both decisions and reloads
   assert.doesNotMatch(page, /automatedDecision|auto-approve|auto approve/i);
 });
 
+test('verification approval UI fails closed on missing, malformed, or excessive evidence', () => {
+  assert.match(client, /readonly evidence: readonly VerificationEvidenceItem\[\]/);
+  assert.match(client, /readonly profileSummary: VerificationProfileSummary/);
+  assert.match(page, /value\.secureUrl === `\/api\/v1\/media\/public\/\$\{encodeURIComponent\(value\.id\)\}`/);
+  assert.match(page, /evidence\.length >= 1 && evidence\.length <= 3/);
+  assert.match(page, /decision === 'approved' && !reviewDataReady\(item\)/);
+  assert.match(page, /dialog\.decision === 'approved' && !reviewDataReady\(dialog\.item\)/);
+  assert.match(page, /النظام لا يثبت أصالة الوثيقة آليًا/);
+});
+
 test('verification UI explains publication boundaries and is reachable from the admin console', () => {
   assert.match(page, /اعتماد تحقق النشاط التجاري يمكن أن يعتمد حالة الثقة فقط، ولا يعتمد محتوى النشاط/);
   assert.match(page, /اعتماد تحقق المهني يسجل نتيجة التحقق فقط/);

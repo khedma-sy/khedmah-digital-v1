@@ -384,7 +384,7 @@ export class KoraAdminService {
   }
 
   private async authorize(cookie: string | undefined): Promise<void> {
-    await this.operations.overview(cookie);
+    await this.operations.assertOperationsRead(cookie);
   }
 
   private async audit(cookie: string | undefined, eventType: Parameters<OperationsProductService['recordSupervisedAdminAudit']>[1], resource: string): Promise<void> {

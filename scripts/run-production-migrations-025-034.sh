@@ -105,8 +105,30 @@ case "${MIGRATION_NUMBER:-}" in
       AND position('interval ''7 days''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
       THEN 1 ELSE NULL END"
     ;;
+  037)
+    MIGRATION_NAME='037_verification_evidence_media'
+    PREDECESSOR_SQL="SELECT to_regclass('public.media_assets') IS NOT NULL
+      AND to_regclass('public.mobility_document_reviews') IS NOT NULL
+      AND position('interval ''24 hours''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
+      AND position('interval ''7 days''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0"
+    GUARD="CASE WHEN EXISTS (
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_class t ON t.oid=c.conrelid
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname='public' AND t.relname='media_assets'
+        AND c.conname='media_assets_asset_type_check'
+        AND pg_get_constraintdef(c.oid) LIKE '%business_verification_evidence%'
+        AND pg_get_constraintdef(c.oid) LIKE '%professional_verification_evidence%'
+    ) AND EXISTS (
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_class t ON t.oid=c.conrelid
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      WHERE n.nspname='public' AND t.relname='media_assets'
+        AND c.conname='media_assets_verification_evidence_private_check'
+    ) THEN 1 ELSE NULL END"
+    ;;
   *)
-    echo 'ERROR: MIGRATION_NUMBER must be one of 025..036.' >&2
+    echo 'ERROR: MIGRATION_NUMBER must be one of 025..037.' >&2
     exit 1
     ;;
 esac
@@ -495,6 +517,24 @@ case "$MIGRATION_NUMBER" in
     AND position('interval ''7 days''' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
     AND position('AD_DAILY_QUOTA_EXHAUSTED' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0
     AND position('AD_WEEKLY_QUOTA_EXHAUSTED' in pg_get_functiondef(to_regprocedure('public.enforce_ad_free_slot_limit()'))) > 0" ;;
+  037) VERIFY_SQL="SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='public' AND t.relname='media_assets'
+      AND c.conname='media_assets_asset_type_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%business_verification_evidence%'
+      AND pg_get_constraintdef(c.oid) LIKE '%professional_verification_evidence%'
+  ) AND EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='public' AND t.relname='media_assets'
+      AND c.conname='media_assets_verification_evidence_private_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%business_profile%'
+      AND pg_get_constraintdef(c.oid) LIKE '%professional_profile%'
+      AND pg_get_constraintdef(c.oid) LIKE '%private%'
+  )" ;;
 esac
 
 verified="$(psql "$PSQL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$VERIFY_SQL")"

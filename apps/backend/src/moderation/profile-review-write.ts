@@ -23,9 +23,9 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
   }
   const target = targets[kind];
   await db.transaction(async (client) => {
-    const { rows } = await client.query<{ owner_id: string; moderation_status: string; lifecycle: string; trust_status?: string; revision: string }>(
+    const { rows } = await client.query<{ owner_id: string; moderation_status: string; lifecycle: string; trust_status?: string; category_code?: string; revision: string }>(
       `SELECT ${target.owner} AS owner_id, moderation_status, ${target.lifecycle} AS lifecycle,
-       ${kind === 'business' ? 'trust_status,' : ''} ${PROFILE_REVISION_SQL} AS revision
+       ${kind === 'business' ? 'trust_status,category_code,' : ''} ${PROFILE_REVISION_SQL} AS revision
        FROM ${target.table} WHERE ${target.id}=$1 FOR UPDATE`, [id]);
     const current = rows[0];
     if (!current) throw new NotFoundException('Profile not found.');
@@ -36,10 +36,32 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
       }
       if (current.moderation_status === 'pending' && (kind === 'business' || current.lifecycle === 'pending')) return;
     } else {
+      if (decision.status === 'approved' && current.owner_id === actorId) {
+        throw new ForbiddenException('A reviewer cannot approve their own profile.');
+      }
       if (current.revision !== decision.expectedRevision) throw new ConflictException('The profile changed. Reload the queue before deciding.');
       if (current.moderation_status === 'suspended' || ['suspended','archived'].includes(current.lifecycle) ||
           (decision.status === 'approved' ? current.moderation_status !== 'pending' : !['pending','approved'].includes(current.moderation_status))) {
         throw new ConflictException('This profile is no longer eligible for this review decision.');
+      }
+      if (kind === 'business' && decision.status === 'approved' && ['taxi','delivery_courier'].includes(current.category_code ?? '')) {
+        const documentState = await client.query<{ total: number; approved: number }>(
+          `WITH latest_documents AS (
+             SELECT DISTINCT ON (m.asset_type) m.id,m.asset_type
+             FROM media_assets m
+             WHERE m.owner_type='business_profile' AND m.owner_id=$1 AND m.visibility='private'
+               AND m.asset_type IN ('driver_photo','identity_card','driving_license','vehicle_license')
+             ORDER BY m.asset_type,m.created_at DESC,m.id DESC
+           )
+           SELECT count(*)::int AS total,
+                  count(*) FILTER (WHERE r.status='approved')::int AS approved
+           FROM latest_documents d
+           LEFT JOIN mobility_document_reviews r ON r.media_asset_id=d.id`,
+          [id]
+        );
+        if (documentState.rows[0]?.total !== 4 || documentState.rows[0]?.approved !== 4) {
+          throw new ConflictException('All four latest mobility documents must be approved before profile approval.');
+        }
       }
     }
     const lifecycle = kind === 'professional' && decision.status !== 'rejected'

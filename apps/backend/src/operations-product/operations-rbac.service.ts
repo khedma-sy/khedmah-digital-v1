@@ -17,6 +17,14 @@ export class OperationsRbacService {
     if (!roles.some(role => ROLE_PERMISSIONS[role].includes(permission))) throw new ForbiddenException('Operations Product access denied.');
     return roles;
   }
+  assertAny(email: string, permissions: readonly OperationsPermission[]): readonly OperationsProductRole[] {
+    if (permissions.length === 0) throw new ForbiddenException('Operations Product access denied.');
+    const roles = this.rolesFor(email);
+    if (!roles.some(role => permissions.some(permission => ROLE_PERMISSIONS[role].includes(permission)))) {
+      throw new ForbiddenException('Operations Product access denied.');
+    }
+    return roles;
+  }
   permissionsFor(email: string): readonly OperationsPermission[] {
     return [...new Set(this.rolesFor(email).flatMap(role => ROLE_PERMISSIONS[role]))];
   }

@@ -6,7 +6,7 @@ import { readSessionToken } from '../identity/session-cookie';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { PROFESSIONAL_PROFILE_NOT_FOUND_MESSAGE } from './professional-profile.errors';
 import { ProfessionalProfileRepository } from './professional-profile.repository';
-import { MediaAsset, ProfessionalProfile, PublicProfessionalProfile, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
+import { MediaAsset, ProfessionalProfile, PublicProfessionalProfile, PublicProfessionalProfileModerationReview, TrustHistoryEntry, VerificationRequest } from './professional-profile.types';
 import { CreateProfessionalProfileRequest, SearchProfessionalProfilesRequest } from './dto/professional-profile.dto';
 import { validateProfessionalProfileSearch, validateProfessionalProfileUpsert } from './professional-profile.validation';
 
@@ -151,13 +151,13 @@ export class ProfessionalProfileService {
     return this.readProfileResource(profileId, cookieHeader, () => this.repository.listTrustHistory(profileId));
   }
 
-  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfile[]> {
+  async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfileModerationReview[]> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
     const profiles = await this.repository.listPendingModeration();
-    const result: PublicProfessionalProfile[] = [];
+    const result: PublicProfessionalProfileModerationReview[] = [];
     for (const p of profiles) {
-      result.push(await this.toPublic(p));
+      result.push({ ...this.toPublic(p), reviewSnapshot: p.reviewSnapshot });
     }
     return result;
   }
@@ -170,7 +170,7 @@ export class ProfessionalProfileService {
 
   async approveModeration(cookieHeader: string | undefined, id: string, expectedRevision?: unknown): Promise<PublicProfessionalProfile> {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookieHeader));
-    this.rbac.assert(actor.email, 'security.manage');
+    this.rbac.assertAny(actor.email, ['security.manage', 'content.approvals.approve']);
     await this.repository.review(id, actor.id, 'approved', expectedRevision);
     return this.toPublic(await this.requireProfile(id));
   }

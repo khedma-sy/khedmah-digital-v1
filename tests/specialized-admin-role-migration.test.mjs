@@ -39,7 +39,7 @@ test('Migration 035 is governed and required by canonical startup verification',
   assert.match(workflow, /^\s+035_specialized_admin_roles\.sql \\$/m);
   assert.match(workflow, /^\s+035_specialized_admin_roles_rollback\.sql \\$/m);
   assert.match(workflow, /MIGRATION_035_ROLLBACK_BLOCKED: specialized admin assignments exist/);
-  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '035'/);
+  assert.match(migrator, /REQUIRED_CANONICAL_SCHEMA_VERSION = '037'/);
   assert.match(migrator, /admin_roles_role_check_specialized_admins/);
   assert.match(migrator, /taxi_pricing_admin/);
   assert.match(migrator, /category_admin/);

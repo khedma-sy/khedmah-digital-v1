@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { ProductService } from './product.service';
 
 @Controller('products')
@@ -20,6 +20,12 @@ export class ProductController {
 @Controller('admin/products')
 export class AdminProductController {
   constructor(@Inject(ProductService) private readonly products: ProductService) {}
-  @Get('pending') async pending(@Headers('cookie') cookie: string | undefined) { return { products: await this.products.listPending(cookie) }; }
-  @Patch(':id/moderation') async review(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: { status: 'approved' | 'rejected'; reason?: string; expectedRevision?: string }) { return { product: await this.products.review(cookie, id, body?.status, body?.reason, body?.expectedRevision) }; }
+  @Get('pending')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async pending(@Headers('cookie') cookie: string | undefined) { return { products: await this.products.listPending(cookie) }; }
+  @Patch(':id/moderation')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
+  async review(@Headers('cookie') cookie: string | undefined, @Param('id') id: string, @Body() body: { status: 'approved' | 'rejected'; reason?: string; expectedRevision?: string }) { return { product: await this.products.review(cookie, id, body?.status, body?.reason, body?.expectedRevision) }; }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Inject, Param, Post } from '@nestjs/common';
 import { BusinessProfileService } from '../business-profiles/business-profile.service';
 import { ProfessionalProfileService } from '../professional-profiles/professional-profile.service';
 import { VerificationReviewService } from './verification-review.service';
@@ -12,6 +12,8 @@ export class ModerationController {
   ) {}
 
   @Get('pending')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async listPending(@Headers('cookie') cookieHeader: string | undefined) {
     const [businesses, professionals] = await Promise.all([
       this.businesses.listPendingModeration(cookieHeader),
@@ -21,11 +23,15 @@ export class ModerationController {
   }
 
   @Get('verification/pending')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async listPendingVerification(@Headers('cookie') cookieHeader: string | undefined) {
     return { requests: await this.verification.listPending(cookieHeader) };
   }
 
   @Post('verification/:requestId/approve')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async approveVerification(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('requestId') requestId: string,
@@ -35,6 +41,8 @@ export class ModerationController {
   }
 
   @Post('verification/:requestId/reject')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async rejectVerification(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('requestId') requestId: string,

@@ -4,6 +4,8 @@ Status: bounded source-backed contract and open findings; NOT Production, Postgr
 Pinned source: `khedma-sy/khedmah-digital-v1` at `a2a26f8b27e63a2e041e43d5657cf2ce78700c24`.
 Review date: 2026-10-05. No executable source, schema, infrastructure or deployed configuration changed by this slice.
 
+Current-state follow-up (2026-10-20): Sections 3–4 also reflect the later human-only Classifieds approval lifecycle and rolling 3-per-24-hours/5-per-7-days first-publication quota. The pinned mapping and older implementation evidence below remain historical and do not certify deployment of this follow-up.
+
 ## 1. Source owners and scope
 
 | Source at the pinned commit | Scope reviewed |
@@ -44,13 +46,13 @@ All paths below are relative to `/api/v1`. The controller return shapes are sour
 | GET `/classifieds?q=&categoryCode=&cityCode=&page=` | Anonymous discovery; `{ ads, total, page }`, page size 20; page 1–100000. |
 | GET `/classifieds/:id` | Anonymous public projection; `{ ad }` or not-found. |
 | GET `/classifieds/mine`, GET `/classifieds/mine/:id` | Current Ad owner; `{ ads }` (at most 200) or `{ ad }`. |
-| GET `/classifieds/quota` | Current account; `{ used, limit: 3 }`. |
+| GET `/classifieds/quota` | Current account; rolling first-publication usage with legacy aggregate fields plus daily `{ used, limit: 3 }` and weekly `{ used, limit: 5 }` windows. |
 | POST `/classifieds` | Current account plus validated content and `clientRequestId`; creates a draft; `{ ad }`. |
 | PATCH `/classifieds/:id` | Current Ad owner; content patch, `clientRequestId`, `expectedContentRevision`; `{ ad }`. |
 | POST `/classifieds/:id/submit` | Current Ad owner; `clientRequestId`, `expectedContentRevision`; `{ ad }`. |
 | POST `/classifieds/:id/deactivate`, POST `/classifieds/:id/reactivate` | Current Ad owner; `clientRequestId`, `expectedRevision`; `{ ad }`. |
-| GET `/admin/classifieds/pending` | `security.manage`; up to 200 pending Ads with advisory `smartAdmin`; `{ ads }`. |
-| PATCH `/admin/classifieds/:id/moderation` | `security.manage`; review revision, assessment version, decision and optional reason; `{ ad }`. |
+| GET `/admin/classifieds/pending` | `security.manage` or bounded `content.approvals.approve`; up to 200 pending Ads with advisory `smartAdmin`; `{ ads }`. |
+| PATCH `/admin/classifieds/:id/moderation` | `security.manage` may approve or reject; bounded `content.approvals.approve` may approve only. Requires review revision, assessment version, decision and optional rejection reason; `{ ad }`. |
 | POST `/classifieds/:id/media` | Current Ad owner; validated image, request key and content revision; `{ adRevision, contentRevision, image }`. |
 | GET `/classifieds/:id/media` | Current Ad owner; `{ images }`. |
 | GET `/classifieds/:id/media/:mediaId` | Current Ad owner and stored uploader must both match; returns image bytes. |
@@ -64,18 +66,18 @@ All paths below are relative to `/api/v1`. The controller return shapes are sour
 | --- | --- |
 | Owner creates | New Ad is `draft`; no free slot consumed. |
 | Owner edits content or uses dedicated image writes | Rejects `active` and `pending_review`; requires current content revision. `rejected`/`expired` becomes `draft`; `draft`/`inactive` stays unchanged. Increments overall and content revisions. |
-| Owner submits | `draft`, `inactive` or `rejected` → `pending_review`; requires current content revision and future expiry if supplied. Increments overall/review revisions. |
+| Owner submits | `draft`, `inactive` or `rejected` → `pending_review`; requires current content revision, future expiry if supplied, and current publication eligibility for any linked business. Increments overall/review revisions. It does not publish or consume quota. |
 | Owner deactivates | `active` → `inactive`; requires current overall revision. It cannot withdraw `pending_review`. |
-| Owner reactivates | `inactive` → `pending_review`, never directly public; current overall revision and future expiry required. |
-| Reviewer approves/rejects | Only `pending_review` with matching review revision → `active`/`rejected`; increments overall revision and records the decision with reviewed content/review revisions. |
+| Owner reactivates | `inactive` → `pending_review`, never directly public; current overall revision, future expiry and linked-business publication eligibility are required. It does not consume another quota slot. |
+| Reviewer approves/rejects | Only `pending_review` with matching review revision → `active`/`rejected`; increments overall revision and records the decision with reviewed content/review revisions. Approval rechecks expiry and linked-business eligibility, then atomically consumes the first-publication quota slot if this Ad has none. Rejection consumes no slot. |
 
 Approval additionally requires unexpired content and a linked business, if present, that is public, approved, trusted and active. Public Ad detail/list/count and public image queries repeat status/expiry/business eligibility predicates. Expiry can hide a row still stored as `active`; no automatic status-changing expiry worker is established by this slice.
 
-Moderator authority is the server-side Operations RBAC `security.manage` permission, separate from account IDs and database roles. Decision validation requires `expectedAssessmentVersion: 'classifieds-smart-admin-v1'`, positive `expectedReviewRevision`, and `decision: 'approved' | 'rejected'`. Rejection needs a trimmed reason of 2–2000 characters; approval cannot carry one. The repository locks the Ad and writes its decision/event in a transaction.
+Moderator authority is server-side Operations RBAC, separate from account IDs and database roles. `security.manage` can approve or reject; bounded `content.approvals.approve` can read the pending queue and approve but cannot reject. An approver cannot approve their own Ad. Decision validation requires `expectedAssessmentVersion: 'classifieds-smart-admin-v1'`, positive `expectedReviewRevision`, and `decision: 'approved' | 'rejected'`. Rejection needs a trimmed reason of 2–2000 characters; approval cannot carry one. The repository locks the Ad and writes its decision/event in a transaction.
 
-Smart Admin remains available for exception review and administrator decisions on items routed to moderation, but ordinary owner submission now publishes directly after the server validates the category, content contracts, expiry and linked-business publication eligibility. Publication authority remains server-side; the client cannot supply a status or approval decision.
+Smart Admin provides advisory prioritization only. Every owner submission and reactivation enters `pending_review`; neither path can make an Ad public. Publication requires an explicit human approval against the current review revision. The client cannot supply a status or approval decision, and Smart Admin cannot auto-approve.
 
-First publication inserts one immutable receipt for that Ad. Migration 036 replaces the original lifetime-three trigger with advisory-lock protected rolling limits: at most three distinct Ads per account during the preceding 24 hours and at most five during the preceding seven days. Later publication/reactivation of the same Ad reuses its receipt and does not consume another allowance; edits and drafts never consume it. Historical receipts remain append-only audit evidence and simply age out of the rolling counts. There is no Ad deletion endpoint in the inspected controllers.
+First human approval inserts one immutable publication slot for that Ad inside the moderation transaction. Migration 036 replaces the original lifetime-three trigger with advisory-lock protected rolling limits: at most three distinct Ads per account during the preceding 24 hours and at most five during the preceding seven days. A rejection inserts no slot. Later approval after reactivation of the same Ad reuses its existing slot and does not consume another allowance; submissions, edits and drafts never consume it. Historical slots remain append-only audit evidence and simply age out of the rolling counts. There is no Ad deletion endpoint in the inspected controllers.
 
 Ad request keys are scoped by account/action and fingerprint. A repeated compatible key returns the current Ad, not a frozen historical response; a different payload on the same key conflicts. Content revision, overall revision and review revision have different purposes. Client request keys are 16–100 characters from `[A-Za-z0-9_-]`; do not substitute a new key while recovering an uncertain result.
 

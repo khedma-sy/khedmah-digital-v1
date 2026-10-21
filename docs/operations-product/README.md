@@ -10,7 +10,9 @@ Operations Product قسم منصة من الدرجة الأولى ومالك ت�
 
 ## RBAC
 
-الأدوار المعتمدة: Operations Product Director، Infrastructure Manager، Cloud Administrator، DevOps Engineer، Production Engineer، Release Manager، Security Operations Engineer، وSite Reliability Engineer. خريطة الصلاحيات deny-by-default في `operations-product.types.ts`. تربط الحسابات عبر `OPERATIONS_PRODUCT_ROLE_BINDINGS` بصيغة JSON من runtime configuration، مثال غير إنتاجي: `{"operator@example.invalid":["site_reliability_engineer"]}`. لا تمنح الوحدة أو تغير Board/Executive roles.
+الأدوار المعتمدة: Operations Product Director، Infrastructure Manager، Cloud Administrator، DevOps Engineer، Production Engineer، Release Manager، Security Operations Engineer، Site Reliability Engineer، وSmart Admin Approver. خريطة الصلاحيات deny-by-default في `operations-product.types.ts`. تربط الحسابات عبر `OPERATIONS_PRODUCT_ROLE_BINDINGS` بصيغة JSON من runtime configuration، مثال غير إنتاجي: `{"operator@example.invalid":["site_reliability_engineer"]}`. لا تمنح الوحدة أو تغير Board/Executive roles.
+
+`smart_admin_approver` دور مراجعة بشرية محدود بالقبول فقط: يمكنه فتح غلاف الإدارة من خلال `overview` وقراءة طوابير المحتوى/التوثيق/التنقل اللازمة، ثم قبول النسخة الحالية صراحة. يعيد الغلاف لهذا الدور الأدوار والصلاحيات فقط، بقائمة خدمات فارغة وأعداد تشغيلية محايدة، ولا يقرأ حالة الخدمات أو مستودع التشغيل. لا يملك `operations.read` أو الجرد أو السجل التشغيلي أو KORA، ولا يملك الرفض أو التعليق أو الإلغاء أو البلاغات أو `security.manage` أو أي صلاحية للبنية والنشر والمال وIAM. العقد التفصيلي في [Human Admin Approval Permissions](../operations/ADMIN-APPROVAL-PERMISSIONS.md).
 
 ## التدقيق والتغيير
 

@@ -140,7 +140,7 @@ export default function BusinessProfilePage() {
 
       {unavailableSections.length > 0 && <StatusMessage tone="warning"><p>تعذر تحميل: {unavailableSections.join('، ')}. يمكنك إعادة المحاولة لعرض المعلومات الحالية.</p><ActionButton type="button" variant="secondary" onClick={retryLoad}>إعادة تحميل التفاصيل</ActionButton></StatusMessage>}
 
-      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تم توثيق النشاط' : verification.status === 'rejected' ? 'طلب التوثيق مرفوض' : 'طلب التوثيق قيد المراجعة'}</strong>{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
+      {verification && <StatusMessage tone={verification.status === 'approved' ? 'success' : verification.status === 'rejected' ? 'danger' : 'warning'}><div className={styles.verification}><span className={styles.verificationIcon}><PlatformIcon name={verification.status === 'approved' ? 'check' : verification.status === 'rejected' ? 'close' : 'lock'} /></span><div><strong>{verification.status === 'approved' ? 'تحقق بشري معتمد' : verification.status === 'rejected' ? 'طلب التحقق مرفوض' : 'طلب التحقق قيد المراجعة'}</strong>{verification.status === 'approved' && <p>يعني أن مشرفًا راجع الأدلة المقدمة؛ لا يعني تحققًا آليًا من أصالة الوثيقة.</p>}{verification.notes && <p>{verification.notes}</p>}</div></div></StatusMessage>}
 
       <div className={styles.content}>
         <div className={styles.main}>

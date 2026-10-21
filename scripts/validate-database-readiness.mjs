@@ -84,6 +84,10 @@ const EXPECTED_MIGRATIONS = [
   '034_food_order_promotions_rollback.sql',
   '035_specialized_admin_roles.sql',
   '035_specialized_admin_roles_rollback.sql',
+  '036_classifieds_rolling_publication_quota.sql',
+  '036_classifieds_rolling_publication_quota_rollback.sql',
+  '037_verification_evidence_media.sql',
+  '037_verification_evidence_media_rollback.sql',
 ];
 
 const REQUIRED_ENV_KEYS = ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'];
@@ -127,7 +131,7 @@ for (const filename of EXPECTED_MIGRATIONS) {
   if (!existsSync(filepath)) continue;
   const content = readFileSync(filepath, 'utf8');
   const isTeardown = filename.startsWith('019_');
-  const isFunctionOnly = filename.startsWith('032_');
+  const isFunctionOnly = filename.startsWith('032_') || filename.startsWith('036_');
   const hasExpectedDdl = isTeardown
     ? /\bDROP\s+TABLE\b/.test(content)
     : isFunctionOnly

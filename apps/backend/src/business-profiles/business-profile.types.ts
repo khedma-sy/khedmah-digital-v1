@@ -1,3 +1,5 @@
+import type { ServiceListing } from '../service-catalog/service-catalog.types';
+
 export type BusinessProfileVisibility = 'public' | 'private';
 export type BusinessProfileTrustStatus = 'pending' | 'approved' | 'suspended';
 export type BusinessProfileModerationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -109,6 +111,25 @@ export interface BusinessSocialLink {
   readonly businessProfileId: string;
   readonly platform: string;
   readonly url: string;
+}
+
+/** Reviewer-only aggregate. It must never be added by the public profile mapper. */
+export interface BusinessProfileReviewSnapshot {
+  /** Exact parent revision that must be sent back as expectedRevision. */
+  readonly exactRevision: string;
+  readonly reviewImageUrls: readonly string[];
+  readonly serviceListings: readonly ServiceListing[];
+  readonly openingHours: readonly OpeningHours[];
+  readonly branches: readonly BusinessBranch[];
+  readonly socialLinks: readonly BusinessSocialLink[];
+}
+
+export interface BusinessProfileModerationRecord extends BusinessProfile {
+  readonly reviewSnapshot: BusinessProfileReviewSnapshot;
+}
+
+export interface PublicBusinessProfileModerationReview extends PublicBusinessProfile {
+  readonly reviewSnapshot: BusinessProfileReviewSnapshot;
 }
 
 export interface VerificationRequest {

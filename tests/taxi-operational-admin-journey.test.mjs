@@ -33,8 +33,20 @@ test('Taxi operational writer requires reviewer authority, four latest approvals
   assert.match(service, /moderation_status === 'approved'/);
   assert.match(service, /trust_status === 'approved'/);
   assert.match(service, /business\.status === 'active'/);
-  assert.match(service, /DISTINCT ON \(r\.document_type\)/);
-  assert.match(service, /ORDER BY r\.document_type,m\.created_at DESC,m\.id DESC/);
+  assert.match(service, /SELECT DISTINCT ON \(m\.asset_type\)/);
+  assert.match(service, /FROM media_assets m/);
+  assert.match(service, /LEFT JOIN mobility_document_reviews r ON r\.media_asset_id=a\.media_asset_id/);
+  assert.match(service, /COALESCE\(r\.status,'pending'\) AS status/);
+  assert.match(service, /ORDER BY m\.asset_type,m\.created_at DESC,m\.id DESC/);
+  assert.doesNotMatch(service, /DISTINCT ON \(r\.document_type\)/);
+  assert.match(service, /expectedRevision\(input\.expectedDriverRevision, 'driver'\)/);
+  assert.match(service, /expectedRevision\(input\.expectedVehicleRevision, 'vehicle'\)/);
+  assert.match(service, /assertExpectedRevisions\(/);
+  assert.match(service, /throw new ConflictException\('Taxi operational approval changed while it was being reviewed\.'\)/);
+  assert.match(client, /expectedDriverRevision: string/);
+  assert.match(client, /expectedVehicleRevision: string/);
+  assert.match(admin, /expectedDriverRevision: candidate\.driverRevision/);
+  assert.match(admin, /expectedVehicleRevision: candidate\.vehicleRevision/);
 });
 
 test('Taxi operational authority remains distinct from trip execution', () => {
@@ -59,8 +71,8 @@ test('Taxi Ops reviews the latest private documents before operational approval 
 });
 
 test('Taxi admin entry is permission-gated and exposes the governed driver console', () => {
-  assert.match(adminHome, /const canManageModeration = overview\.permissions\.includes\('security\.manage'\)/);
-  assert.match(adminHome, /canManageModeration \? <Link href="\/admin\/taxi-drivers">سائقو التكسي<\/Link>/);
+  assert.match(adminHome, /const canReviewMobility = hasSecurityAuthority \|\| overview\.permissions\.includes\('mobility\.approvals\.approve'\)/);
+  assert.match(adminHome, /canReviewMobility \? <Link href="\/admin\/taxi-drivers">سائقو التكسي<\/Link>/);
   assert.match(adminHome, /Taxi Driver Ops/);
   assert.match(adminHome, /فتح إدارة سائقي التكسي/);
 });

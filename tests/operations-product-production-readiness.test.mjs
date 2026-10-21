@@ -11,6 +11,8 @@ test('Operations Product repository readiness gate has no local failures', () =>
   assert.equal(report.mode, 'repository');
   assert.equal(report.summary.fail ?? 0, 0);
   assert.ok(report.summary.pass >= 40);
+  assert.equal(report.results.find((result) => result.name === 'smart_admin_approver')?.status, 'pass');
+  assert.equal(report.results.find((result) => result.name === 'Smart Admin approval-only permissions')?.status, 'pass');
 });
 
 test('repository readiness treats an unavailable cached Terraform provider as external', async (t) => {

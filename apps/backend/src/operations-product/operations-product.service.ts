@@ -14,8 +14,29 @@ export class OperationsProductService {
   private async actor(cookie: string | undefined, permission: Parameters<OperationsRbacService['assert']>[1]) {
     const actor = await this.identity.getCurrentUser(readSessionToken(cookie)); const roles = this.rbac.assert(actor.email, permission); const permissions = this.rbac.permissionsFor(actor.email); return { actor, roles, permissions };
   }
+  private async overviewActor(cookie: string | undefined) {
+    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const roles = this.rbac.assertAny(actor.email, [
+      'operations.read',
+      'content.approvals.approve',
+      'trust.approvals.approve',
+      'mobility.approvals.approve'
+    ]);
+    return { roles, permissions: this.rbac.permissionsFor(actor.email) };
+  }
   async overview(cookie: string | undefined) {
-    const { roles, permissions } = await this.actor(cookie, 'operations.read');
+    const { roles, permissions } = await this.overviewActor(cookie);
+    if (!permissions.includes('operations.read')) {
+      return {
+        division: 'Operations Product',
+        roles,
+        permissions,
+        health: { status: 'restricted', productionTrafficEnabled: false },
+        services: [],
+        openIncidents: 0,
+        pendingChanges: 0
+      };
+    }
     const enabled = (name: string) => process.env[name] === 'true';
     return { division: 'Operations Product', roles, permissions, health: { status: 'ready', productionTrafficEnabled: false },
       services: [
@@ -25,6 +46,9 @@ export class OperationsProductService {
         { id: 'monitoring', label: 'Monitoring', status: enabled('GOOGLE_MONITORING_ENABLED') ? 'enabled' : 'disabled_pre_launch' },
         { id: 'logging', label: 'Cloud Logging', status: enabled('GOOGLE_LOGGING_ENABLED') ? 'enabled' : 'disabled_pre_launch' }
       ], openIncidents: this.repository.listIncidents().length, pendingChanges: this.repository.listChanges().length };
+  }
+  async assertOperationsRead(cookie: string | undefined): Promise<void> {
+    await this.actor(cookie, 'operations.read');
   }
   async inventory(cookie: string | undefined) { await this.actor(cookie, 'operations.read'); return [
     'Cloud Run', 'Cloud Build', 'Artifact Registry', 'Secret Manager', 'IAM', 'Cloud Storage', 'Cloud Logging', 'Cloud Monitoring',
