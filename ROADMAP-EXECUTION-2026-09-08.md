@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Bounded human admin approval authority implemented — 2026-10-20
+
+Source commit `41ea7e2ef307f9e23581ac88bcfecd5d2644ecac` adds the approval-only `smart_admin_approver` role. It can accept pending Classifieds ads and Store products, review current business/professional content and private verification evidence, accept the latest driver/vehicle documents, and grant an eligible Taxi operational approval. Rejection, suspension, revocation, reports, KORA, pricing, owner-content editing, operations inventory/history, security, RBAC, billing, infrastructure, release and Production authority remain excluded. The server forbids self-approval, binds every decision to the current revision, preserves Taxi security restrictions, and invalidates prior approval when protected evidence or mobility documents change. Runtime identity remains server-bound through `OPERATIONS_PRODUCT_ROLE_BINDINGS`; no account email or role claim is trusted from the browser.
+
+Final repository evidence: root suite **1890 passed / 0 failed / 3 skipped**; bounded Backend suite **158 passed / 0 failed** and Backend build passed; Frontend **152 passed / 0 failed**, build passed and generated 60/60 static pages; operations readiness **62 passed / 8 pending external**; database readiness **144 passed / 0 failed**; migration runner shell validation and `git diff --check` passed. PostgreSQL tests guarded as destructive were not pointed at Production and remain pending a dedicated disposable database. Migration 037 has not been applied, the confirmed administrator has not been bound to the new role, and no Floot, Google Cloud IAM, secret, database, deployment, feature-flag or Production mutation occurred.
+
+**Next Safe Action:** review the branch/PR and exact CI result. After merge, apply migration 037 in an approved non-Production environment, add the confirmed administrator to `smart_admin_approver` through the existing server-side role-binding configuration while preserving all existing bindings, and prove the allow/deny matrix there, including self-approval, rejection, suspension and KORA denial. Production migration, binding and deployment require a separate explicit owner authorization.
+
 ## Production Maps certification completed — 2026-10-18
 
 Owner-approved Production run `39124093630` deployed exact merged `main` `e80ef1ea6bd1c4eec51638088b6d14beadf9ec63`. Protected Google/Firebase/operations readiness, hardened database-role verification, exact-source Cloud Build, live revision verification and the wall-clock Maps certification all completed successfully. The live certification recorded `MAP_STATUS=ready`; the emergency rollback step was skipped because the deployed revision pair passed certification.
