@@ -1,5 +1,15 @@
 # Floot Journey and Contract Audit — 2026-10-21
 
+## Later approval integration correction — 2026-10-21 UTC
+
+The owner explicitly requested the existing seven-domain approval integration. The earlier complete route/source audit remains the baseline; this follow-up changes only the driver-document approval precondition and its supporting backend contract. It adds no routes, roles or autonomous decisions.
+
+Source `f0c2de5dbcd75352f6bc449e003a1b79bdee31a0` and Floot code version `1792617692036`, checkpoint `0bf60489-d5e3-47be-ad52-68a361546f5b`, close a concrete director race: the adapter always sends `expectedReviewStatus:'pending'`, and the backend checks that state inside its existing locks before all decision/event writes, returning 409 on a concurrent decision even for `security.manage`. Browser callers cannot remove the server-built condition. The separate legacy security override is preserved when the optional backend condition is omitted.
+
+The augmented backend document suite changed from 28 PASS / 9 FAIL before repair to 37 PASS / 0 FAIL / 0 SKIP; the existing 8 approval-permission tests and backend TypeScript passed. Five missing-field assertions failed on the old Floot adapter, then the affected transport spec passed and full TypeScript was clean. Both Floot candidate files matched complete readback; independent backend/adapter review found no blocker. The earlier 68-file full-suite receipt is historical and is not represented as a rerun of all files after this small follow-up. These fixture tests do not prove a live PostgreSQL race or populated acceptance.
+
+Four existing Floot control notes were synchronized at version `1792619951083`, checkpoint `af2a1839-d2e1-46c2-a503-4797c76db611`,, preserving and completely reading back their prior contents. The approval and upload gates stay independently `false`. No publication, live approval, new account binding, document upload, deployment, schema or Production change occurred. [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md) record the blocked target/source/schema proof and required successor rollout; all earlier route-level live flags remain `false`.
+
 ## Outcome and scope
 
 The owner requested a complete review of Floot pages, controls and customer/provider journeys against the actual backend contracts. This pass enumerated every application route, repaired confirmed workflow gaps and ran the complete Floot spec inventory. **It establishes source and fixture consistency within the recorded scope. It does not establish that all customer journeys have completed successfully on the connected live backend.**

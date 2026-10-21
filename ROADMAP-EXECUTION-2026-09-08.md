@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Requested approval integration: current source checkpoint — 2026-10-21 UTC
+
+The owner explicitly requested approval for all seven existing content/trust/mobility review domains through Floot. Preserve the activated director and existing native forms. Fresh source review found a concrete director-only pending-document race, repaired in `f0c2de5dbcd75352f6bc449e003a1b79bdee31a0`: native Floot sends `expectedReviewStatus:'pending'`, and the backend enforces it under transaction locks before decision/audit writes, including for security reviewers. Existing legacy security override remains available only when that precondition is omitted.
+
+The 37-case backend regression changed from 28 PASS / 9 FAIL to 37 PASS / 0 FAIL; the existing 8 permission cases and backend TypeScript passed. Floot code version `1792617692036`, checkpoint `0bf60489-d5e3-47be-ad52-68a361546f5b`, passed the affected transport spec and full TypeScript after five missing-field assertions failed on the old adapter. Complete readback and independent peer review passed. Four Floot control notes were verified at version `1792619951083`, checkpoint `af2a1839-d2e1-46c2-a503-4797c76db611`. These are source/fixture receipts; exact-source CI and current review/merge status belong to the live GitHub record and [CURRENT-STATE](docs/project-control/CURRENT-STATE.md).
+
+The older P1 automatic-Staging 035/037-apply thread was resolved after verifying its source repair. Current Preview rollout is still restricted to historical PR274 and old lineage; mark-ready/merge/rerun cannot update the serving `f4f8ce2` backend. Current 035/036/037 schema is unproved. **Next Safe Action:** reconcile the current CI/merge status without replaying completed source work, obtain fresh evidence for the same Preview target and prepare a separately reviewed successor rollout before any bounded live approval or source-gate activation. Both Floot execution constants remain `false`; no role binding, real approval, upload, publication, cloud/schema/deployment or Production mutation occurred. Detailed sequence: [NEXT-ACTION](docs/project-control/NEXT-ACTION.md). Earlier checkpoints below remain historical evidence.
+
 ## Floot all-page contract audit and native journey repairs — 2026-10-21
 
 **Current checkpoint:** the owner-directed continuation covers the complete Floot page inventory and the customer, provider, administration and Business Desk workflows. This checkpoint supersedes older global next actions. All earlier text below remains preserved as dated evidence; completed administrator setup, accepted Safari observations and historical publications must not be restarted.

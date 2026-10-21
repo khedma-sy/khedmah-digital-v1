@@ -1,5 +1,34 @@
 # Khedmah Digital — Current State
 
+## Requested approval integration and document-conflict repair — 2026-10-21 UTC
+
+The owner explicitly requested approval authority for Classifieds, Store products, business/professional content and verification, driver documents and Taxi operational approval, integrated with Floot. All seven native queues/forms and the bounded human role already exist. Preserve the working `operations_product_director`; its `security.manage` permission already authorizes these approval routes. An additional role on the same account would not make that account approval-only. This checkpoint supersedes older next-action text while retaining all historical receipts below.
+
+### Completed source repair
+
+Fresh review found that the native document form's pending-state preflight did not protect a director from a concurrent approval/rejection: the backend intentionally retains a broader security override. Source [`f0c2de5dbcd75352f6bc449e003a1b79bdee31a0`](https://github.com/khedma-sy/khedmah-digital-v1/commit/f0c2de5dbcd75352f6bc449e003a1b79bdee31a0), tree `28778ae29d63de1c7a02897b48df2202362d79e4`, adds optional `expectedReviewStatus:'pending'` to the driver-document review contract. It validates the value before transaction entry and checks the current state under the existing parent/document/review locks before any decision or event insert. A decided document returns 409 for every role. Omission preserves the separate legacy security override; bounded-role, self-review and latest-document checks remain intact.
+
+Floot's server adapter now always supplies that literal precondition for native document approval, including the director's requests. The browser cannot select or remove it. A post-preflight 409 remains `not_applied`, with no automatic retry. The older serving controller does not enforce this new field, so the source change does not justify opening the gate against that artifact.
+
+| Evidence | Receipt and limit |
+| --- | --- |
+| Backend regression | The same augmented 37-case suite changed from 28 PASS / 9 FAIL on the old runtime to 37 PASS / 0 FAIL / 0 SKIP; the existing 8 approval-permission cases and backend TypeScript also passed. Includes zero decision/event/profile writes for stale state. Database clients were fixtures, not a live PostgreSQL race. |
+| Floot regression | Five missing-field assertions failed before the runtime change; the affected transport spec passed afterward, and full TypeScript was clean. Both changed files matched complete readback. All requests were fixtures. |
+| Floot code | Version `1792617692036`, checkpoint `0bf60489-d5e3-47be-ad52-68a361546f5b`; only the approval transport and its spec changed. |
+| Floot control notes | Version `1792619951083`, checkpoint `af2a1839-d2e1-46c2-a503-4797c76db611`; four existing notes completely read back and matched, with prior content preserved. |
+| Peer review | Independent backend/adapter contract review found no concrete blocker. This is not an external GitHub approval or runtime acceptance. |
+| Source CI | All five workflows passed for `f0c2de5d`: [Test & Verify](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682602980), [Node](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682603052), [Preview](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682602942), [Database](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682602936) and [Google](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682602963). Test & Verify recorded 2,864 passed, 0 failed and 1 skipped. This documentation successor requires its own current-head checks before merge. |
+
+[Test & Verify job 119508568289](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39682602980/job/119508568289) reported root 1,956 passed / 0 failed / 1 skipped, backend 756 / 0 / 0 and frontend 152 / 0 / 0. The skipped test was `Preview grant SQL: atomic rollback, exact ACL, schema preservation and replay rejection`. The actual PR merge checkout `e7820add82c22de89e75434114acd20daef9d74e` has the same tree `28778ae29d63de1c7a02897b48df2202362d79e4` as the application commit. Preview deploy/baseline/evidence jobs and the Google production-secret job were skipped; successful source CI is not a deployment or schema receipt.
+
+### Release reconciliation and remaining target proof
+
+At continuation start, main was `63b0fa3c6f886eebe8034f70780715a044c2d4d5` and PR289 was the only open PR, Draft at `165f6232`. Its five source workflows were successful, with Preview deploy/baseline/evidence and Google production-secret jobs skipped. The outdated P1 thread `PRRT_kwDOTe3jlc6uveHm` about automatic Staging 035/037 application was resolved after verifying that the general deployer sets verify mode and an empty confirmation. Resolution does not manufacture a new external approval. Classic main protection could not be read through the connector (HTTP 403); no protection bypass is authorized or used.
+
+The ordinary Preview workflow remains confined to historical PR274, its old main/parent, event and first-attempt release lineage. Mark-ready, merge or rerunning source CI cannot deploy the new backend. General Preview/Staging deployment verifies 035/037; the separately reserved Staging activation workflow is absent. Pushing develop as a probe could mutate earlier stages and is not a safe substitute. Current 035/036/037 database state is still unknown.
+
+The connected target remains Preview V2; last proved serving source is `f4f8ce2`, revision `khedmah-pr-274-backend-00008-tg8`. Both Floot approval execution and owner driver-document upload remain independently immutable `false`. No account was rebound, no role grant or real approval was made, and no document upload, publication, cloud/schema/deployment or Production mutation occurred. Continue with fresh target/source/image/revision and schema/authority evidence, then a separately reviewed successor rollout and bounded acceptance. See [NEXT-ACTION](NEXT-ACTION.md) and [the precise approval contract](../operations/ADMIN-APPROVAL-PERMISSIONS.md).
+
 ## Floot all-page contract reconciliation — current checkpoint, 2026-10-21
 
 The current owner instruction is to complete Floot migration and verify the actual buttons, contracts and multi-step journeys across all pages. **The source inventory and fixture repair pass is complete; universal live end-to-end success is not established.** This checkpoint supersedes older global next actions while preserving every historical receipt below. The administrator is already activated and working; accepted Safari and publication evidence remains valid in its recorded scope.

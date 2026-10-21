@@ -1,5 +1,19 @@
 # Human Admin Approval Permissions
 
+## Owner-requested Floot approval completion — 2026-10-21 UTC
+
+The owner explicitly requested the seven existing approval domains: Classifieds, Store products, business/professional content, their verification, driver documents and Taxi operational approval. The existing working director retains `security.manage`; `smart_admin_approver` remains the separate bounded human role defined below. Neither this request nor a Floot role creates an autonomous KORA identity. No live binding was changed in this pass.
+
+### Pending-document precondition for the native Floot flow
+
+Source `f0c2de5dbcd75352f6bc449e003a1b79bdee31a0` extends `POST /api/v1/driver-documents/:id/review` with optional `expectedReviewStatus:'pending'`. If present, the service validates its exact value and checks the current review state under the existing transaction locks before any decision/event write. Already approved or rejected documents return 409 for every reviewer, including a director. A missing review row remains pending under the established read contract. Omission preserves the separate legacy security override; the precondition grants no new permission and does not weaken self/latest checks.
+
+The Floot approval adapter always builds this literal field server-side for the document domain. Browser input cannot remove or choose it. This closes the director-specific race between the adapter's fresh queue read and the authoritative write. A fresh preflight alone is insufficient, and the older serving controller does not enforce the new field.
+
+Backend validation: 37 document cases passed after 9 failures on the unchanged runtime, the existing 8 permission cases passed, and backend TypeScript passed. Floot code version `1792617692036`, checkpoint `0bf60489-d5e3-47be-ad52-68a361546f5b`, passed the affected transport spec and full TypeScript after five missing-field assertions failed before repair. Complete readback and independent peer review passed. These receipts use fixtures and establish no live PostgreSQL concurrency or actual review decision.
+
+The shared approval execution gate and separate driver-upload gate stay immutable `false`. Actual source/image/revision, schema 035/036/037, applicable authority and seven-domain acceptance must be proved before opening them. Current Preview deployment remains confined to historical PR274, so a normal merge does not constitute activation. Four Floot control notes were synchronized and verified at version `1792619951083`, checkpoint `af2a1839-d2e1-46c2-a503-4797c76db611`. Follow [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md); retain the historical receipts below.
+
 ## Current Floot journey audit and held authority — 2026-10-21
 
 The owner-directed all-page Floot audit preserves the existing activated administrator and accepted browser/publication evidence. The working `operations_product_director` has not been replaced or rebound. The additional `smart_admin_approver` capability remains a bounded **human** role; neither KORA, an opaque actor key nor an owner form grants it. This current checkpoint supersedes older global next actions while preserving the authority definitions and historical receipts below.
