@@ -10,6 +10,7 @@ import { BusinessProfileRepository } from "../business-profiles/business-profile
 import { IdentityService } from "../identity/identity.service";
 import { readSessionToken } from "../identity/session-cookie";
 import { OrderRepository } from "./order.repository";
+import { orderSubtotal, orderTotal } from "./order-money";
 import type {
   FulfillmentOrder,
   OrderStatus,
@@ -63,6 +64,10 @@ export class OrderService {
           ? "grocery"
           : (() => { throw new BadRequestException("This merchant category is not enabled for cash fulfillment."); })();
     const quantities = new Map(input.map((item) => [item.productListingId, item.quantity]));
+    const subtotal = orderSubtotal(products.map((product) => ({
+      unitPrice: product.price,
+      quantity: quantities.get(product.id)!,
+    })));
     const items = products.map((product) => ({
       productListingId: product.id,
       titleAr: product.title_ar,
@@ -76,7 +81,7 @@ export class OrderService {
       currency,
       vertical,
       items,
-      subtotal: Math.round(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100,
+      subtotal,
     };
   }
 
@@ -207,6 +212,7 @@ export class OrderService {
       if (o.status === "placed" && action.status === "quoted") {
         if (action.deliveryFee === undefined) throw new BadRequestException("deliveryFee is required.");
         if (o.vertical === "pharmacy" && !action.pharmacyApproved) throw new BadRequestException("Pharmacist approval is required.");
+        orderTotal(o.subtotal, o.discountAmount, action.deliveryFee);
         options = { ...options, deliveryFee: action.deliveryFee, pharmacyReviewStatus: o.vertical === "pharmacy" ? "approved" : "not_required" };
       } else if (o.status === "merchant_confirmed" && action.status === "courier_assigned") {
         if (!action.courierBusinessId) throw new BadRequestException("courierBusinessId is required.");
