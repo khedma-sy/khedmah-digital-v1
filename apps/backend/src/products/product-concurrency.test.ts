@@ -21,7 +21,8 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
     await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/024_product_store.sql'), 'utf8'));
     await db.query(await readFile(resolve(__dirname, '../../../../backend/migrations/versions/026_cash_fulfillment_orders.sql'), 'utf8'));
     await db.query(`INSERT INTO core_user_accounts (user_identifier,identity_reference,account_type,account_status,lifecycle_status,visibility_classification)
-      VALUES ('product_owner','identity_product_owner','individual_user','active','active','private')`);
+      VALUES ('product_owner','identity_product_owner','individual_user','active','active','private'),
+             ('product_reviewer','identity_product_reviewer','individual_user','active','active','private')`);
     const [category] = await db.query<{ code: string }>(`SELECT code FROM categories WHERE status='active' AND parent_code IS NOT NULL LIMIT 1`);
     assert.ok(category);
     await db.query(`INSERT INTO business_profiles (id,name,owner_user_id,visibility,moderation_status,trust_status,status,category_code,city_code,country_code)
@@ -33,7 +34,10 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
     const media = new MediaService(db, identity);
     const storage = new LocalStorageAdapter();
     Object.defineProperty(media, 'storage', { value: storage });
-    const service = new ProductService(repository, businesses, { assertActiveCategory: async () => {} } as any, identity, { assert() {} } as any);
+    const rbac = { assert() {}, assertAny() {} } as any;
+    const reviewerIdentity = { getCurrentUser: async () => ({ id: 'product_reviewer', email: 'reviewer@example.test' }) } as any;
+    const service = new ProductService(repository, businesses, { assertActiveCategory: async () => {} } as any, identity, rbac);
+    const reviewerService = new ProductService(repository, businesses, { assertActiveCategory: async () => {} } as any, reviewerIdentity, rbac);
     const png = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
     const upload = (ownerId = 'product_fixture') => media.upload(undefined, { ownerType: 'product_listing', ownerId, filename: 'fixture.png', mimeType: 'image/png',
       sizeBytes: png.length, content: png.toString('base64'), visibility: 'public', assetType: 'product_image', sortOrder: 0 });
@@ -68,22 +72,22 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
     await t.test('reviewing an older queued item cannot publish a resubmitted edit', async () => {
       const before = await pending();
       await service.update(undefined, before.id, { titleAr: 'المحتوى الجديد', expectedContentRevision: before.contentRevision }); await service.submit(undefined, before.id);
-      await assert.rejects(() => service.review(undefined, before.id, 'approved', undefined, before.revision), ConflictException);
+      await assert.rejects(() => reviewerService.review(undefined, before.id, 'approved', undefined, before.revision), ConflictException);
       const current = (await repository.findById(before.id))!; assert.equal(current.titleAr, 'المحتوى الجديد'); assert.equal(current.moderationStatus, 'pending');
     });
     await t.test('current approval succeeds but its revision cannot be reused', async () => {
-      const before = await pending(); const approved = await service.review(undefined, before.id, 'approved', undefined, before.revision);
+      const before = await pending(); const approved = await reviewerService.review(undefined, before.id, 'approved', undefined, before.revision);
       assert.ok(await repository.findPublicById(before.id)); assert.notEqual(approved.revision, before.revision);
-      await assert.rejects(() => service.review(undefined, before.id, 'approved', undefined, before.revision), ConflictException);
+      await assert.rejects(() => reviewerService.review(undefined, before.id, 'approved', undefined, before.revision), ConflictException);
     });
     await t.test('adding an image unpublishes the approved listing and invalidates its review', async () => {
-      const before = await pending(); const approved = await service.review(undefined, before.id, 'approved', undefined, before.revision);
+      const before = await pending(); const approved = await reviewerService.review(undefined, before.id, 'approved', undefined, before.revision);
       await upload(); const current = (await repository.findById(before.id))!;
       assert.equal(current.status, 'draft'); assert.equal(current.moderationStatus, 'pending'); assert.equal(current.imageUrls!.length, 2);
       assert.notEqual(current.revision, approved.revision); assert.equal(await repository.findPublicById(before.id), undefined);
     });
     await t.test('deleting an image atomically unpublishes and blocks approval of the old version', async () => {
-      const before = await pending(); await service.review(undefined, before.id, 'approved', undefined, before.revision);
+      const before = await pending(); await reviewerService.review(undefined, before.id, 'approved', undefined, before.revision);
       const [asset] = await media.listForOwner(undefined, 'product_listing', before.id); await media.delete(undefined, asset.id);
       const current = (await repository.findById(before.id))!; assert.equal(current.status, 'draft'); assert.equal(current.imageUrls!.length, 0);
       assert.equal(await repository.findPublicById(before.id), undefined);
@@ -94,7 +98,7 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
       const before = await pending(); let entered!: () => void; let release!: () => void;
       const arrived = new Promise<void>(resolve => { entered = resolve; });
       const sellerGate = { findById: async (id: string) => { entered(); await new Promise<void>(resolve => { release = resolve; }); return businesses.findById(id); } } as any;
-      const delayed = new ProductService(repository, sellerGate, {} as any, identity, { assert() {} } as any);
+      const delayed = new ProductService(repository, sellerGate, {} as any, reviewerIdentity, rbac);
       const review = delayed.review(undefined, before.id, 'approved', undefined, before.revision); await arrived; await upload(); release();
       await assert.rejects(() => review, ConflictException); assert.equal((await repository.findById(before.id))!.status, 'draft');
     });
@@ -135,7 +139,7 @@ test('product revision and image mutations are atomic on PostgreSQL', async (t) 
       await assert.rejects(() => service.create(undefined, input), ConflictException); assert.equal((await repository.findById(first.id))!.price, saved.price);
     });
     await t.test('a storage delete failure cannot leave a published image reference', async () => {
-      const before = await pending(); await service.review(undefined, before.id, 'approved', undefined, before.revision);
+      const before = await pending(); await reviewerService.review(undefined, before.id, 'approved', undefined, before.revision);
       const [asset] = await media.listForOwner(undefined, 'product_listing', before.id);
       Object.defineProperty(media, 'storage', { value: { ...storage, delete: async () => { throw new Error('offline fixture'); } } });
       try { await media.delete(undefined, asset.id); } finally { Object.defineProperty(media, 'storage', { value: storage }); }

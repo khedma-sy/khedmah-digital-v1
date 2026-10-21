@@ -40,7 +40,10 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
 
     let actor = { id: 'classifieds_media_owner', email: 'owner@example.test' };
     const identity = { getCurrentUser: async () => actor } as any;
-    const rbac = { assert(email: string) { if (email !== 'reviewer@example.test') throw new Error('denied'); } } as any;
+    const rbac = {
+      assert(email: string) { if (email !== 'reviewer@example.test') throw new Error('denied'); },
+      assertAny(email: string) { if (email !== 'reviewer@example.test') throw new Error('denied'); }
+    } as any;
     const repository = new AdRepository(db);
     const ads = new AdService(repository, identity, rbac);
     const media = new AdMediaService(db, identity, rbac);
@@ -80,18 +83,25 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       await assert.rejects(() => media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0003', uploaded.contentRevision)), NotFoundException);
     });
 
-    await t.test('submitted media is public immediately and remains locked against owner mutation', async () => {
+    await t.test('submitted media stays private until human approval and remains locked against owner mutation', async () => {
       const ad = await createAd('classifieds-media-ad-create-0003', 'إعلان مراجعة الصور');
       const uploaded = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0004', ad.contentRevision));
-      const published = await ads.submit(undefined, ad.id, {
+      const submitted = await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0001', expectedContentRevision: uploaded.contentRevision
       });
-      assert.equal(published.status, 'active');
-      assert.deepEqual((await media.readPublic(uploaded.image.id)).data, png);
+      assert.equal(submitted.status, 'pending_review');
+      await assert.rejects(() => media.readPublic(uploaded.image.id), NotFoundException);
       await assert.rejects(() => media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0005', uploaded.contentRevision)), ConflictException);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const reviewed = await media.readForReview(undefined, uploaded.image.id);
       assert.deepEqual(reviewed.data, png);
+      const published = await ads.moderate(undefined, ad.id, {
+        expectedReviewRevision: submitted.reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
+      });
+      assert.equal(published.status, 'active');
+      assert.deepEqual((await media.readPublic(uploaded.image.id)).data, png);
       actor = { id: 'classifieds_media_owner', email: 'owner@example.test' };
       await assert.rejects(() => media.remove(undefined, ad.id, uploaded.image.id, {
         clientRequestId: 'classifieds-media-delete-locked-0001', expectedContentRevision: published.contentRevision
@@ -101,11 +111,10 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
     await t.test('media edit after rejection returns the ad to draft and invalidates the reviewed content', async () => {
       const ad = await createAd('classifieds-media-ad-create-0004', 'إعلان مرفوض للتعديل');
       const firstImage = await media.upload(undefined, ad.id, uploadBody('classifieds-media-upload-0006', ad.contentRevision));
-      await ads.submit(undefined, ad.id, {
+      const pending = await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0002', expectedContentRevision: firstImage.contentRevision
       });
-      await db.query(`UPDATE ad_listings SET status='pending_review',review_revision=review_revision+1 WHERE id=$1`, [ad.id]);
-      const pending = await ads.getMine(undefined, ad.id);
+      assert.equal(pending.status, 'pending_review');
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       const rejected = await ads.moderate(undefined, ad.id, {
         expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'rejected', reason: 'الصورة تحتاج تحديثًا'
@@ -120,8 +129,8 @@ test('classifieds media is revision-bound and review-safe on PostgreSQL', async 
       const resubmitted = await ads.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-media-submit-0003', expectedContentRevision: changed.contentRevision
       });
-      assert.equal(resubmitted.status, 'active');
-      assert.equal(resubmitted.reviewRevision, pending.reviewRevision);
+      assert.equal(resubmitted.status, 'pending_review');
+      assert.equal(resubmitted.reviewRevision, pending.reviewRevision + 1);
       actor = { id: 'classifieds_media_reviewer', email: 'reviewer@example.test' };
       await assert.rejects(() => ads.moderate(undefined, ad.id, {
         expectedReviewRevision: pending.reviewRevision, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'

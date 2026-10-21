@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { ConflictException, HttpException } from '@nestjs/common';
+import { ConflictException, HttpException, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
 import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool';
 import { CLASSIFIEDS_SMART_ADMIN_VERSION } from '../classifieds/ad-moderation-assessment';
@@ -42,7 +42,7 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
 
     let actor = { id: 'classifieds_owner', email: 'owner@example.test' };
     const identity = { getCurrentUser: async () => actor } as any;
-    const service = new AdService(new AdRepository(db), identity, { assert() {} } as any);
+    const service = new AdService(new AdRepository(db), identity, { assert() {}, assertAny() {} } as any);
 
     const input = (requestId: string, titleAr: string) => ({
       clientRequestId: requestId,
@@ -85,10 +85,21 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       const submitBody = {
         clientRequestId: 'classifieds-pg-bound-submit-0001', expectedContentRevision: updated.contentRevision
       };
-      const published = await service.submit(undefined, ad.id, submitBody);
+      const submitted = await service.submit(undefined, ad.id, submitBody);
       const replay = await service.submit(undefined, ad.id, submitBody);
+      assert.equal(submitted.status, 'pending_review');
+      assert.equal(submitted.revision, replay.revision);
+      assert.deepEqual(await service.quota(undefined), {
+        used: 0, limit: 5, daily: { used: 0, limit: 3 }, weekly: { used: 0, limit: 5 }
+      });
+      actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
+      const published = await service.moderate(undefined, ad.id, {
+        expectedReviewRevision: submitted.reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
+      });
       assert.equal(published.status, 'active');
-      assert.equal(published.revision, replay.revision);
+      actor = { id: 'classifieds_owner', email: 'owner@example.test' };
       assert.deepEqual(await service.quota(undefined), {
         used: 1, limit: 5, daily: { used: 1, limit: 3 }, weekly: { used: 1, limit: 5 }
       });
@@ -97,44 +108,75 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       }), ConflictException);
     });
 
-    await t.test('automatic publication and public projection are enforced', async () => {
+    await t.test('human approval is required before public projection', async () => {
       actor = { id: 'classifieds_owner', email: 'owner@example.test' };
       const ad = await service.create(undefined, input('classifieds-pg-create-0003', 'إعلان للنشر العام'));
-      const published = await service.submit(undefined, ad.id, {
+      const submitted = await service.submit(undefined, ad.id, {
         clientRequestId: 'classifieds-pg-submit-0001', expectedContentRevision: ad.contentRevision
       });
-      assert.equal(published.status, 'active');
+      assert.equal(submitted.status, 'pending_review');
       const [moderationCount] = await db.query<{ count: number }>(
         `SELECT count(*)::int AS count FROM ad_moderation_events WHERE ad_id=$1`, [ad.id]);
       assert.equal(moderationCount.count, 0);
+      await assert.rejects(() => service.getPublic(ad.id), NotFoundException);
+      actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
+      const published = await service.moderate(undefined, ad.id, {
+        expectedReviewRevision: submitted.reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
+      });
+      assert.equal(published.status, 'active');
+      const [reviewedCount] = await db.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM ad_moderation_events WHERE ad_id=$1`, [ad.id]);
+      assert.equal(reviewedCount.count, 1);
       const publicAd = await service.getPublic(ad.id);
       assert.equal(publicAd.id, ad.id);
       assert.equal('ownerUserId' in publicAd, false);
       assert.equal('reviewRevision' in publicAd, false);
-      actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
       await assert.rejects(() => service.moderate(undefined, ad.id, {
-        expectedReviewRevision: 1, expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION, decision: 'approved'
+        expectedReviewRevision: submitted.reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
       }), ConflictException);
     });
 
-    await t.test('three-publication daily quota is serialized under concurrent submission', async () => {
+    await t.test('three-publication daily quota is serialized under concurrent human approval', async () => {
       actor = { id: 'classifieds_quota_owner', email: 'quota@example.test' };
       const ads = [];
       for (let index = 0; index < 4; index += 1) {
         ads.push(await service.create(undefined, input(`classifieds-pg-quota-create-${index}000`, `إعلان الحصة ${index}`)));
       }
-      await service.submit(undefined, ads[0].id, {
-        clientRequestId: 'classifieds-pg-quota-submit-0000', expectedContentRevision: ads[0].contentRevision
+      const submitted = [];
+      for (let index = 0; index < ads.length; index += 1) {
+        submitted.push(await service.submit(undefined, ads[index].id, {
+          clientRequestId: `classifieds-pg-quota-submit-${index}000`,
+          expectedContentRevision: ads[index].contentRevision
+        }));
+      }
+      assert.deepEqual(await service.quota(undefined), {
+        used: 0, limit: 5, daily: { used: 0, limit: 3 }, weekly: { used: 0, limit: 5 }
       });
-      await service.submit(undefined, ads[1].id, {
-        clientRequestId: 'classifieds-pg-quota-submit-0001', expectedContentRevision: ads[1].contentRevision
+      actor = { id: 'classifieds_reviewer', email: 'reviewer@example.test' };
+      await service.moderate(undefined, ads[0].id, {
+        expectedReviewRevision: submitted[0].reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
+      });
+      await service.moderate(undefined, ads[1].id, {
+        expectedReviewRevision: submitted[1].reviewRevision,
+        expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+        decision: 'approved'
       });
       const outcomes = await Promise.allSettled([
-        service.submit(undefined, ads[2].id, {
-          clientRequestId: 'classifieds-pg-quota-submit-0002', expectedContentRevision: ads[2].contentRevision
+        service.moderate(undefined, ads[2].id, {
+          expectedReviewRevision: submitted[2].reviewRevision,
+          expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+          decision: 'approved'
         }),
-        service.submit(undefined, ads[3].id, {
-          clientRequestId: 'classifieds-pg-quota-submit-0003', expectedContentRevision: ads[3].contentRevision
+        service.moderate(undefined, ads[3].id, {
+          expectedReviewRevision: submitted[3].reviewRevision,
+          expectedAssessmentVersion: CLASSIFIEDS_SMART_ADMIN_VERSION,
+          decision: 'approved'
         })
       ]);
       assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
@@ -142,6 +184,7 @@ test('classifieds migration 025 and runtime contracts hold on PostgreSQL', async
       assert.ok(rejected?.status === 'rejected');
       assert.ok(rejected.reason instanceof HttpException);
       assert.equal(rejected.reason.getStatus(), 429);
+      actor = { id: 'classifieds_quota_owner', email: 'quota@example.test' };
       const quota = await service.quota(undefined);
       assert.deepEqual(quota, {
         used: 3, limit: 5, daily: { used: 3, limit: 3 }, weekly: { used: 3, limit: 5 }

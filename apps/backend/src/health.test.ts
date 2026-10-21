@@ -17,10 +17,12 @@ const RELEASE_MIGRATIONS = [
   '032_taxi_operational_profile_gate',
   '033_billing_admin_role',
   '034_food_order_promotions',
-  '035_specialized_admin_roles'
+  '035_specialized_admin_roles',
+  '036_classifieds_rolling_publication_quota',
+  '037_verification_evidence_media'
 ] as const;
 
-test('GET /api/v1/health and /ready exercise the real schema 035 startup gate', async () => {
+test('GET /api/v1/health and /ready exercise the real schema 037 startup gate', async () => {
   const fixturePool = createTestPool();
   const originalDatabaseUrl = process.env.DATABASE_URL;
   let app: Awaited<ReturnType<typeof createBackendApp>> | undefined;
