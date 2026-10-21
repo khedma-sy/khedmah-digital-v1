@@ -1,5 +1,50 @@
 # Khedmah Digital — Current State
 
+## Floot all-page contract reconciliation — current checkpoint, 2026-10-21
+
+The current owner instruction is to complete Floot migration and verify the actual buttons, contracts and multi-step journeys across all pages. **The source inventory and fixture repair pass is complete; universal live end-to-end success is not established.** This checkpoint supersedes older global next actions while preserving every historical receipt below. The administrator is already activated and working; accepted Safari and publication evidence remains valid in its recorded scope.
+
+### Current evidence and authority
+
+| Surface | Established state |
+| --- | --- |
+| Git `main` | `63b0fa3c6f886eebe8034f70780715a044c2d4d5`; merged PR287/288 capabilities remain source evidence. |
+| PR289 | Draft/unmerged. Latest application source is `7eedfe4be5be2c45ba282a66248cd9aab693b246`; this checkpoint is its documentation successor. Publication repair `37215f59be71adb82cd6d6cca2d1de1f4dda4c3c`, lifecycle fixture correction `2c1ce176` and the monetary boundary repair are included. |
+| GitHub CI receipt | All five workflows passed for application source `7eedfe4b`: Node, Test & Verify, PR Preview, Migration Validation and Google readiness. Test & Verify reports 2,843 passed / 0 failed / 1 optional root skip. Its actual PR merge checkout has the same tree as the source head. Preview deployment/baseline/review-evidence and the Google production-secret gate were skipped. |
+| Serving backend | Still the proven `f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` artifact, revision `khedmah-pr-274-backend-00008-tg8`, digest `sha256:be90387535778e81016126e8ca6d626e8f170c20d1bd8c5add8dbb98beecba17`. The prior provenance join is preserved below; no new runtime or database-catalog receipt follows from source CI. |
+| Floot code/checkpoint | `1792613002166` / `e34b6b53-717f-4409-93f9-6e5848f3cf83`. No publication occurred in this pass. |
+| Floot tests | **68 unique spec files passed, zero failed**, including `useDebounce` and `useMediaQuery`; full TypeScript checking is clean. All final spec files were included, without extras or unrun files. This count describes files, not cases or live journeys. |
+| Route evidence | Fresh source inventory `1792612903185`: all **83 page entries, 83 layouts and 27 prefetch files** read, with 12 development examples excluded. Baseline 82 plus `/platform/driver-signup`; no baseline page is missing. All 83 live-E2E flags remain false. |
+| Identity boundaries | Khedmah customer/owner backend session, backend operations permissions, and Floot Business Desk/client authority remain distinct. An opaque actor key detects account changes; it does not grant a permission. |
+
+### Completed repair scope
+
+| Journey | Source and fixture result |
+| --- | --- |
+| Owner business, products and advertisements | Native list/create/edit/review/media contracts; backend-issued identifiers, domain revisions, exact allowed states, linked-owner checks and required product images. Active/pending-review ad content/media edits stay locked. |
+| Actor and uncertain-attempt handling | Fresh server identity binds create/recovery. Opaque attempt IDs and payload fingerprints must persist before dispatch. An inherited unknown result survives a later rejected replay; old unscoped attempts are quarantined. Access denial clears private forms, records, inboxes and media state. |
+| Professional profiles | Native owner editing preserves current private/public eligibility. The Git repair adds explicit owner publication intent with private defaults, owner submission, moderation and revision safeguards; that new publication contract is not serving and is not enabled as a Floot control. |
+| Food, Store and checkout | Basket-only currency checks, missing/out-of-stock item recovery, quantity limits and valid merchant category; confined login return, prescription attestation, promotion quoting, actor-bound stable checkout and explicit uncertain-result recovery. |
+| Customer orders, merchant and courier | Explicit quote confirmation/cancellation; server-authorized transitions, correct owned category selected before operational reads, assignment/withdrawal, pickup/cash-delivery acknowledgement and manual last-location display. These are implemented contracts, not live fulfillment proof. |
+| Driver registration | Native Taxi/delivery selection, owner profile creation and recovery, four-document status, private evidence reads and separate content/trust/operational stages. Document upload remains held by its own immutable false server gate. |
+| Provider contact | Native validated inquiry/report forms and exact receipts. Inquiries support explicit same-key/same-payload recovery; uncertain reports cannot be blindly resent. Owner inboxes remain available to the owner of a withdrawn/private profile. Email reply is an explicit mail-client handoff, not an internal chat or delivery receipt. |
+| Navigation and maps | Confined account returns, native driver aliases, city-preserving category links and explicit consent before loading third-party map embeds; consent resets when the location/destination changes. The 27 SSR aliases have fixed destinations; incoming-query preservation is not proved by their source. |
+| Floot Business Desk | Current parallel task/Business Desk work was preserved. Read errors remain distinct from empty data; public jobs/tenders gain retry, invited clients return to the isolated password entry, and company/checklist revisions plus access-request locking preserve actual update outcomes. |
+
+The [journey audit](../operations/FLOOT-JOURNEY-AUDIT-2026-10-21.md) explains the contracts and limitations. Its [83-row JSON](../operations/FLOOT-ROUTE-AUDIT-2026-10-21.json) records route authority, controls, query/redirect behavior, source hashes, fixture references and `live_e2e_verified:false` for every row. Exhaustive enumeration is not exhaustive runtime acceptance.
+
+### Current blockers and Next Safe Action
+
+Administrative approvals remain immutable **false** because serving `f4f8ce2` lacks atomic latest-document, self-approval and pending-state safeguards. Driver-document mutation has a distinct immutable **false** gate because the older upload path does not establish atomic invalidation of prior operational eligibility. Read preflights cannot replace either guarantee. No role was bound or replaced; the working director remains intact.
+
+Taxi V1 does not supply native trip creation/status/cancellation. Owner vehicle editing and driver/courier availability setters are absent, and courier eligibility still requires available status plus the latest approved documents. Merchant promotion campaign authoring is absent. The professional publication repair is not serving. The extreme order-total boundary is repaired in source `7eedfe4be5be2c45ba282a66248cd9aab693b246`: 13 new plus 21 existing order/promotion tests passed (34 total, zero failed/skipped), backend TypeScript passed, and the same two regression probes changed from failure before the repair to HTTP 400 with zero fake create/update calls after it. Its five GitHub workflows passed; the source receipt does not establish serving compatibility. Serving `f4f8ce2` is unchanged; no PostgreSQL overflow transaction or live order was executed. Account deletion and email replies retain explicit external handoffs. No fixture result proves a populated customer/provider order, stock change, document review, delivery, GPS session, email delivery or approval.
+
+**Next Safe Action:** verify a compatible Preview artifact and the applicable source/image, schema, authority and release gates, resolve the recorded boundary cases with controlled fixtures, and then obtain bounded populated-account and desktop/mobile acceptance there. Any activation, publication or Production action remains subject to its existing specific gates and authorization. This pass performed no backend deployment, site publication, cloud/schema/role mutation or real application data write. The detailed sequence is in [NEXT-ACTION](NEXT-ACTION.md).
+
+The machine-readable [route inventory](../operations/FLOOT-ROUTE-AUDIT-2026-10-21.json), [test receipts](../operations/FLOOT-TEST-RECEIPTS-2026-10-21.json) and [source-content readback](../operations/FLOOT-SOURCE-READBACK-2026-10-21.json) preserve this pass's evidence. The readback matches 102/102 file contents with display/terminal-newline normalization; it is not a byte-download equality claim.
+Floot documentation was synchronized after the code tests at version `1792614319853`, checkpoint `9f3bb41a-7cf3-4997-a5a7-a382b7da8d94`. All five updated control notes were completely read back and matched, with their previous content retained. This later documentation version does not replace the tested code version `1792613002166` or imply publication.
+
+
 ## Native Floot approval forms implemented; execution remains held — 2026-10-21
 
 The owner confirmed that the administration email is activated and working, then directed the continuation to **Floot contract consistency and the smart-admin approval journey**. The `fe44963` correction reconciled the existing administrator, completed Safari lifecycle and actual publications; subsequent checkpoints recorded backend provenance, compatibility repairs and native review reads. This checkpoint adds tested explicit human approval forms and a dedicated approve-only contract in Floot preview. **An immutable server execution gate remains false; no live approval is enabled or claimed.** A compatible Preview target and its applicable schema/role/execution gates must be established before reviewed activation. The additional bounded approval role remains distinct from the working director. Older global next actions are superseded; dated receipts below remain historical evidence.

@@ -1,5 +1,36 @@
 # Human Admin Approval Permissions
 
+## Current Floot journey audit and held authority — 2026-10-21
+
+The owner-directed all-page Floot audit preserves the existing activated administrator and accepted browser/publication evidence. The working `operations_product_director` has not been replaced or rebound. The additional `smart_admin_approver` capability remains a bounded **human** role; neither KORA, an opaque actor key nor an owner form grants it. This current checkpoint supersedes older global next actions while preserving the authority definitions and historical receipts below.
+
+| Evidence / control | Current state |
+| --- | --- |
+| Repository | `main` `63b0fa3c6f886eebe8034f70780715a044c2d4d5`; PR289 Draft/unmerged with latest application source `7eedfe4be5be2c45ba282a66248cd9aab693b246`, including professional publication source repair `37215f59be71adb82cd6d6cca2d1de1f4dda4c3c`. |
+| Latest Git source CI | All five workflows passed for application source `7eedfe4b`: Node, Test & Verify, PR Preview, Migration Validation and Google readiness. Test & Verify reports 2,843 passed / 0 failed / 1 optional root skip. Its actual PR merge checkout has the same tree as the source head. Preview deployment/baseline/review-evidence and the Google production-secret gate were skipped. |
+| Floot code / checkpoint | `1792613002166` / `e34b6b53-717f-4409-93f9-6e5848f3cf83`. All **68 unique spec files passed, zero failed**, including both generic hook files; full TypeScript is clean. These are source/fixture checks. |
+| Serving compatibility | Proven backend remains `f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a`, predating the newer atomic approval/publication contracts. No new deployment or database-state attestation occurred. |
+| Native admin approval execution | **Immutable false.** The real server path rejects before an upstream write; false or absent metadata disables the final UI action. |
+| Native driver-document upload execution | **A separate immutable false gate.** Owner registration, private status/evidence reads and creation recovery do not enable document mutation or operational approval. |
+
+### Why both execution gates remain closed
+
+The serving driver review code lacks the required atomic latest-document, self-approval and pending-state checks. Its document-upload path also does not establish atomic invalidation of prior Taxi operational eligibility when evidence changes. The two risks have separate server gates. A current permission or document GET cannot supply transaction guarantees, and an uploaded fourth image cannot imply reviewed identity, trust, vehicle validity or permission to accept work. True-gate examples/specs intercept writes; they are not an activation mechanism.
+
+The all-page repairs add exact owner contracts, actor-bound creation/recovery, private inbox/media denial cleanup and uncertain-attempt handling. They do not widen the approval role. Business/professional content submission is an owner action, not content approval; content approval, trust verification and Taxi operational approval remain distinct decisions. A profile's owner cannot approve their own submission. Professional public visibility is now an explicit owner intent in reviewed Git source, still subject to submission, revision and moderation; that new source contract is not serving and is not activated by the Floot audit.
+
+The [complete journey report](FLOOT-JOURNEY-AUDIT-2026-10-21.md) and [83-row route JSON](FLOOT-ROUTE-AUDIT-2026-10-21.json) distinguish Khedmah owner sessions, backend operations permissions and Floot Business Desk/client authority. The route inventory is exhaustive source enumeration, with every live-E2E flag false. Existing owner/customer requests, report submission and inbox reads must not be interpreted as administrator or message-sending authority.
+
+### Required next evidence
+
+First prove the selected compatible Preview source/image/revision and applicable schema, permission and release prerequisites. Then verify atomic nonowner/self/latest/pending/invalidation cases and explicit human review on that target. Only a separate reviewed source change may enable a held path after its gate is satisfied. Preserve the director, existing approval-only permission limits, real denials and unknown-outcome quarantine. No blanket activation is implied for all seven approval forms or for driver upload.
+
+Taxi V1 trip booking/status/cancellation, owner vehicle editing, driver/courier availability setters and merchant campaign authoring remain absent. The extreme order-total boundary is repaired in source `7eedfe4be5be2c45ba282a66248cd9aab693b246`: 13 new plus 21 existing order/promotion tests passed (34 total, zero failed/skipped), backend TypeScript passed, and the same two regression probes changed from failure before the repair to HTTP 400 with zero fake create/update calls after it. Its five GitHub workflows passed; the source receipt does not establish serving compatibility. Serving `f4f8ce2` is unchanged; no PostgreSQL overflow transaction or live order was executed. Populated live journeys remain unproved. This pass performed no role binding, real approval, document upload, cloud/schema mutation, backend deployment, site publication or Production mutation. Follow the current [NEXT-ACTION](../project-control/NEXT-ACTION.md) rather than replaying an older activation handoff below.
+
+The machine-readable [route inventory](FLOOT-ROUTE-AUDIT-2026-10-21.json), [test receipts](FLOOT-TEST-RECEIPTS-2026-10-21.json) and [source-content readback](FLOOT-SOURCE-READBACK-2026-10-21.json) preserve this pass's evidence. The readback matches 102/102 file contents with display/terminal-newline normalization; it is not a byte-download equality claim.
+Floot documentation was synchronized after the code tests at version `1792614319853`, checkpoint `9f3bb41a-7cf3-4997-a5a7-a382b7da8d94`. All five updated control notes were completely read back and matched, with their previous content retained. This later documentation version does not replace the tested code version `1792613002166` or imply publication.
+
+
 ## Outcome
 
 `smart_admin_approver` is a bounded, authenticated **human reviewer** role. The name does not create an autonomous AI actor and does not allow KORA to decide a review. Every acceptance still requires an explicit button/API action from a signed-in reviewer and the domain service records that review against the authenticated user.
