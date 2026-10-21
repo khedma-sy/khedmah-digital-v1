@@ -3,17 +3,18 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [migration035, migration037, runner, ensure, dockerfile, cloudbuild, productionOperator] = await Promise.all([
+const [migration035, migration037, runner, ensure, deployment, dockerfile, cloudbuild, productionOperator] = await Promise.all([
   read('backend/migrations/versions/035_specialized_admin_roles.sql'),
   read('backend/migrations/versions/037_verification_evidence_media.sql'),
   read('scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh'),
   read('scripts/deployment/ensure-approval-prerequisites-035-037-nonproduction-schema.sh'),
+  read('scripts/deployment/deploy-cloud-run-environment.sh'),
   read('Dockerfile.approval-prerequisites-migration'),
   read('cloudbuild.approval-prerequisites-migration.yaml'),
   read('.github/workflows/production-operator.yml'),
@@ -22,6 +23,8 @@ const runnerPath = fileURLToPath(new URL('../scripts/deployment/run-approval-pre
 const ensurePath = fileURLToPath(new URL('../scripts/deployment/ensure-approval-prerequisites-035-037-nonproduction-schema.sh', import.meta.url));
 const migration035Path = fileURLToPath(new URL('../backend/migrations/versions/035_specialized_admin_roles.sql', import.meta.url));
 const migration037Path = fileURLToPath(new URL('../backend/migrations/versions/037_verification_evidence_media.sql', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
+const repositoryHead = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
 
 const identity = bytes => ({
   sha256: createHash('sha256').update(bytes).digest('hex'),
@@ -199,6 +202,90 @@ test('replacement Preview apply and Production stop before migration or database
     });
     assert.equal(ensureWithFalsifiedProduction.status, 4, ensureWithFalsifiedProduction.stderr);
     assert.match(ensureWithFalsifiedProduction.stderr, /Canonical production project identity/);
+
+    const unauthorizedStagingApply = spawnSync('/bin/bash', [ensurePath, 'staging', 'fixture'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${temp}:${process.env.PATH}`,
+        APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE: 'apply',
+        APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+        GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+        GOOGLE_CLOUD_REGION: 'europe-west1',
+        ARTIFACT_REPOSITORY: 'fixture',
+        RUNTIME_SERVICE_ACCOUNT: 'runtime@khedmah-staging-fixture.iam.gserviceaccount.com',
+        STAGING_MIGRATION_SERVICE_ACCOUNT: 'migration@khedmah-staging-fixture.iam.gserviceaccount.com',
+        STAGING_DATABASE_MIGRATION_SECRET_VERSION: '7',
+        CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging-fixture:europe-west1:fixture',
+        PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
+      },
+    });
+    assert.equal(unauthorizedStagingApply.status, 4, unauthorizedStagingApply.stderr);
+    assert.match(unauthorizedStagingApply.stderr, /Protected Staging approval prerequisite apply mode is missing/);
+
+    const directVerifyEnv = {
+      ...process.env,
+      PATH: `${temp}:${process.env.PATH}`,
+      APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE: 'verify',
+      GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+      GOOGLE_CLOUD_REGION: 'europe-west1',
+      ARTIFACT_REPOSITORY: 'fixture',
+      RUNTIME_SERVICE_ACCOUNT: 'runtime@khedmah-staging-fixture.iam.gserviceaccount.com',
+      STAGING_MIGRATION_SERVICE_ACCOUNT: 'migration@khedmah-staging-fixture.iam.gserviceaccount.com',
+      STAGING_DATABASE_MIGRATION_SECRET_VERSION: '7',
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging-fixture:europe-west1:fixture',
+      PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
+    };
+    for (const [overrides, expected] of [
+      [{ STAGING_APPROVAL_FUTURE_AUTHORITY: '' }, /STAGING_APPROVAL_FUTURE_AUTHORITY/],
+      [{ APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION: 'stale' }, /internal confirmation must be empty/],
+    ]) {
+      const rejectedVerify = spawnSync('/bin/bash', [ensurePath, 'staging', 'fixture'], {
+        encoding: 'utf8',
+        env: { ...directVerifyEnv, ...overrides },
+      });
+      assert.equal(rejectedVerify.status, 4, rejectedVerify.stderr);
+      assert.match(rejectedVerify.stderr, expected);
+    }
+
+    const helperApplyEnv = {
+      ...process.env,
+      PATH: `${temp}:${process.env.PATH}`,
+      APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE: 'apply',
+      APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+      STAGING_APPROVAL_PREREQUISITES_MODE: 'apply',
+      STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT: repositoryHead,
+      STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID: '987654321',
+      STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT: '1',
+      STAGING_APPROVAL_PREREQUISITES_CONFIRMATION: 'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+      GITHUB_ACTIONS: 'true',
+      GITHUB_EVENT_NAME: 'workflow_dispatch',
+      GITHUB_REPOSITORY: 'khedma-sy/khedmah-digital-v1',
+      GITHUB_WORKFLOW_REF: 'khedma-sy/khedmah-digital-v1/.github/workflows/staging-approval-prerequisites-activation.yml@refs/heads/develop',
+      GITHUB_REF: 'refs/heads/develop',
+      GITHUB_SHA: repositoryHead,
+      GITHUB_RUN_ID: '987654321',
+      GITHUB_RUN_ATTEMPT: '1',
+      GOOGLE_CLOUD_PROJECT: 'khedmah-staging-fixture',
+      GOOGLE_CLOUD_REGION: 'europe-west1',
+      ARTIFACT_REPOSITORY: 'fixture',
+      RUNTIME_SERVICE_ACCOUNT: 'runtime@khedmah-staging-fixture.iam.gserviceaccount.com',
+      STAGING_MIGRATION_SERVICE_ACCOUNT: 'migration@khedmah-staging-fixture.iam.gserviceaccount.com',
+      STAGING_DATABASE_MIGRATION_SECRET_VERSION: '7',
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging-fixture:europe-west1:fixture',
+      PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
+    };
+    for (const [identifier, overrides, expected] of [
+      ['b'.repeat(40), {}, /identifier must exactly match GITHUB_SHA/],
+      [repositoryHead, { GITHUB_RUN_ATTEMPT: '2', STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT: '2' }, /GITHUB_RUN_ATTEMPT 1/],
+      [repositoryHead, { GITHUB_REPOSITORY: 'attacker/fork' }, /canonical GitHub repository/],
+      [repositoryHead, { GITHUB_WORKFLOW_REF: 'khedma-sy/khedmah-digital-v1/.github/workflows/staging-deployment.yml@refs/heads/develop' }, /future dedicated activation workflow/],
+      [repositoryHead, { GITHUB_REF: 'refs/heads/feature' }, /refs\/heads\/develop/],
+    ]) {
+      const rejected = spawnSync('/bin/bash', [ensurePath, 'staging', identifier], { encoding: 'utf8', env: { ...helperApplyEnv, ...overrides } });
+      assert.equal(rejected.status, 4, rejected.stderr);
+      assert.match(rejected.stderr, expected);
+    }
     assert.equal(existsSync(marker), false);
   } finally {
     rmSync(temp, { recursive: true, force: true });
@@ -216,6 +303,29 @@ test('ensure helper is bounded and the Production operator cannot expose the sta
     'DATABASE_URL=DATABASE_MIGRATION_URL:',
     'STAGING_MIGRATION_SERVICE_ACCOUNT',
     'STAGING_DATABASE_MIGRATION_SECRET_VERSION',
+    'STAGING_APPROVAL_PREREQUISITES_MODE',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT',
+    'STAGING_APPROVAL_PREREQUISITES_CONFIRMATION',
+    'GITHUB_EVENT_NAME',
+    'GITHUB_REPOSITORY',
+    'GITHUB_WORKFLOW_REF',
+    'GITHUB_SHA',
+    'GITHUB_RUN_ID',
+    'GITHUB_RUN_ATTEMPT',
+    'refs/heads/develop',
+    'staging-approval-prerequisites-activation.yml@refs/heads/develop',
+    'Staging deployment identifier must exactly match GITHUB_SHA',
+    'MIGRATION_MODE=verify,MIGRATION_CONFIRMATION=',
+    '--update-env-vars="MIGRATION_MODE=apply,MIGRATION_CONFIRMATION=',
   ]) assert.ok(ensure.includes(required), `missing ensure boundary: ${required}`);
+  for (const required of [
+    "APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE='verify'",
+    "APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION=''",
+    'STAGING_APPROVAL_*',
+  ]) assert.ok(deployment.includes(required), `missing deployment activation boundary: ${required}`);
+  assert.doesNotMatch(deployment, /APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE="\$schema_mode"/);
+  assert.doesNotMatch(deployment, /APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION="APPLY_KHEDMAH_NONPROD_035_037_\$\{environment\^\^\}"/);
   assert.doesNotMatch(productionOperator, /approval-prerequisites|APPLY_MIGRATION_035|APPLY_MIGRATION_037/);
 });

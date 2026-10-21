@@ -20,9 +20,30 @@ done
 [[ "$GOOGLE_CLOUD_PROJECT" != "$canonical_production_project" && "$GOOGLE_CLOUD_PROJECT" != "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || { echo 'Refusing approval prerequisite schema operation on the production project.' >&2; exit 4; }
 [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" == "${GOOGLE_CLOUD_PROJECT}:${GOOGLE_CLOUD_REGION}:"* ]] || { echo 'Approval prerequisite schema operation requires the isolated environment Cloud SQL instance.' >&2; exit 4; }
 if [[ "$mode" == 'off' ]]; then echo 'Approval prerequisite migrations 035 and 037 operation is off.'; exit 0; fi
-if [[ "$mode" == 'apply' ]]; then
-  expected_confirmation="APPLY_KHEDMAH_NONPROD_035_037_${environment^^}"
-  [[ "${APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION:-}" == "$expected_confirmation" ]] || { echo 'Explicit approval prerequisite migration confirmation token is missing or invalid.' >&2; exit 4; }
+if [[ "$mode" == 'verify' ]]; then
+  while IFS= read -r name; do
+    [[ "$name" != STAGING_APPROVAL_* ]] || { echo "${name} is not accepted while approval prerequisites are in verify mode." >&2; exit 4; }
+  done < <(compgen -e)
+  [[ -z "${APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION:-}" ]] || { echo 'Approval prerequisite internal confirmation must be empty in verify mode.' >&2; exit 4; }
+else
+  [[ "$environment" == 'staging' ]] || { echo 'SCHEMA_PREVIEW_V2_VERIFY_ONLY: Preview approval prerequisites are verify-only.' >&2; exit 4; }
+  [[ "${STAGING_APPROVAL_PREREQUISITES_MODE:-}" == 'apply' ]] || { echo 'Protected Staging approval prerequisite apply mode is missing.' >&2; exit 4; }
+  [[ "${GITHUB_ACTIONS:-}" == 'true' ]] || { echo 'Approval prerequisite apply is allowed only in GitHub Actions.' >&2; exit 4; }
+  [[ "${GITHUB_EVENT_NAME:-}" == 'workflow_dispatch' ]] || { echo 'Approval prerequisite apply requires an explicit workflow_dispatch event.' >&2; exit 4; }
+  [[ "${GITHUB_REPOSITORY:-}" == 'khedma-sy/khedmah-digital-v1' ]] || { echo 'Approval prerequisite apply requires the canonical GitHub repository.' >&2; exit 4; }
+  [[ "${GITHUB_WORKFLOW_REF:-}" == 'khedma-sy/khedmah-digital-v1/.github/workflows/staging-approval-prerequisites-activation.yml@refs/heads/develop' ]] || { echo 'Approval prerequisite apply requires the future dedicated activation workflow on develop.' >&2; exit 4; }
+  [[ "${GITHUB_REF:-}" == 'refs/heads/develop' ]] || { echo 'Approval prerequisite apply is allowed only from refs/heads/develop.' >&2; exit 4; }
+  [[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || { echo 'GITHUB_SHA must be an exact lowercase 40-hex commit for approval prerequisite apply.' >&2; exit 4; }
+  [[ "${STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:-}" == "$GITHUB_SHA" ]] || { echo 'STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT must exactly match GITHUB_SHA.' >&2; exit 4; }
+  [[ "$identifier" == "$GITHUB_SHA" ]] || { echo 'Staging deployment identifier must exactly match GITHUB_SHA for approval prerequisite apply.' >&2; exit 4; }
+  [[ "${GITHUB_RUN_ID:-}" =~ ^[1-9][0-9]*$ ]] || { echo 'GITHUB_RUN_ID must be a positive integer for approval prerequisite apply.' >&2; exit 4; }
+  [[ "${STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID:-}" == "$GITHUB_RUN_ID" ]] || { echo 'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID must exactly match GITHUB_RUN_ID.' >&2; exit 4; }
+  [[ "${GITHUB_RUN_ATTEMPT:-}" == '1' ]] || { echo 'Approval prerequisite apply is allowed only on GITHUB_RUN_ATTEMPT 1.' >&2; exit 4; }
+  [[ "${STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT:-}" == "$GITHUB_RUN_ATTEMPT" ]] || { echo 'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT must exactly match GITHUB_RUN_ATTEMPT.' >&2; exit 4; }
+  [[ "${STAGING_APPROVAL_PREREQUISITES_CONFIRMATION:-}" == 'APPLY_KHEDMAH_NONPROD_035_037_STAGING' ]] || { echo 'STAGING_APPROVAL_PREREQUISITES_CONFIRMATION is missing or invalid.' >&2; exit 4; }
+  [[ "${APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION:-}" == "$STAGING_APPROVAL_PREREQUISITES_CONFIRMATION" ]] || { echo 'Explicit approval prerequisite migration confirmation token is missing or invalid.' >&2; exit 4; }
+  repository_head="$(git rev-parse --verify HEAD 2>/dev/null)" || { echo 'Unable to resolve repository HEAD for approval prerequisite apply.' >&2; exit 4; }
+  [[ "$repository_head" == "$GITHUB_SHA" ]] || { echo 'Repository HEAD must exactly match GITHUB_SHA for approval prerequisite apply.' >&2; exit 4; }
 fi
 if [[ "$environment" == 'staging' ]]; then
   for name in STAGING_MIGRATION_SERVICE_ACCOUNT STAGING_DATABASE_MIGRATION_SECRET_VERSION; do
@@ -63,13 +84,17 @@ node scripts/deployment/preview-schema-job-pool.mjs before-deploy "$environment"
 gcloud run jobs deploy "$job" "${pool_label_args[@]}" \
   --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --image "$image" --service-account "$SCHEMA_SERVICE_ACCOUNT" \
   --set-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" --set-secrets="$SCHEMA_DATABASE_SECRET_BINDING" \
-  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},GOOGLE_CLOUD_REGION=${GOOGLE_CLOUD_REGION},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=${mode},MIGRATION_CONFIRMATION=${APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION:-},MIGRATION_035_SHA256=${migration_035_sha256},MIGRATION_037_SHA256=${migration_037_sha256}" \
+  --set-env-vars="DEPLOYMENT_ENVIRONMENT=${environment},GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},GOOGLE_CLOUD_REGION=${GOOGLE_CLOUD_REGION},PRODUCTION_GOOGLE_CLOUD_PROJECT=${PRODUCTION_GOOGLE_CLOUD_PROJECT},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${CLOUD_SQL_INSTANCE_CONNECTION_NAME},MIGRATION_MODE=verify,MIGRATION_CONFIRMATION=,MIGRATION_035_SHA256=${migration_035_sha256},MIGRATION_037_SHA256=${migration_037_sha256}" \
   --tasks 1 --parallelism 1 --max-retries 0 --task-timeout 10m --quiet
 
 node scripts/deployment/preview-schema-job-pool.mjs before-execute "$environment" "$identifier" approval-prerequisites-035-037
 
+execution_override_args=()
+if [[ "$mode" == 'apply' ]]; then
+  execution_override_args=(--update-env-vars="MIGRATION_MODE=apply,MIGRATION_CONFIRMATION=${APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION}")
+fi
 set +e
-execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --wait 2>&1)"
+execution_output="$(gcloud run jobs execute "$job" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" "${execution_override_args[@]}" --wait 2>&1)"
 execution_status=$?
 set -e
 printf '%s\n' "$execution_output"

@@ -15,6 +15,18 @@ if [[ "$environment" == 'staging' ]]; then
   [[ "$STAGING_MIGRATION_SERVICE_ACCOUNT" != "$RUNTIME_SERVICE_ACCOUNT" ]] || { echo 'Staging migration and runtime service accounts must be distinct.' >&2; exit 4; }
   [[ "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]] || { echo 'Staging database migration secret version must be a pinned positive integer.' >&2; exit 4; }
 fi
+
+# The general Preview/Staging deployment path has no activation authority for
+# approval prerequisites 035/037. Even empty activation inputs are rejected so
+# a future one-shot workflow cannot be emulated through this entry point.
+while IFS= read -r name; do
+  if [[ "$name" == STAGING_APPROVAL_* \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION ]]; then
+    echo "${name} is not accepted by the general deployment path; approval prerequisites are verify-only." >&2
+    exit 4
+  fi
+done < <(compgen -e)
 CLASSIFIEDS_ENABLED="${CLASSIFIEDS_ENABLED:-false}"
 NEXT_PUBLIC_CLASSIFIEDS_ENABLED="${NEXT_PUBLIC_CLASSIFIEDS_ENABLED:-false}"
 CLASSIFIEDS_MIGRATION_025_MODE="${CLASSIFIEDS_MIGRATION_025_MODE:-off}"
@@ -145,11 +157,10 @@ export FOOD_PROMOTIONS_MIGRATION_034_MODE FOOD_PROMOTIONS_MIGRATION_034_CONFIRMA
 bash scripts/deployment/ensure-food-promotions-nonproduction-schema.sh "$environment" "$identifier"
 
 # Complete the governed approval prerequisites after 034. Migration 036 is
-# already owned by the Classifieds stage; this resumable stage applies 035 and
-# then 037. It does not bind a reviewer role or enable autonomous decisions.
-APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE="$schema_mode"
+# already owned by the Classifieds stage. This general deployment path is
+# permanently verification-only; activation requires a separate future workflow.
+APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE='verify'
 APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION=''
-if [[ "$schema_mode" == 'apply' ]]; then APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION="APPLY_KHEDMAH_NONPROD_035_037_${environment^^}"; fi
 export APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION
 bash scripts/deployment/ensure-approval-prerequisites-035-037-nonproduction-schema.sh "$environment" "$identifier"
 

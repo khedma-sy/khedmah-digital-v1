@@ -7,10 +7,22 @@ import {pathToFileURL} from 'node:url';
 import {STAGES} from '../scripts/deployment/preview-schema-job-pool.mjs';
 import test from 'node:test';
 const script='scripts/deployment/deploy-cloud-run-environment.sh';
+const approvalHelper='scripts/deployment/ensure-approval-prerequisites-035-037-nonproduction-schema.sh';
 const previewProject='khedmah-preview-v2-20261012';
 const previewMediaBucket=`${previewProject}.firebasestorage.app`;
 const previewAccount=role=>`khedmah-pv2-${role}@${previewProject}.iam.gserviceaccount.com`;
+const repositoryHead=execFileSync('git',['rev-parse','--verify','HEAD'],{encoding:'utf8'}).trim();
 const argument=(call,flag)=>{const i=call.args.indexOf(flag);return i>=0?call.args[i+1]:call.args.find(x=>x.startsWith(flag+'='))?.slice(flag.length+1);};
+const stagingApprovalAuthorization=()=>({
+  GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY:'khedma-sy/khedmah-digital-v1',
+  GITHUB_WORKFLOW_REF:'khedma-sy/khedmah-digital-v1/.github/workflows/staging-approval-prerequisites-activation.yml@refs/heads/develop',
+  GITHUB_REF:'refs/heads/develop',GITHUB_SHA:repositoryHead,GITHUB_RUN_ID:'987654321',GITHUB_RUN_ATTEMPT:'1',
+  STAGING_APPROVAL_PREREQUISITES_MODE:'apply',STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:repositoryHead,
+  STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID:'987654321',STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT:'1',
+  STAGING_APPROVAL_PREREQUISITES_CONFIRMATION:'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+  APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE:'apply',
+  APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION:'APPLY_KHEDMAH_NONPROD_035_037_STAGING',
+});
 function fixture(environment,overrides={}) {
   const dir=mkdtempSync(join(tmpdir(),'khedmah-deploy-'));
   const bin=join(dir,'bin');mkdirSync(bin);const log=join(dir,'calls.jsonl');
@@ -35,6 +47,7 @@ if(args[0]==='scripts/deployment/preview-schema-job-pool.mjs') {
 }`,{mode:0o755});
   writeFileSync(join(bin,'gcloud'),shebang+record+`
 const value=flag=>{const i=a.indexOf(flag);return i>=0?a[i+1]:a.find(x=>x.startsWith(flag+'='))?.slice(flag.length+1);};
+const envMap=text=>Object.fromEntries(text.split(',').filter(Boolean).map(binding=>{const i=binding.indexOf('=');return [binding.slice(0,i),binding.slice(i+1)];}));
 if(a[0]==='builds'&&value('--config')===process.env.FIXTURE_FAIL_BUILD_CONFIG)process.exit(31);
 if(a[0]==='secrets'&&value('--secret')==='FIREBASE_API_KEY'){
   if(process.env.FIXTURE_FIREBASE_METADATA==='denied')process.exit(1);
@@ -59,7 +72,7 @@ if(a[0]==='run'&&a[1]==='jobs'){
     if(a.some(x=>x==='--update-labels'||x.startsWith('--update-labels=')))throw Error('jobs deploy: unsupported --update-labels');
     const generation=(jobs[name]?.job.metadata.generation??0)+1;
     const labels={'cloud.googleapis.com/location':value('--region'),...Object.fromEntries((value('--labels')??'').split(',').filter(Boolean).map(x=>x.split('=')))};
-    jobs[name]={executions:jobs[name]?.executions??[],job:{
+    jobs[name]={executions:jobs[name]?.executions??[],storedEnv:envMap(value('--set-env-vars')??''),job:{
       metadata:{name,namespace:'1044962071847',uid:'a'.repeat(32),generation,labels},
       spec:{template:{metadata:{annotations:{'run.googleapis.com/cloudsql-instances':value('--set-cloudsql-instances')}},
         spec:{template:{spec:{serviceAccountName:value('--service-account'),containers:[{image:value('--image'),
@@ -73,7 +86,7 @@ if(a[0]==='run'&&a[1]==='jobs'){
     const entry=jobs[name];const sequence=++entry.job.status.executionCount;
     const execution=name+'-run'+sequence;
     const running=process.env.FIXTURE_RUNNING_STAGE&&name.endsWith(process.env.FIXTURE_RUNNING_STAGE);
-    entry.executions.push({metadata:{name:execution,namespace:'1044962071847',creationTimestamp:'2026-10-11T10:00:00Z',labels:{'run.googleapis.com/job':name}},
+    entry.executions.push({metadata:{name:execution,namespace:'1044962071847',creationTimestamp:'2026-10-11T10:00:00Z',labels:{'run.googleapis.com/job':name}},fixtureEnv:{...entry.storedEnv,...envMap(value('--update-env-vars')??'')},
       status:running?{runningCount:1,conditions:[{type:'Completed',status:'Unknown'}]}:
         {runningCount:0,completionTime:'2026-10-11T10:01:00Z',conditions:[{type:'Completed',status:'True'}]}});
     entry.job.status.latestCreatedExecution={name:execution};
@@ -94,8 +107,12 @@ if(a[0]==='run'&&a[1]==='jobs'){
     run(identifier=environment==='preview'?'pr-166-abcdef123':'abcdef123',extraEnv={}){
       return execFileSync('bash',[script,environment,identifier],{env:{...env,...extraEnv},encoding:'utf8',stdio:'pipe'});
     },
+    runApprovalHelper(identifier,extraEnv={}){
+      return execFileSync('bash',[approvalHelper,'staging',identifier],{env:{...env,...extraEnv},encoding:'utf8',stdio:'pipe'});
+    },
     calls(){try{return readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);}catch{return[];}},
     jobs(){return JSON.parse(readFileSync(state,'utf8'));},
+    executeJob(name){return execFileSync('gcloud',['run','jobs','execute',name,'--project',project,'--region',region,'--wait'],{env,encoding:'utf8',stdio:'pipe'});},
     close(){rmSync(dir,{recursive:true,force:true});}
   };
 }
@@ -136,8 +153,17 @@ for(const environment of ['preview','staging'])test(`${environment}: deploys iso
     }else{
       const schemaCalls=calls.filter(c=>c.tool==='gcloud'&&c.args.slice(0,3).join(' ')==='run jobs deploy'&&c.args[3]!=='khedmah-release-data-integrity-staging');
       assert.equal(schemaCalls.length,10);
-      for(const call of schemaCalls)assert.ok(argument(call,'--set-env-vars').split(',').includes('MIGRATION_MODE=apply'));
       const approvalCall=schemaCalls.find(call=>call.args[3].includes('approval-prerequisites-035-037'));
+      for(const call of schemaCalls.filter(call=>call!==approvalCall))assert.ok(argument(call,'--set-env-vars').split(',').includes('MIGRATION_MODE=apply'));
+      assert.ok(argument(approvalCall,'--set-env-vars').split(',').includes('MIGRATION_MODE=verify'));
+      assert.ok(!argument(approvalCall,'--set-env-vars').split(',').some(value=>value.startsWith('MIGRATION_CONFIRMATION=APPLY')));
+      const approvalExecute=calls.find(call=>call.tool==='gcloud'&&call.args.slice(0,3).join(' ')==='run jobs execute'&&call.args[3]===approvalCall.args[3]);
+      assert.equal(argument(approvalExecute,'--update-env-vars'),undefined);
+      const approvalEntry=f.jobs()[approvalCall.args[3]];
+      assert.equal(approvalEntry.storedEnv.MIGRATION_MODE,'verify');
+      assert.equal(approvalEntry.storedEnv.MIGRATION_CONFIRMATION,'');
+      assert.equal(approvalEntry.executions.at(-1).fixtureEnv.MIGRATION_MODE,'verify');
+      assert.equal(approvalEntry.executions.at(-1).fixtureEnv.MIGRATION_CONFIRMATION,'');
       assert.equal(argument(approvalCall,'--service-account'),'migration@staging-fixture.iam.gserviceaccount.com');
       assert.equal(argument(approvalCall,'--set-secrets'),'DATABASE_URL=DATABASE_MIGRATION_URL:7');
       assert.equal(argument(frontend,'--service-account'),'runtime@staging-fixture.iam.gserviceaccount.com');
@@ -160,6 +186,70 @@ test('staging refuses ephemeral media or email configuration before cloud calls'
     {STAGING_MIGRATION_SERVICE_ACCOUNT:'runtime@staging-fixture.iam.gserviceaccount.com'},
     {STAGING_DATABASE_MIGRATION_SECRET_VERSION:'latest'},
   ]){const f=fixture('staging',overrides);try{assert.throws(()=>f.run());assert.equal(f.calls().length,0);}finally{f.close();}}
+});
+test('future direct helper activation keeps the stored Job verify-only and applies through one execution override',()=>{
+  const f=fixture('staging');
+  try{
+    assert.match(f.runApprovalHelper(repositoryHead,stagingApprovalAuthorization()),/apply completed and verified/);
+    const approvalDeploy=f.calls().find(call=>call.tool==='gcloud'&&call.args.slice(0,3).join(' ')==='run jobs deploy'&&call.args[3].includes('approval-prerequisites-035-037'));
+    const storedConfig=argument(approvalDeploy,'--set-env-vars').split(',');
+    assert.ok(storedConfig.includes('MIGRATION_MODE=verify'));
+    assert.ok(storedConfig.includes('MIGRATION_CONFIRMATION='));
+    assert.ok(!storedConfig.some(value=>value.startsWith('MIGRATION_CONFIRMATION=APPLY')));
+    const approvalExecute=f.calls().find(call=>call.tool==='gcloud'&&call.args.slice(0,3).join(' ')==='run jobs execute'&&call.args[3]===approvalDeploy.args[3]);
+    assert.equal(argument(approvalExecute,'--update-env-vars'),'MIGRATION_MODE=apply,MIGRATION_CONFIRMATION=APPLY_KHEDMAH_NONPROD_035_037_STAGING');
+    let entry=f.jobs()[approvalDeploy.args[3]];
+    assert.equal(entry.storedEnv.MIGRATION_MODE,'verify');
+    assert.equal(entry.storedEnv.MIGRATION_CONFIRMATION,'');
+    assert.equal(entry.executions.at(-1).fixtureEnv.MIGRATION_MODE,'apply');
+    assert.equal(entry.executions.at(-1).fixtureEnv.MIGRATION_CONFIRMATION,'APPLY_KHEDMAH_NONPROD_035_037_STAGING');
+    f.executeJob(approvalDeploy.args[3]);
+    entry=f.jobs()[approvalDeploy.args[3]];
+    assert.equal(entry.storedEnv.MIGRATION_MODE,'verify');
+    assert.equal(entry.storedEnv.MIGRATION_CONFIRMATION,'');
+    assert.equal(entry.executions.at(-1).fixtureEnv.MIGRATION_MODE,'verify');
+    assert.equal(entry.executions.at(-1).fixtureEnv.MIGRATION_CONFIRMATION,'');
+  }finally{f.close();}
+});
+test('future direct helper rejects mismatched activation provenance before any cloud call',()=>{
+  const authorized=stagingApprovalAuthorization();
+  for(const {overrides,identifier=repositoryHead,error} of [
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:''},error:/APPLY_COMMIT/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:'b'.repeat(40)},error:/APPLY_COMMIT/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID:''},error:/APPLY_RUN_ID/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID:'987654322'},error:/APPLY_RUN_ID/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT:''},error:/APPLY_RUN_ATTEMPT/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT:'2'},error:/APPLY_RUN_ATTEMPT/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_CONFIRMATION:''},error:/CONFIRMATION/},
+    {overrides:{...authorized,STAGING_APPROVAL_PREREQUISITES_CONFIRMATION:'APPLY_KHEDMAH_NONPROD_035_037_PREVIEW'},error:/CONFIRMATION/},
+    {overrides:{...authorized,GITHUB_SHA:'short',STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:'short'},identifier:'short',error:/40-hex/},
+    {overrides:{...authorized,GITHUB_SHA:'b'.repeat(40),STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT:'b'.repeat(40)},identifier:'b'.repeat(40),error:/Repository HEAD/},
+    {overrides:{...authorized,GITHUB_EVENT_NAME:'push'},error:/workflow_dispatch/},
+    {overrides:{...authorized,GITHUB_REPOSITORY:'attacker/fork'},error:/canonical GitHub repository/},
+    {overrides:{...authorized,GITHUB_WORKFLOW_REF:'khedma-sy/khedmah-digital-v1/.github/workflows/staging-deployment.yml@refs/heads/develop'},error:/future dedicated activation workflow/},
+    {overrides:{...authorized,GITHUB_REF:'refs/heads/feature'},error:/refs\/heads\/develop/},
+    {overrides:{...authorized,GITHUB_RUN_ATTEMPT:'2',STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT:'2'},error:/GITHUB_RUN_ATTEMPT 1/},
+    {overrides:{...authorized,GITHUB_ACTIONS:'false'},error:/only in GitHub Actions/},
+    {overrides:authorized,identifier:'b'.repeat(40),error:/identifier/},
+  ]){
+    const f=fixture('staging');
+    try{assert.throws(()=>f.runApprovalHelper(identifier,overrides),failure=>error.test(failure.stderr.toString()));assert.deepEqual(f.calls(),[]);}finally{f.close();}
+  }
+});
+test('general Preview and Staging deployment reject every supplied approval activation input before cloud calls',()=>{
+  for(const environment of ['preview','staging'])for(const name of [
+    'STAGING_APPROVAL_PREREQUISITES_MODE',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID',
+    'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT',
+    'STAGING_APPROVAL_PREREQUISITES_CONFIRMATION',
+    'STAGING_APPROVAL_FUTURE_AUTHORITY',
+    'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE',
+    'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION',
+  ]){
+    const f=fixture(environment,{[name]:''});
+    try{assert.throws(()=>f.run(),failure=>failure.stderr.toString().includes(name));assert.deepEqual(f.calls(),[]);}finally{f.close();}
+  }
 });
 test('replacement Preview refuses foreign or injected media buckets before any cloud call',()=>{
   for(const bucket of ['khedma-dl.firebasestorage.app','other-preview.firebasestorage.app',

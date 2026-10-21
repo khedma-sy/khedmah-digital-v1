@@ -4,13 +4,14 @@ on:
     branches: [develop]
 permissions:
   contents: read
-  id-token: write
 concurrency:
   group: staging
   cancel-in-progress: false
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -48,6 +49,9 @@ jobs:
     needs: quality-gates
     runs-on: ubuntu-latest
     environment: staging
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       frontend_url: ${{ steps.deploy.outputs.frontend_url }}
       backend_url: ${{ steps.deploy.outputs.backend_url }}

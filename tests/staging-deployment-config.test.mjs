@@ -5,6 +5,16 @@ import test from 'node:test';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const validator = resolve(root, 'scripts/deployment/validate-staging-deployment-config.sh');
+const activationNames = [
+  'STAGING_APPROVAL_PREREQUISITES_MODE',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT',
+  'STAGING_APPROVAL_PREREQUISITES_CONFIRMATION',
+  'STAGING_APPROVAL_FUTURE_AUTHORITY',
+  'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE',
+  'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION',
+];
 
 const valid = {
   GCP_WORKLOAD_IDENTITY_PROVIDER: 'projects/123456789/locations/global/workloadIdentityPools/khedmah-staging/providers/github',
@@ -29,7 +39,9 @@ const valid = {
 };
 
 function run(overrides = {}, removals = []) {
-  const env = { ...process.env, ...valid, ...overrides };
+  const env = { ...process.env, ...valid };
+  for (const name of activationNames) delete env[name];
+  Object.assign(env, overrides);
   for (const name of removals) delete env[name];
   return spawnSync(validator, [], { cwd: root, env, encoding: 'utf8' });
 }
@@ -43,6 +55,17 @@ test('staging deployment configuration preflight accepts a complete isolated con
   assert.doesNotMatch(output, /github-staging@/);
   assert.doesNotMatch(output, /runtime-staging@/);
   assert.doesNotMatch(output, /migration-staging@/);
+});
+
+test('staging deployment configuration rejects every supplied approval activation or internal value', () => {
+  assert.equal(run().status, 0);
+  for (const name of activationNames) {
+    for (const value of ['', 'unexpected-activation-value']) {
+      const result = run({ [name]: value });
+      assert.equal(result.status, 2, `${name}: ${result.stderr}`);
+      assert.match(result.stderr, new RegExp(name));
+    }
+  }
 });
 
 test('staging deployment configuration preflight reports every missing protected value before GCP auth', () => {

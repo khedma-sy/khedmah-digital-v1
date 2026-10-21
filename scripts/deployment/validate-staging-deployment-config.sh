@@ -36,6 +36,15 @@ if ((${#missing[@]})); then
   exit 2
 fi
 
+while IFS= read -r name; do
+  if [[ "$name" == STAGING_APPROVAL_* \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION ]]; then
+    echo "::error::${name} is not accepted by the general Staging deployment workflow; approval prerequisites are verify-only." >&2
+    exit 2
+  fi
+done < <(compgen -e)
+
 readonly canonical_production_project='khedma-dl'
 if [[ "$PRODUCTION_GOOGLE_CLOUD_PROJECT" != "$canonical_production_project" ]]; then
   echo '::error::PRODUCTION_GOOGLE_CLOUD_PROJECT must be the canonical Production project before GCP authentication.' >&2
