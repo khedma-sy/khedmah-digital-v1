@@ -199,11 +199,16 @@ export class AdMediaService {
 
   async readForReview(cookie: string | undefined, mediaId: string): Promise<{ data: Buffer; mimeType: string }> {
     this.assertEnabled();
-    const actor = await this.identity.getCurrentUser(readSessionToken(cookie));
+    const token = readSessionToken(cookie);
+    const actor = await this.identity.getCurrentUser(token);
     const beforeScope = this.reviewReadScope(actor.email);
     const before = await this.readReadableMetadata(mediaId, beforeScope);
     const object = await this.storage.read(before.storage_key);
-    const afterScope = this.reviewReadScope(actor.email);
+    const currentActor = await this.identity.getCurrentUser(token);
+    if (currentActor.id !== actor.id || currentActor.email !== actor.email) {
+      throw new ForbiddenException('Classified review access changed during the request.');
+    }
+    const afterScope = this.reviewReadScope(currentActor.email);
     const after = await this.readReadableMetadata(mediaId, afterScope);
     if (after.storage_key !== before.storage_key || after.owner_id !== before.owner_id) throw new NotFoundException('Ad image was not found.');
     return { data: object.data, mimeType: after.mime_type || object.mimeType };

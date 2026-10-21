@@ -109,6 +109,44 @@ test('bounded content approver cannot read active or rejected classified media o
   assert.equal(storageReads, 0);
 });
 
+test('classifieds review media is denied when the authenticated actor changes during storage read', async () => {
+  let identityReads = 0;
+  let metadataReads = 0;
+  const db = {
+    query: async () => {
+      metadataReads += 1;
+      return [{
+        id: 'image-1', owner_user_id: 'owner', owner_id: 'ad-1', filename: 'review.png',
+        mime_type: 'image/png', size_bytes: 8, visibility: 'public', storage_key: 'review/object',
+        public_url: '/api/v1/classifieds/media/public/image-1', sort_order: 0, created_at: new Date(0)
+      }];
+    }
+  };
+  const identity = {
+    getCurrentUser: async () => {
+      identityReads += 1;
+      return identityReads === 1
+        ? { id: 'reviewer', email: 'reviewer@example.test' }
+        : { id: 'replacement', email: 'replacement@example.test' };
+    }
+  } as any;
+  const service = new AdMediaService(
+    db as any,
+    identity,
+    { assertAny: () => undefined, assert: () => { throw new ForbiddenException('bounded reviewer'); } } as any
+  );
+  Object.defineProperty(service, 'storage', { value: {
+    read: async () => ({ data: Buffer.from('review'), mimeType: 'image/png' })
+  } });
+
+  await assert.rejects(
+    withFlag('true', () => service.readForReview('khedmah_session=reviewer', 'image-1')),
+    ForbiddenException
+  );
+  assert.equal(identityReads, 2);
+  assert.equal(metadataReads, 1, 'metadata must not be re-read under the stale reviewer identity');
+});
+
 test('security authority retains governed access to non-pending classified media', async () => {
   const db = {
     query: async (sql: string) => {
