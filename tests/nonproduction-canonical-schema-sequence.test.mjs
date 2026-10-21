@@ -6,10 +6,11 @@ const deploy = await readFile(new URL('../scripts/deployment/deploy-cloud-run-en
 const billing = await readFile(new URL('../scripts/deployment/ensure-billing-nonproduction-schema.sh', import.meta.url), 'utf8');
 const taxiOperational = await readFile(new URL('../scripts/deployment/ensure-taxi-operational-nonproduction-schema.sh', import.meta.url), 'utf8');
 
-test('preview verification and staging application follow canonical stages through 034 without duplicating 032', () => {
+test('preview and staging verification follow canonical stages through 037 without duplicating 032', () => {
   const m31 = deploy.indexOf('ensure-taxi-operational-nonproduction-schema.sh');
   const m34 = deploy.indexOf('ensure-food-promotions-nonproduction-schema.sh');
-  assert.ok(m31 >= 0 && m34 > m31);
+  const m37 = deploy.indexOf('ensure-approval-prerequisites-035-037-nonproduction-schema.sh');
+  assert.ok(m31 >= 0 && m34 > m31 && m37 > m34);
   assert.match(taxiOperational, /ensure-taxi-operational-profile-gate-nonproduction-schema\.sh/);
   assert.match(taxiOperational, /APPLY_KHEDMAH_NONPROD_032_/);
   assert.doesNotMatch(deploy, /ensure-taxi-operational-profile-gate-nonproduction-schema\.sh/);

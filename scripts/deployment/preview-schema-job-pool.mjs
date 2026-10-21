@@ -14,6 +14,7 @@ export const STAGES = Object.freeze({
   'taxi-operational-031': 'taxi-operational-migration',
   'taxi-operational-032': 'taxi-operational-profile-gate-migration',
   'food-promotions-034': 'food-promotions-migration',
+  'approval-prerequisites-035-037': 'approval-prerequisites-migration',
 });
 const POLICY = Object.freeze({
   project_sha256: 'b299ab462a1e169173551bb6a47c508bcdfb30860f21b551d455cb7704f80e4f',

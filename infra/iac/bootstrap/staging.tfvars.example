@@ -15,6 +15,7 @@ terraform_state_bucket_name = "REPLACE_WITH_ISOLATED_STAGING_TERRAFORM_STATE_BUC
 artifact_registry_repository_id = "khedmah-staging"
 runtime_service_account_id       = "khedmah-v1-staging-runtime"
 deployer_service_account_id      = "khedmah-v1-staging-deployer"
+migration_service_account_id     = "khedmah-v1-staging-migrator"
 
 github_repository    = "khedma-sy/khedmah-digital-v1"
 github_workflow_path = ".github/workflows/staging-deployment.yml"

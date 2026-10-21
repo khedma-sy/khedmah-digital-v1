@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { DriverDocumentReviewController } from './driver-document-review.controller';
 import { DriverDocumentReviewService } from './driver-document-review.service';
 
 const actor = {
@@ -208,27 +209,36 @@ function reviewTransitionHarness(options: {
   currentStatus?: 'pending' | 'approved' | 'rejected';
   latestId?: string;
   securityOverride?: boolean;
+  ownerUserId?: string;
 } = {}) {
   const writes: string[] = [];
+  const queries: string[] = [];
   let securityChecks = 0;
+  let transactions = 0;
   const client = {
     async query(sql: string) {
+      queries.push(sql);
       if (sql.includes('SELECT owner_id FROM media_assets')) {
         return { rows: [{ owner_id: 'business-1' }], rowCount: 1 };
       }
       if (sql.includes('SELECT id,owner_user_id FROM business_profiles')) {
-        return { rows: [{ id: 'business-1', owner_user_id: 'owner-1' }], rowCount: 1 };
+        assert.match(sql, /FOR UPDATE/);
+        return { rows: [{ id: 'business-1', owner_user_id: options.ownerUserId ?? 'owner-1' }], rowCount: 1 };
       }
       if (sql.includes('SELECT owner_id,asset_type FROM media_assets')) {
+        assert.match(sql, /FOR UPDATE/);
         return { rows: [{ owner_id: 'business-1', asset_type: 'driving_license' }], rowCount: 1 };
       }
       if (sql.includes('SELECT id FROM media_assets')) {
+        assert.match(sql, /FOR UPDATE/);
         return { rows: [{ id: options.latestId ?? 'document-1' }], rowCount: 1 };
       }
       if (sql.includes('SELECT status FROM mobility_document_reviews')) {
+        assert.match(sql, /FOR UPDATE/);
         return { rows: options.currentStatus ? [{ status: options.currentStatus }] : [], rowCount: options.currentStatus ? 1 : 0 };
       }
-      if (sql.includes('INSERT INTO mobility_document_reviews') || sql.includes('INSERT INTO mobility_document_review_events')) {
+      if (sql.includes('INSERT INTO mobility_document_reviews') || sql.includes('INSERT INTO mobility_document_review_events') ||
+          sql.includes('UPDATE business_profiles')) {
         writes.push(sql);
         return { rows: [], rowCount: 1 };
       }
@@ -236,7 +246,7 @@ function reviewTransitionHarness(options: {
     }
   };
   const service = new DriverDocumentReviewService(
-    { transaction: async (work: (value: typeof client) => Promise<unknown>) => work(client) } as never,
+    { transaction: async (work: (value: typeof client) => Promise<unknown>) => { transactions += 1; return work(client); } } as never,
     { getCurrentUser: async () => actor } as never,
     {
       assertAny: () => [],
@@ -247,8 +257,145 @@ function reviewTransitionHarness(options: {
       }
     } as never
   );
-  return { service, writes, securityChecks: () => securityChecks };
+  return { service, writes, queries, securityChecks: () => securityChecks, transactions: () => transactions };
 }
+
+for (const securityOverride of [false, true]) {
+  const role = securityOverride ? 'director' : 'bounded reviewer';
+  for (const currentStatus of ['approved', 'rejected'] as const) {
+    test(`pending snapshot rejects a ${role} approval after the document became ${currentStatus}`, async () => {
+      const fixture = reviewTransitionHarness({ currentStatus, securityOverride });
+      await assert.rejects(
+        fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined, 'pending'),
+        (error: unknown) => error instanceof ConflictException && error.getStatus() === 409
+      );
+      assert.equal(fixture.transactions(), 1);
+      assert.equal(fixture.queries.length, 5, 'the decision uses the locked current review state');
+      assert.match(fixture.queries[4], /SELECT status FROM mobility_document_reviews.*FOR UPDATE/);
+      assert.deepEqual(fixture.writes, [], 'stale review must not write a decision, audit or profile change');
+      assert.equal(fixture.securityChecks(), 0, 'the explicit snapshot cannot fall through to a security override');
+    });
+  }
+
+  for (const currentStatus of [undefined, 'pending'] as const) {
+    test(`pending snapshot permits a ${role} approval for ${currentStatus ?? 'a document without a decision row'}`, async () => {
+      const fixture = reviewTransitionHarness({ currentStatus, securityOverride });
+      const result = await fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined, 'pending');
+      assert.equal(result.status, 'approved');
+      assert.equal(fixture.writes.length, 2);
+      assert.match(fixture.writes[0], /INSERT INTO mobility_document_reviews/);
+      assert.match(fixture.writes[1], /INSERT INTO mobility_document_review_events/);
+      assert.equal(fixture.securityChecks(), 0);
+    });
+  }
+}
+
+test('malformed expected review status is rejected before any transaction', async () => {
+  for (const expectedReviewStatus of [null, false, true, 0, '', 'approved', 'rejected', ' pending ', {}, ['pending']]) {
+    const fixture = reviewTransitionHarness({ securityOverride: true });
+    await assert.rejects(
+      fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined, expectedReviewStatus),
+      BadRequestException
+    );
+    assert.equal(fixture.transactions(), 0);
+    assert.deepEqual(fixture.queries, []);
+    assert.deepEqual(fixture.writes, []);
+  }
+});
+
+for (const currentStatus of ['approved', 'rejected'] as const) {
+  test(`pending snapshot also prevents a director rejection from overwriting ${currentStatus}`, async () => {
+    const fixture = reviewTransitionHarness({ currentStatus, securityOverride: true });
+    await assert.rejects(
+      fixture.service.review('khedmah_session=reviewer', 'document-1', 'rejected', 'Unreadable evidence.', 'pending'),
+      ConflictException
+    );
+    assert.equal(fixture.securityChecks(), 1);
+    assert.deepEqual(fixture.writes, []);
+  });
+}
+
+for (const currentStatus of [undefined, 'pending'] as const) {
+  test(`pending snapshot permits an authorized rejection for ${currentStatus ?? 'a document without a decision row'}`, async () => {
+    const fixture = reviewTransitionHarness({ currentStatus, securityOverride: true });
+    const result = await fixture.service.review('khedmah_session=reviewer', 'document-1', 'rejected', 'Unreadable evidence.', 'pending');
+    assert.equal(result.status, 'rejected');
+    assert.equal(fixture.writes.length, 3, 'decision, audit and existing profile invalidation are retained');
+  });
+}
+
+test('an explicit pending snapshot does not grant rejection authority', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'pending' });
+  await assert.rejects(
+    fixture.service.review('khedmah_session=reviewer', 'document-1', 'rejected', 'Unreadable evidence.', 'pending'),
+    ForbiddenException
+  );
+  assert.equal(fixture.transactions(), 0);
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('an explicit pending snapshot preserves self-review denial', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'pending', securityOverride: true, ownerUserId: actor.id });
+  await assert.rejects(
+    fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined, 'pending'),
+    ForbiddenException
+  );
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('an explicit pending snapshot preserves latest-document denial', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'pending', securityOverride: true, latestId: 'newer-document' });
+  await assert.rejects(
+    fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined, 'pending'),
+    ConflictException
+  );
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('omitting the snapshot preserves an existing director repeat-approval path', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'approved', securityOverride: true });
+  const result = await fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined);
+  assert.equal(result.status, 'approved');
+  assert.equal(fixture.writes.length, 2);
+  assert.equal(fixture.securityChecks(), 1);
+});
+
+test('omitting the snapshot does not give a bounded reviewer the director override', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'approved' });
+  await assert.rejects(
+    fixture.service.review('khedmah_session=reviewer', 'document-1', 'approved', undefined),
+    ForbiddenException
+  );
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('the HTTP review controller preserves the explicit pending snapshot at the transaction boundary', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'rejected', securityOverride: true });
+  const controller = new DriverDocumentReviewController(fixture.service);
+  await assert.rejects(
+    controller.review('khedmah_session=reviewer', 'document-1', { status: 'approved', expectedReviewStatus: 'pending' }),
+    ConflictException
+  );
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('the HTTP review controller forwards malformed snapshots to validation', async () => {
+  const fixture = reviewTransitionHarness({ securityOverride: true });
+  const controller = new DriverDocumentReviewController(fixture.service);
+  await assert.rejects(
+    controller.review('khedmah_session=reviewer', 'document-1', { status: 'approved', expectedReviewStatus: null }),
+    BadRequestException
+  );
+  assert.equal(fixture.transactions(), 0);
+});
+
+test('the HTTP review controller retains the legacy omission contract', async () => {
+  const fixture = reviewTransitionHarness({ currentStatus: 'rejected', securityOverride: true });
+  const controller = new DriverDocumentReviewController(fixture.service);
+  const result = await controller.review('khedmah_session=reviewer', 'document-1', { status: 'approved' });
+  assert.equal(result.review.status, 'approved');
+  assert.equal(fixture.writes.length, 2);
+});
 
 test('bounded mobility authority can approve a latest document whose current state is pending', async () => {
   const fixture = reviewTransitionHarness({ currentStatus: 'pending' });

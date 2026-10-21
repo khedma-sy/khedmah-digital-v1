@@ -1,0 +1,11 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+COPY backend/migrations/versions/035_specialized_admin_roles.sql /migrations/035_specialized_admin_roles.sql
+COPY backend/migrations/versions/037_verification_evidence_media.sql /migrations/037_verification_evidence_media.sql
+COPY scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh /usr/local/bin/run-approval-prerequisites-035-037-nonproduction-migration
+RUN chmod 0555 /usr/local/bin/run-approval-prerequisites-035-037-nonproduction-migration \
+      /migrations/035_specialized_admin_roles.sql /migrations/037_verification_evidence_media.sql \
+    && chmod -R a-w /migrations
+USER postgres
+ENTRYPOINT ["/usr/local/bin/run-approval-prerequisites-035-037-nonproduction-migration"]

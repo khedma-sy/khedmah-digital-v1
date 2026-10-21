@@ -5,6 +5,7 @@ required=(
   GCP_WORKLOAD_IDENTITY_PROVIDER
   GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT
   GCP_STAGING_RUNTIME_SERVICE_ACCOUNT
+  GCP_STAGING_MIGRATION_SERVICE_ACCOUNT
   DEVELOPMENT_GOOGLE_CLOUD_PROJECT
   PREVIEW_GOOGLE_CLOUD_PROJECT
   STAGING_GOOGLE_CLOUD_PROJECT
@@ -19,6 +20,7 @@ required=(
   STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME
   STAGING_GCS_MEDIA_BUCKET
   STAGING_EMAIL_FROM
+  STAGING_DATABASE_MIGRATION_SECRET_VERSION
 )
 
 missing=()
@@ -31,6 +33,21 @@ done
 if ((${#missing[@]})); then
   joined="$(IFS=,; echo "${missing[*]}")"
   echo "::error::Missing protected staging environment configuration: ${joined}" >&2
+  exit 2
+fi
+
+while IFS= read -r name; do
+  if [[ "$name" == STAGING_APPROVAL_* \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE \
+    || "$name" == APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION ]]; then
+    echo "::error::${name} is not accepted by the general Staging deployment workflow; approval prerequisites are verify-only." >&2
+    exit 2
+  fi
+done < <(compgen -e)
+
+readonly canonical_production_project='khedma-dl'
+if [[ "$PRODUCTION_GOOGLE_CLOUD_PROJECT" != "$canonical_production_project" ]]; then
+  echo '::error::PRODUCTION_GOOGLE_CLOUD_PROJECT must be the canonical Production project before GCP authentication.' >&2
   exit 2
 fi
 
@@ -77,7 +94,7 @@ if [[ "$provider_project_number" != "$STAGING_GOOGLE_CLOUD_PROJECT_NUMBER" ]]; t
 fi
 
 expected_sa_suffix="@${STAGING_GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
-for name in GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT GCP_STAGING_RUNTIME_SERVICE_ACCOUNT; do
+for name in GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT GCP_STAGING_RUNTIME_SERVICE_ACCOUNT GCP_STAGING_MIGRATION_SERVICE_ACCOUNT; do
   value="${!name}"
   if [[ "$value" != *"${expected_sa_suffix}" ]]; then
     echo "::error::${name} must belong to STAGING_GOOGLE_CLOUD_PROJECT; Preview or Production identities are not accepted." >&2
@@ -85,8 +102,15 @@ for name in GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT GCP_STAGING_RUNTIME_SERVICE_ACC
   fi
 done
 
-if [[ "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" == "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" ]]; then
-  echo '::error::Staging deployer and runtime service accounts must be distinct identities.' >&2
+if [[ "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" == "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" \
+   || "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" == "$GCP_STAGING_MIGRATION_SERVICE_ACCOUNT" \
+   || "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" == "$GCP_STAGING_MIGRATION_SERVICE_ACCOUNT" ]]; then
+  echo '::error::Staging deployer, runtime, and migration service accounts must be distinct identities.' >&2
+  exit 2
+fi
+
+if [[ ! "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]; then
+  echo '::error::STAGING_DATABASE_MIGRATION_SECRET_VERSION must be a pinned positive integer.' >&2
   exit 2
 fi
 

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable } from "@nes
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { DatabasePool } from "../database/database.pool";
+import { orderMoneyCents, orderSubtotal, orderTotal } from "./order-money";
 import type {
   FulfillmentOrder,
   FulfillmentOrderEvent,
@@ -268,6 +269,9 @@ export class OrderRepository {
     idempotencyKey: string,
     expectation: CreatePromotionExpectation = {},
   ): Promise<FulfillmentOrder> {
+    const subtotal = orderSubtotal(order.items);
+    if (orderMoneyCents(subtotal, "subtotal") !== orderMoneyCents(order.subtotal, "subtotal"))
+      throw new BadRequestException("subtotal does not match the order items.");
     const orderId = await this.db.transaction(async (client) => {
       await client.query(
         `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
@@ -490,6 +494,14 @@ export class OrderRepository {
            ORDER BY id FOR UPDATE`,
           [options.eligibleCourierBusinessId],
         );
+      }
+      if (options.deliveryFee !== undefined) {
+        const current = (await client.query<{ subtotal: string; discount_amount: string }>(
+          `SELECT subtotal,discount_amount FROM fulfillment_orders WHERE id=$1 AND status=$2 FOR UPDATE`,
+          [order.id, order.status],
+        )).rows[0];
+        if (!current) return false;
+        orderTotal(current.subtotal, current.discount_amount, options.deliveryFee);
       }
       const result = await client.query(
         `UPDATE fulfillment_orders SET status=$3,delivery_fee=COALESCE($4,delivery_fee),total=CASE WHEN $4::numeric IS NOT NULL THEN subtotal-discount_amount+$4 ELSE total END,courier_business_id=CASE WHEN $9::boolean THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE courier_business_id END,pharmacy_review_status=COALESCE($6,pharmacy_review_status),rejection_reason=CASE WHEN $3 IN ('rejected','cancelled') THEN $7 ELSE rejection_reason END,payment_status=CASE WHEN $3='delivered' THEN 'cash_collected' ELSE payment_status END,quoted_at=CASE WHEN $3='quoted' THEN $8 ELSE quoted_at END,confirmed_at=CASE WHEN $2='quoted' AND $3='merchant_confirmed' THEN $8 ELSE confirmed_at END,delivered_at=CASE WHEN $3='delivered' THEN $8 ELSE delivered_at END,closed_at=CASE WHEN $3 IN ('delivered','rejected','cancelled') THEN $8 ELSE closed_at END,updated_at=$8

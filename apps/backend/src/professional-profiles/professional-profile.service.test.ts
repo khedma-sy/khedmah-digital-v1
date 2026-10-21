@@ -186,6 +186,9 @@ test('public approved active professional remains publicly readable', async () =
 
   assert.equal(publicProfile.id, profile.id);
   assert.equal(publicProfile.headlineAr, profile.headlineAr);
+  assert.deepEqual(publicProfile.contactEligibility, {
+    visibility: 'public', moderationStatus: 'approved', lifecycleStatus: 'active', eligible: true
+  }, 'the public detail must receive the server-verified contact gate it renders');
 
   await service.getMediaAssets(profile.id);
   await service.getVerificationStatus(profile.id);

@@ -7,6 +7,7 @@ required=(
   ARTIFACT_REPOSITORY
   CLOUD_SQL_INSTANCE_CONNECTION_NAME
   GCS_MEDIA_BUCKET
+  STAGING_DATABASE_MIGRATION_SECRET_VERSION
   PRODUCTION_GOOGLE_CLOUD_PROJECT
 )
 
@@ -14,8 +15,18 @@ for name in "${required[@]}"; do
   [[ -n "${!name:-}" ]] || { echo "::error::Missing ${name} for Staging cloud-resource preflight." >&2; exit 2; }
 done
 
-[[ "$GOOGLE_CLOUD_PROJECT" != "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]] || {
+readonly canonical_production_project='khedma-dl'
+[[ "$PRODUCTION_GOOGLE_CLOUD_PROJECT" == "$canonical_production_project" ]] || {
+  echo '::error::Canonical Production project identity is missing or invalid.' >&2
+  exit 3
+}
+[[ "$GOOGLE_CLOUD_PROJECT" != "$canonical_production_project" ]] || {
   echo '::error::Refusing Staging cloud-resource preflight against Production.' >&2
+  exit 3
+}
+
+[[ "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]] || {
+  echo '::error::STAGING_DATABASE_MIGRATION_SECRET_VERSION must be a pinned positive integer.' >&2
   exit 3
 }
 
@@ -85,6 +96,15 @@ for secret_name in "${required_secrets[@]}"; do
   fi
 done
 
+migration_secret_state="$(gcloud secrets versions describe "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" \
+  --secret DATABASE_MIGRATION_URL \
+  --project "$GOOGLE_CLOUD_PROJECT" \
+  --format='value(state)' 2>/dev/null || true)"
+if [[ "$migration_secret_state" != 'ENABLED' ]]; then
+  echo '::error::Required Staging migration secret version is missing, disabled, or unreadable.' >&2
+  exit 7
+fi
+
 [[ "$GCS_MEDIA_BUCKET" =~ ^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$ ]] || {
   echo '::error::GCS_MEDIA_BUCKET is not a valid bucket identifier.' >&2
   exit 8
@@ -99,4 +119,4 @@ gcloud storage buckets describe "gs://${GCS_MEDIA_BUCKET}" \
     exit 9
   }
 
-echo 'Staging cloud resource preflight passed: isolated Artifact Registry, Cloud SQL, and GCS media bucket resources are readable by the deployer identity, and required runtime secret versions are enabled without reading secret payloads.'
+echo 'Staging cloud resource preflight passed: isolated Artifact Registry, Cloud SQL, and GCS media bucket resources are readable by the deployer identity, and required runtime and pinned migration secret versions are enabled without reading secret payloads.'

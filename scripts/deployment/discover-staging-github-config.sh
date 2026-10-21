@@ -5,6 +5,16 @@ set +x
 : "${STAGING_GOOGLE_CLOUD_PROJECT:?STAGING_GOOGLE_CLOUD_PROJECT is required}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-me-central1}"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-khedma-sy/khedmah-digital-v1}"
+readonly canonical_production_project='khedma-dl'
+
+if [[ "${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}" != "$canonical_production_project" ]]; then
+  echo 'ERROR: PRODUCTION_GOOGLE_CLOUD_PROJECT must identify the canonical Production project before discovery.' >&2
+  exit 5
+fi
+if [[ "$STAGING_GOOGLE_CLOUD_PROJECT" == "$canonical_production_project" ]]; then
+  echo 'ERROR: refusing to inspect Production as Staging.' >&2
+  exit 5
+fi
 
 for command_name in gcloud; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -20,17 +30,14 @@ project_number="$(gcloud projects describe "$project" --format='value(projectNum
   exit 4
 }
 
-if [[ -n "${PRODUCTION_GOOGLE_CLOUD_PROJECT:-}" && "$project" == "$PRODUCTION_GOOGLE_CLOUD_PROJECT" ]]; then
-  echo 'ERROR: refusing to inspect Production as Staging.' >&2
-  exit 5
-fi
-
 exact_runtime="khedmah-v1-staging-runtime@${project}.iam.gserviceaccount.com"
 exact_deployer="khedmah-v1-staging-deployer@${project}.iam.gserviceaccount.com"
+exact_migration="khedmah-v1-staging-migrator@${project}.iam.gserviceaccount.com"
 service_accounts="$(gcloud iam service-accounts list --project "$project" --format='value(email)')"
 
 runtime_sa=''
 deployer_sa=''
+migration_sa=''
 if grep -F -x "$exact_runtime" <<<"$service_accounts" >/dev/null; then
   runtime_sa="$exact_runtime"
 elif [[ -n "${GCP_STAGING_RUNTIME_SERVICE_ACCOUNT:-}" ]] && grep -F -x "$GCP_STAGING_RUNTIME_SERVICE_ACCOUNT" <<<"$service_accounts" >/dev/null; then
@@ -40,6 +47,11 @@ if grep -F -x "$exact_deployer" <<<"$service_accounts" >/dev/null; then
   deployer_sa="$exact_deployer"
 elif [[ -n "${GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT:-}" ]] && grep -F -x "$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT" <<<"$service_accounts" >/dev/null; then
   deployer_sa="$GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT"
+fi
+if grep -F -x "$exact_migration" <<<"$service_accounts" >/dev/null; then
+  migration_sa="$exact_migration"
+elif [[ -n "${GCP_STAGING_MIGRATION_SERVICE_ACCOUNT:-}" ]] && grep -F -x "$GCP_STAGING_MIGRATION_SERVICE_ACCOUNT" <<<"$service_accounts" >/dev/null; then
+  migration_sa="$GCP_STAGING_MIGRATION_SERVICE_ACCOUNT"
 fi
 
 provider=''
@@ -129,12 +141,23 @@ for secret_name in "${required_secrets[@]}"; do
   fi
 done
 
+migration_secret_version=''
+if [[ "${STAGING_DATABASE_MIGRATION_SECRET_VERSION:-}" =~ ^[1-9][0-9]*$ ]]; then
+  migration_secret_state="$(gcloud secrets versions describe "$STAGING_DATABASE_MIGRATION_SECRET_VERSION" \
+    --secret DATABASE_MIGRATION_URL --project "$project" --format='value(state)' 2>/dev/null || true)"
+  if [[ "$migration_secret_state" == 'ENABLED' ]]; then
+    migration_secret_version="$STAGING_DATABASE_MIGRATION_SECRET_VERSION"
+  fi
+fi
+
 printf 'STAGING_DISCOVERY_PROJECT=%s\n' "$project"
 printf 'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER=%s\n' "$project_number"
 printf 'GOOGLE_CLOUD_REGION=%s\n' "$GOOGLE_CLOUD_REGION"
 printf 'GCP_WORKLOAD_IDENTITY_PROVIDER=%s\n' "${provider:-UNRESOLVED}"
 printf 'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT=%s\n' "${deployer_sa:-UNRESOLVED}"
 printf 'GCP_STAGING_RUNTIME_SERVICE_ACCOUNT=%s\n' "${runtime_sa:-UNRESOLVED}"
+printf 'GCP_STAGING_MIGRATION_SERVICE_ACCOUNT=%s\n' "${migration_sa:-UNRESOLVED}"
+printf 'STAGING_DATABASE_MIGRATION_SECRET_VERSION=%s\n' "${migration_secret_version:-UNRESOLVED}"
 printf 'STAGING_ARTIFACT_REPOSITORY=%s\n' "${artifact_repository:-UNRESOLVED}"
 printf 'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME=%s\n' "${sql_connection:-UNRESOLVED}"
 printf 'STAGING_GCS_MEDIA_BUCKET=%s\n' "${media_bucket:-UNRESOLVED}"
@@ -147,6 +170,8 @@ unresolved=()
 [[ -n "$provider" ]] || unresolved+=(GCP_WORKLOAD_IDENTITY_PROVIDER)
 [[ -n "$deployer_sa" ]] || unresolved+=(GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT)
 [[ -n "$runtime_sa" ]] || unresolved+=(GCP_STAGING_RUNTIME_SERVICE_ACCOUNT)
+[[ -n "$migration_sa" ]] || unresolved+=(GCP_STAGING_MIGRATION_SERVICE_ACCOUNT)
+[[ -n "$migration_secret_version" ]] || unresolved+=(STAGING_DATABASE_MIGRATION_SECRET_VERSION)
 [[ -n "$artifact_repository" ]] || unresolved+=(STAGING_ARTIFACT_REPOSITORY)
 [[ -n "$sql_connection" ]] || unresolved+=(STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME)
 [[ -n "$media_bucket" ]] || unresolved+=(STAGING_GCS_MEDIA_BUCKET)

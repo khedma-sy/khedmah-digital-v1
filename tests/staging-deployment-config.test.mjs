@@ -5,16 +5,27 @@ import test from 'node:test';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const validator = resolve(root, 'scripts/deployment/validate-staging-deployment-config.sh');
+const activationNames = [
+  'STAGING_APPROVAL_PREREQUISITES_MODE',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_COMMIT',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ID',
+  'STAGING_APPROVAL_PREREQUISITES_APPLY_RUN_ATTEMPT',
+  'STAGING_APPROVAL_PREREQUISITES_CONFIRMATION',
+  'STAGING_APPROVAL_FUTURE_AUTHORITY',
+  'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_MODE',
+  'APPROVAL_PREREQUISITES_MIGRATIONS_035_037_CONFIRMATION',
+];
 
 const valid = {
   GCP_WORKLOAD_IDENTITY_PROVIDER: 'projects/123456789/locations/global/workloadIdentityPools/khedmah-staging/providers/github',
   GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: 'github-staging@khedmah-staging.iam.gserviceaccount.com',
   GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: 'runtime-staging@khedmah-staging.iam.gserviceaccount.com',
+  GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: 'migration-staging@khedmah-staging.iam.gserviceaccount.com',
   DEVELOPMENT_GOOGLE_CLOUD_PROJECT: 'khedmah-development',
   PREVIEW_GOOGLE_CLOUD_PROJECT: 'khedmah-preview',
   STAGING_GOOGLE_CLOUD_PROJECT: 'khedmah-staging',
   STAGING_GOOGLE_CLOUD_PROJECT_NUMBER: '123456789',
-  PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production',
+  PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
   DEVELOPMENT_FIREBASE_PROJECT_ID: 'khedmah-development-firebase',
   PREVIEW_FIREBASE_PROJECT_ID: 'khedmah-preview-firebase',
   STAGING_FIREBASE_PROJECT_ID: 'khedmah-staging-firebase',
@@ -23,11 +34,14 @@ const valid = {
   STAGING_ARTIFACT_REPOSITORY: 'khedmah-staging',
   STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging:me-central1:khedmah-staging-db',
   STAGING_GCS_MEDIA_BUCKET: 'khedmah-staging-media',
-  STAGING_EMAIL_FROM: 'noreply@staging.example'
+  STAGING_EMAIL_FROM: 'noreply@staging.example',
+  STAGING_DATABASE_MIGRATION_SECRET_VERSION: '7'
 };
 
 function run(overrides = {}, removals = []) {
-  const env = { ...process.env, ...valid, ...overrides };
+  const env = { ...process.env, ...valid };
+  for (const name of activationNames) delete env[name];
+  Object.assign(env, overrides);
   for (const name of removals) delete env[name];
   return spawnSync(validator, [], { cwd: root, env, encoding: 'utf8' });
 }
@@ -40,25 +54,41 @@ test('staging deployment configuration preflight accepts a complete isolated con
   assert.doesNotMatch(output, /123456789/);
   assert.doesNotMatch(output, /github-staging@/);
   assert.doesNotMatch(output, /runtime-staging@/);
+  assert.doesNotMatch(output, /migration-staging@/);
+});
+
+test('staging deployment configuration rejects every supplied approval activation or internal value', () => {
+  assert.equal(run().status, 0);
+  for (const name of activationNames) {
+    for (const value of ['', 'unexpected-activation-value']) {
+      const result = run({ [name]: value });
+      assert.equal(result.status, 2, `${name}: ${result.stderr}`);
+      assert.match(result.stderr, new RegExp(name));
+    }
+  }
 });
 
 test('staging deployment configuration preflight reports every missing protected value before GCP auth', () => {
   const result = run({}, [
     'GCP_WORKLOAD_IDENTITY_PROVIDER',
     'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT',
+    'GCP_STAGING_MIGRATION_SERVICE_ACCOUNT',
     'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER',
     'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME',
     'STAGING_GCS_MEDIA_BUCKET',
-    'STAGING_EMAIL_FROM'
+    'STAGING_EMAIL_FROM',
+    'STAGING_DATABASE_MIGRATION_SECRET_VERSION'
   ]);
   assert.equal(result.status, 2);
   for (const name of [
     'GCP_WORKLOAD_IDENTITY_PROVIDER',
     'GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT',
+    'GCP_STAGING_MIGRATION_SERVICE_ACCOUNT',
     'STAGING_GOOGLE_CLOUD_PROJECT_NUMBER',
     'STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME',
     'STAGING_GCS_MEDIA_BUCKET',
-    'STAGING_EMAIL_FROM'
+    'STAGING_EMAIL_FROM',
+    'STAGING_DATABASE_MIGRATION_SECRET_VERSION'
   ]) assert.match(result.stderr, new RegExp(name));
 });
 
@@ -70,6 +100,14 @@ test('staging deployment configuration preflight rejects duplicate cloud and Fir
   const duplicateFirebase = run({ STAGING_FIREBASE_PROJECT_ID: valid.PRODUCTION_FIREBASE_PROJECT_ID });
   assert.equal(duplicateFirebase.status, 2);
   assert.match(duplicateFirebase.stderr, /FIREBASE_PROJECT_ID identities must be unique/);
+});
+
+test('staging deployment configuration preflight requires the canonical Production project identity', () => {
+  for (const value of ['khedmah-production', 'wrong-project']) {
+    const result = run({ PRODUCTION_GOOGLE_CLOUD_PROJECT: value });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /canonical Production project/);
+  }
 });
 
 test('staging deployment configuration preflight rejects malformed WIF and project-number values', () => {
@@ -102,12 +140,32 @@ test('staging deployment configuration preflight rejects service-account identit
   const productionRuntime = run({ GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: 'runtime-production@khedmah-production.iam.gserviceaccount.com' });
   assert.equal(productionRuntime.status, 2);
   assert.match(productionRuntime.stderr, /must belong to STAGING_GOOGLE_CLOUD_PROJECT/);
+
+  const previewMigration = run({ GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: 'migration-preview@khedmah-preview.iam.gserviceaccount.com' });
+  assert.equal(previewMigration.status, 2);
+  assert.match(previewMigration.stderr, /GCP_STAGING_MIGRATION_SERVICE_ACCOUNT/);
 });
 
-test('staging deployment configuration preflight requires distinct deployer and runtime identities', () => {
+test('staging deployment configuration preflight requires distinct deployer, runtime and migration identities', () => {
   const result = run({ GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: valid.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT });
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /deployer and runtime service accounts must be distinct/);
+  assert.match(result.stderr, /deployer, runtime, and migration service accounts must be distinct/);
+
+  const duplicateMigration = run({ GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: valid.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT });
+  assert.equal(duplicateMigration.status, 2);
+  assert.match(duplicateMigration.stderr, /deployer, runtime, and migration service accounts must be distinct/);
+
+  const duplicateDeployer = run({ GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: valid.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT });
+  assert.equal(duplicateDeployer.status, 2);
+  assert.match(duplicateDeployer.stderr, /deployer, runtime, and migration service accounts must be distinct/);
+});
+
+test('staging deployment configuration preflight requires a pinned migration secret version', () => {
+  for (const value of ['latest', '0', '-1', '01']) {
+    const result = run({ STAGING_DATABASE_MIGRATION_SECRET_VERSION: value });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /pinned positive integer/);
+  }
 });
 
 test('staging deployment configuration preflight rejects cross-project SQL, invalid bucket and invalid sender', () => {

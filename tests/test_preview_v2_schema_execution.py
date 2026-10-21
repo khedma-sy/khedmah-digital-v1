@@ -47,8 +47,8 @@ class ExecutionTests(unittest.TestCase):
         if name in call: return call[call.index(name) + 1]
         return next(value.split('=', 1)[1] for value in call if value.startswith(name + '='))
 
-    def test_all_nine_helpers_use_migrator_version_one_and_dedicated_build_storage(self):
-        self.assertEqual(len(HELPERS), 9)
+    def test_all_ten_helpers_use_migrator_version_one_and_dedicated_build_storage(self):
+        self.assertEqual(len(HELPERS), 10)
         for helper in HELPERS:
             with self.subTest(helper=helper.name):
                 result, calls = self.invoke(helper)
@@ -97,19 +97,24 @@ class ExecutionTests(unittest.TestCase):
                 self.assertIn('SCHEMA_PREVIEW_V2_VERIFY_ONLY',result.stderr)
                 self.assertEqual(calls,[])
 
-    def test_staging_retains_existing_identity_secret_and_build_behavior(self):
+    def test_staging_uses_pinned_migration_identity_only_for_approval_prerequisites(self):
         project = 'khedmah-staging-fixture'
         for helper in HELPERS:
             with self.subTest(helper=helper.name):
                 result, calls = self.invoke(helper, environment='staging', overrides={
                     'GOOGLE_CLOUD_PROJECT': project,
                     'RUNTIME_SERVICE_ACCOUNT': 'runtime@' + project + '.iam.gserviceaccount.com',
+                    'STAGING_MIGRATION_SERVICE_ACCOUNT': 'migration@' + project + '.iam.gserviceaccount.com',
+                    'STAGING_DATABASE_MIGRATION_SECRET_VERSION': '7',
                     'CLOUD_SQL_INSTANCE_CONNECTION_NAME': project + ':europe-west1:db'})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 for call in calls:
                     if call[:3] == ['run', 'jobs', 'deploy']:
-                        self.assertEqual(self.argument(call, '--set-secrets'), 'DATABASE_URL=DATABASE_URL:latest')
-                        self.assertEqual(self.argument(call, '--service-account'), 'runtime@' + project + '.iam.gserviceaccount.com')
+                        approval = helper.name == 'ensure-approval-prerequisites-035-037-nonproduction-schema.sh'
+                        self.assertEqual(self.argument(call, '--set-secrets'),
+                            'DATABASE_URL=DATABASE_MIGRATION_URL:7' if approval else 'DATABASE_URL=DATABASE_URL:latest')
+                        self.assertEqual(self.argument(call, '--service-account'),
+                            ('migration@' if approval else 'runtime@') + project + '.iam.gserviceaccount.com')
                     if call[:2] == ['builds', 'submit']:
                         self.assertNotIn('--service-account', call)
                         expected = helper.name == 'ensure-foundation-nonproduction-schema.sh'

@@ -1,0 +1,1782 @@
+{
+  "projectId": "5e271f43-96a6-40de-a634-ec3eae023a49",
+  "final_code_version": 1792613002166,
+  "aggregate": "68 distinct spec files PASS, 0 failing files; includes both generic hook files",
+  "count": 68,
+  "paths": [
+    "helpers/agentSecurityBoundaries.spec.tsx",
+    "helpers/businessAccessAdmin.spec.tsx",
+    "helpers/businessAccessRequest.spec.tsx",
+    "helpers/businessCoreContracts.spec.tsx",
+    "helpers/businessCoreHandlers.spec.tsx",
+    "helpers/businessCoreUi.spec.tsx",
+    "helpers/businessFileRules.spec.tsx",
+    "helpers/businessFinalMutations.spec.tsx",
+    "helpers/businessGmailContext.spec.tsx",
+    "helpers/businessInvitedLogin.spec.tsx",
+    "helpers/businessMeetingSessions.spec.tsx",
+    "helpers/businessPeopleContracts.spec.tsx",
+    "helpers/businessPeopleHandlers.spec.tsx",
+    "helpers/businessPeopleUi.spec.tsx",
+    "helpers/businessPortalIsolation.spec.tsx",
+    "helpers/businessProfileContracts.spec.tsx",
+    "helpers/businessProfileHandlers.spec.tsx",
+    "helpers/businessProfileUi.spec.tsx",
+    "helpers/businessReadFailures.spec.tsx",
+    "helpers/businessTaskContracts.spec.tsx",
+    "helpers/businessTaskHandlers.spec.tsx",
+    "helpers/businessTasksUi.spec.tsx",
+    "helpers/businessTenderUi.spec.tsx",
+    "helpers/businessUnifiedLogin.spec.tsx",
+    "helpers/businessWorkspaceUi.spec.tsx",
+    "helpers/discoverySourcePolicy.spec.tsx",
+    "helpers/khedmahAdapterEndpoints.spec.tsx",
+    "helpers/khedmahAdapterSecurity.spec.tsx",
+    "helpers/khedmahAdmin.spec.tsx",
+    "helpers/khedmahApprovalTransport.spec.tsx",
+    "helpers/khedmahCheckoutAttempt.spec.tsx",
+    "helpers/khedmahClassifieds.spec.tsx",
+    "helpers/khedmahCommerceContracts.spec.tsx",
+    "helpers/khedmahCommerceEligibility.spec.tsx",
+    "helpers/khedmahCommerceRecoveryUi.spec.tsx",
+    "helpers/khedmahCommerceUi.spec.tsx",
+    "helpers/khedmahDriverTransport.spec.tsx",
+    "helpers/khedmahDriverUi.spec.tsx",
+    "helpers/khedmahFood.spec.tsx",
+    "helpers/khedmahFoodCartUi.spec.tsx",
+    "helpers/khedmahFulfillmentActions.spec.tsx",
+    "helpers/khedmahFulfillmentOperationsUi.spec.tsx",
+    "helpers/khedmahManage.spec.tsx",
+    "helpers/khedmahManagementActor.spec.tsx",
+    "helpers/khedmahManagementActorUi.spec.tsx",
+    "helpers/khedmahManagementAttempts.spec.tsx",
+    "helpers/khedmahManagementUi.spec.tsx",
+    "helpers/khedmahMapConsent.spec.tsx",
+    "helpers/khedmahMobility.spec.tsx",
+    "helpers/khedmahNearby.spec.tsx",
+    "helpers/khedmahOwnerImage.spec.tsx",
+    "helpers/khedmahOwnerMediaSafetyUi.spec.tsx",
+    "helpers/khedmahPreviewAcceptance.spec.tsx",
+    "helpers/khedmahProvider.spec.tsx",
+    "helpers/khedmahProviderContact.spec.tsx",
+    "helpers/khedmahProviderContactUi.spec.tsx",
+    "helpers/khedmahPublicNavigation.spec.tsx",
+    "helpers/khedmahPublicSearch.spec.tsx",
+    "helpers/khedmahReturnPath.spec.tsx",
+    "helpers/khedmahReviewContract.spec.tsx",
+    "helpers/khedmahReviewTransport.spec.tsx",
+    "helpers/khedmahReviewUi.spec.tsx",
+    "helpers/khedmahSessionEvidence.spec.tsx",
+    "helpers/khedmahStore.spec.tsx",
+    "helpers/khedmahTransportBounds.spec.tsx",
+    "helpers/themeMode.spec.tsx",
+    "helpers/useDebounce.spec.tsx",
+    "helpers/useMediaQuery.spec.tsx"
+  ],
+  "batches": [
+    {
+      "batch": 1,
+      "paths": [
+        "helpers/agentSecurityBoundaries.spec.tsx",
+        "helpers/businessAccessAdmin.spec.tsx",
+        "helpers/businessAccessRequest.spec.tsx",
+        "helpers/businessCoreContracts.spec.tsx",
+        "helpers/businessCoreHandlers.spec.tsx",
+        "helpers/businessCoreUi.spec.tsx",
+        "helpers/businessFileRules.spec.tsx",
+        "helpers/businessFinalMutations.spec.tsx",
+        "helpers/businessGmailContext.spec.tsx",
+        "helpers/businessInvitedLogin.spec.tsx",
+        "helpers/businessMeetingSessions.spec.tsx",
+        "helpers/businessPeopleContracts.spec.tsx",
+        "helpers/businessPeopleHandlers.spec.tsx",
+        "helpers/businessPeopleUi.spec.tsx",
+        "helpers/businessPortalIsolation.spec.tsx",
+        "helpers/businessProfileContracts.spec.tsx",
+        "helpers/businessProfileHandlers.spec.tsx",
+        "helpers/businessProfileUi.spec.tsx",
+        "helpers/businessReadFailures.spec.tsx",
+        "helpers/businessTaskContracts.spec.tsx"
+      ],
+      "result": "20 spec file(s) passed, 0 failed\n\nPASS helpers/agentSecurityBoundaries.spec.tsx\nPASS helpers/businessAccessAdmin.spec.tsx\nPASS helpers/businessAccessRequest.spec.tsx\nPASS helpers/businessCoreContracts.spec.tsx\nPASS helpers/businessCoreHandlers.spec.tsx\nPASS helpers/businessCoreUi.spec.tsx\nPASS helpers/businessFileRules.spec.tsx\nPASS helpers/businessFinalMutations.spec.tsx\nPASS helpers/businessGmailContext.spec.tsx\nPASS helpers/businessInvitedLogin.spec.tsx\nPASS helpers/businessMeetingSessions.spec.tsx\nPASS helpers/businessPeopleContracts.spec.tsx\nPASS helpers/businessPeopleHandlers.spec.tsx\nPASS helpers/businessPeopleUi.spec.tsx\nPASS helpers/businessPortalIsolation.spec.tsx\nPASS helpers/businessProfileContracts.spec.tsx\nPASS helpers/businessProfileHandlers.spec.tsx\nPASS helpers/businessProfileUi.spec.tsx\nPASS helpers/businessReadFailures.spec.tsx\nPASS helpers/businessTaskContracts.spec.tsx"
+    },
+    {
+      "batch": 2,
+      "paths": [
+        "helpers/businessTaskHandlers.spec.tsx",
+        "helpers/businessTasksUi.spec.tsx",
+        "helpers/businessTenderUi.spec.tsx",
+        "helpers/businessUnifiedLogin.spec.tsx",
+        "helpers/businessWorkspaceUi.spec.tsx",
+        "helpers/discoverySourcePolicy.spec.tsx",
+        "helpers/themeMode.spec.tsx",
+        "helpers/useDebounce.spec.tsx",
+        "helpers/useMediaQuery.spec.tsx"
+      ],
+      "result": "9 spec file(s) passed, 0 failed\n\nPASS helpers/businessTaskHandlers.spec.tsx\nPASS helpers/businessTasksUi.spec.tsx\nPASS helpers/businessTenderUi.spec.tsx\nPASS helpers/businessUnifiedLogin.spec.tsx\nPASS helpers/businessWorkspaceUi.spec.tsx\nPASS helpers/discoverySourcePolicy.spec.tsx\nPASS helpers/themeMode.spec.tsx\nPASS helpers/useDebounce.spec.tsx\nPASS helpers/useMediaQuery.spec.tsx"
+    },
+    {
+      "batch": 3,
+      "paths": [
+        "helpers/khedmahAdapterEndpoints.spec.tsx",
+        "helpers/khedmahAdapterSecurity.spec.tsx",
+        "helpers/khedmahAdmin.spec.tsx",
+        "helpers/khedmahApprovalTransport.spec.tsx",
+        "helpers/khedmahCheckoutAttempt.spec.tsx",
+        "helpers/khedmahClassifieds.spec.tsx",
+        "helpers/khedmahCommerceContracts.spec.tsx",
+        "helpers/khedmahCommerceEligibility.spec.tsx",
+        "helpers/khedmahCommerceRecoveryUi.spec.tsx",
+        "helpers/khedmahCommerceUi.spec.tsx",
+        "helpers/khedmahDriverTransport.spec.tsx",
+        "helpers/khedmahDriverUi.spec.tsx",
+        "helpers/khedmahFood.spec.tsx",
+        "helpers/khedmahFoodCartUi.spec.tsx",
+        "helpers/khedmahFulfillmentActions.spec.tsx",
+        "helpers/khedmahFulfillmentOperationsUi.spec.tsx",
+        "helpers/khedmahManage.spec.tsx",
+        "helpers/khedmahManagementAttempts.spec.tsx",
+        "helpers/khedmahManagementUi.spec.tsx",
+        "helpers/khedmahMapConsent.spec.tsx"
+      ],
+      "result": "20 spec file(s) passed, 0 failed\n\nPASS helpers/khedmahAdapterEndpoints.spec.tsx\nPASS helpers/khedmahAdapterSecurity.spec.tsx\nPASS helpers/khedmahAdmin.spec.tsx\nPASS helpers/khedmahApprovalTransport.spec.tsx\nPASS helpers/khedmahCheckoutAttempt.spec.tsx\nPASS helpers/khedmahClassifieds.spec.tsx\nPASS helpers/khedmahCommerceContracts.spec.tsx\nPASS helpers/khedmahCommerceEligibility.spec.tsx\nPASS helpers/khedmahCommerceRecoveryUi.spec.tsx\nPASS helpers/khedmahCommerceUi.spec.tsx\nPASS helpers/khedmahDriverTransport.spec.tsx\nPASS helpers/khedmahDriverUi.spec.tsx\nPASS helpers/khedmahFood.spec.tsx\nPASS helpers/khedmahFoodCartUi.spec.tsx\nPASS helpers/khedmahFulfillmentActions.spec.tsx\nPASS helpers/khedmahFulfillmentOperationsUi.spec.tsx\nPASS helpers/khedmahManage.spec.tsx\nPASS helpers/khedmahManagementAttempts.spec.tsx\nPASS helpers/khedmahManagementUi.spec.tsx\nPASS helpers/khedmahMapConsent.spec.tsx"
+    },
+    {
+      "batch": 4,
+      "paths": [
+        "helpers/khedmahMobility.spec.tsx",
+        "helpers/khedmahNearby.spec.tsx",
+        "helpers/khedmahOwnerImage.spec.tsx",
+        "helpers/khedmahPreviewAcceptance.spec.tsx",
+        "helpers/khedmahProvider.spec.tsx",
+        "helpers/khedmahProviderContact.spec.tsx",
+        "helpers/khedmahProviderContactUi.spec.tsx",
+        "helpers/khedmahPublicNavigation.spec.tsx",
+        "helpers/khedmahPublicSearch.spec.tsx",
+        "helpers/khedmahReturnPath.spec.tsx",
+        "helpers/khedmahReviewContract.spec.tsx",
+        "helpers/khedmahReviewTransport.spec.tsx",
+        "helpers/khedmahReviewUi.spec.tsx",
+        "helpers/khedmahSessionEvidence.spec.tsx",
+        "helpers/khedmahStore.spec.tsx",
+        "helpers/khedmahTransportBounds.spec.tsx",
+        "helpers/khedmahManagementActor.spec.tsx",
+        "helpers/khedmahOwnerMediaSafetyUi.spec.tsx"
+      ],
+      "result": "18 spec file(s) passed, 0 failed\n\nPASS helpers/khedmahMobility.spec.tsx\nPASS helpers/khedmahNearby.spec.tsx\nPASS helpers/khedmahOwnerImage.spec.tsx\nPASS helpers/khedmahPreviewAcceptance.spec.tsx\nPASS helpers/khedmahProvider.spec.tsx\nPASS helpers/khedmahProviderContact.spec.tsx\nPASS helpers/khedmahProviderContactUi.spec.tsx\nPASS helpers/khedmahPublicNavigation.spec.tsx\nPASS helpers/khedmahPublicSearch.spec.tsx\nPASS helpers/khedmahReturnPath.spec.tsx\nPASS helpers/khedmahReviewContract.spec.tsx\nPASS helpers/khedmahReviewTransport.spec.tsx\nPASS helpers/khedmahReviewUi.spec.tsx\nPASS helpers/khedmahSessionEvidence.spec.tsx\nPASS helpers/khedmahStore.spec.tsx\nPASS helpers/khedmahTransportBounds.spec.tsx\nPASS helpers/khedmahManagementActor.spec.tsx\nPASS helpers/khedmahOwnerMediaSafetyUi.spec.tsx"
+    },
+    {
+      "batch": 5,
+      "paths": [
+        "helpers/khedmahManagementActorUi.spec.tsx",
+        "helpers/khedmahFulfillmentOperationsUi.spec.tsx"
+      ],
+      "result": "2 spec file(s) passed, 0 failed\n\nPASS helpers/khedmahManagementActorUi.spec.tsx\nPASS helpers/khedmahFulfillmentOperationsUi.spec.tsx"
+    }
+  ],
+  "typecheck": "clean",
+  "live_e2e_verified": false,
+  "checkpoint": "e34b6b53-717f-4409-93f9-6e5848f3cf83",
+  "evidence_boundary": "Headless source fixtures; no populated live end-to-end acceptance.",
+  "backend_money_boundary": {
+    "status": "source_repaired_not_serving",
+    "source_commit": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+    "source_tree": "8c16081d82debd505f30ce1a53800f0e8b73b43c",
+    "source_parent": "2c1ce1767d086019381060ad9e98086190a1f4e6",
+    "local_tested_commit": "f7f6c8d4f663bf6e7738f902f63365eec6e9fd2e",
+    "scope": "Exact integer-cent bounds for cash-order line totals, accumulated subtotal and discount-adjusted subtotal plus delivery fee before persistence; no schema, authority, promotion-rule or existing input-limit change.",
+    "tests": {
+      "new_cases": 13,
+      "existing_order_and_promotion_cases": 21,
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "new_suite": "apps/backend/src/orders/order-money-boundary.test.ts",
+      "existing_suites": [
+        "apps/backend/src/orders/order.service.test.ts",
+        "apps/backend/src/orders/order-validation-safety.test.ts",
+        "apps/backend/src/orders/order-public-eligibility.test.ts",
+        "apps/backend/src/orders/food-promotion.validation.test.ts",
+        "apps/backend/src/orders/food-promotion.contract.test.ts"
+      ]
+    },
+    "same_regression_probes": {
+      "before_source": "2c1ce1767d086019381060ad9e98086190a1f4e6",
+      "before_cases": 2,
+      "before_failed": 2,
+      "after_cases": 2,
+      "after_passed": 2,
+      "cases": [
+        "Allowed product price 999999999999 multiplied by quantity 2.",
+        "Current subtotal 999999999999.99 plus delivery fee 0.01."
+      ],
+      "before_behavior": "Each probe reached its fake create or update once without the expected 400 rejection.",
+      "after_behavior": "Both probes return 400; zero fake create/update calls."
+    },
+    "backend_typecheck": "passed",
+    "github_ci_status": "all_five_workflows_success",
+    "boundaries": {
+      "fake_clients_only_for_new_and_reproduced_write_boundaries": true,
+      "postgresql_integration_executed": false,
+      "live_overflow_transaction_executed": false,
+      "serving_backend_repaired": false,
+      "serving_source": "f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a",
+      "application_data_mutation": false,
+      "schema_mutation": false,
+      "deployment_or_production_mutation": false,
+      "floot_spec_file_count_unchanged": 68,
+      "live_e2e_verified": false
+    },
+    "github_ci_receipt_key": "github_application_source_ci",
+    "reviewed_source_files": [
+      {
+        "path": "apps/backend/src/orders/order-money-boundary.test.ts",
+        "bytes": 12231,
+        "sha256": "099e8a4e1b5b1b757bb9f58b43771100f0fb8840e17a49e85e83e466c667d79e",
+        "git_blob": "6f292f9fd7e7b1f71b32f0adec63f80e485a94be"
+      },
+      {
+        "path": "apps/backend/src/orders/order-money.ts",
+        "bytes": 2490,
+        "sha256": "4d63938071d68be26c00c875b56aa5a2052e5e813055d8c36ab42b5c26c9c516",
+        "git_blob": "5b3bb047577f2b10d847293de22c7f1b69d09685"
+      },
+      {
+        "path": "apps/backend/src/orders/order.repository.ts",
+        "bytes": 36458,
+        "sha256": "e6c05a3bd02644cb28a590206f8a20d10bcc57e5f608fdc7b04c99b622bd67c3",
+        "git_blob": "9af0d35c00fe2952df5fe954547b1438ef998517"
+      },
+      {
+        "path": "apps/backend/src/orders/order.service.ts",
+        "bytes": 18986,
+        "sha256": "86361eaa8a837c9fc8c21d8d8fb5fab3c5a593e6289846b0afa36baa8f1c4e16",
+        "git_blob": "cc691a392c8ec465504b305a30066778d5b7da6d"
+      }
+    ],
+    "local_test_command": "node --import tsx --test --test-isolation=none --test-concurrency=1 --test-reporter=tap src/orders/order-money-boundary.test.ts src/orders/order.service.test.ts src/orders/order-validation-safety.test.ts src/orders/order-public-eligibility.test.ts src/orders/food-promotion.validation.test.ts src/orders/food-promotion.contract.test.ts",
+    "floot_400_mapping": "The generic manage adapter maps explicit upstream 400 to not_applied; the dedicated commerce transport preserves status400 but conservatively treats mutating400 as unknown (retains stable attempt). This repair changes neither behavior."
+  },
+  "github_application_source_ci": {
+    "repository": "khedma-sy/khedmah-digital-v1",
+    "pull_request": {
+      "number": 289,
+      "url": "https://github.com/khedma-sy/khedmah-digital-v1/pull/289",
+      "stateAtObservation": "open",
+      "draft": true,
+      "merged": false,
+      "headAtObservation": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+      "baseAtObservation": "63b0fa3c6f886eebe8034f70780715a044c2d4d5"
+    },
+    "verifiedAtUtc": "2026-10-21 20:26:12 UTC",
+    "sourceHead": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+    "sourceCommitUrl": "https://github.com/khedma-sy/khedmah-digital-v1/commit/7eedfe4be5be2c45ba282a66248cd9aab693b246",
+    "reviewedTree": "8c16081d82debd505f30ce1a53800f0e8b73b43c",
+    "sourceEquivalence": {
+      "verified": true,
+      "head": {
+        "sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "tree": "8c16081d82debd505f30ce1a53800f0e8b73b43c",
+        "gitDataUrl": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/git/commits/7eedfe4be5be2c45ba282a66248cd9aab693b246"
+      },
+      "checkout": {
+        "sha": "9bbc3c4b70f4f0be980886a92c854ade9cbb4ba8",
+        "tree": "8c16081d82debd505f30ce1a53800f0e8b73b43c",
+        "gitDataUrl": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/git/commits/9bbc3c4b70f4f0be980886a92c854ade9cbb4ba8",
+        "parents": [
+          "63b0fa3c6f886eebe8034f70780715a044c2d4d5",
+          "7eedfe4be5be2c45ba282a66248cd9aab693b246"
+        ]
+      },
+      "conclusion": "GitHub PR checkout commit differs from the PR head, but both Git Data tree hashes exactly match the independently reviewed source tree.",
+      "logLines": [
+        {
+          "line": 214,
+          "text": "2026-10-21T20:19:07.3685425Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +9bbc3c4b70f4f0be980886a92c854ade9cbb4ba8:refs/remotes/pull/289/merge"
+        },
+        {
+          "line": 550,
+          "text": "2026-10-21T20:19:09.2299610Z  * [new ref]           9bbc3c4b70f4f0be980886a92c854ade9cbb4ba8 -> pull/289/merge"
+        },
+        {
+          "line": 575,
+          "text": "2026-10-21T20:19:09.3180713Z HEAD is now at 9bbc3c4b Merge 7eedfe4be5be2c45ba282a66248cd9aab693b246 into 63b0fa3c6f886eebe8034f70780715a044c2d4d5"
+        },
+        {
+          "line": 577,
+          "text": "2026-10-21T20:19:09.3265877Z [command]/usr/bin/git log -1 --format=%H"
+        },
+        {
+          "line": 578,
+          "text": "2026-10-21T20:19:09.3292426Z 9bbc3c4b70f4f0be980886a92c854ade9cbb4ba8"
+        },
+        {
+          "line": 782,
+          "text": "2026-10-21T20:20:00.9939008Z === Khedmah test target: root ==="
+        },
+        {
+          "line": 2794,
+          "text": "2026-10-21T20:21:15.5855264Z === Khedmah test target: backend workspace ==="
+        },
+        {
+          "line": 3849,
+          "text": "2026-10-21T20:23:27.9818472Z === Khedmah test target: frontend workspace ==="
+        },
+        {
+          "line": 4034,
+          "text": "2026-10-21T20:23:33.6809844Z   EVIDENCE_HEAD_SHA: 7eedfe4be5be2c45ba282a66248cd9aab693b246"
+        }
+      ]
+    },
+    "summary": {
+      "workflowCount": 5,
+      "allCompletedSuccessfully": true,
+      "allRunsFirstAttempt": true,
+      "allRunsPullRequestTriggered": true,
+      "allRunHeadShasMatch": true,
+      "jobCount": 15,
+      "successfulJobCount": 8,
+      "skippedJobCount": 7,
+      "failedJobCount": 0
+    },
+    "workflows": [
+      {
+        "id": 39669171262,
+        "name": "Database Migration Validation",
+        "head_sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "head_branch": "codex/nonprod-admin-approval-activation",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171262",
+        "created_at": "2026-10-21T20:18:33Z",
+        "updated_at": "2026-10-21T20:18:42Z",
+        "run_started_at": "2026-10-21T20:18:33Z",
+        "path": ".github/workflows/database-migration-check.yml",
+        "jobs_api_url": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/runs/39669171262/jobs",
+        "jobs": [
+          {
+            "id": 119462129781,
+            "name": "Validate Migration Files",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171262,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "Verify governed migration pairs",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "Reject ungoverned migration versions",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Enforce governed product table boundaries",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "Validate migration constraints",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "Post Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 12
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 13
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171262/job/119462129781"
+          }
+        ]
+      },
+      {
+        "id": 39669171248,
+        "name": "Google production readiness",
+        "head_sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "head_branch": "codex/nonprod-admin-approval-activation",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171248",
+        "created_at": "2026-10-21T20:18:33Z",
+        "updated_at": "2026-10-21T20:20:14Z",
+        "run_started_at": "2026-10-21T20:18:33Z",
+        "path": ".github/workflows/google-production-readiness.yml",
+        "jobs_api_url": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/runs/39669171248/jobs",
+        "jobs": [
+          {
+            "id": 119462130300,
+            "name": "validate-files",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171248,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "Run actions/setup-java@v6",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Run gradle/actions/setup-gradle@v4",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "Install Android SDK 36 and AGP build tools",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "Run npm ci",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 7
+              },
+              {
+                "name": "Verify the repository Gradle Wrapper",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 8
+              },
+              {
+                "name": "Run npm run validate:google",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 9
+              },
+              {
+                "name": "Run npm run validate:firebase",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 10
+              },
+              {
+                "name": "Run npm run verify:firebase-secrets",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 11
+              },
+              {
+                "name": "Run npm run validate:operations",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 12
+              },
+              {
+                "name": "Compile Android source without protected runtime configuration",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 13
+              },
+              {
+                "name": "Verify and fingerprint the debug APK",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 14
+              },
+              {
+                "name": "Upload debug APK and provenance",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 15
+              },
+              {
+                "name": "Post Run gradle/actions/setup-gradle@v4",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 27
+              },
+              {
+                "name": "Post Run actions/setup-java@v6",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 28
+              },
+              {
+                "name": "Post Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 29
+              },
+              {
+                "name": "Post Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 30
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 31
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171248/job/119462130300"
+          },
+          {
+            "id": 119462131848,
+            "name": "production-secret-gate",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171248,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171248/job/119462131848"
+          }
+        ]
+      },
+      {
+        "id": 39669171337,
+        "name": "Khedmah - Test & Verify",
+        "head_sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "head_branch": "codex/nonprod-admin-approval-activation",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171337",
+        "created_at": "2026-10-21T20:18:33Z",
+        "updated_at": "2026-10-21T20:23:41Z",
+        "run_started_at": "2026-10-21T20:18:33Z",
+        "path": ".github/workflows/test-and-verify.yml",
+        "jobs_api_url": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/runs/39669171337/jobs",
+        "jobs": [
+          {
+            "id": 119462129885,
+            "name": "Run Tests & Verification (24.x)",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171337,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Initialize containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "📦 Setup Node.js 24.x",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "🔒 Reject hardcoded sensitive assignments",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "📋 Install dependencies",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "🏗️ Build project",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 7
+              },
+              {
+                "name": "✅ Run all tests",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 8
+              },
+              {
+                "name": "Preserve test evidence",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 9
+              },
+              {
+                "name": "Upload test evidence",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 10
+              },
+              {
+                "name": "🔐 Security audit",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 11
+              },
+              {
+                "name": "🔐 Security audit (advisory, non-blocking)",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 12
+              },
+              {
+                "name": "Post 📦 Setup Node.js 24.x",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 22
+              },
+              {
+                "name": "Post 📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 23
+              },
+              {
+                "name": "Stop containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 24
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 25
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171337/job/119462129885"
+          },
+          {
+            "id": 119462130292,
+            "name": "PR Validation",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171337,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "📊 Check PR files changed",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "✨ Codex Connection Check",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Post 📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 8
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 9
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171337/job/119462130292"
+          },
+          {
+            "id": 119462130406,
+            "name": "Code Quality Checks",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171337,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "📦 Setup Node.js 24",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "📋 Install dependencies",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "🔍 Check executable directory structure",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "📄 Validate governed migration contract",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "🔒 Verify no forbidden tables in migrations",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 7
+              },
+              {
+                "name": "Post 📦 Setup Node.js 24",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 13
+              },
+              {
+                "name": "Post 📥 Checkout code",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 14
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 15
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171337/job/119462130406"
+          }
+        ]
+      },
+      {
+        "id": 39669171378,
+        "name": "Node.js CI",
+        "head_sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "head_branch": "codex/nonprod-admin-approval-activation",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171378",
+        "created_at": "2026-10-21T20:18:33Z",
+        "updated_at": "2026-10-21T20:24:44Z",
+        "run_started_at": "2026-10-21T20:18:33Z",
+        "path": ".github/workflows/node.js.yml",
+        "jobs_api_url": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/runs/39669171378/jobs",
+        "jobs": [
+          {
+            "id": 119462131522,
+            "name": "Source inventory (read-only)",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171378,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "Test inventory boundaries",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Inventory pinned source without changing the checkout",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "Run actions/upload-artifact@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "Post Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 11
+              },
+              {
+                "name": "Post Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 12
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 13
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171378/job/119462131522"
+          },
+          {
+            "id": 119462132278,
+            "name": "build (24.x)",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171378,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Initialize containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "Use Node.js 24.x",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Install dependencies",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "Validate Google production files",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "Validate Firebase SDK integration",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 7
+              },
+              {
+                "name": "Setup Terraform",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 8
+              },
+              {
+                "name": "Validate Terraform formatting and stacks without remote backends",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 9
+              },
+              {
+                "name": "Build",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 10
+              },
+              {
+                "name": "Run tests",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 11
+              },
+              {
+                "name": "Post Use Node.js 24.x",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 20
+              },
+              {
+                "name": "Post Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 21
+              },
+              {
+                "name": "Stop containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 22
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 23
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171378/job/119462132278"
+          }
+        ]
+      },
+      {
+        "id": 39669171241,
+        "name": "PR Preview",
+        "head_sha": "7eedfe4be5be2c45ba282a66248cd9aab693b246",
+        "head_branch": "codex/nonprod-admin-approval-activation",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241",
+        "created_at": "2026-10-21T20:18:33Z",
+        "updated_at": "2026-10-21T20:24:43Z",
+        "run_started_at": "2026-10-21T20:18:33Z",
+        "path": ".github/workflows/preview-deployment.yml",
+        "jobs_api_url": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/jobs",
+        "jobs": [
+          {
+            "id": 119462129845,
+            "name": "quality-gates",
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": [
+              {
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 1
+              },
+              {
+                "name": "Initialize containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 2
+              },
+              {
+                "name": "Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 3
+              },
+              {
+                "name": "Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 4
+              },
+              {
+                "name": "Run npm ci",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 5
+              },
+              {
+                "name": "Run google-github-actions/setup-gcloud@v3",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 6
+              },
+              {
+                "name": "Verify source upload and container credential exclusions without cloud access",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 7
+              },
+              {
+                "name": "Build",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 8
+              },
+              {
+                "name": "Tests",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 9
+              },
+              {
+                "name": "Lint and type checks",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 10
+              },
+              {
+                "name": "Security",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 11
+              },
+              {
+                "name": "Firebase validation",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 12
+              },
+              {
+                "name": "Google Cloud validation",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 13
+              },
+              {
+                "name": "Preview and staging contract validation",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 14
+              },
+              {
+                "name": "Secret usage validation",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 15
+              },
+              {
+                "name": "Post Run actions/setup-node@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 28
+              },
+              {
+                "name": "Post Run actions/checkout@v7",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 29
+              },
+              {
+                "name": "Stop containers",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 30
+              },
+              {
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success",
+                "number": 31
+              }
+            ],
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119462129845"
+          },
+          {
+            "id": 119462131964,
+            "name": "reconcile-successful-rollout",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119462131964"
+          },
+          {
+            "id": 119462132556,
+            "name": "cleanup-preview",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119462132556"
+          },
+          {
+            "id": 119462132747,
+            "name": "inspect-build-source",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119462132747"
+          },
+          {
+            "id": 119465259996,
+            "name": "deploy-preview",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465259996"
+          },
+          {
+            "id": 119465260293,
+            "name": "resolve-staging-baseline",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465260293"
+          },
+          {
+            "id": 119465261594,
+            "name": "review-evidence",
+            "status": "completed",
+            "conclusion": "skipped",
+            "run_id": 39669171241,
+            "logs_url": null,
+            "steps": null,
+            "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465261594"
+          }
+        ]
+      }
+    ],
+    "heldExecutionJobs": [
+      {
+        "id": 119462131848,
+        "name": "production-secret-gate",
+        "status": "completed",
+        "conclusion": "skipped",
+        "run_id": 39669171248,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171248/job/119462131848"
+      },
+      {
+        "id": 119465259996,
+        "name": "deploy-preview",
+        "status": "completed",
+        "conclusion": "skipped",
+        "run_id": 39669171241,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465259996"
+      },
+      {
+        "id": 119465260293,
+        "name": "resolve-staging-baseline",
+        "status": "completed",
+        "conclusion": "skipped",
+        "run_id": 39669171241,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465260293"
+      },
+      {
+        "id": 119465261594,
+        "name": "review-evidence",
+        "status": "completed",
+        "conclusion": "skipped",
+        "run_id": 39669171241,
+        "html_url": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171241/job/119465261594"
+      }
+    ],
+    "testAndVerifyLog": {
+      "runId": 39669171337,
+      "jobId": 119462129885,
+      "jobName": "Run Tests & Verification (24.x)",
+      "jobUrl": "https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39669171337/job/119462129885",
+      "logsApiUrl": "https://api.github.com/repos/khedma-sy/khedmah-digital-v1/actions/jobs/119462129885/logs",
+      "retrievedLogCharacters": 545903,
+      "retrievedLogLines": 4551,
+      "targets": [
+        {
+          "target": "root",
+          "marker": {
+            "line": 782,
+            "text": "2026-10-21T20:20:00.9939008Z === Khedmah test target: root ==="
+          },
+          "metrics": {
+            "tests": 1957,
+            "suites": 0,
+            "pass": 1956,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 1,
+            "todo": 0,
+            "duration_ms": 74411.636026
+          },
+          "summaryLines": [
+            {
+              "line": 2785,
+              "text": "2026-10-21T20:21:15.5853506Z ℹ tests 1957"
+            },
+            {
+              "line": 2786,
+              "text": "2026-10-21T20:21:15.5853705Z ℹ suites 0"
+            },
+            {
+              "line": 2787,
+              "text": "2026-10-21T20:21:15.5853888Z ℹ pass 1956"
+            },
+            {
+              "line": 2788,
+              "text": "2026-10-21T20:21:15.5854064Z ℹ fail 0"
+            },
+            {
+              "line": 2789,
+              "text": "2026-10-21T20:21:15.5854253Z ℹ cancelled 0"
+            },
+            {
+              "line": 2790,
+              "text": "2026-10-21T20:21:15.5854443Z ℹ skipped 1"
+            },
+            {
+              "line": 2791,
+              "text": "2026-10-21T20:21:15.5854616Z ℹ todo 0"
+            },
+            {
+              "line": 2792,
+              "text": "2026-10-21T20:21:15.5854939Z ℹ duration_ms 74411.636026"
+            }
+          ]
+        },
+        {
+          "target": "backend workspace",
+          "marker": {
+            "line": 2794,
+            "text": "2026-10-21T20:21:15.5855264Z === Khedmah test target: backend workspace ==="
+          },
+          "metrics": {
+            "tests": 735,
+            "suites": 0,
+            "pass": 735,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0,
+            "duration_ms": 132264.916839
+          },
+          "summaryLines": [
+            {
+              "line": 3840,
+              "text": "2026-10-21T20:23:27.9664857Z ℹ tests 735"
+            },
+            {
+              "line": 3841,
+              "text": "2026-10-21T20:23:27.9665180Z ℹ suites 0"
+            },
+            {
+              "line": 3842,
+              "text": "2026-10-21T20:23:27.9665450Z ℹ pass 735"
+            },
+            {
+              "line": 3843,
+              "text": "2026-10-21T20:23:27.9665709Z ℹ fail 0"
+            },
+            {
+              "line": 3844,
+              "text": "2026-10-21T20:23:27.9665989Z ℹ cancelled 0"
+            },
+            {
+              "line": 3845,
+              "text": "2026-10-21T20:23:27.9666272Z ℹ skipped 0"
+            },
+            {
+              "line": 3846,
+              "text": "2026-10-21T20:23:27.9666534Z ℹ todo 0"
+            },
+            {
+              "line": 3847,
+              "text": "2026-10-21T20:23:27.9666853Z ℹ duration_ms 132264.916839"
+            }
+          ]
+        },
+        {
+          "target": "frontend workspace",
+          "marker": {
+            "line": 3849,
+            "text": "2026-10-21T20:23:27.9818472Z === Khedmah test target: frontend workspace ==="
+          },
+          "metrics": {
+            "tests": 152,
+            "suites": 0,
+            "pass": 152,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0,
+            "duration_ms": 5524.993813
+          },
+          "summaryLines": [
+            {
+              "line": 4006,
+              "text": "2026-10-21T20:23:33.6468548Z ℹ tests 152"
+            },
+            {
+              "line": 4007,
+              "text": "2026-10-21T20:23:33.6476750Z ℹ suites 0"
+            },
+            {
+              "line": 4008,
+              "text": "2026-10-21T20:23:33.6477061Z ℹ pass 152"
+            },
+            {
+              "line": 4009,
+              "text": "2026-10-21T20:23:33.6477500Z ℹ fail 0"
+            },
+            {
+              "line": 4010,
+              "text": "2026-10-21T20:23:33.6477793Z ℹ cancelled 0"
+            },
+            {
+              "line": 4011,
+              "text": "2026-10-21T20:23:33.6478078Z ℹ skipped 0"
+            },
+            {
+              "line": 4012,
+              "text": "2026-10-21T20:23:33.6478359Z ℹ todo 0"
+            },
+            {
+              "line": 4013,
+              "text": "2026-10-21T20:23:33.6478663Z ℹ duration_ms 5524.993813"
+            }
+          ]
+        }
+      ],
+      "skippedTests": [
+        {
+          "target": "root",
+          "line": 2109,
+          "text": "2026-10-21T20:21:15.5285805Z ﹣ Preview grant SQL: atomic rollback, exact ACL, schema preservation and replay rejection (0.919989ms) # SKIP",
+          "name": "Preview grant SQL: atomic rollback, exact ACL, schema preservation and replay rejection"
+        }
+      ],
+      "newMoneyBoundaryCases": {
+        "observedPassedCount": 13,
+        "lines": [
+          {
+            "line": 3564,
+            "text": "2026-10-21T20:22:55.3407363Z ✔ exact decimal cents accept the NUMERIC(14,2) limit and reject one cent above it (1.332072ms)"
+          },
+          {
+            "line": 3565,
+            "text": "2026-10-21T20:22:55.3410304Z ✔ exact line arithmetic keeps existing allowed product and quantity boundaries (0.463651ms)"
+          },
+          {
+            "line": 3566,
+            "text": "2026-10-21T20:22:55.3411503Z ✔ aggregate arithmetic permits near-max and exact-max baskets and rejects overflow across valid lines (0.180743ms)"
+          },
+          {
+            "line": 3567,
+            "text": "2026-10-21T20:22:55.3413217Z ✔ normal cents and existing numeric tolerance remain exact without accepting negative or fractional cents (0.348316ms)"
+          },
+          {
+            "line": 3568,
+            "text": "2026-10-21T20:22:55.3414306Z ✔ quoted total subtracts the discount before checking fee overflow (0.164448ms)"
+          },
+          {
+            "line": 3569,
+            "text": "2026-10-21T20:22:55.3415380Z ✔ basket create and promotion quote reject line and aggregate overflow before repository writes (1.549281ms)"
+          },
+          {
+            "line": 3570,
+            "text": "2026-10-21T20:22:55.3416540Z ✔ service preserves exact-max and ordinary basket amounts for creation and promotion quotes (1.010417ms)"
+          },
+          {
+            "line": 3571,
+            "text": "2026-10-21T20:22:55.3421809Z ✔ merchant fee quote rejects overflow with 400 before attempting the transition (0.651364ms)"
+          },
+          {
+            "line": 3572,
+            "text": "2026-10-21T20:22:55.3422867Z ✔ merchant fee quote preserves a valid promotion discount at the maximum total (0.416589ms)"
+          },
+          {
+            "line": 3573,
+            "text": "2026-10-21T20:22:55.3427063Z ✔ repository independently rejects line, subtotal and snapshot mismatch before opening a transaction (0.580497ms)"
+          },
+          {
+            "line": 3574,
+            "text": "2026-10-21T20:22:55.3428498Z ✔ repository uses the locked current monetary row and rejects fee overflow before any write (0.763514ms)"
+          },
+          {
+            "line": 3575,
+            "text": "2026-10-21T20:22:55.3429595Z ✔ repository permits exact-limit totals to reach the existing guarded update (0.326813ms)"
+          },
+          {
+            "line": 3576,
+            "text": "2026-10-21T20:22:55.3434751Z ✔ repository exits without a write when the quoted row no longer has the expected status (0.115795ms)"
+          }
+        ]
+      },
+      "countsSource": "Actual completed GitHub Actions job log, parsed by emitted root/backend/frontend target markers. Counts were not inferred from the local test delta."
+    },
+    "observations": [
+      {
+        "recordedAt": "2026-10-21T20:20:05.173Z",
+        "runs": [
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:20:05.682Z",
+        "runs": [
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:21:15.227Z",
+        "runs": [
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:22:27.669Z",
+        "runs": [
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:23:44.656Z",
+        "runs": [
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:24:35.473Z",
+        "runs": [
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "recordedAt": "2026-10-21T20:25:01.486Z",
+        "runs": [
+          {
+            "id": 39669171262,
+            "name": "Database Migration Validation",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171248,
+            "name": "Google production readiness",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171337,
+            "name": "Khedmah - Test & Verify",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171378,
+            "name": "Node.js CI",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 39669171241,
+            "name": "PR Preview",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "scopeLimitations": [
+      "GitHub source CI does not certify separate Floot code, populated live account journeys, a backend rollout, or production readiness beyond executed checks.",
+      "The four named execution gates were skipped; their skipped status is not successful deployment or secret-gate execution.",
+      "No workflow was dispatched or rerun; no code, application data, cloud, role, publication, merge or production mutation was performed in this evidence task."
+    ],
+    "evidenceCollection": {
+      "tools": [
+        "github_fetch_commit_workflow_runs",
+        "github_fetch_workflow_run_jobs",
+        "github_fetch_workflow_job_logs",
+        "github_get_pr_info",
+        "github_fetch (GET Git Data commits and workflow run metadata)"
+      ],
+      "remoteMutations": false,
+      "newTestsExecuted": false,
+      "codeEdits": false
+    }
+  },
+  "documentation_checkpoint": {
+    "version": 1792614319853,
+    "checkpoint": "9f3bb41a-7cf3-4997-a5a7-a382b7da8d94",
+    "files": [
+      {
+        "path": "static/__dev/github-source-of-truth.md",
+        "version": 1792614319853,
+        "lines": 131,
+        "chars": 25441,
+        "match": true
+      },
+      {
+        "path": "static/__dev/plans/khedmah-preview-integration.md",
+        "version": 1792614319853,
+        "lines": 343,
+        "chars": 59507,
+        "match": true
+      },
+      {
+        "path": "static/__dev/plans/khedmah-server-adapter-security.md",
+        "version": 1792614319853,
+        "lines": 250,
+        "chars": 21853,
+        "match": true
+      },
+      {
+        "path": "static/__dev/notes/admin-integration-2026-10-15.md",
+        "version": 1792614319853,
+        "lines": 80,
+        "chars": 17289,
+        "match": true
+      },
+      {
+        "path": "static/__dev/notes/release-gates-2026-10-20.md",
+        "version": 1792614319853,
+        "lines": 78,
+        "chars": 13798,
+        "match": true
+      }
+    ],
+    "all_previous_content_preserved": true,
+    "scope": "Documentation-only successor; no code change or publication."
+  }
+}

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clientPage, css, deferred, primitives, readSource } from './helpers/client-page-harness.mjs';
-const professional={id:'professional-fixture',contentRevision:'a'.repeat(64),headlineAr:'مهني اختبار',headlineEn:'Test',bioAr:'نبذة',bioEn:'Existing English bio',availability:'available',cityCode:'damascus',skills:['خبرة']};
+// Existing-owner fixtures include the publication snapshot; omission intentionally prevents saving.
+const professional={id:'professional-fixture',contentRevision:'a'.repeat(64),headlineAr:'مهني اختبار',headlineEn:'Test',bioAr:'نبذة',bioEn:'Existing English bio',availability:'available',cityCode:'damascus',skills:['خبرة'],contactEligibility:{visibility:'public',moderationStatus:'approved',lifecycleStatus:'active',eligible:true}};
 function fixture(kind='professional') {
   const loads=[],saves=[],navigations=[];const call=list=>{const d=deferred();list.push(d);return d.promise;};
   const api={auth:{session:()=>call(loads)},professionals:{getMine:()=>call(loads),createOrUpdate:body=>{const p=call(saves);saves.at(-1).body=body;return p;}},businesses:{create:body=>{const p=call(saves);saves.at(-1).body=body;return p;}}};

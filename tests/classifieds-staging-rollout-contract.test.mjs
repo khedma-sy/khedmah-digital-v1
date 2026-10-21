@@ -8,6 +8,7 @@ import test from 'node:test';
 const root = resolve(new URL('..', import.meta.url).pathname);
 const resolver = join(root, 'scripts/deployment/resolve-classifieds-staging-stage.sh');
 const workflow = join(root, '.github/workflows/staging-deployment.yml');
+const futureApprovalActivationWorkflow = join(root, '.github/workflows/staging-approval-prerequisites-activation.yml');
 
 function runStage(stage) {
   const dir = mkdtemp(join(tmpdir(), 'khedmah-staging-stage-'));
@@ -54,15 +55,46 @@ test('Staging workflow validates protected configuration before WIF authenticati
   const authIndex = text.indexOf('google-github-actions/auth@v3');
   assert.ok(preflightIndex >= 0, 'Staging configuration preflight must exist');
   assert.ok(authIndex > preflightIndex, 'configuration preflight must run before GCP auth');
-  assert.match(text, /validate-staging-deployment-config\.sh/);
-  assert.match(text, /GCP_WORKLOAD_IDENTITY_PROVIDER: \$\{\{ secrets\.GCP_WORKLOAD_IDENTITY_PROVIDER \}\}/);
-  assert.match(text, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT \}\}/);
-  assert.match(text, /GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT \}\}/);
-  assert.match(text, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: \$\{\{ vars\.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME \}\}/);
+  const preflight = text.slice(preflightIndex, authIndex);
+  assert.match(preflight, /validate-staging-deployment-config\.sh/);
+  assert.match(preflight, /GCP_WORKLOAD_IDENTITY_PROVIDER: \$\{\{ secrets\.GCP_WORKLOAD_IDENTITY_PROVIDER \}\}/);
+  assert.match(preflight, /GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_DEPLOYER_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /GCP_STAGING_RUNTIME_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_RUNTIME_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /GCP_STAGING_MIGRATION_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(preflight, /STAGING_DATABASE_MIGRATION_SECRET_VERSION: \$\{\{ vars\.STAGING_DATABASE_MIGRATION_SECRET_VERSION \}\}/);
+  assert.match(preflight, /STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME: \$\{\{ vars\.STAGING_CLOUD_SQL_INSTANCE_CONNECTION_NAME \}\}/);
+  assert.doesNotMatch(preflight, /STAGING_APPROVAL_PREREQUISITES|APPROVAL_PREREQUISITES_MIGRATIONS_035_037/);
+});
+
+test('Staging workflow is push-only, carries no approval activation authority and scopes OIDC to deployment', async () => {
+  const text = await readFile(workflow, 'utf8');
+  const jobsIndex = text.indexOf('jobs:');
+  const qualityStart = text.indexOf('  quality-gates:');
+  const deployStart = text.indexOf('  deploy-staging:');
+  const acceptanceStart = text.indexOf('  classifieds-staging-acceptance:');
+  assert.match(text.slice(0, jobsIndex), /push:\n    branches: \[develop\]/);
+  assert.doesNotMatch(text, /workflow_dispatch|approval_prerequisites_apply_commit|approval_prerequisites_confirmation/);
+  assert.doesNotMatch(text, /STAGING_APPROVAL_PREREQUISITES|APPROVAL_PREREQUISITES_MIGRATIONS_035_037/);
+  assert.match(text.slice(0, jobsIndex), /permissions:\n  contents: read/);
+  assert.doesNotMatch(text.slice(0, jobsIndex), /id-token: write/);
+  assert.doesNotMatch(text.slice(qualityStart, deployStart), /id-token: write/);
+  assert.match(text.slice(deployStart, acceptanceStart), /permissions:\n      contents: read\n      id-token: write/);
+  await assert.rejects(
+    readFile(futureApprovalActivationWorkflow, 'utf8'),
+    error => error?.code === 'ENOENT',
+    'the future one-shot approval activation workflow must not exist in this change',
+  );
 });
 
 test('Staging workflow uses repository stage outputs and never production rollout variables', async () => {
   const text = await readFile(workflow, 'utf8');
+  const deployStart = text.indexOf('- id: deploy');
+  const deployEnd = text.indexOf('- id: observe', deployStart);
+  assert.ok(deployStart >= 0 && deployEnd > deployStart, 'Staging deploy step must be bounded');
+  const deployStep = text.slice(deployStart, deployEnd);
+  assert.match(deployStep, /STAGING_MIGRATION_SERVICE_ACCOUNT: \$\{\{ secrets\.GCP_STAGING_MIGRATION_SERVICE_ACCOUNT \}\}/);
+  assert.match(deployStep, /STAGING_DATABASE_MIGRATION_SECRET_VERSION: \$\{\{ vars\.STAGING_DATABASE_MIGRATION_SECRET_VERSION \}\}/);
+  assert.doesNotMatch(deployStep, /STAGING_APPROVAL_PREREQUISITES|APPROVAL_PREREQUISITES_MIGRATIONS_035_037/);
   assert.match(text, /Resolve Classifieds Staging rollout stage/);
   assert.match(text, /resolve-classifieds-staging-stage\.sh/);
   assert.match(text, /CLASSIFIEDS_ENABLED: \$\{\{ steps\.classifieds-stage\.outputs\.backend_enabled \}\}/);

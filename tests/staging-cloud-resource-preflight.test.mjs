@@ -48,7 +48,8 @@ process.exit(9);
     ARTIFACT_REPOSITORY: 'khedmah-staging',
     CLOUD_SQL_INSTANCE_CONNECTION_NAME: 'khedmah-staging:me-central1:khedmah-staging-db',
     GCS_MEDIA_BUCKET: 'khedmah-staging-media',
-    PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedmah-production',
+    STAGING_DATABASE_MIGRATION_SECRET_VERSION: '7',
+    PRODUCTION_GOOGLE_CLOUD_PROJECT: 'khedma-dl',
     MOCK_SQL_CONNECTION: 'khedmah-staging:me-central1:khedmah-staging-db',
     ...overrides
   };
@@ -70,13 +71,17 @@ test('staging cloud-resource preflight verifies APIs, repository, SQL, media buc
     assert.ok(calls.some(a => a[0] === 'artifacts' && a[1] === 'repositories' && a[2] === 'describe'));
     assert.ok(calls.some(a => a[0] === 'storage' && a[1] === 'buckets' && a[2] === 'describe' && a[3] === 'gs://khedmah-staging-media'));
     const secretCalls = calls.filter(a => a[0] === 'secrets');
-    assert.ok(secretCalls.length >= 10);
-    for (const args of secretCalls) {
+    const runtimeSecretCalls = secretCalls.filter(args => args[3] === 'latest');
+    assert.ok(runtimeSecretCalls.length >= 10);
+    for (const args of runtimeSecretCalls) {
       assert.deepEqual(args.slice(0, 3), ['secrets', 'versions', 'describe']);
       assert.equal(args[3], 'latest');
       assert.ok(args.includes('--secret'));
       assert.ok(!args.includes('access'));
     }
+    const migrationSecretCall = secretCalls.find(args => args.includes('DATABASE_MIGRATION_URL'));
+    assert.deepEqual(migrationSecretCall?.slice(0, 4), ['secrets', 'versions', 'describe', '7']);
+    assert.ok(!migrationSecretCall.includes('access'));
     const joined = calls.flat().join(' ');
     assert.doesNotMatch(joined, /services enable|run deploy|builds submit|versions access|storage cp|storage rm|buckets create/);
   } finally { f.close(); }
@@ -102,6 +107,24 @@ test('staging cloud-resource preflight rejects missing or disabled required secr
   } finally { f.close(); }
 });
 
+test('staging cloud-resource preflight requires an enabled pinned migration secret version', () => {
+  const unpinned = fixture({ STAGING_DATABASE_MIGRATION_SECRET_VERSION: 'latest' });
+  try {
+    const result = unpinned.run();
+    assert.equal(result.status, 3);
+    assert.match(result.stderr, /pinned positive integer/);
+    assert.equal(unpinned.calls().length, 0);
+  } finally { unpinned.close(); }
+
+  const disabled = fixture({ MOCK_DISABLED_SECRET: 'DATABASE_MIGRATION_URL' });
+  try {
+    const result = disabled.run();
+    assert.equal(result.status, 7);
+    assert.match(result.stderr, /migration secret version/);
+    assert.doesNotMatch(`${result.stdout}${result.stderr}`, /postgresql:\/\//i);
+  } finally { disabled.close(); }
+});
+
 test('staging cloud-resource preflight rejects a Cloud SQL instance that does not match the protected connection name', () => {
   const f = fixture({ MOCK_SQL_CONNECTION: 'khedmah-staging:me-central1:other-db' });
   try {
@@ -125,7 +148,7 @@ test('staging cloud-resource preflight rejects a missing or unreadable GCS media
 });
 
 test('staging cloud-resource preflight refuses Production before any gcloud call', () => {
-  const f = fixture({ GOOGLE_CLOUD_PROJECT: 'khedmah-production' });
+  const f = fixture({ GOOGLE_CLOUD_PROJECT: 'khedma-dl' });
   try {
     const result = f.run();
     assert.equal(result.status, 3);
