@@ -1,5 +1,33 @@
 # Khedmah Digital — Current State
 
+## Release metadata reader projection repaired — 2026-10-22 UTC
+
+This checkpoint supersedes the failed release-inspection command below. The owner ran reader blob `3d8df31611cb1e84600165b596eb0dc1c989ccf6`, SHA256 `d3064647d9c2e96e2a3d4368124aefb9d6200c6157173095e2c58a42b6595392`, and received only `STOP: BINDING_METADATA_INVALID`. **No completed release-metadata JSON receipt was obtained.** The STOP alone does not establish a bad backend binding, missing authority, or a database change. Do not ask the owner to repeat that unchanged command.
+
+### Reconciled source and retained live evidence
+
+Before this repair, live GitHub reads confirmed protected main `4862fa0bb3f35b450d97864c9a5f91c7d3358eb5`, tree `9b782f43606f932a431fb8f77e4619d51b2c7add`, and no open PRs. [PR292](https://github.com/khedma-sy/khedmah-digital-v1/pull/292) merged normally at **2026-10-22 15:03:12 UTC**. Both postmerge workflows are now **completed/success**: [Test & Verify 39801170660](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39801170660) and [Node 39801170663](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39801170663). This closes their earlier running status; it does not add repeated cases to PR292's documented 2878 passed / zero failed / one skipped execution. Its seven native PostgreSQL 16 transition subtests are already complete.
+
+The owner's quota diagnostic at **2026-10-22 14:23:58.320422 UTC** remains the latest complete database evidence: exact025 body, passing selected routine/trigger properties, one routine/one named and user INSERT trigger/zero INSERT rules, selected035 target, selected037 predecessor and absent private-evidence constraint. Both readiness flags remain false. The failed metadata attempt neither replaces this receipt nor authorizes036/037.
+
+### Reproduced defect and bounded correction
+
+[Implementation `c5ca23f75527cb980cbf761f6754e3b59eb286db`](https://github.com/khedma-sy/khedmah-digital-v1/commit/c5ca23f75527cb980cbf761f6754e3b59eb286db) changes only the two container projections and an explanatory comment in [the existing reader](../../scripts/read-preview-v2-approval-release.py). The original `spec.template.spec.containers.env` and `spec.containers.env` selectors omit the container list when processed by the official **Cloud SDK 590.0.0** formatter. On valid synthetic API messages this reproduces the owner's exact STOP. Selecting the complete parent `containers` preserves the array for the existing strict parser. The apparently narrower `containers[].env` is unsuitable: it can discard a sidecar without `env` and conceal the true container count.
+
+The [recorded formatter fixture](../../tests/fixtures/preview-v2-approval-release-gcloud-format.json) contains synthetic outputs, SDK version, official component URLs and SHA256 values. SDK core `2026.10.16` was verified as `af6a8794c64ab00cda8a223e3613fc2d97f2d6e7dac7f9d1c8e5e55df4c901b4`; the corresponding dependencies as `16c4a80ee6769479e3516dabb5757a4972dffe236df7892967d51a0b29066bfc`. No authenticated SDK command was run in the workspace. Actual formatter probes disproved a tentative optional-null concern, so null handling and transport were left unchanged.
+
+The parser, single-container requirement, fixed project/account, command allowlist, immutable transport sources and redacted receipt stay intact. Extra fields within the complete container object remain private and are not copied into the receipt. The existing private service reread comparison also retains them. No secret payload API, database connection, migration, deployment, role grant or Floot gate change was added.
+
+**27 focused Python reader cases passed: 21 retained and six new formatter-boundary regressions, zero failures/skips.** The unchanged Node wrapper passed over these same cases and is not an additional set. The regression suite fails against the exact original reader and passes the correction. All 11 recorded synthetic outputs were independently regenerated with the official SDK's generated API message classes and matched exactly. Python compilation and whitespace checks passed; independent source review found no remaining blocker. These are offline source results, not a live binding or readiness receipt.
+
+Corrected reader Git blob: `ad1c2d846413119703d1590059fbf1a30f58b266`. SHA256: `2077fd251f77772d38c06561ebc886a2f2bcf30d0819669bb7453bb9facf9489`. Use this repair's normal source-head checks and final PR receipt for integration status; do not reinterpret the previous PR292 tests as validation of these changed bytes.
+
+### Next Safe Action
+
+Obtain the single corrected metadata-only owner receipt using [NEXT-ACTION](NEXT-ACTION.md#corrected-release-metadata-read-after-formatter-stop--2026-10-22-utc). It is still needed to establish the live service/revision bindings and direct-policy observations; even a completed receipt does not prove effective deployment authority or release readiness. Any further STOP must be investigated from its specific evidence before a mutation.
+
+Floot was reread at project version `1792681528353`: approval `enabled:false` and driver `documentUploadEnabled:false`. All four existing note contents were recovered completely before synchronization. Preserve the working director, completed audits and old-image provenance. Keep the independently gated compatibility, maintenance/drain, schema, authority and live-acceptance sequence from the previous checkpoint; no live successor operation occurred in this repair.
+
 ## Confirmed quota predecessor and bounded successor preparation — 2026-10-22 UTC
 
 This checkpoint supersedes the older instruction to obtain the quota diagnostic or finish PR291. PR291 is already merged normally as `a8a5712484285e3d9f0c93ca3614e74d3085156f`; its native PostgreSQL 16 quota tests are complete. The owner supplied the new live receipt below. No completed baseline, ACL/runtime grant, administrator binding, Safari acceptance or old-image provenance is reopened.

@@ -1,5 +1,32 @@
 # Next Safe Action — Khedmah
 
+## Corrected release metadata read after formatter STOP — 2026-10-22 UTC
+
+The owner already attempted the prior release reader and received `STOP: BINDING_METADATA_INVALID`. **Do not rerun blob `3d8df31611cb1e84600165b596eb0dc1c989ccf6`.** No release-metadata completion receipt exists yet. PR292 is merged and its main workflows are completed/success; its quota diagnosis and seven native PostgreSQL transition tests are closed.
+
+[Source correction `c5ca23f75527cb980cbf761f6754e3b59eb286db`](https://github.com/khedma-sy/khedmah-digital-v1/commit/c5ca23f75527cb980cbf761f6754e3b59eb286db) repairs the two repeated-container projections. The official SDK reproduced the STOP with valid synthetic API messages, and the existing strict parser succeeds with the complete container parents. The fix keeps cardinality, identity, redaction, read-only scope and null guards. Its 27 focused reader cases pass, including six new formatter-boundary regressions; the unchanged Node wrapper covers the same cases. [CURRENT-STATE](CURRENT-STATE.md#release-metadata-reader-projection-repaired--2026-10-22-utc) records the reproduction, source pins and limits.
+
+After this correction's normal source-head checks have completed, use the existing owner Cloud Shell once with the corrected pinned command:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  release_inspect_tmp="$(mktemp -d /tmp/khedmah-release.XXXXXXXX)"
+  trap 'rm -rf -- "$release_inspect_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/ad1c2d846413119703d1590059fbf1a30f58b266 --jq .content 2>"$release_inspect_tmp/fetch.log" | base64 --decode >"$release_inspect_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 2077fd251f77772d38c06561ebc886a2f2bcf30d0819669bb7453bb9facf9489 "$release_inspect_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$release_inspect_tmp/inspect.py")" = ad1c2d846413119703d1590059fbf1a30f58b266 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$release_inspect_tmp/inspect.py" --inspect
+)
+```
+
+Expected successful stage: `PREVIEW_V2_APPROVAL_RELEASE_METADATA_READ_COMPLETED`. Request **only its JSON or a single STOP line**. Do not ask for raw service output, credentials or tokens. The frozen target is Preview V2; `khedma-dl` in the shell prompt does not require changing the default project.
+
+This command reads selected service/revision, SQL-instance identity, secret-version metadata, service-account, direct-policy, federation and optional GitHub-environment metadata. Secret-version metadata is not secret-payload access. No database connection or schema/application/cloud/role/deployment mutation is performed. It does not repeat the already completed quota read or old image/build provenance.
+
+On success, reconcile the actual serving and tagged revisions separately from the latest template, then complete the remaining authority and compatible-image evidence before finalizing the bounded live successor. Direct policy observations alone are not effective permissions. The existing 036/037 transition core is unchanged; its intended bounded transition remains **036 plus037** from the confirmed 025/035/037 prerequisite. Retain the reviewed Classifieds maintenance/traffic/tag/in-flight drain boundary before schema change and the compatible-candidate acceptance sequence afterward. Both Floot execution gates remain independently false. On a further STOP, investigate that result before offering any mutation.
+
 ## Quota cause proved; inspect the missing successor bindings — 2026-10-22 UTC
 
 The owner `--inspect-quota` receipt at **2026-10-22 14:23:58.320422 UTC is complete**. Exact 025 body is present; exact 036 body is absent; all selected routine/trigger metadata checks pass; one routine, one named/user INSERT trigger and zero INSERT rules. The selected 035 constraint already matches, while both 037 changes remain outstanding. This closes quota diagnosis; do not request the same receipt again or resume PR291's completed checks. [CURRENT-STATE](CURRENT-STATE.md#owner-quota-diagnosis-completed) records the evidence and limits.
