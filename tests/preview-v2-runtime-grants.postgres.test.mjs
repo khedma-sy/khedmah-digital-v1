@@ -135,12 +135,65 @@ test('Preview runtime grant executes the complete contract on native PostgreSQL 
   assert.equal(runtime.denied_select_probes, 2);
 
   const root = fileURLToPath(new URL('..', import.meta.url));
+  const inspectionSource = run('python3', ['-B', '-c', `
+import importlib.util, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('approval_catalog_fixture', root / 'scripts/read-preview-v2-approval-schema.py')
+reader = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reader)
+runner = (root / 'scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh').read_bytes()
+predecessor = (root / 'backend/migrations/versions/025_classifieds.sql').read_bytes()
+print(json.dumps({'approval': reader.build_sql(runner), 'quota': reader.build_quota_sql(runner, predecessor)}))
+`, root]);
+  assert.equal(inspectionSource.status, 0, inspectionSource.stderr);
+  const inspection = JSON.parse(inspectionSource.stdout);
+  const snapshot = () => JSON.stringify({
+    schema: ok(sql(pack.schema), 'schema digest'),
+    acl: JSON.parse(ok(sql(pack.inventory), 'complete ACL metadata').join('\n')),
+  });
+  const canonicalQuotaDiagnostic = {
+    routine_count: 1, body_025_exact: false, body_036_exact: true,
+    routine_failed_checks: [], named_trigger_count: 1, trigger_failed_checks: [],
+    user_insert_trigger_count: 1, insert_rule_count: 0,
+  };
+  const inspectQuota = (label, expected = {}, quotaTarget = false) => {
+    const value = JSON.parse(ok(sql(inspection.quota), label).join('\n'));
+    assert.equal(value.database, 'khedmah');
+    assert.equal(value.user, 'khedmah_migrator');
+    assert.equal(value.session_user, 'khedmah_migrator');
+    assert.equal(value.read_only, 'on');
+    assert.equal(value.isolation, 'repeatable read');
+    assert.equal(value.quota_target, quotaTarget, label + ': canonical quota result');
+    assert.deepEqual(value.quota_diagnostics, { ...canonicalQuotaDiagnostic, ...expected }, label);
+    return value;
+  };
+  const assertInspectionAgreement = (value, label) => {
+    const catalog = { ...value };
+    delete catalog.quota_diagnostics;
+    assert.deepEqual(catalog, JSON.parse(ok(sql(inspection.approval), label).join('\n')),
+      'The diagnostic must retain the original canonical catalog classification.');
+  };
   // The retained ACL baseline intentionally validates the reviewed 030 routine
   // body first. Migration 036 remains owned by Classifieds; the real governed
   // entrypoint below must apply 035 and 037 rather than fixture SQL doing so.
-  ok(sql('SET search_path=public,pg_catalog;\n' +
-    readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
-    'khedmah_migrator', 'khedmah', false), 'classifieds quota migration fixture');
+  await t.test('quota catalog distinguishes canonical 025 and 036 without changing either state', () => {
+    const before036 = snapshot();
+    const predecessor = inspectQuota('canonical 025 quota diagnosis', {
+      body_025_exact: true, body_036_exact: false,
+    });
+    assert.equal(predecessor.classification, 'prerequisite-invalid');
+    assertInspectionAgreement(predecessor, 'canonical reader before 036');
+    assert.equal(snapshot(), before036, 'Diagnosing the old quota must not install 036.');
+
+    ok(sql('SET search_path=public,pg_catalog;\n' +
+      readFileSync(root + '/backend/migrations/versions/036_classifieds_rolling_publication_quota.sql', 'utf8'),
+      'khedmah_migrator', 'khedmah', false), 'classifieds quota migration fixture');
+    const after036 = snapshot();
+    const target = inspectQuota('canonical 036 quota diagnosis', {}, true);
+    assert.equal(target.classification, 'predecessor');
+    assertInspectionAgreement(target, 'canonical reader after 036');
+    assert.equal(snapshot(), after036, 'Diagnosing 036 must preserve the complete schema and ACLs.');
+  });
 
   // Run the real ten deployment entrypoints against the completed successor
   // schema and grants. The disposable container stays network-disabled.
@@ -214,10 +267,6 @@ chmod -R a+rX /schema-scripts /migrations
     return run('docker', ['exec', ...Object.entries(env).flatMap(([k,v]) => ['--env', k + '=' + v]),
       fixture, 'sh', '/schema-scripts/run-' + name + '.sh']);
   };
-  const snapshot = () => JSON.stringify({
-    schema: ok(sql(pack.schema), 'schema digest'),
-    acl: JSON.parse(ok(sql(pack.inventory), 'complete ACL metadata').join('\n')),
-  });
   const approvalStage = 'approval-prerequisites-035-037-nonproduction-migration';
   const beforeApproval = snapshot();
   const applied = ok(runMigration(approvalStage, 'apply', {
@@ -237,6 +286,12 @@ chmod -R a+rX /schema-scripts /migrations
   }), 'idempotent approval prerequisite replay');
   assert.ok(approvalReplay.some(line => line.includes('MIGRATIONS_035_037_ALREADY_APPLIED_AND_VERIFIED')));
   assert.equal(snapshot(), appliedSnapshot);
+  await t.test('quota catalog agrees with the complete canonical approval target', () => {
+    const target = inspectQuota('complete approval target quota diagnosis', {}, true);
+    assert.equal(target.classification, 'target');
+    assertInspectionAgreement(target, 'complete canonical approval reader');
+    assert.equal(snapshot(), appliedSnapshot, 'Inspection must not alter the verified approval target.');
+  });
 
   const verifyRejectsConstraintDrift = (ddl, label) => {
     ok(sql(ddl, 'khedmah_migrator', 'khedmah', false), label + ' fixture');
@@ -282,6 +337,7 @@ chmod -R a+rX /schema-scripts /migrations
   ok(sql('ALTER TABLE public.ad_free_slots DISABLE TRIGGER ad_free_slot_limit_before_insert;',
     'khedmah_migrator', 'khedmah', false), 'disable rolling-quota trigger');
   const disabledQuotaSnapshot = snapshot();
+  inspectQuota('disabled quota trigger diagnosis', { trigger_failed_checks: ['enabled'] });
   const disabledQuota = runMigration(approvalStage);
   assert.notEqual(disabledQuota.status, 0, 'disabled rolling-quota trigger must fail verification');
   assert.match(disabledQuota.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
@@ -297,15 +353,61 @@ chmod -R a+rX /schema-scripts /migrations
   assert.notEqual(driftedQuotaDefinition, quotaDefinition, 'quota body fixture must change the function');
   ok(sql(driftedQuotaDefinition, 'khedmah_migrator', 'khedmah', false), 'drift rolling-quota body');
   const quotaBodySnapshot = snapshot();
+  inspectQuota('unknown quota body diagnosis', { body_036_exact: false });
   const quotaBodyRejected = runMigration(approvalStage);
   assert.notEqual(quotaBodyRejected.status, 0, 'rolling-quota body drift must fail verification');
   assert.match(quotaBodyRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
   assert.equal(snapshot(), quotaBodySnapshot, 'verification must not rewrite a drifted quota function');
   ok(sql(quotaDefinition, 'khedmah_migrator', 'khedmah', false), 'restore rolling-quota body');
 
+  await t.test('quota catalog distinguishes missing objects and function security metadata drift', () => {
+    const cases = [
+      {
+        label: 'missing exact quota signature',
+        drift: 'ALTER FUNCTION public.enforce_ad_free_slot_limit() RENAME TO fixture_missing_quota;',
+        restore: 'ALTER FUNCTION public.fixture_missing_quota() RENAME TO enforce_ad_free_slot_limit;',
+        expected: { routine_count: 0, body_025_exact: null, body_036_exact: null,
+          routine_failed_checks: ['missing'], trigger_failed_checks: ['function'] },
+      },
+      {
+        label: 'missing named quota trigger',
+        drift: 'ALTER TRIGGER ad_free_slot_limit_before_insert ON public.ad_free_slots RENAME TO fixture_missing_quota_trigger;',
+        restore: 'ALTER TRIGGER fixture_missing_quota_trigger ON public.ad_free_slots RENAME TO ad_free_slot_limit_before_insert;',
+        expected: { named_trigger_count: 0, trigger_failed_checks: ['missing'] },
+      },
+      {
+        label: 'quota SECURITY DEFINER drift',
+        drift: 'ALTER FUNCTION public.enforce_ad_free_slot_limit() SECURITY DEFINER;',
+        restore: 'ALTER FUNCTION public.enforce_ad_free_slot_limit() SECURITY INVOKER;',
+        expected: { routine_failed_checks: ['security_definer'] },
+      },
+      {
+        label: 'quota function settings drift',
+        drift: 'ALTER FUNCTION public.enforce_ad_free_slot_limit() SET search_path TO public,pg_catalog;',
+        restore: 'ALTER FUNCTION public.enforce_ad_free_slot_limit() RESET ALL;',
+        expected: { routine_failed_checks: ['settings'] },
+      },
+    ];
+    for (const { label, drift, restore, expected } of cases) {
+      ok(sql(drift, 'khedmah_migrator', 'khedmah', false), label + ' fixture');
+      const before = snapshot();
+      try {
+        const diagnosed = inspectQuota(label, expected);
+        assert.equal(diagnosed.classification, 'prerequisite-invalid');
+        assert.equal(snapshot(), before, label + ': inspection must not repair the mismatch');
+      } finally {
+        ok(sql(restore, 'khedmah_migrator', 'khedmah', false), 'restore ' + label);
+      }
+    }
+    const restored = snapshot();
+    inspectQuota('quota metadata restored', {}, true);
+    assert.equal(snapshot(), restored);
+  });
+
   ok(sql('ALTER FUNCTION public.enforce_ad_free_slot_limit() OWNER TO postgres;',
     'postgres', 'khedmah', false), 'drift rolling-quota owner');
   const quotaOwnerSnapshot = snapshot();
+  inspectQuota('quota owner drift diagnosis', { routine_failed_checks: ['owner'] });
   const quotaOwnerRejected = runMigration(approvalStage);
   assert.notEqual(quotaOwnerRejected.status, 0, 'rolling-quota owner drift must fail verification');
   assert.match(quotaOwnerRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
@@ -318,6 +420,7 @@ chmod -R a+rX /schema-scripts /migrations
     FOR EACH ROW EXECUTE FUNCTION public.protect_ad_listing_identity();`,
     'khedmah_migrator', 'khedmah', false), 'drift rolling-quota trigger binding');
   const quotaBindingSnapshot = snapshot();
+  inspectQuota('quota trigger binding diagnosis', { trigger_failed_checks: ['function'] });
   const quotaBindingRejected = runMigration(approvalStage);
   assert.notEqual(quotaBindingRejected.status, 0, 'rolling-quota trigger binding drift must fail verification');
   assert.match(quotaBindingRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
@@ -331,6 +434,7 @@ chmod -R a+rX /schema-scripts /migrations
     FOR EACH ROW EXECUTE FUNCTION public.enforce_ad_free_slot_limit();`,
     'khedmah_migrator', 'khedmah', false), 'add extra rolling-quota insert trigger');
   const extraInsertTriggerSnapshot = snapshot();
+  inspectQuota('additional quota insert trigger diagnosis', { user_insert_trigger_count: 2 });
   const extraInsertTriggerRejected = runMigration(approvalStage);
   assert.notEqual(extraInsertTriggerRejected.status, 0, 'extra insert trigger must fail verification');
   assert.match(extraInsertTriggerRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
@@ -341,10 +445,17 @@ chmod -R a+rX /schema-scripts /migrations
   ok(sql(`CREATE RULE fixture_ad_free_slot_insert AS ON INSERT TO public.ad_free_slots
     DO INSTEAD NOTHING;`, 'khedmah_migrator', 'khedmah', false), 'add rolling-quota insert rewrite rule');
   const insertRuleSnapshot = snapshot();
+  const insertRuleMetadata = () => ok(sql(`SELECT to_jsonb(r) FROM pg_catalog.pg_rewrite r
+    WHERE r.ev_class='public.ad_free_slots'::regclass AND r.rulename='fixture_ad_free_slot_insert';`),
+    'quota insert rule metadata');
+  const ruleBeforeInspection = insertRuleMetadata();
+  assert.equal(ruleBeforeInspection.length, 1, 'The rule-preservation snapshot must contain the fixture rule.');
+  inspectQuota('quota insert rule diagnosis', { insert_rule_count: 1 });
   const insertRuleRejected = runMigration(approvalStage);
   assert.notEqual(insertRuleRejected.status, 0, 'insert rewrite rule must fail verification');
   assert.match(insertRuleRejected.stderr, /MIGRATIONS_035_037_REQUIRE_CANONICAL_034_036/);
   assert.equal(snapshot(), insertRuleSnapshot, 'verification must not remove an insert rewrite rule');
+  assert.deepEqual(insertRuleMetadata(), ruleBeforeInspection, 'Inspection must preserve the exact insert rule.');
   ok(sql('DROP RULE fixture_ad_free_slot_insert ON public.ad_free_slots;',
     'khedmah_migrator', 'khedmah', false), 'remove rolling-quota insert rewrite rule');
   assert.equal(runMigration(approvalStage).status, 0, 'restored quota function and trigger must verify');
