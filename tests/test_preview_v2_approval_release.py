@@ -24,6 +24,7 @@ FEDERATION = (ROOT / 'scripts/configure-preview-v2-github.py').read_bytes()
 REFERENCE = m.federation_reference(FEDERATION)
 SENTINEL = 'PRIVATE_PAYLOAD_MUST_NEVER_APPEAR_7d80f9'
 OTHER_REVISION = m.SERVICE + '-00009-test'
+FORMATTER_FIXTURES = json.loads((ROOT / 'tests/fixtures/preview-v2-approval-release-gcloud-format.json').read_text())
 
 
 def spec_fixture():
@@ -195,6 +196,128 @@ class SourceAndBoundaryTests(OfflineCase):
             with self.subTest(command=command), self.assertRaisesRegex(SystemExit, 'CLOUD_READ_SCOPE_REJECTED'):
                 m.cloud_read(reader, command)
         self.assertEqual(reader.calls, [])
+
+
+class GcloudProjectionBoundaryTests(OfflineCase):
+    """Recorded official-SDK output through the actual frozen cloud transport.
+
+    The JSON fixture records SDK version, source hashes and complete formats.
+    Its generated API messages were rendered offline, without cloud access.
+    These tests require no SDK install and do not simulate its projection code.
+    """
+
+    def transport(self, case, args, original=False):
+        record = FORMATTER_FIXTURES['cases'][case]
+        spec = importlib.util.spec_from_file_location('frozen_projection_transport', ROOT / 'scripts/read-preview-v2-schema.py')
+        frozen = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(frozen)
+        raw = json.dumps(record['output']).encode()
+        output = io.StringIO()
+        with patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, raw, SENTINEL.encode())) as run, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            if original:
+                result = frozen.cloud(*args, fields=record['format'][5:-1])
+            else:
+                result = m.cloud_read(frozen, args)
+        command = run.call_args.args[0]
+        self.assertEqual([x for x in command if x.startswith('--format=')], ['--format=' + record['format']])
+        self.assertEqual(command[:len(args) + 1], ['gcloud', *args])
+        self.assertIn('--project=' + m.PROJECT, command)
+        self.assertIn('--account=' + m.ACCOUNT, command)
+        self.assertTrue(run.call_args.kwargs['capture_output'])
+        self.assertEqual(run.call_args.kwargs['env']['CLOUDSDK_CORE_LOG_HTTP'], 'false')
+        self.assertEqual(run.call_args.kwargs['env']['CLOUDSDK_CORE_DISABLE_FILE_LOGGING'], 'true')
+        self.assertEqual(output.getvalue(), '')
+        return result
+
+    def test_original_sdk_projection_reproduces_binding_stop_for_both_resources(self):
+        revision_args = ('run', 'revisions', 'describe', m.KNOWN_REVISION, m.REGION_ARG)
+        for name, args in (('service', m.SERVICE_ARGS), ('revision', revision_args)):
+            with self.subTest(resource=name):
+                value = self.transport(name + '_original', args, original=True)
+                spec = value['spec']['template']['spec'] if name == 'service' else value['spec']
+                self.assertNotIn('containers', spec)
+                with self.assertRaisesRegex(SystemExit, '^STOP: BINDING_METADATA_INVALID$'):
+                    (m.service_summary(value) if name == 'service' else m.revision_summary(value, m.KNOWN_REVISION))
+
+    def test_parent_projection_preserves_native_array_and_redacts_extra_container_fields(self):
+        revision_args = ('run', 'revisions', 'describe', m.KNOWN_REVISION, m.REGION_ARG)
+        for name, args in (('service', m.SERVICE_ARGS), ('revision', revision_args)):
+            with self.subTest(resource=name):
+                value = self.transport(name + '_parent', args)
+                spec = value['spec']['template']['spec'] if name == 'service' else value['spec']
+                self.assertEqual(len(spec['containers']), 1)
+                self.assertEqual(spec['containers'][0]['image'], SENTINEL)
+                summary = m.service_summary(value) if name == 'service' else m.revision_summary(value, m.KNOWN_REVISION)
+                binding = summary['latest_template_binding'] if name == 'service' else summary['binding']
+                self.assertTrue(binding['database_url_reference_matches'])
+                self.assertNotIn(SENTINEL, json.dumps(summary))
+
+    def test_envless_sidecar_is_preserved_and_rejected_by_existing_cardinality_guard(self):
+        args = ('run', 'revisions', 'describe', m.KNOWN_REVISION, m.REGION_ARG)
+        value = self.transport('revision_parent_sidecar_without_env', args)
+        self.assertEqual(len(value['spec']['containers']), 2)
+        with self.assertRaisesRegex(SystemExit, '^STOP: BINDING_METADATA_INVALID$'):
+            m.revision_summary(value, m.KNOWN_REVISION)
+        # An explicit [] selector still prunes the sidecar that lacks env.
+        narrower = FORMATTER_FIXTURES['cases']['revision_env_projection_hides_sidecar']['output']
+        self.assertEqual(len(narrower['spec']['containers']), 1)
+        self.assertNotIn('env', value['spec']['containers'][1])
+
+    def test_single_container_without_env_stays_visible_with_unverified_binding(self):
+        args = ('run', 'revisions', 'describe', m.KNOWN_REVISION, m.REGION_ARG)
+        value = self.transport('revision_parent_without_env', args)
+        self.assertEqual(len(value['spec']['containers']), 1)
+        result = m.revision_summary(value, m.KNOWN_REVISION)['binding']
+        self.assertFalse(result['database_url_reference_matches'])
+        self.assertEqual(result['classifieds_enabled'], 'absent')
+        self.assertNotIn(SENTINEL, json.dumps(result))
+
+    def test_omitted_optional_fields_use_defaults_and_explicit_null_stays_invalid(self):
+        account = self.transport('service_account_disabled_absent',
+                                 ('iam', 'service-accounts', 'describe', m.IDENTITIES['runtime']))
+        pool = self.transport('pool_disabled_absent',
+                              ('iam', 'workload-identity-pools', 'describe', m.POOL, '--location=global'))
+        provider = self.transport('provider_disabled_absent',
+                                  ('iam', 'workload-identity-pools', 'providers', 'describe', m.PROVIDER,
+                                   '--location=global', '--workload-identity-pool=' + m.POOL))
+        policy = self.transport('policy_empty', ('projects', 'get-iam-policy', m.PROJECT))
+        for value in (account, pool, provider):
+            self.assertNotIn('disabled', value)
+        self.assertEqual(policy, {})
+        self.assertTrue(m.service_account(account, m.IDENTITIES['runtime'])['enabled'])
+        self.assertTrue(m.federation(pool, REFERENCE)['enabled'])
+        self.assertTrue(m.federation(provider, REFERENCE, provider=True)['enabled'])
+        self.assertEqual(m.policy_summary(policy, {'runtime': 'serviceAccount:' + m.IDENTITIES['runtime']})['direct_bindings'],
+                         {'runtime': []})
+        account['disabled'] = None
+        with self.assertRaises(SystemExit):
+            m.service_account(account, m.IDENTITIES['runtime'])
+        for value, is_provider in ((pool, False), (provider, True)):
+            value['disabled'] = None
+            with self.subTest(provider=is_provider), self.assertRaises(SystemExit):
+                m.federation(value, REFERENCE, provider=is_provider)
+        for field in ('version', 'bindings'):
+            with self.subTest(field=field), self.assertRaises(SystemExit):
+                m.policy_summary({field: None}, {})
+
+    def test_required_binding_shapes_remain_strict_after_projection_fix(self):
+        baseline = FORMATTER_FIXTURES['cases']['revision_parent']['output']
+        for containers in (None, [], {}, [None]):
+            with self.subTest(containers=containers):
+                value = copy.deepcopy(baseline)
+                value['spec']['containers'] = containers
+                with self.assertRaisesRegex(SystemExit, '^STOP: BINDING_METADATA_INVALID$'):
+                    m.revision_summary(value, m.KNOWN_REVISION)
+        for field in ('serviceAccountName', 'containers'):
+            value = copy.deepcopy(baseline)
+            del value['spec'][field]
+            with self.subTest(missing=field), self.assertRaisesRegex(SystemExit, '^STOP: BINDING_METADATA_INVALID$'):
+                m.revision_summary(value, m.KNOWN_REVISION)
+        value = copy.deepcopy(baseline)
+        value['metadata']['annotations'] = None
+        with self.assertRaisesRegex(SystemExit, '^STOP: BINDING_METADATA_INVALID$'):
+            m.revision_summary(value, m.KNOWN_REVISION)
 
 
 class BindingAndSnapshotTests(OfflineCase):
