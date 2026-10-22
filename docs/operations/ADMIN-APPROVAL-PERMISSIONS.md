@@ -1,5 +1,13 @@
 # Human Admin Approval Permissions
 
+## Metadata reader correction; approval authority unchanged — 2026-10-22 UTC
+
+The owner release inspection stopped at `BINDING_METADATA_INVALID` and produced no completed release-metadata receipt. [Correction `c5ca23f75527cb980cbf761f6754e3b59eb286db`](https://github.com/khedma-sy/khedmah-digital-v1/commit/c5ca23f75527cb980cbf761f6754e3b59eb286db) changes the two Cloud Run container selectors so the official SDK preserves the array expected by the strict parser. It retains the single-container, identity, redaction and read-only guards; it does not infer authority from missing metadata. Official SDK reproduction and **27 focused reader cases** pass, including six new boundary regressions. This is source validation only.
+
+Use the corrected pinned reader in [NEXT-ACTION](../project-control/NEXT-ACTION.md#corrected-release-metadata-read-after-formatter-stop--2026-10-22-utc) after its normal source checks. Its direct-policy observations remain separate from effective deployment permission, and its live completion receipt is still outstanding. PR292 and both postmerge workflows are complete; no earlier source or database test is reopened.
+
+The confirmed035 role constraint is not an account grant. Preserve the activated `operations_product_director`, its `security.manage` approval authority and human decisions; `smart_admin_approver` remains a separate code permission and KORA remains advisory. Approval and driver-upload execution gates were reread independently false in Floot version `1792681528353`. The metadata-reader fix changes neither session separation nor the required transactional latest-document/self/pending/invalidation guarantees. No live approval, migration, deployment or role change was performed.
+
 ## Confirmed Preview quota predecessor; execution remains held — 2026-10-22 UTC
 
 The owner's live diagnostic at **2026-10-22 14:23:58.320422 UTC** establishes exact canonical025 quota body, intact selected routine/trigger metadata, one routine/one named INSERT trigger/one user INSERT trigger and zero INSERT rules. The selected 035 role constraint matches target; 037 media constraints remain predecessor/absent. These are catalog facts, not a role assignment or live-approval receipt. Preserve the working `operations_product_director` and its `security.manage` authority.

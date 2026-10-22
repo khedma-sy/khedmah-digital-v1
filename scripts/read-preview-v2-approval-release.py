@@ -45,12 +45,14 @@ MAX_REVISIONS = 10
 MAX_RESPONSE = 2 * 1024 * 1024
 REGION_ARG = '--region=' + REGION
 SERVICE_ARGS = ('run', 'services', 'describe', SERVICE, REGION_ARG)
+# Project the entire repeated container field. `containers.env` loses the array;
+# `containers[].env` can prune an env-less sidecar and hide its cardinality.
 SERVICE_FIELDS = ('metadata.name,metadata.namespace,metadata.generation,metadata.labels,'
                   'metadata.deletionTimestamp,spec.template.metadata,spec.template.spec.serviceAccountName,'
-                  'spec.template.spec.containers.env,spec.template.spec.timeoutSeconds,status.observedGeneration,status.conditions,'
+                  'spec.template.spec.containers,spec.template.spec.timeoutSeconds,status.observedGeneration,status.conditions,'
                   'status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic')
 REVISION_FIELDS = ('metadata.name,metadata.namespace,metadata.labels,metadata.annotations,'
-                   'metadata.deletionTimestamp,spec.serviceAccountName,spec.containers.env,spec.timeoutSeconds,status.conditions')
+                   'metadata.deletionTimestamp,spec.serviceAccountName,spec.containers,spec.timeoutSeconds,status.conditions')
 CLOUD_READS = {
     SERVICE_ARGS: SERVICE_FIELDS,
     ('sql', 'instances', 'describe', INSTANCE): 'name,project,region,connectionName,state,databaseVersion',
