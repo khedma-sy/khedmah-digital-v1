@@ -1,5 +1,16 @@
 # Human Admin Approval Permissions
 
+## Confirmed Preview quota predecessor; execution remains held — 2026-10-22 UTC
+
+The owner's live diagnostic at **2026-10-22 14:23:58.320422 UTC** establishes exact canonical025 quota body, intact selected routine/trigger metadata, one routine/one named INSERT trigger/one user INSERT trigger and zero INSERT rules. The selected 035 role constraint matches target; 037 media constraints remain predecessor/absent. These are catalog facts, not a role assignment or live-approval receipt. Preserve the working `operations_product_director` and its `security.manage` authority.
+
+The bounded source preparation targets only canonical036 plus037. The offline transaction core has no live execution entry point; the next owner command reads missing current service/secret-reference and execution/WIF metadata without database connections or secret payload access. Existing schema/deployment gates remain in force.
+
+The serving f4 Classifieds contract still returns lifetime quota and maps only the old exhaustion error. Main requires037 at startup, so activation needs a reviewed compatibility sequence including the actual traffic/tag/drain boundary, not a schema-only change beneath enabled old Classifieds. The `CLASSIFIEDS_ENABLED` flag controls all Classifieds reads/writes/media. False Floot approval/upload gates are not a platform-wide Classifieds maintenance mechanism.
+
+The owner diagnostic was fully preserved in the four existing Floot notes at version `1792679237390`, checkpoint `a0e89a3d-6335-497b-b9fa-0585cb54e8f0`. Both approval `enabled:false` and driver-document `documentUploadEnabled:false` remain unchanged. Approval and evidence upload each require their own compatible-target proof, with atomic self/latest/pending checks and invalidation of old eligibility when evidence changes. KORA remains advisory and Taxi approval remains separate from trip booking/dispatch. See [CURRENT-STATE](../project-control/CURRENT-STATE.md) and [NEXT-ACTION](../project-control/NEXT-ACTION.md).
+
+
 ## Owner-requested Floot approval completion — 2026-10-21 UTC
 
 The owner explicitly requested the seven existing approval domains: Classifieds, Store products, business/professional content, their verification, driver documents and Taxi operational approval. The existing working director retains `security.manage`; `smart_admin_approver` remains the separate bounded human role defined below. Neither this request nor a Floot role creates an autonomous KORA identity. No live binding was changed in this pass.

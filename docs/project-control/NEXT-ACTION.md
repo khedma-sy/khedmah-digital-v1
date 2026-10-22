@@ -1,5 +1,45 @@
 # Next Safe Action — Khedmah
 
+## Quota cause proved; inspect the missing successor bindings — 2026-10-22 UTC
+
+The owner `--inspect-quota` receipt at **2026-10-22 14:23:58.320422 UTC is complete**. Exact 025 body is present; exact 036 body is absent; all selected routine/trigger metadata checks pass; one routine, one named/user INSERT trigger and zero INSERT rules. The selected 035 constraint already matches, while both 037 changes remain outstanding. This closes quota diagnosis; do not request the same receipt again or resume PR291's completed checks. [CURRENT-STATE](CURRENT-STATE.md#owner-quota-diagnosis-completed) records the evidence and limits.
+
+1. **Use this bounded source preparation's own check receipt.** The [offline transaction preparer](../../scripts/prepare-preview-v2-approval-transition.py) and [metadata-only reader](../../scripts/read-preview-v2-approval-release.py) have their own focused validation and require a successful current-head native PostgreSQL 16 CI receipt before any live successor operation. Keep all generic Preview/Staging and PR274 boundaries unchanged. The preparer does not connect to Cloud SQL or expose a live apply command.
+2. **Obtain the single owner metadata receipt below.** It reads only current service/revision bindings and selected execution/WIF metadata on the fixed Preview target. It must not read secret payloads or connect to PostgreSQL. Ask for its sanitized JSON or `STOP` only. A policy binding is an observation, not proof of effective deployment authority; any unavailable check remains open.
+3. **Finalize the exact candidate and execution authority.** Use the observed service/secret references and runtime identity, the protected successor workflow/identity and immutable backend candidate. Reuse unchanged old-image provenance and completed database runtime grants. A current WIF condition still restricted to PR274 does not authorize a successor workflow. Do not impersonate that historical lineage or switch Staging.
+4. **Review the Classifieds compatibility window before any schema apply.** Serving f4 returns lifetime quota and maps only the old quota error. `CLASSIFIEDS_ENABLED=false` disables all Classifieds reads/writes/media; false Floot approval/upload gates alone are insufficient. Main startup requires 037 even on a no-traffic revision. Build the candidate first after authority is proved; establish the reviewed maintenance/traffic/tag/in-flight drain boundary, then execute the guarded 036+037 transaction and exact readback, then deploy/accept/promote the compatible successor. Do not disable startup schema validation. Keep maintenance on a failed candidate rather than returning an enabled incompatible old runtime.
+5. **Accept each human-execution path independently.** Prove atomic self/latest/pending and evidence-change invalidation guarantees on the actual compatible target with scoped owner/reviewer records. Preserve the working director. Taxi remains V1 directory/contact; approval does not add dispatch. Publication and Production retain separate gates.
+
+### Pinned metadata-only owner command
+
+Implementation [`123aa6d723b92d6a454d1ed951027da34e2f7b82`](https://github.com/khedma-sy/khedmah-digital-v1/commit/123aa6d723b92d6a454d1ed951027da34e2f7b82). Reader Git blob `3d8df31611cb1e84600165b596eb0dc1c989ccf6`; SHA256 `d3064647d9c2e96e2a3d4368124aefb9d6200c6157173095e2c58a42b6595392`. Copy the complete block into the established Cloud Shell and return **JSON or a `STOP` line only**. The project is fixed internally; do not change Cloud Shell's default project. This read accesses secret-version metadata only, never secret payloads, tokens or PostgreSQL.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  release_inspect_tmp="$(mktemp -d /tmp/khedmah-release.XXXXXXXX)"
+  trap 'rm -rf -- "$release_inspect_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/3d8df31611cb1e84600165b596eb0dc1c989ccf6 --jq .content 2>"$release_inspect_tmp/fetch.log" | base64 --decode >"$release_inspect_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' d3064647d9c2e96e2a3d4368124aefb9d6200c6157173095e2c58a42b6595392 "$release_inspect_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$release_inspect_tmp/inspect.py")" = 3d8df31611cb1e84600165b596eb0dc1c989ccf6 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$release_inspect_tmp/inspect.py" --inspect
+)
+```
+
+Expected stage: `PREVIEW_V2_APPROVAL_RELEASE_METADATA_READ_COMPLETED`. The source's receipt must continue to distinguish observed bindings/policies from effective authority, compatibility, schema readiness and release readiness. No migration, build, deployment, maintenance switch or role change is included in this command.
+
+### Prepared database scope
+
+| Step | Immutable source | Required boundary |
+| --- | --- | --- |
+| 036 | `1474509257144f938cbef7be7bddcc5cc1f00414`; SHA256 `8ed732624b0baf5f5457d138692622214fe2d7b2dd556b79974d23bd0c76093b` | Exact canonical025 body and intact selected surrounding contracts under governed locks. |
+| 037 | `71f86e7c500adfdcd4ca3f2fe8a3562f66374874`; SHA256 `2ff2dbac17a7606ced97cb332c52a431d6eb6ea6b35271906ff9984d14a7b216` | Canonical asset predecessor and absent private-evidence check, followed by exact validated target. |
+| 035 / grants / data | Retain existing target constraint, account bindings and ACLs. | No replay or role-row/application DML. CHECK validation may scan existing rows internally; no row values are returned. |
+
+The two SQL changes are intended to commit together or roll back together. This does not make the separate Cloud Run traffic rollout atomic. A live operator wrapper, fresh target/binding checks, reviewed recovery/maintenance boundary and applicable execution authority remain mandatory; the pure transaction core alone establishes none of them.
+
+
 ## Diagnose the observed quota mismatch on the proved Preview target — 2026-10-22 UTC
 
 The owner catalog read at **13:17:23.054168 UTC is complete**. Preserve that receipt: selected anchors/columns pass, the 035 role constraint is target, the 037 media constraints are predecessor, and the composite quota contract is false. These findings do not grant an account role or establish release readiness. PR290 is merged at `a3992b8b97f9d33ae1caef9157df5b8ed23482e9` and both main workflows passed. The working director, native human forms, serving `00008-tg8` / `f4f8ce2` provenance and both false Floot gates remain unchanged. See [CURRENT-STATE](CURRENT-STATE.md#completed-owner-catalog-read-and-bounded-quota-follow-up).

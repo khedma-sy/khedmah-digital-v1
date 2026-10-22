@@ -1,5 +1,52 @@
 # Khedmah Digital — Current State
 
+## Confirmed quota predecessor and bounded successor preparation — 2026-10-22 UTC
+
+This checkpoint supersedes the older instruction to obtain the quota diagnostic or finish PR291. PR291 is already merged normally as `a8a5712484285e3d9f0c93ca3614e74d3085156f`; its native PostgreSQL 16 quota tests are complete. The owner supplied the new live receipt below. No completed baseline, ACL/runtime grant, administrator binding, Safari acceptance or old-image provenance is reopened.
+
+Before publishing this preparation, live GitHub reads still showed `main=a8a5712484285e3d9f0c93ca3614e74d3085156f` and zero open PRs. [Node main run 39791300902](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39791300902) succeeded. [Test & Verify main run 39791301209](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39791301209) still reports aggregate `in_progress/null`, while its test/quality jobs succeeded and PR Validation skipped. Do not relabel the aggregate as complete or count repeated tests again.
+
+### Owner quota diagnosis completed
+
+At **2026-10-22 14:23:58.320422 UTC**, the pinned `--inspect-quota` reader completed on `khedmah-preview-v2-20261012` / `europe-west1` / `khedmah-preview-v2-db` / `khedmah`. PostgreSQL is `160015`; current and session user are `khedmah_migrator`, with read-only `on` and `repeatable read`.
+
+| Selected diagnostic | Established result |
+| --- | --- |
+| Installed quota body | `body_025_exact:true`; `body_036_exact:false`. |
+| Routine and trigger predicates | `routine_failed_checks:[]`, `trigger_failed_checks:[]`; one routine, one named trigger, one user INSERT trigger, zero INSERT rules. |
+| Cause of selected quota mismatch | The installed body is the canonical 025 predecessor; the other selected quota predicates match. This proves current contents, not whether 036 was ever applied historically. |
+| Other catalog contracts | All selected relation/column comparisons are true. The 035 role constraint is target. The 037 asset constraint is predecessor and its private-evidence constraint is absent. |
+| Readiness | `classification:prerequisite-invalid`, `quota_target:false`, `schema_readiness_verified:false`, `release_gates_verified:false`. |
+
+Inspector blob `b4eebe64089b51799011d811bde4f1a47ce6c8e3`, SHA256 `4665b14534b96bb4474495e681b0fea318798c18a9e86b7306af5f55456f02b7`. The receipt's SQL SHA256 `b3bcdaf0479debb0c6c7f5bf90cef6364a87ca114b770c53096ce589a55ffb46` was independently reproduced from the frozen source, and its catalog passed the inspector's strict result validator locally. This validates the supplied receipt against source; the workspace did not obtain a Google Cloud session or repeat the live read.
+
+The pinned 025 source/body hashes and pinned 036 body hash remain exactly those recorded in the preceding diagnostic checkpoint. The owner read accessed migration-secret version 1 privately, printed no credential values and read no application rows. All schema, role, application-data, cloud-resource and deployment mutation flags are false. Constraint equality remains distinct from any account-role assignment; preserve the working `operations_product_director`.
+
+### Bounded source preparation and execution boundary
+
+The proposed database change is **canonical 036 plus canonical 037 only**, retaining the already-matching 035 constraint and all existing account bindings and ACL grants. The [offline transition preparer](../../scripts/prepare-preview-v2-approval-transition.py) constructs a guarded transaction from immutable source inputs. It has no live SQL/cloud execution entry point and its CLI emits plan fingerprints, not runnable SQL. The transaction core must prove the exact observed predecessor while holding the governed locks, apply both changes in one transaction and prove the target before commit; drift, replay or failed 037 validation must not silently leave a partial change.
+
+The [metadata-only release reader](../../scripts/read-preview-v2-approval-release.py) is the next owner operation once this continuation's source checks are complete. It gathers the missing current service/revision-to-Cloud-SQL and runtime-secret-reference bindings and selected execution/WIF metadata. It does not connect to PostgreSQL, access secret payloads, build/deploy resources or establish effective deployment authority from policy presence.
+
+**Validation status:** Implementation [`123aa6d723b92d6a454d1ed951027da34e2f7b82`](https://github.com/khedma-sy/khedmah-digital-v1/commit/123aa6d723b92d6a454d1ed951027da34e2f7b82). **29 focused Python cases passed: 8 offline-transaction cases and 21 metadata-reader cases, zero failures/skips.** The two Node wrappers passed over the same cases and are not additional cases. Python compilation, Node syntax and whitespace checks passed; independent source review found no remaining confirmed blocker. The isolated PostgreSQL 16 transaction suite has seven native subtests; Docker is unavailable in this workspace. Its actual execution and the final source-head workflow outcome must be read from this continuation's PR/check receipt, not inferred from the Python fixtures or earlier PR291. The new source's own checks are separate from PR291's completed checks. No generated transaction has been executed on Cloud SQL and no compatible successor has been deployed.
+
+### Serving compatibility determines the rollout order
+
+The already-proved serving `f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` [quota repository](https://github.com/khedma-sy/khedmah-digital-v1/blob/f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a/apps/backend/src/classifieds/ad.repository.ts) returns the lifetime count/limit. Its [service](https://github.com/khedma-sy/khedmah-digital-v1/blob/f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a/apps/backend/src/classifieds/ad.service.ts) translates only `AD_FREE_QUOTA_EXHAUSTED`; 036 introduces daily/weekly quota errors. Applying the schema while leaving that enabled old contract serving is not a transparent complete repair.
+
+`CLASSIFIEDS_ENABLED=false` disables the whole Classifieds service and media paths, including reads. It is not a write-only switch and the separate false Floot approval/upload gates do not stop all Classifieds writes. Current main's [startup verifier](../../apps/backend/src/database/database.migrator.ts) requires schema 037 regardless of that flag; a no-traffic revision does not bypass startup readiness. A separately reviewed [backend image build](../../cloudbuild.preview-backend.yaml) can prepare the candidate before schema execution, but the current general deployer performs schema jobs before building and has no bounded no-traffic successor mode.
+
+Prepare a reviewed sequence: establish missing authority/bindings and immutable candidate image; establish an explicit Classifieds maintenance boundary and drain enabled old requests, including any tagged-revision access; execute and read back the atomic 036/037 database step; deploy the compatible candidate without default traffic after schema readiness; perform bounded candidate acceptance; then promote the exact validated revision. On candidate failure, retain the maintenance boundary and reconcile rather than automatically returning old enabled Classifieds to the changed quota function. The database transaction and Cloud Run rollout are separate operations. [Cloud Run traffic guidance](https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration) states that routing changes are not instantaneous and in-flight requests continue.
+
+Existing `PREVIEW_V2_SCHEMA_VERIFY_ONLY`, PR274 event/ref/attempt restrictions and protected Staging boundaries remain unchanged. The generic ensure-schema wrapper is not a read-only discovery operation. A new source preparer is not a live apply authorization.
+
+### Floot receipt and next action
+
+The owner quota diagnosis was prepended to the four existing Floot control notes and fully reread at version `1792679237390`, checkpoint `a0e89a3d-6335-497b-b9fa-0585cb54e8f0` (**توثيق تشخيص الحصة وخطوة الإصلاح المحدود**). The checkpoint contains one atomic change record covering four note updates. Each full file equals its new prefix plus exact previous content. Both constants were reread false at that version: approval `enabled:false` and driver documents `documentUploadEnabled:false`.
+
+**Next Safe Action:** use this preparation's exact-source PR/check receipt and obtain the one metadata-only owner receipt in [NEXT-ACTION](NEXT-ACTION.md). Preserve the completed quota diagnosis; do not request it again as unfinished. Then finalize only the separately reviewed successor operation from actual bindings/authority and the compatibility plan. Human approval and owner-document upload each retain their own target-specific transaction and live-acceptance gates. No cloud/schema/data/role mutation, application rollout, publication or gate activation occurred in this preparation.
+
+
 ## Approval integration: live Preview receipt and catalog handoff — 2026-10-22 UTC
 
 The owner explicitly requested approval authority for Classifieds, Store products, business/professional content and verification, driver documents and Taxi operational approval, integrated with Floot. All seven native queues/forms and the bounded human role already exist. Preserve the working `operations_product_director`; its `security.manage` permission already authorizes these approval routes. An additional role on the same account would not make that account approval-only. This checkpoint supersedes older next-action text while retaining all historical receipts below.
