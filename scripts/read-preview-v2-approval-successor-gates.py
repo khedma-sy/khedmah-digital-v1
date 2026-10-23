@@ -271,13 +271,13 @@ def authority_summary(token):
             results[label] = {"status": value["_read_status"], "access": None}
             continue
         access = value.get("overallAccessState")
-        require(access in ("GRANTED", "NOT_GRANTED", "UNKNOWN_CONDITIONAL",
-                           "UNKNOWN_INFO_DENIED", "OVERALL_ACCESS_STATE_UNSPECIFIED"),
+        require(access in ("CAN_ACCESS", "CANNOT_ACCESS", "UNKNOWN_CONDITIONAL",
+                           "UNKNOWN_INFO", "OVERALL_ACCESS_STATE_UNSPECIFIED"),
                 "AUTHORITY_RESPONSE_INVALID")
         results[label] = {"status": "read", "access": access}
     return {
         "checks": results,
-        "all_granted": all(row["access"] == "GRANTED" for row in results.values()),
+        "all_granted": all(row["access"] == "CAN_ACCESS" for row in results.values()),
         "policy_troubleshooter_complete": all(row["status"] == "read" for row in results.values()),
     }
 
@@ -328,10 +328,8 @@ def read_sessions(reader, work, password):
 
 def inspect():
     require(sys.argv[1:] == ["--inspect"], "USE_INSPECT_ONLY")
-    require(all(Path("/usr/bin/" + name).exists() or subprocess.run(
-        ["sh", "-c", "command -v " + name], stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL).returncode == 0 for name in ("gh", "gcloud", "psql", "cloud-sql-proxy")),
-        "REQUIRED_TOOLS_MISSING")
+    require(all(shutil.which(name) for name in ("gh", "gcloud", "psql", "cloud-sql-proxy")),
+            "REQUIRED_TOOLS_MISSING")
     os.umask(0o077)
     with tempfile.TemporaryDirectory(prefix="khedmah-successor-", dir="/tmp") as directory:
         work = Path(directory)
@@ -370,11 +368,11 @@ def inspect():
     receipt = {
         "stage": "PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED",
         "evidence_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "project": PROJECT, "region": REGION, "service": SERVICE, "instance": INSTANCE,
+        "project": PROJECT, "region": REGION, "service_name": SERVICE, "instance": INSTANCE,
         "candidate_build_id": CANDIDATE_BUILD_ID,
         "candidate_source_generation": SOURCE_GENERATION,
         "candidate_image_reference": CANDIDATE_IMAGE,
-        "service": service, "revisions": revisions, "authority": authority,
+        "service_state": service, "revisions": revisions, "authority": authority,
         "database_activity": sessions,
         "secret_payload_access": True,
         "credential_values_printed": False,
