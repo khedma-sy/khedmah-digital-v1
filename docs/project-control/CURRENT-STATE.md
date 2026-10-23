@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## Candidate build attempt acknowledged; read-only option diagnosis prepared — 2026-10-23 UTC
+
+**Live repository baseline before this repair:** protected source `main=7cddce6af35523b6a3415bc60091e4b4eb40e413`; PR296 is normally merged and no PR was open at the reread. The exact main push has completed/success [Node.js CI 40009434789](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/40009434789) and [Khedmah - Test & Verify 40009434852](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/40009434852). Branch-protection metadata itself is not readable through the installed GitHub integration (403); do not infer a permission to bypass the normal merge/check path.
+
+**Owner build result:** the single pinned candidate command was run once and returned `STOP: BUILD_OPTIONS_MISMATCH`. In the merged operator, that stop occurs only while validating the GET of the submitted build after the create response supplied a valid build id and the private intent was advanced to `build_acknowledged`. Therefore an existing attempt must be reconciled; do **not** rerun `--build`, delete/reset `~/.local/state/khedmah-preview-v2-approval-build/`, or create a replacement attempt. The STOP does not prove build failure or success.
+
+This continuation adds a separate `--diagnose` mode to the same bounded operator. It requires the saved acknowledged build id, rereads the exact source object and exact build with GET only, never falls back to tag search, never uploads/submits/cancels/deploys, and leaves the local intent unchanged. The diagnostic keeps the strict `validate_build` acceptance rule intact. It may proceed only when the strict failure is exactly `BUILD_OPTIONS_MISMATCH`; any earlier request/identity mismatch is rejected. It also rejects secret/unexpected build inputs and unexpected artifacts before emitting a receipt. Output is value-redacted: it reports option key names plus match booleans, never raw option values.
+
+Prepared source blob: `0755225d2e6ab13d124f85a09e4e1670c6ae66d5`; SHA256 `25c4b83d1abd2ddb348a8bf1abacd915f1ba2452592787fe28fd7fa96e654e61`. Nine focused diagnostic tests are added on top of the existing 29 Python cases, so the expected focused suite is **38 cases**; this count is preparation only until the exact PR head completes CI. No Google Cloud, Cloud SQL, IAM, role, application-data, Cloud Run traffic, Floot publication or Production mutation is performed by this repository repair.
+
+**Next Safe Action:** complete this branch's normal PR checks and review. After merge, run only the pinned `--diagnose` command recorded at the top of [NEXT-ACTION.md](NEXT-ACTION.md). Use its redacted JSON/STOP to determine whether the observed Cloud Build option keys are harmless API-added output metadata/defaults or a material request drift. Do not broaden the validator from assumptions, and do not resubmit the candidate build.
+
 ## Owner binding receipt closed; bounded backend candidate build — 2026-10-23 UTC
 
 **Current decision:** the owner's corrected release metadata receipt completed at **2026-10-23T18:37:33.436427+00:00** with stage `PREVIEW_V2_APPROVAL_RELEASE_METADATA_READ_COMPLETED`. This closes the pending metadata request in the older checkpoints below. Do not repeat the reader or the already completed quota diagnosis. The Cloud Shell default prompt `khedma-dl-e409d` does not change the tool's fixed Preview V2 target.
