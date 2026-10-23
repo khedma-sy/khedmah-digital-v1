@@ -1,5 +1,26 @@
 # Next Safe Action — Khedmah
 
+## Retry the read-only successor inspection after Revision.service parser repair — 2026-10-23 UTC
+
+The previous inspector invocation stopped safely with `STOP: REVISION_METADATA_INVALID`; do **not** rerun its older blob. This repair keeps the service-scoped revision `name` as the authoritative identity and accepts the output-only `Revision.service` field only when absent or exactly equal to the same expected service.
+
+After this repair passes exact-head CI/review and merges normally, run this pinned command in the same owner Cloud Shell:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  successor_read_tmp="$(mktemp -d /tmp/khedmah-successor-read.XXXXXXXX)"
+  trap 'rm -rf -- "$successor_read_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/c6038bb0c86c6b96a7875f3a8532c8a96182e884 --jq .content 2>"$successor_read_tmp/fetch.log" | base64 --decode >"$successor_read_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' b0cf9085cfbed65c8bd0e0f55e0bd41d337c9ec986bc086391cbe744524aebbf "$successor_read_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$successor_read_tmp/inspect.py")" = c6038bb0c86c6b96a7875f3a8532c8a96182e884 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$successor_read_tmp/inspect.py" --inspect
+)
+```
+
+Return only the final JSON or one STOP line. Expected stage remains `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED`. Any new STOP is evidence to inspect; it does not authorize retrying older commands or deploying the candidate.
+
 ## Read successor authority, Cloud Run lifecycle and DB writer snapshot — 2026-10-23 UTC
 
 The candidate image provenance gate is closed: build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` is `SUCCESS`, `build_path_verified=true`, and its immutable image is `backend@sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`. **Do not rebuild or deploy it yet.**
