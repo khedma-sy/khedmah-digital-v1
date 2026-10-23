@@ -77,17 +77,20 @@ SELECT json_build_object(
   'server_version_num', current_setting('server_version_num')::integer,
   'pg_read_all_stats_member', pg_has_role(current_user,'pg_read_all_stats','MEMBER'),
   'runtime_sessions_total', count(*) FILTER (
-    WHERE backend_type='client backend' AND usename='khedmah_app'),
-  'runtime_sessions_active', count(*) FILTER (
-    WHERE backend_type='client backend' AND usename='khedmah_app' AND state='active'),
-  'runtime_sessions_idle_in_transaction', count(*) FILTER (
-    WHERE backend_type='client backend' AND usename='khedmah_app'
-      AND state IN ('idle in transaction','idle in transaction (aborted)')),
+    WHERE usename='khedmah_app'),
+  'runtime_sessions_active', CASE
+    WHEN pg_has_role(current_user,'pg_read_all_stats','MEMBER')
+    THEN count(*) FILTER (WHERE usename='khedmah_app' AND state='active')
+    ELSE NULL END,
+  'runtime_sessions_idle_in_transaction', CASE
+    WHEN pg_has_role(current_user,'pg_read_all_stats','MEMBER')
+    THEN count(*) FILTER (WHERE usename='khedmah_app'
+      AND state IN ('idle in transaction','idle in transaction (aborted)'))
+    ELSE NULL END,
   'migrator_sessions_other', count(*) FILTER (
-    WHERE backend_type='client backend' AND usename='khedmah_migrator'
-      AND pid<>pg_backend_pid()),
-  'other_client_sessions', count(*) FILTER (
-    WHERE backend_type='client backend'
+    WHERE usename='khedmah_migrator' AND pid<>pg_backend_pid()),
+  'other_sessions_by_identity', count(*) FILTER (
+    WHERE usename IS NOT NULL
       AND usename NOT IN ('khedmah_app','khedmah_migrator','cloudsqladmin'))
 ) FROM pg_stat_activity WHERE datname=current_database();
 ROLLBACK;
@@ -311,7 +314,7 @@ def read_sessions(reader, work, password):
     expected = {"database", "user", "read_only", "server_version_num", "pg_read_all_stats_member",
                 "runtime_sessions_total", "runtime_sessions_active",
                 "runtime_sessions_idle_in_transaction", "migrator_sessions_other",
-                "other_client_sessions"}
+                "other_sessions_by_identity"}
     require(isinstance(value, dict) and set(value) == expected
             and value["database"] == DATABASE and value["user"] == MIGRATOR_DB_USER
             and value["read_only"] == "on"
@@ -319,9 +322,18 @@ def read_sessions(reader, work, password):
             and 160000 <= value["server_version_num"] < 170000
             and type(value["pg_read_all_stats_member"]) is bool,
             "SESSION_RESPONSE_INVALID")
-    for key in expected - {"database", "user", "read_only", "server_version_num",
-                           "pg_read_all_stats_member"}:
+    count_keys = {"runtime_sessions_total", "migrator_sessions_other",
+                  "other_sessions_by_identity"}
+    for key in count_keys:
         require(type(value[key]) is int and 0 <= value[key] <= 10000, "SESSION_RESPONSE_INVALID")
+    detail_keys = ("runtime_sessions_active", "runtime_sessions_idle_in_transaction")
+    if value["pg_read_all_stats_member"]:
+        require(all(type(value[key]) is int and 0 <= value[key] <= 10000 for key in detail_keys),
+                "SESSION_RESPONSE_INVALID")
+        value["runtime_activity_detail_available"] = True
+    else:
+        require(all(value[key] is None for key in detail_keys), "SESSION_RESPONSE_INVALID")
+        value["runtime_activity_detail_available"] = False
     value["runtime_sessions_zero_snapshot"] = value["runtime_sessions_total"] == 0
     value["writer_quiescence_verified"] = False
     return value
@@ -331,7 +343,7 @@ def inspect():
     require(all(shutil.which(name) for name in ("gh", "gcloud", "psql", "cloud-sql-proxy")),
             "REQUIRED_TOOLS_MISSING")
     os.umask(0o077)
-    with tempfile.TemporaryDirectory(prefix="khedmah-successor-", dir="/tmp") as directory:
+    with tempfile.TemporaryDirectory(prefix="pv2sg-", dir="/tmp") as directory:
         work = Path(directory)
         os.chmod(work, 0o700)
         reader = load_reader(work)
