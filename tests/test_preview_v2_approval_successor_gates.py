@@ -132,6 +132,7 @@ class AuthorityTests(unittest.TestCase):
             {"_read_status": "http_403"},
             {"overallAccessState": "CAN_ACCESS"},
             {"overallAccessState": "CAN_ACCESS"},
+            {"overallAccessState": "CAN_ACCESS"},
         ])
         with patch.object(m, "http_json", side_effect=lambda *a, **k: next(states)):
             result = m.authority_summary("token")
