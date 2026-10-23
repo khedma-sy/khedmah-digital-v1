@@ -35,3 +35,22 @@ test('recovery retains the reviewed PR169 Nest runtime and locked dependency ove
   }
   assert.equal(lock.packages[''].engines.node, pkg.engines.node);
 });
+
+test('every backend image install receives the strict repository policy without a bypass', async () => {
+  const dockerfile = await readFile(new URL('../Dockerfile.backend', import.meta.url), 'utf8');
+  const instructions = dockerfile.replace(/\\\r?\n/g, ' ').split(/\r?\n/).map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+  let strictPolicyCopied = false;
+  let installCount = 0;
+  for (const instruction of instructions) {
+    if (/^FROM\s/i.test(instruction)) strictPolicyCopied = false;
+    if (/^COPY\s/i.test(instruction) && instruction.split(/\s+/).includes('.npmrc')) strictPolicyCopied = true;
+    assert.doesNotMatch(instruction, /(?:dangerously[-_]allow[-_]all[-_]scripts|ignore[-_]scripts)(?:\s*=\s*|\s+)true/i);
+    assert.doesNotMatch(instruction, /strict[-_]allow[-_]scripts(?:\s*=\s*|\s+)false/i);
+    if (/^RUN\s.*\bnpm\s+ci\b/i.test(instruction)) {
+      installCount++;
+      assert.ok(strictPolicyCopied, 'npm ci must receive .npmrc in its own image stage');
+    }
+  }
+  assert.ok(installCount >= 2, 'both compile and production dependency stages remain checked');
+});
