@@ -1,5 +1,34 @@
 # Next Safe Action — Khedmah
 
+## Reread the same successful build with strict validation and bind immutable digests — 2026-10-23 UTC
+
+The owner classification receipt proves the existing build is `SUCCESS`, `pool={}`, no private WorkerPool name/fields, and top-level `workerRelease=legacy`. Do not run `--build` again and do not reset/delete the saved intent. The validator repair accepts only that exact default-worker materialization and remains fail-closed for any broader execution configuration.
+
+After this repair passes exact-head CI/review and merges normally, run the following **GET-only** status command in the same owner Cloud Shell:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  candidate_status_tmp="$(mktemp -d /tmp/khedmah-candidate-status.XXXXXXXX)"
+  trap 'rm -rf -- "$candidate_status_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/28298b638543af0b718240fb40c10f66c3dce494 --jq .content 2>"$candidate_status_tmp/fetch.log" | base64 --decode >"$candidate_status_tmp/status.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 4a129b8b3198a9aa8e1656195f1765afd376bcaa9e8554e1d5773a24cca7cf66 "$candidate_status_tmp/status.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$candidate_status_tmp/status.py")" = 28298b638543af0b718240fb40c10f66c3dce494 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$candidate_status_tmp/status.py" --status
+)
+```
+
+Return only the final JSON or one STOP line. Expected stage: `PREVIEW_V2_APPROVAL_CANDIDATE_BUILD_STATUS_READ`. Accept only all of the following together:
+- `build_status: "SUCCESS"`;
+- `build_path_verified: true`;
+- the same source generation `1792786650146421` and exact bound provenance;
+- one immutable `image_digest` / `image_reference`;
+- one immutable `builder_image_digest`;
+- `current_invocation_read_only: true`, `build_submission_performed: false`, `cloud_resource_mutation: false`, and `resubmission_allowed: false`.
+
+A successful receipt closes only the candidate image provenance/build gate. The next repository work is then the bounded successor lifecycle/effective-authority and enforceable writer-quiescence design already recorded below. Do not apply 036/037, deploy Cloud Run, enable Floot gates, mutate IAM/roles or declare Production readiness from the image receipt alone.
+
 ## Classify pool/worker release on the existing successful build — 2026-10-23 UTC
 
 The same saved Cloud Build attempt is now known to be **SUCCESS**. Do not run `--build` again, do not delete/reset `~/.local/state/khedmah-preview-v2-approval-build/`, and do not create a replacement build. The only unresolved source-acceptance question is whether returned `options.pool` and `options.workerRelease` are server materialization of the default worker environment or a materially different execution configuration.
