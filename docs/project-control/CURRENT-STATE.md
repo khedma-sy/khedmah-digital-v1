@@ -1,5 +1,23 @@
 # Khedmah Digital — Current State
 
+## Candidate image provenance closed; successor authority/lifecycle read prepared — 2026-10-23 UTC
+
+**Owner strict status receipt:** at `2026-10-23T21:59:07.219961+00:00`, the preserved build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` reread as `SUCCESS` with `build_path_verified=true`. The exact source remains commit `ecd3ad8a16cd9820c599f16e75b1acf3e5a85966`, tree `3063508c52c1c348f8eeef59c49ce424608557ef`, source generation `1792786650146421`, manifest SHA256 `57431e14db8a68376629dfe61393e24785ec56e3d2f8dc98ccf052b82ba9ee2d` and archive SHA256 `38b921d2d297ebb8b57a8632e9f339251ac29fc76de32d76f6f236acf69016bf`.
+
+The immutable backend image is now bound as `europe-west1-docker.pkg.dev/khedmah-preview-v2-20261012/khedmah-preview/backend@sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; the Cloud Build worker image digest is `sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e`. The receipt was read-only: no upload/resubmission, Cloud Run, schema, role or application-data mutation occurred; `resubmission_allowed=false`. This closes the candidate build/image provenance gate only. `base_image_pinned=false` remains an explicit reproducibility limit, not a rejection of the observed immutable output digest.
+
+The next unresolved boundary is **not** image construction. It is whether the intended deployer is policy-authorized for the exact Cloud Run service/image/runtime identity, what revisions/tags/scaling are currently reachable, and what database sessions exist before any maintenance design. Current Cloud Run documentation confirms that traffic migration leaves in-flight requests running and request timeout does not terminate container work; disabling service traffic also does not affect tagged revision URLs. Therefore traffic readback, scaling-to-zero, elapsed timeout or a single quiet database snapshot cannot by themselves prove writer quiescence.
+
+This branch adds a read-only successor-gate inspector. It:
+- GETs the exact Cloud Run v2 service and complete revision list and reports only bounded traffic/tag/scaling metadata;
+- queries Policy Troubleshooter v3 for the deployer service account on six exact permissions: Cloud Run get/update/revision-list, Artifact Registry download, runtime service-account actAs, and service usage; any denial, conditional/unknown state or API-unavailable result remains fail-closed;
+- opens the existing migration secret only in process memory, connects through a private Cloud SQL Auth Proxy socket and runs one `BEGIN READ ONLY` `pg_stat_activity` count query; it returns no query text, client addresses, credentials or application rows;
+- always reports `writer_quiescence_verified=false`, even when the runtime-session snapshot is zero. The snapshot is evidence for the future fencing design, never the fence itself.
+
+Prepared inspector blob `77dc055d62b9f67f529126ec68ddb6b9b0cbfe67`, SHA256 `d1e68eedae7c5d105207dcd09c41119f1ac50bb45fb3908ec88ab9531b0ee717`; **11 focused Python cases** plus a Node wrapper are added. No Cloud Run update, traffic/scaling change, SQL DDL/DML, IAM/role change, Floot publication or Production mutation is present.
+
+**Next Safe Action:** after this branch's exact-head CI/review and normal merge, run the pinned `--inspect` command at the top of NEXT-ACTION in the same owner Cloud Shell. Review the sanitized service/revision inventory, Policy Troubleshooter decisions and database-session snapshot before designing any maintenance/fencing mutation. No 036/037 apply or candidate rollout is authorized by this preparation.
+
 ## Successful build default-worker metadata classified; strict digest read prepared — 2026-10-23 UTC
 
 **Owner read-only classification receipt:** at `2026-10-23T21:41:00.784575+00:00`, the same saved attempt `87738bad-52b5-4a3f-b699-7dcf27652688` and build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` remain `SUCCESS`. The source generation is still `1792786650146421`; no build submission, upload, Cloud Run, schema, role, application-data or Production mutation occurred and `resubmission_allowed=false`.
