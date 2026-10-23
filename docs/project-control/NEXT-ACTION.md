@@ -1,5 +1,33 @@
 # Next Safe Action — Khedmah
 
+## Read successor authority, Cloud Run lifecycle and DB writer snapshot — 2026-10-23 UTC
+
+The candidate image provenance gate is closed: build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` is `SUCCESS`, `build_path_verified=true`, and its immutable image is `backend@sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`. **Do not rebuild or deploy it yet.**
+
+After this read-only inspector passes exact-head CI/review and merges normally, run this one pinned command in the same owner Cloud Shell:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  successor_read_tmp="$(mktemp -d /tmp/khedmah-successor-read.XXXXXXXX)"
+  trap 'rm -rf -- "$successor_read_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/77dc055d62b9f67f529126ec68ddb6b9b0cbfe67 --jq .content 2>"$successor_read_tmp/fetch.log" | base64 --decode >"$successor_read_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' d1e68eedae7c5d105207dcd09c41119f1ac50bb45fb3908ec88ab9531b0ee717 "$successor_read_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$successor_read_tmp/inspect.py")" = 77dc055d62b9f67f529126ec68ddb6b9b0cbfe67 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$successor_read_tmp/inspect.py" --inspect
+)
+```
+
+Return only the final JSON or one STOP line. Expected stage: `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED`.
+
+Interpretation is deliberately strict:
+- `authority.all_granted=true` is required to close the IAM-policy decision set; any `CANNOT_ACCESS`, `UNKNOWN_*` or unavailable Policy Troubleshooter read remains a blocker. This still does not claim VPC Service Controls or a future mutation cannot fail.
+- Inspect every `service_state.traffic` entry and `tagged_revision_count`; tagged revisions are independently reachable and must be included in a future maintenance plan.
+- `database_activity.runtime_sessions_zero_snapshot` is only an observation. The inspector always leaves `writer_quiescence_verified=false`.
+- A nonzero runtime-session count or unknown/extra client sessions is a direct blocker to any claim that current writers are drained.
+- Even a clean read authorizes only the **design/review** of an enforceable writer fence plus a maintenance/successor operator. It does not authorize scaling/traffic mutation, 036/037, deployment, Floot gate activation or Production.
+
 ## Reread the same successful build with strict validation and bind immutable digests — 2026-10-23 UTC
 
 The owner classification receipt proves the existing build is `SUCCESS`, `pool={}`, no private WorkerPool name/fields, and top-level `workerRelease=legacy`. Do not run `--build` again and do not reset/delete the saved intent. The validator repair accepts only that exact default-worker materialization and remains fail-closed for any broader execution configuration.
