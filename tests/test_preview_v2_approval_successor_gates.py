@@ -77,10 +77,23 @@ class SummaryTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "TRAFFIC_PERCENT_INVALID"):
             m.service_summary(bad)
 
+    def test_revision_list_accepts_omitted_output_only_service_but_rejects_foreign_service(self):
+        value = revisions_fixture()
+        value["revisions"][0].pop("service")
+        result = m.revisions_summary(value)
+        self.assertEqual(result[0]["revision"], m.KNOWN_REVISION)
+        self.assertFalse(result[0]["service_field_present"])
+
+        foreign = revisions_fixture()
+        foreign["revisions"][0]["service"] = "projects/foreign/locations/" + m.REGION + "/services/" + m.SERVICE
+        with self.assertRaisesRegex(SystemExit, "REVISION_METADATA_INVALID"):
+            m.revisions_summary(foreign)
+
     def test_revision_list_is_complete_and_scaling_bounded(self):
         result = m.revisions_summary(revisions_fixture())
         self.assertEqual(result[0]["revision"], m.KNOWN_REVISION)
         self.assertTrue(result[0]["ready"])
+        self.assertTrue(result[0]["service_field_present"])
         bad = revisions_fixture()
         bad["nextPageToken"] = "more"
         with self.assertRaisesRegex(SystemExit, "REVISION_LIST_INCOMPLETE_OR_INVALID"):
