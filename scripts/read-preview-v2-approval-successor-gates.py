@@ -263,13 +263,16 @@ def revisions_summary(value):
             "REVISION_LIST_INCOMPLETE_OR_INVALID")
     out = []
     for row in rows:
-        require(isinstance(row, dict) and row.get("service") == SERVICE_NAME, "REVISION_METADATA_INVALID")
+        require(isinstance(row, dict), "REVISION_METADATA_INVALID")
         name = short_revision(row.get("name"))
+        service = row.get("service")
+        require(service is None or service == SERVICE_NAME, "REVISION_METADATA_INVALID")
         condition = row.get("conditions", [])
         require(isinstance(condition, list) and len(condition) <= 50, "REVISION_METADATA_INVALID")
         ready = any(isinstance(c, dict) and c.get("type") == "Ready"
                     and c.get("state") == "CONDITION_SUCCEEDED" for c in condition)
         out.append({"revision": name, "ready": ready,
+                    "service_field_present": service is not None,
                     "scaling": safe_scaling(row.get("scaling"), service=False)})
     require(len({row["revision"] for row in out}) == len(out), "REVISION_LIST_DUPLICATE")
     return out
