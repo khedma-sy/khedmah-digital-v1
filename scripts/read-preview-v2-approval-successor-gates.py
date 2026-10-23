@@ -45,6 +45,12 @@ SERVICE_NAME = f"projects/{PROJECT}/locations/{REGION}/services/{SERVICE}"
 SERVICE_URL = "https://run.googleapis.com/v2/" + SERVICE_NAME
 REVISIONS_URL = SERVICE_URL + "/revisions?pageSize=100"
 TROUBLESHOOT_URL = "https://policytroubleshooter.googleapis.com/v3/iam:troubleshoot"
+# run.operations.get applies to an operation resource, not a service. This
+# syntactically valid probe name exercises inherited/conditional IAM without
+# creating an operation; Policy Troubleshooter remains fail-closed if Google
+# cannot evaluate the tuple.
+OPERATION_PROBE_RESOURCE = (
+    f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/operations/authority-preflight")
 
 AUTHORITY_CHECKS = (
     ("run_services_get",
@@ -57,7 +63,7 @@ AUTHORITY_CHECKS = (
      f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}",
      "run.revisions.list"),
     ("run_operations_get",
-     f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}",
+     OPERATION_PROBE_RESOURCE,
      "run.operations.get"),
     ("artifact_download",
      f"//artifactregistry.googleapis.com/projects/{PROJECT}/locations/{REGION}/repositories/{AR_REPOSITORY}",
