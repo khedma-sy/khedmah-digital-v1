@@ -1,5 +1,50 @@
 # Khedmah Digital — Current State
 
+## Floot review continuity and client validation — 2026-10-23 UTC
+
+The owner requested continuation inside Floot while away from the laptop. This pass repairs the existing review and document client paths. The missing corrected Cloud Shell receipt remains an operational prerequisite; it does not block these bounded source repairs. The completed 83-page audit, earlier 68-spec-file receipt, administrator setup, Safari acceptance and old-image provenance are not repeated.
+
+### Implemented in Floot
+
+| Existing path | Confirmed defect and resulting behavior |
+| --- | --- |
+| Review queue navigation | Tabs now update the queue URL while retaining unrelated parameters and the fragment. A changed path/search replaces the private workspace, cancels/removes its queries, closes the previous evidence/approval dialogs and rechecks access. Browser history follows the queue. Tab-initiated navigation restores keyboard focus after access is checked, unless the user focused another control. Hash-only navigation and local driver-document drilldown retain their prior behavior. |
+| Review response client | A successful HTTP response with malformed nested items previously entered the cache and could crash the card renderer. The client now validates every declared response field and returns the existing safe 502 error before caching malformed data. Unknown fields are stripped. All eight item kinds, optional legacy hints and exact string/number revisions remain supported; no new queue-to-item-kind rule is imposed. |
+| Driver document client | Schema validation now occurs before dispatch. Invalid local input, including a filename longer than 200 characters, returns 400 / `not_applied` with filename guidance; the page clears its attempt instead of quarantining an unsent upload. Validated/trimmed input keeps the original request controls. Network failures and malformed success responses remain `unknown`. |
+
+Floot implementation version: `1792772486101`; checkpoint `ca43041c-b862-4804-a823-3f05bce73484` (**تحسين تنقّل المراجعات والتحقق قبل الإرسال**). This is the Floot source receipt; the GitHub change records the existing external implementation and does not contain a backend rollout.
+
+### Validation and limits
+
+The final combined Floot VM run passed **7 distinct spec files, 0 failed files**, and the full TypeScript check was clean:
+
+- `helpers/khedmahReviewClient.spec.tsx`
+- `helpers/khedmahReviewContract.spec.tsx`
+- `helpers/khedmahReviewTransport.spec.tsx`
+- `helpers/khedmahReviewUi.spec.tsx`
+- `helpers/khedmahDriverDocumentClient.spec.tsx`
+- `helpers/khedmahDriverTransport.spec.tsx`
+- `helpers/khedmahDriverUi.spec.tsx`
+
+The two navigation regressions failed on the old page; a later keyboard-focus assertion exposed and closed the remount focus regression. The new response-client spec produced 18 distinct reported failures against the old schema. The driver-client regression reproduced two failing cases before the correction. The final run covers the same retained cases; repeated runs are not additional tests. All request calls in these specs are mocked. Full final readback matched all six changed files and independently reread both gates; peer review found no confirmed remaining blocker. The checkpoint groups exactly 8 source-change records across those six files, including the preserved navigation regression from 2026-10-22; no unrelated concurrent change is attributed to this pass.
+
+| Floot file at the tested version | SHA256 of complete readback |
+| --- | --- |
+| `pages/platform.admin.reviews.tsx` | `d8ec593496d53b81b49cf17f61f0b2776383a747e7510edc83d83cd47a538bc6` |
+| `helpers/khedmahReviewUi.spec.tsx` | `07909cbb1ea904316af4e60697a6ec2057cd68e968f73fe4c2c5fa465ee3abc1` |
+| `endpoints/integrations/khedmah_reviews_GET.schema.ts` | `d59bd46ddf27e1f0c936c9146d7ef7028351d9beb14064d8c1287502b48983d0` |
+| `helpers/khedmahReviewClient.spec.tsx` | `b2c99f9df73ee0e2da2c3e82c76633acc9673b5b95f90bfe1a39a7ff61ed8f92` |
+| `endpoints/integrations/khedmah_driver_document_POST.schema.ts` | `045627a3e6f37c12e6e8aaad03a4d8be9b2493f119ddf3071161908dd234dd98` |
+| `helpers/khedmahDriverDocumentClient.spec.tsx` | `28f744fb43bac7b982fe72ee95069cd9a84f694ab849e88c24ea2153d6e8d8d1` |
+
+Both execution constants were independently reread false at the final tested version: approval `enabled:false` and driver document upload `documentUploadEnabled:false`. The working `operations_product_director`, human decision boundary, server-session separation and Taxi V1 directory/contact scope are unchanged. No production publication, Google Cloud operation, database/schema/role mutation, application-data write or live approval/upload acceptance was performed.
+
+### Source convergence and remaining operational prerequisite
+
+[PR293](https://github.com/khedma-sy/khedmah-digital-v1/pull/293) merged normally as `170adc348f978d3ecf7152f8897b778d224a64a3` on 2026-10-22 at 16:23:10 UTC. Its postmerge [Test & Verify 39813600688](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39813600688) is completed/success (updated 16:29:56 UTC), and [Node 39813600722](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39813600722) is completed/success (updated 16:45:29 UTC). The 2026-10-23 continuation read found that same main and no open PRs. Older pending-workflow text below is historical. These GitHub results do not validate unpublished Floot code or the serving backend.
+
+No completed corrected release-metadata receipt has arrived. The next operational step remains the already prepared [corrected metadata-only owner read](NEXT-ACTION.md#corrected-release-metadata-read-after-formatter-stop--2026-10-22-utc), using blob `ad1c2d846413119703d1590059fbf1a30f58b266` and SHA256 `2077fd251f77772d38c06561ebc886a2f2bcf30d0819669bb7453bb9facf9489`. Defer it until the owner returns; do not request the completed quota diagnosis again. The confirmed 025 body and incomplete 037 constraints, missing live binding/effective-authority evidence, guarded 036/037 transition and compatible-image/live-acceptance gates remain unchanged. No old serving revision or image provenance is re-proved by this UI pass.
+
 ## Release metadata reader projection repaired — 2026-10-22 UTC
 
 This checkpoint supersedes the failed release-inspection command below. The owner ran reader blob `3d8df31611cb1e84600165b596eb0dc1c989ccf6`, SHA256 `d3064647d9c2e96e2a3d4368124aefb9d6200c6157173095e2c58a42b6595392`, and received only `STOP: BINDING_METADATA_INVALID`. **No completed release-metadata JSON receipt was obtained.** The STOP alone does not establish a bad backend binding, missing authority, or a database change. Do not ask the owner to repeat that unchanged command.

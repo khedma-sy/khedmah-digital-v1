@@ -1,5 +1,13 @@
 # Next Safe Action — Khedmah
 
+## Floot source continuation closed; owner metadata read deferred — 2026-10-23 UTC
+
+The owner asked for work inside Floot while away from the laptop. The bounded review-navigation, response-validation and pre-dispatch document-client repairs are now saved at Floot version `1792772486101`, checkpoint `ca43041c-b862-4804-a823-3f05bce73484`. [CURRENT-STATE](CURRENT-STATE.md#floot-review-continuity-and-client-validation--2026-10-23-utc) records the exact changed files, regression evidence and limits. Both execution gates remain false. Preserve these repairs and their existing private-data cleanup; do not restart the full audit.
+
+PR293 and both of its postmerge main workflows are completed/success. The older instruction below to finish the correction's source checks is closed. No completed corrected release-metadata receipt has yet been received.
+
+**Next Safe Action when the owner returns:** run the single corrected metadata-only command already retained in the next section and return only its JSON or STOP line. The fixed reader remains blob `ad1c2d846413119703d1590059fbf1a30f58b266`, SHA256 `2077fd251f77772d38c06561ebc886a2f2bcf30d0819669bb7453bb9facf9489`. Do not rerun the earlier broken reader or the completed quota read, change the Cloud Shell default project, apply 036/037, deploy a successor or open a Floot gate from source tests. Reconcile the actual binding/effective authority and independently accept the compatible human-approval and document-upload paths after the receipt.
+
 ## Corrected release metadata read after formatter STOP — 2026-10-22 UTC
 
 The owner already attempted the prior release reader and received `STOP: BINDING_METADATA_INVALID`. **Do not rerun blob `3d8df31611cb1e84600165b596eb0dc1c989ccf6`.** No release-metadata completion receipt exists yet. PR292 is merged and its main workflows are completed/success; its quota diagnosis and seven native PostgreSQL transition tests are closed.
