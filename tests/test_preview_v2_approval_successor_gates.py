@@ -88,7 +88,7 @@ class AuthorityTests(unittest.TestCase):
         def good(token, method, url, body=None, optional=False):
             self.assertEqual(url, m.TROUBLESHOOT_URL)
             self.assertEqual(method, "POST")
-            return {"overallAccessState": "GRANTED"}
+            return {"overallAccessState": "CAN_ACCESS"}
         with patch.object(m, "http_json", side_effect=good):
             result = m.authority_summary("token")
         self.assertTrue(result["all_granted"])
@@ -97,12 +97,12 @@ class AuthorityTests(unittest.TestCase):
 
     def test_authority_fails_closed_on_denial_unknown_or_unavailable(self):
         states = iter([
-            {"overallAccessState": "GRANTED"},
-            {"overallAccessState": "NOT_GRANTED"},
-            {"overallAccessState": "UNKNOWN_INFO_DENIED"},
+            {"overallAccessState": "CAN_ACCESS"},
+            {"overallAccessState": "CANNOT_ACCESS"},
+            {"overallAccessState": "UNKNOWN_INFO"},
             {"_read_status": "http_403"},
-            {"overallAccessState": "GRANTED"},
-            {"overallAccessState": "GRANTED"},
+            {"overallAccessState": "CAN_ACCESS"},
+            {"overallAccessState": "CAN_ACCESS"},
         ])
         with patch.object(m, "http_json", side_effect=lambda *a, **k: next(states)):
             result = m.authority_summary("token")
