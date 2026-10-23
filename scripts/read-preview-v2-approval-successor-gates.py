@@ -47,13 +47,13 @@ TROUBLESHOOT_URL = "https://policytroubleshooter.googleapis.com/v3/iam:troublesh
 
 AUTHORITY_CHECKS = (
     ("run_services_get",
-     f"//run.googleapis.com/projects/{NUMBER}/locations/{REGION}/services/{SERVICE}",
+     f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}",
      "run.services.get"),
     ("run_services_update",
-     f"//run.googleapis.com/projects/{NUMBER}/locations/{REGION}/services/{SERVICE}",
+     f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}",
      "run.services.update"),
     ("run_revisions_list",
-     f"//run.googleapis.com/projects/{NUMBER}/locations/{REGION}/services/{SERVICE}",
+     f"//run.googleapis.com/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}",
      "run.revisions.list"),
     ("artifact_download",
      f"//artifactregistry.googleapis.com/projects/{PROJECT}/locations/{REGION}/repositories/{AR_REPOSITORY}",
@@ -62,7 +62,7 @@ AUTHORITY_CHECKS = (
      f"//iam.googleapis.com/projects/{PROJECT}/serviceAccounts/{RUNTIME_SA}",
      "iam.serviceAccounts.actAs"),
     ("service_usage",
-     f"//cloudresourcemanager.googleapis.com/projects/{NUMBER}",
+     f"//cloudresourcemanager.googleapis.com/projects/{PROJECT}",
      "serviceusage.services.use"),
 )
 
@@ -185,8 +185,8 @@ def http_json(token, method, url, body=None, optional=False):
 
 def short_revision(name):
     prefix = f"projects/{PROJECT}/locations/{REGION}/services/{SERVICE}/revisions/"
-    require(isinstance(name, str) and name.startswith(prefix), "REVISION_NAME_INVALID")
-    short = name[len(prefix):]
+    require(isinstance(name, str), "REVISION_NAME_INVALID")
+    short = name[len(prefix):] if name.startswith(prefix) else name
     require(re.fullmatch(re.escape(SERVICE) + r"-[a-z0-9]+(?:-[a-z0-9]+)*", short) is not None,
             "REVISION_NAME_INVALID")
     return short
