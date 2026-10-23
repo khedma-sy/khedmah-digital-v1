@@ -56,6 +56,13 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(result["tagged_revision_count"], 0)
         self.assertEqual(result["serving_revision_count"], 1)
 
+    def test_service_summary_accepts_omitted_false_reconciling_proto_default(self):
+        value = service_fixture()
+        value.pop("reconciling")
+        result = m.service_summary(value)
+        self.assertEqual(result["latest_ready_revision"], m.KNOWN_REVISION)
+        self.assertTrue(result["known_revision_still_latest_ready"])
+
     def test_service_summary_preserves_tags_and_requires_full_percent(self):
         value = service_fixture()
         rev = value["trafficStatuses"][0]["revision"]
@@ -148,7 +155,7 @@ class DatabaseTests(unittest.TestCase):
         payload = {
             "database": m.DATABASE, "user": m.MIGRATOR_DB_USER, "read_only": "on",
             "server_version_num": 160009, "pg_read_all_stats_member": False,
-            "runtime_sessions_total": 0, "runtime_sessions_active": 0,
+            "runtime_sessions_total": 0, "runtime_sessions_active": None,
             "runtime_sessions_idle_in_transaction": None, "migrator_sessions_other": 0,
             "other_sessions_by_identity": 0,
         }
