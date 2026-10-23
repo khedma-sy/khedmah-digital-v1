@@ -1,5 +1,30 @@
 # Next Safe Action — Khedmah
 
+## Diagnose the already-submitted candidate; never resubmit — 2026-10-23 UTC
+
+The owner already ran the single candidate `--build` command and received **`STOP: BUILD_OPTIONS_MISMATCH`**. The current merged operator reaches that stop only after the Cloud Build create response yielded a valid id and the private intent saved `phase=build_acknowledged`. Treat the remote attempt as existing with an unknown final acceptance state. **Do not run `--build` again and do not remove/reset the private intent directory.**
+
+This source repair adds a GET-only, value-redacted `--diagnose` mode. It requires the exact saved build id; it cannot upload source, submit/cancel a build, change Cloud Run, open Cloud SQL, read secret payloads, apply 036/037, change IAM/roles, mutate application data, publish Floot or touch Production. Strict build acceptance is unchanged.
+
+After this repair has passed its own exact-head checks/review and merged normally, run this one command in the same owner Cloud Shell that contains the saved intent:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  candidate_diag_tmp="$(mktemp -d /tmp/khedmah-candidate-diag.XXXXXXXX)"
+  trap 'rm -rf -- "$candidate_diag_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/0755225d2e6ab13d124f85a09e4e1670c6ae66d5 --jq .content 2>"$candidate_diag_tmp/fetch.log" | base64 --decode >"$candidate_diag_tmp/diagnose.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 25c4b83d1abd2ddb348a8bf1abacd915f1ba2452592787fe28fd7fa96e654e61 "$candidate_diag_tmp/diagnose.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$candidate_diag_tmp/diagnose.py")" = 0755225d2e6ab13d124f85a09e4e1670c6ae66d5 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$candidate_diag_tmp/diagnose.py" --diagnose
+)
+```
+
+Return only the final JSON or a single STOP line. Expected diagnostic stage is `PREVIEW_V2_APPROVAL_CANDIDATE_BUILD_OPTIONS_DIAGNOSTIC`. The receipt deliberately exposes only option **key names** and booleans such as `logging_matches`, `substitution_option_matches`, and `resolved_worker_release_present`; all option values remain redacted and `resubmission_allowed` remains false.
+
+**Decision after the receipt:** compare only the observed option-key shape against Cloud Build's documented response behavior. If the extra keys are proven server-added metadata/defaults with no semantic expansion of the submitted build, prepare a narrowly reviewed validator repair and reread the same build. If any key/value class could alter worker, network, secret, substitution, execution or artifact behavior, stop and investigate. No diagnostic result by itself authorizes schema transition, Cloud Run rollout, Floot gate activation or Production release.
+
 ## Build the pinned Preview backend candidate; binding read is complete — 2026-10-23 UTC
 
 **Completed input:** the owner's `PREVIEW_V2_APPROVAL_RELEASE_METADATA_READ_COMPLETED` receipt at **2026-10-23T18:37:33.436427+00:00** verifies the selected fixed Preview binding and unchanged generation `8` / revision `00008-tg8`, 100% untagged, with stable reread. Do not rerun that metadata command or the completed quota diagnosis. [CURRENT-STATE](CURRENT-STATE.md#owner-binding-receipt-closed-bounded-backend-candidate-build--2026-10-23-utc) records its evidence and limits.
