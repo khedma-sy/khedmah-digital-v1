@@ -338,6 +338,60 @@ class BuildTests(OfflineCase):
         sleep.assert_not_called()
 
 
+class DefaultBuildOptionsTests(OfflineCase):
+    def test_strict_validator_accepts_observed_empty_pool_and_legacy_worker_release(self):
+        intent = self.new_intent(uploaded=True)
+        value = build_fixture(intent)
+        value['options'].pop('substitutionOption')
+        value['options']['pool'] = {}
+        value['options']['workerRelease'] = 'legacy'
+        result = m.validate_build(value, intent)
+        self.assertTrue(result['build_path_verified'])
+        self.assertEqual(result['build_status'], 'SUCCESS')
+
+    def test_strict_validator_rejects_private_pool_or_pool_output_metadata(self):
+        intent = self.new_intent(uploaded=True)
+        cases = [
+            {'name': 'projects/example/locations/europe-west1/workerPools/private'},
+            {'workerRelease': 'legacy'},
+            {'resolvedWorkerRelease': '2026.09'},
+        ]
+        for pool in cases:
+            value = build_fixture(intent)
+            value['options']['pool'] = pool
+            value['options']['workerRelease'] = 'legacy'
+            with self.subTest(pool_keys=sorted(pool)), self.assertRaisesRegex(SystemExit, 'BUILD_OPTIONS_MISMATCH'):
+                m.validate_build(value, intent)
+
+    def test_strict_validator_rejects_nonlegacy_worker_release_and_unknown_options(self):
+        intent = self.new_intent(uploaded=True)
+        for worker_release in ('rapid', 'regular', 'stable', '2026.09'):
+            value = build_fixture(intent)
+            value['options']['pool'] = {}
+            value['options']['workerRelease'] = worker_release
+            with self.subTest(worker_release=worker_release), self.assertRaisesRegex(SystemExit, 'BUILD_OPTIONS_MISMATCH'):
+                m.validate_build(value, intent)
+        value = build_fixture(intent)
+        value['options']['pool'] = {}
+        value['options']['workerRelease'] = 'legacy'
+        value['options']['futureExecutionOption'] = True
+        with self.assertRaisesRegex(SystemExit, 'BUILD_OPTIONS_MISMATCH'):
+            m.validate_build(value, intent)
+
+    def test_strict_validator_bounds_output_only_resolved_worker_release(self):
+        intent = self.new_intent(uploaded=True)
+        for release in ('legacy', '2026.09'):
+            value = build_fixture(intent)
+            value['options']['resolvedWorkerRelease'] = release
+            with self.subTest(release=release):
+                self.assertTrue(m.validate_build(value, intent)['build_path_verified'])
+        for release in ('rapid', '', PRIVATE):
+            value = build_fixture(intent)
+            value['options']['resolvedWorkerRelease'] = release
+            with self.subTest(release=release), self.assertRaisesRegex(SystemExit, 'BUILD_OPTIONS_MISMATCH'):
+                m.validate_build(value, intent)
+
+
 class BuildDiagnosticTests(OfflineCase):
     def acknowledged_intent(self):
         intent = self.new_intent(uploaded=True)
@@ -358,7 +412,7 @@ class BuildDiagnosticTests(OfflineCase):
         self.assertFalse(result['strict_validation_succeeded'])
         self.assertFalse(result['build_path_verified'])
         self.assertEqual(result['diagnostic_scope'], 'options_only')
-        self.assertEqual(result['unexpected_option_keys'], ['dynamicSubstitutions', 'pool'])
+        self.assertEqual(result['unexpected_option_keys'], ['dynamicSubstitutions'])
         self.assertTrue(result['logging_matches'])
         self.assertTrue(result['substitution_option_matches'])
         self.assertTrue(result['options_values_redacted'])
