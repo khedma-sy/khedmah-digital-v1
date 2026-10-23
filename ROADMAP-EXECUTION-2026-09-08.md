@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Required source audit repair with the Floot continuation — 2026-10-23 UTC
+
+[PR294](https://github.com/khedma-sy/khedmah-digital-v1/pull/294) records the completed Floot repairs below and a necessary bounded source-audit correction: pin Next.js **15.5.28** and update only its ten versioned lock entries plus the frontend workspace declaration. The first head's functional tests passed, but its blocking npm audit rejected 15.5.25. The corrected local lock audit reports zero vulnerabilities; all 313 other lock entries, root overrides, install-script policy and deployment/execution gates remain unchanged. Current-head CI and PR294's normal merge/closing receipt are the authoritative source closure; no deployment follows from these source checks. [CURRENT-STATE](docs/project-control/CURRENT-STATE.md#pr294-source-audit-repair-alongside-completed-floot-work--2026-10-23-utc) retains the exact failed-run evidence and validation limits.
+
+## Floot review continuity and client validation completed — 2026-10-23 UTC
+
+The owner-directed Floot continuation fixes URL/history consistency and keyboard focus in the existing human-review page, validates nested review responses before they enter the UI cache, and distinguishes invalid document input before dispatch from an uncertain network outcome. Source is saved in Floot version `1792772486101`, checkpoint `ca43041c-b862-4804-a823-3f05bce73484`. The final combined run passed **7 distinct spec files, 0 failed files**, with full TypeScript clean; all test requests were mocked. Both gates remain false. [CURRENT-STATE](docs/project-control/CURRENT-STATE.md#floot-review-continuity-and-client-validation--2026-10-23-utc) holds the exact receipt and file fingerprints. These are source/fixture results; production publication and populated live acceptance are not asserted.
+
+PR293 merged normally as `170adc348f978d3ecf7152f8897b778d224a64a3`; both postmerge main runs are now completed/success. Their older pending observations below are retained history. No corrected live release-metadata receipt has arrived. The next operational action is still the [existing corrected owner metadata read](docs/project-control/NEXT-ACTION.md#corrected-release-metadata-read-after-formatter-stop--2026-10-22-utc), deferred until the owner returns. Preserve the working director, both false Floot execution constants, the confirmed 025/incomplete 037 evidence and the separately reviewed compatible-successor gates. This pass performs no Google Cloud, schema, role or production mutation.
+
 ## Release reader formatter repair; live metadata still required — 2026-10-22 UTC
 
 PR292 merged normally as `4862fa0bb3f35b450d97864c9a5f91c7d3358eb5` at **15:03:12 UTC**. Its [main Test & Verify](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39801170660) and [main Node](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/39801170663) runs are completed/success. Its native transaction tests and the owner quota diagnosis are closed; the preparation-era pending text below is retained history.
