@@ -129,14 +129,16 @@ class DatabaseTests(unittest.TestCase):
             "database": m.DATABASE, "user": m.MIGRATOR_DB_USER, "read_only": "on",
             "server_version_num": 160009, "pg_read_all_stats_member": False,
             "runtime_sessions_total": 0, "runtime_sessions_active": 0,
-            "runtime_sessions_idle_in_transaction": 0, "migrator_sessions_other": 0,
-            "other_client_sessions": 0,
+            "runtime_sessions_idle_in_transaction": None, "migrator_sessions_other": 0,
+            "other_sessions_by_identity": 0,
         }
         completed = subprocess.CompletedProcess([], 0, json.dumps(payload) + "\n", "")
         with patch.object(m.subprocess, "run", return_value=completed) as run:
             result = m.read_sessions(Mock(), self.work, "a" * 64)
         self.assertTrue(result["runtime_sessions_zero_snapshot"])
         self.assertFalse(result["writer_quiescence_verified"])
+        self.assertFalse(result["runtime_activity_detail_available"])
+        self.assertIsNone(result["runtime_sessions_active"])
         self.assertIn("BEGIN READ ONLY", run.call_args.kwargs["input"])
         self.assertNotIn("pg_terminate_backend", run.call_args.kwargs["input"])
 
@@ -146,7 +148,7 @@ class DatabaseTests(unittest.TestCase):
             "server_version_num": 160009, "pg_read_all_stats_member": True,
             "runtime_sessions_total": 3, "runtime_sessions_active": 1,
             "runtime_sessions_idle_in_transaction": 1, "migrator_sessions_other": 0,
-            "other_client_sessions": 0,
+            "other_sessions_by_identity": 0,
         }
         completed = subprocess.CompletedProcess([], 0, json.dumps(payload) + "\n", "")
         with patch.object(m.subprocess, "run", return_value=completed):
@@ -154,8 +156,32 @@ class DatabaseTests(unittest.TestCase):
         self.assertFalse(result["runtime_sessions_zero_snapshot"])
         self.assertFalse(result["writer_quiescence_verified"])
         self.assertEqual(result["runtime_sessions_total"], 3)
+        self.assertTrue(result["runtime_activity_detail_available"])
+
+    def test_restricted_stats_still_counts_runtime_identity_without_false_activity_detail(self):
+        payload = {
+            "database": m.DATABASE, "user": m.MIGRATOR_DB_USER, "read_only": "on",
+            "server_version_num": 160009, "pg_read_all_stats_member": False,
+            "runtime_sessions_total": 2, "runtime_sessions_active": None,
+            "runtime_sessions_idle_in_transaction": None, "migrator_sessions_other": 0,
+            "other_sessions_by_identity": 1,
+        }
+        completed = subprocess.CompletedProcess([], 0, json.dumps(payload) + "\n", "")
+        with patch.object(m.subprocess, "run", return_value=completed):
+            result = m.read_sessions(Mock(), self.work, "c" * 64)
+        self.assertEqual(result["runtime_sessions_total"], 2)
+        self.assertFalse(result["runtime_sessions_zero_snapshot"])
+        self.assertFalse(result["runtime_activity_detail_available"])
+        self.assertIsNone(result["runtime_sessions_active"])
+        self.assertEqual(result["other_sessions_by_identity"], 1)
+
 
 class ContractTests(unittest.TestCase):
+    def test_private_socket_path_fits_unix_limit_with_actual_prefix(self):
+        with tempfile.TemporaryDirectory(prefix="pv2sg-", dir="/tmp") as directory:
+            socket = Path(directory) / m.CONNECTION / ".s.PGSQL.5432"
+            self.assertLess(len(str(socket).encode()), 104)
+
     def test_candidate_and_target_are_pinned(self):
         self.assertEqual(m.CANDIDATE_BUILD_ID, "8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e")
         self.assertEqual(m.SOURCE_GENERATION, "1792786650146421")
