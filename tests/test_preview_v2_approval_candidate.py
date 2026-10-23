@@ -412,7 +412,7 @@ class BuildDiagnosticTests(OfflineCase):
         self.assertFalse(result['strict_validation_succeeded'])
         self.assertFalse(result['build_path_verified'])
         self.assertEqual(result['diagnostic_scope'], 'options_only')
-        self.assertEqual(result['unexpected_option_keys'], ['dynamicSubstitutions', 'pool'])
+        self.assertEqual(result['unexpected_option_keys'], ['dynamicSubstitutions'])
         self.assertTrue(result['logging_matches'])
         self.assertTrue(result['substitution_option_matches'])
         self.assertTrue(result['options_values_redacted'])
