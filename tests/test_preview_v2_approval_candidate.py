@@ -338,6 +338,105 @@ class BuildTests(OfflineCase):
         sleep.assert_not_called()
 
 
+class BuildDiagnosticTests(OfflineCase):
+    def acknowledged_intent(self):
+        intent = self.new_intent(uploaded=True)
+        intent.update(build_id=BUILD_ID, phase='build_acknowledged',
+                      submitted_config_sha256=m.json_sha256(m.build_request(intent)))
+        m.save_intent(self.root, intent)
+        return intent
+
+    def mismatched_options_build(self, intent):
+        value = build_fixture(intent)
+        value['options']['dynamicSubstitutions'] = False
+        value['options']['pool'] = {'name': PRIVATE}
+        return value
+
+    def test_option_diagnostic_reports_only_keys_and_match_flags(self):
+        intent = self.acknowledged_intent()
+        result = m.diagnose_build_options(self.mismatched_options_build(intent), intent)
+        self.assertFalse(result['strict_validation_succeeded'])
+        self.assertFalse(result['build_path_verified'])
+        self.assertEqual(result['diagnostic_scope'], 'options_only')
+        self.assertEqual(result['unexpected_option_keys'], ['dynamicSubstitutions', 'pool'])
+        self.assertTrue(result['logging_matches'])
+        self.assertTrue(result['substitution_option_matches'])
+        self.assertTrue(result['options_values_redacted'])
+        self.assertNotIn(PRIVATE, json.dumps(result, sort_keys=True))
+
+    def test_option_diagnostic_does_not_weaken_strict_validation(self):
+        intent = self.acknowledged_intent()
+        value = self.mismatched_options_build(intent)
+        with self.assertRaisesRegex(SystemExit, 'BUILD_OPTIONS_MISMATCH'):
+            m.validate_build(value, intent)
+        result = m.diagnose_build_options(value, intent)
+        self.assertFalse(result['strict_validation_succeeded'])
+        self.assertFalse(result['resubmission_allowed'])
+
+    def test_option_diagnostic_rejects_non_option_request_mismatch(self):
+        intent = self.acknowledged_intent()
+        value = self.mismatched_options_build(intent)
+        value['tags'].append('foreign')
+        with self.assertRaisesRegex(SystemExit, 'BUILD_DIAGNOSTIC_SCOPE_MISMATCH'):
+            m.diagnose_build_options(value, intent)
+
+    def test_option_diagnostic_rejects_secret_inputs_even_when_options_mismatch(self):
+        intent = self.acknowledged_intent()
+        value = self.mismatched_options_build(intent)
+        value['availableSecrets'] = {'secretManager': [{'versionName': PRIVATE}]}
+        with self.assertRaisesRegex(SystemExit, 'BUILD_DIAGNOSTIC_UNEXPECTED_INPUTS'):
+            m.diagnose_build_options(value, intent)
+
+    def test_option_diagnostic_rejects_untrusted_option_key_shape(self):
+        intent = self.acknowledged_intent()
+        value = build_fixture(intent)
+        value['options'][1] = PRIVATE
+        with self.assertRaisesRegex(SystemExit, 'BUILD_DIAGNOSTIC_OPTIONS_INVALID'):
+            m.diagnose_build_options(value, intent)
+
+    def test_option_diagnostic_accepts_already_strict_build_without_expanding_scope(self):
+        intent = self.acknowledged_intent()
+        result = m.diagnose_build_options(build_fixture(intent), intent)
+        self.assertTrue(result['strict_validation_succeeded'])
+        self.assertTrue(result['build_path_verified'])
+        self.assertEqual(result['unexpected_option_keys'], [])
+        self.assertEqual(result['missing_required_option_keys'], [])
+
+    def test_diagnose_status_reads_only_saved_object_and_exact_build_id(self):
+        intent = self.acknowledged_intent()
+        api = Mock(side_effect=[object_fixture(intent), self.mismatched_options_build(intent)])
+        result = m.diagnose_status(api, intent)
+        self.assertEqual([call.args[0] for call in api.call_args_list], ['GET', 'GET'])
+        self.assertEqual(api.call_args_list[1].args[1], m.BUILDS_URL + '/' + BUILD_ID)
+        self.assertTrue(result['source_object_observed'])
+        self.assertFalse(result['resubmission_allowed'])
+
+    def test_diagnose_status_requires_acknowledged_saved_build_id(self):
+        intent = self.new_intent(uploaded=True)
+        intent['phase'] = 'build_submission_requested'
+        m.save_intent(self.root, intent)
+        api = Mock()
+        with self.assertRaisesRegex(SystemExit, 'BUILD_DIAGNOSTIC_BUILD_ID_REQUIRED'):
+            m.diagnose_status(api, intent)
+        api.assert_not_called()
+
+    def test_diagnostic_receipt_is_read_only_redacted_and_field_bounded(self):
+        intent = self.acknowledged_intent()
+        result = m.diagnose_build_options(self.mismatched_options_build(intent), intent)
+        result.update(source_object_observed=True, source_generation=intent['generation'])
+        receipt = m.diagnostic_receipt(intent, result)
+        self.assertEqual(receipt['stage'], 'PREVIEW_V2_APPROVAL_CANDIDATE_BUILD_OPTIONS_DIAGNOSTIC')
+        self.assertTrue(receipt['current_invocation_read_only'])
+        self.assertTrue(receipt['diagnostic_values_redacted'])
+        self.assertFalse(receipt['cloud_resource_mutation'])
+        self.assertFalse(receipt['build_submission_performed'])
+        self.assertFalse(receipt['resubmission_allowed'])
+        self.assertNotIn(PRIVATE, json.dumps(receipt, sort_keys=True))
+        bad = dict(result, secret_payload_access=True)
+        with self.assertRaisesRegex(SystemExit, 'DIAGNOSTIC_RECEIPT_FIELDS_REJECTED'):
+            m.diagnostic_receipt(intent, bad)
+
+
 class TransportTests(OfflineCase):
     def test_service_account_resource_alias_must_match_its_verified_identity(self):
         value = dict(name=m.SA_NAME, projectId=m.PROJECT, email=m.BUILD_SA, uniqueId='123456789012345', disabled=False)
