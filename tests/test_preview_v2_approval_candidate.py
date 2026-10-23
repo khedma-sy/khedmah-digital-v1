@@ -420,6 +420,55 @@ class BuildDiagnosticTests(OfflineCase):
             m.diagnose_status(api, intent)
         api.assert_not_called()
 
+    def test_option_diagnostic_classifies_default_pool_and_worker_release_without_values(self):
+        intent = self.acknowledged_intent()
+        value = build_fixture(intent)
+        value['options']['pool'] = {'workerRelease': 'legacy', 'resolvedWorkerRelease': '2026.09'}
+        value['options']['workerRelease'] = 'legacy'
+        result = m.diagnose_build_options(value, intent)
+        self.assertTrue(result['pool_present'])
+        self.assertFalse(result['pool_name_nonempty'])
+        self.assertEqual(result['pool_unexpected_keys'], [])
+        self.assertTrue(result['pool_worker_release_is_legacy'])
+        self.assertTrue(result['pool_resolved_worker_release_is_legacy_or_version'])
+        self.assertTrue(result['worker_release_is_legacy'])
+        self.assertTrue(result['pool_worker_release_matches_top_level'])
+        serialized = json.dumps(result, sort_keys=True)
+        self.assertNotIn('2026.09', serialized)
+        self.assertNotIn('"legacy"', serialized)
+
+    def test_option_diagnostic_detects_private_pool_name_without_exposing_it(self):
+        intent = self.acknowledged_intent()
+        value = build_fixture(intent)
+        value['options']['pool'] = {'name': 'projects/secret-project/locations/europe-west1/workerPools/private'}
+        value['options']['workerRelease'] = 'legacy'
+        result = m.diagnose_build_options(value, intent)
+        self.assertTrue(result['pool_name_present'])
+        self.assertTrue(result['pool_name_nonempty'])
+        self.assertTrue(result['pool_name_matches_worker_pool_resource'])
+        self.assertNotIn('secret-project', json.dumps(result, sort_keys=True))
+        self.assertNotIn('workerPools/private', json.dumps(result, sort_keys=True))
+
+    def test_option_diagnostic_reports_unknown_pool_keys_without_values(self):
+        intent = self.acknowledged_intent()
+        value = build_fixture(intent)
+        value['options']['pool'] = {'futureField': PRIVATE}
+        value['options']['workerRelease'] = 'legacy'
+        result = m.diagnose_build_options(value, intent)
+        self.assertEqual(result['pool_unexpected_keys'], ['futureField'])
+        self.assertNotIn(PRIVATE, json.dumps(result, sort_keys=True))
+
+    def test_option_diagnostic_classifies_nondefault_worker_release_fail_closed_for_later_review(self):
+        intent = self.acknowledged_intent()
+        value = build_fixture(intent)
+        value['options']['pool'] = {}
+        value['options']['workerRelease'] = 'rapid'
+        result = m.diagnose_build_options(value, intent)
+        self.assertTrue(result['worker_release_present'])
+        self.assertFalse(result['worker_release_is_legacy'])
+        self.assertTrue(result['worker_release_is_known_channel'])
+        self.assertFalse(result['worker_release_is_version'])
+
     def test_diagnostic_receipt_is_read_only_redacted_and_field_bounded(self):
         intent = self.acknowledged_intent()
         result = m.diagnose_build_options(self.mismatched_options_build(intent), intent)

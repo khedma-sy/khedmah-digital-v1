@@ -1,5 +1,34 @@
 # Next Safe Action — Khedmah
 
+## Classify pool/worker release on the existing successful build — 2026-10-23 UTC
+
+The same saved Cloud Build attempt is now known to be **SUCCESS**. Do not run `--build` again, do not delete/reset `~/.local/state/khedmah-preview-v2-approval-build/`, and do not create a replacement build. The only unresolved source-acceptance question is whether returned `options.pool` and `options.workerRelease` are server materialization of the default worker environment or a materially different execution configuration.
+
+This follow-up source keeps the strict validator unchanged and extends only the GET-only `--diagnose` receipt. After its PR passes exact-head checks/review and merges normally, run this command in the same owner Cloud Shell:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  candidate_diag_tmp="$(mktemp -d /tmp/khedmah-candidate-diag.XXXXXXXX)"
+  trap 'rm -rf -- "$candidate_diag_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/3ebf140f1dafadb785c5f062a818bc71115fee4e --jq .content 2>"$candidate_diag_tmp/fetch.log" | base64 --decode >"$candidate_diag_tmp/diagnose.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 2f843b54e41a8170cd866c2c50e14d62a825ec2a4b5c73c34eeace8c53b9d55f "$candidate_diag_tmp/diagnose.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$candidate_diag_tmp/diagnose.py")" = 3ebf140f1dafadb785c5f062a818bc71115fee4e || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$candidate_diag_tmp/diagnose.py" --diagnose
+)
+```
+
+Return only the final JSON or one STOP line. The receipt remains value-redacted. The decisive fields are:
+- `pool_name_nonempty` and `pool_name_matches_worker_pool_resource`;
+- `pool_unexpected_keys`;
+- `worker_release_is_legacy`;
+- `pool_worker_release_is_legacy`;
+- `pool_resolved_worker_release_is_legacy_or_version`;
+- `pool_worker_release_matches_top_level`.
+
+**Acceptable evidence for the next validator repair is intentionally narrow:** no nonempty WorkerPool name, no unknown nested pool keys, top-level worker release exactly the documented current default `legacy`, and any nested release fields limited to documented output metadata consistent with that default. Anything else remains a STOP for review. Even a clean result authorizes only a source-validator repair and reread of this same successful build; it does not authorize 036/037, rollout, Floot gates, or Production.
+
 ## Diagnose the already-submitted candidate; never resubmit — 2026-10-23 UTC
 
 The owner already ran the single candidate `--build` command and received **`STOP: BUILD_OPTIONS_MISMATCH`**. The current merged operator reaches that stop only after the Cloud Build create response yielded a valid id and the private intent saved `phase=build_acknowledged`. Treat the remote attempt as existing with an unknown final acceptance state. **Do not run `--build` again and do not remove/reset the private intent directory.**

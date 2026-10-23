@@ -536,6 +536,26 @@ def diagnose_build_options(value, intent):
             and artifacts.get('images', expected['images']) == expected['images'],
             'BUILD_DIAGNOSTIC_UNEXPECTED_ARTIFACTS')
     accepted_keys = {'logging', 'substitutionOption', 'resolvedWorkerRelease'}
+    pool_present = 'pool' in options
+    pool = options.get('pool')
+    if pool_present:
+        require(isinstance(pool, dict) and len(pool) <= 16
+                and all(isinstance(key, str) and re.fullmatch('[A-Za-z][A-Za-z0-9_]{0,127}', key)
+                        for key in pool), 'BUILD_DIAGNOSTIC_POOL_INVALID')
+    else:
+        pool = {}
+    worker_release = options.get('workerRelease')
+    if 'workerRelease' in options:
+        require(isinstance(worker_release, str) and len(worker_release) <= 64,
+                'BUILD_DIAGNOSTIC_WORKER_RELEASE_INVALID')
+    pool_worker_release = pool.get('workerRelease')
+    pool_resolved_release = pool.get('resolvedWorkerRelease')
+    for release in (pool_worker_release, pool_resolved_release):
+        if release is not None:
+            require(isinstance(release, str) and len(release) <= 64,
+                    'BUILD_DIAGNOSTIC_POOL_RELEASE_INVALID')
+    pool_keys = set(pool)
+    documented_pool_keys = {'name', 'workerRelease', 'resolvedWorkerRelease'}
     result = {
         'build_id': value['id'],
         'build_status': value['status'],
@@ -550,6 +570,26 @@ def diagnose_build_options(value, intent):
         'substitution_option_matches': options.get('substitutionOption', 'MUST_MATCH')
             == expected['options']['substitutionOption'],
         'resolved_worker_release_present': 'resolvedWorkerRelease' in options,
+        'pool_present': pool_present,
+        'pool_key_count': len(pool),
+        'pool_keys': sorted(pool),
+        'pool_unexpected_keys': sorted(pool_keys - documented_pool_keys),
+        'pool_name_present': 'name' in pool,
+        'pool_name_nonempty': isinstance(pool.get('name'), str) and bool(pool.get('name')),
+        'pool_name_matches_worker_pool_resource': isinstance(pool.get('name'), str)
+            and re.fullmatch(r'projects/[^/]+/locations/[^/]+/workerPools/[^/]+', pool.get('name')) is not None,
+        'pool_worker_release_present': pool_worker_release is not None,
+        'pool_worker_release_is_legacy': pool_worker_release == 'legacy',
+        'pool_resolved_worker_release_present': pool_resolved_release is not None,
+        'pool_resolved_worker_release_is_legacy_or_version': isinstance(pool_resolved_release, str)
+            and (pool_resolved_release == 'legacy' or re.fullmatch(r'20[0-9]{2}\.[0-9]{2}', pool_resolved_release) is not None),
+        'worker_release_present': 'workerRelease' in options,
+        'worker_release_is_legacy': worker_release == 'legacy',
+        'worker_release_is_known_channel': worker_release in {'legacy', 'regular', 'rapid', 'stable'},
+        'worker_release_is_version': isinstance(worker_release, str)
+            and re.fullmatch(r'20[0-9]{2}\.[0-9]{2}', worker_release) is not None,
+        'pool_worker_release_matches_top_level': pool_worker_release is not None
+            and worker_release is not None and pool_worker_release == worker_release,
         'options_values_redacted': True,
         'resubmission_allowed': False,
     }
@@ -660,8 +700,14 @@ def diagnostic_receipt(intent, result):
     allowed = {'build_id', 'build_status', 'build_path_verified', 'strict_validation_succeeded',
                'diagnostic_scope', 'options_key_count', 'option_keys', 'unexpected_option_keys',
                'missing_required_option_keys', 'logging_matches', 'substitution_option_matches',
-               'resolved_worker_release_present', 'options_values_redacted', 'source_object_observed',
-               'source_generation', 'resubmission_allowed'}
+               'resolved_worker_release_present', 'pool_present', 'pool_key_count', 'pool_keys',
+               'pool_unexpected_keys', 'pool_name_present', 'pool_name_nonempty',
+               'pool_name_matches_worker_pool_resource', 'pool_worker_release_present',
+               'pool_worker_release_is_legacy', 'pool_resolved_worker_release_present',
+               'pool_resolved_worker_release_is_legacy_or_version', 'worker_release_present',
+               'worker_release_is_legacy', 'worker_release_is_known_channel', 'worker_release_is_version',
+               'pool_worker_release_matches_top_level', 'options_values_redacted',
+               'source_object_observed', 'source_generation', 'resubmission_allowed'}
     require(set(result) <= allowed and result.get('diagnostic_scope') == 'options_only'
             and result.get('options_values_redacted') is True
             and result.get('resubmission_allowed') is False, 'DIAGNOSTIC_RECEIPT_FIELDS_REJECTED')
