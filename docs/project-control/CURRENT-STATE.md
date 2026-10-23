@@ -1,5 +1,15 @@
 # Khedmah Digital — Current State
 
+## Successor read stopped on optional Revision.service; fail-closed parser repair prepared — 2026-10-23 UTC
+
+**Owner read result:** the pinned successor inspector stopped with `STOP: REVISION_METADATA_INVALID` before producing its receipt. No Cloud Run, traffic/scaling, schema, role, application-data, Floot or Production mutation was performed. The Cloud Shell default project `khedma-dl-e409d` is irrelevant because the inspector pins all Google targets explicitly to Preview V2.
+
+The stop occurs at the first per-revision identity check: the service-scoped Cloud Run v2 `revisions.list` request returned at least one revision row whose optional/output-only `service` field did not equal the parser's required full service string. Google documents `Revision.service` as output-only, while the list parent and each full revision `name` already encode the exact parent service. ProtoJSON may omit default/optional output fields. Therefore requiring `service` unconditionally is stricter than the API contract and can reject a correctly scoped revision.
+
+This repair does **not** trust an unscoped revision. It first validates each revision `name` against the exact `projects/${PROJECT}/locations/${REGION}/services/${SERVICE}/revisions/... ` scope, then allows `service` only when absent or exactly equal to the expected full service resource. Any foreign service value still stops. The redacted revision receipt adds only `service_field_present`; it never prints foreign resource values. One new regression raises the focused Python suite to **18 cases**.
+
+Prepared inspector blob `c6038bb0c86c6b96a7875f3a8532c8a96182e884`, SHA256 `b0cf9085cfbed65c8bd0e0f55e0bd41d337c9ec986bc086391cbe744524aebbf`. The prior owner command must not be repeated. After this repair's exact-head CI/review and normal merge, run only the re-pinned command in NEXT-ACTION. No deploy, 036/037, writer-fence or Floot gate activation is authorized by this parser correction.
+
 ## Candidate image provenance closed; successor authority/lifecycle read prepared — 2026-10-23 UTC
 
 **Owner strict status receipt:** at `2026-10-23T21:59:07.219961+00:00`, the preserved build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` reread as `SUCCESS` with `build_path_verified=true`. The exact source remains commit `ecd3ad8a16cd9820c599f16e75b1acf3e5a85966`, tree `3063508c52c1c348f8eeef59c49ce424608557ef`, source generation `1792786650146421`, manifest SHA256 `57431e14db8a68376629dfe61393e24785ec56e3d2f8dc98ccf052b82ba9ee2d` and archive SHA256 `38b921d2d297ebb8b57a8632e9f339251ac29fc76de32d76f6f236acf69016bf`.
