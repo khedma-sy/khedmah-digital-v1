@@ -83,6 +83,26 @@ class SummaryTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "SCALING_METADATA_INVALID"):
             m.safe_scaling({"future": 1}, service=True)
 
+class ResourceNameTests(unittest.TestCase):
+    def test_policy_troubleshooter_full_resource_names_use_project_id(self):
+        rows = {label: (resource, permission) for label, resource, permission in m.AUTHORITY_CHECKS}
+        self.assertIn("/projects/" + m.PROJECT + "/locations/", rows["run_services_update"][0])
+        self.assertNotIn("/projects/" + m.NUMBER + "/locations/", rows["run_services_update"][0])
+        self.assertEqual(rows["service_usage"][0],
+                         "//cloudresourcemanager.googleapis.com/projects/" + m.PROJECT)
+        self.assertEqual(rows["runtime_act_as"][0],
+                         "//iam.googleapis.com/projects/" + m.PROJECT + "/serviceAccounts/" + m.RUNTIME_SA)
+
+    def test_revision_parser_accepts_scoped_full_or_exact_short_name_only(self):
+        full = (m.SERVICE_NAME + "/revisions/" + m.KNOWN_REVISION)
+        self.assertEqual(m.short_revision(full), m.KNOWN_REVISION)
+        self.assertEqual(m.short_revision(m.KNOWN_REVISION), m.KNOWN_REVISION)
+        for bad in ("foreign-00001-x", "projects/foreign/locations/europe-west1/services/"
+                    + m.SERVICE + "/revisions/" + m.KNOWN_REVISION):
+            with self.subTest(name=bad), self.assertRaisesRegex(SystemExit, "REVISION_NAME_INVALID"):
+                m.short_revision(bad)
+
+
 class AuthorityTests(unittest.TestCase):
     def test_authority_requires_every_policy_decision_granted(self):
         def good(token, method, url, body=None, optional=False):
