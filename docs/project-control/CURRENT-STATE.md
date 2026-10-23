@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## Successful build default-worker metadata classified; strict digest read prepared — 2026-10-23 UTC
+
+**Owner read-only classification receipt:** at `2026-10-23T21:41:00.784575+00:00`, the same saved attempt `87738bad-52b5-4a3f-b699-7dcf27652688` and build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` remain `SUCCESS`. The source generation is still `1792786650146421`; no build submission, upload, Cloud Run, schema, role, application-data or Production mutation occurred and `resubmission_allowed=false`.
+
+The worker-execution ambiguity is now bounded: returned `options.pool` is present but exactly empty (zero keys), has no `name`, no WorkerPool resource and no unknown fields. Top-level `workerRelease` is present and exactly `legacy`. No nested `pool.workerRelease` or `pool.resolvedWorkerRelease` exists. The prior false nested-release booleans therefore mean **absent**, not contradictory values. Logging matches and omitted `substitutionOption` retains the request's fail-on-mismatch semantics.
+
+Google's current REST schema defines `pool.name` as the concrete private WorkerPool selector, `workerRelease` as the build worker release/channel option, and `resolvedWorkerRelease` as output-only. The observed empty pool plus `legacy` top-level release is therefore materially narrower than a private-pool or nondefault-channel configuration. This receipt satisfies the previously documented narrow evidence gate for a validator-only repair.
+
+This branch changes only strict response validation: it permits server materialization of **exactly** an empty `pool` and `workerRelease=legacy`, while retaining the existing omission/default handling for `substitutionOption`. Any nonempty pool, private-pool name, nested pool output metadata, non-`legacy` worker release, malformed/output-only resolved release or unknown option remains rejected. Four focused fail-closed cases raise the Python suite from 42 to **46 cases**. Prepared operator blob `28298b638543af0b718240fb40c10f66c3dce494`, SHA256 `4a129b8b3198a9aa8e1656195f1765afd376bcaa9e8554e1d5773a24cca7cf66`.
+
+**Next Safe Action:** after this repair's exact-head checks/review and normal merge, use the pinned `--status` command at the top of NEXT-ACTION to reread this **same successful build**. Accept only `build_status=SUCCESS`, `build_path_verified=true`, the exact source generation/provenance and immutable image/builder digests. This status read remains GET-only and does not authorize 036/037, Cloud Run rollout, Floot gates, IAM/role changes or Production.
+
 ## Candidate build succeeded; worker execution semantics still require read-only classification — 2026-10-23 UTC
 
 **Owner diagnostic receipt:** the existing attempt `87738bad-52b5-4a3f-b699-7dcf27652688`, build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e`, was reread without mutation at `2026-10-23T21:03:04.446984+00:00`. Cloud Build reports `build_status=SUCCESS`; the exact source object generation `1792786650146421` is observed, no build was resubmitted, and `resubmission_allowed=false`. Strict acceptance remains false only because the returned `options` shape differs from the submitted request.
