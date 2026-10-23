@@ -2,7 +2,7 @@
 """Build one pinned Preview backend image; never deploy or access the database.
 
 --build records an exclusive durable intent, uploads one generation-pinned source
-object, and submits once. --status only reads Google metadata. An interrupted or
+object, and submits once. --status and --diagnose only read Google metadata. An interrupted or
 ambiguous attempt is never retried, reset, deleted, or replaced by this program.
 The frozen reader supplies owner/project preflight only, never secret/SQL code.
 """
@@ -516,6 +516,46 @@ def validate_build(value, intent):
     return receipt
 
 
+def diagnose_build_options(value, intent):
+    """Read-only, value-redacted diagnosis for a build that failed only options validation."""
+    try:
+        strict = validate_build(value, intent)
+    except SystemExit as error:
+        require(str(error) == 'STOP: BUILD_OPTIONS_MISMATCH', 'BUILD_DIAGNOSTIC_SCOPE_MISMATCH')
+        strict = None
+    options = value.get('options')
+    require(isinstance(options, dict) and len(options) <= 64
+            and all(isinstance(key, str) and re.fullmatch('[A-Za-z][A-Za-z0-9_]{0,127}', key)
+                    for key in options), 'BUILD_DIAGNOSTIC_OPTIONS_INVALID')
+    require(not any(value.get(key) for key in ('secrets', 'availableSecrets', 'logsBucket', 'buildTriggerId',
+                                              'substitutions', 'dependencies', 'gitConfig')),
+            'BUILD_DIAGNOSTIC_UNEXPECTED_INPUTS')
+    artifacts = value.get('artifacts', {})
+    expected = build_request(intent)
+    require(isinstance(artifacts, dict) and not (set(artifacts) - {'images'})
+            and artifacts.get('images', expected['images']) == expected['images'],
+            'BUILD_DIAGNOSTIC_UNEXPECTED_ARTIFACTS')
+    accepted_keys = {'logging', 'substitutionOption', 'resolvedWorkerRelease'}
+    result = {
+        'build_id': value['id'],
+        'build_status': value['status'],
+        'build_path_verified': strict.get('build_path_verified', False) if strict is not None else False,
+        'strict_validation_succeeded': strict is not None,
+        'diagnostic_scope': 'options_only',
+        'options_key_count': len(options),
+        'option_keys': sorted(options),
+        'unexpected_option_keys': sorted(set(options) - accepted_keys),
+        'missing_required_option_keys': sorted(key for key in expected['options'] if key not in options),
+        'logging_matches': options.get('logging') == expected['options']['logging'],
+        'substitution_option_matches': options.get('substitutionOption', 'MUST_MATCH')
+            == expected['options']['substitutionOption'],
+        'resolved_worker_release_present': 'resolvedWorkerRelease' in options,
+        'options_values_redacted': True,
+        'resubmission_allowed': False,
+    }
+    return result
+
+
 def upload_source(api, root, intent, archive):
     require(intent['phase'] == 'intent_recorded' and len(archive) == intent['archive_size']
             and hashlib.sha256(archive).hexdigest() == intent['archive_sha256'], 'UPLOAD_PRECONDITION_MISMATCH')
@@ -578,6 +618,21 @@ def status(api, intent):
     return result
 
 
+def diagnose_status(api, intent):
+    # This mode is intentionally narrower than --status: it requires the exact
+    # acknowledged build id and never falls back to a tag search or any write.
+    require(intent.get('phase') == 'build_acknowledged' and 'build_id' in intent,
+            'BUILD_DIAGNOSTIC_BUILD_ID_REQUIRED')
+    obj = api('GET', object_url(intent, intent.get('generation')), allow_missing=True)
+    require(obj is not None, 'BUILD_DIAGNOSTIC_SOURCE_OBJECT_MISSING')
+    generation = validate_object(obj, intent)
+    observed = dict(intent, generation=generation)
+    build = api('GET', BUILDS_URL + '/' + intent['build_id'])
+    result = diagnose_build_options(build, observed)
+    result.update(source_object_observed=True, source_generation=generation)
+    return result
+
+
 def receipt(intent, result, readonly):
     require(set(result) <= {'build_id', 'build_status', 'build_path_verified', 'image_digest', 'image_reference',
                             'builder_image_digest', 'wait_window_elapsed', 'source_object_observed',
@@ -601,10 +656,37 @@ def receipt(intent, result, readonly):
     return value
 
 
+def diagnostic_receipt(intent, result):
+    allowed = {'build_id', 'build_status', 'build_path_verified', 'strict_validation_succeeded',
+               'diagnostic_scope', 'options_key_count', 'option_keys', 'unexpected_option_keys',
+               'missing_required_option_keys', 'logging_matches', 'substitution_option_matches',
+               'resolved_worker_release_present', 'options_values_redacted', 'source_object_observed',
+               'source_generation', 'resubmission_allowed'}
+    require(set(result) <= allowed and result.get('diagnostic_scope') == 'options_only'
+            and result.get('options_values_redacted') is True
+            and result.get('resubmission_allowed') is False, 'DIAGNOSTIC_RECEIPT_FIELDS_REJECTED')
+    value = dict(stage='PREVIEW_V2_APPROVAL_CANDIDATE_BUILD_OPTIONS_DIAGNOSTIC', evidence_utc=utc_now(),
+                 project=PROJECT, region=REGION, source_commit=SOURCE_COMMIT, source_tree=SOURCE_TREE,
+                 attempt=intent['attempt'], intent_phase=intent['phase'], build_id=intent.get('build_id'),
+                 canonical_config_blob=CONFIG_BLOB, submitted_config_sha256=intent.get('submitted_config_sha256'),
+                 source_manifest_sha256=SOURCE_MANIFEST_SHA256, current_invocation_read_only=True,
+                 diagnostic_values_redacted=True, source_artifact_upload_performed=False,
+                 build_submission_performed=False, cloud_resource_mutation=False,
+                 application_deployment_performed=False, application_data_mutation=False,
+                 application_data_rows_read=False, schema_mutation=False, role_mutation=False,
+                 secret_payload_access=False, credential_values_printed=False, cloud_run_mutation=False,
+                 schema_readiness_verified=False, release_gates_verified=False,
+                 effective_release_authority_verified=False, production_readiness_verified=False,
+                 resubmission_allowed=False)
+    value.update(result)
+    return value
+
+
 def main():
-    require(sys.argv[1:] in (['--build'], ['--status']), 'USAGE_BUILD_OR_STATUS_ONLY')
+    require(sys.argv[1:] in (['--build'], ['--status'], ['--diagnose']), 'USAGE_BUILD_OR_STATUS_ONLY')
     os.umask(0o077)
-    readonly = sys.argv[1] == '--status'
+    mode = sys.argv[1]
+    readonly = mode != '--build'
     root = Path.home() / '.local' / 'state' / 'khedmah-preview-v2-approval-build'
     if readonly:
         intent = load_intent(root)
@@ -615,8 +697,12 @@ def main():
         reader.preflight()
         token = reader.cloud('auth', 'print-access-token').decode('ascii').strip()
         api = GoogleApi(token, intent if readonly else None, readonly=readonly)
-        if readonly:
+        if mode == '--status':
             result = status(api, intent)
+            output = receipt(intent, result, True)
+        elif mode == '--diagnose':
+            result = diagnose_status(api, intent)
+            output = diagnostic_receipt(intent, result)
         else:
             preflight_resources(api)
             archive = source_package()
@@ -625,7 +711,8 @@ def main():
             upload_source(api, root, intent, archive)
             result = submit_build(api, root, intent)
             result = wait_for_build(api, intent, result)
-        print(json.dumps(receipt(intent, result, readonly), sort_keys=True))
+            output = receipt(intent, result, False)
+        print(json.dumps(output, sort_keys=True))
 
 
 if __name__ == '__main__':
