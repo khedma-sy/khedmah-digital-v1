@@ -12,9 +12,9 @@ After this read-only inspector passes exact-head CI/review and merges normally, 
   umask 077
   successor_read_tmp="$(mktemp -d /tmp/khedmah-successor-read.XXXXXXXX)"
   trap 'rm -rf -- "$successor_read_tmp"' EXIT
-  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/77dc055d62b9f67f529126ec68ddb6b9b0cbfe67 --jq .content 2>"$successor_read_tmp/fetch.log" | base64 --decode >"$successor_read_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
-  printf '%s  %s\n' d1e68eedae7c5d105207dcd09c41119f1ac50bb45fb3908ec88ab9531b0ee717 "$successor_read_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
-  test "$(git hash-object --no-filters "$successor_read_tmp/inspect.py")" = 77dc055d62b9f67f529126ec68ddb6b9b0cbfe67 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/adb66fe2acb03f8a992d23a0dcf8737b70f12df8 --jq .content 2>"$successor_read_tmp/fetch.log" | base64 --decode >"$successor_read_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 445a5cc484f9b7f4a7290407ec1382ccf8136741963f4580e1a647782e94c460 "$successor_read_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$successor_read_tmp/inspect.py")" = adb66fe2acb03f8a992d23a0dcf8737b70f12df8 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
   python3 "$successor_read_tmp/inspect.py" --inspect
 )
 ```
