@@ -212,6 +212,10 @@ class ContractTests(unittest.TestCase):
             socket = Path(directory) / m.CONNECTION / ".s.PGSQL.5432"
             self.assertLess(len(str(socket).encode()), 104)
 
+    def test_required_local_tool_module_is_imported(self):
+        self.assertTrue(hasattr(m, "shutil"))
+        self.assertTrue(callable(m.shutil.which))
+
     def test_candidate_and_target_are_pinned(self):
         self.assertEqual(m.CANDIDATE_BUILD_ID, "8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e")
         self.assertEqual(m.SOURCE_GENERATION, "1792786650146421")
