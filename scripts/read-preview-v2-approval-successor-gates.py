@@ -209,7 +209,7 @@ def service_summary(value):
     require(value.get("name") == SERVICE_NAME and value.get("uid")
             and value.get("generation") and value.get("observedGeneration")
             and str(value["generation"]) == str(value["observedGeneration"])
-            and value.get("reconciling") is False, "SERVICE_STATE_INVALID")
+            and value.get("reconciling", False) is False, "SERVICE_STATE_INVALID")
     terminal = value.get("terminalCondition", {})
     require(isinstance(terminal, dict) and terminal.get("state") == "CONDITION_SUCCEEDED",
             "SERVICE_NOT_STABLE")
