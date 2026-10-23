@@ -94,6 +94,8 @@ class ResourceNameTests(unittest.TestCase):
     def test_policy_troubleshooter_full_resource_names_use_project_id(self):
         rows = {label: (resource, permission) for label, resource, permission in m.AUTHORITY_CHECKS}
         self.assertIn("/projects/" + m.PROJECT + "/locations/", rows["run_services_update"][0])
+        self.assertEqual(rows["run_operations_get"][1], "run.operations.get")
+        self.assertEqual(rows["run_operations_get"][0], rows["run_services_update"][0])
         self.assertNotIn("/projects/" + m.NUMBER + "/locations/", rows["run_services_update"][0])
         self.assertEqual(rows["service_usage"][0],
                          "//cloudresourcemanager.googleapis.com/projects/" + m.PROJECT)
