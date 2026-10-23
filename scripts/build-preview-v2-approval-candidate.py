@@ -487,9 +487,18 @@ def validate_build(value, intent):
     require(isinstance(steps, list) and len(steps) == 1 and isinstance(steps[0], dict)
             and all(steps[0].get(key) == item for key, item in expected['steps'][0].items())
             and not (set(steps[0]) - set(expected['steps'][0]) - {'timing', 'pullTiming', 'status', 'exitCode'}), 'BUILD_STEPS_MISMATCH')
+    allowed_option_keys = {'logging', 'substitutionOption', 'resolvedWorkerRelease', 'pool', 'workerRelease'}
+    resolved_worker_release = options.get('resolvedWorkerRelease')
     require(isinstance(options, dict) and options.get('logging') == 'CLOUD_LOGGING_ONLY'
             and options.get('substitutionOption', 'MUST_MATCH') == 'MUST_MATCH'
-            and not (set(options) - {'logging', 'substitutionOption', 'resolvedWorkerRelease'}), 'BUILD_OPTIONS_MISMATCH')
+            and not (set(options) - allowed_option_keys)
+            and ('pool' not in options or options.get('pool') == {})
+            and ('workerRelease' not in options or options.get('workerRelease') == 'legacy')
+            and ('resolvedWorkerRelease' not in options
+                 or (isinstance(resolved_worker_release, str)
+                     and (resolved_worker_release == 'legacy'
+                          or re.fullmatch(r'20[0-9]{2}\.[0-9]{2}', resolved_worker_release) is not None))),
+            'BUILD_OPTIONS_MISMATCH')
     require(not any(value.get(key) for key in ('secrets', 'availableSecrets', 'logsBucket', 'buildTriggerId',
                                               'substitutions', 'dependencies', 'gitConfig')),
             'BUILD_UNEXPECTED_INPUTS')
@@ -535,7 +544,7 @@ def diagnose_build_options(value, intent):
     require(isinstance(artifacts, dict) and not (set(artifacts) - {'images'})
             and artifacts.get('images', expected['images']) == expected['images'],
             'BUILD_DIAGNOSTIC_UNEXPECTED_ARTIFACTS')
-    accepted_keys = {'logging', 'substitutionOption', 'resolvedWorkerRelease'}
+    accepted_keys = {'logging', 'substitutionOption', 'resolvedWorkerRelease', 'pool', 'workerRelease'}
     pool_present = 'pool' in options
     pool = options.get('pool')
     if pool_present:
