@@ -1,5 +1,46 @@
 # Next Safe Action — Khedmah
 
+## Build the pinned Preview backend candidate; binding read is complete — 2026-10-23 UTC
+
+**Completed input:** the owner's `PREVIEW_V2_APPROVAL_RELEASE_METADATA_READ_COMPLETED` receipt at **2026-10-23T18:37:33.436427+00:00** verifies the selected fixed Preview binding and unchanged generation `8` / revision `00008-tg8`, 100% untagged, with stable reread. Do not rerun that metadata command or the completed quota diagnosis. [CURRENT-STATE](CURRENT-STATE.md#owner-binding-receipt-closed-bounded-backend-candidate-build--2026-10-23-utc) records its evidence and limits.
+
+**Next operational action:** after this preparation's own successful checks and normal merge (see its PR closing receipt), run the single candidate-build command below in the existing owner Cloud Shell. It creates **one source object and one backend image build in Preview V2**. It uses the existing bucket, Artifact Registry repository and build account; no bucket/repository/API/IAM creation or repair is included. It cannot deploy Cloud Run, alter traffic, open a database connection, read secret payloads, apply 036/037, assign roles or activate Floot.
+
+The candidate source is `ecd3ad8a16cd9820c599f16e75b1acf3e5a85966`, tree `3063508c52c1c348f8eeef59c49ce424608557ef`. It includes the already reviewed approval fixes plus a two-line Dockerfile correction carrying the existing strict npm policy into both image install stages. The verified context contains **318 source files / 1,739,298 uncompressed bytes**; root/lock/frontend workspace manifests are required by the existing Dockerfile, even though it compiles only the backend. No local checkout or credentials enter the upload.
+
+The selected owner permission tests are preflight observations. The actual API calls enforce this bounded build operation; a successful build can prove source-read/build/image-push access for this attempt, while full runtime/migrator/deployment authority remains separate. Historical PR274 WIF and the unprotected Preview environment are not repurposed. The default Cloud Shell project does not need changing.
+
+### Pinned candidate-build owner command
+
+Operator Git blob **`c158ee1c2f3b5d3bb1a9cbfd64f8af1ac2c805e1`**, SHA256 **`40aa5205a1a1fba815432de60e59d0f09b5fed31307533173dfcff6d7df047e6`**. Source verification happens before execution. Copy the full block and return only its final JSON or STOP. A normal build can take several minutes; the operator polls with GET only for a bounded 25-minute window after one submission.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  candidate_build_tmp="$(mktemp -d /tmp/khedmah-candidate.XXXXXXXX)"
+  trap 'rm -rf -- "$candidate_build_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/c158ee1c2f3b5d3bb1a9cbfd64f8af1ac2c805e1 --jq .content 2>"$candidate_build_tmp/fetch.log" | base64 --decode >"$candidate_build_tmp/build.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 40aa5205a1a1fba815432de60e59d0f09b5fed31307533173dfcff6d7df047e6 "$candidate_build_tmp/build.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$candidate_build_tmp/build.py")" = c158ee1c2f3b5d3bb1a9cbfd64f8af1ac2c805e1 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$candidate_build_tmp/build.py" --build
+)
+```
+
+**Uncertain or interrupted attempt:** preserve the private intent under `~/.local/state/khedmah-preview-v2-approval-build/`. Do not delete/reset it or repeat `--build`. For read-only reconciliation, use the same verified wrapper with only its final Python argument changed to `--status`. That mode cannot upload or submit; zero matches is still unconfirmed and never permits a retry. A foreign/malformed response, multiple matching builds or incomplete recovery remains a STOP. The local guard prevents repetition through this operator; it does not promise global exactly-once execution across independent machines.
+
+**Accept only:** actual `build_status:SUCCESS`, `build_path_verified:true`, exact source generation/provenance, one successful Docker step, and returned immutable image/builder digests. The JSON records source/manifest/archive/submitted-configuration fingerprints. The submission is a constrained derivative of the canonical YAML with literal image expansion, fixed identity/time limits and explicit recovery tags; it is not byte-identical YAML. Source-object upload/build/image push are Preview cloud mutations. Success does not assert application startup, schema transition, live approvals, publication or Production readiness; base and builder tags remain mutable inputs whose output digest is captured.
+
+### Remaining successor and final release boundary
+
+1. Bind the resulting successful image digest to this source, then prepare the narrow Cloud Run revision-lifecycle and effective-authority evidence needed for a reviewed maintenance operation. Do not repeat unchanged old-image provenance.
+2. A possible inert maintenance revision can reuse the proven old digest with a reviewed built-in Node HTTP entrypoint, but it would suspend **the entire backend**. No maintenance command is exposed by this build operator. Manual zero blocks new service requests while existing work may continue; only actual retirement of every old application revision plus fresh zero application-DB sessions could close that drain boundary. Confirm the actual condition tuple and current inventory before implementing an acceptance predicate. No elapsed timeout, missing telemetry or quiet instant is equivalent proof.
+3. Retain the existing exact atomic 036/037 core, fresh locked predecessor, commit acknowledgment and independent exact readback. Unknown outcome remains in maintenance for reconciliation; never replay automatically or restore an enabled incompatible old runtime after 036 may have committed.
+4. Restore the application's real entrypoint explicitly when deploying the compatible candidate, prove startup and each human approval/upload guarantee on the actual target, and promote the accepted revision. The two Floot constants retain separate gates.
+5. Reconcile final Production identity/service/database targeting and the full Floot publish scope. The newer Business smart-admin tables are still absent from the shared Floot database; prepared migrations and synthetic tests do not close its separate activation/acceptance boundary. Current dated unpublished helper/endpoint count is 201 at version `1792780103417`, not the older 167.
+
+[Google manual scaling](https://docs.cloud.google.com/run/docs/configuring/services/manual-scaling), [revision lifecycle](https://docs.cloud.google.com/run/docs/managing/revisions) and [condition enums](https://docs.cloud.google.com/run/docs/reference/rest/v2/Condition) distinguish admission disablement from observed retirement. This remains a future reviewed boundary, not an executed availability change. Preserve the working director, completed source/UI audits and independent Preview/Production controls.
+
 ## Production continuation: actual next dependency — 2026-10-23 UTC
 
 The owner has authorized continuation through final Production. [PR294](https://github.com/khedma-sy/khedmah-digital-v1/pull/294) is **merged and closed**; both workflows on `main=f1867ae5f7cf96db01680cc93f8fa7c1d214f168` are completed/success. Its earlier source-audit and merge instructions below are historical. The completed Floot repairs and concurrent tender/discovery source checks remain accepted at their documented scope; do not repeat them.

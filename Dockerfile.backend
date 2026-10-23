@@ -1,7 +1,7 @@
 FROM node:24-slim AS build
 WORKDIR /workspace
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY apps/frontend/package.json apps/frontend/package.json
 RUN npm ci
@@ -14,7 +14,7 @@ ENV NODE_ENV=production \
     PORT=8080
 WORKDIR /workspace
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY apps/frontend/package.json apps/frontend/package.json
 RUN npm ci --omit=dev && npm cache clean --force
