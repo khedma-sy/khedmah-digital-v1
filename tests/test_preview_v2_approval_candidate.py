@@ -433,8 +433,9 @@ class BuildDiagnosticTests(OfflineCase):
         self.assertTrue(result['pool_resolved_worker_release_is_legacy_or_version'])
         self.assertTrue(result['worker_release_is_legacy'])
         self.assertTrue(result['pool_worker_release_matches_top_level'])
-        self.assertNotIn('2026.09', json.dumps(result, sort_keys=True))
-        self.assertNotIn('legacy', json.dumps(result, sort_keys=True))
+        serialized = json.dumps(result, sort_keys=True)
+        self.assertNotIn('2026.09', serialized)
+        self.assertNotIn('"legacy"', serialized)
 
     def test_option_diagnostic_detects_private_pool_name_without_exposing_it(self):
         intent = self.acknowledged_intent()
