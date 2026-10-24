@@ -49,7 +49,10 @@ def get_json(url, token):
         stop("MONITORING_READ_FAILED")
 
 def descriptor_url():
-    return BASE + "/metricDescriptors/" + urllib.parse.quote(METRIC, safe="")
+    # Cloud Monitoring's metric descriptor resource name is hierarchical:
+    # metricDescriptors/run.googleapis.com/container/instance_count
+    # Slashes in the metric type must remain path separators.
+    return BASE + "/metricDescriptors/" + urllib.parse.quote(METRIC, safe="/")
 
 def resource_descriptor_url():
     return BASE + "/monitoredResourceDescriptors/" + urllib.parse.quote(RESOURCE, safe="")
