@@ -102,12 +102,13 @@ export class TaxiTripService {
           ctx.deadline=Math.min(ctx.deadline,row.valid_until.getTime());
         }
         return {policy:tariff,menu:[],restaurants:[],providers:actor.role==='driver'?[{
-          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi'],vehicleClass:ctx.actor.vehicleClass!
+          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi'],vehicleClass:ctx.actor.vehicleClass
         }]:[]};
       }},
       clock,nextId:randomUUID,route,
       assignment:(tx,actor)=>{
         const a=assertContext(tx,actor).actor;
+        if(a.role==='driver'&&!a.vehicleClass) fail('VEHICLE_CLASS_UNAVAILABLE',503,'فئة المركبة المعتمدة غير متاحة لمسار الرحلات.');
         return a.role==='driver'?{vehicleId:a.vehicleId!,driverRevision:a.driverRevision!,vehicleRevision:a.vehicleRevision!}:undefined;
       },
       validateQuote:async(tx,_actor,quote)=>{
