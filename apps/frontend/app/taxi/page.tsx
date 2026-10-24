@@ -236,9 +236,9 @@ function RiderJourney() {
         <h2>اختر فئة المركبة</h2>
         <dl><div><dt>المسافة</dt><dd>{km(quote.distanceMeters)}</dd></div><div><dt>التقدير الخادمي الأساسي</dt><dd>{amount(quote.totalMinor, quote.currency)}</dd></div></dl>
         <div className={styles.actions} aria-label="فئات سيارات التكسي">{quoteTaxiVehicleClasses(baseQuoteMinor ?? quote.totalMinor).map(option=><button key={option.code} type="button" aria-pressed={vehicleClass===option.code} onClick={()=>void chooseVehicleClass(option.code)} disabled={busy} className={vehicleClass===option.code?styles.phase:undefined}><strong>{option.titleAr}</strong> · {option.seats} ركاب · {amount(option.totalMinor,quote.currency)}</button>)}</div>
-        <p className={styles.note}>اختيار الفئة يعيد التسعير من الخادم ويحفظ معامل الفئة داخل عرض السعر. الفئات غير الاقتصادية تبقى مقفلة عند إنشاء الرحلة حتى يكتمل شرط مطابقة اعتماد مركبة السائق مع الفئة المطلوبة.</p>
-        <ActionButton type="button" onClick={() => void place()} disabled={busy||vehicleClass!=='economy'}>اطلب التكسي الاقتصادي</ActionButton>
-        {vehicleClass!=='economy'&&<StatusMessage tone="info">تم اعتماد سعر {TAXI_VEHICLE_CLASSES.find(item=>item.code===vehicleClass)?.titleAr} من الخادم، لكن الطلب التشغيلي لهذه الفئة مقفول مؤقتًا حتى نربط مطابقة مركبة السائق.</StatusMessage>}
+        <p className={styles.note}>اختيار الفئة يعيد التسعير من الخادم ويحفظ معامل الفئة داخل عرض السعر، ولا تظهر الرحلة إلا للسائقين ذوي المركبة المعتمدة من الفئة نفسها.</p>
+        <ActionButton type="button" onClick={() => void place()} disabled={busy}>اطلب {TAXI_VEHICLE_CLASSES.find(item=>item.code===vehicleClass)?.titleAr ?? 'التكسي'}</ActionButton>
+        <StatusMessage tone="info">السعر والفئة معتمدان من الخادم، ومطابقة فئة مركبة السائق تُفرض قبل عرض المهمة وقبولها.</StatusMessage>
       </Surface>}
       {trip && <><TripCard trip={trip} onRefresh={() => restore(trip.id)} /><div className={styles.actions}>
         {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void consent()} disabled={busy}>أوافق على بدء الرحلة</ActionButton>}
