@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { ActionButton, ActionLink, PageHeader, PageShell, StatusMessage, Surface } from '../components/ui-primitives';
 import { PlatformIcon } from '../components/platform-icon';
 import { taxiApi, type TaxiAddress, type TaxiApiError, type TaxiOffer, type TaxiQuote, type TaxiTrip } from '../../lib/taxi-client';
+import { TAXI_VEHICLE_CLASSES, quoteTaxiVehicleClasses, type TaxiVehicleClassCode } from '../../../backend/src/taxi/taxi-vehicle-classes';
 import { TaxiMapSelector } from './taxi-map-selector';
 import styles from './taxi.module.css';
 
@@ -73,6 +74,8 @@ function RiderJourney() {
   const [pickup, setPickup] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
   const [dropoff, setDropoff] = useState<TaxiAddress>({ area: '', detail: '', latitude: Number.NaN, longitude: Number.NaN });
   const [quote, setQuote] = useState<TaxiQuote>();
+  const [baseQuoteMinor,setBaseQuoteMinor]=useState<number>();
+  const [vehicleClass,setVehicleClass]=useState<TaxiVehicleClassCode>('economy');
   const [trip, setTrip] = useState<TaxiTrip>();
   const [busy, setBusy] = useState(false);
   const [hasPendingPlace, setHasPendingPlace] = useState(false);
@@ -136,8 +139,18 @@ function RiderJourney() {
     }
     setBusy(true); setMessage('جاري اعتماد المسار والتعرفة…');
     try {
-      const result = await taxiApi.rider.quote(pickup, dropoff);
-      if (mounted.current) { setQuote(result); setMessage('العرض صالح مؤقتًا. السعر النهائي يعتمد على العداد الموثوق عند إنهاء الرحلة.'); }
+      const result = await taxiApi.rider.quote(pickup, dropoff, 'economy');
+      if (mounted.current) { setVehicleClass('economy'); setBaseQuoteMinor(result.totalMinor); setQuote(result); setMessage('العرض الأساسي جاهز. اختر فئة المركبة ليصدر الخادم سعرًا معتمدًا للفئة المختارة.'); }
+    } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
+    finally { if (mounted.current) setBusy(false); }
+  }
+
+  async function chooseVehicleClass(code: TaxiVehicleClassCode) {
+    if (!quote || busy) return;
+    setBusy(true); setMessage('جاري اعتماد سعر فئة المركبة المختارة…');
+    try {
+      const result = await taxiApi.rider.quote(pickup, dropoff, code);
+      if (mounted.current) { setVehicleClass(code); setQuote(result); setMessage('تم اعتماد سعر الفئة المختارة من الخادم.'); }
     } catch (cause) { if (mounted.current) setMessage(errorMessage(cause)); }
     finally { if (mounted.current) setBusy(false); }
   }
@@ -220,9 +233,12 @@ function RiderJourney() {
     </Surface>
     <div className={styles.panel}>
       {quote && <Surface className={styles.summary}>
-        <h2>عرض السعر</h2><dl><div><dt>المسافة</dt><dd>{km(quote.distanceMeters)}</dd></div><div><dt>التقدير الأولي</dt><dd>{amount(quote.totalMinor, quote.currency)}</dd></div></dl>
-        <p className={styles.note}>هذا تقدير خادمي للمسار. الأجرة النهائية تُحسب من العداد الموثوق والتعرفة المحفوظة للرحلة.</p>
-        <ActionButton type="button" onClick={() => void place()} disabled={busy}>اطلب التكسي</ActionButton>
+        <h2>اختر فئة المركبة</h2>
+        <dl><div><dt>المسافة</dt><dd>{km(quote.distanceMeters)}</dd></div><div><dt>التقدير الخادمي الأساسي</dt><dd>{amount(quote.totalMinor, quote.currency)}</dd></div></dl>
+        <div className={styles.actions} aria-label="فئات سيارات التكسي">{quoteTaxiVehicleClasses(baseQuoteMinor ?? quote.totalMinor).map(option=><button key={option.code} type="button" aria-pressed={vehicleClass===option.code} onClick={()=>void chooseVehicleClass(option.code)} disabled={busy} className={vehicleClass===option.code?styles.phase:undefined}><strong>{option.titleAr}</strong> · {option.seats} ركاب · {amount(option.totalMinor,quote.currency)}</button>)}</div>
+        <p className={styles.note}>اختيار الفئة يعيد التسعير من الخادم ويحفظ معامل الفئة داخل عرض السعر، ولا تظهر الرحلة إلا للسائقين ذوي المركبة المعتمدة من الفئة نفسها.</p>
+        <ActionButton type="button" onClick={() => void place()} disabled={busy}>اطلب {TAXI_VEHICLE_CLASSES.find(item=>item.code===vehicleClass)?.titleAr ?? 'التكسي'}</ActionButton>
+        <StatusMessage tone="info">السعر والفئة معتمدان من الخادم، ومطابقة فئة مركبة السائق تُفرض قبل عرض المهمة وقبولها.</StatusMessage>
       </Surface>}
       {trip && <><TripCard trip={trip} onRefresh={() => restore(trip.id)} /><div className={styles.actions}>
         {trip.delivery.state === 'at_pickup' && !trip.rideStartedAt && <ActionButton type="button" onClick={() => void consent()} disabled={busy}>أوافق على بدء الرحلة</ActionButton>}

@@ -69,7 +69,7 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
     for (const [userId, raw] of [[user, token], [stranger, strangerToken]]) {
       await identity.saveSession({ id: randomUUID(), userId, tokenHash: tokens.hashToken(raw), createdAt: now, expiresAt: tokens.expiresAt() });
     }
-    await pool.query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES('test-vehicle',$1,'approved',$2,'test-only-registration-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
+    await pool.query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES('test-vehicle',$1,'approved','economy',$2,'test-only-registration-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
     await pool.query(`INSERT INTO khedmah_taxi.driver_approvals VALUES($1,'test-vehicle','test-zone','approved',$2,'test-only-identity-and-license-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
 
     await t.test('the canonical session resolves a rider without promoting them to driver', async () => {
@@ -78,7 +78,7 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
     });
     await t.test('driver access is a redacted, immutable current approval snapshot', async () => {
       const actor = await access.access(token, 'driver');
-      assert.deepEqual(actor, { id: user, role: 'driver', vehicleId: 'test-vehicle', zone: 'test-zone', driverRevision: '1', vehicleRevision: '1' });
+      assert.deepEqual(actor, { id: user, role: 'driver', vehicleId: 'test-vehicle', zone: 'test-zone', vehicleClass: 'economy', driverRevision: '1', vehicleRevision: '1' });
       assert.equal(Object.isFrozen(actor), true);
       assert.doesNotMatch(JSON.stringify(actor), /proof|registration|license|token|email/);
     });

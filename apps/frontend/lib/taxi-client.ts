@@ -1,7 +1,9 @@
 export type TaxiAddress = { area: string; detail: string; latitude: number; longitude: number };
+export type TaxiVehicleClassCode = 'economy'|'comfort'|'suv'|'van';
 export type TaxiQuote = {
   id: string; currency: string; totalMinor: number; expiresAt: number; distanceMeters?: number;
-  priceBasis: 'metered'; request: { pickup: TaxiAddress; dropoff: TaxiAddress };
+  priceBasis: 'metered'; request: { pickup: TaxiAddress; dropoff: TaxiAddress; vehicleClass?: TaxiVehicleClassCode };
+  taxiVehicleClass?: { code: TaxiVehicleClassCode; fareMultiplierBps: number };
 };
 export type TaxiTrip = {
   id: string; customerId: string; phase: 'submitted'|'accepted'|'in_progress'|'completed'|'cancelled'|'rejected';
@@ -38,7 +40,7 @@ export const taxiApi = {
   rider: {
     access: () => request<{ id: string; role: 'customer' }>('/taxi/rider/access'),
     active: () => request<{ tripId: string | null }>('/taxi/rider/trips/active'),
-    quote: (pickup: TaxiAddress, dropoff: TaxiAddress) => request<TaxiQuote>('/taxi/rider/quotes', body({ pickup, dropoff })),
+    quote: (pickup: TaxiAddress, dropoff: TaxiAddress, vehicleClass: TaxiVehicleClassCode = 'economy') => request<TaxiQuote>('/taxi/rider/quotes', body({ pickup, dropoff, vehicleClass })),
     place: (quoteId: string, requestId: string) => request<TaxiTrip>('/taxi/rider/trips', body({ quoteId, requestId })),
     read: (id: string) => request<TaxiTrip>(`/taxi/rider/trips/${encodeURIComponent(id)}`),
     command: (id: string, action: 'cancel'|'rate', expectedVersion: number, extra: Record<string, unknown> = {}) =>
@@ -47,7 +49,7 @@ export const taxiApi = {
       `/taxi/rider/trips/${encodeURIComponent(id)}/consent`, body({ expectedVersion }))
   },
   driver: {
-    access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string }>('/taxi/driver/access'),
+    access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string; vehicleClass?: TaxiVehicleClassCode }>('/taxi/driver/access'),
     active: () => request<{ tripId: string | null }>('/taxi/driver/trips/active'),
     offers: () => request<TaxiOfferResponse>('/taxi/driver/offers'),
     read: (id: string) => request<TaxiTrip>(`/taxi/driver/trips/${encodeURIComponent(id)}`),

@@ -1,4 +1,5 @@
 import type { Command, Address, TrustedRoute, Quote, Actor, TaxiAssignment } from '../domain.js';
+import type { TaxiVehicleClassCode } from '../../taxi-vehicle-classes.js';
 import type { RuntimePorts, SqlClient, ReferenceSnapshot } from './ports.js';
 import { fail, only, id, requestKey, obj } from './input.js';
 export interface TaxiPorts extends RuntimePorts {
@@ -17,9 +18,11 @@ export function taxiAddress(value: unknown): Address {
   return {area:(v.area as string).trim(),detail:(v.detail as string).trim(),latitude:v.latitude,longitude:v.longitude};
 }
 export function taxiQuoteInput(value:unknown) {
-  const v=only(value,['pickup','dropoff']),pickup=taxiAddress(v.pickup),dropoff=taxiAddress(v.dropoff);
+  const v=only(value,['pickup','dropoff','vehicleClass']),pickup=taxiAddress(v.pickup),dropoff=taxiAddress(v.dropoff);
   if(pickup.latitude===dropoff.latitude && pickup.longitude===dropoff.longitude) fail('SAME_ADDRESS',400,'الوجهة تطابق نقطة الانطلاق.');
-  return {pickup,dropoff};
+  const vehicleClass=v.vehicleClass===undefined?'economy':String(v.vehicleClass);
+  if(!['economy','comfort','suv','van'].includes(vehicleClass)) fail('INVALID_VEHICLE_CLASS',400,'فئة المركبة غير مدعومة.');
+  return {pickup,dropoff,vehicleClass:vehicleClass as TaxiVehicleClassCode};
 }
 const fields: Record<string,string[]>={accept_job:[],arrive_pickup:['proofId'],start_ride:['proofId'],finish_ride:['proofId'],
   cancel:[],release_job:['reason'],report_issue:['reason'],resolve_issue:['issueId','reason'],record_cash:['amountMinor'],settle_cash:[],rate:['rating']};
