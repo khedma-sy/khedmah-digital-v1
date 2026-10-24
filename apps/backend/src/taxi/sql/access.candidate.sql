@@ -7,6 +7,7 @@ CREATE TABLE khedmah_taxi.vehicle_approvals (
   id TEXT PRIMARY KEY,
   driver_user_id TEXT NOT NULL REFERENCES public.core_user_accounts(user_identifier),
   status TEXT NOT NULL CHECK(status IN ('pending','approved','suspended','revoked')),
+  vehicle_class TEXT NOT NULL CHECK(vehicle_class IN ('economy','comfort','suv','van')),
   reviewed_by TEXT NOT NULL REFERENCES public.core_user_accounts(user_identifier),
   verification_reference TEXT NOT NULL CHECK(length(btrim(verification_reference)) BETWEEN 1 AND 200),
   approved_at TIMESTAMPTZ NOT NULL,
@@ -33,7 +34,7 @@ CREATE TABLE khedmah_taxi.driver_approvals (
 -- Revocation writers must retain the same lock order: session, account,
 -- credentials, profile, driver approval, vehicle approval.
 CREATE FUNCTION khedmah_taxi.resolve_actor_locked(session_hash TEXT, wants_driver BOOLEAN)
-RETURNS TABLE(user_id TEXT, vehicle_id TEXT, zone_code TEXT,
+RETURNS TABLE(user_id TEXT, vehicle_id TEXT, zone_code TEXT, vehicle_class TEXT,
   driver_revision TEXT, vehicle_revision TEXT, valid_until TIMESTAMPTZ)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
@@ -82,6 +83,7 @@ BEGIN
   RETURN QUERY SELECT a.user_identifier,
     CASE WHEN wants_driver THEN v.id ELSE NULL::TEXT END,
     CASE WHEN wants_driver THEN d.zone_code ELSE NULL::TEXT END,
+    CASE WHEN wants_driver THEN v.vehicle_class ELSE NULL::TEXT END,
     CASE WHEN wants_driver THEN d.revision::TEXT ELSE NULL::TEXT END,
     CASE WHEN wants_driver THEN v.revision::TEXT ELSE NULL::TEXT END, deadline;
 END;
