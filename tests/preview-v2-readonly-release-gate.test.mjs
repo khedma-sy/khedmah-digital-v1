@@ -9,8 +9,8 @@ test('Preview V2 read-only gate requires a distinct dedicated WIF identity', () 
   assert.match(workflow, /PREVIEW_V2_READONLY_SERVICE_ACCOUNT/);
   assert.match(workflow, /READONLY_WIF_PROVIDER.*!=.*HISTORICAL_DEPLOYER_WIF_PROVIDER/s);
   assert.match(workflow, /READONLY_SA.*!=.*HISTORICAL_DEPLOYER_SA/s);
-  assert.match(workflow, /event_name.*workflow_dispatch/);
-  assert.match(workflow, /refs\/heads\/main/);
+  assert.match(workflow, /GITHUB_EVENT_NAME[^\n]*workflow_dispatch/);
+  assert.match(workflow, /GITHUB_REF[^\n]*refs\/heads\/main/);
   assert.match(workflow, /preview-v2-readonly-release-gate\.yml@refs\/heads\/main/);
 });
 
