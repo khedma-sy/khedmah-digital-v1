@@ -1,5 +1,17 @@
 # Next Safe Action — Khedmah
 
+## Re-read merged main before any live writer-fence execution — 2026-10-24 UTC
+
+1. Protected main now includes merged PR #304 and PR #305. Current main is `a7d54453b2af198c15541225faf1457388bb2009`.
+2. Let resulting-main Node.js CI and Test & Verify for that exact main complete successfully before treating the merged source as closed.
+3. Re-read the live Preview V2 successor state after the main checks. Verify authority, one untagged serving revision, current traffic/scaling, runtime identity and DB session snapshot again; do not rely on the earlier receipt after source changes.
+4. **Do not execute the writer fence automatically.** A live fence is a Preview Cloud Run scaling mutation and requires explicit owner approval for that exact operation after the fresh readback.
+5. If approved later, require the exact confirmation `KHEDMAH_PREVIEW_WRITER_FENCE_CONFIRM=PREVIEW_V2_WRITER_FENCE_20261024` and accept success only if manual scaling zero, zero tags, explicit post-disable Cloud Monitoring instance count zero, and fresh DB runtime/migrator/unexpected session counts all zero produce `writer_quiescence_verified=true`.
+6. Even a successful writer fence does **not** authorize migrations 036/037, candidate deployment, traffic restoration, Floot activation or Production mutation. Those remain separate reviewed operations.
+7. Preserve candidate build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; never rebuild merely to continue the gate.
+8. For Taxi/Food, treat merged PR #305 as source foundation only. Do not claim live Routing/Push/Taxi activation until their external/runtime gates are configured and tested.
+
+
 ## Retry successor read with exact short Revision.service support — 2026-10-24 UTC
 
 The direct shape probe proves all eight Cloud Run revisions belong to the expected service and return the exact short `service` value. Do not rerun older inspector blobs.
