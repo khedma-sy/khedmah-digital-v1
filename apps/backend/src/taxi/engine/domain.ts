@@ -1,4 +1,4 @@
-import { taxiVehicleClassByCode, type TaxiVehicleClassCode } from '../taxi-vehicle-classes';
+import { applyTaxiFareMultiplier, taxiVehicleClassByCode, type TaxiVehicleClassCode } from '../taxi-vehicle-classes';
 /**
  * Khedmah journey domain. All authoritative policy, actor, clock, evidence and
  * persistence ports are injected. The bundled browser application is simulation
@@ -100,9 +100,9 @@ export function taxiFare(policy: NonNullable<Quote['farePolicy']>, meters: numbe
     + ceil(BigInt(seconds) * BigInt(policy.taxiWaitPerMinuteMinor), 60n);
   const minimumApplied = actual > BigInt(policy.taxiMinimumMinor) ? actual : BigInt(policy.taxiMinimumMinor);
   integer(fareMultiplierBps, 1, 100_000, 'معامل فئة المركبة');
-  const total = (minimumApplied * BigInt(fareMultiplierBps) + 9_999n) / 10_000n;
-  requireThat(total <= BigInt(policy.maxAmountMinor), 'INVALID_NUMBER', 'الأجرة تتجاوز الحد المعتمد.');
-  return Number(total);
+  const total = applyTaxiFareMultiplier(Number(minimumApplied), fareMultiplierBps);
+  requireThat(BigInt(total) <= BigInt(policy.maxAmountMinor), 'INVALID_NUMBER', 'الأجرة تتجاوز الحد المعتمد.');
+  return total;
 }
 
 const terminal = (order: Order) => ['completed', 'cancelled', 'rejected'].includes(order.phase);
