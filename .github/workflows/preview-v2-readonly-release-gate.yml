@@ -30,6 +30,15 @@ jobs:
           PRODUCTION_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
         run: |
           set -euo pipefail
+          # Guard dispatch provenance before requesting a Google OIDC token.
+          # Dedicated WIF must independently enforce the same exact claims.
+          test "${GITHUB_EVENT_NAME:-}" = 'workflow_dispatch'
+          test "${GITHUB_REF:-}" = 'refs/heads/main'
+          test "${GITHUB_REF_PROTECTED:-}" = 'true'
+          test "${GITHUB_REPOSITORY:-}" = 'khedma-sy/khedmah-digital-v1'
+          test "${GITHUB_REPOSITORY_ID:-}" = '1307435925'
+          test "${GITHUB_REPOSITORY_OWNER_ID:-}" = '307214577'
+          test "${GITHUB_WORKFLOW_REF:-}" = 'khedma-sy/khedmah-digital-v1/.github/workflows/preview-v2-readonly-release-gate.yml@refs/heads/main'
           test "$PREVIEW_PROJECT" = 'khedmah-preview-v2-20261012'
           test "$PREVIEW_REGION" = 'europe-west1'
           test -n "$PRODUCTION_PROJECT"
