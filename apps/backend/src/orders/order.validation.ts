@@ -55,23 +55,19 @@ function expectedMoney(value: unknown, field: string) {
 export function validateCreateOrder(value: Record<string, unknown>) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Order payload is invalid.');
   const items = validateItems(value.items);
-  const latitude =
-    value.deliveryLatitude === undefined
-      ? undefined
-      : Number(value.deliveryLatitude);
-  const longitude =
-    value.deliveryLongitude === undefined
-      ? undefined
-      : Number(value.deliveryLongitude);
-  if (
-    (latitude === undefined) !== (longitude === undefined) ||
-    (latitude !== undefined &&
-      (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 ||
-        latitude > 90 ||
-        longitude! < -180 ||
-        longitude! > 180))
-  )
-    throw new BadRequestException("delivery coordinates are invalid.");
+  // Geolocation is optional for older orders, but if supplied it must be
+  // a pair of real numeric coordinates, not null/string/boolean coercible to (0,0).
+  let latitude: number | undefined;
+  let longitude: number | undefined;
+  if (value.deliveryLatitude !== undefined || value.deliveryLongitude !== undefined) {
+    if (typeof value.deliveryLatitude !== "number" || typeof value.deliveryLongitude !== "number"
+      || !Number.isFinite(value.deliveryLatitude) || !Number.isFinite(value.deliveryLongitude)
+      || value.deliveryLatitude < -90 || value.deliveryLatitude > 90
+      || value.deliveryLongitude < -180 || value.deliveryLongitude > 180)
+      throw new BadRequestException("delivery coordinates are invalid.");
+    latitude = value.deliveryLatitude;
+    longitude = value.deliveryLongitude;
+  }
   const promoCode = normalizeFoodPromoCode(value.promoCode);
   const expectedSubtotal = value.expectedSubtotal === undefined
     ? undefined
