@@ -39,3 +39,19 @@ test('restaurant delivery quote requires actual numeric coordinates before the s
   assert.throws(() => validateRestaurantDeliveryQuote({ ...valid, deliveryLatitude: 91 }), /delivery coordinates are invalid/);
   assert.throws(() => validateRestaurantDeliveryQuote({ ...valid, deliveryLongitude: -181 }), /delivery coordinates are invalid/);
 });
+
+
+test('order creation never persists coerced null, booleans, strings or arrays as delivery coordinates', () => {
+  const valid = { ...payload, deliveryLatitude: 33.5, deliveryLongitude: 36.3 };
+  assert.equal(validateCreateOrder(valid).deliveryLatitude, 33.5);
+  assert.equal(validateCreateOrder(payload).deliveryLatitude, undefined);
+  for (const field of ['deliveryLatitude', 'deliveryLongitude']) {
+    for (const invalid of [null, false, true, '', '0', '33.5', [], [33.5], {}, undefined, Infinity]) {
+      assert.throws(
+        () => validateCreateOrder({ ...valid, [field]: invalid }),
+        /delivery coordinates are invalid/,
+        `Expected order creation to reject ${field}=${String(invalid)}`,
+      );
+    }
+  }
+});
