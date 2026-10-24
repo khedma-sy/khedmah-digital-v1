@@ -22,3 +22,16 @@ It does not publish a campaign, write SQL or bypass merchant ownership. Wiring t
 ## Explicit exclusions
 
 No migration, no Taxi feature-flag activation, no live routing/GPS, no push delivery change, no database write, no deployment, no Floot publication.
+
+
+## Vehicle-class dispatch enforcement
+
+Vehicle class is now authoritative in the Taxi candidate path. The selected class is stored in the server quote together with its fare multiplier. Approved vehicles carry one of `economy|comfort|suv|van`; the locked actor snapshot exposes that class, and the retained journey engine rejects mismatched drivers both while listing offers and when accepting a trip. The rider UI may therefore request all four classes without relying on browser-only eligibility.
+
+This remains candidate/pre-production work. It does not authorize the candidate Taxi schema, `TAXI_TRIPS_ENABLED`, migrations, Cloud Run changes or Production rollout.
+
+## Restaurant distance pricing / ETA foundation
+
+`apps/backend/src/orders/restaurant-delivery-quote.ts` is a fail-closed pricing core. It accepts only a trusted route containing a verified distance, duration, source/reference and expiry. It calculates configured base + per-km delivery fee with floor/ceiling bounds and ETA with a pickup buffer. It deliberately refuses unverified, expired or straight-line/browser-authoritative distance.
+
+The repository currently has a Google Directions abstraction, but no reviewed runtime transport wired into the Orders path. Therefore this PR does not pretend that restaurant route pricing is live yet. The next integration must supply a licensed/approved server-side routing provider, retain a route reference/expiry, and bind the exact route-derived delivery quote into order creation before the checkout UI can claim a final delivery fee or ETA.
