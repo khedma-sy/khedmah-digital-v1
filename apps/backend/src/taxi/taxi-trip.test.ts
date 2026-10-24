@@ -282,8 +282,13 @@ test('Taxi trip uses one native authority transaction and independently issued r
     await t.test('reassignment invalidates the previous driver consent',async()=>{
       let o=await arrived();const a=await service.consent(sessions.rider,o.id,{expectedVersion:o.version});
       o=await command(o,'release_job','driver',{reason:'test reassignment'});assert.equal(o.taxiAssignment,undefined);
-      o=await command(o,'accept_job','second');o=await command(o,'arrive_pickup','second',{proofId:await proof(o,'arrive_pickup')});
-      await rejects(command(o,'start_ride','second',{proofId:a.proofId}),409);await cancel(o);
+      await query("UPDATE khedmah_taxi.vehicle_approvals SET vehicle_class='economy' WHERE id=$1",['vehicle-second']);
+      try{
+        o=await command(o,'accept_job','second');o=await command(o,'arrive_pickup','second',{proofId:await proof(o,'arrive_pickup')});
+        await rejects(command(o,'start_ride','second',{proofId:a.proofId}),409);await cancel(o);
+      }finally{
+        await query("UPDATE khedmah_taxi.vehicle_approvals SET vehicle_class='comfort' WHERE id=$1",['vehicle-second']);
+      }
     });
     await t.test('changed vehicle approval cannot silently change the assigned vehicle snapshot',async()=>{
       const o=await assigned();await query('UPDATE khedmah_taxi.vehicle_approvals SET revision=2 WHERE id=$1',['vehicle-driver']);
