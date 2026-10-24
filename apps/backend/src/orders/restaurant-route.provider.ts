@@ -48,8 +48,9 @@ export async function fetchGoogleRestaurantRoute(
   if (!response.ok) throw new Error(`Google Routes request failed (${response.status}).`);
   const payload = await response.json() as { routes?: Array<{ distanceMeters?: unknown; duration?: unknown }> };
   const route = payload.routes?.[0];
-  const distanceMeters = Number(route?.distanceMeters);
-  if (!Number.isSafeInteger(distanceMeters) || distanceMeters < 1 || distanceMeters > 500_000) {
+  // Google Routes specifies an integer JSON number. Never coerce strings or booleans into a trusted billable distance.
+  const distanceMeters = route?.distanceMeters;
+  if (typeof distanceMeters !== 'number' || !Number.isSafeInteger(distanceMeters) || distanceMeters < 1 || distanceMeters > 500_000) {
     throw new Error('Google Routes distance is invalid.');
   }
   const seconds = durationSeconds(route?.duration);
