@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## Execute next — close writer-quiescence evidence; keep Floot unpublished — 2026-10-25 UTC
+
+1. Treat protected `main=2f5d5775a7b5ed9fb40a1c66f8aad029de55e504` as the current source checkpoint after merged PR #318.
+2. Preserve Preview Cloud Run at manual scaling zero. Do **not** replay the mutating writer fence merely to obtain telemetry.
+3. The latest Monitoring evidence still has zero series / zero points and `INSTANCE_ZERO_PROVEN=False`; missing telemetry is non-proof. Continue only with a separately reviewed **read-only diagnostic** of the metric descriptor/resource-label/filter path or another reviewed replacement proof.
+4. Re-read database writer identities only after an accepted quiescence proof path is established. Do not run migrations 036/037 while `writer_quiescence_verified=false`.
+5. Floot internal source/test work may continue, including the newly wired read-only `khedmah_preview_health` view in `/platform/admin`, but keep approval execution and publication disabled until backend compatibility and release gates close.
+6. Floot validation after the latest internal edit is 20 spec files passed, zero failed, and TypeScript clean. Its static advisory still reports four endpoint-call gaps despite verified helper/component/page call sites; treat that as a tooling/static-analysis warning, not authority to delete active endpoints.
+7. No candidate deployment, traffic restoration, Floot publication, or Production mutation is authorized by this checkpoint.
+
 ## After PR314: preserve manual-zero and diagnose missing Monitoring evidence — 2026-10-25 UTC
 
 1. Treat PR #314 as complete: it is merged to protected `main=4176b523ad1c44bfdd77612b6d41dff309909311`, the dedicated least-privilege WIF reader is provisioned, and manual read-only workflow run `40138215986` succeeded. Do not reopen PR314 or reuse the historical PR274 deployer federation.
