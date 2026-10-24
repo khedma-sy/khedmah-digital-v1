@@ -2,7 +2,7 @@
 
 ## Finish source-only Taxi/Food gates, then require fresh live read — 2026-10-24 UTC
 
-1. PR #311 is merged to protected main at `a597a2bfb4eb7980b215441dd0c6c542b240bd7a` after exact-head checks. Verify the *resulting-main* Node.js CI and Test & Verify for this exact SHA have both completed successfully; do not infer push-gate success from pull-request checks.
+1. PRs #311 and #313 are merged to protected main; current main is `31e703d083c1d8451a58cd95203ae33bfd43dac4`. Verify *resulting-main* Node.js CI and Test & Verify for this exact SHA have completed successfully; do not infer push-gate success from the successful pull-request checks.
 2. Recheck the final documentation-only PR #312 at its synchronized exact head, including Node.js CI, Test & Verify, PR Preview, mergeability, branch protection and review threads. Merge only when all gates are green. Verify the resulting protected-main checks again after documentation merge.
 3. Once the source branch/CI gates are closed, the next live step is a **read-only** successor inspection in the owner's authorized Cloud Shell: reread exact Preview V2 Cloud Run service/revisions, traffic/tags/scaling, IAM decisions and database-session snapshot using the already reviewed pinned inspector. Earlier Cloud receipts are not proof of the current state.
 4. **STOP before the Preview writer fence:** it mutates Cloud Run manual scaling. Do not attempt without a fresh receipt, confirmed zero tags, reviewed maintenance scope and explicit owner approval for that exact operation. A zero-session snapshot alone does not prove quiescence; `writer_quiescence_verified` must remain false absent the full proved fence.
