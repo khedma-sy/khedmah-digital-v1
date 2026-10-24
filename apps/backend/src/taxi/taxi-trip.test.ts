@@ -92,7 +92,8 @@ test('Taxi trip uses one native authority transaction and independently issued r
       await identity.saveSession({id:randomUUID(),userId:id,tokenHash:tokens.hashToken(sessions[name]),expiresAt:tokens.expiresAt(),createdAt:timestamp});
     }
     for(const who of ['driver','second']){
-      await query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES($1,$2,'approved','economy',$3,'synthetic-registration-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[`vehicle-${who}`,people[who],people.reviewer]);
+      const vehicleClass=who==='driver'?'economy':'comfort';
+      await query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES($1,$2,'approved',$3,$4,'synthetic-registration-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[`vehicle-${who}`,people[who],vehicleClass,people.reviewer]);
       await query(`INSERT INTO khedmah_taxi.driver_approvals VALUES($1,$2,'rp33-test','approved',$3,'synthetic-license-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[people[who],`vehicle-${who}`,people.reviewer]);
     }
     await asRole(reference,c=>c.query(`INSERT INTO khedmah_taxi.tariffs VALUES('rp33-test',1,$1,true,clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`,[JSON.stringify(tariff)]));
@@ -220,6 +221,15 @@ test('Taxi trip uses one native authority transaction and independently issued r
       const q=await quote();await rejects(service.place(sessions.other,{quoteId:q.id,requestId:randomUUID()}),404);
       await rejects(service.place(sessions.rider,{quoteId:q.id,requestId:randomUUID(),driverId:people.driver}),400);
       await rejects(quote('rider',{...coordinates,totalMinor:1}),400);
+    });
+    await t.test('vehicle class filters offers and rejects mismatched driver acceptance',async()=>{
+      const q=await quote('rider',{...coordinates,vehicleClass:'comfort'});
+      const o=await service.place(sessions.rider,{quoteId:q.id,requestId:randomUUID()});
+      const economyOffers=await service.offers(sessions.driver);assert.equal(economyOffers.some(x=>x.id===o.id),false);
+      const comfortOffers=await service.offers(sessions.second);assert.equal(comfortOffers.some(x=>x.id===o.id),true);
+      await rejects(command(o,'accept_job','driver'),403);
+      const accepted=await command(o,'accept_job','second');assert.equal(accepted.taxiAssignment?.vehicleId,'vehicle-second');
+      await command(accepted,'cancel','rider');
     });
     await t.test('two approved drivers racing for one trip produce one assignment',async()=>{
       const o=await place();const results=await Promise.allSettled(['driver','second'].map(w=>command(o,'accept_job',w)));
