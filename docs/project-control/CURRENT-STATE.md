@@ -1,5 +1,16 @@
 # Khedmah Digital — Current State
 
+## Taxi/Food source safety progress — 2026-10-24 UTC
+
+**Protected main:** `0632086f0ce094334b36eeaf2390e035ed8d6c33` includes merged PRs #304 (guarded Preview writer-fence source), #305 (Taxi vehicle classes / restaurant route and Push foundations), #306 (project-control handoff), #307 (trusted HTTPS FCM merchant click-link), #308 (strict numeric restaurant-pricing configuration), #309 (strict numeric delivery-quote coordinates) and #310 (bounded in-page merchant unanswered-order reminders and mobile Notification-constructor resilience). Each was merged through branch protection after exact-head CI/review gates; the latest resulting-main CI is still a separate verification step.
+
+**Open source follow-up:** PR #311 tightens the order-creation coordinate contract so JSON null/false/empty string/array cannot silently persist 0,0 in a fulfillment order. The PR was synchronized with the PR #310 merge and is awaiting exact-head Node.js CI, Test & Verify and PR Preview. Do not merge it or mark it closed before all checks/review gates pass.
+
+**Merchant alerts are not live Push:** PR #310 provides at most one repeated in-page alert every 30 seconds while orders remain `placed`, plus best-effort vibration on supported devices. It does not guarantee a background timer, closed-app ringtone, native iOS notifications, persistent push-token storage or FCM service-worker delivery. Mobile browsers commonly reject `new Notification()`; the code now prevents such exceptions from blocking the order list. Runtime activation is separately gated.
+
+**Live Preview boundary unchanged:** no new owner Cloud Shell successor receipt has been produced after these source changes. The last verified `authority.all_granted=true` decision and the untagged revision/traffic snapshot are historical read-only evidence; `writer_quiescence_verified=false` remains the authoritative gate. No writer fence, 036/037 migration, candidate redeploy, IAM/traffic/scaling, Floot publication or Production mutation was performed. Preserve the saved candidate build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and backend image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`.
+
+
 ## Live authority closed; guarded writer-fence source merged; Taxi/Food foundation merged — 2026-10-24 UTC
 
 **Verified live successor receipt:** the owner reran the pinned successor inspector after Policy Troubleshooter access was repaired. The receipt returned stage `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED` with `authority.all_granted=true` and all seven checked permissions `CAN_ACCESS`. Cloud Run remained unchanged at revision `khedmah-pr-274-backend-00008-tg8`, one untagged serving revision, 100% traffic, runtime identity matched, service max scaling 20, and the preserved candidate image was not yet in the service template. No deployment, traffic/scaling, schema, role, application-data, Floot or Production mutation occurred.
