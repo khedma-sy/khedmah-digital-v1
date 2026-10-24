@@ -49,7 +49,7 @@ export const taxiApi = {
       `/taxi/rider/trips/${encodeURIComponent(id)}/consent`, body({ expectedVersion }))
   },
   driver: {
-    access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string; vehicleClass: TaxiVehicleClassCode }>('/taxi/driver/access'),
+    access: () => request<{ id: string; role: 'driver'; vehicleId: string; zone: string; vehicleClass?: TaxiVehicleClassCode }>('/taxi/driver/access'),
     active: () => request<{ tripId: string | null }>('/taxi/driver/trips/active'),
     offers: () => request<TaxiOfferResponse>('/taxi/driver/offers'),
     read: (id: string) => request<TaxiTrip>(`/taxi/driver/trips/${encodeURIComponent(id)}`),
