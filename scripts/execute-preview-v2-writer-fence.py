@@ -79,14 +79,22 @@ def disable_service():
     except ValueError:
         stop("DISABLE_RESPONSE_INVALID")
     scaling = value.get("scaling") or {}
-    if scaling.get("scalingMode") != "MANUAL":
+    annotations = ((value.get("metadata") or {}).get("annotations") or {})
+    mode = scaling.get("scalingMode")
+    count = scaling.get("manualInstanceCount")
+    # gcloud may normalize the Cloud Run v2 service into the Knative/v1-style
+    # annotation shape even when the mutation itself succeeded. Accept only
+    # the exact equivalent manual-zero state; never infer success from absence.
+    if mode is None and count is None:
+        mode = annotations.get("run.googleapis.com/scalingMode")
+        count = annotations.get("run.googleapis.com/manualInstanceCount")
+    if str(mode).upper() != "MANUAL":
         stop("SERVICE_NOT_MANUAL_ZERO")
-    if str(scaling.get("manualInstanceCount")) not in ("0", "0.0"):
+    if str(count) not in ("0", "0.0"):
         stop("SERVICE_NOT_MANUAL_ZERO")
-    if value.get("trafficStatuses"):
-        for row in value["trafficStatuses"]:
-            if row.get("tag"):
-                stop("TAGGED_REVISION_PRESENT_AFTER_DISABLE")
+    for row in (value.get("trafficStatuses") or (value.get("status") or {}).get("traffic") or []):
+        if row.get("tag"):
+            stop("TAGGED_REVISION_PRESENT_AFTER_DISABLE")
     return datetime.datetime.now(datetime.timezone.utc)
 
 def access_token():
