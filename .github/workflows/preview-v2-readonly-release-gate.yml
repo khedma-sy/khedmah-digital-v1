@@ -40,7 +40,7 @@ jobs:
           test -n "$READONLY_SA"
           test "$READONLY_WIF_PROVIDER" != "$HISTORICAL_DEPLOYER_WIF_PROVIDER"
           test "$READONLY_SA" != "$HISTORICAL_DEPLOYER_SA"
-          case "$READONLY_WIF_PROVIDER" in projects/*/locations/global/workloadIdentityPools/*/providers/*) ;; *) exit 1 ;; esac
+          case "$READONLY_WIF_PROVIDER" in projects/1044962071847/locations/global/workloadIdentityPools/*/providers/*) ;; *) exit 1 ;; esac
           case "$READONLY_SA" in *"@khedmah-preview-v2-20261012.iam.gserviceaccount.com") ;; *) exit 1 ;; esac
       - uses: google-github-actions/auth@v3
         with:
