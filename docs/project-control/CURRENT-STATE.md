@@ -1,5 +1,14 @@
 # Khedmah Digital — Current State
 
+## Preview V2 writer-fence stop and source-only repair — 2026-10-24 UTC
+
+**Fresh GitHub evidence:** protected `main` advanced to merge commit `0b412c5d888b929e28e222ced8db4facf0adf24f` via PR #315. Its exact-head `33346d6c7be1be62faad45a433f97ff60868f57e` passed Node.js CI, Test & Verify and PR Preview, and Codex reported no findings; resulting-main push checks must be verified separately before further action. PR #305 and its Taxi/Food follow-ups remain source-merged.
+
+**Operational STOP reported, not a clean fence receipt:** PR #315 records that an owner-approved Preview V2 writer-fence attempt returned `SERVICE_NOT_MANUAL_ZERO`, despite a separate live service readback reportedly showing annotations `run.googleapis.com/scalingMode=manual` and `run.googleapis.com/manualInstanceCount=0`. PR #315 repairs only the operator parser to accept that precise annotation-equivalent shape and retains mandatory Cloud Monitoring zero-point and database-writer checks. This GitHub record is **not** independent verification of current Cloud state or `writer_quiescence_verified=true`. The Preview service might already be scaled to zero: do **not** replay the mutating fence command or assume it is serving without a fresh, read-only owner inspection.
+
+**Identity blocker separate from writer-fence repair:** PR #314 remains draft with a review thread concerning its independent GitHub `workflow_dispatch` read-only WIF identity. Owner approval was recorded for a narrowly scoped reader identity, but there is no verified provisioning/effective IAM/GitHub-variable receipt; never reuse or broaden PR274's deployer identity. No GitHub reader dispatch, migrations 036/037, candidate deployment, live Taxi/Food activation, Floot or Production release is authorized by PR #315.
+
+
 ## Taxi/Food source safety progress — 2026-10-24 UTC
 
 **Protected main:** `31e703d083c1d8451a58cd95203ae33bfd43dac4` includes merged PRs #304 (guarded Preview writer-fence source), #305 (Taxi vehicle classes / restaurant route and Push foundations), #306 (project-control handoff), #307 (trusted HTTPS FCM merchant click-link), #308 (strict numeric restaurant-pricing configuration), #309 (strict numeric delivery-quote coordinates), #310 (bounded in-page merchant unanswered-order reminders and mobile Notification-constructor resilience), #311 (reject coerced customer coordinates before persisting food orders) and #313 (reject non-numeric Routes distances and validate pricing before billable external route requests). PR #313 merged after its exact-head Node.js CI, Test & Verify and PR Preview completed successfully; resulting-main push checks are independent and must also succeed.
