@@ -7,6 +7,7 @@ import { buildSmartRestaurantOfferDraft, type SmartRestaurantOfferDraft } from "
 import type { OpeningHours } from "../../../lib/api-client";
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from "../../components/ui-primitives";
 import { playOrderRing, requestOrderNotifications, showOrderNotification } from "../order-alerts";
+import { shouldRingForMerchantOrders } from "../../../lib/merchant-order-alert-policy";
 import { OrderTimeline } from "../order-timeline";
 import styles from "./merchant.module.css";
 import theme from "./merchant-theme.module.css";
@@ -60,7 +61,7 @@ export default function MerchantOrders() {
   const [rejectionReason,setRejectionReason] = useState("");
   const [orderActionId,setOrderActionId] = useState("");
   const alertsEnabledRef = useRef(false);
-  const loadedOnceRef = useRef(false);
+  const lastOrderAlertAtRef = useRef<number|null>(null);
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const knownOrderStatusesRef = useRef<Map<string,FulfillmentOrder["status"]>>(new Map());
   const orderRequestSequenceRef = useRef(0);
@@ -87,11 +88,20 @@ export default function MerchantOrders() {
   },[router]);
 
   const announceNewOrders = useCallback((incoming:FulfillmentOrder[])=>{
-    const fresh=incoming.filter(o=>o.status==="placed"&&!knownOrderIdsRef.current.has(o.id));
+    const pending=incoming.filter(o=>o.status==="placed");
+    const at=Date.now();
+    const shouldRing=alertsEnabledRef.current && shouldRingForMerchantOrders(
+      pending.map(order=>order.id),knownOrderIdsRef.current,lastOrderAlertAtRef.current,at,
+    );
     incoming.forEach(o=>knownOrderIdsRef.current.add(o.id));
-    if(!loadedOnceRef.current || !fresh.length || !alertsEnabledRef.current) return;
+    if(!pending.length){lastOrderAlertAtRef.current=null;return;}
+    if(!shouldRing)return;
+    lastOrderAlertAtRef.current=at;
     playOrderRing();
-    showOrderNotification("طلب جديد",fresh.length===1?`${fresh[0].items.length} أصناف بانتظار المراجعة.`:`${fresh.length} طلبات جديدة بانتظار المراجعة.`,`merchant-order-${fresh[0].id}`);
+    try{navigator.vibrate?.([200,100,200]);}catch{/* Vibration is optional and unavailable on iOS. */}
+    showOrderNotification("طلب مطعم بانتظار الرد",pending.length===1
+      ?`${pending[0].items.length} أصناف بانتظار قبول الطلب أو رفضه.`
+      :`${pending.length} طلبات بانتظار القبول أو الرفض.`,`merchant-order-${pending[0].id}`);
   },[]);
 
   const loadOrders = useCallback(async(id:string)=>{
@@ -102,7 +112,7 @@ export default function MerchantOrders() {
     const released=next.filter(order=>order.status==="merchant_confirmed"&&["courier_assigned","courier_accepted","ready_for_pickup"].includes(knownOrderStatusesRef.current.get(order.id)??""));
     if(released.length)setCourierChoice(current=>{const updated={...current};for(const order of released)updated[order.id]="";return updated;});
     knownOrderStatusesRef.current=new Map(next.map(order=>[order.id,order.status]));
-    announceNewOrders(next); setOrders(next); loadedOnceRef.current=true;
+    announceNewOrders(next); setOrders(next);
   },[announceNewOrders]);
 
   const loadOperations = useCallback(async(id:string)=>{
@@ -123,7 +133,7 @@ export default function MerchantOrders() {
 
   useEffect(()=>{
     selectedRef.current=selected;orderRequestSequenceRef.current+=1;setOrders([]);setProducts([]);setPromotions([]);setCourierChoice({});setCourierPage(1);setOrderDialog(null);
-    loadedOnceRef.current=false; knownOrderIdsRef.current=new Set(); knownOrderStatusesRef.current=new Map(); if(!selected) return;
+    lastOrderAlertAtRef.current=null; knownOrderIdsRef.current=new Set(); knownOrderStatusesRef.current=new Map(); if(!selected) return;
     void Promise.all([loadOrders(selected),loadOperations(selected),...(isRestaurant?[loadPromotions(selected)]:[])]).catch(c=>{if(selectedRef.current===selected)setError(c instanceof Error?c.message:"تعذر تحميل بيانات التشغيل.");});
     const interval=window.setInterval(()=>void loadOrders(selected).catch(()=>undefined),8000);
     return ()=>{selectedRef.current="";orderRequestSequenceRef.current+=1;window.clearInterval(interval);};
@@ -144,7 +154,7 @@ export default function MerchantOrders() {
 
   const metrics=useMemo(()=>merchantOrderMetrics(orders),[orders]);
 
-  async function enableAlerts(){alertsEnabledRef.current=true;setAlertsEnabled(true);window.localStorage.setItem("khedmah-merchant-order-alerts","on");playOrderRing();await requestOrderNotifications();}
+  async function enableAlerts(){alertsEnabledRef.current=true;setAlertsEnabled(true);lastOrderAlertAtRef.current=Date.now();window.localStorage.setItem("khedmah-merchant-order-alerts","on");playOrderRing();await requestOrderNotifications();}
 
   async function transition(o:FulfillmentOrder,status:FulfillmentOrder["status"],data:Record<string,unknown>={}){
     if(orderActionInFlight.current)return false;
