@@ -2,8 +2,8 @@
 
 ## Finish source-only Taxi/Food gates, then require fresh live read — 2026-10-24 UTC
 
-1. Re-read PR #311 on its exact synchronized head and require completed, successful Node.js CI, Test & Verify, PR Preview, branch-protection checks and no unresolved valid review findings before merging.
-2. After any PR #311 merge, verify resulting protected-main Node.js CI and Test & Verify. Refresh both project-control documents with the final main SHA, and merge the documentation branch only after exact-head checks are green.
+1. PR #311 is merged to protected main at `a597a2bfb4eb7980b215441dd0c6c542b240bd7a` after exact-head checks. Verify the *resulting-main* Node.js CI and Test & Verify for this exact SHA have both completed successfully; do not infer push-gate success from pull-request checks.
+2. Recheck the final documentation-only PR #312 at its synchronized exact head, including Node.js CI, Test & Verify, PR Preview, mergeability, branch protection and review threads. Merge only when all gates are green. Verify the resulting protected-main checks again after documentation merge.
 3. Once the source branch/CI gates are closed, the next live step is a **read-only** successor inspection in the owner's authorized Cloud Shell: reread exact Preview V2 Cloud Run service/revisions, traffic/tags/scaling, IAM decisions and database-session snapshot using the already reviewed pinned inspector. Earlier Cloud receipts are not proof of the current state.
 4. **STOP before the Preview writer fence:** it mutates Cloud Run manual scaling. Do not attempt without a fresh receipt, confirmed zero tags, reviewed maintenance scope and explicit owner approval for that exact operation. A zero-session snapshot alone does not prove quiescence; `writer_quiescence_verified` must remain false absent the full proved fence.
 5. Even owner-approved writer-fence execution does not automatically authorize 036/037, saved candidate deployment, traffic restoration, Firebase Messaging/service-worker activation, live Google Routes billing credentials, delivery-pricing config, Taxi flags, Floot or Production. Each remains an independent gate.
