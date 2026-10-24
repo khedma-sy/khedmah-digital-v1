@@ -69,7 +69,7 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
     for (const [userId, raw] of [[user, token], [stranger, strangerToken]]) {
       await identity.saveSession({ id: randomUUID(), userId, tokenHash: tokens.hashToken(raw), createdAt: now, expiresAt: tokens.expiresAt() });
     }
-    await pool.query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES('test-vehicle',$1,'approved',$2,'test-only-registration-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
+    await pool.query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES('test-vehicle',$1,'approved','economy',$2,'test-only-registration-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
     await pool.query(`INSERT INTO khedmah_taxi.driver_approvals VALUES($1,'test-vehicle','test-zone','approved',$2,'test-only-identity-and-license-proof',clock_timestamp()-interval '1 day',clock_timestamp()+interval '5 minutes',1)`, [user, reviewer]);
 
     await t.test('the canonical session resolves a rider without promoting them to driver', async () => {
