@@ -11,6 +11,9 @@ import { IdentityService } from "../identity/identity.service";
 import { readSessionToken } from "../identity/session-cookie";
 import { OrderRepository } from "./order.repository";
 import { orderSubtotal, orderTotal } from "./order-money";
+import { quoteRestaurantDelivery } from "./restaurant-delivery-quote";
+import { restaurantDeliveryPricingFromEnvironment } from "./restaurant-delivery-pricing";
+import { fetchGoogleRestaurantRoute } from "./restaurant-route.provider";
 import type {
   FulfillmentOrder,
   OrderStatus,
@@ -22,6 +25,7 @@ import {
   validateIdempotency,
   validateOrderAction,
   validateOrderQuote,
+  validateRestaurantDeliveryQuote,
 } from "./order.validation";
 
 const food = new Set(["restaurant", "cafe", "bakery", "sweets", "catering", "juice_icecream"]);
@@ -97,6 +101,39 @@ export class OrderService {
       subtotal: basket.subtotal,
       promoCode: input.promoCode,
     });
+  }
+
+  async deliveryQuote(cookie: string | undefined, value: Record<string, unknown>) {
+    await this.identity.getCurrentUser(readSessionToken(cookie));
+    const input = validateRestaurantDeliveryQuote(value);
+    const basket = await this.prepareBasket(input.items);
+    if (basket.vertical !== "food") throw new BadRequestException("Restaurant delivery quote is available only for food merchants.");
+    const merchant = await this.businesses.findById(basket.merchantId);
+    if (!merchant || merchant.visibility !== "public" || merchant.moderationStatus !== "approved"
+      || merchant.trustStatus !== "approved" || merchant.status !== "active"
+      || !Number.isFinite(merchant.lat) || !Number.isFinite(merchant.lng)) {
+      throw new BadRequestException("Restaurant location is not available for delivery pricing.");
+    }
+    try {
+      const route = await fetchGoogleRestaurantRoute(
+        { latitude: merchant.lat!, longitude: merchant.lng! },
+        { latitude: input.deliveryLatitude, longitude: input.deliveryLongitude },
+        { apiKey: process.env.GOOGLE_MAPS_SERVER_API_KEY },
+      );
+      const pricing = restaurantDeliveryPricingFromEnvironment(basket.currency, process.env);
+      const delivery = quoteRestaurantDelivery(route, pricing);
+      return {
+        merchantBusinessId: basket.merchantId,
+        currency: basket.currency,
+        subtotal: basket.subtotal,
+        deliveryFee: delivery.deliveryFeeMinor / 100,
+        distanceMeters: delivery.distanceMeters,
+        etaMinutes: delivery.etaMinutes,
+        routeReference: delivery.routeReference,
+      };
+    } catch {
+      throw new BadRequestException("Restaurant delivery pricing is temporarily unavailable.");
+    }
   }
 
   async create(cookie: string | undefined, value: Record<string, unknown>, keyValue: unknown): Promise<PublicFulfillmentOrder> {
