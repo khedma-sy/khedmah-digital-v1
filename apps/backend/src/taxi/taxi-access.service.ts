@@ -2,6 +2,7 @@ import { ForbiddenException, Inject, Injectable, ServiceUnavailableException, Un
 import type { PoolClient } from 'pg';
 import { DatabasePool } from '../database/database.pool';
 import { SessionTokenService } from '../identity/security/session-token.service';
+import type { TaxiVehicleClassCode } from './taxi-vehicle-classes';
 
 export type TaxiAudience = 'customer' | 'driver';
 export interface TaxiActor {
@@ -9,11 +10,12 @@ export interface TaxiActor {
   readonly role: TaxiAudience;
   readonly vehicleId?: string;
   readonly zone?: string;
+  readonly vehicleClass?: TaxiVehicleClassCode;
   readonly driverRevision?: string;
   readonly vehicleRevision?: string;
 }
 interface LockedActorRow extends Record<string, unknown> {
-  user_id: string; vehicle_id: string | null; zone_code: string | null;
+  user_id: string; vehicle_id: string | null; zone_code: string | null; vehicle_class: TaxiVehicleClassCode | null;
   driver_revision: string | null; vehicle_revision: string | null;
   valid_until: Date;
 }
@@ -50,11 +52,11 @@ export class TaxiAccessService {
         if (!row || !(row.valid_until instanceof Date) || !Number.isFinite(row.valid_until.getTime())) {
           throw new UnauthorizedException('Authentication required.');
         }
-        if (audience === 'driver' && (!row.vehicle_id || !row.zone_code || !row.driver_revision || !row.vehicle_revision)) {
+        if (audience === 'driver' && (!row.vehicle_id || !row.zone_code || !row.vehicle_class || !['economy','comfort','suv','van'].includes(row.vehicle_class) || !row.driver_revision || !row.vehicle_revision)) {
           throw new ForbiddenException('Approved driver and vehicle are required.');
         }
         const actor: TaxiActor = Object.freeze({ id: row.user_id, role: audience,
-          ...(audience === 'driver' ? { vehicleId: row.vehicle_id!, zone: row.zone_code!,
+          ...(audience === 'driver' ? { vehicleId: row.vehicle_id!, zone: row.zone_code!, vehicleClass: row.vehicle_class!,
             driverRevision: row.driver_revision!, vehicleRevision: row.vehicle_revision! } : {}) });
         const value = await work(client, actor);
         // Time can expire while the callback runs, even though revocations are locked.
