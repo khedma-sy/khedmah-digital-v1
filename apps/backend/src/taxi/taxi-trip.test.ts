@@ -92,7 +92,7 @@ test('Taxi trip uses one native authority transaction and independently issued r
       await identity.saveSession({id:randomUUID(),userId:id,tokenHash:tokens.hashToken(sessions[name]),expiresAt:tokens.expiresAt(),createdAt:timestamp});
     }
     for(const who of ['driver','second']){
-      await query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES($1,$2,'approved',$3,'synthetic-registration-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[`vehicle-${who}`,people[who],people.reviewer]);
+      await query(`INSERT INTO khedmah_taxi.vehicle_approvals VALUES($1,$2,'approved','economy',$3,'synthetic-registration-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[`vehicle-${who}`,people[who],people.reviewer]);
       await query(`INSERT INTO khedmah_taxi.driver_approvals VALUES($1,$2,'rp33-test','approved',$3,'synthetic-license-reference',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 hour',1)`,[people[who],`vehicle-${who}`,people.reviewer]);
     }
     await asRole(reference,c=>c.query(`INSERT INTO khedmah_taxi.tariffs VALUES('rp33-test',1,$1,true,clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`,[JSON.stringify(tariff)]));
