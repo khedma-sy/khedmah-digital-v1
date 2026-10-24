@@ -94,6 +94,8 @@ class WriterFenceOperatorTests(unittest.TestCase):
         self.assertNotIn("037_verification", source)
         self.assertNotIn("2146d382d426", source)
         self.assertNotIn("revisions\", \"delete", source)
+        self.assertNotIn("--args", source)
+        self.assertNotIn("deploy_maintenance", source)
         self.assertIn("--scaling=0", source)
 
 if __name__ == "__main__":
