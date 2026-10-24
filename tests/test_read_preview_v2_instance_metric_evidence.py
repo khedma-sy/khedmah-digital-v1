@@ -16,6 +16,15 @@ class InstanceMetricEvidenceTests(unittest.TestCase):
         self.assertEqual(MOD.REVISION, "khedmah-pr-274-backend-00008-tg8")
         self.assertEqual(MOD.METRIC, "run.googleapis.com/container/instance_count")
 
+    def test_metric_descriptor_url_preserves_metric_path_slashes(self):
+        self.assertEqual(
+            MOD.descriptor_url(),
+            "https://monitoring.googleapis.com/v3/projects/"
+            "khedmah-preview-v2-20261012/metricDescriptors/"
+            "run.googleapis.com/container/instance_count",
+        )
+        self.assertNotIn("%2F", MOD.descriptor_url())
+
     def test_missing_series_is_not_zero_proof(self):
         boundary = MOD.datetime.datetime.fromisoformat(MOD.BOUNDARY.replace("Z", "+00:00"))
         got = MOD.parse_points({"timeSeries": []}, boundary)
