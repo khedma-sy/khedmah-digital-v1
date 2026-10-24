@@ -1,3 +1,4 @@
+import { taxiVehicleClassByCode, type TaxiVehicleClassCode } from '../taxi-vehicle-classes';
 /**
  * Khedmah journey domain. All authoritative policy, actor, clock, evidence and
  * persistence ports are injected. The bundled browser application is simulation
@@ -20,7 +21,7 @@ export interface Policy {
 }
 export interface QuoteRequest {
   kind: Kind; zone: string; pickup: Address; dropoff?: Address; method?: Method;
-  items?: { id: string; quantity: number }[]; parcelKg?: number;
+  items?: { id: string; quantity: number }[]; parcelKg?: number; vehicleClass?: TaxiVehicleClassCode;
   parcelType?: 'documents' | 'sealed_food' | 'general_goods'; roadsideType?: 'battery' | 'tire' | 'tow';
 }
 export interface TrustedRoute { distanceMeters: number; verified: boolean; reference?: { id: string; revision: string; source: string; expiresAt: number } }
@@ -33,6 +34,7 @@ export interface Quote {
   farePolicy?: Pick<Policy, 'taxiBaseMinor' | 'taxiPerKmMinor' | 'taxiWaitPerMinuteMinor' | 'taxiMinimumMinor' | 'maxAmountMinor'>;
   routeReference?: TrustedRoute['reference'];
   distanceMeters?: number; expiresAt: number; priceBasis: 'fixed' | 'metered' | 'inspection_only';
+  taxiVehicleClass?: { code: TaxiVehicleClassCode; fareMultiplierBps: number };
 }
 export interface Issue { id: string; openedBy: string; reason: string; open: boolean }
 export interface Order {
@@ -90,13 +92,15 @@ function address(value: unknown): Address {
   return result;
 }
 /** Integer-only fare arithmetic. Preserve the quote's tariff, never the driver's amount. */
-export function taxiFare(policy: NonNullable<Quote['farePolicy']>, meters: number, seconds: number): number {
+export function taxiFare(policy: NonNullable<Quote['farePolicy']>, meters: number, seconds: number, fareMultiplierBps = 10_000): number {
   integer(meters, 0, 500_000, 'مسافة الرحلة'); integer(seconds, 0, 86_400, 'الانتظار');
   for (const k of ['taxiBaseMinor','taxiPerKmMinor','taxiWaitPerMinuteMinor','taxiMinimumMinor','maxAmountMinor'] as const) integer(policy[k], 0, Number.MAX_SAFE_INTEGER, 'التعرفة');
   const ceil = (value: bigint, divisor: bigint) => (value + divisor - 1n) / divisor;
   const actual = BigInt(policy.taxiBaseMinor) + ceil(BigInt(meters) * BigInt(policy.taxiPerKmMinor), 1000n)
     + ceil(BigInt(seconds) * BigInt(policy.taxiWaitPerMinuteMinor), 60n);
-  const total = actual > BigInt(policy.taxiMinimumMinor) ? actual : BigInt(policy.taxiMinimumMinor);
+  const minimumApplied = actual > BigInt(policy.taxiMinimumMinor) ? actual : BigInt(policy.taxiMinimumMinor);
+  integer(fareMultiplierBps, 1, 100_000, 'معامل فئة المركبة');
+  const total = (minimumApplied * BigInt(fareMultiplierBps) + 9_999n) / 10_000n;
   requireThat(total <= BigInt(policy.maxAmountMinor), 'INVALID_NUMBER', 'الأجرة تتجاوز الحد المعتمد.');
   return Number(total);
 }
@@ -221,7 +225,11 @@ export class JourneyService {
       req.parcelKg = value.parcelKg; req.parcelType = value.parcelType as QuoteRequest['parcelType'];
       delivery = p.parcelBaseMinor + Math.ceil(route!.distanceMeters * p.parcelPerKmMinor / 1000);
     } else if (kind === 'taxi') {
-      subtotal = taxiFare(p, route!.distanceMeters, 0);
+      const requestedClass = value.vehicleClass === undefined ? 'economy' : String(value.vehicleClass);
+      requireThat(['economy','comfort','suv','van'].includes(requestedClass), 'INVALID_VEHICLE_CLASS', 'فئة المركبة غير مدعومة.');
+      const vehicleClass = taxiVehicleClassByCode(requestedClass as TaxiVehicleClassCode);
+      req.vehicleClass = vehicleClass.code;
+      subtotal = taxiFare(p, route!.distanceMeters, 0, vehicleClass.fareMultiplierBps);
       basis = 'metered';
     } else {
       requireThat(['battery','tire','tow'].includes(String(value.roadsideType)), 'UNSUPPORTED_ASSISTANCE', 'نوع المساعدة غير مدعوم.');
@@ -233,6 +241,7 @@ export class JourneyService {
       request: req, fingerprint: canonical(req), merchantId, lines, subtotalMinor: subtotal, deliveryMinor: delivery,
       totalMinor: total, expiresAt: this.ports.clock() + p.quoteTtlMs, priceBasis: basis,
       distanceMeters: route?.distanceMeters,
+      taxiVehicleClass: kind === 'taxi' ? (() => { const vehicleClass = taxiVehicleClassByCode(req.vehicleClass ?? 'economy'); return { code: vehicleClass.code, fareMultiplierBps: vehicleClass.fareMultiplierBps }; })() : undefined,
       farePolicy: kind === 'taxi' ? { taxiBaseMinor: p.taxiBaseMinor, taxiPerKmMinor: p.taxiPerKmMinor, taxiWaitPerMinuteMinor: p.taxiWaitPerMinuteMinor, taxiMinimumMinor: p.taxiMinimumMinor, maxAmountMinor: p.maxAmountMinor } : undefined };
     return this.ports.store.transaction(state => { requireThat(!state.quotes[quote.id], 'ID_COLLISION', 'تعارض معرف المحاولة.', 409); state.quotes[quote.id] = quote; return quote; });
   }
@@ -259,7 +268,12 @@ export class JourneyService {
       requireThat(this.ports.clock() < quote.expiresAt, 'QUOTE_EXPIRED', 'انتهت صلاحية السعر. أعد تسعير الطلب.', 409);
       const currentPolicy = this.policy();
       requireThat(quote.currency === currentPolicy.currency && quote.request.zone === currentPolicy.zone, 'PRICE_CHANGED', 'تغيرت العملة أو منطقة التشغيل.', 409);
-      if (quote.kind === 'taxi') requireThat(quote.farePolicy && Object.entries(quote.farePolicy).every(([k,v]) => currentPolicy[k as keyof Policy] === v), 'PRICE_CHANGED', 'تغيرت التعرفة؛ أعد التسعير.', 409);
+      if (quote.kind === 'taxi') {
+        requireThat(quote.farePolicy && Object.entries(quote.farePolicy).every(([k,v]) => currentPolicy[k as keyof Policy] === v), 'PRICE_CHANGED', 'تغيرت التعرفة؛ أعد التسعير.', 409);
+        const currentClass = taxiVehicleClassByCode(quote.request.vehicleClass ?? 'economy');
+        requireThat(quote.taxiVehicleClass?.code === currentClass.code && quote.taxiVehicleClass.fareMultiplierBps === currentClass.fareMultiplierBps,
+          'PRICE_CHANGED', 'تغير تسعير فئة المركبة؛ أعد التسعير.', 409);
+      }
       if (quote.kind === 'food' && quote.request.method !== 'pickup') requireThat(quote.deliveryMinor === currentPolicy.foodDeliveryMinor, 'PRICE_CHANGED', 'تغير رسم التوصيل؛ أعد التسعير.', 409);
       requireThat(quote.policyId === currentPolicy.id, 'PRICE_CHANGED', 'تغيرت سياسة التسعير. راجع السعر الجديد.', 409);
       for (const line of quote.lines) {
@@ -358,7 +372,8 @@ export class JourneyService {
           const p = order.quote.farePolicy; requireThat(p, 'FARE_POLICY_UNAVAILABLE', 'نسخة التسعير الأصلية غير متاحة.', 503);
           const meters = integer(evidence.tripMeters, 0, 500_000, 'مسافة الرحلة');
           const seconds = integer(evidence.waitSeconds, 0, 86_400, 'زمن الانتظار');
-          order.cash.expectedMinor = taxiFare(p, meters, seconds);
+          const multiplier = order.quote.taxiVehicleClass?.fareMultiplierBps ?? 10_000;
+          order.cash.expectedMinor = taxiFare(p, meters, seconds, multiplier);
           order.phase = 'completed'; order.delivery.state = 'delivered'; break;
         }
         case 'start_assistance':
