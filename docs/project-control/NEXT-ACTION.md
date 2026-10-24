@@ -1,5 +1,16 @@
 # Next Safe Action — Khedmah
 
+## Close current source gates before any live writer-fence execution — 2026-10-24 UTC
+
+1. Let resulting-main checks for merged PR #304 complete successfully on protected main `551f0dce7019dd45bdb7e8e49528451c0fb842ab`.
+2. Let the synchronized PR #305 head pass its own Node.js CI, Test & Verify and PR Preview checks after merging protected main into the feature branch; re-read review threads and resolve only findings actually addressed on that exact head.
+3. Merge PR #305 only through normal branch protection after the exact synchronized head is green and review-clean.
+4. Re-read protected main and live Preview V2 state after those source gates. **Do not execute the writer fence automatically from this document.**
+5. Any live writer-fence execution is a Preview Cloud Run scaling mutation. It requires the exact operator confirmation `KHEDMAH_PREVIEW_WRITER_FENCE_CONFIRM=PREVIEW_V2_WRITER_FENCE_20261024` **and explicit owner approval for that specific live operation after the fresh readback**.
+6. If approved later, accept success only if the merged operator proves service manual scaling zero, zero tags, explicit post-disable Cloud Monitoring instance count zero, and fresh DB runtime/migrator/unexpected session counts all zero, yielding `writer_quiescence_verified=true`.
+7. Even a successful writer fence does **not** authorize migrations 036/037, candidate deployment, traffic restoration, Floot activation or Production mutation. Those remain separate reviewed operations.
+8. Preserve candidate build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; never rebuild merely to continue the gate.
+
 ## Retry successor read with exact short Revision.service support — 2026-10-24 UTC
 
 The direct shape probe proves all eight Cloud Run revisions belong to the expected service and return the exact short `service` value. Do not rerun older inspector blobs.
