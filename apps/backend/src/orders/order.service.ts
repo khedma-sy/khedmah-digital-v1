@@ -115,12 +115,14 @@ export class OrderService {
       throw new BadRequestException("Restaurant location is not available for delivery pricing.");
     }
     try {
+      // Validate deployment pricing before making a billable Google Routes request.
+      // Otherwise an invalid/missing price table still incurs external routing costs.
+      const pricing = restaurantDeliveryPricingFromEnvironment(basket.currency, process.env);
       const route = await fetchGoogleRestaurantRoute(
         { latitude: merchant.lat!, longitude: merchant.lng! },
         { latitude: input.deliveryLatitude, longitude: input.deliveryLongitude },
         { apiKey: process.env.GOOGLE_MAPS_SERVER_API_KEY },
       );
-      const pricing = restaurantDeliveryPricingFromEnvironment(basket.currency, process.env);
       const delivery = quoteRestaurantDelivery(route, pricing);
       return {
         merchantBusinessId: basket.merchantId,

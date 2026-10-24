@@ -55,3 +55,48 @@ test('order creation never persists coerced null, booleans, strings or arrays as
     }
   }
 });
+
+test('restaurant delivery quote rejects invalid pricing before any billable route request', async () => {
+  const originalPricing = process.env.RESTAURANT_DELIVERY_PRICING_JSON;
+  const originalKey = process.env.GOOGLE_MAPS_SERVER_API_KEY;
+  const originalFetch = globalThis.fetch;
+  let routeRequests = 0;
+  try {
+    process.env.RESTAURANT_DELIVERY_PRICING_JSON = JSON.stringify({
+      SYP: { baseFeeMinor: null, perKmMinor: 200, minimumFeeMinor: 300, maximumFeeMinor: 5000, pickupBufferMinutes: 10 },
+    });
+    process.env.GOOGLE_MAPS_SERVER_API_KEY = 'test-server-key';
+    globalThis.fetch = (async () => {
+      routeRequests += 1;
+      throw new Error('Unexpected billable route request');
+    }) as typeof fetch;
+
+    const repo = { findProducts: async () => [{
+      id: 'p1', business_profile_id: 'restaurant1', currency: 'SYP',
+      business_category_code: 'restaurant', business_name: 'مطعم', title_ar: 'وجبة',
+      status: 'active', moderation_status: 'approved', availability: 'in_stock',
+      controlled_item: false, requires_prescription: false, price: 100,
+    }] };
+    const business = { id: 'restaurant1', visibility: 'public', moderationStatus: 'approved',
+      trustStatus: 'approved', status: 'active', lat: 33.5, lng: 36.2 };
+    const service = new OrderService(
+      repo as never,
+      { findById: async () => business } as never,
+      { getCurrentUser: async () => ({ id: 'customer1' }) } as never,
+    );
+    await assert.rejects(
+      service.deliveryQuote('fixture', {
+        items: [{ productListingId: 'p1', quantity: 1 }],
+        deliveryLatitude: 33.51, deliveryLongitude: 36.21,
+      }),
+      /Restaurant delivery pricing is temporarily unavailable/,
+    );
+    assert.equal(routeRequests, 0, 'Invalid pricing must never trigger Google Routes billing');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalPricing === undefined) delete process.env.RESTAURANT_DELIVERY_PRICING_JSON;
+    else process.env.RESTAURANT_DELIVERY_PRICING_JSON = originalPricing;
+    if (originalKey === undefined) delete process.env.GOOGLE_MAPS_SERVER_API_KEY;
+    else process.env.GOOGLE_MAPS_SERVER_API_KEY = originalKey;
+  }
+});

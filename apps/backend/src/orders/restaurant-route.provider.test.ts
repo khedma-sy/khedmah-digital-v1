@@ -43,3 +43,21 @@ test('Google restaurant route fails closed without key or valid provider respons
     { apiKey: 'x', fetchImpl: (async () => new Response(JSON.stringify({ routes: [{ distanceMeters: 0, duration: '0s' }] }), { status: 200 })) as typeof fetch },
   ), /distance is invalid/);
 });
+
+test('Google restaurant route rejects coercible distance values before trusting provider billing distance', async () => {
+  const origin = { latitude: 33.5, longitude: 36.2 };
+  const destination = { latitude: 33.6, longitude: 36.3 };
+  for (const invalid of ['5500', true, false, [5500], null, undefined]) {
+    await assert.rejects(
+      fetchGoogleRestaurantRoute(origin, destination, {
+        apiKey: 'server-key',
+        fetchImpl: (async () => new Response(
+          JSON.stringify({ routes: [{ distanceMeters: invalid, duration: '901s' }] }),
+          { status: 200 },
+        )) as typeof fetch,
+      }),
+      /Google Routes distance is invalid/,
+      `Provider distance ${JSON.stringify(invalid)} must fail closed`,
+    );
+  }
+});
