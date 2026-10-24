@@ -1,0 +1,79 @@
+name: Preview V2 read-only release gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: khedmah-preview-v2-readonly-release-gate
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Inspect exact Preview V2 service (no changes)
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 10
+    steps:
+      - name: Validate fixed, non-production target
+        shell: bash
+        env:
+          PREVIEW_PROJECT: ${{ vars.PREVIEW_GOOGLE_CLOUD_PROJECT }}
+          PREVIEW_REGION: ${{ vars.GOOGLE_CLOUD_REGION }}
+          WIF_PROVIDER: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOYER_SA: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
+          PRODUCTION_PROJECT: ${{ vars.PRODUCTION_GOOGLE_CLOUD_PROJECT }}
+        run: |
+          set -euo pipefail
+          test "$PREVIEW_PROJECT" = 'khedmah-preview-v2-20261012'
+          test "$PREVIEW_REGION" = 'europe-west1'
+          test -n "$PRODUCTION_PROJECT"
+          test "$PREVIEW_PROJECT" != "$PRODUCTION_PROJECT"
+          test -n "$WIF_PROVIDER"
+          test -n "$DEPLOYER_SA"
+          case "$DEPLOYER_SA" in *"@khedmah-preview-v2-20261012.iam.gserviceaccount.com") ;; *) exit 1 ;; esac
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.PREVIEW_V2_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_V2_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read Cloud Run state only
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          project='khedmah-preview-v2-20261012'
+          region='europe-west1'
+          service='khedmah-pr-274-backend'
+          def read(*args):
+              return json.loads(subprocess.check_output(['gcloud',*args,'--format=json'],text=True,timeout=90))
+          s=read('run','services','describe',service,'--project',project,'--region',region)
+          revision=read('run','revisions','list','--service',service,'--project',project,'--region',region)
+          if not isinstance(revision,list): raise SystemExit('STOP: REVISION_INVENTORY_INVALID')
+          labels=s.get('metadata',{})
+          traffic=s.get('status',{}).get('traffic',[])
+          if not isinstance(traffic,list): raise SystemExit('STOP: TRAFFIC_INVALID')
+          # Do not emit environment variables, secrets, identities, URLs or application data.
+          report={
+             'stage':'PREVIEW_V2_GITHUB_READ_ONLY_GATE',
+             'project_verified':labels.get('namespace',project)==project,
+             'service_name_verified':labels.get('name')==service,
+             'revision_count':len(revision),
+             'traffic_percent_total':sum(int(x.get('percent',0)) for x in traffic),
+             'tagged_traffic_entries':sum(bool(x.get('tag')) for x in traffic),
+             'writer_quiescence_verified':False,
+             'database_checked':False,
+             'release_authorized':False,
+             'cloud_mutation_performed':False
+          }
+          print(json.dumps(report,sort_keys=True))
+          if not report['service_name_verified'] or not report['project_verified'] or not revision:
+              raise SystemExit('STOP: SERVICE_SCOPE_OR_REVISIONS_INVALID')
+          PY
