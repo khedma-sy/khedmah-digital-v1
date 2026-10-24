@@ -112,9 +112,12 @@ export function validateOrderQuote(value: Record<string, unknown>) {
 export function validateRestaurantDeliveryQuote(value: Record<string, unknown>) {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new BadRequestException('Restaurant delivery quote payload is invalid.');
-  const latitude = Number(value.deliveryLatitude);
-  const longitude = Number(value.deliveryLongitude);
-  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
+  // Do not coerce null, false, empty strings or arrays into valid coordinates.
+  // This endpoint calls a billable server-side route provider.
+  const latitude = value.deliveryLatitude;
+  const longitude = value.deliveryLongitude;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number'
+    || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
     || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
     throw new BadRequestException('delivery coordinates are invalid.');
   }
