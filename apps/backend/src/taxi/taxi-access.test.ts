@@ -78,7 +78,7 @@ test('native Taxi access uses canonical sessions and independent driver/vehicle 
     });
     await t.test('driver access is a redacted, immutable current approval snapshot', async () => {
       const actor = await access.access(token, 'driver');
-      assert.deepEqual(actor, { id: user, role: 'driver', vehicleId: 'test-vehicle', zone: 'test-zone', driverRevision: '1', vehicleRevision: '1' });
+      assert.deepEqual(actor, { id: user, role: 'driver', vehicleId: 'test-vehicle', zone: 'test-zone', vehicleClass: 'economy', driverRevision: '1', vehicleRevision: '1' });
       assert.equal(Object.isFrozen(actor), true);
       assert.doesNotMatch(JSON.stringify(actor), /proof|registration|license|token|email/);
     });
