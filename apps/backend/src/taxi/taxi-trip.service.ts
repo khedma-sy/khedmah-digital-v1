@@ -102,7 +102,7 @@ export class TaxiTripService {
           ctx.deadline=Math.min(ctx.deadline,row.valid_until.getTime());
         }
         return {policy:tariff,menu:[],restaurants:[],providers:actor.role==='driver'?[{
-          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi']
+          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi'],vehicleClass:ctx.actor.vehicleClass!
         }]:[]};
       }},
       clock,nextId:randomUUID,route,
