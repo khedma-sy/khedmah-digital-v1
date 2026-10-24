@@ -1,6 +1,6 @@
-"""Offline tests for the Preview V2 writer-fence live operator."""
+"""Offline tests for the Preview V2 writer-fence operator."""
+import datetime
 import importlib.util
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -13,7 +13,7 @@ spec = importlib.util.spec_from_file_location(
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
-def old_receipt():
+def receipt():
     return {
         "stage": "PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED",
         "authority": {"all_granted": True},
@@ -22,30 +22,12 @@ def old_receipt():
             "serving_revision_count": 1,
             "latest_ready_revision": m.OLD_REVISION,
             "runtime_service_account_matches": True,
+            "service_scaling": {"maxInstanceCount": 20},
             "traffic": [{"revision": m.OLD_REVISION, "percent": 100, "tag": None}],
         },
         "database_activity": {
             "read_only": "on",
             "runtime_sessions_total": 0,
-            "migrator_sessions_other": 0,
-            "other_sessions_by_identity": 0,
-        },
-    }
-
-def maintenance_receipt(runtime=0):
-    return {
-        "stage": "PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED",
-        "authority": {"all_granted": True},
-        "service_state": {
-            "tagged_revision_count": 0,
-            "serving_revision_count": 1,
-            "latest_ready_revision": m.MAINT_REVISION,
-            "runtime_service_account_matches": True,
-            "traffic": [{"revision": m.MAINT_REVISION, "percent": 100, "tag": None}],
-        },
-        "database_activity": {
-            "read_only": "on",
-            "runtime_sessions_total": runtime,
             "migrator_sessions_other": 0,
             "other_sessions_by_identity": 0,
         },
@@ -59,19 +41,15 @@ class WriterFenceOperatorTests(unittest.TestCase):
         self.assertFalse(p["candidate_deployed"])
         self.assertFalse(p["production_mutation"])
         self.assertFalse(p["floot_gate_activation"])
+        self.assertFalse(p["missing_monitoring_data_is_proof"])
+        self.assertFalse(p["elapsed_time_alone_is_proof"])
 
     def test_preflight_requires_exact_old_revision_and_zero_tags(self):
-        m.require_preflight(old_receipt())
-        bad = old_receipt()
+        m.require_preflight(receipt())
+        bad = receipt()
         bad["service_state"]["tagged_revision_count"] = 1
         with self.assertRaisesRegex(SystemExit, "TAGGED_REVISION_PRESENT"):
             m.require_preflight(bad)
-
-    def test_maintenance_only_requires_exact_revision_and_no_tag(self):
-        self.assertTrue(m.receipt_is_maintenance_only(maintenance_receipt()))
-        bad = maintenance_receipt()
-        bad["service_state"]["traffic"][0]["tag"] = "debug"
-        self.assertFalse(m.receipt_is_maintenance_only(bad))
 
     def test_execute_requires_explicit_confirmation_before_any_read(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(m, "read_successor") as read:
@@ -79,34 +57,44 @@ class WriterFenceOperatorTests(unittest.TestCase):
                 m.execute()
             read.assert_not_called()
 
-    def test_deploy_command_clears_database_bindings_and_starts_without_traffic(self):
-        calls = []
-        def fake_run(args, check=True):
-            calls.append(args)
-            if "describe" in args:
-                return subprocess.CompletedProcess(args, 1, "", "NOT_FOUND")
-            return subprocess.CompletedProcess(args, 0, "{}", "")
-        with patch.object(m, "run", side_effect=fake_run), patch.object(m, "revision_exists", side_effect=[False, True]):
-            m.deploy_maintenance()
-        cmd = next(c for c in calls if "services" in c and "update" in c)
-        for flag in ("--no-traffic", "--clear-env-vars", "--clear-secrets",
-                     "--clear-cloudsql-instances", "--clear-volumes", "--clear-volume-mounts"):
-            self.assertIn(flag, cmd)
-        self.assertIn(m.CURRENT_IMAGE, cmd)
+    def test_disable_uses_manual_scaling_zero(self):
+        response = '{"scaling":{"scalingMode":"MANUAL","manualInstanceCount":0},"trafficStatuses":[]}'
+        completed = subprocess.CompletedProcess([], 0, response, "")
+        with patch.object(m, "run", return_value=completed) as run:
+            m.disable_service()
+        args = run.call_args.args[0]
+        self.assertIn("--scaling=0", args)
+        self.assertNotIn("update-traffic", args)
 
-    def test_wait_never_accepts_elapsed_time_without_zero_session_receipt(self):
-        with patch.object(m, "read_successor", side_effect=[maintenance_receipt(2), maintenance_receipt(0)]),              patch.object(m.time, "sleep") as sleep:
-            result = m.wait_for_database_quiescence()
-        self.assertEqual(result["database_activity"]["runtime_sessions_total"], 0)
-        sleep.assert_called_once_with(5)
+    def test_wait_requires_explicit_zero_metric_point(self):
+        when = datetime.datetime.now(datetime.timezone.utc)
+        with patch.object(m, "monitoring_instance_count", side_effect=[
+            {"explicit_zero_after_disable": False, "latest_point_end": None},
+            {"explicit_zero_after_disable": True, "latest_point_end": when},
+        ]), patch.object(m.time, "sleep") as sleep:
+            result = m.wait_for_instance_zero(when)
+        self.assertTrue(result["explicit_zero_after_disable"])
+        sleep.assert_called_once_with(15)
 
-    def test_source_has_no_migration_or_candidate_deploy(self):
+    def test_final_database_zero_requires_disabled_service(self):
+        good = receipt()
+        good["service_state"]["service_scaling"] = {
+            "scalingMode": "MANUAL", "manualInstanceCount": 0
+        }
+        with patch.object(m, "read_successor", return_value=good):
+            self.assertEqual(m.final_database_zero(), good)
+        bad = receipt()
+        with patch.object(m, "read_successor", return_value=bad):
+            with self.assertRaisesRegex(SystemExit, "SERVICE_NOT_DISABLED_FINAL"):
+                m.final_database_zero()
+
+    def test_source_has_no_migration_candidate_or_revision_deletion(self):
         source = (ROOT / "scripts/execute-preview-v2-writer-fence.py").read_text()
         self.assertNotIn("036_classifieds", source)
         self.assertNotIn("037_verification", source)
         self.assertNotIn("2146d382d426", source)
-        self.assertIn("migrations_executed", source)
-        self.assertIn("False", source)
+        self.assertNotIn("revisions\", \"delete", source)
+        self.assertIn("--scaling=0", source)
 
 if __name__ == "__main__":
     unittest.main()
