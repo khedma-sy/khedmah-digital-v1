@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type FulfillmentOrder, type ProductListing, type PublicBusinessProfile, type EligibleCourier, type FoodPromotion } from "../../../lib/recovered-service-client";
 import { merchantOrderMetrics } from "../../../lib/merchant-order-metrics";
+import { buildSmartRestaurantOfferDraft, type SmartRestaurantOfferDraft } from "../../../lib/restaurant-smart-offer";
 import type { OpeningHours } from "../../../lib/api-client";
 import { ActionButton, ActionLink, EmptyState, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from "../../components/ui-primitives";
 import { playOrderRing, requestOrderNotifications, showOrderNotification } from "../order-alerts";
@@ -51,6 +52,8 @@ export default function MerchantOrders() {
   const [savingPromotion,setSavingPromotion] = useState(false);
   const [promotionActionId,setPromotionActionId] = useState("");
   const [promotionDraft,setPromotionDraft] = useState({code:"",nameAr:"",discountType:"percentage" as "percentage"|"fixed",value:"",currency:"SYP" as "SYP"|"USD",minimumSubtotal:"0",maximumDiscount:"",validFrom:"",validUntil:"",maxRedemptions:"",perUserLimit:"1"});
+  const [smartOfferReview,setSmartOfferReview] = useState<SmartRestaurantOfferDraft["smartReview"]|null>(null);
+  const [smartOfferConfirmed,setSmartOfferConfirmed] = useState(false);
   const [orderDialog,setOrderDialog] = useState<OrderDialog|null>(null);
   const [deliveryFee,setDeliveryFee] = useState("");
   const [pharmacyApproved,setPharmacyApproved] = useState(false);
@@ -202,6 +205,25 @@ export default function MerchantOrders() {
     catch(c){setError(c instanceof Error?c.message:"تعذر حفظ ساعات العمل.");}finally{setSavingHours(false);}
   }
 
+  function localDateTime(date:Date){
+    const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,16);
+  }
+
+  function suggestSmartOffer(){
+    if(!selected||!isRestaurant)return;
+    const now=new Date(),until=new Date(now.getTime()+4*60*60*1000);
+    setPromotionDraft({
+      code:`OFFER${String(now.getDate()).padStart(2,"0")}${String(now.getHours()).padStart(2,"0")}`,
+      nameAr:"عرض ذكي لفترة الطلب الهادئة",
+      discountType:"percentage",value:"15",currency:"SYP",minimumSubtotal:"0",maximumDiscount:"",
+      validFrom:localDateTime(now),validUntil:localDateTime(until),maxRedemptions:"100",perUserLimit:"1"
+    });
+    setSmartOfferReview({autoPublishEligible:true,requiresOwnerConfirmation:false,reasons:[]});
+    setSmartOfferConfirmed(false);
+    setNotice("جهّز المساعد مسودة عرض 15% لمدة 4 ساعات. راجعها قبل الإنشاء.");
+  }
+
   async function createPromotion(){
     if(!selected||!isRestaurant||savingPromotion)return;
     const value=Number(promotionDraft.value);
@@ -210,16 +232,37 @@ export default function MerchantOrders() {
     const validFrom=new Date(promotionDraft.validFrom);
     const validUntil=new Date(promotionDraft.validUntil);
     if(!promotionDraft.code.trim()||!promotionDraft.nameAr.trim()||!Number.isFinite(value)||value<=0||!Number.isFinite(minimumSubtotal)||minimumSubtotal<0||!Number.isInteger(perUserLimit)||perUserLimit<1||!Number.isFinite(validFrom.getTime())||!Number.isFinite(validUntil.getTime())){setError("أكمل بيانات الحملة بقيم وتواريخ صالحة.");return;}
+    let prepared:SmartRestaurantOfferDraft;
+    try{
+      prepared=buildSmartRestaurantOfferDraft({
+        businessId:selected,code:promotionDraft.code,nameAr:promotionDraft.nameAr,currency:promotionDraft.currency,
+        kind:promotionDraft.discountType,
+        ...(promotionDraft.discountType==="percentage"?{percentageOff:value}:{fixedAmount:value}),
+        minimumSubtotal,
+        ...(promotionDraft.maximumDiscount.trim()?{maximumDiscount:Number(promotionDraft.maximumDiscount)}:{}),
+        validFrom:validFrom.toISOString(),validUntil:validUntil.toISOString(),
+        ...(promotionDraft.maxRedemptions.trim()?{maxRedemptions:Number(promotionDraft.maxRedemptions)}:{}),
+        perUserLimit,
+      });
+    }catch(c){setError(c instanceof Error?c.message:"تعذر مراجعة العرض الذكي.");return;}
+    setSmartOfferReview(prepared.smartReview);
+    if(prepared.smartReview.requiresOwnerConfirmation&&!smartOfferConfirmed){
+      setError("العرض يحتاج تأكيد صاحب المطعم قبل الإنشاء. راجع أسباب التنبيه ثم فعّل التأكيد.");
+      return;
+    }
     setSavingPromotion(true);setError("");setNotice("");
     try{
       await api.foodPromotions.create({
-        businessId:selected,code:promotionDraft.code,nameAr:promotionDraft.nameAr,discountType:promotionDraft.discountType,
-        ...(promotionDraft.discountType==="percentage"?{percentageOff:value}:{fixedAmount:value}),currency:promotionDraft.currency,minimumSubtotal,
-        ...(promotionDraft.maximumDiscount.trim()?{maximumDiscount:Number(promotionDraft.maximumDiscount)}:{}),validFrom:validFrom.toISOString(),validUntil:validUntil.toISOString(),
-        ...(promotionDraft.maxRedemptions.trim()?{maxRedemptions:Number(promotionDraft.maxRedemptions)}:{}),perUserLimit,
+        businessId:prepared.businessId,code:prepared.code,nameAr:prepared.nameAr,discountType:prepared.discountType,
+        ...(prepared.discountType==="percentage"?{percentageOff:prepared.percentageOff}:{fixedAmount:prepared.fixedAmount}),
+        currency:prepared.currency,minimumSubtotal:prepared.minimumSubtotal,
+        ...(prepared.maximumDiscount!==undefined?{maximumDiscount:prepared.maximumDiscount}:{}),
+        validFrom:prepared.validFrom,validUntil:prepared.validUntil,
+        ...(prepared.maxRedemptions!==undefined?{maxRedemptions:prepared.maxRedemptions}:{}),perUserLimit:prepared.perUserLimit,
       });
       await loadPromotions(selected);
       setPromotionDraft(current=>({...current,code:"",nameAr:"",value:"",maximumDiscount:"",maxRedemptions:""}));
+      setSmartOfferReview(null);setSmartOfferConfirmed(false);
       setNotice("تم إنشاء حملة الخصم للمطعم. أصبحت صالحة ضمن المدة والحدود المحددة.");
     }catch(c){setError(c instanceof Error?c.message:"تعذر إنشاء حملة الخصم.");}
     finally{setSavingPromotion(false);}
@@ -279,7 +322,7 @@ export default function MerchantOrders() {
     {view==="hours"&&<Surface className={styles.hoursPanel}><div className={styles.sectionHeading}><div><span>التشغيل الأسبوعي</span><h2>ساعات استقبال الطلبات</h2></div><ActionButton type="button" disabled={savingHours} onClick={()=>void saveHours()}>{savingHours?"جاري الحفظ…":"حفظ الساعات"}</ActionButton></div><div className={styles.hoursGrid}>{hours.map((h,index)=><div key={h.dayOfWeek} className={styles.hourRow}><strong>{days[h.dayOfWeek]}</strong><label><input type="checkbox" checked={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,isClosed:e.target.checked}:item))}/> مغلق</label><label>من<input type="time" value={h.openTime} disabled={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,openTime:e.target.value}:item))}/></label><label>إلى<input type="time" value={h.closeTime} disabled={h.isClosed} onChange={e=>setHours(current=>current.map((item,i)=>i===index?{...item,closeTime:e.target.value}:item))}/></label></div>)}</div></Surface>}
 
     {view==="promotions"&&isRestaurant&&<section className={styles.promotionsLayout}>
-      <Surface className={styles.promotionForm}><div className={styles.sectionHeading}><div><span>تمويل المطعم</span><h2>إنشاء كود خصم</h2></div></div><p className={styles.muted}>يُخصم المبلغ من سلة هذا المطعم فقط. لا يشمل رسوم التوصيل ولا تموله المنصة.</p>
+      <Surface className={styles.promotionForm}><div className={styles.sectionHeading}><div><span>تمويل المطعم</span><h2>إنشاء كود خصم</h2></div><ActionButton type="button" variant="secondary" disabled={savingPromotion} onClick={suggestSmartOffer}>اقتراح ذكي</ActionButton></div><p className={styles.muted}>يُخصم المبلغ من سلة هذا المطعم فقط. لا يشمل رسوم التوصيل ولا تموله المنصة.</p>
         <div className={styles.promotionFields}>
           <label>الكود<input dir="ltr" autoCapitalize="characters" maxLength={32} value={promotionDraft.code} onChange={e=>setPromotionDraft(d=>({...d,code:e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')}))} placeholder="FOOD20"/></label>
           <label>اسم الحملة<input maxLength={100} value={promotionDraft.nameAr} onChange={e=>setPromotionDraft(d=>({...d,nameAr:e.target.value}))} placeholder="خصم نهاية الأسبوع"/></label>
@@ -292,7 +335,7 @@ export default function MerchantOrders() {
           <label>صالح حتى<input type="datetime-local" value={promotionDraft.validUntil} onChange={e=>setPromotionDraft(d=>({...d,validUntil:e.target.value}))}/></label>
           <label>إجمالي الاستخدامات (اختياري)<input type="number" min="1" step="1" value={promotionDraft.maxRedemptions} onChange={e=>setPromotionDraft(d=>({...d,maxRedemptions:e.target.value}))}/></label>
           <label>حد العميل<input type="number" min="1" max="20" step="1" value={promotionDraft.perUserLimit} onChange={e=>setPromotionDraft(d=>({...d,perUserLimit:e.target.value}))}/></label>
-        </div><ActionButton type="button" disabled={savingPromotion} onClick={()=>void createPromotion()}>{savingPromotion?"جاري الإنشاء…":"إنشاء الحملة"}</ActionButton>
+        </div>{smartOfferReview&&<StatusMessage tone={smartOfferReview.requiresOwnerConfirmation?"warning":"success"}>{smartOfferReview.requiresOwnerConfirmation?<>المساعد يطلب تأكيدك: {smartOfferReview.reasons.join(" · ")} <label className={styles.confirmRow}><input type="checkbox" checked={smartOfferConfirmed} onChange={e=>setSmartOfferConfirmed(e.target.checked)}/> أؤكد أنني راجعت أثر العرض وأوافق على إنشائه.</label></>:<>المساعد راجع العرض ولم يجد سببًا لرفع القرار. يبقى الإنشاء باسم صاحب المطعم.</>}</StatusMessage>}<ActionButton type="button" disabled={savingPromotion||(!!smartOfferReview?.requiresOwnerConfirmation&&!smartOfferConfirmed)} onClick={()=>void createPromotion()}>{savingPromotion?"جاري الإنشاء…":"إنشاء الحملة"}</ActionButton>
       </Surface>
       <div className={styles.promotionList}>{promotions.length?promotions.map(p=><Surface as="article" key={p.id} className={styles.promotionCard}><div className={styles.orderTop}><strong><bdi>{p.code}</bdi></strong><span className={p.active?styles.online:styles.offline}>{p.active?"مفعّل":"متوقف"}</span></div><h2>{p.nameAr}</h2><p>{p.discountType==="percentage"?`${p.percentageOff}%${p.maximumDiscount?` · حتى ${money(p.maximumDiscount,p.currency)}`:''}`:money(p.fixedAmount??0,p.currency)} · حد السلة {money(p.minimumSubtotal,p.currency)}</p><p>من {new Date(p.validFrom).toLocaleString('ar-SY')}<br/>حتى {new Date(p.validUntil).toLocaleString('ar-SY')}</p><p>حد العميل: {p.perUserLimit}{p.maxRedemptions?` · إجمالي: ${p.maxRedemptions}`:' · الإجمالي غير محدود'}</p><ActionButton type="button" variant={p.active?"secondary":"primary"} disabled={promotionActionId===p.id} onClick={()=>void setPromotionActive(p)}>{promotionActionId===p.id?"جاري الحفظ…":p.active?"إيقاف الحملة":"تفعيل الحملة"}</ActionButton></Surface>):<EmptyState title="لا توجد حملات خصم" description="أنشئ كوداً ممولاً من مطعمك ليُطبّق على سلة الطعام فقط."/>}</div>
     </section>}

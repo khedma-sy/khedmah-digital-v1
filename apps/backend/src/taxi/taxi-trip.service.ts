@@ -6,6 +6,7 @@ import { PersistentTaxiService } from './engine/server/taxi-service';
 import { JourneyError, type Actor, type Address, type Policy, type Quote } from './engine/domain';
 import type { SqlClient, ReferenceSnapshot } from './engine/server/ports';
 import { fail, id, only } from './engine/server/input';
+import { effectiveTaxiVehicleClass } from './taxi-vehicle-classes';
 
 export function taxiRouteKey(zone: string, from: Address, to: Address): string {
   return createHash('sha256').update(JSON.stringify([zone, from.latitude, from.longitude, to.latitude, to.longitude])).digest('hex');
@@ -102,7 +103,7 @@ export class TaxiTripService {
           ctx.deadline=Math.min(ctx.deadline,row.valid_until.getTime());
         }
         return {policy:tariff,menu:[],restaurants:[],providers:actor.role==='driver'?[{
-          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi']
+          id:actor.id,role:'driver',active:true,verified:true,zone:ctx.actor.zone!,kinds:['taxi'],vehicleClass:effectiveTaxiVehicleClass(ctx.actor.vehicleClass)
         }]:[]};
       }},
       clock,nextId:randomUUID,route,

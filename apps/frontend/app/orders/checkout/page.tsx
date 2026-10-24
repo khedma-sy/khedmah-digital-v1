@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, type FoodOrderQuote, type ProductListing } from "../../../lib/recovered-service-client";
+import { api, type FoodOrderQuote, type ProductListing, type RestaurantDeliveryQuote } from "../../../lib/recovered-service-client";
 import {
   clearRestaurantCart,
   readRestaurantCart,
@@ -169,6 +169,9 @@ export default function CheckoutPage() {
   const [promoInput, setPromoInput] = useState("");
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [deliveryQuote, setDeliveryQuote] = useState<RestaurantDeliveryQuote | null>(null);
+  const [deliveryQuoteLoading, setDeliveryQuoteLoading] = useState(false);
+  const [deliveryCoordinates, setDeliveryCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const quoteGeneration = useRef(0);
@@ -198,6 +201,9 @@ export default function CheckoutPage() {
     setPromoInput("");
     setQuote(null);
     setQuoteLoading(false);
+    setDeliveryQuote(null);
+    setDeliveryQuoteLoading(false);
+    setDeliveryCoordinates(null);
     createAttempt.current = null;
     setSaving(false);
     setUncertain(false);
@@ -365,6 +371,44 @@ export default function CheckoutPage() {
     }
   }
 
+  async function calculateDeliveryQuote() {
+    const current = journey.current;
+    if (!businessId || !items.length || !current.active || current.inFlight || current.recoveryBlocked || deliveryQuoteLoading) return;
+    if (!navigator.geolocation) {
+      setError("تحديد الموقع غير مدعوم في هذا المتصفح.");
+      return;
+    }
+    setDeliveryQuoteLoading(true);
+    setDeliveryQuote(null);
+    setError("");
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+      });
+      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      const result = await api.orders.deliveryQuote({
+        items: items.map((entry) => ({ productListingId: entry.product.id, quantity: entry.quantity })),
+        deliveryLatitude: coords.latitude,
+        deliveryLongitude: coords.longitude,
+      });
+      if (!current.active || currentScope.current !== scope) return;
+      setDeliveryCoordinates(coords);
+      setDeliveryQuote(result.quote);
+    } catch (cause) {
+      if (!current.active || currentScope.current !== scope) return;
+      const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
+      if (status === 401) {
+        router.push(`/auth/login?next=${encodeURIComponent(`/orders/checkout?businessId=${businessId}`)}`);
+        return;
+      }
+      setDeliveryQuote(null);
+      setDeliveryCoordinates(null);
+      setError("تعذر حساب رسوم التوصيل ووقت الوصول من المسار المعتمد حاليًا.");
+    } finally {
+      if (current.active && currentScope.current === scope) setDeliveryQuoteLoading(false);
+    }
+  }
+
   function discardRecoveredAttempt() {
     const current = journey.current;
     if (!current.active || current.inFlight) return;
@@ -408,6 +452,8 @@ export default function CheckoutPage() {
         customerPhone: phone,
         customerNote: note || undefined,
         prescriptionAttested: attested,
+        deliveryLatitude: deliveryCoordinates?.latitude,
+        deliveryLongitude: deliveryCoordinates?.longitude,
         promoCode: quote?.promotion?.code,
         expectedSubtotal: quote?.promotion ? quote.subtotal : undefined,
         expectedDiscountAmount: quote?.promotion ? quote.discountAmount : undefined,
@@ -501,6 +547,11 @@ export default function CheckoutPage() {
               </p>
             ))}
             <strong>المجموع الأولي: {(quote?.subtotal ?? subtotal).toLocaleString("ar-SY-u-nu-latn")} {currency}</strong>
+            {deliveryQuote && <div className={styles.discount} role="status">
+              <span>المسافة المعتمدة: {(deliveryQuote.distanceMeters / 1000).toLocaleString("ar-SY-u-nu-latn", { maximumFractionDigits: 1 })} كم</span>
+              <span>وقت الوصول التقريبي: {deliveryQuote.etaMinutes.toLocaleString("ar-SY-u-nu-latn")} دقيقة</span>
+              <strong>رسوم التوصيل المقدّرة: {deliveryQuote.deliveryFee.toLocaleString("ar-SY-u-nu-latn")} {deliveryQuote.currency}</strong>
+            </div>}
             {quote?.promotion && <div className={styles.discount} role="status">
               <span>{quote.promotion.nameAr} · <bdi>{quote.promotion.code}</bdi></span>
               <span>الخصم: -{quote.discountAmount.toLocaleString("ar-SY-u-nu-latn")} {currency}</span>
@@ -531,6 +582,11 @@ export default function CheckoutPage() {
               required
             />
           </label>
+          {businessId && <div className="ui-page-actions">
+            <ActionButton type="button" variant="secondary" disabled={saving || uncertain || recoveryBlocked || deliveryQuoteLoading} onClick={() => void calculateDeliveryQuote()}>
+              {deliveryQuoteLoading ? "جارٍ حساب التوصيل…" : deliveryQuote ? "إعادة حساب التوصيل" : "احسب رسوم التوصيل من موقعي"}
+            </ActionButton>
+          </div>}
           <label>
             عنوان التسليم
             <textarea
@@ -569,8 +625,8 @@ export default function CheckoutPage() {
             </label>
           )}
           <p className={styles.payment}>
-            الدفع نقدًا عند التسليم. يراجع مقدم الطلب رسوم التوصيل، ولن يثبت الطلب
-            أو يُعيّن المندوب قبل موافقتك على الإجمالي.
+            الدفع نقدًا عند التسليم. إذا ظهر تقدير التوصيل أعلاه فهو محسوب من مسار خادمي معتمد،
+            ويظل تثبيت الطلب والإجمالي النهائي خاضعًا لعقد الطلب التشغيلي.
           </p>
           <div className="ui-page-actions">
             <ActionButton type="submit" disabled={saving || quoteLoading || recoveryBlocked}>

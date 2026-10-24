@@ -239,8 +239,12 @@ export class PersistentTaxiService {
       const provider=refs.providers.find(p=>p.id===actor.id&&p.role==='driver'&&p.active&&p.verified&&p.kinds.includes('taxi'));
       if(!provider)return {offers:[],limit:100};
       const zone=this.ports.db.dialect==='postgres'?"payload->'quote'->'request'->>'zone'":"json_extract(payload,'$.quote.request.zone')";
+      const vehicleClass=this.ports.db.dialect==='postgres'
+        ?"COALESCE(payload->'quote'->'request'->>'vehicleClass','economy')"
+        :"COALESCE(json_extract(payload,'$.quote.request.vehicleClass'),'economy')";
       const state=blank(),rows=(await tx.query<Row>(`SELECT payload FROM jt_orders WHERE archived=0 AND phase='submitted'
-        AND delivery_state='requested' AND ${zone}=$1 ORDER BY id LIMIT 100`,[provider.zone])).rows;
+        AND delivery_state='requested' AND ${zone}=$1 AND ${vehicleClass}=$2 ORDER BY id LIMIT 100`,
+        [provider.zone,provider.vehicleClass??'economy'])).rows;
       for(const r of rows){const order=decode<Order>(r.payload);state.orders[order.id]=order;}
       return {offers:await this.engine(state,refs).offers(actor),limit:100};
     });

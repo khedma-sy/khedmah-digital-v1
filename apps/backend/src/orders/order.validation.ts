@@ -109,6 +109,22 @@ export function validateOrderQuote(value: Record<string, unknown>) {
   };
 }
 
+export function validateRestaurantDeliveryQuote(value: Record<string, unknown>) {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new BadRequestException('Restaurant delivery quote payload is invalid.');
+  const latitude = Number(value.deliveryLatitude);
+  const longitude = Number(value.deliveryLongitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
+    || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new BadRequestException('delivery coordinates are invalid.');
+  }
+  return {
+    items: validateItems(value.items),
+    deliveryLatitude: latitude,
+    deliveryLongitude: longitude,
+  };
+}
+
 export function validateOrderAction(value: Record<string, unknown>) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Order action is invalid.');
   if (

@@ -24,6 +24,16 @@ export class OrderController {
   ) {
     return this.orders.quote(cookie, body).then((quote) => ({ quote }));
   }
+  @Post("delivery-quote")
+  @Header("Cache-Control", "private, no-store")
+  @Header("Vary", "Cookie")
+  deliveryQuote(
+    @Headers("cookie") cookie: string | undefined,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.orders.deliveryQuote(cookie, body).then((quote) => ({ quote }));
+  }
+
   @Post()
   @Header("Cache-Control", "private, no-store")
   @Header("Vary", "Cookie")
