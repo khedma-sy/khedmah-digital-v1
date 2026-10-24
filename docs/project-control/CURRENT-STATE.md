@@ -1,5 +1,15 @@
 # Khedmah Digital — Current State
 
+## PR318 merged; Floot Preview health wired internally; publication still blocked — 2026-10-25 UTC
+
+**Protected main advanced:** PR #318 merged successfully to `2f5d5775a7b5ed9fb40a1c66f8aad029de55e504`. Its exact head had successful Node.js CI, PR Preview, and Khedmah - Test & Verify runs before merge.
+
+**Floot internal integration advanced without publication:** project `خدمة ديجتل` now wires the read-only `khedmah_preview_health` client into `/platform/admin` for accounts with `operations.read`. The view reports Preview V2 connectivity/version/check time and allows a manual refetch only. No approval execution, database migration, traffic/scaling change, Production mutation, or Floot publication was performed.
+
+**Floot validation after the edit:** 20 spec files passed, zero failed; TypeScript typecheck is clean. Floot's static project advisory still reports four endpoint-call gaps even though the Google login/logout/authorize paths and preview-health path have verified call sites in helper/component/page code. Treat that advisory as unresolved tooling/static-analysis evidence, not authorization to delete working endpoints.
+
+**Release boundary remains unchanged:** writer quiescence is still unproved because Cloud Monitoring returned no explicit post-disable zero point. Keep migrations 036/037, candidate deployment, traffic restoration, Floot approval activation/publication, and Production mutation blocked.
+
 ## PR314 merged; dedicated read-only WIF gate passed; writer quiescence still unproved — 2026-10-25 UTC
 
 **Protected main:** `4176b523ad1c44bfdd77612b6d41dff309909311`, merge of PR #314 (`Add manual read-only Preview V2 GitHub release gate`). The PR branch was updated onto current main, all required PR checks passed, the remaining review thread was resolved, and the merge completed normally.
