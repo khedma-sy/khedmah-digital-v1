@@ -9,6 +9,7 @@ import {
 import {
   buildSmartRestaurantOfferDraft,
 } from '../apps/frontend/lib/restaurant-smart-offer.ts';
+import { taxiFare } from '../apps/backend/src/taxi/engine/domain.ts';
 
 test('taxi vehicle catalog exposes economy comfort suv and van with increasing capacity', () => {
   assert.deepEqual(TAXI_VEHICLE_CLASSES.map((item) => item.code), ['economy','comfort','suv','van']);
@@ -21,6 +22,14 @@ test('taxi vehicle class fare multiplier keeps economy base and scales larger cl
   assert.equal(applyTaxiVehicleClassFare(10_000, 'suv'), 15_500);
   assert.equal(applyTaxiVehicleClassFare(10_000, 'van'), 19_000);
   assert.deepEqual(quoteTaxiVehicleClasses(10_000).map((q) => q.totalMinor), [10_000,12_500,15_500,19_000]);
+});
+
+test('authoritative taxi fare preserves selected vehicle-class multiplier at quote and completion time', () => {
+  const policy = { taxiBaseMinor:100, taxiPerKmMinor:200, taxiWaitPerMinuteMinor:60, taxiMinimumMinor:200, maxAmountMinor:100000 };
+  assert.equal(taxiFare(policy, 5000, 0, 10_000), 1100);
+  assert.equal(taxiFare(policy, 5000, 0, 12_500), 1375);
+  assert.equal(taxiFare(policy, 5000, 0, 15_500), 1705);
+  assert.equal(taxiFare(policy, 5000, 0, 19_000), 2090);
 });
 
 test('smart restaurant offer drafts simple bounded percentage campaigns as auto-publish eligible', () => {
