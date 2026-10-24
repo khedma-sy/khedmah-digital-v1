@@ -54,3 +54,13 @@ test('every backend image install receives the strict repository policy without 
   }
   assert.ok(installCount >= 2, 'both compile and production dependency stages remain checked');
 });
+
+
+test('Multer security override stays on the patched 2.5.x line', async () => {
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  assert.equal(pkg.overrides.multer, '2.5.0');
+  assert.equal(lock.packages['node_modules/multer'].version, '2.5.0');
+  assert.equal(lock.packages['node_modules/multer'].resolved,
+    'https://registry.npmjs.org/multer/-/multer-2.5.0.tgz');
+});
