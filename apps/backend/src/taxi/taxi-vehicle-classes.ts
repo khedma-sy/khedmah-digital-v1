@@ -49,6 +49,12 @@ function safeMinor(value: number): number {
   return value;
 }
 
+export function effectiveTaxiVehicleClass(code: TaxiVehicleClassCode | null | undefined): TaxiVehicleClassCode {
+  // Canonical approvals created before vehicle-class authority existed are
+  // treated only as economy. Never promote an unclassified vehicle upward.
+  return code ?? 'economy';
+}
+
 export function taxiVehicleClassByCode(code: TaxiVehicleClassCode): TaxiVehicleClass {
   const match = TAXI_VEHICLE_CLASSES.find((item) => item.code === code);
   if (!match) throw new Error('Taxi vehicle class is invalid.');
