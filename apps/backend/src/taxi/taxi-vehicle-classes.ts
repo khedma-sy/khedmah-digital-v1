@@ -55,12 +55,17 @@ export function taxiVehicleClassByCode(code: TaxiVehicleClassCode): TaxiVehicleC
   return match;
 }
 
-export function applyTaxiVehicleClassFare(baseMinor: number, code: TaxiVehicleClassCode): number {
+export function applyTaxiFareMultiplier(baseMinor: number, fareMultiplierBps: number): number {
   const base = safeMinor(baseMinor);
-  const vehicleClass = taxiVehicleClassByCode(code);
-  const scaled = (BigInt(base) * BigInt(vehicleClass.fareMultiplierBps) + 9_999n) / 10_000n;
+  if (!Number.isSafeInteger(fareMultiplierBps) || fareMultiplierBps < 1 || fareMultiplierBps > 100_000) throw new Error('Taxi fare multiplier is invalid.');
+  const scaled = (BigInt(base) * BigInt(fareMultiplierBps) + 9_999n) / 10_000n;
   if (scaled > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Taxi vehicle class fare is too large.');
   return Number(scaled);
+}
+
+export function applyTaxiVehicleClassFare(baseMinor: number, code: TaxiVehicleClassCode): number {
+  const vehicleClass = taxiVehicleClassByCode(code);
+  return applyTaxiFareMultiplier(baseMinor, vehicleClass.fareMultiplierBps);
 }
 
 export function quoteTaxiVehicleClasses(baseMinor: number) {
