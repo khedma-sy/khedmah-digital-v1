@@ -1,5 +1,13 @@
 # Khedmah Digital — Current State
 
+## Live revision-shape diagnosis closed; exact short service name repair prepared — 2026-10-24 UTC
+
+**Owner bounded Cloud Run read:** the direct read-only revision-shape probe completed with **8 revisions**, no next page token, and every revision name inside the exact Preview service scope. All eight returned `service` as the exact short value `khedmah-pr-274-backend`; none returned an unrelated service. Conditions are arrays with the expected condition types/states, and scaling is either a bounded object containing `maxInstanceCount` or absent on the oldest revision. No database, secret, IAM, traffic/scaling, deployment, schema or Production mutation occurred during this shape read.
+
+This proves the repeated `STOP: REVISION_METADATA_INVALID` was caused by the inspector rejecting Google's exact short `Revision.service` representation. The parser repair is intentionally narrow: `service` may now be absent, the exact full expected service resource, or the exact short service name `${SERVICE}`; any other value still stops. The full revision `name` remains independently scoped to the exact Preview service. Focused suite remains **18 Python cases** with explicit short-service acceptance and foreign-service rejection.
+
+Prepared inspector blob `c040367051f4e746c7d98deb1acfe67ed2cffe88`, SHA256 `235bf26158b870386095204a8cad947ea5883209e5fff1e349687fe4ee4d6cf9`. Do not rerun older successor-inspector blobs. After exact-head CI/review and normal merge, run only the re-pinned command in NEXT-ACTION. No rollout, writer fence, 036/037, Floot gate activation or Production mutation is authorized by this parser repair.
+
 ## Successor read stopped on optional Revision.service; fail-closed parser repair prepared — 2026-10-23 UTC
 
 **Owner read result:** the pinned successor inspector stopped with `STOP: REVISION_METADATA_INVALID` before producing its receipt. No Cloud Run, traffic/scaling, schema, role, application-data, Floot or Production mutation was performed. The Cloud Shell default project `khedma-dl-e409d` is irrelevant because the inspector pins all Google targets explicitly to Preview V2.

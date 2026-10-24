@@ -1,5 +1,26 @@
 # Next Safe Action — Khedmah
 
+## Retry successor read with exact short Revision.service support — 2026-10-24 UTC
+
+The direct shape probe proves all eight Cloud Run revisions belong to the expected service and return the exact short `service` value. Do not rerun older inspector blobs.
+
+After this repair passes exact-head CI/review and merges normally, run:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  successor_read_tmp="$(mktemp -d /tmp/khedmah-successor-read.XXXXXXXX)"
+  trap 'rm -rf -- "$successor_read_tmp"' EXIT
+  env -u GH_DEBUG -u DEBUG gh api --hostname github.com repos/khedma-sy/khedmah-digital-v1/git/blobs/c040367051f4e746c7d98deb1acfe67ed2cffe88 --jq .content 2>"$successor_read_tmp/fetch.log" | base64 --decode >"$successor_read_tmp/inspect.py" || { echo 'STOP: PINNED_SOURCE_DOWNLOAD_FAILED' >&2; exit 1; }
+  printf '%s  %s\n' 235bf26158b870386095204a8cad947ea5883209e5fff1e349687fe4ee4d6cf9 "$successor_read_tmp/inspect.py" | sha256sum --check --status || { echo 'STOP: SOURCE_SHA256_MISMATCH' >&2; exit 1; }
+  test "$(git hash-object --no-filters "$successor_read_tmp/inspect.py")" = c040367051f4e746c7d98deb1acfe67ed2cffe88 || { echo 'STOP: SOURCE_GIT_BLOB_MISMATCH' >&2; exit 1; }
+  python3 "$successor_read_tmp/inspect.py" --inspect
+)
+```
+
+Return only the final JSON or one STOP line. Expected stage remains `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED`. This command remains read-only and does not authorize deployment, 036/037, Floot gates or Production.
+
 ## Retry the read-only successor inspection after Revision.service parser repair — 2026-10-23 UTC
 
 The previous inspector invocation stopped safely with `STOP: REVISION_METADATA_INVALID`; do **not** rerun its older blob. This repair keeps the service-scoped revision `name` as the authoritative identity and accepts the output-only `Revision.service` field only when absent or exactly equal to the same expected service.

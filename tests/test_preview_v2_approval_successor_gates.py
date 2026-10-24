@@ -84,8 +84,13 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(result[0]["revision"], m.KNOWN_REVISION)
         self.assertFalse(result[0]["service_field_present"])
 
+        short = revisions_fixture()
+        short["revisions"][0]["service"] = m.SERVICE
+        short_result = m.revisions_summary(short)
+        self.assertTrue(short_result[0]["service_field_present"])
+
         foreign = revisions_fixture()
-        foreign["revisions"][0]["service"] = "projects/foreign/locations/" + m.REGION + "/services/" + m.SERVICE
+        foreign["revisions"][0]["service"] = "foreign-service"
         with self.assertRaisesRegex(SystemExit, "REVISION_METADATA_INVALID"):
             m.revisions_summary(foreign)
 

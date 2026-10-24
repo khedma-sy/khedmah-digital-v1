@@ -266,7 +266,7 @@ def revisions_summary(value):
         require(isinstance(row, dict), "REVISION_METADATA_INVALID")
         name = short_revision(row.get("name"))
         service = row.get("service")
-        require(service is None or service == SERVICE_NAME, "REVISION_METADATA_INVALID")
+        require(service is None or service in (SERVICE_NAME, SERVICE), "REVISION_METADATA_INVALID")
         condition = row.get("conditions", [])
         require(isinstance(condition, list) and len(condition) <= 50, "REVISION_METADATA_INVALID")
         ready = any(isinstance(c, dict) and c.get("type") == "Ready"
