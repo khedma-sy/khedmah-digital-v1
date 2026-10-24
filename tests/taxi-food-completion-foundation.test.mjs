@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import {
   TAXI_VEHICLE_CLASSES,
   applyTaxiFareMultiplier,
   applyTaxiVehicleClassFare,
+  effectiveTaxiVehicleClass,
   quoteTaxiVehicleClasses,
 } from '../apps/backend/src/taxi/taxi-vehicle-classes.ts';
 import {
@@ -14,6 +16,18 @@ import {
 test('taxi vehicle catalog exposes economy comfort suv and van with increasing capacity', () => {
   assert.deepEqual(TAXI_VEHICLE_CLASSES.map((item) => item.code), ['economy','comfort','suv','van']);
   assert.deepEqual(TAXI_VEHICLE_CLASSES.map((item) => item.seats), [4,4,6,8]);
+});
+
+test('legacy Taxi approval without an explicit class is restricted to economy', () => {
+  assert.equal(effectiveTaxiVehicleClass(undefined), 'economy');
+  assert.equal(effectiveTaxiVehicleClass(null), 'economy');
+  assert.equal(effectiveTaxiVehicleClass('comfort'), 'comfort');
+});
+
+test('Taxi offer SQL filters class before LIMIT 100', async () => {
+  const source = await readFile(new URL('../apps/backend/src/taxi/engine/server/taxi-service.ts', import.meta.url), 'utf8');
+  assert.match(source, /vehicleClass.*ORDER BY id LIMIT 100/s);
+  assert.match(source, /provider\.vehicleClass\?\?'economy'/);
 });
 
 test('taxi vehicle class fare multiplier keeps economy base and scales larger classes', () => {
