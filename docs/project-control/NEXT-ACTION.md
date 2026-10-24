@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## After PR314: preserve manual-zero and diagnose missing Monitoring evidence — 2026-10-25 UTC
+
+1. Treat PR #314 as complete: it is merged to protected `main=4176b523ad1c44bfdd77612b6d41dff309909311`, the dedicated least-privilege WIF reader is provisioned, and manual read-only workflow run `40138215986` succeeded. Do not reopen PR314 or reuse the historical PR274 deployer federation.
+2. Preserve Preview Cloud Run at manual scaling zero. Do **not** rerun `--execute-fence`, restore traffic, deploy the saved candidate, apply 036/037, activate Floot approvals or publish Production merely to obtain a cleaner receipt.
+3. The latest direct Monitoring read returned zero time series and zero points for `run.googleapis.com/container/instance_count`; `INSTANCE_ZERO_PROVEN=False`. Missing telemetry is not an explicit zero point and therefore does not satisfy the reviewed writer-fence contract.
+4. Continue with a separately reviewed **read-only diagnostic** of the Monitoring evidence path: verify metric descriptor/resource-label shape and broaden only the read query enough to distinguish filter mismatch from genuinely absent telemetry. Do not weaken the acceptance rule: writer quiescence remains false unless the reviewed evidence path produces an accepted explicit zero or a separately reviewed replacement proof.
+5. Re-read database writer identities only as part of that bounded evidence path. A quiet snapshot alone remains insufficient; do not grant new database privileges solely to manufacture a cleaner receipt without a separate review.
+6. Keep both Floot execution gates closed while backend compatibility is not live-proved: approval `enabled:false` and driver document upload `documentUploadEnabled:false`. Source synchronization may continue, but no publication/activation follows from source parity.
+7. Preserve build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; do not rebuild.
+
 ## Hold Preview at manual-zero; close quiescence evidence gap without replaying scaling — 2026-10-24 UTC
 
 1. Preserve current Preview service scaling at manual zero. Do **not** rerun `--execute-fence`, restore traffic, deploy the candidate, or apply 036/037 merely to obtain a cleaner receipt.
