@@ -19,6 +19,7 @@ export interface FulfillmentOrder {
   readonly deliveryAddress:string;readonly customerPhone?:string;readonly deliveryLatitude?:number;readonly deliveryLongitude?:number;readonly customerNote?:string;readonly prescriptionAttested:boolean;readonly pharmacyReviewStatus:'not_required'|'pending'|'approved'|'rejected';readonly rejectionReason?:string;readonly items:FulfillmentOrderItem[];readonly events?:FulfillmentOrderEvent[];readonly createdAt:string;readonly updatedAt:string;
 }
 export interface FoodOrderQuote {readonly merchantBusinessId:string;readonly vertical:'food'|'grocery'|'pharmacy';readonly currency:'SYP'|'USD';readonly subtotal:number;readonly discountAmount:number;readonly discountedSubtotal:number;readonly promotion?:{readonly code:string;readonly nameAr:string}}
+export interface RestaurantDeliveryQuote {readonly merchantBusinessId:string;readonly currency:'SYP'|'USD';readonly subtotal:number;readonly deliveryFee:number;readonly distanceMeters:number;readonly etaMinutes:number;readonly routeReference:{readonly source:string;readonly id:string;readonly expiresAt:number}}
 export interface FoodPromotion {readonly id:string;readonly code:string;readonly nameAr:string;readonly merchantBusinessId:string;readonly createdByUserId:string;readonly discountType:'percentage'|'fixed';readonly percentageOff?:number;readonly fixedAmount?:number;readonly currency:'SYP'|'USD';readonly minimumSubtotal:number;readonly maximumDiscount?:number;readonly active:boolean;readonly validFrom:string;readonly validUntil:string;readonly maxRedemptions?:number;readonly perUserLimit:number;readonly createdAt:string;readonly updatedAt:string}
 type ProductFilters={readonly q?:string;readonly categoryCode?:string;readonly cityCode?:string;readonly businessProfileId?:string};
 type Tracking={readonly status:FulfillmentOrderStatus;readonly location?:{readonly latitude:number;readonly longitude:number;readonly accuracyMeters?:number;readonly recordedAt:string}};
@@ -38,6 +39,7 @@ export const api={
   products,
   orders:{
     quote(data:{items:Array<{productListingId:string;quantity:number}>;promoCode?:string}){return request<{quote:FoodOrderQuote}>('/orders/quote',{method:'POST',body:JSON.stringify(data)});},
+    deliveryQuote(data:{items:Array<{productListingId:string;quantity:number}>;deliveryLatitude:number;deliveryLongitude:number}){return request<{quote:RestaurantDeliveryQuote}>('/orders/delivery-quote',{method:'POST',body:JSON.stringify(data)});},
     create(data:{items:Array<{productListingId:string;quantity:number}>;deliveryAddress:string;customerPhone:string;customerNote?:string;prescriptionAttested:boolean;deliveryLatitude?:number;deliveryLongitude?:number;promoCode?:string;expectedSubtotal?:number;expectedDiscountAmount?:number},idempotencyKey:string){return request<{order:FulfillmentOrder}>('/orders',{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify(data)});},
     mine(){return request<{orders:FulfillmentOrder[]}>('/orders/mine');},
     merchant(businessId:string){return request<{orders:FulfillmentOrder[]}>(`/orders/merchant?businessId=${encodeURIComponent(businessId)}`);},
