@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## PR314 merged; dedicated read-only WIF gate passed; writer quiescence still unproved — 2026-10-25 UTC
+
+**Protected main:** `4176b523ad1c44bfdd77612b6d41dff309909311`, merge of PR #314 (`Add manual read-only Preview V2 GitHub release gate`). The PR branch was updated onto current main, all required PR checks passed, the remaining review thread was resolved, and the merge completed normally.
+
+**Dedicated GitHub read-only identity is provisioned:** Workload Identity Pool `khedmah-pr314-ro`, provider `github-main-pr314`, service account `khedmah-pr314-ro@khedmah-preview-v2-20261012.iam.gserviceaccount.com`, and project custom role `previewV2ReadonlyRun` containing only `run.services.get` and `run.revisions.list`. GitHub environment `preview` has the dedicated provider/service-account variables. Historical PR274 deployer federation was not reused.
+
+**Manual read-only gate succeeded:** workflow run `40138215986` on protected `main` completed successfully. Its bounded report verified the fixed Preview project/service namespace, service metadata and revision inventory, with `traffic_percent_total=100`, `tagged_traffic_entries=0`, and `cloud_mutation_performed=false`. The workflow deliberately reports `writer_quiescence_verified=false`, `database_checked=false`, and `release_authorized=false`; it is not a release approval.
+
+**Fresh Cloud Monitoring diagnostic still does not close quiescence:** owner read returned `series_count=0`, `point_count=0`, `latest_point=None`, `latest_zero=None`, `INSTANCE_ZERO_PROVEN=False` for `run.googleapis.com/container/instance_count` on revision `khedmah-pr-274-backend-00008-tg8` since the documented manual-zero boundary. Missing telemetry remains non-proof. Preserve manual scaling zero; do not replay the mutating fence merely to obtain a zero receipt.
+
+**Release boundary unchanged:** migrations 036/037, candidate deployment, traffic restoration, Floot approval activation, Floot publication and Production mutation remain blocked until writer-quiescence evidence is closed under the reviewed contract. Preserve candidate build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and immutable image `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; do not rebuild.
+
 ## Fresh owner live read after PR315 — Preview service is manual-zero, quiescence still unproved — 2026-10-24 UTC
 
 **Owner read-only receipt at 2026-10-24T20:40:32.620531+00:00:** the pinned successor inspector completed with stage `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED`. All seven authority checks remain `CAN_ACCESS`; the exact service remains `khedmah-pr-274-backend`, latest/serving revision `khedmah-pr-274-backend-00008-tg8`, 100% untagged traffic, runtime identity matches, and the saved candidate image is still not in the service template.
