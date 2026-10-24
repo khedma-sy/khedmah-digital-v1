@@ -12,7 +12,7 @@ export type DeliveryPhase = 'not_requested' | 'requested' | 'assigned' | 'at_pic
 export interface Actor { id: string; role: Role }
 export interface Address { area: string; detail: string; latitude?: number; longitude?: number }
 export interface Item { id: string; merchantId: string; title: string; priceMinor: number; available: boolean; version: number }
-export interface Provider { id: string; role: Role; merchantId?: string; verified: boolean; active: boolean; zone: string; kinds: Kind[] }
+export interface Provider { id: string; role: Role; merchantId?: string; verified: boolean; active: boolean; zone: string; kinds: Kind[]; vehicleClass?: TaxiVehicleClassCode }
 export interface Policy {
   id: string; currency: string; zone: string; maxParcelKg: number; quoteTtlMs: number;
   foodDeliveryMinor: number; parcelBaseMinor: number; parcelPerKmMinor: number;
@@ -158,6 +158,8 @@ export class JourneyService {
     const provider = this.ports.providers().find(p => p.id === actor.id && p.role === role);
     requireThat(provider?.verified && provider.active && provider.zone === order.quote.request.zone
       && provider.kinds.includes(order.kind), 'PROVIDER_NOT_ELIGIBLE', 'مقدم الخدمة غير معتمد أو غير متاح لهذا النطاق.', 403);
+    if (order.kind === 'taxi') requireThat(provider.vehicleClass === (order.quote.request.vehicleClass ?? 'economy'),
+      'VEHICLE_CLASS_MISMATCH', 'فئة المركبة المعتمدة لا تطابق الفئة المطلوبة للرحلة.', 403);
     return provider;
   }
   private merchant(actor: Actor, order: Order): void {
@@ -435,7 +437,7 @@ export class JourneyService {
     this.actor(actor); return this.ports.store.transaction(state => Object.values(state.orders).filter(o => this.visible(actor, o)));
   }
   /** Public job offers intentionally omit names, exact addresses and customer IDs. */
-  async offers(actor: Actor): Promise<{ id: string; kind: Kind; pickupArea: string; dropoffArea?: string; version: number }[]> {
+  async offers(actor: Actor): Promise<{ id: string; kind: Kind; pickupArea: string; dropoffArea?: string; version: number; vehicleClass?: TaxiVehicleClassCode }[]> {
     this.actor(actor);
     return this.ports.store.transaction(state => Object.values(state.orders).filter(o => {
       if (o.delivery.state !== 'requested' || terminal(o) || o.method === 'pickup') return false;
