@@ -1,5 +1,14 @@
 # Next Safe Action — Khedmah
 
+## Hold Preview at manual-zero; close quiescence evidence gap without replaying scaling — 2026-10-24 UTC
+
+1. Preserve current Preview service scaling at manual zero. Do **not** rerun `--execute-fence`, restore traffic, deploy the candidate, or apply 036/037 merely to obtain a cleaner receipt.
+2. Treat the fresh owner read as authoritative for current service state: authority all granted, one untagged serving revision, manual scaling zero, quiet DB identity counts, saved candidate not deployed.
+3. `writer_quiescence_verified` remains false because Cloud Monitoring returned no `container/instance_count` time series rather than an explicit zero point. Missing telemetry must not be converted into proof.
+4. Continue only with source-only work or a separately reviewed read-only evidence path. Any new Cloud IAM/WIF reader setup, traffic/scaling change, migration, candidate deployment, Floot activation or Production mutation requires its own explicit approval.
+5. PR #314 remains draft/hold until its dedicated read-only WIF/service-account path is actually provisioned and independently verified; never reuse the historical PR274 deployer federation.
+6. Preserve build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; do not rebuild.
+
 ## Immediate gate after PR315 parser repair — 2026-10-24 UTC
 
 1. Verify protected-main `Node.js CI` and `Khedmah - Test & Verify` for exact merge SHA `0b412c5d888b929e28e222ced8db4facf0adf24f` complete successfully. PR315's exact-head checks were green; those are independent of post-merge checks.

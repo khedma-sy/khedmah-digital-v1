@@ -1,5 +1,15 @@
 # Khedmah Digital — Current State
 
+## Fresh owner live read after PR315 — Preview service is manual-zero, quiescence still unproved — 2026-10-24 UTC
+
+**Owner read-only receipt at 2026-10-24T20:40:32.620531+00:00:** the pinned successor inspector completed with stage `PREVIEW_V2_APPROVAL_SUCCESSOR_GATES_READ_COMPLETED`. All seven authority checks remain `CAN_ACCESS`; the exact service remains `khedmah-pr-274-backend`, latest/serving revision `khedmah-pr-274-backend-00008-tg8`, 100% untagged traffic, runtime identity matches, and the saved candidate image is still not in the service template.
+
+**Cloud Run is currently disabled by manual scaling zero:** `service_state.service_scaling={manualInstanceCount:0, scalingMode:"MANUAL"}`. This confirms the approved fence attempt changed Preview service scaling, even though its first operator run stopped on response-shape parsing. Do **not** replay the scaling mutation merely to obtain a cleaner receipt.
+
+**Database snapshot is quiet but not sufficient alone:** `runtime_sessions_total=0`, `migrator_sessions_other=0`, `other_sessions_by_identity=0`, transaction read-only is on. The migrator still lacks `pg_read_all_stats`, so detailed active/idle state is unavailable. The inspector correctly leaves `writer_quiescence_verified=false`.
+
+**Monitoring blocker remains explicit:** the subsequent read-only Cloud Monitoring query for `run.googleapis.com/container/instance_count` returned no time series for the serving revision, not an explicit post-disable zero point. Under the reviewed fence contract, missing series is not proof. Therefore migrations 036/037, candidate deployment, traffic restoration, Floot activation and Production release remain blocked.
+
 ## Preview V2 writer-fence stop and source-only repair — 2026-10-24 UTC
 
 **Fresh GitHub evidence:** protected `main` advanced to merge commit `0b412c5d888b929e28e222ced8db4facf0adf24f` via PR #315. Its exact-head `33346d6c7be1be62faad45a433f97ff60868f57e` passed Node.js CI, Test & Verify and PR Preview, and Codex reported no findings; resulting-main push checks must be verified separately before further action. PR #305 and its Taxi/Food follow-ups remain source-merged.
