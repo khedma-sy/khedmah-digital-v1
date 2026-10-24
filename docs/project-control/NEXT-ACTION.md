@@ -1,5 +1,14 @@
 # Next Safe Action — Khedmah
 
+## Immediate gate after PR315 parser repair — 2026-10-24 UTC
+
+1. Verify protected-main `Node.js CI` and `Khedmah - Test & Verify` for exact merge SHA `0b412c5d888b929e28e222ced8db4facf0adf24f` complete successfully. PR315's exact-head checks were green; those are independent of post-merge checks.
+2. Treat PR315's reported `SERVICE_NOT_MANUAL_ZERO` after an owner-approved writer-fence attempt as an **operational STOP**, not proof of failure to scale or success of quiescence. Its separate reported Cloud Run readback shows `manual`/`0` annotations, so the Preview backend **may already be disabled**. **Do not rerun** the fence's mutating mode, restore traffic, or deploy a candidate from GitHub evidence alone. First require a fresh owner-authorized **read-only** Cloud Run service/revisions/tags/scaling inspection and the documented Cloud Monitoring/database evidence. Report actual state before choosing any mutation.
+3. `writer_quiescence_verified` remains **false** until explicit Cloud Monitoring zero-instance evidence and authoritative DB writer checks satisfy the reviewed fence contract. PR315 changes only parser acceptance of an exact `manualInstanceCount=0` response; it does not close those gates.
+4. PR314 is still draft pending the independent read-only WIF/service-account setup, effective least-privilege readback, and outstanding review thread. Owner approved **only** this bounded reader setup; do not reuse the PR274 provider, grant broad IAM or merge/dispatch prematurely.
+5. Preserve build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and immutable backend digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`. No rebuild, schema 036/037, Preview traffic/scaling, cloud IAM beyond separately approved reader setup, Floot publication, production mutation or release until independent gates and explicit approvals are satisfied.
+
+
 ## Finish source-only Taxi/Food gates, then require fresh live read — 2026-10-24 UTC
 
 1. PRs #311 and #313 are merged to protected main; current main is `31e703d083c1d8451a58cd95203ae33bfd43dac4`. Verify *resulting-main* Node.js CI and Test & Verify for this exact SHA have completed successfully; do not infer push-gate success from the successful pull-request checks.
