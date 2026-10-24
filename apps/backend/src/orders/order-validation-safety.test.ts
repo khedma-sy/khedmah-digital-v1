@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateCreateOrder, validateOrderAction } from './order.validation';
+import { validateCreateOrder, validateOrderAction, validateRestaurantDeliveryQuote } from './order.validation';
 import { OrderService } from './order.service';
 
 const payload={items:[{productListingId:'p1',quantity:1}],deliveryAddress:'دمشق المزة',customerPhone:'0999999999'};
@@ -20,4 +20,22 @@ test('eligible courier discovery is restricted to the merchant owner and the mer
   await assert.rejects(make('stranger').eligibleCouriers('fixture','merchant'),/Access denied/);assert.equal(calls.length,0);
   await make('owner').eligibleCouriers('fixture','merchant','2');assert.deepEqual(calls,[['damascus',2]]);
   await assert.rejects(make('owner').eligibleCouriers('fixture','merchant','-1'),/page is invalid/);
+});
+
+
+test('restaurant delivery quote requires actual numeric coordinates before the server-side route lookup', () => {
+  const valid = { items: payload.items, deliveryLatitude: 33.5, deliveryLongitude: 36.3 };
+  assert.deepEqual(validateRestaurantDeliveryQuote(valid), valid);
+  assert.equal(validateRestaurantDeliveryQuote({ ...valid, deliveryLatitude: 0, deliveryLongitude: 0 }).deliveryLatitude, 0);
+  for (const field of ['deliveryLatitude', 'deliveryLongitude']) {
+    for (const invalid of [null, false, true, '', '0', '33.5', [], [33.5], {}, undefined, Infinity, -Infinity, NaN]) {
+      assert.throws(
+        () => validateRestaurantDeliveryQuote({ ...valid, [field]: invalid }),
+        /delivery coordinates are invalid/,
+        `Expected ${field}=${String(invalid)} to be rejected`,
+      );
+    }
+  }
+  assert.throws(() => validateRestaurantDeliveryQuote({ ...valid, deliveryLatitude: 91 }), /delivery coordinates are invalid/);
+  assert.throws(() => validateRestaurantDeliveryQuote({ ...valid, deliveryLongitude: -181 }), /delivery coordinates are invalid/);
 });
