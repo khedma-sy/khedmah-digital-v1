@@ -26,3 +26,25 @@ test('restaurant delivery pricing fails closed for missing, malformed, or invert
     }),
   }), /bounds/);
 });
+
+test('restaurant delivery pricing refuses null, booleans, strings and unsafe numeric configuration', () => {
+  const valid = {
+    baseFeeMinor: 50000,
+    perKmMinor: 10000,
+    minimumFeeMinor: 50000,
+    maximumFeeMinor: 250000,
+    pickupBufferMinutes: 10,
+  };
+  for (const field of Object.keys(valid)) {
+    for (const invalid of [null, false, true, '0', '250', [], {}, -1, 1.25, Number.MAX_SAFE_INTEGER + 1]) {
+      const env = {
+        RESTAURANT_DELIVERY_PRICING_JSON: JSON.stringify({ SYP: { ...valid, [field]: invalid } }),
+      };
+      assert.throws(
+        () => restaurantDeliveryPricingFromEnvironment('SYP', env),
+        new RegExp(field),
+        `Expected ${field}=${JSON.stringify(invalid)} to fail closed`,
+      );
+    }
+  }
+});

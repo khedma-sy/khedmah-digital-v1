@@ -3,9 +3,11 @@ import type { RestaurantDeliveryPricing } from './restaurant-delivery-quote';
 export type RestaurantDeliveryCurrency = 'SYP' | 'USD';
 
 function safeInteger(value: unknown, field: string): number {
-  const number = Number(value);
-  if (!Number.isSafeInteger(number) || number < 0) throw new Error(`${field} is invalid.`);
-  return number;
+  // Pricing is trusted configuration, not coercible user input: null/false/"" must not become zero.
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${field} is invalid.`);
+  }
+  return value;
 }
 
 export function restaurantDeliveryPricingFromEnvironment(
