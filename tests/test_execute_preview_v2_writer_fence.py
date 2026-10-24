@@ -66,6 +66,19 @@ class WriterFenceOperatorTests(unittest.TestCase):
         self.assertIn("--scaling=0", args)
         self.assertNotIn("update-traffic", args)
 
+    def test_disable_accepts_gcloud_annotation_shape(self):
+        response = '{"metadata":{"annotations":{"run.googleapis.com/scalingMode":"manual","run.googleapis.com/manualInstanceCount":"0"}},"status":{"traffic":[{"revisionName":"khedmah-pr-274-backend-00008-tg8","percent":100}]}}'
+        completed = subprocess.CompletedProcess([], 0, response, "")
+        with patch.object(m, "run", return_value=completed):
+            m.disable_service()
+
+    def test_disable_rejects_missing_manual_zero_evidence(self):
+        response = '{"metadata":{"annotations":{}},"status":{"traffic":[]}}'
+        completed = subprocess.CompletedProcess([], 0, response, "")
+        with patch.object(m, "run", return_value=completed):
+            with self.assertRaisesRegex(SystemExit, "SERVICE_NOT_MANUAL_ZERO"):
+                m.disable_service()
+
     def test_wait_requires_explicit_zero_metric_point(self):
         when = datetime.datetime.now(datetime.timezone.utc)
         with patch.object(m, "monitoring_instance_count", side_effect=[
