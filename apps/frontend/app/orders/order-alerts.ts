@@ -35,6 +35,12 @@ export async function requestOrderNotifications() {
 }
 
 export function showOrderNotification(title: string, body: string, tag: string) {
-  if ("Notification" in window && Notification.permission === "granted")
-    new Notification(title, { body, tag });
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification(title, { body, tag });
+    } catch {
+      // iOS and some installed browsers forbid the Notification constructor.
+      // In-page order refresh and ringing must continue even when native notifications fail.
+    }
+  }
 }
