@@ -1,15 +1,14 @@
 # Next Safe Action — Khedmah
 
-## Re-read merged main before any live writer-fence execution — 2026-10-24 UTC
+## Finish source-only Taxi/Food gates, then require fresh live read — 2026-10-24 UTC
 
-1. Protected main now includes merged PR #304 and PR #305. Current main is `a7d54453b2af198c15541225faf1457388bb2009`.
-2. Let resulting-main Node.js CI and Test & Verify for that exact main complete successfully before treating the merged source as closed.
-3. Re-read the live Preview V2 successor state after the main checks. Verify authority, one untagged serving revision, current traffic/scaling, runtime identity and DB session snapshot again; do not rely on the earlier receipt after source changes.
-4. **Do not execute the writer fence automatically.** A live fence is a Preview Cloud Run scaling mutation and requires explicit owner approval for that exact operation after the fresh readback.
-5. If approved later, require the exact confirmation `KHEDMAH_PREVIEW_WRITER_FENCE_CONFIRM=PREVIEW_V2_WRITER_FENCE_20261024` and accept success only if manual scaling zero, zero tags, explicit post-disable Cloud Monitoring instance count zero, and fresh DB runtime/migrator/unexpected session counts all zero produce `writer_quiescence_verified=true`.
-6. Even a successful writer fence does **not** authorize migrations 036/037, candidate deployment, traffic restoration, Floot activation or Production mutation. Those remain separate reviewed operations.
-7. Preserve candidate build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and image digest `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`; never rebuild merely to continue the gate.
-8. For Taxi/Food, treat merged PR #305 as source foundation only. Do not claim live Routing/Push/Taxi activation until their external/runtime gates are configured and tested.
+1. Re-read PR #311 on its exact synchronized head and require completed, successful Node.js CI, Test & Verify, PR Preview, branch-protection checks and no unresolved valid review findings before merging.
+2. After any PR #311 merge, verify resulting protected-main Node.js CI and Test & Verify. Refresh both project-control documents with the final main SHA, and merge the documentation branch only after exact-head checks are green.
+3. Once the source branch/CI gates are closed, the next live step is a **read-only** successor inspection in the owner's authorized Cloud Shell: reread exact Preview V2 Cloud Run service/revisions, traffic/tags/scaling, IAM decisions and database-session snapshot using the already reviewed pinned inspector. Earlier Cloud receipts are not proof of the current state.
+4. **STOP before the Preview writer fence:** it mutates Cloud Run manual scaling. Do not attempt without a fresh receipt, confirmed zero tags, reviewed maintenance scope and explicit owner approval for that exact operation. A zero-session snapshot alone does not prove quiescence; `writer_quiescence_verified` must remain false absent the full proved fence.
+5. Even owner-approved writer-fence execution does not automatically authorize 036/037, saved candidate deployment, traffic restoration, Firebase Messaging/service-worker activation, live Google Routes billing credentials, delivery-pricing config, Taxi flags, Floot or Production. Each remains an independent gate.
+6. Restaurant delivery quote is an **estimate**; binding a server-authoritative quote into order creation/final merchant settlement requires its own reviewed contract. Closed-app restaurant Push requires durable token authority and an approved service-worker runtime.
+7. Preserve build `8b1b7aee-67f3-4721-ae76-f4bb60b4dc5e` and immutable backend image `sha256:2146d382d426568a510b6e76ff06129934e84beb86bc81c348454fe3e29e260e`. Do not rebuild or redeploy on continuation alone.
 
 
 ## Retry successor read with exact short Revision.service support — 2026-10-24 UTC
