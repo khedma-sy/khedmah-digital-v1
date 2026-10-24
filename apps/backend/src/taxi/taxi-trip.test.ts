@@ -225,8 +225,8 @@ test('Taxi trip uses one native authority transaction and independently issued r
     await t.test('vehicle class filters offers and rejects mismatched driver acceptance',async()=>{
       const q=await quote('rider',{...coordinates,vehicleClass:'comfort'});
       const o=await service.place(sessions.rider,{quoteId:q.id,requestId:randomUUID()});
-      const economyOffers=await service.offers(sessions.driver);assert.equal(economyOffers.some(x=>x.id===o.id),false);
-      const comfortOffers=await service.offers(sessions.second);assert.equal(comfortOffers.some(x=>x.id===o.id),true);
+      const economyOffers=await service.offers(sessions.driver);assert.equal(economyOffers.offers.some(x=>x.id===o.id),false);
+      const comfortOffers=await service.offers(sessions.second);assert.equal(comfortOffers.offers.some(x=>x.id===o.id),true);
       await rejects(command(o,'accept_job','driver'),403);
       const accepted=await command(o,'accept_job','second');assert.equal(accepted.taxiAssignment?.vehicleId,'vehicle-second');
       await command(accepted,'cancel','rider');
