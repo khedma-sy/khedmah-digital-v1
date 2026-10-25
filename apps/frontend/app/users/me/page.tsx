@@ -38,7 +38,7 @@ export default function ProfilePage() {
   if (!user) return <PageShell label="حسابي"><PageHeader title="تعذر تحميل الحساب" description="لم نتمكن من التحقق من حسابك بسبب مشكلة مؤقتة، ولم نعتبر الجلسة منتهية." /><StatusMessage tone="danger">{error || 'تعذر تحميل الحساب.'}</StatusMessage><ActionButton type="button" variant="secondary" onClick={() => setRetryCount((value) => value + 1)}>إعادة المحاولة</ActionButton></PageShell>;
 
   return <PageShell label="حسابي">
-    <PageHeader title="حسابي" description="بيانات الحساب المرتبطة بجلسة تسجيل الدخول الحالية." actions={<ActionLink href="/business-profiles/new">إضافة نشاط</ActionLink>} />
+    <PageHeader title="حسابي" description="بيانات الحساب المرتبطة بجلسة تسجيل الدخول الحالية." actions={<ActionLink href="/professional-profiles">ملفي المهني</ActionLink>} />
     <div className="ui-account-grid">
       <Surface className="ui-account-profile">
         <span className="ui-account-avatar" aria-hidden="true">{user.profile.displayName.trim().slice(0, 1) || 'خ'}</span>
@@ -47,8 +47,8 @@ export default function ProfilePage() {
       </Surface>
       <Surface className="ui-account-links">
         <h2>إدارة حضورك في خدمة</h2>
-        <p>حدّث أنشطتك وخدماتك من مساحة أعمال واحدة مرتبطة بحسابك.</p>
-        <div className="ui-page-actions"><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink><ActionLink href="/billing" variant="secondary">الباقات والخصم والسداد</ActionLink><ActionLink href="/delete-account" variant="secondary">حذف الحساب والبيانات</ActionLink></div>
+        <p>أدر ملفك المهني وخدماتك وإعلاناتك ومنتجاتك ومسارات التنقل من حساب واحد.</p>
+        <div className="ui-page-actions"><ActionLink href="/professional-profiles">ملفي المهني</ActionLink><ActionLink href="/professional-profiles/new" variant="secondary">إنشاء أو تعديل الملف المهني</ActionLink><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink><ActionLink href="/billing" variant="secondary">الباقات والخصم والسداد</ActionLink><ActionLink href="/delete-account" variant="secondary">حذف الحساب والبيانات</ActionLink></div>
       </Surface>
     </div>
   </PageShell>;
