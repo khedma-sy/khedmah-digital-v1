@@ -1,3 +1,5 @@
+# Khedmah Digital — Current State
+
 ## Current professional-service checkpoint — PR #321 merged; post-merge CI green — 2026-10-26 UTC
 
 **Live main checkpoint:** `bb67e3c2fe096bd3a0b0537884276790bba33026` (merge of PR #321 at 2026-10-25T12:41:48Z). This section supersedes older historical entries below when identifying the current source state.
@@ -15,8 +17,6 @@
 ---
 
 ## Historical checkpoints (retained for audit; not the current main pointer)
-
-# Khedmah Digital — Current State
 
 ## PR318 merged; Floot Preview health wired internally; publication still blocked — 2026-10-25 UTC
 
