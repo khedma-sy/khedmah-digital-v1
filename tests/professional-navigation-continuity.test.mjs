@@ -53,7 +53,7 @@ test('courier registration preserves its category through both expired-session p
   const end = source.indexOf('\n\nexport default function', start);
   assert.ok(start >= 0 && end > start, 'the bounded courier login helper must exist');
   const helper = new Script(source.slice(start, end) + '\n signupLoginHref()');
-  const loginHrefFor = (search) => helper.runInContext(createContext({ window: { location: { search } } }));
+  const loginHrefFor = (search) => helper.runInContext(createContext({ window: { location: { search } }, URLSearchParams }));
   assert.equal(loginHrefFor('?categoryCode=delivery_courier'), '/auth/login?next=%2Fbusiness-profiles%2Fnew%3FcategoryCode%3Ddelivery_courier');
   assert.equal(loginHrefFor('?categoryCode=restaurant'), '/auth/login?next=%2Fbusiness-profiles%2Fnew');
   assert.equal((source.match(/router\.replace\(signupLoginHref\(\)\)/g) ?? []).length, 2,
