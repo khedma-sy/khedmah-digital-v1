@@ -26,3 +26,16 @@ test('account hub exposes professional ownership actions alongside the wider pla
   assert.match(source, /href="\/professional-profiles\/new"[^>]*>إنشاء أو تعديل الملف المهني/);
   assert.match(source, /أدر ملفك المهني وخدماتك وإعلاناتك ومنتجاتك ومسارات التنقل/);
 });
+
+
+test('restaurant cart rejects malformed quantity changes and does not publish an unpersisted UI state', async () => {
+  const [cart, page] = await Promise.all([
+    read('apps/frontend/lib/restaurant-cart.ts'),
+    read('apps/frontend/app/restaurants/[businessId]/page.tsx')
+  ]);
+  assert.match(cart, /item\.productId\.trim\(\)\.length > 0/);
+  assert.match(cart, /!normalizedProductId \|\| !Number\.isInteger\(change\) \|\| change === 0/);
+  assert.match(page, /writeRestaurantCart\(next\);\s*setCart\(next\)/s);
+  assert.match(page, /تعذر حفظ السلة على هذا الجهاز/);
+  assert.doesNotMatch(page, /setCart\(next\);\s*writeRestaurantCart\(next\)/s);
+});
