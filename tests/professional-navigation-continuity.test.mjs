@@ -39,3 +39,9 @@ test('restaurant cart rejects malformed quantity changes and does not publish an
   assert.match(page, /تعذر حفظ السلة على هذا الجهاز/);
   assert.doesNotMatch(page, /setCart\(next\);\s*writeRestaurantCart\(next\)/s);
 });
+
+
+test('courier empty state keeps the user on the governed delivery-courier signup path', async () => {
+  const source = await read('apps/frontend/app/orders/courier/page.tsx');
+  assert.match(source, /href="\/business-profiles\/new\?categoryCode=delivery_courier">تسجيل مندوب/);
+});
