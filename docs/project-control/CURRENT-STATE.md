@@ -1,5 +1,23 @@
 # Khedmah Digital — Current State
 
+## Current professional-service checkpoint — PR #321 merged; post-merge CI green — 2026-10-26 UTC
+
+**Live main checkpoint:** `bb67e3c2fe096bd3a0b0537884276790bba33026` (merge of PR #321 at 2026-10-25T12:41:48Z). This section supersedes older historical entries below when identifying the current source state.
+
+**Scope for this workstream:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/order journeys, taxi/courier journeys, account, and related administration only. The separate Khedmah Business/Floot workstream is excluded.
+
+**PR #321 status:** merged and closed. Its exact head was `20dc12c79cbc8b91aa91d85524de2808b97cba74`. Confirmed PR-head runs: Node.js CI `40185555806` — success; Khedmah - Test & Verify `40185555841` — success; PR Preview `40185555803` — success. A later PR Preview attempt `40194257588` was skipped, not failed.
+
+**Post-merge checks on exact main merge SHA:** Node.js CI `40194257338` — success; Khedmah - Test & Verify `40194257340` — success. No post-merge Preview deployment or runtime verification is confirmed by these results. Do not infer Preview/Production behavior from source CI.
+
+**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
+
+**Next work:** continue the bounded code audit of the remaining professional-service journeys and related admin permissions. If a concrete safe defect is found, fix on a branch, add regression coverage, and verify exact-head checks before proposing any merge.
+
+---
+
+## Historical checkpoints (retained for audit; not the current main pointer)
+
 ## PR318 merged; Floot Preview health wired internally; publication still blocked — 2026-10-25 UTC
 
 **Protected main advanced:** PR #318 merged successfully to `2f5d5775a7b5ed9fb40a1c66f8aad029de55e504`. Its exact head had successful Node.js CI, PR Preview, and Khedmah - Test & Verify runs before merge.

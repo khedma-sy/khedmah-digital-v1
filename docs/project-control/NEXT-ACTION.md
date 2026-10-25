@@ -1,5 +1,18 @@
 # Next Safe Action — Khedmah
 
+## Immediate next action — continue repository-only professional-route audit — 2026-10-26 UTC
+
+1. Use protected `main=bb67e3c2fe096bd3a0b0537884276790bba33026` as the current source checkpoint after PR #321.
+2. PR #321 is merged. Its PR-head Node.js CI, Khedmah - Test & Verify, and PR Preview quality-gates run succeeded. On the exact merge SHA, post-merge Node.js CI (`40194257338`) and Khedmah - Test & Verify (`40194257340`) succeeded.
+3. Do not describe the site as live-verified: no post-merge Preview deployment/runtime proof is established by those runs.
+4. Continue code-only audit for professionals, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and relevant admin permissions. Exclude the separate Khedmah Business/Floot track.
+5. If a concrete safe defect is found, add a narrow regression test and submit a branch/PR; verify the exact head before any merge decision.
+6. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve the separate release-gate instructions and evidence below; do not replay any mutating fence.
+
+---
+
+## Historical next-action checkpoints (retained for audit; the section below records earlier release-gate work)
+
 ## Execute next — close writer-quiescence evidence; keep Floot unpublished — 2026-10-25 UTC
 
 1. Treat protected `main=2f5d5775a7b5ed9fb40a1c66f8aad029de55e504` as the current source checkpoint after merged PR #318.
