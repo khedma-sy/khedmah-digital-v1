@@ -18,3 +18,11 @@ test('nearby discovery truthfully bridges to city-based professional search inst
   assert.match(source, /categoryCode:\s*''/);
   assert.match(source, /ابحث عن مهنيين في المدينة/);
 });
+
+
+test('account hub exposes professional ownership actions alongside the wider platform journeys', async () => {
+  const source = await read('apps/frontend/app/users/me/page.tsx');
+  assert.match(source, /href="\/professional-profiles">ملفي المهني/);
+  assert.match(source, /href="\/professional-profiles\/new"[^>]*>إنشاء أو تعديل الملف المهني/);
+  assert.match(source, /أدر ملفك المهني وخدماتك وإعلاناتك ومنتجاتك ومسارات التنقل/);
+});
