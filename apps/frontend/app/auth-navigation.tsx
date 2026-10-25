@@ -104,6 +104,7 @@ export function AuthNavigation() {
   }
 
   return <div className="nav-session" data-auth-state="authenticated">
+    <Link href="/professional-profiles">ملفي المهني</Link>
     <Link href="/business-profiles">أعمالي</Link>
     <Link href="/users/me" className="nav-cta nav-user" aria-label="الملف الشخصي">{user.profile.displayName}</Link>
     <button className="nav-logout" type="button" onClick={logout} disabled={isLoggingOut} aria-busy={isLoggingOut}><PlatformIcon name="logout" size={17}/>{isLoggingOut ? 'جاري الخروج...' : 'تسجيل الخروج'}</button>
