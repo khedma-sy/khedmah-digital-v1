@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { createContext, Script } from 'node:vm';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -44,4 +45,21 @@ test('restaurant cart rejects malformed quantity changes and does not publish an
 test('courier empty state keeps the user on the governed delivery-courier signup path', async () => {
   const source = await read('apps/frontend/app/orders/courier/page.tsx');
   assert.match(source, /href="\/business-profiles\/new\?categoryCode=delivery_courier">تسجيل مندوب/);
+});
+
+test('courier registration preserves its category through both expired-session paths and taxonomy retries', async () => {
+  const source = await read('apps/frontend/app/business-profiles/new/page.tsx');
+  const start = source.indexOf('const deliveryEntry = ');
+  const end = source.indexOf('\n\nexport default function', start);
+  assert.ok(start >= 0 && end > start, 'the bounded courier login helper must exist');
+  const helper = new Script(source.slice(start, end) + '\n signupLoginHref()');
+  const loginHrefFor = (search) => helper.runInContext(createContext({ window: { location: { search } } }));
+  assert.equal(loginHrefFor('?categoryCode=delivery_courier'), '/auth/login?next=%2Fbusiness-profiles%2Fnew%3FcategoryCode%3Ddelivery_courier');
+  assert.equal(loginHrefFor('?categoryCode=restaurant'), '/auth/login?next=%2Fbusiness-profiles%2Fnew');
+  assert.equal((source.match(/router\.replace\(signupLoginHref\(\)\)/g) ?? []).length, 2,
+    'both initial session verification and the submit-time expired session must preserve the courier entry');
+  assert.match(source, /if \(categoriesLoading \|\| categoriesError \|\| categoryPrefilled\.current\) return;/);
+  assert.match(source, /if \(!categories\.some\(category => category\.code === requested\)\) return;/);
+  assert.match(source, /\}, \[categories, categoriesLoading, categoriesError\]\);/,
+    'a successful retry must be able to preselect delivery_courier after a taxonomy error');
 });
