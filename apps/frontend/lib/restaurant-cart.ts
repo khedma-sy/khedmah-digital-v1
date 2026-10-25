@@ -27,6 +27,7 @@ export function readRestaurantCart(businessProfileId: string): RestaurantCart {
         (item): item is RestaurantCartItem =>
           Boolean(item) &&
           typeof item.productId === "string" &&
+          item.productId.trim().length > 0 &&
           Number.isInteger(item.quantity) &&
           item.quantity > 0 &&
           item.quantity <= 50,
@@ -56,11 +57,13 @@ export function changeRestaurantCartItem(
   productId: string,
   change: number,
 ): RestaurantCart {
+  const normalizedProductId = productId.trim();
+  if (!normalizedProductId || !Number.isInteger(change) || change === 0) return cart;
   const current =
-    cart.items.find((item) => item.productId === productId)?.quantity ?? 0;
+    cart.items.find((item) => item.productId === normalizedProductId)?.quantity ?? 0;
   const quantity = Math.max(0, Math.min(50, current + change));
-  const other = cart.items.filter((item) => item.productId !== productId);
-  const items = quantity ? [...other, { productId, quantity }] : other;
+  const other = cart.items.filter((item) => item.productId !== normalizedProductId);
+  const items = quantity ? [...other, { productId: normalizedProductId, quantity }] : other;
   if (items.length > 20) return cart;
   return { ...cart, items };
 }
