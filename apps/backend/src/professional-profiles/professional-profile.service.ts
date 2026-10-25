@@ -140,6 +140,22 @@ export class ProfessionalProfileService {
       return undefined;
     }
 
+    // Public visitors may only learn that a verification was approved. Pending and
+    // rejected states are owner/admin workflow data and must not leak through a
+    // public professional profile.
+    if (request.status !== 'approved') {
+      const token = readSessionToken(cookieHeader);
+      if (!token) return undefined;
+      try {
+        const actor = await this.identity.getCurrentUser(token);
+        const profile = await this.requireProfile(profileId);
+        if (actor.id !== profile.userId) return undefined;
+      } catch (cause) {
+        if (cause instanceof UnauthorizedException) return undefined;
+        throw cause;
+      }
+    }
+
     return {
       status: request.status,
       createdAt: request.createdAt,
