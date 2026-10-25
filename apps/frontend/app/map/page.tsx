@@ -449,6 +449,7 @@ function MapDiscovery() {
       <ActionButton variant="secondary" type="button" disabled={locating} onClick={locateUser}><PlatformIcon name="pin" size={17}/> استخدم موقعي الحالي</ActionButton>
       <p className={styles.meta}>الأنشطة المنشورة · {cityCode ? cityLabel(cityCode, cities) : 'كل المدن'} · {categoryCode ? categories.find((item) => item.code === categoryCode)?.nameAr ?? categoryCode : 'كل التصنيفات'}</p>
       <ActionLink variant="secondary" href={searchHref({ ...context, tab: 'business', page: 1 })}>تعديل عوامل البحث</ActionLink>
+      <ActionLink variant="secondary" href={searchHref({ q: context.q, cityCode: context.cityCode, categoryCode: '', tab: 'professional', page: 1 })}>ابحث عن مهنيين في المدينة</ActionLink>
       {(context.boundaries || context.invalidBounds || viewportError) && <ActionButton type="button" variant="secondary" onClick={() => { setViewportError(''); navigate({ ...context, boundaries: undefined, invalidBounds: false }); }}>مسح تحديد المنطقة</ActionButton>}
       {locationStatus && <StatusMessage>{locationStatus}</StatusMessage>}
       {mapStatus === 'error' && <StatusMessage tone="warning">{mapError}</StatusMessage>}

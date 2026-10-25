@@ -38,6 +38,7 @@ export default function RestaurantMenuPage() {
   const [cart, setCart] = useState<RestaurantCart>({ businessProfileId: businessId, items: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cartError, setCartError] = useState("");
 
   useEffect(() => setCart(readRestaurantCart(businessId)), [businessId]);
   useEffect(() => {
@@ -64,8 +65,14 @@ export default function RestaurantMenuPage() {
 
   function change(productId: string, amount: number) {
     const next = changeRestaurantCartItem(cart, productId, amount);
-    setCart(next);
-    writeRestaurantCart(next);
+    if (next === cart) return;
+    try {
+      writeRestaurantCart(next);
+      setCart(next);
+      setCartError("");
+    } catch {
+      setCartError("تعذر حفظ السلة على هذا الجهاز. لم نغيّر الكمية؛ تحقق من إعدادات التخزين ثم أعد المحاولة.");
+    }
   }
 
   if (loading) return <PageShell className={styles.page} label="قائمة الطعام"><SkeletonGrid count={6} /></PageShell>;
@@ -80,6 +87,7 @@ export default function RestaurantMenuPage() {
     <PageShell className={styles.page} label={restaurantName}>
       <PageHeader eyebrow="خدمة فود · قائمة المطعم" title={restaurantName} description="اختر وجباتك من مطعم واحد، راجع السلة، ثم أكد الطلب والدفع نقدًا عند التسليم." backHref="/restaurants" />
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {cartError && <StatusMessage tone="warning">{cartError}</StatusMessage>}
       <div className={styles.layout}>
         <section className={styles.menu} aria-label="أصناف قائمة الطعام">
           {!products.length ? (

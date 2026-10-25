@@ -140,6 +140,22 @@ export class ProfessionalProfileService {
       return undefined;
     }
 
+    // Public visitors may only learn that a verification was approved. Pending and
+    // rejected states are owner/admin workflow data and must not leak through a
+    // public professional profile.
+    if (request.status !== 'approved') {
+      const token = readSessionToken(cookieHeader);
+      if (!token) return undefined;
+      try {
+        const actor = await this.identity.getCurrentUser(token);
+        const profile = await this.requireProfile(profileId);
+        if (actor.id !== profile.userId) return undefined;
+      } catch (cause) {
+        if (cause instanceof UnauthorizedException) return undefined;
+        throw cause;
+      }
+    }
+
     return {
       status: request.status,
       createdAt: request.createdAt,
@@ -148,7 +164,19 @@ export class ProfessionalProfileService {
   }
 
   async getTrustHistory(profileId: string, cookieHeader?: string): Promise<TrustHistoryEntry[]> {
-    return this.readProfileResource(profileId, cookieHeader, () => this.repository.listTrustHistory(profileId));
+    // Trust history contains internal verification decisions and reviewer notes.
+    // Public profile eligibility must not make its owner/admin audit trail public.
+    const history = await this.readProfileResource(profileId, cookieHeader, () => this.repository.listTrustHistory(profileId));
+    const token = readSessionToken(cookieHeader);
+    if (!token) return [];
+    try {
+      const actor = await this.identity.getCurrentUser(token);
+      const profile = await this.requireProfile(profileId);
+      return actor.id === profile.userId ? history : [];
+    } catch (cause) {
+      if (cause instanceof UnauthorizedException) return [];
+      throw cause;
+    }
   }
 
   async listPendingModeration(cookieHeader: string | undefined): Promise<PublicProfessionalProfileModerationReview[]> {

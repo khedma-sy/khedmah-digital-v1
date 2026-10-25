@@ -248,7 +248,7 @@ export default function CourierOrders() {
           title="لا يوجد نشاط مندوب"
           description="سجّل نشاط مندوب توصيل وأكمل اعتماده أولاً."
           actions={
-            <ActionLink href="/business-profiles/new">تسجيل مندوب</ActionLink>
+            <ActionLink href="/business-profiles/new?categoryCode=delivery_courier">تسجيل مندوب</ActionLink>
           }
         />
       ) : (

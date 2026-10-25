@@ -10,7 +10,7 @@ function fixture() {
   let owner='owner';let actor='owner';let sessionError:Error|undefined;let reads=0;let visibility='private';let release:(()=>void)|undefined;
   const stored={status:'pending',requesterId:'internal',notes:'internal',createdAt:'2026-09-08',updatedAt:'2026-09-08'};
   const read=async()=>{reads++;if(release===undefined) return stored;await new Promise<void>(resolve=>{release=resolve;});return stored;};
-  const repository={findById:async()=>({id:'profile',userId:owner}),findContactEligibility:async()=>({visibility,moderationStatus:'approved',lifecycleStatus:'active'}),listMediaAssets:read,findVerificationRequest:read,listTrustHistory:read};
+  const repository={findById:async()=>({id:'profile',userId:owner}),findContactEligibility:async()=>({visibility,moderationStatus:'approved',lifecycleStatus:'active'}),listMediaAssets:read,findVerificationRequest:read,listTrustHistory:async()=>{await read();return [{id:'event-1',entityType:'professional',entityId:'profile',oldStatus:'verification:pending',newStatus:'verification:rejected',changedBy:'private-reviewer',reason:'private assessment',createdAt:'2026-09-08'}];}};
   const service=new ProfessionalProfileService(repository as any,{getCurrentUser:async()=>{if(sessionError)throw sessionError;return{id:actor};}} as any,{} as any);
   return{service,get reads(){return reads;},setActor(v:string){actor=v;},setOwner(v:string){owner=v;},setVisibility(v:string){visibility=v;},setSessionError(v:Error){sessionError=v;},pause(){release=()=>{};},resume(){release!();}};
 }
@@ -28,6 +28,20 @@ for(const [name,read] of resources) {
     const f=fixture();f.pause();const pending=read(f.service,'khedmah_session=valid');for(let i=0;i<8;i++)await Promise.resolve();assert.equal(f.reads,1);f.setOwner('other');f.resume();await assert.rejects(()=>pending,NotFoundException);
   });
 }
+test('published professional trust history protects private verification decisions from guests and other users',async()=>{
+  const f=fixture();
+  f.setVisibility('public');
+  assert.deepEqual(await f.service.getTrustHistory('profile'),[], 'public visitors must not read internal verification history');
+  f.setActor('other');
+  assert.deepEqual(await f.service.getTrustHistory('profile','khedmah_session=valid'),[], 'signed-in nonowners must not read private reviewer decisions');
+  f.setActor('owner');
+  const ownerHistory=await f.service.getTrustHistory('profile','khedmah_session=valid');
+  assert.equal(ownerHistory.length,1);
+  assert.equal(ownerHistory[0].newStatus,'verification:rejected');
+  assert.equal(ownerHistory[0].changedBy,'private-reviewer');
+  f.setSessionError(new UnauthorizedException());
+  assert.deepEqual(await f.service.getTrustHistory('profile','khedmah_session=invalid'),[], 'invalid sessions must not leak history');
+});
 test('private professional session errors fail closed without disguising infrastructure errors',async()=>{
   const f=fixture();f.setSessionError(new UnauthorizedException());await assert.rejects(()=>f.service.getVerificationStatus('profile','khedmah_session=invalid'),NotFoundException);
   const unavailable=new Error('identity unavailable');f.setSessionError(unavailable);await assert.rejects(()=>f.service.getVerificationStatus('profile','khedmah_session=valid'),error=>error===unavailable);assert.equal(f.reads,0);

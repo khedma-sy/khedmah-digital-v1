@@ -10,6 +10,9 @@ import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMe
 import styles from '../../../components/owner-workspace.module.css';
 
 const deliveryEntry = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('categoryCode') === 'delivery_courier';
+const signupLoginHref = () => deliveryEntry()
+  ? '/auth/login?next=%2Fbusiness-profiles%2Fnew%3FcategoryCode%3Ddelivery_courier'
+  : '/auth/login?next=%2Fbusiness-profiles%2Fnew';
 
 export default function NewBusinessProfilePage() {
   const router = useRouter();
@@ -35,13 +38,16 @@ export default function NewBusinessProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (categoriesLoading || categoryPrefilled.current) return;
+    if (categoriesLoading || categoriesError || categoryPrefilled.current) return;
     const requested = deliveryEntry() ? 'delivery_courier' : undefined;
-    if (requested === 'delivery_courier' && categories.some(category => category.code === requested)) {
+    if (requested === 'delivery_courier') {
+      // Keep the courier intent pending when category loading fails or the retry
+      // has not yet returned its leaf category.
+      if (!categories.some(category => category.code === requested)) return;
       setForm(current => current.categoryCode ? current : {...current, categoryCode: requested});
     }
     categoryPrefilled.current = true;
-  }, [categories, categoriesLoading]);
+  }, [categories, categoriesLoading, categoriesError]);
 
   useEffect(() => {
     let active = true;
@@ -52,8 +58,7 @@ export default function NewBusinessProfilePage() {
         if (!active) return;
         const status = cause instanceof Error ? (cause as Error & { statusCode?: number }).statusCode : undefined;
         if (status === 401) {
-          const delivery = deliveryEntry();
-          router.replace(delivery ? '/auth/login?next=%2Fbusiness-profiles%2Fnew%3FcategoryCode%3Ddelivery_courier' : '/auth/login?next=%2Fbusiness-profiles%2Fnew'); return;
+          router.replace(signupLoginHref()); return;
         }
         setSessionError(cause instanceof Error ? cause.message : 'تعذر التحقق من جلسة الدخول. حاول مجدداً.');
         setIsCheckingSession(false);
@@ -95,7 +100,7 @@ export default function NewBusinessProfilePage() {
       if (generation === lifecycle.current) { clearCreateRequest(); router.push('/business-profiles'); }
     } catch (cause) {
       if (generation !== lifecycle.current) return;
-      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace('/auth/login?next=%2Fbusiness-profiles%2Fnew'); return; }
+      if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401) { router.replace(signupLoginHref()); return; }
       const issue = cause instanceof Error ? cause as Error & { code?: string; businessId?: string } : undefined;
       if (issue?.code === 'BUSINESS_DRAFT_EXISTS' && issue.businessId) {
         setExistingBusinessId(issue.businessId); setError('وجدنا نشاطاً محفوظاً لهذه المحاولة ببيانات مختلفة. افتحه لمراجعة النسخة الحالية.'); return;
