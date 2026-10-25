@@ -1,3 +1,5 @@
+# Next Safe Action — Khedmah
+
 ## Immediate next action — continue repository-only professional-route audit — 2026-10-26 UTC
 
 1. Use protected `main=bb67e3c2fe096bd3a0b0537884276790bba33026` as the current source checkpoint after PR #321.
@@ -10,8 +12,6 @@
 ---
 
 ## Historical next-action checkpoints (retained for audit; the section below records earlier release-gate work)
-
-# Next Safe Action — Khedmah
 
 ## Execute next — close writer-quiescence evidence; keep Floot unpublished — 2026-10-25 UTC
 
