@@ -201,35 +201,44 @@ test('public approved active professional remains publicly readable', async () =
   });
 });
 
-test('verification status projection does not expose internal requester fields', async () => {
-  const service = createService(
-    {
-      visibility: 'public',
-      moderationStatus: 'approved',
-      lifecycleStatus: 'active'
-    },
-    { media: 0, verification: 0, trust: 0 },
-    {
-      id: 'verification-1',
-      entityType: 'professional',
-      entityId: profile.id,
-      requesterId: 'private-user',
-      status: 'pending',
-      createdAt: '2026-08-16T00:00:00.000Z',
-      updatedAt: '2026-08-16T00:00:00.000Z'
-    }
-  );
-
-  const status = await service.getVerificationStatus(profile.id);
-
-  assert.deepEqual(status, {
-    status: 'pending',
+test('public verification projection exposes approved only and keeps workflow states private', async () => {
+  const eligibility: Eligibility = {
+    visibility: 'public',
+    moderationStatus: 'approved',
+    lifecycleStatus: 'active'
+  };
+  const baseRequest = {
+    id: 'verification-1',
+    entityType: 'professional',
+    entityId: profile.id,
+    requesterId: 'private-user',
     createdAt: '2026-08-16T00:00:00.000Z',
     updatedAt: '2026-08-16T00:00:00.000Z'
-  });
+  };
 
-  assert.equal('requesterId' in (status ?? {}), false);
-  assert.equal('entityId' in (status ?? {}), false);
+  for (const privateStatus of ['pending', 'rejected'] as const) {
+    const service = createService(
+      eligibility,
+      { media: 0, verification: 0, trust: 0 },
+      { ...baseRequest, status: privateStatus }
+    );
+    assert.equal(await service.getVerificationStatus(profile.id), undefined, `${privateStatus} must not be exposed to public visitors`);
+    const ownerStatus = await service.getVerificationStatus(profile.id, 'khedmah_session=valid');
+    assert.equal(ownerStatus?.status, privateStatus);
+    assert.equal('requesterId' in (ownerStatus ?? {}), false);
+    assert.equal('entityId' in (ownerStatus ?? {}), false);
+  }
+
+  const approved = createService(
+    eligibility,
+    { media: 0, verification: 0, trust: 0 },
+    { ...baseRequest, status: 'approved' }
+  );
+  assert.deepEqual(await approved.getVerificationStatus(profile.id), {
+    status: 'approved',
+    createdAt: baseRequest.createdAt,
+    updatedAt: baseRequest.updatedAt
+  });
 });
 
 test('verification request rejects another user profile ownership', async () => {
