@@ -2,13 +2,11 @@
 
 ## Immediate next action — continue repository-only professional-route audit — 2026-10-26 UTC
 
-1. Use protected `main=bb67e3c2fe096bd3a0b0537884276790bba33026` as the current source checkpoint after PR #321.
-2. PR #321 is merged. Its PR-head Node.js CI, Khedmah - Test & Verify, and PR Preview quality-gates run succeeded. On the exact merge SHA, post-merge Node.js CI (`40194257338`) and Khedmah - Test & Verify (`40194257340`) succeeded.
-3. Do not describe the site as live-verified: no post-merge Preview deployment/runtime proof is established by those runs.
-4. Continue code-only audit for professionals, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and relevant admin permissions. Exclude the separate Khedmah Business/Floot track.
-5. If a concrete safe defect is found, add a narrow regression test and submit a branch/PR; verify the exact head before any merge decision.
-6. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve the separate release-gate instructions and evidence below; do not replay any mutating fence.
-
+1. Resolve the live `main` SHA directly from GitHub at the start of each work cycle. At the start of this checkpoint update, `main` was confirmed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`, the merge of PR #322; do not treat a saved SHA as permanently current.
+2. PR #321 and PR #322 are merged. PR #322 head `7ba48307b666c12a9bbb506808033de497d3bfb8` had successful Node.js CI (`40239618269`), Khedmah - Test & Verify (`40239618167`), and PR Preview (`40239618211`). Later PR Preview attempt `40243406655` was skipped, not failed.
+3. Continue code-only audit for professional profiles, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and relevant admin permissions. Exclude the separate Khedmah Business/Floot track.
+4. If a concrete safe defect is found, fix it on a branch, add a narrow regression test, and verify the exact PR head before proposing a merge. Do not infer runtime readiness from source CI.
+5. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve separate release-gate instructions and historical evidence; do not replay any mutating fence.
 ---
 
 ## Historical next-action checkpoints (retained for audit; the section below records earlier release-gate work)
