@@ -2,11 +2,13 @@
 
 ## Immediate next action — continue repository-only professional-route audit — 2026-10-26 UTC
 
-1. Resolve the live `main` SHA directly from GitHub at the start of each work cycle. At the start of this checkpoint update, `main` was confirmed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`, the merge of PR #322; do not treat a saved SHA as permanently current.
-2. PR #321 and PR #322 are merged. PR #322 head `7ba48307b666c12a9bbb506808033de497d3bfb8` had successful Node.js CI (`40239618269`), Khedmah - Test & Verify (`40239618167`), and PR Preview (`40239618211`). Later PR Preview attempt `40243406655` was skipped, not failed.
-3. Continue code-only audit for professional profiles, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and relevant admin permissions. Exclude the separate Khedmah Business/Floot track.
-4. If a concrete safe defect is found, fix it on a branch, add a narrow regression test, and verify the exact PR head before proposing a merge. Do not infer runtime readiness from source CI.
-5. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve separate release-gate instructions and historical evidence; do not replay any mutating fence.
+1. Resolve the live `main` SHA directly from GitHub at the start of each cycle. At this checkpoint, `main` is `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`, the merge commit for PR #323. Do not treat saved SHAs as permanently current.
+2. PR #321, PR #322, and PR #323 are merged. PR #323's exact head `3c75010021368bfb8e7c3b5be0ec4a854cbe30db` passed Node.js CI (`40254172914`), Khedmah - Test & Verify (`40254172919`), and PR Preview (`40254172910`). Codex review completed with no findings. The later PR Preview attempt `40258876747` was skipped, not failed.
+3. Post-merge workflow jobs inspected for Node.js CI (`40258877220`) and Khedmah - Test & Verify (`40258877335`) completed successfully. Do not infer Preview/Production runtime readiness from source CI.
+4. Continue code-only audit for professional profiles, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot track.
+5. Re-check the taxi lifecycle/activation gates and restaurant background-notification path as audit targets. If a concrete repository defect is confirmed, fix it on a branch, add a narrow regression test, and verify the exact PR head before proposing merge. Do not remove operational safety gates without reviewed evidence.
+6. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve the separate release-gate instructions and historical evidence below; do not replay any mutating fence.
+
 ---
 
 ## Historical next-action checkpoints (retained for audit; the section below records earlier release-gate work)
