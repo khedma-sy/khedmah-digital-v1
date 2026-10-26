@@ -1,5 +1,21 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+
+
+## Current professional-service checkpoint — 2026-10-26 UTC
+
+**This is the controlling checkpoint for the current professional-service workstream.** Resolve the live `main` ref directly from GitHub at the start of each cycle; the last verified main SHA for this checkpoint is `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece` (merge of PR #323). This SHA is a dated reference, not a permanent pointer.
+
+**Scope:** professional profiles, search, categories/city and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot workstream.
+
+**PR state:** PRs #321–#323 are merged. PR #324 is an open documentation-only correction; its previously checked head `d8ca1fbafa4ac25550b39fdde5b12e136e7dbce9` passed Node.js CI, Khedmah - Test & Verify, and PR Preview, but the current head must be rechecked after this checkpoint edit. A Codex P2 finding identified conflicting next-action authority between `docs/project-control/NEXT-ACTION.md` and the older backend-candidate-build text below. This new section supersedes that older section for the professional-service workstream and makes the scope/next action explicit; the older release-gate history is retained unchanged.
+
+**Next action:** complete PR #324 on its exact latest head: confirm the two project-control files and this roadmap agree, rerun required CI and review, then merge only through normal GitHub protections after all required checks and review findings are closed. Afterward continue the repository-only functional audit for the specified professional-service journeys. Taxi trip gates remain closed. Restaurant background push is not end-to-end proven; do not claim closed-page delivery until token registration, order-event dispatch/outbox, service-worker reception/click handling, ownership, retry/deduplication and unsupported-browser cases are implemented and tested.
+
+**Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay the unrelated backend/Floot release-gate operations below.
+
+---
+
 ## Binding completed; prepare one backend candidate build — 2026-10-23 UTC
 
 The corrected owner read completed at **2026-10-23T18:37:33.436427+00:00**. The fixed Preview V2 service is still generation `8`, serving the unchanged `00008-tg8` revision at 100% with no tag; runtime/Cloud SQL/`DATABASE_URL` version `1` bindings match and the service read is stable. This closes the older pending-metadata instructions below. No database connection, secret payload, cloud mutation or deployment occurred. Historical PR274 WIF remains unchanged; observed direct IAM bindings are not complete effective authority. Unchanged old-image provenance and completed quota diagnosis are not repeated.
