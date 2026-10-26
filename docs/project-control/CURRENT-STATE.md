@@ -1,29 +1,25 @@
 # Khedmah Digital — Current State
 
-## Current professional-service checkpoint — PR #325 merged; required post-merge CI green — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #327 merged; post-merge CI green — 2026-10-26 UTC
 
-**Live `main` SHA observed at this checkpoint:** `e99eaa500232cf57eaa861efc84d46399a34d850`, resolved directly from GitHub. The commit is the merge of PR #325. The required post-merge workflows completed successfully by 2026-10-26T14:48:15Z. This SHA and the results below are dated evidence, not a permanent pointer; resolve live `main` and current PR state at the start of each work cycle.
+**Live code checkpoint:** `main` includes PR #327 at `937bbe8e35bdeed5de26b52ea89f5eeb1aa60cf9` (Google mobile redirect-auth fix). Resolve live `main` and current PR state directly from GitHub at every work cycle; this SHA is dated evidence, not a permanent pointer.
 
-**Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. The separate Khedmah Business/Floot workstream is excluded.
+**Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. Exclude the separate Khedmah Business/Floot workstream.
 
 **PR #321:** merged at `bb67e3c2fe096bd3a0b0537884276790bba33026`. It protects pending/rejected professional-verification states from public visitors, exposes the professional workspace in authenticated navigation, adds professional ownership actions to the account hub, bridges Nearby to city-based professional search without claiming profile map coordinates, and includes regression coverage.
 
-**PR #322:** merged at `bff2a2ca0241c1399c23de064f176d8c354d76e0`; documentation-only checkpoint update.
+**PRs #322–#326:** merged before the auth fix; #322–#326 include source-control/checkpoint and audit-continuation updates. **PR #328** is the current documentation checkpoint PR recording the auth runtime gate; it remains open pending exact-head checks and review reconciliation.
 
-**PR #323:** merged at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head `3c75010021368bfb8e7c3b5be0ec4a854cbe30db` passed Node.js CI `40254172914`, Khedmah - Test & Verify `40254172919`, and PR Preview `40254172910`. Later Preview attempt `40258876747` was skipped, not failed. Post-merge runs `40258877220` and `40258877335` succeeded.
-
-**PR #324:** merged at `2656d25d14013420127354012eac3224d95d5d73`. Its exact head `fce8697976a29ff2492ea0b1b7310231de8a43dd` passed Node.js CI `40273900210`, Khedmah - Test & Verify `40273900243`, and PR Preview quality gates `40273900203`; Codex reviewed that exact head without major findings. Preview deployment-related jobs were skipped; no Preview runtime was proven.
-
-**PR #325:** merged at `e99eaa500232cf57eaa861efc84d46399a34d850`. Its final head was `0e43da24d8df6c0af537a813eeec6fb4bf1edb76`; PR-head Node.js CI `40328899483`, Khedmah - Test & Verify `40328899475`, and PR Preview `40328899480` completed successfully. Post-merge Node.js CI `40342024454` and Khedmah - Test & Verify `40342024448` also completed successfully on `main=e99eaa500232cf57eaa861efc84d46399a34d850`. On the push, PR Validation was skipped as not applicable and post-merge PR Preview run `40342025453` was skipped; neither is a test failure or proof of deployed runtime.
+**PR #327 — mobile Google sign-in:** merged at `937bbe8e35bdeed5de26b52ea89f5eeb1aa60cf9`. The source switches mobile/coarse-pointer browsers to Firebase `signInWithRedirect`, consumes `getRedirectResult` on login and registration, and exchanges the returned ID token through the existing identity API. Post-merge Node.js CI run `40382658565` and Khedmah - Test & Verify run `40382658636` both succeeded on this exact main SHA. On the PR head, Google readiness `40377454672`, Identity readiness `40377454368`, Node.js CI `40377454477`, Test & Verify `40377454512`, and PR Preview quality gates `40377454770` succeeded. The PR Preview deployment-related jobs were skipped, so no preview runtime or real-device sign-in result is established. **Do not claim the login issue is operationally resolved until the existing authorized target runtime is tested.** Firebase authorized domains, browser storage behavior, and end-to-end mobile return remain runtime dependencies not proven by source CI.
 
 **Repository-only journey findings:**
 - **Restaurant background push:** sender, dispatch mapping, token-lifecycle helpers, and a browser token-acquisition helper exist with unit tests. However, the merchant orders page does not call `acquireRestaurantPushToken`; `OrderModule` registers only the order and food-promotion controllers/providers; and no Firebase Messaging service-worker file was found in the frontend public tree. End-to-end authenticated token registration, order-event dispatch/outbox, background reception/click handling, ownership, invalidation, retry/deduplication, unsupported-browser behavior, and delivery evidence are not established. Keep push sending disabled until the complete path and tests exist.
 - **Taxi:** candidate trip code remains behind default-off `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` gates. Do not activate without separately reviewed schema/migration, roles, verified driver enrollment, route/meter/trip-lifecycle acceptance, and release evidence.
 - These are source-level findings only; no live runtime, browser-background, or device-delivery test was performed.
 
-**Checkpoint maintenance rule:** this file is a dated audit snapshot. At each cycle, read the live `main` SHA, PR states, and latest Actions runs directly from GitHub. Do not create another documentation-only PR solely to record the merge of the PR that carries a checkpoint update; doing so creates an endless self-referential checkpoint loop. Update the checkpoint when a substantive audit result or next action changes, and preserve the historical sections below.
+**Checkpoint maintenance rule:** this file is a dated audit snapshot. At each cycle, read the live `main` SHA, PR states, and latest Actions runs directly from GitHub. Do not create a follow-up documentation-only PR solely to record the merge of the PR that carries a checkpoint update; update the checkpoint only when a substantive finding or next action changes.
 
-**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Preserve unrelated release gates and historical evidence below.
+**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Preserve unrelated release gates and historical evidence.
 ---
 
 ## Historical checkpoints (retained for audit; not the current main pointer)
