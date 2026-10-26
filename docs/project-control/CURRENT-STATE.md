@@ -1,20 +1,25 @@
 # Khedmah Digital — Current State
 
-## Last reconciled professional-service checkpoint — PR #322 merged — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #323 merged; CI verified — 2026-10-26 UTC
 
-**Last confirmed `main` SHA at the start of this checkpoint update:** `bff2a2ca0241c1399c23de064f176d8c354d76e0` (PR #322 merge). GitHub comparison confirmed `main` was identical to this SHA during the audit. This is a checkpoint, not a promise that `main` will remain at this SHA after later merges; resolve the live branch pointer before every new work cycle.
+**Live `main` SHA confirmed for this checkpoint:** `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`, the merge commit for PR #323. GitHub comparison confirmed `main` is identical to this SHA (ahead 0, behind 0). Resolve the live branch pointer again at the start of each future cycle; this saved SHA is a checkpoint, not a permanent pointer.
 
 **Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. The separate Khedmah Business/Floot workstream is excluded.
 
-**PR #321:** merged and closed at `bb67e3c2fe096bd3a0b0537884276790bba33026`. Its changes cover professional-profile privacy, navigation, Nearby-to-city-search continuity, restaurant cart behavior, and courier registration continuity.
+**PR #321:** merged and closed at `bb67e3c2fe096bd3a0b0537884276790bba33026`. Changes cover professional-profile privacy, authenticated navigation, Nearby-to-city-search continuity, restaurant cart behavior, and courier-registration continuity.
 
-**PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`; exact PR head `7ba48307b666c12a9bbb506808033de497d3bfb8`. It reconciled the project-control checkpoint after PR #321.
+**PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`. Documentation-only checkpoint update.
 
-**Verified PR #322 head checks:** Node.js CI run `40239618269` — success; Khedmah - Test & Verify run `40239618167` — success; PR Preview run `40239618211` — success. A later PR Preview attempt `40243406655` was skipped, not failed. These are PR-head checks and must not be represented as live runtime proof.
+**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Codex code review completed with no findings. PR-head checks: Node.js CI `40254172914` — success; Khedmah - Test & Verify `40254172919` — success; PR Preview `40254172910` — success. A later PR Preview attempt `40258876747` was skipped, not failed.
 
-**Runtime/deployment boundary:** this audit did not establish post-merge Preview runtime verification. Source CI does not prove the deployed site is running the same code.
+**Post-merge checks inspected:** Node.js CI run `40258877220` — success; Khedmah - Test & Verify run `40258877335` — success. The jobs completed successfully. This is source/CI evidence only, not proof of deployed runtime behavior.
 
-**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release-gate instructions and historical evidence below.
+**Runtime/deployment boundary:** no post-merge Preview runtime verification is established by this audit. Do not infer that the deployed site is running this SHA from CI results alone.
+
+**Checkpoint correction:** the merged PR #323 content still named PR #322's SHA as current in these handoff files. This new documentation correction aligns the top-level checkpoint with the verified live `main` pointer and leaves all historical evidence below intact.
+
+**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
+
 ---
 
 ## Historical checkpoints (retained for audit; not the current main pointer)
