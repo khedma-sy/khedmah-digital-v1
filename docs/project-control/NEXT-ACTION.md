@@ -3,11 +3,13 @@
 ## Immediate next action — continue repository-only professional-route audit — 2026-10-26 UTC
 
 1. Resolve the live `main` SHA directly from GitHub at the start of each cycle. At this checkpoint, `main` is `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`, the merge commit for PR #323. Do not treat saved SHAs as permanently current.
-2. PR #321, PR #322, and PR #323 are merged. PR #323's exact head `3c75010021368bfb8e7c3b5be0ec4a854cbe30db` passed Node.js CI (`40254172914`), Khedmah - Test & Verify (`40254172919`), and PR Preview (`40254172910`). Codex review completed with no findings. The later PR Preview attempt `40258876747` was skipped, not failed.
-3. Post-merge workflow jobs inspected for Node.js CI (`40258877220`) and Khedmah - Test & Verify (`40258877335`) completed successfully. Do not infer Preview/Production runtime readiness from source CI.
+2. PR #321, PR #322, and PR #323 are merged. PR #323's exact head `3c75010021368bfb8e7c3b5be0ec4a854cbe30db` passed Node.js CI (`40254172914`), Khedmah - Test & Verify (`40254172919`), and PR Preview (`40254172910`). Codex review completed with no findings. The later PR Preview attempt `40258876747` was skipped, not failed. Post-merge Node.js CI (`40258877220`) and Khedmah - Test & Verify (`40258877335`) jobs inspected in this cycle completed successfully; this is not runtime proof.
+3. PR #324 is an open documentation-only correction to align this checkpoint with the verified live `main` SHA and preserve the historical record. Resolve its current state directly from GitHub before acting.
 4. Continue code-only audit for professional profiles, search, categories/city/Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot track.
-5. Re-check the taxi lifecycle/activation gates and restaurant background-notification path as audit targets. If a concrete repository defect is confirmed, fix it on a branch, add a narrow regression test, and verify the exact PR head before proposing merge. Do not remove operational safety gates without reviewed evidence.
-6. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve the separate release-gate instructions and historical evidence below; do not replay any mutating fence.
+5. **Taxi:** keep trip gates closed. The repository has candidate trip code, but rollout remains disabled; closure requires reviewed schema/migration, roles, verified driver enrollment, route/meter/trip lifecycle acceptance, and release evidence. Do not activate or deploy.
+6. **Restaurant push:** the repo has token lifecycle, sender, dispatch and client helper modules, but this audit did not find call sites connecting them end-to-end or a service-worker registration/messaging worker. Before claiming background alerts, implement and test the authenticated token-registration endpoint/client call, safe order-event dispatch/outbox integration, worker registration and background click path; cover ownership, token invalidation, retries/duplicates, unsupported browsers and delivery evidence. Keep sending disabled until configuration and staging acceptance are approved.
+7. If a concrete repository defect is confirmed, fix it on a branch, add narrow regression coverage, and verify the exact PR head before proposing merge. Do not infer runtime readiness from source CI.
+8. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve separate release-gate instructions and historical evidence below; do not replay any mutating fence.
 
 ---
 
