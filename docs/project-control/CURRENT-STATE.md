@@ -1,19 +1,20 @@
 # Khedmah Digital — Current State
 
-## Current professional-service checkpoint — PR #321 merged; post-merge CI green — 2026-10-26 UTC
+## Last reconciled professional-service checkpoint — PR #322 merged — 2026-10-26 UTC
 
-**Live main checkpoint:** `bb67e3c2fe096bd3a0b0537884276790bba33026` (merge of PR #321 at 2026-10-25T12:41:48Z). This section supersedes older historical entries below when identifying the current source state.
+**Last confirmed `main` SHA at the start of this checkpoint update:** `bff2a2ca0241c1399c23de064f176d8c354d76e0` (PR #322 merge). GitHub comparison confirmed `main` was identical to this SHA during the audit. This is a checkpoint, not a promise that `main` will remain at this SHA after later merges; resolve the live branch pointer before every new work cycle.
 
-**Scope for this workstream:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/order journeys, taxi/courier journeys, account, and related administration only. The separate Khedmah Business/Floot workstream is excluded.
+**Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. The separate Khedmah Business/Floot workstream is excluded.
 
-**PR #321 status:** merged and closed. Its exact head was `20dc12c79cbc8b91aa91d85524de2808b97cba74`. Confirmed PR-head runs: Node.js CI `40185555806` — success; Khedmah - Test & Verify `40185555841` — success; PR Preview `40185555803` — success. A later PR Preview attempt `40194257588` was skipped, not failed.
+**PR #321:** merged and closed at `bb67e3c2fe096bd3a0b0537884276790bba33026`. Its changes cover professional-profile privacy, navigation, Nearby-to-city-search continuity, restaurant cart behavior, and courier registration continuity.
 
-**Post-merge checks on exact main merge SHA:** Node.js CI `40194257338` — success; Khedmah - Test & Verify `40194257340` — success. No post-merge Preview deployment or runtime verification is confirmed by these results. Do not infer Preview/Production behavior from source CI.
+**PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`; exact PR head `7ba48307b666c12a9bbb506808033de497d3bfb8`. It reconciled the project-control checkpoint after PR #321.
 
-**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
+**Verified PR #322 head checks:** Node.js CI run `40239618269` — success; Khedmah - Test & Verify run `40239618167` — success; PR Preview run `40239618211` — success. A later PR Preview attempt `40243406655` was skipped, not failed. These are PR-head checks and must not be represented as live runtime proof.
 
-**Next work:** continue the bounded code audit of the remaining professional-service journeys and related admin permissions. If a concrete safe defect is found, fix on a branch, add regression coverage, and verify exact-head checks before proposing any merge.
+**Runtime/deployment boundary:** this audit did not establish post-merge Preview runtime verification. Source CI does not prove the deployed site is running the same code.
 
+**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release-gate instructions and historical evidence below.
 ---
 
 ## Historical checkpoints (retained for audit; not the current main pointer)
