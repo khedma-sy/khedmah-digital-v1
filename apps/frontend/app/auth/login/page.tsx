@@ -29,7 +29,15 @@ export default function LoginPage() {
         if (!idToken || cancelled) return;
         setIsGoogleLoading(true);
         await identityApi.google(idToken);
-        if (!cancelled) router.replace(destination);
+        if (!cancelled) {
+          const requested = new URLSearchParams(window.location.search).get('next');
+          let target = '/users/me';
+          if (requested?.startsWith('/')) {
+            const parsed = new URL(requested, window.location.origin);
+            if (parsed.origin === window.location.origin) target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+          }
+          router.replace(target);
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'تعذر إكمال تسجيل الدخول عبر Google.');
       } finally {
@@ -38,7 +46,7 @@ export default function LoginPage() {
     }
     void finishGoogleRedirect();
     return () => { cancelled = true; };
-  }, [router, destination]);
+  }, [router]);
 
   useEffect(() => {
     const requestedDestination = new URLSearchParams(window.location.search).get('next');
