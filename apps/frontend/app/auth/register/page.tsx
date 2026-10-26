@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { identityApi } from '../../../lib/identity-api';
-import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
+import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, beginGoogleSignIn, getGoogleRedirectIdToken } from '../../../lib/firebase/auth';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
 import { SocialProviderIcon } from '../social-provider-icon';
@@ -15,7 +15,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
-  const [visiblePassword, setVisiblePassword] = useState<'password' | 'confirmPassword' | null>(null);
+  useEffect(() => {\n    let cancelled = false;\n    async function finishGoogleRedirect() {\n      try {\n        const idToken = await getGoogleRedirectIdToken();\n        if (!idToken || cancelled) return;\n        setIsGoogleLoading(true);\n        await identityApi.google(idToken);\n        if (!cancelled) router.replace('/users/me');\n      } catch (err) {\n        if (!cancelled) setError(err instanceof Error ? err.message : 'تعذر إكمال تسجيل الدخول عبر Google.');\n      } finally {\n        if (!cancelled) setIsGoogleLoading(false);\n      }\n    }\n    void finishGoogleRedirect();\n    return () => { cancelled = true; };\n  }, [router]);\n\n  const [visiblePassword, setVisiblePassword] = useState<'password' | 'confirmPassword' | null>(null);
 
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
