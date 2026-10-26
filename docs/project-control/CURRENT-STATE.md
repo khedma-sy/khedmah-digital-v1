@@ -14,9 +14,14 @@
 
 **Post-merge checks inspected:** Node.js CI run `40258877220` — success; Khedmah - Test & Verify run `40258877335` — success. The jobs completed successfully. This is source/CI evidence only, not proof of deployed runtime behavior.
 
-**Runtime/deployment boundary:** no post-merge Preview runtime verification is established by this audit. Do not infer that the deployed site is running this SHA from CI results alone.
+**Repository-only journey findings:**
+- **Taxi:** source contains a candidate trip path, but `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` remain default-off rollout gates. The current public Taxi experience must not be described as a released, operational trip service. Do not flip these gates without the separate reviewed migration, role, driver-enrollment, and release evidence.
+- **Restaurant background push:** token-validation/lifecycle, sender, dispatch, and browser token-acquisition helpers exist with unit tests. The exact helper search found no application call sites wiring browser token acquisition to registration or order notifications to the sender/dispatch path; no service-worker registration or `firebase-messaging-sw.js` was found in the code-search results. End-to-end background delivery is therefore **not established**. Do not claim guaranteed alerts while the restaurant page is closed.
+- These are source-audit findings only; no live runtime or device delivery test was performed.
 
-**Checkpoint correction:** the merged PR #323 content still named PR #322's SHA as current in these handoff files. This new documentation correction aligns the top-level checkpoint with the verified live `main` pointer and leaves all historical evidence below intact.
+**Checkpoint correction:** PR #323's merged handoff files still named PR #322's SHA as current. PR #324 proposes aligning these top-level notes to the verified live `main` pointer and preserving historical evidence below.
+
+**Runtime/deployment boundary:** no post-merge Preview runtime verification is established by this audit. Do not infer that the deployed site is running this SHA from CI results alone.
 
 **Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
 
