@@ -10,7 +10,7 @@
 
 **PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`. Documentation-only checkpoint update.
 
-**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Codex review completed with no findings; its PR-head checks and post-merge Node.js CI / Khedmah - Test & Verify completed successfully. See the historical checkpoint below for run IDs.
+**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Historical PR-head checks: Node.js CI `40254172914` — success; Khedmah - Test & Verify `40254172919` — success; PR Preview `40254172910` — success. A later PR Preview attempt `40258876747` was skipped, not failed. Post-merge checks: Node.js CI `40258877220` — success; Khedmah - Test & Verify `40258877335` — success. These results are source/CI evidence only and do not prove deployed runtime behavior.
 
 **PR #324:** merged and closed at `2656d25d14013420127354012eac3224d95d5d73` on 2026-10-26T12:41:10Z. Its exact head was `fce8697976a29ff2492ea0b1b7310231de8a43dd`. Node.js CI (`40273900210`), Khedmah - Test & Verify (`40273900243`), and PR Preview quality gates (`40273900203`) succeeded on that PR head; Codex reviewed the exact head and reported no major issues. Preview deployment-related jobs were skipped, so these results do not establish a deployed Preview runtime.
 
