@@ -2,17 +2,17 @@
 
 
 
-## Current professional-service checkpoint — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #324 merged; post-merge CI pending — 2026-10-26 UTC
 
-**This is the controlling checkpoint for the current professional-service workstream.** Resolve the live `main` ref directly from GitHub at the start of each cycle; the last verified main SHA for this checkpoint is `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece` (merge of PR #323). This SHA is a dated reference, not a permanent pointer.
+**This is the controlling checkpoint for the current professional-service workstream.** Resolve the live `main` ref directly from GitHub at the start of each cycle. The checkpoint recorded immediately after PR #324 merged is `2656d25d14013420127354012eac3224d95d5d73`; it is a dated reference, not a permanent pointer.
 
 **Scope:** professional profiles, search, categories/city and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot workstream.
 
-**PR state:** PRs #321–#323 are merged. PR #324 is an open documentation-only correction; its previously checked head `d8ca1fbafa4ac25550b39fdde5b12e136e7dbce9` passed Node.js CI, Khedmah - Test & Verify, and PR Preview, but the current head must be rechecked after this checkpoint edit. A Codex P2 finding identified conflicting next-action authority between `docs/project-control/NEXT-ACTION.md` and the older backend-candidate-build text below. This new section supersedes that older section for the professional-service workstream and makes the scope/next action explicit; the older release-gate history is retained unchanged.
+**PR state:** PRs #321–#324 are merged. PR #324 head `fce8697976a29ff2492ea0b1b7310231de8a43dd` passed Node.js CI (`40273900210`), Khedmah - Test & Verify (`40273900243`), and PR Preview quality gates (`40273900203`); Codex reviewed that exact head and reported no major issues. Preview deployment-related jobs were skipped and do not establish runtime readiness. After the merge, Node.js CI `40324438076` and Khedmah - Test & Verify `40324438054` were queued; read their live conclusions before claiming main verification.
 
-**Next action:** complete PR #324 on its exact latest head: confirm the two project-control files and this roadmap agree, rerun required CI and review, then merge only through normal GitHub protections after all required checks and review findings are closed. Afterward continue the repository-only functional audit for the specified professional-service journeys. Taxi trip gates remain closed. Restaurant background push is not end-to-end proven; do not claim closed-page delivery until token registration, order-event dispatch/outbox, service-worker reception/click handling, ownership, retry/deduplication and unsupported-browser cases are implemented and tested.
+**Next action:** reconcile the checkpoint text after PR #324 and verify workflows for the live `main` commit. PR #325 is the documentation-only follow-up for the stale top-level checkpoint statements; if it remains open, complete its checks/review and merge only through normal protections. After current-main CI succeeds, continue the repository-only functional audit for the specified professional-service journeys. Taxi trip gates remain closed. Restaurant background push is not end-to-end proven; do not claim closed-page delivery until authenticated token registration, order-event dispatch/outbox, worker reception/click handling, ownership, retry/deduplication, unsupported-browser cases, and delivery evidence are implemented and tested.
 
-**Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay the unrelated backend/Floot release-gate operations below.
+**Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay unrelated backend/Floot release-gate operations below.
 
 ---
 

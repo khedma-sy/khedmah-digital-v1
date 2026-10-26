@@ -1,8 +1,8 @@
 # Khedmah Digital — Current State
 
-## Current professional-service checkpoint — PR #323 merged; CI verified — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #324 merged; post-merge CI pending — 2026-10-26 UTC
 
-**Live `main` SHA confirmed for this checkpoint:** `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`, the merge commit for PR #323. GitHub comparison confirmed `main` is identical to this SHA (ahead 0, behind 0). Resolve the live branch pointer again at the start of each future cycle; this saved SHA is a checkpoint, not a permanent pointer.
+**Live `main` SHA at this checkpoint:** `2656d25d14013420127354012eac3224d95d5d73`, the squash-merge commit for PR #324, resolved directly from GitHub at 2026-10-26T12:41:09Z. Post-merge `Node.js CI` run `40324438076` and `Khedmah - Test & Verify` run `40324438054` were queued at 12:41:13Z. Re-read those runs and the current live `main` before marking CI verified; this saved SHA is a dated checkpoint, not a permanent pointer.
 
 **Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. The separate Khedmah Business/Floot workstream is excluded.
 
@@ -10,18 +10,20 @@
 
 **PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`. Documentation-only checkpoint update.
 
-**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Codex code review completed with no findings. PR-head checks: Node.js CI `40254172914` — success; Khedmah - Test & Verify `40254172919` — success; PR Preview `40254172910` — success. A later PR Preview attempt `40258876747` was skipped, not failed.
+**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Historical PR-head checks: Node.js CI `40254172914` — success; Khedmah - Test & Verify `40254172919` — success; PR Preview `40254172910` — success. A later PR Preview attempt `40258876747` was skipped, not failed. Post-merge checks: Node.js CI `40258877220` — success; Khedmah - Test & Verify `40258877335` — success. These results are source/CI evidence only and do not prove deployed runtime behavior.
 
-**Post-merge checks inspected:** Node.js CI run `40258877220` — success; Khedmah - Test & Verify run `40258877335` — success. The jobs completed successfully. This is source/CI evidence only, not proof of deployed runtime behavior.
+**PR #324:** merged and closed at `2656d25d14013420127354012eac3224d95d5d73` on 2026-10-26T12:41:10Z. Its exact head was `fce8697976a29ff2492ea0b1b7310231de8a43dd`. Node.js CI (`40273900210`), Khedmah - Test & Verify (`40273900243`), and PR Preview quality gates (`40273900203`) succeeded on that PR head; Codex reviewed the exact head and reported no major issues. Preview deployment-related jobs were skipped, so these results do not establish a deployed Preview runtime.
+
+**Current post-merge verification:** runs `40324438076` (Node.js CI) and `40324438054` (Khedmah - Test & Verify) were queued immediately after PR #324 merged. Their final conclusions were not yet available at this checkpoint.
 
 **Repository-only journey findings:**
-- **Taxi:** source contains a candidate trip path, but `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` remain default-off rollout gates. The current public Taxi experience must not be described as a released, operational trip service. Do not flip these gates without the separate reviewed migration, role, driver-enrollment, and release evidence.
-- **Restaurant background push:** token-validation/lifecycle, sender, dispatch, and browser token-acquisition helpers exist with unit tests. The exact helper search found no application call sites wiring browser token acquisition to registration or order notifications to the sender/dispatch path; no service-worker registration or `firebase-messaging-sw.js` was found in the code-search results. End-to-end background delivery is therefore **not established**. Do not claim guaranteed alerts while the restaurant page is closed.
-- These are source-audit findings only; no live runtime or device delivery test was performed.
+- **Taxi:** source contains candidate trip code, but `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` remain default-off rollout gates. Do not activate them without the separately reviewed schema/migration, roles, verified driver enrollment, route/meter/trip-lifecycle acceptance, and release evidence.
+- **Restaurant background push:** token lifecycle, sender, dispatch, and browser token-acquisition helpers exist with unit tests, but the source audit did not establish end-to-end call-site wiring or a registered background messaging worker. Do not claim guaranteed closed-page delivery until authenticated token registration, order-event dispatch/outbox, worker reception/click handling, ownership, retries/deduplication, and unsupported-browser behavior are implemented and tested.
+- These are source-audit findings only; no live runtime or device-delivery test was performed.
 
-**Checkpoint correction:** PR #323's merged handoff files still named PR #322's SHA as current. PR #324 proposes aligning these top-level notes to the verified live `main` pointer and preserving historical evidence below.
+**Follow-up documentation correction:** after PR #324 merged, these top-level checkpoint notes still described PR #324 as open and `main` at PR #323. PR #325 proposes correcting only the top checkpoint sections to reflect the PR #324 merge and pending post-merge CI, while preserving historical evidence below.
 
-**Runtime/deployment boundary:** no post-merge Preview runtime verification is established by this audit. Do not infer that the deployed site is running this SHA from CI results alone.
+**Runtime/deployment boundary:** CI is source evidence only; no post-merge Preview runtime verification is established by this audit.
 
 **Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
 
