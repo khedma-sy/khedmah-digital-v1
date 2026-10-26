@@ -1,32 +1,29 @@
 # Khedmah Digital — Current State
 
-## Current professional-service checkpoint — PR #324 merged; post-merge CI pending — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #325 merged; required post-merge CI green — 2026-10-26 UTC
 
-**Live `main` SHA at this checkpoint:** `2656d25d14013420127354012eac3224d95d5d73`, the squash-merge commit for PR #324, resolved directly from GitHub at 2026-10-26T12:41:09Z. Post-merge `Node.js CI` run `40324438076` and `Khedmah - Test & Verify` run `40324438054` were queued at 12:41:13Z. Re-read those runs and the current live `main` before marking CI verified; this saved SHA is a dated checkpoint, not a permanent pointer.
+**Live `main` SHA observed at this checkpoint:** `e99eaa500232cf57eaa861efc84d46399a34d850`, resolved directly from GitHub. The commit is the merge of PR #325. The required post-merge workflows completed successfully by 2026-10-26T14:48:15Z. This SHA and the results below are dated evidence, not a permanent pointer; resolve live `main` and current PR state at the start of each work cycle.
 
 **Scope:** professional profiles, search, categories/city discovery and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related administration. The separate Khedmah Business/Floot workstream is excluded.
 
-**PR #321:** merged and closed at `bb67e3c2fe096bd3a0b0537884276790bba33026`. Changes cover professional-profile privacy, authenticated navigation, Nearby-to-city-search continuity, restaurant cart behavior, and courier-registration continuity.
+**PR #321:** merged at `bb67e3c2fe096bd3a0b0537884276790bba33026`. It protects pending/rejected professional-verification states from public visitors, exposes the professional workspace in authenticated navigation, adds professional ownership actions to the account hub, bridges Nearby to city-based professional search without claiming profile map coordinates, and includes regression coverage.
 
-**PR #322:** merged and closed at `bff2a2ca0241c1399c23de064f176d8c354d76e0`. Documentation-only checkpoint update.
+**PR #322:** merged at `bff2a2ca0241c1399c23de064f176d8c354d76e0`; documentation-only checkpoint update.
 
-**PR #323:** merged and closed at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head was `3c75010021368bfb8e7c3b5be0ec4a854cbe30db`. Historical PR-head checks: Node.js CI `40254172914` — success; Khedmah - Test & Verify `40254172919` — success; PR Preview `40254172910` — success. A later PR Preview attempt `40258876747` was skipped, not failed. Post-merge checks: Node.js CI `40258877220` — success; Khedmah - Test & Verify `40258877335` — success. These results are source/CI evidence only and do not prove deployed runtime behavior.
+**PR #323:** merged at `5f626ed32ed8f3c7bb20afec1e61cc5a299bfece`. Its exact PR head `3c75010021368bfb8e7c3b5be0ec4a854cbe30db` passed Node.js CI `40254172914`, Khedmah - Test & Verify `40254172919`, and PR Preview `40254172910`. Later Preview attempt `40258876747` was skipped, not failed. Post-merge runs `40258877220` and `40258877335` succeeded.
 
-**PR #324:** merged and closed at `2656d25d14013420127354012eac3224d95d5d73` on 2026-10-26T12:41:10Z. Its exact head was `fce8697976a29ff2492ea0b1b7310231de8a43dd`. Node.js CI (`40273900210`), Khedmah - Test & Verify (`40273900243`), and PR Preview quality gates (`40273900203`) succeeded on that PR head; Codex reviewed the exact head and reported no major issues. Preview deployment-related jobs were skipped, so these results do not establish a deployed Preview runtime.
+**PR #324:** merged at `2656d25d14013420127354012eac3224d95d5d73`. Its exact head `fce8697976a29ff2492ea0b1b7310231de8a43dd` passed Node.js CI `40273900210`, Khedmah - Test & Verify `40273900243`, and PR Preview quality gates `40273900203`; Codex reviewed that exact head without major findings. Preview deployment-related jobs were skipped; no Preview runtime was proven.
 
-**Current post-merge verification:** runs `40324438076` (Node.js CI) and `40324438054` (Khedmah - Test & Verify) were queued immediately after PR #324 merged. Their final conclusions were not yet available at this checkpoint.
+**PR #325:** merged at `e99eaa500232cf57eaa861efc84d46399a34d850`. Its final head was `0e43da24d8df6c0af537a813eeec6fb4bf1edb76`; PR-head Node.js CI `40328899483`, Khedmah - Test & Verify `40328899475`, and PR Preview `40328899480` completed successfully. Post-merge Node.js CI `40342024454` and Khedmah - Test & Verify `40342024448` also completed successfully on `main=e99eaa500232cf57eaa861efc84d46399a34d850`. On the push, PR Validation was skipped as not applicable and post-merge PR Preview run `40342025453` was skipped; neither is a test failure or proof of deployed runtime.
 
 **Repository-only journey findings:**
-- **Taxi:** source contains candidate trip code, but `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` remain default-off rollout gates. Do not activate them without the separately reviewed schema/migration, roles, verified driver enrollment, route/meter/trip-lifecycle acceptance, and release evidence.
-- **Restaurant background push:** token lifecycle, sender, dispatch, and browser token-acquisition helpers exist with unit tests, but the source audit did not establish end-to-end call-site wiring or a registered background messaging worker. Do not claim guaranteed closed-page delivery until authenticated token registration, order-event dispatch/outbox, worker reception/click handling, ownership, retries/deduplication, and unsupported-browser behavior are implemented and tested.
-- These are source-audit findings only; no live runtime or device-delivery test was performed.
+- **Restaurant background push:** sender, dispatch mapping, token-lifecycle helpers, and a browser token-acquisition helper exist with unit tests. However, the merchant orders page does not call `acquireRestaurantPushToken`; `OrderModule` registers only the order and food-promotion controllers/providers; and no Firebase Messaging service-worker file was found in the frontend public tree. End-to-end authenticated token registration, order-event dispatch/outbox, background reception/click handling, ownership, invalidation, retry/deduplication, unsupported-browser behavior, and delivery evidence are not established. Keep push sending disabled until the complete path and tests exist.
+- **Taxi:** candidate trip code remains behind default-off `TAXI_TRIPS_ENABLED` / `NEXT_PUBLIC_TAXI_TRIPS_ENABLED` gates. Do not activate without separately reviewed schema/migration, roles, verified driver enrollment, route/meter/trip-lifecycle acceptance, and release evidence.
+- These are source-level findings only; no live runtime, browser-background, or device-delivery test was performed.
 
-**Follow-up documentation correction:** after PR #324 merged, these top-level checkpoint notes still described PR #324 as open and `main` at PR #323. PR #325 proposes correcting only the top checkpoint sections to reflect the PR #324 merge and pending post-merge CI, while preserving historical evidence below.
+**Checkpoint maintenance rule:** this file is a dated audit snapshot. At each cycle, read the live `main` SHA, PR states, and latest Actions runs directly from GitHub. Do not create another documentation-only PR solely to record the merge of the PR that carries a checkpoint update; doing so creates an endless self-referential checkpoint loop. Update the checkpoint when a substantive audit result or next action changes, and preserve the historical sections below.
 
-**Runtime/deployment boundary:** CI is source evidence only; no post-merge Preview runtime verification is established by this audit.
-
-**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Preserve unrelated release gates and historical evidence below.
-
+**Safety boundary:** repository-only review/fixes and tests are allowed. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Preserve unrelated release gates and historical evidence below.
 ---
 
 ## Historical checkpoints (retained for audit; not the current main pointer)

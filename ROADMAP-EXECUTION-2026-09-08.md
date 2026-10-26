@@ -2,18 +2,19 @@
 
 
 
-## Current professional-service checkpoint — PR #324 merged; post-merge CI pending — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #325 merged; required post-merge CI green — 2026-10-26 UTC
 
-**This is the controlling checkpoint for the current professional-service workstream.** Resolve the live `main` ref directly from GitHub at the start of each cycle. The checkpoint recorded immediately after PR #324 merged is `2656d25d14013420127354012eac3224d95d5d73`; it is a dated reference, not a permanent pointer.
+**This is a dated source checkpoint, not a permanent pointer.** The live `main` SHA observed directly from GitHub after PR #325 merged is `e99eaa500232cf57eaa861efc84d46399a34d850`. Required post-merge Node.js CI run `40342024454` and Khedmah - Test & Verify run `40342024448` both completed successfully by 2026-10-26T14:48:15Z. Resolve current `main`, open PRs, and Actions directly from GitHub at the start of each cycle.
 
 **Scope:** professional profiles, search, categories/city and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot workstream.
 
-**PR state:** PRs #321–#324 are merged. PR #324 head `fce8697976a29ff2492ea0b1b7310231de8a43dd` passed Node.js CI (`40273900210`), Khedmah - Test & Verify (`40273900243`), and PR Preview quality gates (`40273900203`); Codex reviewed that exact head and reported no major issues. Preview deployment-related jobs were skipped and do not establish runtime readiness. After the merge, Node.js CI `40324438076` and Khedmah - Test & Verify `40324438054` were queued; read their live conclusions before claiming main verification.
+**PR state:** PRs #321–#325 are merged. PR #325's exact head `0e43da24d8df6c0af537a813eeec6fb4bf1edb76` passed Node.js CI `40328899483`, Khedmah - Test & Verify `40328899475`, and PR Preview workflow `40328899480`. Post-merge Node.js CI and Test & Verify both passed on `e99eaa500232cf57eaa861efc84d46399a34d850`. PR Validation was skipped on the push and PR Preview run `40342025453` was skipped; neither is a failure, and neither proves deployed runtime behavior.
 
-**Next action:** reconcile the checkpoint text after PR #324 and verify workflows for the live `main` commit. PR #325 is the documentation-only follow-up for the stale top-level checkpoint statements; if it remains open, complete its checks/review and merge only through normal protections. After current-main CI succeeds, continue the repository-only functional audit for the specified professional-service journeys. Taxi trip gates remain closed. Restaurant background push is not end-to-end proven; do not claim closed-page delivery until authenticated token registration, order-event dispatch/outbox, worker reception/click handling, ownership, retry/deduplication, unsupported-browser cases, and delivery evidence are implemented and tested.
+**Next action:** continue the repository-only functional/permission audit for the defined professional-service pages. The restaurant FCM helper modules are not yet wired as a full journey: no token acquisition call from the merchant page, no push-registration controller/provider in the orders module, and no Firebase Messaging service-worker file found in the frontend public tree. Keep sending disabled until authenticated registration/storage, event dispatch/outbox, background worker and click handling, ownership, invalidation, retries/deduplication, unsupported-browser handling, and delivery acceptance are implemented and tested. Taxi trip gates remain default-off pending reviewed schema, roles, driver/vehicle approval, route/meter/lifecycle acceptance, and release evidence.
+
+**Checkpoint-loop rule:** do not create another documentation-only PR solely to record the merge of the PR carrying this checkpoint. This snapshot may be stale immediately after merge by design; resolve live GitHub state on each cycle and update it only when a substantive audit finding or next action changes.
 
 **Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay unrelated backend/Floot release-gate operations below.
-
 ---
 
 ## Binding completed; prepare one backend candidate build — 2026-10-23 UTC
