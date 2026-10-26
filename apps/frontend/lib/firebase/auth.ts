@@ -1,6 +1,6 @@
 'use client';
 
-import { FacebookAuthProvider, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { FacebookAuthProvider, GoogleAuthProvider, getRedirectResult, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { getFirebaseClientServices } from './client';
 
 type SocialProviderName = 'Google' | 'Facebook';
@@ -18,22 +18,52 @@ export function translateFirebaseSocialAuthError(provider: SocialProviderName, c
     'auth/popup-blocked': 'منع المتصفح نافذة تسجيل الدخول. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.',
     'auth/popup-closed-by-user': 'أُغلقت نافذة تسجيل الدخول قبل اكتمال العملية.',
     'auth/cancelled-popup-request': 'أُلغيت محاولة تسجيل الدخول السابقة. أعد المحاولة مرة واحدة.',
-    'auth/account-exists-with-different-credential': 'يوجد حساب بهذا البريد بطريقة دخول مختلفة. استخدم الطريقة المرتبطة بالحساب أولًا.'
+    'auth/account-exists-with-different-credential': 'يوجد حساب بهذا البريد بطريقة دخول مختلفة. استخدم الطريقة المرتبطة بالحساب أولًا.',
+    'auth/unauthorized-continue-uri': 'عنوان العودة بعد تسجيل الدخول غير مسموح به في إعدادات Firebase.',
+    'auth/network-request-failed': 'تعذر الاتصال بخدمة تسجيل الدخول. تحقق من الاتصال بالإنترنت ثم أعد المحاولة.'
   };
 
   return new Error(messages[code] ?? `تعذر تسجيل الدخول عبر ${provider}. تحقق من إعدادات المزوّد ثم أعد المحاولة.`);
 }
 
-export async function getGoogleIdToken(): Promise<string> {
+function shouldUseRedirectForGoogle(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent)
+    || window.matchMedia('(pointer: coarse)').matches;
+}
+
+/** Starts Google sign-in. Mobile browsers use redirect because popup flows can lose the result. */
+export async function beginGoogleSignIn(): Promise<string | null> {
   try {
     const { auth } = getFirebaseClientServices();
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+    if (shouldUseRedirectForGoogle()) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
     const credential = await signInWithPopup(auth, provider);
-    return credential.user.getIdToken(true);
+    return await credential.user.getIdToken(true);
   } catch (error) {
     throw translateFirebaseSocialAuthError('Google', error);
   }
+}
+
+/** Reads a pending Google redirect result after Firebase returns to the site. */
+export async function getGoogleRedirectIdToken(): Promise<string | null> {
+  try {
+    const { auth } = getFirebaseClientServices();
+    const result = await getRedirectResult(auth);
+    return result?.user ? await result.user.getIdToken(true) : null;
+  } catch (error) {
+    throw translateFirebaseSocialAuthError('Google', error);
+  }
+}
+
+export async function getGoogleIdToken(): Promise<string> {
+  const token = await beginGoogleSignIn();
+  if (!token) throw new Error('تم بدء تسجيل الدخول. انتظر العودة من Google لإكمال العملية.');
+  return token;
 }
 
 export async function getFacebookIdToken(): Promise<string> {
@@ -42,7 +72,7 @@ export async function getFacebookIdToken(): Promise<string> {
     const provider = new FacebookAuthProvider();
     provider.addScope('email');
     const credential = await signInWithPopup(auth, provider);
-    return credential.user.getIdToken(true);
+    return await credential.user.getIdToken(true);
   } catch (error) {
     throw translateFirebaseSocialAuthError('Facebook', error);
   }
