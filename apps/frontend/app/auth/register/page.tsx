@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { identityApi } from '../../../lib/identity-api';
-import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
+import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, beginGoogleSignIn, getGoogleRedirectIdToken } from '../../../lib/firebase/auth';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
 import { SocialProviderIcon } from '../social-provider-icon';
@@ -15,6 +15,25 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    async function finishGoogleRedirect() {
+      try {
+        const idToken = await getGoogleRedirectIdToken();
+        if (!idToken || cancelled) return;
+        setIsGoogleLoading(true);
+        await identityApi.google(idToken);
+        if (!cancelled) router.replace('/users/me');
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'تعذر إكمال تسجيل الدخول عبر Google.');
+      } finally {
+        if (!cancelled) setIsGoogleLoading(false);
+      }
+    }
+    void finishGoogleRedirect();
+    return () => { cancelled = true; };
+  }, [router]);
+
   const [visiblePassword, setVisiblePassword] = useState<'password' | 'confirmPassword' | null>(null);
 
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
@@ -51,7 +70,9 @@ export default function RegisterPage() {
     setError('');
     setIsGoogleLoading(true);
     try {
-      await identityApi.google(await getGoogleIdToken());
+      const idToken = await beginGoogleSignIn();
+      if (!idToken) return;
+      await identityApi.google(idToken);
       router.push('/users/me');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر المتابعة عبر Google.');

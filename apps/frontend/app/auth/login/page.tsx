@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../../../lib/api-client';
-import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
+import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, beginGoogleSignIn, getGoogleRedirectIdToken } from '../../../lib/firebase/auth';
 import { identityApi } from '../../../lib/identity-api';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
@@ -20,6 +20,33 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function finishGoogleRedirect() {
+      try {
+        const idToken = await getGoogleRedirectIdToken();
+        if (!idToken || cancelled) return;
+        setIsGoogleLoading(true);
+        await identityApi.google(idToken);
+        if (!cancelled) {
+          const requested = new URLSearchParams(window.location.search).get('next');
+          let target = '/users/me';
+          if (requested?.startsWith('/')) {
+            const parsed = new URL(requested, window.location.origin);
+            if (parsed.origin === window.location.origin) target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+          }
+          router.replace(target);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'تعذر إكمال تسجيل الدخول عبر Google.');
+      } finally {
+        if (!cancelled) setIsGoogleLoading(false);
+      }
+    }
+    void finishGoogleRedirect();
+    return () => { cancelled = true; };
+  }, [router]);
 
   useEffect(() => {
     const requestedDestination = new URLSearchParams(window.location.search).get('next');
@@ -71,7 +98,8 @@ export default function LoginPage() {
     setError('');
     setIsGoogleLoading(true);
     try {
-      const idToken = await getGoogleIdToken();
+      const idToken = await beginGoogleSignIn();
+      if (!idToken) return;
       await identityApi.google(idToken);
       router.push(destination);
     } catch (err) {
