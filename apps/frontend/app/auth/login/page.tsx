@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../../../lib/api-client';
-import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, getGoogleIdToken } from '../../../lib/firebase/auth';
+import { FACEBOOK_AUTH_ENABLED, getFacebookIdToken, beginGoogleSignIn, getGoogleRedirectIdToken } from '../../../lib/firebase/auth';
 import { identityApi } from '../../../lib/identity-api';
 import { PlatformIcon } from '../../components/platform-icon';
 import { IdentityVisual } from '../identity-visual';
