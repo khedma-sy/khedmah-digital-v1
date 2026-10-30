@@ -225,6 +225,12 @@ class Client:
                 stop('RESPONSE_INVALID_RECONCILE')
             return value
         except urllib.error.HTTPError as error:
+            # HTTPError is also a response stream. Close it before stopping so
+            # delayed cleanup cannot emit its reason/body through ResourceWarning.
+            try:
+                error.close()
+            except OSError:
+                pass
             stop('HTTP_' + str(error.code) + '_RECONCILE_NO_BLIND_RETRY')
         except (OSError, ValueError):
             stop('REQUEST_UNCONFIRMED_RECONCILE_NO_BLIND_RETRY')
