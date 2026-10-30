@@ -287,12 +287,15 @@ class HttpBoundaryTest(unittest.TestCase):
 
     def test_http_error_and_timeout_do_not_leak_response(self):
         client = M.Client(PRIVATE)
-        for error in (urllib.error.HTTPError('https://example.invalid', 403, PRIVATE, {},
-                                             io.BytesIO(PRIVATE.encode())), OSError(PRIVATE)):
+        http_error = urllib.error.HTTPError('https://example.invalid', 403, PRIVATE, {},
+                                            io.BytesIO(PRIVATE.encode()))
+        for error in (http_error, OSError(PRIVATE)):
             with patch.object(client.opener, 'open', side_effect=error):
                 with self.assertRaises(SystemExit) as failure:
                     client.request('create')
                 self.assertNotIn(PRIVATE, str(failure.exception))
+        self.assertTrue(http_error.fp is None or http_error.fp.closed,
+                        'HTTP error response stream must be closed before fail-closed exit')
 
     def test_pending_operation_stops_without_second_create(self):
         with patch.object(M.time, 'sleep'), contextlib.redirect_stdout(io.StringIO()):
