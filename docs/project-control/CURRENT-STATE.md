@@ -1,6 +1,6 @@
 # Khedmah Digital — Current State
 
-## Current professional-service checkpoint — PR #330 security repair reviewed; exact-head CI green; merge still pending — 2026-10-30 UTC
+## Current professional-service checkpoint — PR #330 code review complete on prior head; checkpoint correction needs exact-head revalidation — 2026-10-30 UTC
 
 **Live `main` SHA:** `946fe49a737836fee58eacd653865b43776f07da`. PR #330 remains open and unmerged. Its last reviewed code head `6e82ee92d03d453781bcccf206bdfd8bad5384a6` passed Node.js CI, Khedmah - Test & Verify, and PR Preview quality gates; Codex reported no major findings on that code head. A checkpoint correction has since been added to the PR branch, so the new exact head must rerun required checks and receive any required review before merge. Deployment-related PR Preview jobs are skipped; no deployment or runtime proof is established. Resolve live refs and required branch-protection checks directly from GitHub each cycle; source CI does not prove runtime behavior or authorize deployment.
 
