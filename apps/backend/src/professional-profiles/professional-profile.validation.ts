@@ -72,7 +72,7 @@ function validatePage(value: unknown): number {
   const normalized = typeof value === 'string' ? value.trim() : value;
   const parsed = typeof normalized === 'number'
     ? normalized
-    : typeof normalized === 'string' && /^\\d+$/.test(normalized)
+    : typeof normalized === 'string' && /^\d+$/.test(normalized)
       ? Number(normalized)
       : Number.NaN;
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
