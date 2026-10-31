@@ -69,8 +69,13 @@ function validatePage(value: unknown): number {
   if (value === undefined) {
     return 1;
   }
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN;
-  if (!Number.isInteger(parsed) || parsed < 1) {
+  const normalized = typeof value === 'string' ? value.trim() : value;
+  const parsed = typeof normalized === 'number'
+    ? normalized
+    : typeof normalized === 'string' && /^\\d+$/.test(normalized)
+      ? Number(normalized)
+      : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new BadRequestException('page must be a positive integer.');
   }
   return parsed;
