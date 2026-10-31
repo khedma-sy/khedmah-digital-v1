@@ -3,34 +3,18 @@ import { test } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import { validateProfessionalProfileSearch } from './professional-profile.validation';
 
-test('professional search defaults to page one and accepts strict positive integer pages', () => {
-  assert.equal(validateProfessionalProfileSearch({}).page, 1);
-  assert.equal(validateProfessionalProfileSearch({ page: '2' }).page, 2);
-  assert.equal(validateProfessionalProfileSearch({ page: ' 3 ' }).page, 3);
-  assert.equal(validateProfessionalProfileSearch({ page: 4 }).page, 4);
+const badRequest = (error: unknown): boolean => error instanceof BadRequestException && error.getStatus() === 400;
+
+test('professional search defaults to page one and accepts positive decimal pages with safe offsets', () => {
+  for (const [input, expected] of [[undefined, 1], [1, 1], ['1', 1], ['02', 2], [3, 3], ['57', 57]] as const) {
+    assert.equal(validateProfessionalProfileSearch({ page: input }).page, expected);
+  }
 });
 
-test('professional search rejects malformed, fractional, non-positive, and unsafe page values', () => {
-  const invalidPages: unknown[] = [
-    '',
-    '2junk',
-    '1.5',
-    '2e3',
-    '-1',
-    '0',
-    '9007199254740993',
-    null,
-    1.5,
-    Number.MAX_SAFE_INTEGER + 1,
-    Number.POSITIVE_INFINITY,
-    Number.NaN
-  ];
-
-  for (const page of invalidPages) {
-    assert.throws(
-      () => validateProfessionalProfileSearch({ page }),
-      BadRequestException,
-      `Expected page ${String(page)} to be rejected`
-    );
+test('professional search rejects prefixes, fractions, non-positive pages and unsafe offsets', () => {
+  for (const page of ['', ' ', '2abc', '2.5', '1e3', '0x10', '+2', '-1', 'Infinity', 'NaN',
+    '9007199254740993', ' 2 ', 0, -1, 1.5, NaN, Infinity, -Infinity, null, true, [], {},
+    Number.MAX_SAFE_INTEGER, String(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => validateProfessionalProfileSearch({ page } as any), badRequest, `page=${String(page)}`);
   }
 });
