@@ -37,7 +37,7 @@ function parseFiniteNumber(value: unknown, field: string): number {
     parsed = value;
   } else if (typeof value === 'string') {
     const normalized = value.trim();
-    if (!/^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)$/.test(normalized)) {
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
       throw new BadRequestException(`${field} must be a valid number.`);
     }
     parsed = Number(normalized);
