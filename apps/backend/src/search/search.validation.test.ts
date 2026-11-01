@@ -77,3 +77,16 @@ test('unified search rejects incomplete individual map boundaries', () => {
     badRequest
   );
 });
+
+
+test('unified search parses scientific notation in hyphen-separated legacy map bounds', () => {
+  const packed = validatePublicSearchRequest({ boundaries: '5e-7-35-6e-7-37' });
+  assert.deepEqual(packed.boundaries, { south: 5e-7, west: 35, north: 6e-7, east: 37 });
+
+  const negativeLongitudes = validatePublicSearchRequest({ boundaries: '32--125-34--123' });
+  assert.deepEqual(negativeLongitudes.boundaries, { south: 32, west: -125, north: 34, east: -123 });
+
+  for (const boundaries of ['5e--7-35-6e-7-37', '5e-7-35-6e-7']) {
+    assert.throws(() => validatePublicSearchRequest({ boundaries }), badRequest, boundaries);
+  }
+});
