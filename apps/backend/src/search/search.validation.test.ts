@@ -47,3 +47,18 @@ test('unified search rejects empty or non-numeric individual and packed map boun
   }
   assert.throws(() => validatePublicSearchRequest({ boundaries: '32,,34,37' }), badRequest);
 });
+
+test('unified search accepts negative longitudes in explicit and comma-packed bounds', () => {
+  const individual = validatePublicSearchRequest({ south: '32', west: '-125', north: '34', east: '-123' });
+  assert.deepEqual(individual.boundaries, { south: 32, west: -125, north: 34, east: -123 });
+
+  const packed = validatePublicSearchRequest({ boundaries: '32,-125,34,-123' });
+  assert.deepEqual(packed.boundaries, { south: 32, west: -125, north: 34, east: -123 });
+});
+
+test('unified search rejects incomplete individual map boundaries', () => {
+  assert.throws(
+    () => validatePublicSearchRequest({ south: '32', west: '-125', north: '34' } as any),
+    badRequest
+  );
+});
