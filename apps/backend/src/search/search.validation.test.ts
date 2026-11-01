@@ -15,7 +15,7 @@ test('unified search rejects numeric prefixes, fractions, non-positive pages and
   for (const page of ['', ' ', '2abc', '2.5', '1e3', '0x10', '+2', '-1', 'Infinity', 'NaN',
     '9007199254740993', ' 2 ', 0, -1, 1.5, NaN, Infinity, -Infinity, null, true, [], {},
     Number.MAX_SAFE_INTEGER, String(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER + 1]) {
-    assert.throws(() => validatePublicSearchRequest({ page }), badRequest, `page=${String(page)}`);
+    assert.throws(() => validatePublicSearchRequest({ page }), badRequest, 'page=' + String(page));
   }
 });
 
@@ -31,21 +31,36 @@ test('unified search accepts strict decimal coordinates and map boundaries', () 
   assert.deepEqual(packed.boundaries, { south: 32, west: 35, north: 34, east: 37 });
 });
 
-test('unified search rejects empty, non-decimal, and non-numeric coordinate values', () => {
-  for (const value of ['', ' ', null, true, [], {}, '0x10', '1e2', 'Infinity', NaN, Infinity, -Infinity]) {
-    assert.throws(() => validatePublicSearchRequest({ latitude: value } as any), badRequest, `latitude=${String(value)}`);
-    assert.throws(() => validatePublicSearchRequest({ longitude: value } as any), badRequest, `longitude=${String(value)}`);
+test('unified search accepts finite scientific-notation coordinates within geographic range', () => {
+  const coordinates = validatePublicSearchRequest({ latitude: '5e-7', longitude: '-5e-7' });
+  assert.equal(coordinates.latitude, 5e-7);
+  assert.equal(coordinates.longitude, -5e-7);
+
+  const individual = validatePublicSearchRequest({
+    south: '5e-7', west: '-5e-7', north: '6e-7', east: '-4e-7'
+  });
+  assert.deepEqual(individual.boundaries, { south: 5e-7, west: -5e-7, north: 6e-7, east: -4e-7 });
+
+  const packed = validatePublicSearchRequest({ boundaries: '5e-7,-5e-7,6e-7,-4e-7' });
+  assert.deepEqual(packed.boundaries, { south: 5e-7, west: -5e-7, north: 6e-7, east: -4e-7 });
+});
+
+test('unified search rejects empty, malformed, and non-numeric coordinate values', () => {
+  for (const value of ['', ' ', null, true, [], {}, '0x10', '1e', '1e+', '1e999', 'Infinity', NaN, Infinity, -Infinity]) {
+    assert.throws(() => validatePublicSearchRequest({ latitude: value } as any), badRequest, 'latitude=' + String(value));
+    assert.throws(() => validatePublicSearchRequest({ longitude: value } as any), badRequest, 'longitude=' + String(value));
   }
 });
 
 test('unified search rejects empty or non-numeric individual and packed map boundaries', () => {
   const base = { south: '32', west: '35', north: '34', east: '37' };
   for (const field of ['south', 'west', 'north', 'east'] as const) {
-    for (const value of ['', ' ', null, true, [], {}, '0x10', '1e2', Infinity]) {
-      assert.throws(() => validatePublicSearchRequest({ ...base, [field]: value } as any), badRequest, `${field}=${String(value)}`);
+    for (const value of ['', ' ', null, true, [], {}, '0x10', '1e', '1e+', '1e999', Infinity]) {
+      assert.throws(() => validatePublicSearchRequest({ ...base, [field]: value } as any), badRequest, field + '=' + String(value));
     }
   }
   assert.throws(() => validatePublicSearchRequest({ boundaries: '32,,34,37' }), badRequest);
+  assert.throws(() => validatePublicSearchRequest({ boundaries: '32,35,1e,37' }), badRequest);
 });
 
 test('unified search accepts negative longitudes in explicit and comma-packed bounds', () => {
