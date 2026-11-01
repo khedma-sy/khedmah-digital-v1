@@ -9,14 +9,14 @@ function optionalString(value: unknown, field: string, max: number): string | un
     return undefined;
   }
   if (typeof value !== 'string') {
-    throw new BadRequestException(`${field} must be a string.`);
+    throw new BadRequestException(field + ' must be a string.');
   }
   const normalized = value.trim();
   if (normalized.length === 0) {
     return undefined;
   }
   if (normalized.length > max) {
-    throw new BadRequestException(`${field} must be at most ${max} characters.`);
+    throw new BadRequestException(field + ' must be at most ' + max + ' characters.');
   }
   return normalized;
 }
@@ -37,15 +37,15 @@ function parseFiniteNumber(value: unknown, field: string): number {
     parsed = value;
   } else if (typeof value === 'string') {
     const normalized = value.trim();
-    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
-      throw new BadRequestException(`${field} must be a valid number.`);
+    if (!/^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/.test(normalized)) {
+      throw new BadRequestException(field + ' must be a valid number.');
     }
     parsed = Number(normalized);
   } else {
-    throw new BadRequestException(`${field} must be a valid number.`);
+    throw new BadRequestException(field + ' must be a valid number.');
   }
   if (!Number.isFinite(parsed)) {
-    throw new BadRequestException(`${field} must be a valid number.`);
+    throw new BadRequestException(field + ' must be a valid number.');
   }
   return parsed;
 }
@@ -96,7 +96,7 @@ export function validatePublicSearchRequest(request: PublicSearchRequest) {
     if (rawParts.length !== 4) {
       throw new BadRequestException('boundaries must use south-west-north-east with valid map coordinates.');
     }
-    const parts = rawParts.map((part, index) => parseFiniteNumber(part, `boundaries[${index}]`));
+    const parts = rawParts.map((part, index) => parseFiniteNumber(part, 'boundaries[' + index + ']'));
     if (Math.abs(parts[0]) > 90 || Math.abs(parts[2]) > 90 || Math.abs(parts[1]) > 180 || Math.abs(parts[3]) > 180 || parts[0] >= parts[2] || parts[1] >= parts[3]) {
       throw new BadRequestException('boundaries must use south-west-north-east with valid map coordinates.');
     }
