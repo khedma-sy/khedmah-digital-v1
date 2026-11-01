@@ -70,6 +70,14 @@ function optionalCityCode(value: unknown): string | undefined {
   return cityCode;
 }
 
+function parseHyphenSeparatedBoundaries(raw: string): string[] {
+  const match = raw.match(/^\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*-\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*-\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*-\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*$/);
+  if (!match) {
+    throw new BadRequestException('boundaries must use south-west-north-east with valid map coordinates.');
+  }
+  return match.slice(1);
+}
+
 export function validatePublicSearchRequest(request: PublicSearchRequest) {
   const map = request.map === 'true' || request.map === true;
   const latitude = optionalFiniteNumber(request.latitude, 'latitude');
@@ -92,7 +100,7 @@ export function validatePublicSearchRequest(request: PublicSearchRequest) {
     boundaries = { south: parts[0], west: parts[1], north: parts[2], east: parts[3] };
   } else if (request.boundaries !== undefined) {
     const raw = String(request.boundaries);
-    const rawParts = raw.includes(',') ? raw.split(',') : raw.split('-');
+    const rawParts = raw.includes(',') ? raw.split(',') : parseHyphenSeparatedBoundaries(raw);
     if (rawParts.length !== 4) {
       throw new BadRequestException('boundaries must use south-west-north-east with valid map coordinates.');
     }
