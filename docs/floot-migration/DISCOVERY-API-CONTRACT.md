@@ -74,7 +74,7 @@ The city predicate currently includes 14 Syrian codes. A country appearing in th
 - **DISCOVERY-02 — category validation parity:** category detail validates canonical syntax and active status, but the unified search parser checks only optional string length. The frontend separately validates selected catalog metadata. Do not claim these paths have identical rejection semantics or infer that unknown search categories always return 404.
 - **DISCOVERY-03 — map scope:** map limits and bounding boxes apply to businesses in the unified service, not to service listings. Do not label the complete `all` response as geographically clipped.
 
-These are source-derived observations. The original 24 frontend-helper tests below do not exercise backend parsing, database eligibility or live requests. PR #333 adds backend regression tests for strict pagination and numeric coordinate/boundary parsing; its exact-head Test & Verify and Node.js CI workflows passed on 2026-11-01. This is unit/CI evidence only, not live API or database evidence.
+These are source-derived observations. The original 24 frontend-helper tests below do not exercise backend parsing, database eligibility or live requests. PR #333 adds backend regression tests for strict pagination and numeric coordinate/boundary parsing. The code-only head `543b179e2aceb7a9e2e6affca9c75d522676ba11` passed Test & Verify and Node.js CI on 2026-11-01; this documentation follow-up requires fresh exact-head checks before merge. This is unit/CI evidence only, not live API or database evidence.
 
 ## 5. Result shape, ranking and pagination
 
@@ -112,7 +112,7 @@ Runtime: Node.js v22.16.0. Transpilation: installed TypeScript 5.8.3, ES2022/Com
 
 **24 local tests passed, zero failed**, covering default/trimmed URL fields, canonical-versus-legacy precedence, malformed/unsafe page normalization, context-preserving fixed local links, encoded user text, untouched versus submitted search, professional category removal, request identity, and all three pagination strategies.
 
-These 24 results test the two pure frontend helpers only. PR #333 separately adds backend validator regression tests for strict page parsing, safe offsets, coordinates, and map boundaries; the exact PR-head CI runs passed on 2026-11-01. Neither suite is repository-wide type checking, full React interaction coverage, live API/SQL verification, Google configuration verification, Floot acceptance, or a Production readiness certificate. No network/cloud/database call occurs in the local test harness.
+These 24 results test the two pure frontend helpers only. PR #333 separately adds backend validator regression tests for strict page parsing, safe offsets, coordinates, and map boundaries. The code-only head `543b179e2aceb7a9e2e6affca9c75d522676ba11` passed exact-head CI on 2026-11-01; this documentation follow-up requires fresh exact-head checks before merge. Neither suite is repository-wide type checking, full React interaction coverage, live API/SQL verification, Google configuration verification, Floot acceptance, or a Production readiness certificate. No network/cloud/database call occurs in the local test harness.
 
 ## 8. Acceptance gates before frontend cutover — not completed here
 
