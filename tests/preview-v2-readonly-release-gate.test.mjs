@@ -36,6 +36,8 @@ test('Preview V2 read-only gate uses read commands only', () => {
 });
 
 test('Preview V2 read-only workflow diagnostics use pinned GET-only Monitoring inspector', () => {
+  assert.match(workflow, /workflow_dispatch:[\s\S]*?monitoring_diagnostic:[\s\S]*?default: false/);
+  assert.match(workflow, /if:.*inputs\.monitoring_diagnostic == true/);
   assert.match(workflow, /uses: actions\/checkout@v7/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /python3 scripts\/read-preview-v2-instance-metric-evidence\.py --inspect/);
