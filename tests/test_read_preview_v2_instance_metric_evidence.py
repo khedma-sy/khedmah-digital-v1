@@ -110,5 +110,32 @@ class InstanceMetricEvidenceTests(unittest.TestCase):
         self.assertFalse(result["service_zero_point_observed_after_boundary"])
         self.assertFalse(result["writer_quiescence_verified"])
 
+    def test_monitoring_permission_denied_is_reported_without_leaking_response(self):
+        secret_response = io.BytesIO(b"secret=should-not-be-logged")
+        error = MOD.urllib.error.HTTPError(
+            "https://monitoring.googleapis.com/private?token=secret",
+            403, "Forbidden: secret", {}, secret_response,
+        )
+        with patch.object(MOD.urllib.request, "urlopen", side_effect=error):
+            with self.assertRaisesRegex(SystemExit, r"^STOP: MONITORING_PERMISSION_DENIED$") as raised:
+                MOD.get_json(MOD.descriptor_url(), "secret-token")
+        self.assertEqual(str(raised.exception), "STOP: MONITORING_PERMISSION_DENIED")
+        self.assertTrue(secret_response.closed)
+
+    def test_other_monitoring_http_failures_are_bounded_and_closed(self):
+        for status, expected in ((400, "MONITORING_HTTP_400"),
+                                 (401, "MONITORING_HTTP_401"),
+                                 (404, "MONITORING_HTTP_404"),
+                                 (429, "MONITORING_HTTP_429"),
+                                 (500, "MONITORING_READ_FAILED")):
+            with self.subTest(status=status):
+                body = io.BytesIO(b"private-authorization-body")
+                error = MOD.urllib.error.HTTPError("https://secret.invalid",
+                                                   status, "Private", {}, body)
+                with patch.object(MOD.urllib.request, "urlopen", side_effect=error):
+                    with self.assertRaisesRegex(SystemExit, r"^STOP: " + expected + r"$"):
+                        MOD.get_json(MOD.descriptor_url(), "secret-token")
+                self.assertTrue(body.closed)
+
 if __name__ == "__main__":
     unittest.main()
