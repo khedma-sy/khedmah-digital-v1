@@ -51,6 +51,9 @@ jobs:
           test "$READONLY_SA" != "$HISTORICAL_DEPLOYER_SA"
           case "$READONLY_WIF_PROVIDER" in projects/1044962071847/locations/global/workloadIdentityPools/*/providers/*) ;; *) exit 1 ;; esac
           case "$READONLY_SA" in *"@khedmah-preview-v2-20261012.iam.gserviceaccount.com") ;; *) exit 1 ;; esac
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.PREVIEW_V2_READONLY_WORKLOAD_IDENTITY_PROVIDER }}
@@ -96,3 +99,15 @@ jobs:
           if not report['service_name_verified'] or not report['project_verified'] or not revision or report['traffic_percent_total'] != 100:
               raise SystemExit('STOP: SERVICE_SCOPE_OR_REVISIONS_INVALID')
           PY
+      - name: Diagnose Cloud Monitoring telemetry only (read-only)
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'
+          CLOUDSDK_CORE_LOG_HTTP: 'false'
+        run: |
+          set -euo pipefail
+          # Exact source: the protected main workflow, after its provenance guard.
+          # Only GET requests to Monitoring. No DB reads, IAM grants or writes.
+          # Missing permission/telemetry is never a quiescence or release proof.
+          python3 scripts/read-preview-v2-instance-metric-evidence.py --inspect
