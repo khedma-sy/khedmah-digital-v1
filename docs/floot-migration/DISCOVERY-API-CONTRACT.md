@@ -1,8 +1,7 @@
 # Khedmah to Floot — category and public discovery contract
 
 Status: source-backed migration input, NOT a live or certified Floot integration.
-Reviewed source: `khedma-sy/khedmah-digital-v1` at `5a961be5035dce1197ba2d0c65519e86f65ca4c6`.
-Date: 2026-10-04. No application logic or deployed configuration is changed by this document.
+Original discovery-contract source review: `khedma-sy/khedmah-digital-v1` at `5a961be5035dce1197ba2d0c65519e86f65ca4c6` (2026-10-04). The strict-search addendum below was checked against PR #333 candidate head `543b179e2aceb7a9e2e6affca9c75d522676ba11` on 2026-11-01; it is not yet merged to `main`. No application logic or deployed configuration is changed by this document.
 
 ## 1. Scope and source owners
 
@@ -60,7 +59,7 @@ Unified `all` means business profiles plus service listings in the inspected cod
 | `q` | Optional trimmed string, maximum 200 characters; null/undefined/empty become absent. |
 | `categoryCode` | Optional trimmed string, maximum 50 characters. This parser does not invoke the canonical category validator or perform an active-category lookup. |
 | `cityCode` | Optional trimmed string, maximum 50 characters, checked against `isSyrianCityCode`. Use returned governed codes, not city display names. |
-| `page` | Missing defaults to 1. A number is checked for integer and >= 1; a string first goes through `Number.parseInt(value, 10)`. See the parity finding below. |
+| `page` | Missing defaults to 1. The PR #333 candidate accepts positive decimal integers (numbers or digit-only strings) only and requires safe integer/offset arithmetic; malformed strings such as `2junk`, fractions, signed/whitespace-padded strings, non-positive values, and unsafe offsets are rejected. This strict behavior is present on the candidate head but is not yet on `main` as of 2026-11-01. |
 | `type` | Missing defaults to `all`; only exact `all`, `business`, `service` are accepted. |
 | `map` | True only for the string `true` or boolean true; other values are not rejected here but evaluate false. |
 | `latitude`, `longitude` | Individually optional, converted with `Number`; finite and within latitude +/-90, longitude +/-180. Pair completeness is not enforced here. Location ranking is supplied only when both are present. |
@@ -71,11 +70,11 @@ The city predicate currently includes 14 Syrian codes. A country appearing in th
 
 ### Open findings to preserve, not silently fix during migration
 
-- **DISCOVERY-01 — page-parser parity:** frontend `discoveryPage` accepts only positive decimal strings with safe integer/offset arithmetic. Backend unified search uses `parseInt`, so inspection shows a string such as `2junk` can be parsed as page 2 instead of rejected. The frontend normalizes that value to page 1. Record and test any future strict backend change explicitly; this document does not change behavior.
+- **DISCOVERY-01 — page-parser parity (source fix pending merge as of 2026-11-01):** the original mismatch allowed backend unified search to parse a string such as `2junk` as page 2 while frontend `discoveryPage` normalizes malformed values to page 1. PR #333 adds strict backend parsing and safe offset checks, with regression tests. Verify the merged `main` and post-merge CI before marking this finding closed.
 - **DISCOVERY-02 — category validation parity:** category detail validates canonical syntax and active status, but the unified search parser checks only optional string length. The frontend separately validates selected catalog metadata. Do not claim these paths have identical rejection semantics or infer that unknown search categories always return 404.
 - **DISCOVERY-03 — map scope:** map limits and bounding boxes apply to businesses in the unified service, not to service listings. Do not label the complete `all` response as geographically clipped.
 
-These are source-derived observations. The local tests below do not exercise backend parsing, database eligibility or live requests.
+These are source-derived observations. The original 24 frontend-helper tests below do not exercise backend parsing, database eligibility or live requests. PR #333 adds backend regression tests for strict pagination and numeric coordinate/boundary parsing. The code-only head `543b179e2aceb7a9e2e6affca9c75d522676ba11` passed Test & Verify and Node.js CI on 2026-11-01; this documentation follow-up requires fresh exact-head checks before merge. This is unit/CI evidence only, not live API or database evidence.
 
 ## 5. Result shape, ranking and pagination
 
@@ -113,7 +112,7 @@ Runtime: Node.js v22.16.0. Transpilation: installed TypeScript 5.8.3, ES2022/Com
 
 **24 local tests passed, zero failed**, covering default/trimmed URL fields, canonical-versus-legacy precedence, malformed/unsafe page normalization, context-preserving fixed local links, encoded user text, untouched versus submitted search, professional category removal, request identity, and all three pagination strategies.
 
-These results test the two pure frontend helpers only. They are not repository-wide type checking, React interaction tests, backend/API/SQL tests, Google configuration verification, Floot acceptance, or a Production readiness certificate. No network/cloud/database call occurs in the test harness.
+These 24 results test the two pure frontend helpers only. PR #333 separately adds backend validator regression tests for strict page parsing, safe offsets, coordinates, and map boundaries. The code-only head `543b179e2aceb7a9e2e6affca9c75d522676ba11` passed exact-head CI on 2026-11-01; this documentation follow-up requires fresh exact-head checks before merge. Neither suite is repository-wide type checking, full React interaction coverage, live API/SQL verification, Google configuration verification, Floot acceptance, or a Production readiness certificate. No network/cloud/database call occurs in the local test harness.
 
 ## 8. Acceptance gates before frontend cutover — not completed here
 

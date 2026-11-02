@@ -2,19 +2,19 @@
 
 
 
-## Current professional-service checkpoint — PR #325 merged; required post-merge CI green — 2026-10-26 UTC
+## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
 
-**This is a dated source checkpoint, not a permanent pointer.** The live `main` SHA observed directly from GitHub after PR #325 merged is `e99eaa500232cf57eaa861efc84d46399a34d850`. Required post-merge Node.js CI run `40342024454` and Khedmah - Test & Verify run `40342024448` both completed successfully by 2026-10-26T14:48:15Z. Resolve current `main`, open PRs, and Actions directly from GitHub at the start of each cycle.
+**This is a dated source checkpoint, not a permanent pointer.** The live `main` SHA observed directly from GitHub remains `70bf3c89726dbc71a41a11579b9d3b51de4cbce3` (2026-10-31T11:28:59Z). Resolve current refs and Actions directly from GitHub before each action.
 
-**Scope:** professional profiles, search, categories/city and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot workstream.
+**Scope:** professional profiles, shared search, categories/city and Nearby, store, classifieds, restaurant/orders, taxi/courier, account, and related admin permissions. Exclude the separate Khedmah Business/Floot workstream.
 
-**PR state:** PRs #321–#325 are merged. PR #325's exact head `0e43da24d8df6c0af537a813eeec6fb4bf1edb76` passed Node.js CI `40328899483`, Khedmah - Test & Verify `40328899475`, and PR Preview workflow `40328899480`. Post-merge Node.js CI and Test & Verify both passed on `e99eaa500232cf57eaa861efc84d46399a34d850`. PR Validation was skipped on the push and PR Preview run `40342025453` was skipped; neither is a failure, and neither proves deployed runtime behavior.
+**PR state:** PR #321 and follow-up PRs #327, #330, and #331 are merged. PR #333 remains open and unmerged. The review of code head `932b964db9817dcc6bebaf7643c995e557d94e12` found that legacy hyphen-separated map bounds were split on every hyphen, breaking scientific notation such as `5e-7-35-6e-7-37` and signed coordinate values. The parser repair is committed at `33692107ee375eed5917a341617b32cc2d7ce97f`, with regression tests in `4fd2e672633ea2067e2276ca96cb12208cdf655b`. Previous exact-head CI runs passed before this follow-up and are not evidence for the current head. Require fresh Node.js CI, Test & Verify, PR Preview quality, and review on the current exact head before merge.
 
-**Next action:** continue the repository-only functional/permission audit for the defined professional-service pages. The restaurant FCM helper modules are not yet wired as a full journey: no token acquisition call from the merchant page, no push-registration controller/provider in the orders module, and no Firebase Messaging service-worker file found in the frontend public tree. Keep sending disabled until authenticated registration/storage, event dispatch/outbox, background worker and click handling, ownership, invalidation, retries/deduplication, unsupported-browser handling, and delivery acceptance are implemented and tested. Taxi trip gates remain default-off pending reviewed schema, roles, driver/vehicle approval, route/meter/lifecycle acceptance, and release evidence.
+**Next action:** verify the latest PR #333 head and all required checks, then address any new review feedback. Keep Google mobile sign-in explicitly runtime-unverified; keep restaurant push disabled until authenticated token registration, event dispatch/outbox, background reception/click handling, ownership, invalidation, retries/deduplication, unsupported-browser handling, and delivery acceptance are implemented and tested. Taxi trip gates remain default-off pending reviewed schema, roles, driver/vehicle approval, route/meter/lifecycle acceptance, and release evidence.
 
-**Checkpoint-loop rule:** do not create another documentation-only PR solely to record the merge of the PR carrying this checkpoint. This snapshot may be stale immediately after merge by design; resolve live GitHub state on each cycle and update it only when a substantive audit finding or next action changes.
+**Checkpoint-loop rule:** do not create another documentation-only PR solely to record the merge of the PR carrying this checkpoint. Resolve live GitHub state each cycle and update the checkpoint only when a substantive finding or next action changes.
 
-**Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay unrelated backend/Floot release-gate operations below.
+**Safety boundary:** repository-only edits/tests only. No Live deployment, Production mutation, Google Cloud, or Cloud Shell. Source CI is not runtime proof. Do not alter or replay unrelated backend/Floot release-gate operations.
 ---
 
 ## Binding completed; prepare one backend candidate build — 2026-10-23 UTC
