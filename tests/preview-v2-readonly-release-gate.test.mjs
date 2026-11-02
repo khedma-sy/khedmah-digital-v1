@@ -34,3 +34,15 @@ test('Preview V2 read-only gate uses read commands only', () => {
   assert.match(workflow, /run','revisions','list/);
   assert.doesNotMatch(workflow, /run services update|update-traffic|revisions delete|sql instances patch|projects add-iam-policy-binding|services set-iam-policy/i);
 });
+
+test('Preview V2 read-only workflow diagnostics use pinned GET-only Monitoring inspector', () => {
+  assert.match(workflow, /uses: actions\/checkout@v7/);
+  assert.match(workflow, /persist-credentials: false/);
+  assert.match(workflow, /python3 scripts\/read-preview-v2-instance-metric-evidence\.py --inspect/);
+  assert.doesNotMatch(workflow, /--execute-fence|--execute-migration|--deploy-candidate/);
+  assert.doesNotMatch(workflow, /continue-on-error:\s*true/i);
+  const metricStep = workflow.split('name: Diagnose Cloud Monitoring telemetry only (read-only)')[1];
+  assert.ok(metricStep, 'missing explicit metric diagnostic step');
+  assert.match(metricStep, /CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012/);
+  assert.match(metricStep, /writer|quiescence|proof/);
+});
