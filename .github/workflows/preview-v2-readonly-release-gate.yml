@@ -2,6 +2,12 @@ name: Preview V2 read-only release gate
 
 on:
   workflow_dispatch:
+    inputs:
+      monitoring_diagnostic:
+        description: 'Optional read-only Monitoring diagnosis (requires separately reviewed IAM)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -100,6 +106,7 @@ jobs:
               raise SystemExit('STOP: SERVICE_SCOPE_OR_REVISIONS_INVALID')
           PY
       - name: Diagnose Cloud Monitoring telemetry only (read-only)
+        if: ${{ inputs.monitoring_diagnostic == true }}
         shell: bash
         env:
           CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
