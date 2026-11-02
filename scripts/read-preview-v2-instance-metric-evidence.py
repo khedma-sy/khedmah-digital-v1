@@ -154,7 +154,11 @@ def inspect():
         "resource_label_keys": labels,
         "exact_revision_query": exact,
         "service_wide_query": service,
-        "writer_quiescence_verified": bool(exact["explicit_zero_after_boundary"]),
+        # This diagnostic reads Monitoring only. Even a zero sample cannot
+        # prove stopped database writers, zero revision tags or scaling state.
+        "instance_zero_point_observed_after_boundary": bool(exact["explicit_zero_after_boundary"]),
+        "service_zero_point_observed_after_boundary": bool(service["explicit_zero_after_boundary"]),
+        "writer_quiescence_verified": False,
         "missing_telemetry_is_proof": False,
         "cloud_mutation_performed": False,
         "database_checked": False,
