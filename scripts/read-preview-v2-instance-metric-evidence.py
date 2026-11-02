@@ -11,6 +11,7 @@ import subprocess
 import sys
 import urllib.parse
 import urllib.request
+import urllib.error
 
 PROJECT = "khedmah-preview-v2-20261012"
 REGION = "europe-west1"
@@ -45,6 +46,15 @@ def get_json(url, token):
     try:
         with urllib.request.urlopen(req, timeout=45) as response:
             return json.loads(response.read(4 * 1024 * 1024))
+    except urllib.error.HTTPError as error:
+        # Report ONLY a bounded HTTP code. Never log the URL, token or body.
+        status = error.code
+        error.close()
+        if status == 403:
+            stop("MONITORING_PERMISSION_DENIED")
+        if status in (400, 401, 404, 429):
+            stop("MONITORING_HTTP_" + str(status))
+        stop("MONITORING_READ_FAILED")
     except Exception:
         stop("MONITORING_READ_FAILED")
 
