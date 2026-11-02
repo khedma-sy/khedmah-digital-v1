@@ -1,6 +1,10 @@
 import importlib.util
 import pathlib
 import unittest
+import contextlib
+import io
+import json
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PATH = ROOT / "scripts" / "read-preview-v2-instance-metric-evidence.py"
@@ -55,6 +59,56 @@ class InstanceMetricEvidenceTests(unittest.TestCase):
         boundary = MOD.datetime.datetime.fromisoformat(MOD.BOUNDARY.replace("Z", "+00:00"))
         with self.assertRaisesRegex(SystemExit, "INSTANCE_METRIC_PAGINATION_UNEXPECTED"):
             MOD.parse_points({"nextPageToken": "x", "timeSeries": []}, boundary)
+
+    def test_monitoring_zero_does_not_grant_writer_quiescence(self):
+        """An explicit metric zero is evidence only, not release authorization."""
+        zero = {"timeSeries": [{"points": [
+            {"interval": {"endTime": "2026-10-24T20:41:32Z"}, "value": {"int64Value": "0"}}
+        ]}]}
+        def fake_get(url, _token):
+            if "/metricDescriptors/" in url:
+                return {"type": MOD.METRIC, "metricKind": "GAUGE", "valueType": "INT64",
+                        "monitoredResourceTypes": ["cloud_run_revision"]}
+            if "/monitoredResourceDescriptors/" in url:
+                return {"type": MOD.RESOURCE, "labels": [
+                    {"key": "service_name"}, {"key": "revision_name"}, {"key": "location"}
+                ]}
+            if "/timeSeries?" in url:
+                return zero
+            raise AssertionError("Unexpected network target")
+
+        out = io.StringIO()
+        with patch.object(MOD, "access_token", return_value="test-token"), \
+             patch.object(MOD, "get_json", side_effect=fake_get), \
+             contextlib.redirect_stdout(out):
+            MOD.inspect()
+        result = json.loads(out.getvalue())
+        self.assertTrue(result["instance_zero_point_observed_after_boundary"])
+        self.assertTrue(result["service_zero_point_observed_after_boundary"])
+        self.assertFalse(result["writer_quiescence_verified"])
+        self.assertFalse(result["database_checked"])
+        self.assertFalse(result["release_authorized"])
+        self.assertFalse(result["cloud_mutation_performed"])
+
+    def test_missing_monitoring_data_stays_unverified(self):
+        def fake_get(url, _token):
+            if "/metricDescriptors/" in url:
+                return {"type": MOD.METRIC, "monitoredResourceTypes": ["cloud_run_revision"]}
+            if "/monitoredResourceDescriptors/" in url:
+                return {"type": MOD.RESOURCE, "labels": []}
+            if "/timeSeries?" in url:
+                return {"timeSeries": []}
+            raise AssertionError("Unexpected network target")
+
+        out = io.StringIO()
+        with patch.object(MOD, "access_token", return_value="test-token"), \
+             patch.object(MOD, "get_json", side_effect=fake_get), \
+             contextlib.redirect_stdout(out):
+            MOD.inspect()
+        result = json.loads(out.getvalue())
+        self.assertFalse(result["instance_zero_point_observed_after_boundary"])
+        self.assertFalse(result["service_zero_point_observed_after_boundary"])
+        self.assertFalse(result["writer_quiescence_verified"])
 
 if __name__ == "__main__":
     unittest.main()
