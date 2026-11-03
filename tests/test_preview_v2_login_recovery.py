@@ -21,6 +21,15 @@ def service_fixture():
     }
 
 
+def revision_fixture():
+    return {
+        'name': recovery.NAME + '/revisions/' + recovery.REVISION,
+        'service': recovery.NAME,
+        'conditions': [{'type': 'Ready', 'state': 'CONDITION_SUCCEEDED'}],
+        'containers': [{'image': 'backend@' + recovery.DIGEST}],
+    }
+
+
 def receipt_fixture():
     return {
         'stage': 'PREVIEW_V2_APPROVAL_QUOTA_DIAGNOSTIC_READ_COMPLETED',
@@ -64,27 +73,55 @@ class RecoveryValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, 'DATABASE_PREDECESSOR_NOT_VERIFIED'):
             recovery.require_predecessor(receipt)
 
+    def test_revision_independently_pinned(self):
+        recovery.require_revision(service_fixture(), revision_fixture())
+        changed = revision_fixture()
+        changed['containers'][0]['image'] = 'backend@sha256:deadbeef'
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service_fixture(), changed)
+        changed = revision_fixture()
+        changed['service'] = 'unexpected-service'
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service_fixture(), changed)
+
+    def test_cloud_run_operation_contract(self):
+        valid = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/example', 'done': True}
+        recovery.require_validation_operation(valid)
+        for value, reason in [
+            ({'name': valid['name']}, 'SCALING_PATCH_VALIDATION_PENDING'),
+            ({'name': valid['name'], 'done': False}, 'SCALING_PATCH_VALIDATION_PENDING'),
+            ({'name': valid['name'], 'done': True, 'error': {'code': 3}}, 'SCALING_PATCH_VALIDATION_REJECTED'),
+            ({'name': 'operations/example', 'done': True}, 'SCALING_PATCH_VALIDATION_OPERATION_INVALID'),
+            ({'name': valid['name'], 'done': True, 'response': 'invalid'}, 'SCALING_PATCH_VALIDATION_RESPONSE_INVALID'),
+        ]:
+            with self.subTest(value=value), self.assertRaisesRegex(SystemExit, reason):
+                recovery.require_validation_operation(value)
+
     def test_service_drift_prevents_patch_validation(self):
         before, after = service_fixture(), service_fixture()
         after['etag'] = 'changed'
-        with patch.object(recovery.subprocess, 'run') as run, \
-                patch.object(recovery, 'read_predecessor'), \
-                patch.object(recovery, 'cloud_json', side_effect=[before, after]) as cloud:
+        with patch.object(recovery.subprocess, 'run') as run, \\
+                patch.object(recovery, 'read_predecessor'), \\
+                patch.object(recovery, 'cloud_json', side_effect=[
+                    before, revision_fixture(), after,
+                ]) as cloud:
             run.return_value.stdout = 'fake-token'
             with self.assertRaisesRegex(SystemExit, 'SERVICE_CHANGED_DURING_SCHEMA_READ'):
                 recovery.validate()
-        self.assertEqual(cloud.call_count, 2)
+        self.assertEqual(cloud.call_count, 3)
 
     def test_only_validation_request_is_submitted(self):
         service = service_fixture()
         service['latestReadyRevision'] = recovery.NAME + '/revisions/' + recovery.REVISION
-        with patch.object(recovery.subprocess, 'run') as run, \
-                patch.object(recovery, 'read_predecessor'), \
+        operation = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test', 'done': True}
+        with patch.object(recovery.subprocess, 'run') as run, \\
+                patch.object(recovery, 'read_predecessor'), \\
                 patch.object(recovery, 'cloud_json', side_effect=[
-                    service, service, {'done': True, 'name': 'test-validation-operation'},
+                    service, revision_fixture(), service, revision_fixture(), operation,
                 ]) as cloud, patch('builtins.print'):
             run.return_value.stdout = 'fake-token'
             recovery.validate()
+        self.assertEqual(cloud.call_count, 5)
         cloud.assert_called_with('fake-token', recovery.VALIDATE_URL, method='PATCH',
             body={'name': recovery.NAME, 'etag': 'test-etag', 'scaling': {'manualInstanceCount': 1}})
 
