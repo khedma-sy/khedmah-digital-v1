@@ -145,12 +145,77 @@ def inspect_service(value, service):
     }
 
 
+def safe_scaling_class(value):
+    """Return only allowlisted, non-secret Cloud Run scaling metadata."""
+    raw = value.get("scaling") if isinstance(value, dict) else None
+    if not isinstance(raw, dict):
+        return {"mode": "MISSING_OR_UNKNOWN", "manual_instances": "MISSING_OR_UNKNOWN"}
+    mode = raw.get("scalingMode")
+    if mode not in ("MANUAL", "AUTOMATIC"):
+        mode = "MISSING_OR_UNKNOWN"
+    count = raw.get("manualInstanceCount")
+    if type(count) is int and count >= 0:
+        count_class = "ZERO" if count == 0 else "NONZERO"
+    elif type(count) is str and re.fullmatch(r"(?:0|[1-9][0-9]*)", count):
+        count_class = "ZERO" if count == "0" else "NONZERO"
+    else:
+        count_class = "MISSING_OR_UNKNOWN"
+    return {"mode": mode, "manual_instances": count_class}
+
+
+VALIDATION_STOPS = frozenset({
+    "SERVICE_IDENTITY_MISMATCH",
+    "SERVICE_GENERATION_INVALID",
+    "SERVICE_RECONCILIATION_PENDING",
+    "SERVICE_TERMINAL_CONDITION_INVALID",
+    "SERVICE_NOT_MANUAL_ZERO",
+    "SERVICE_TRAFFIC_INVALID",
+    "TAGGED_REVISION_PRESENT",
+    "REVISION_INVENTORY_INVALID",
+    "LATEST_SERVING_REVISION_MISMATCH",
+    "BACKEND_REVISION_DRIFT",
+    "SERVICE_UPDATE_TIME_INVALID",
+})
+
+
 def inspect():
     token = access_token()
-    first = {service: inspect_service(read_service(token, service), service)
-             for service in SERVICES}
-    second = {service: inspect_service(read_service(token, service), service)
-              for service in SERVICES}
+    snapshots = []
+    failures = []
+    # Read each exact service twice, even if one fails a validation gate.
+    # Report only allowlisted status codes and scaling classes, never raw
+    # cloud resources, templates, secret references, IAM identities or URLs.
+    for attempt in (1, 2):
+        snapshot = {}
+        for service in SERVICES:
+            raw = read_service(token, service)
+            try:
+                snapshot[service] = inspect_service(raw, service)
+            except SystemExit as error:
+                code = str(error).removeprefix("STOP: ")
+                if code not in VALIDATION_STOPS:
+                    code = "SERVICE_VALIDATION_REJECTED"
+                failures.append({
+                    "service": service, "read": attempt, "reason": code,
+                    "scaling": safe_scaling_class(raw),
+                })
+                snapshot[service] = None
+        snapshots.append(snapshot)
+    first, second = snapshots
+    if failures:
+        print(json.dumps({
+            "stage": "PREVIEW_V2_KNOWN_SERVICES_BLOCKED_READ_ONLY",
+            "project": PROJECT, "region": REGION,
+            "known_services_read_twice": True,
+            "failed_checks": failures,
+            "database_checked": False,
+            "external_writer_sources_checked": False,
+            "writer_quiescence_verified": False,
+            "release_authorized": False,
+            "cloud_resource_mutation": False,
+            "database_mutation": False,
+        }, sort_keys=True))
+        stop("KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT")
     if first != second:
         stop("WRITER_SERVICE_STATE_DRIFT")
     print(json.dumps({
