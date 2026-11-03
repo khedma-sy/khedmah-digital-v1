@@ -2,6 +2,12 @@
 
 
 
+## Current Google sign-in incident — Preview V2 backend manual-zero — 2026-11-03 UTC
+
+- At the live public site, Google/Firebase succeeded and the Floot session exchange returned HTTP 502. The exact Preview frontend root was reachable, but its proxied session and health routes and the direct Preview backend health route returned HTTP 503 `Service is disabled`. Cloud Run read-only evidence showed the backend at manual zero and revision `khedmah-pr-274-backend-00008-tg8`.
+- Keep the maintenance hold and the migration path separate from the login recovery proposal. The validation-only helper `scripts/recover-preview-v2-login.py --validate` rechecks the exact existing service, tag-free routing and pinned predecessor catalog predicates, rejects service drift, and submits only a Cloud Run validateOnly request for manual count one. It has no apply mode. This validates an API request only; it does not certify writer quiescence, authorize a runtime restore, change schema or publish Floot.
+- Source implementation `47b9b46f6400d59b048c764f04e93291921e8fa7`; six targeted Python tests passed locally at `d5758a417774a394c402979db26557100c41eb23`. Exact-head CI and independent review remain required. Before a separate live operator can restore the same revision, review the traffic-restoration hold and verify an exclusive recovery window without concurrent or unknown migrations. After an authorized restore, verify backend health and real browser sign-in and session persistence on the public site.
+
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
 
 **This is a dated source checkpoint, not a permanent pointer.** The live `main` SHA observed directly from GitHub remains `70bf3c89726dbc71a41a11579b9d3b51de4cbce3` (2026-10-31T11:28:59Z). Resolve current refs and Actions directly from GitHub before each action.
