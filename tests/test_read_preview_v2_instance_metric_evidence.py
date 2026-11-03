@@ -128,7 +128,8 @@ class InstanceMetricEvidenceTests(unittest.TestCase):
                 return {"type": resource, "labels": [
                     {"key": "service_name"}, {"key": "revision_name"}, {"key": "location"}]}
             if "/timeSeries?" in url:
-                return zero if 'resource.type="cloud_run_instance"' in url else {"timeSeries": []}
+                filt = MOD.urllib.parse.parse_qs(MOD.urllib.parse.urlsplit(url).query)["filter"][0]
+                return zero if 'resource.type="cloud_run_instance"' in filt else {"timeSeries": []}
             raise AssertionError("Unexpected request")
 
         out = io.StringIO()
