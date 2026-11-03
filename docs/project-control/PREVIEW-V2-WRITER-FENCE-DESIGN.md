@@ -48,6 +48,14 @@ This design PR performs no Cloud Run update, no traffic/scaling change, no revis
 
 The offline planner at `scripts/prepare-preview-v2-writer-fence.py --plan` exists only to make the reviewed sequence and fail-closed conditions executable as source-level contract evidence.
 
+## 2026-11-03 evidence and successor implementation checkpoint
+
+- Protected-main GitHub read-only workflow [41699641838](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41699641838) **succeeded**. The live service was read twice at stable **manual-zero**, no revision tags; the reported service update was 861402 seconds old at the time of that read. This is Cloud Run state evidence, **not** a DB-writer-quiescence or release permit. `database_checked=false`, `writer_quiescence_verified=false`, `release_authorized=false`.
+- The historical one-shot operator `scripts/execute-preview-v2-writer-fence.py --execute-fence` is now **fail-closed even if its old confirmation token is provided**. Do not replay it to manufacture Monitoring telemetry.
+- `scripts/prepare-preview-v2-maintenance-entrypoint.py --plan` defines a minimal standard-library Node HTTP process that returns **503** for every route, with no application/DB imports. This is **source-only contract evidence** and has not been deployed to the old image or Cloud Run.
+- A future maintenance revision must use a **new minimal replacement template**, never inherit environment variables, secret references, volumes/Cloud SQL connections or the historical runtime service-account permissions. A separate, independently verified maintenance identity **without DB or Secret Manager access** is still needed; no such IAM provisioning or denial proof is claimed here.
+- Retiring old revisions and proving no other writers remain are still mandatory before the pinned atomic 036/037 SQL transition; the candidate image remains undeployed. Do not start migrations or restore runtime on the strength of the maintenance HTTP fixture.
+
 ## Remaining implementation gate
 
 A separate implementation PR must build the live maintenance/successor operator with:

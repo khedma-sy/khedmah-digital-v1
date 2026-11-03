@@ -223,6 +223,11 @@ def plan():
 def execute():
     if os.environ.get(CONFIRM_ENV) != CONFIRM_VALUE:
         stop("EXPLICIT_FENCE_CONFIRMATION_REQUIRED")
+    # Historical one-shot operator was used before the currently verified
+    # manual-zero state. Replaying it creates a new boundary and cannot
+    # establish the missing Monitoring zero point. A separate reviewed
+    # maintenance/old-revision retirement operator must replace it.
+    stop("LEGACY_WRITER_FENCE_REPLAY_FORBIDDEN")
     pre = read_successor()
     require_preflight(pre)
     disabled_at = disable_service()
