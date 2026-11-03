@@ -83,6 +83,10 @@ class RecoveryValidationTests(unittest.TestCase):
         changed['service'] = 'unexpected-service'
         with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
             recovery.require_revision(service_fixture(), changed)
+        changed = revision_fixture()
+        changed['conditions'] = [{'type': 'Ready', 'state': 'CONDITION_FAILED'}]
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service_fixture(), changed)
 
     def test_cloud_run_operation_contract(self):
         valid = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/example', 'done': True}
