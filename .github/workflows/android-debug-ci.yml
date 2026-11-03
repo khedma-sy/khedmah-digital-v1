@@ -54,6 +54,12 @@ jobs:
           test -x "$sdkmanager"
           "$sdkmanager" "platforms;android-36" "build-tools;35.0.0"
 
+      - name: Verify native Android classifieds contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          apps/android/gradlew --no-daemon -p apps/android :app:testDebugUnitTest
+
       - name: Build Android debug source
         shell: bash
         env:
