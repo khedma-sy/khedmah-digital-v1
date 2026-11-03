@@ -87,6 +87,10 @@ class RecoveryValidationTests(unittest.TestCase):
         changed['conditions'] = [{'type': 'Ready', 'state': 'CONDITION_FAILED'}]
         with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
             recovery.require_revision(service_fixture(), changed)
+        changed = revision_fixture()
+        changed['deleteTime'] = '2026-11-04T00:00:00Z'
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service_fixture(), changed)
 
     def test_cloud_run_operation_contract(self):
         valid = {
