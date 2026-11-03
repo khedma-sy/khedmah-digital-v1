@@ -44,7 +44,7 @@ def cloud_json(token, url, method='GET', body=None):
 
 
 def revision_matches(value):
-    return value in (REVISION, f'projects/{PROJECT}/locations/{REGION}/revisions/{REVISION}')
+    return value in (REVISION, NAME + '/revisions/' + REVISION)
 
 
 def recovery_request(service):
