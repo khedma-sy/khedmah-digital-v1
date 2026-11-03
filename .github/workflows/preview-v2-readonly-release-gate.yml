@@ -13,6 +13,11 @@ on:
         required: false
         type: boolean
         default: false
+      known_writer_services_diagnostic:
+        description: 'Optional read-only backend/frontend service inventory, not a writer proof'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -123,6 +128,18 @@ jobs:
           # No Cloud SQL, IAM, secrets, migrations or deployment. The receipt
           # must never be accepted as proof of writer quiescence.
           python3 scripts/assess-preview-v2-stable-manual-zero.py --inspect-cloud-only
+      - name: Inspect both known Preview V2 Cloud Run services (read-only)
+        if: ${{ inputs.known_writer_services_diagnostic == true }}
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'
+          CLOUDSDK_CORE_LOG_HTTP: 'false'
+        run: |
+          set -euo pipefail
+          # Uses the existing dedicated reader with run.services.get only.
+          # No database, job listing, migrations, IAM change, scaling or deploy.
+          python3 scripts/read-preview-v2-known-writer-services.py --inspect
       - name: Diagnose Cloud Monitoring telemetry only (read-only)
         if: ${{ inputs.monitoring_diagnostic == true }}
         shell: bash
