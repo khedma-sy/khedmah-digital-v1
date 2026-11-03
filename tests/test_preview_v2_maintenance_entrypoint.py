@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import socket
 import subprocess
@@ -66,8 +67,10 @@ class MaintenanceEntrypointTests(unittest.TestCase):
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node.js must exist in the test runner PATH")
         proc = subprocess.Popen(
-            ["node", "-e", entry.NODE_INLINE], env={"PORT": str(port)},
+            [node, "-e", entry.NODE_INLINE], env={"PORT": str(port)},
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
         )
         try:
