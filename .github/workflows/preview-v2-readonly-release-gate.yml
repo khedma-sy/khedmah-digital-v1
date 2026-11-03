@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      stable_zero_diagnostic:
+        description: 'Optional Cloud Run state only, never a DB or release proof'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -105,6 +110,19 @@ jobs:
           if not report['service_name_verified'] or not report['project_verified'] or not revision or report['traffic_percent_total'] != 100:
               raise SystemExit('STOP: SERVICE_SCOPE_OR_REVISIONS_INVALID')
           PY
+      - name: Inspect existing manual-zero state via read-only Cloud Run API
+        if: ${{ inputs.stable_zero_diagnostic == true }}
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'
+          CLOUDSDK_CORE_LOG_HTTP: 'false'
+        run: |
+          set -euo pipefail
+          # Uses existing dedicated WIF with run.services.get only.
+          # No Cloud SQL, IAM, secrets, migrations or deployment. The receipt
+          # must never be accepted as proof of writer quiescence.
+          python3 scripts/assess-preview-v2-stable-manual-zero.py --inspect-cloud-only
       - name: Diagnose Cloud Monitoring telemetry only (read-only)
         if: ${{ inputs.monitoring_diagnostic == true }}
         shell: bash
