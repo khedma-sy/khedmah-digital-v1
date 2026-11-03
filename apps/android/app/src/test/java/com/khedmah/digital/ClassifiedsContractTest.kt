@@ -22,7 +22,7 @@ class ClassifiedsContractTest {
 
     private fun decode(vararg items: JSONObject): List<KhedmahClassifiedAd> =
         decodePublicClassifieds(
-            JSONObject().put("ads", JSONArray().apply { items.forEach(::put) }),
+            JSONObject().put("ads", JSONArray().apply { items.forEach { put(it) } }),
             { "https://api.khedmah.uk$it" }
         )
 
