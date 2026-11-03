@@ -19,6 +19,7 @@ SERVICE = "khedmah-pr-274-backend"
 REVISION = "khedmah-pr-274-backend-00008-tg8"
 METRIC = "run.googleapis.com/container/instance_count"
 RESOURCE = "cloud_run_revision"
+INSTANCE_RESOURCE = "cloud_run_instance"
 BOUNDARY = "2026-10-24T20:40:32Z"
 BASE = f"https://monitoring.googleapis.com/v3/projects/{PROJECT}"
 
@@ -64,8 +65,10 @@ def descriptor_url():
     # Slashes in the metric type must remain path separators.
     return BASE + "/metricDescriptors/" + urllib.parse.quote(METRIC, safe="/")
 
-def resource_descriptor_url():
-    return BASE + "/monitoredResourceDescriptors/" + urllib.parse.quote(RESOURCE, safe="")
+def resource_descriptor_url(resource=RESOURCE):
+    if resource not in (RESOURCE, INSTANCE_RESOURCE):
+        stop("RESOURCE_SCOPE_REJECTED")
+    return BASE + "/monitoredResourceDescriptors/" + urllib.parse.quote(resource, safe="")
 
 def series_url(token_filter, start, end):
     params = [
@@ -150,6 +153,43 @@ def inspect():
         if isinstance(item, str)
     )
 
+    # The metric descriptor can advertise cloud_run_instance as well as
+    # cloud_run_revision. Inspect it separately to distinguish a resource-type
+    # mismatch from genuinely absent telemetry. A missing/malformed label
+    # contract does NOT authorize a broader query or a release.
+    instance_resource = {
+        "resource_type": INSTANCE_RESOURCE,
+        "resource_label_keys": [],
+        "filter_supported": False,
+        "exact_revision_query": None,
+        "service_wide_query": None,
+    }
+    if INSTANCE_RESOURCE in monitored:
+        instance_descriptor = get_json(resource_descriptor_url(INSTANCE_RESOURCE), token)
+        if instance_descriptor.get("type") != INSTANCE_RESOURCE:
+            stop("INSTANCE_RESOURCE_DESCRIPTOR_MISMATCH")
+        instance_labels = sorted(
+            item.get("key") for item in instance_descriptor.get("labels", [])
+            if isinstance(item, dict) and isinstance(item.get("key"), str)
+        )
+        instance_resource["resource_label_keys"] = instance_labels
+        if {"service_name", "revision_name", "location"}.issubset(instance_labels):
+            instance_resource["filter_supported"] = True
+            instance_base = (
+                f'metric.type="{METRIC}" AND resource.type="{INSTANCE_RESOURCE}" AND '
+                f'resource.labels.service_name="{SERVICE}" AND '
+                f'resource.labels.location="{REGION}"'
+            )
+            instance_exact_filter = instance_base + (
+                f' AND resource.labels.revision_name="{REVISION}"'
+            )
+            instance_resource["exact_revision_query"] = parse_points(
+                get_json(series_url(instance_exact_filter, start, end), token), boundary
+            )
+            instance_resource["service_wide_query"] = parse_points(
+                get_json(series_url(instance_base, start, end), token), boundary
+            )
+
     result = {
         "stage": "PREVIEW_V2_INSTANCE_METRIC_EVIDENCE_READ_COMPLETED",
         "project": PROJECT,
@@ -164,6 +204,10 @@ def inspect():
         "resource_label_keys": labels,
         "exact_revision_query": exact,
         "service_wide_query": service,
+        "instance_resource_diagnostic": instance_resource,
+        "instance_resource_zero_point_observed_after_boundary": bool(
+            (instance_resource["exact_revision_query"] or {}).get("explicit_zero_after_boundary", False)
+        ),
         # This diagnostic reads Monitoring only. Even a zero sample cannot
         # prove stopped database writers, zero revision tags or scaling state.
         "instance_zero_point_observed_after_boundary": bool(exact["explicit_zero_after_boundary"]),
