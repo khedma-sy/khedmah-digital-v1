@@ -40,7 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private enum class Destination(val label: String, val symbol: String) {
-    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Store("المتجر", "▣"), Mobility("تاكسي", "◇"), Account("حسابي", "◎")
+    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Classifieds("الإعلانات", "▤"), Map("الخريطة", "⌖"), Store("المتجر", "▣"), Mobility("تاكسي", "◇"), Account("حسابي", "◎")
 }
 
 class MainActivity : ComponentActivity() {
@@ -101,6 +101,9 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
             var ownerError by remember { mutableStateOf<String?>(null) }
             var products by remember { mutableStateOf<List<KhedmahProduct>>(emptyList()) }
             var storeError by remember { mutableStateOf<String?>(null) }
+            var classifieds by remember { mutableStateOf<List<KhedmahClassifiedAd>>(emptyList()) }
+            var classifiedsQuery by remember { mutableStateOf("") }
+            var classifiedsError by remember { mutableStateOf<String?>(null) }
             var mobilityProviders by remember { mutableStateOf<List<KhedmahResult>>(emptyList()) }
             var mobilityError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
@@ -142,6 +145,19 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                 }
             }
 
+            fun loadClassifieds() {
+                destination = Destination.Classifieds
+                if (!api.configured) { classifiedsError = "عنوان خادم خدمة غير مضبوط في نسخة التطبيق."; return }
+                scope.launch {
+                    loading = true
+                    classifiedsError = null
+                    runCatching { api.classifieds(classifiedsQuery) }
+                        .onSuccess { classifieds = it }
+                        .onFailure { classifiedsError = it.message ?: "تعذر تحميل الإعلانات." }
+                    loading = false
+                }
+            }
+
             fun openMobility() {
                 destination = Destination.Mobility
                 mobilityProviders = emptyList(); mobilityError = null
@@ -155,14 +171,19 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                 }
             }, bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(Destination.Home, Destination.Search, Destination.Map, Destination.Account).forEach { item ->
-                        NavigationBarItem(selected = destination == item, onClick = { destination = item }, icon = { Text(item.symbol, fontSize = 18.sp) }, label = { Text(item.label) })
+                    listOf(Destination.Home, Destination.Search, Destination.Classifieds, Destination.Map, Destination.Account).forEach { item ->
+                        NavigationBarItem(selected = destination == item, onClick = { if (item == Destination.Classifieds) loadClassifieds() else destination = item }, icon = { Text(item.symbol, fontSize = 18.sp) }, label = { Text(item.label) })
                     }
                 }
             }) { padding ->
                 when (destination) {
                     Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch, ::loadStore, ::openMobility)
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
+                    Destination.Classifieds -> ClassifiedsScreen(
+                        Modifier.padding(padding),
+                        classifieds, loading, classifiedsError, classifiedsQuery,
+                        { classifiedsQuery = it }, ::loadClassifieds
+                    )
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
                     Destination.Store -> StoreScreen(Modifier.padding(padding), products, loading, storeError, ::loadStore)
                     Destination.Mobility -> MobilityScreen(
