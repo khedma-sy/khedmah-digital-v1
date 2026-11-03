@@ -1,0 +1,79 @@
+# Non-production Android source compilation. No credentials, deploys or store submissions.
+name: Android Debug Build (non-production)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/android/**'
+      - 'scripts/build-android.sh'
+      - '.github/workflows/android-debug-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/android/**'
+      - 'scripts/build-android.sh'
+      - '.github/workflows/android-debug-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-debug-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compile-debug:
+    name: Compile unsigned, non-production Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 without production credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Build Android debug source
+        shell: bash
+        env:
+          KHEDMAH_API_BASE_URL: ''
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ''
+          GOOGLE_MAPS_ANDROID_API_KEY: ''
+        run: |
+          set -euo pipefail
+          bash scripts/build-android.sh debug
+
+      - name: Confirm binary and record checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s apps/android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p "$RUNNER_TEMP/android-debug-evidence"
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/android-debug-evidence/"
+          (cd "$RUNNER_TEMP/android-debug-evidence" && sha256sum app-debug.apk > SHA256SUMS)
+          printf '%s\n' 'DEBUG ONLY: unsigned for release, Firebase intentionally unconfigured; no device acceptance and no store authorization.' > "$RUNNER_TEMP/android-debug-evidence/README.txt"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: khedmah-android-debug-${{ github.run_id }}
+          path: ${{ runner.temp }}/android-debug-evidence
+          retention-days: 7
+          if-no-files-found: error
