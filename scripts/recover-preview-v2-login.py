@@ -17,6 +17,7 @@ DIGEST = 'sha256:be90387535778e81016126e8ca6d626e8f170c20d1bd8c5add8dbb98beecba1
 NAME = f'projects/{PROJECT}/locations/{REGION}/services/{SERVICE}'
 URL = 'https://run.googleapis.com/v2/' + NAME
 VALIDATE_URL = URL + '?updateMask=scaling.manualInstanceCount&validateOnly=true'
+REVISION_URL = f'https://run.googleapis.com/v2/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}/revisions/{REVISION}'
 SCHEMA_SCRIPT_SHA = '4665b14534b96bb4474495e681b0fea318798c18a9e86b7306af5f55456f02b7'
 
 
@@ -77,6 +78,35 @@ def recovery_request(service):
     return {'name': NAME, 'etag': etag, 'scaling': {'manualInstanceCount': 1}}
 
 
+def require_revision(service, revision):
+    """Confirm the immutable deployed revision independently of the service template."""
+    if (not isinstance(revision, dict)
+            or revision.get('name') != NAME + '/revisions/' + REVISION
+            or revision.get('service') not in (SERVICE, NAME)
+            or revision.get('deletionTime') or revision.get('reconciling') is True
+            or revision.get('conditions') is None
+            or not isinstance(revision.get('containers'), list)
+            or len(revision['containers']) != 1
+            or revision['containers'][0].get('image') != service['template']['containers'][0]['image']
+            or not revision['containers'][0]['image'].endswith('@' + DIGEST)):
+        stop('REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED')
+
+
+def require_validation_operation(result):
+    if not isinstance(result, dict) or result.get('error'):
+        stop('SCALING_PATCH_VALIDATION_REJECTED')
+    name = result.get('name')
+    prefix = f'projects/{PROJECT}/locations/{REGION}/operations/'
+    if not isinstance(name, str) or not name.startswith(prefix) or not name[len(prefix):]:
+        stop('SCALING_PATCH_VALIDATION_OPERATION_INVALID')
+    # Cloud Run returns a long-running Operation; absence of "done" means pending,
+    # not failure or successful validation.
+    if result.get('done') is not True:
+        stop('SCALING_PATCH_VALIDATION_PENDING')
+    if result.get('response') is not None and not isinstance(result['response'], dict):
+        stop('SCALING_PATCH_VALIDATION_RESPONSE_INVALID')
+
+
 def require_predecessor(receipt):
     catalog = receipt.get('catalog', {})
     detail = catalog.get('quota_diagnostics', {})
@@ -113,17 +143,20 @@ def validate():
         capture_output=True, text=True, timeout=20, check=True).stdout.strip()
     if not token or any(char.isspace() for char in token):
         stop('TOKEN_UNAVAILABLE')
-    before = recovery_request(cloud_json(token, URL))
+    service = cloud_json(token, URL)
+    before = recovery_request(service)
+    require_revision(service, cloud_json(token, REVISION_URL))
     read_predecessor()
-    if recovery_request(cloud_json(token, URL)) != before:
+    after_service = cloud_json(token, URL)
+    if recovery_request(after_service) != before:
         stop('SERVICE_CHANGED_DURING_SCHEMA_READ')
+    require_revision(after_service, cloud_json(token, REVISION_URL))
     result = cloud_json(token, VALIDATE_URL, method='PATCH', body=before)
-    if result.get('error') or result.get('done') is not True or not result.get('name'):
-        stop('SCALING_PATCH_VALIDATION_REJECTED')
+    require_validation_operation(result)
     print(json.dumps({'stage': 'PREVIEW_V2_LOGIN_RECOVERY_PATCH_VALIDATED',
         'project': PROJECT, 'service': SERVICE, 'revision': REVISION,
         'cloud_resource_mutation': False, 'database_mutation': False,
-        'recovery_authorized': False}, sort_keys=True))
+        'recovery_authorized': False, 'database_connection_verified': False}, sort_keys=True))
 
 
 if __name__ == '__main__':
