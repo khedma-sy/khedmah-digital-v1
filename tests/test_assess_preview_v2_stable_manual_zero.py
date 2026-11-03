@@ -1,6 +1,8 @@
 """Offline, no-cloud safety checks for stable disabled Cloud Run assessment."""
 import datetime as dt
 import importlib.util
+import io
+from unittest.mock import patch
 import pathlib
 import unittest
 
@@ -117,6 +119,16 @@ class ExistingZeroTests(unittest.TestCase):
         self.assertIn('"missing_monitoring_metrics_are_zero_proof": False', s)
         self.assertIn('"independent_writer_inventory_review_required": True', s)
         self.assertNotIn('"writer_quiescence_verified": True', s)
+
+    def test_rejected_cloud_get_closes_sensitive_error_stream(self):
+        body = io.BytesIO(b"private-token-would-be-here")
+        error = m.urllib.error.HTTPError(
+            m.SERVICE_URL, 403, "private", {}, body,
+        )
+        with patch.object(m.urllib.request, "urlopen", side_effect=error):
+            with self.assertRaisesRegex(SystemExit, "^STOP: CLOUD_RUN_GET_FAILED$"):
+                m.get_service("test-access-token")
+        self.assertTrue(body.closed)
 
     def test_invalid_invocation_fails_closed(self):
         with self.assertRaisesRegex(SystemExit, "USE_INSPECT_ONLY"):
