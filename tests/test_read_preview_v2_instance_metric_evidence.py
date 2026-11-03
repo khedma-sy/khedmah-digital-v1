@@ -110,6 +110,75 @@ class InstanceMetricEvidenceTests(unittest.TestCase):
         self.assertFalse(result["service_zero_point_observed_after_boundary"])
         self.assertFalse(result["writer_quiescence_verified"])
 
+    def test_instance_resource_diagnostic_finds_zero_without_authorizing_release(self):
+        # A zero may be present under the alternate declared monitored resource.
+        # Keep the old revision summary separate and leave all release gates off.
+        zero = {"timeSeries": [{"points": [
+            {"interval": {"endTime": "2026-10-24T20:41:32Z"},
+             "value": {"int64Value": "0"}}
+        ]}]}
+        requested = []
+        def fake_get(url, _token):
+            requested.append(url)
+            if "/metricDescriptors/" in url:
+                return {"type": MOD.METRIC,
+                        "monitoredResourceTypes": [MOD.RESOURCE, MOD.INSTANCE_RESOURCE]}
+            if "/monitoredResourceDescriptors/" in url:
+                resource = url.rsplit("/", 1)[-1]
+                return {"type": resource, "labels": [
+                    {"key": "service_name"}, {"key": "revision_name"}, {"key": "location"}]}
+            if "/timeSeries?" in url:
+                return zero if 'resource.type="cloud_run_instance"' in url else {"timeSeries": []}
+            raise AssertionError("Unexpected request")
+
+        out = io.StringIO()
+        with patch.object(MOD, "access_token", return_value="test-token"), \
+             patch.object(MOD, "get_json", side_effect=fake_get), \
+             contextlib.redirect_stdout(out):
+            MOD.inspect()
+        result = json.loads(out.getvalue())
+        self.assertFalse(result["instance_zero_point_observed_after_boundary"])
+        self.assertTrue(result["instance_resource_zero_point_observed_after_boundary"])
+        diagnostic = result["instance_resource_diagnostic"]
+        self.assertTrue(diagnostic["filter_supported"])
+        self.assertTrue(diagnostic["exact_revision_query"]["explicit_zero_after_boundary"])
+        self.assertEqual(len([x for x in requested if "/timeSeries?" in x]), 4)
+        self.assertFalse(result["writer_quiescence_verified"])
+        self.assertFalse(result["database_checked"])
+        self.assertFalse(result["release_authorized"])
+        self.assertFalse(result["cloud_mutation_performed"])
+
+    def test_instance_resource_with_missing_required_labels_never_uses_broad_query(self):
+        requested = []
+        def fake_get(url, _token):
+            requested.append(url)
+            if "/metricDescriptors/" in url:
+                return {"type": MOD.METRIC,
+                        "monitoredResourceTypes": [MOD.RESOURCE, MOD.INSTANCE_RESOURCE]}
+            if "/monitoredResourceDescriptors/cloud_run_instance" in url:
+                return {"type": MOD.INSTANCE_RESOURCE, "labels": [
+                    {"key": "service_name"}, {"key": "location"}]}
+            if "/monitoredResourceDescriptors/" in url:
+                return {"type": MOD.RESOURCE, "labels": []}
+            if "/timeSeries?" in url:
+                return {"timeSeries": []}
+            raise AssertionError("Unexpected request")
+
+        out = io.StringIO()
+        with patch.object(MOD, "access_token", return_value="test-token"), \
+             patch.object(MOD, "get_json", side_effect=fake_get), \
+             contextlib.redirect_stdout(out):
+            MOD.inspect()
+        result = json.loads(out.getvalue())
+        self.assertFalse(result["instance_resource_diagnostic"]["filter_supported"])
+        self.assertIsNone(result["instance_resource_diagnostic"]["exact_revision_query"])
+        self.assertEqual(len([x for x in requested if "/timeSeries?" in x]), 2)
+        self.assertFalse(result["writer_quiescence_verified"])
+
+    def test_instance_resource_descriptor_scope_is_fixed(self):
+        with self.assertRaisesRegex(SystemExit, "RESOURCE_SCOPE_REJECTED"):
+            MOD.resource_descriptor_url("unknown_cloud_resource")
+
     def test_monitoring_permission_denied_is_reported_without_leaking_response(self):
         secret_response = io.BytesIO(b"secret=should-not-be-logged")
         error = MOD.urllib.error.HTTPError(
