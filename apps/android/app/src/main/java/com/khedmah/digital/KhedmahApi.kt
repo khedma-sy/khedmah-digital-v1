@@ -23,6 +23,7 @@ data class KhedmahUser(val id: String, val email: String, val displayName: Strin
 data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
 data class KhedmahMedia(val id: String, val publicUrl: String, val assetType: String)
 data class KhedmahProduct(val id: String, val titleAr: String, val businessName: String, val price: Double, val currency: String, val availability: String, val imageUrl: String?)
+data class KhedmahClassifiedAd(val id: String, val titleAr: String, val descriptionAr: String, val cityCode: String?, val kind: String, val imageUrl: String?)
 
 class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.trimEnd('/')) {
     private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
@@ -94,6 +95,26 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
                 currency = item.optString("currency", "SYP"),
                 availability = item.optString("availability", "in_stock"),
                 imageUrl = item.optString("imageUrl").takeIf { it.isNotBlank() }?.let(::absoluteMediaUrl)
+            )
+        }
+    }
+
+    // Public listings only: the server applies moderation and publication gates.
+    suspend fun classifieds(query: String = ""): List<KhedmahClassifiedAd> = withContext(Dispatchers.IO) {
+        val text = query.trim()
+        val path = if (text.isEmpty()) "/api/v1/classifieds" else "/api/v1/classifieds?q=${encode(text)}"
+        val ads = get(path).getJSONArray("ads")
+        List(ads.length()) { index ->
+            val item = ads.getJSONObject(index)
+            val imageUrl = item.optJSONArray("imageUrls")?.optString(0)
+                ?.takeIf { it.isNotBlank() }?.let(::absoluteMediaUrl)
+            KhedmahClassifiedAd(
+                id = item.getString("id"),
+                titleAr = item.getString("titleAr"),
+                descriptionAr = item.optString("descriptionAr", ""),
+                cityCode = item.optString("cityCode").takeIf { it.isNotBlank() },
+                kind = item.optString("kind", "sale"),
+                imageUrl = imageUrl
             )
         }
     }
