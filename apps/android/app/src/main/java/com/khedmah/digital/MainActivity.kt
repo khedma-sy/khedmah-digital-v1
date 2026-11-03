@@ -104,6 +104,8 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
             var classifieds by remember { mutableStateOf<List<KhedmahClassifiedAd>>(emptyList()) }
             var classifiedsQuery by remember { mutableStateOf("") }
             var classifiedsError by remember { mutableStateOf<String?>(null) }
+            var classifiedsLoading by remember { mutableStateOf(false) }
+            var classifiedsRequestId by remember { mutableIntStateOf(0) }
             var mobilityProviders by remember { mutableStateOf<List<KhedmahResult>>(emptyList()) }
             var mobilityError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
@@ -147,14 +149,23 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
 
             fun loadClassifieds() {
                 destination = Destination.Classifieds
-                if (!api.configured) { classifiedsError = "عنوان خادم خدمة غير مضبوط في نسخة التطبيق."; return }
+                val requestId = ++classifiedsRequestId
+                if (!api.configured) {
+                    classifiedsLoading = false
+                    classifiedsError = "عنوان خادم خدمة غير مضبوط في نسخة التطبيق."
+                    return
+                }
+                val requestedQuery = classifiedsQuery
+                classifiedsLoading = true
+                classifiedsError = null
                 scope.launch {
-                    loading = true
-                    classifiedsError = null
-                    runCatching { api.classifieds(classifiedsQuery) }
-                        .onSuccess { classifieds = it }
-                        .onFailure { classifiedsError = it.message ?: "تعذر تحميل الإعلانات." }
-                    loading = false
+                    val response = runCatching { api.classifieds(requestedQuery) }
+                    // A later search/tab refresh wins, regardless of network completion order.
+                    if (requestId == classifiedsRequestId) {
+                        response.onSuccess { classifieds = it }
+                            .onFailure { classifiedsError = it.message ?: "تعذر تحميل الإعلانات." }
+                        classifiedsLoading = false
+                    }
                 }
             }
 
@@ -181,7 +192,7 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
                     Destination.Classifieds -> ClassifiedsScreen(
                         Modifier.padding(padding),
-                        classifieds, loading, classifiedsError, classifiedsQuery,
+                        classifieds, classifiedsLoading, classifiedsError, classifiedsQuery,
                         { classifiedsQuery = it }, ::loadClassifieds
                     )
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
