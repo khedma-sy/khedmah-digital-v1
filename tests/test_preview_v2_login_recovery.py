@@ -40,6 +40,10 @@ def receipt_fixture():
 
 
 class RecoveryValidationTests(unittest.TestCase):
+    def test_full_revision_resource_name(self):
+        self.assertTrue(recovery.revision_matches(recovery.NAME + '/revisions/' + recovery.REVISION))
+        self.assertFalse(recovery.revision_matches(f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/revisions/{recovery.REVISION}'))
+
     def test_scaling_only_with_etag(self):
         self.assertEqual(recovery.recovery_request(service_fixture()), {
             'name': recovery.NAME, 'etag': 'test-etag', 'scaling': {'manualInstanceCount': 1},
@@ -73,8 +77,7 @@ class RecoveryValidationTests(unittest.TestCase):
 
     def test_only_validation_request_is_submitted(self):
         service = service_fixture()
-        service['latestReadyRevision'] = (
-            f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/revisions/{recovery.REVISION}')
+        service['latestReadyRevision'] = recovery.NAME + '/revisions/' + recovery.REVISION
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
