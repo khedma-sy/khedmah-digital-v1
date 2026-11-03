@@ -75,6 +75,38 @@ class ExistingZeroTests(unittest.TestCase):
         self.assertNotIn("gcloud run services update", script)
         self.assertNotIn("run deploy", script)
 
+    def test_cloud_run_short_revision_format_is_exactly_accepted(self):
+        value = service_fixture()
+        value["latestReadyRevision"] = m.REVISION
+        value["trafficStatuses"][0]["revision"] = m.REVISION
+        result = m.service_state(value, NOW)
+        self.assertEqual(result["revision"], m.REVISION)
+        self.assertEqual(result["tagged_revision_count"], 0)
+
+    def test_full_resource_and_short_revision_can_be_combined(self):
+        value = service_fixture()
+        value["latestReadyRevision"] = m.REVISION
+        self.assertEqual(m.service_state(value, NOW)["revision"], m.REVISION)
+
+    def test_foreign_or_wrong_revision_is_rejected(self):
+        for unknown in (
+            "khedmah-pr-274-backend-00007-8v8",
+            "projects/other/locations/europe-west1/services/"
+            "khedmah-pr-274-backend/revisions/" + m.REVISION,
+            m.REVISION + "-fake",
+            "",
+            None,
+        ):
+            with self.subTest(value=unknown):
+                value = service_fixture()
+                value["trafficStatuses"][0]["revision"] = unknown
+                with self.assertRaisesRegex(SystemExit, "TRAFFIC_OR_TAG_DRIFT"):
+                    m.service_state(value, NOW)
+                value = service_fixture()
+                value["latestReadyRevision"] = unknown
+                with self.assertRaisesRegex(SystemExit, "LATEST_REVISION_DRIFT"):
+                    m.service_state(value, NOW)
+
     def test_recent_state_is_not_proof(self):
         with self.assertRaisesRegex(SystemExit, "SERVICE_ZERO_NOT_SETTLED_LONG_ENOUGH"):
             m.service_state(service_fixture("2026-11-03T15:59:00Z"), NOW)

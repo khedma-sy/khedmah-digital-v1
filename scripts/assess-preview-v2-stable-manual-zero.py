@@ -84,6 +84,12 @@ def get_service(access_token):
     return data
 
 
+def is_expected_revision(value):
+    # Cloud Run v2 serializes revision fields as either a resource name or
+    # a short name. Accept only these two exact representations.
+    return type(value) is str and value in (REVISION, FULL_REVISION)
+
+
 def service_state(value, now):
     if value.get("name") != FULL_SERVICE:
         stop("SERVICE_IDENTITY_DRIFT")
@@ -104,10 +110,10 @@ def service_state(value, now):
     if not isinstance(traffic, list) or len(traffic) != 1:
         stop("TRAFFIC_INVENTORY_INVALID")
     target = traffic[0]
-    if (not isinstance(target, dict) or target.get("revision") != FULL_REVISION
+    if (not isinstance(target, dict) or not is_expected_revision(target.get("revision"))
             or target.get("percent") != 100 or target.get("tag")):
         stop("TRAFFIC_OR_TAG_DRIFT")
-    if value.get("latestReadyRevision") != FULL_REVISION:
+    if not is_expected_revision(value.get("latestReadyRevision")):
         stop("LATEST_REVISION_DRIFT")
     modified = parse_time(value.get("updateTime"))
     seconds = (now - modified).total_seconds()
