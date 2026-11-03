@@ -174,6 +174,11 @@ def validate():
             if result.get('done') is True or result.get('error'):
                 break
     require_validation_operation(result)
+    # validateOnly must not be mistaken for a scaling change or operational recovery.
+    final_service = cloud_json(token, URL)
+    if recovery_request(final_service) != before:
+        stop('SERVICE_CHANGED_AFTER_VALIDATION')
+    require_revision(final_service, cloud_json(token, REVISION_URL))
     print(json.dumps({'stage': 'PREVIEW_V2_LOGIN_RECOVERY_PATCH_VALIDATED',
         'project': PROJECT, 'service': SERVICE, 'revision': REVISION,
         'cloud_resource_mutation': False, 'database_mutation': False,
