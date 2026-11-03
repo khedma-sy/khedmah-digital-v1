@@ -64,6 +64,12 @@ A protected-main optional input `known_writer_services_diagnostic` to `preview-v
 
 This is only a bounded inventory of two *known* Cloud Run services. It does **not** enumerate possible additional services, execute/list Cloud Run jobs, inspect Cloud Scheduler or Tasks, inspect Cloud SQL or confirm other external writers. Even when successful, it prints `external_writer_sources_checked=false`, `database_checked=false`, `writer_quiescence_verified=false` and `release_authorized=false`. The future live operator must independently enumerate **all** writer surfaces and prove they are fenced before any schema write.
 
+## 2026-11-03 dual-service live diagnostic — blocker
+
+Protected-main owner-dispatched read-only workflow [41707082522](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41707082522) at `bd983cfc7b0348601171deb6b98dd09a1a815b2a`: GitHub WIF authentication and backend Cloud Run revision/traffic inventory **passed**, but the dual-service validation stopped at `STOP: SERVICE_NOT_MANUAL_ZERO`. That fail-fast log **does not identify the service**; do not infer which service is active from the error alone or repeat the old writer fence.
+
+A bounded diagnostic revision of `scripts/read-preview-v2-known-writer-services.py` now collects both fixed service reads twice even when scaling validation fails. It emits only exact service name, fixed validation code and allowlisted manual/automatic scaling classes. The workflow remains **failed** whenever a service is not safely manual-zero; it never claims database or writer quiescence. The next owner dispatch must use this exact corrected protected-main code to identify the offending service; do not assume a frontend can write the database merely because it is running, or assume it cannot until its runtime identity, permissions and code/data paths have been independently reviewed.
+
 ## Remaining implementation gate
 
 A separate implementation PR must build the live maintenance/successor operator with:
