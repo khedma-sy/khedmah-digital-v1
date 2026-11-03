@@ -160,6 +160,19 @@ def validate():
         stop('SERVICE_CHANGED_DURING_SCHEMA_READ')
     require_revision(after_service, cloud_json(token, REVISION_URL))
     result = cloud_json(token, VALIDATE_URL, method='PATCH', body=before)
+    if isinstance(result, dict) and result.get('done') is not True and not result.get('error'):
+        operation = result.get('name')
+        prefix = f'projects/{PROJECT}/locations/{REGION}/operations/'
+        if (not isinstance(operation, str) or not operation.startswith(prefix)
+                or not re.fullmatch(r'[A-Za-z0-9_-]+', operation[len(prefix):])):
+            stop('SCALING_PATCH_VALIDATION_OPERATION_INVALID')
+        # Read-only operation polling is bounded. Never assume pending means success.
+        for _ in range(3):
+            result = cloud_json(token, 'https://run.googleapis.com/v2/' + operation)
+            if not isinstance(result, dict) or result.get('name') != operation:
+                stop('SCALING_PATCH_VALIDATION_OPERATION_INVALID')
+            if result.get('done') is True or result.get('error'):
+                break
     require_validation_operation(result)
     print(json.dumps({'stage': 'PREVIEW_V2_LOGIN_RECOVERY_PATCH_VALIDATED',
         'project': PROJECT, 'service': SERVICE, 'revision': REVISION,
