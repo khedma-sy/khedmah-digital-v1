@@ -56,6 +56,14 @@ The offline planner at `scripts/prepare-preview-v2-writer-fence.py --plan` exist
 - A future maintenance revision must use a **new minimal replacement template**, never inherit environment variables, secret references, volumes/Cloud SQL connections or the historical runtime service-account permissions. A separate, independently verified maintenance identity **without DB or Secret Manager access** is still needed; no such IAM provisioning or denial proof is claimed here.
 - Retiring old revisions and proving no other writers remain are still mandatory before the pinned atomic 036/037 SQL transition; the candidate image remains undeployed. Do not start migrations or restore runtime on the strength of the maintenance HTTP fixture.
 
+## 2026-11-03 dual-service writer-surface diagnostic
+
+The previous read-only success [41699641838](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41699641838) validates only the backend service `khedmah-pr-274-backend`. It does **not** evaluate the separately deployed `khedmah-pr-274-frontend` service. A second backend-only repeat is not useful.
+
+A protected-main optional input `known_writer_services_diagnostic` to `preview-v2-readonly-release-gate.yml` uses the **existing dedicated read-only WIF identity** to retrieve the exact two known services in `europe-west1`, twice. `scripts/read-preview-v2-known-writer-services.py --inspect` requires both to be fully reconciled, explicitly scaled to zero, with one untagged 100%-traffic revision and no state drift. It rejects another project/service, missing IAM, a tagged or live frontend, or a revision/traffic mismatch. It prints **no** credentials, secrets, template details or database rows.
+
+This is only a bounded inventory of two *known* Cloud Run services. It does **not** enumerate possible additional services, execute/list Cloud Run jobs, inspect Cloud Scheduler or Tasks, inspect Cloud SQL or confirm other external writers. Even when successful, it prints `external_writer_sources_checked=false`, `database_checked=false`, `writer_quiescence_verified=false` and `release_authorized=false`. The future live operator must independently enumerate **all** writer surfaces and prove they are fenced before any schema write.
+
 ## Remaining implementation gate
 
 A separate implementation PR must build the live maintenance/successor operator with:
