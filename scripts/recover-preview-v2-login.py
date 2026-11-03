@@ -106,7 +106,12 @@ def require_validation_operation(result):
     # not failure or successful validation.
     if result.get('done') is not True:
         stop('SCALING_PATCH_VALIDATION_PENDING')
-    if result.get('response') is not None and not isinstance(result['response'], dict):
+    response = result.get('response')
+    if (not isinstance(response, dict)
+            or response.get('name') != NAME
+            or not isinstance(response.get('scaling'), dict)
+            or response['scaling'].get('manualInstanceCount') not in (1, '1')
+            or isinstance(response['scaling'].get('manualInstanceCount'), bool)):
         stop('SCALING_PATCH_VALIDATION_RESPONSE_INVALID')
 
 
