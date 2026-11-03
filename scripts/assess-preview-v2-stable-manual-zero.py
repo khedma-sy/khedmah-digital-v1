@@ -66,6 +66,9 @@ def get_service(access_token):
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
             raw = response.read(1024 * 1024 + 1)
+    except urllib.error.HTTPError as error:
+        error.close()
+        stop("CLOUD_RUN_GET_FAILED")
     except (OSError, urllib.error.URLError, ValueError):
         stop("CLOUD_RUN_GET_FAILED")
     if len(raw) > 1024 * 1024:
