@@ -2,6 +2,8 @@
 import datetime as dt
 import importlib.util
 import io
+import contextlib
+import json
 from unittest.mock import patch
 import pathlib
 import unittest
@@ -129,6 +131,38 @@ class ExistingZeroTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "^STOP: CLOUD_RUN_GET_FAILED$"):
                 m.get_service("test-access-token")
         self.assertTrue(body.closed)
+
+    def test_cloud_only_uses_two_service_gets_and_no_database(self):
+        out = io.StringIO()
+        with patch.object(m, "token", return_value="test-token"), \
+             patch.object(m, "get_service", side_effect=[
+                 service_fixture(), service_fixture()
+             ]) as service_get, \
+             patch.object(m, "read_successor",
+                          side_effect=AssertionError("database reader called")), \
+             contextlib.redirect_stdout(out):
+            m.main(["--inspect-cloud-only"])
+        result = json.loads(out.getvalue())
+        self.assertEqual(service_get.call_count, 2)
+        self.assertEqual(result["stage"], "PREVIEW_V2_EXISTING_MANUAL_ZERO_CLOUD_ONLY_READ")
+        self.assertTrue(result["manual_zero_read_twice"])
+        self.assertFalse(result["database_checked"])
+        self.assertFalse(result["writer_quiescence_verified"])
+        self.assertFalse(result["release_authorized"])
+        self.assertFalse(result["cloud_resource_mutation"])
+
+    def test_cloud_only_fails_on_generation_drift(self):
+        drift = service_fixture()
+        drift["generation"] = "9"
+        drift["observedGeneration"] = "9"
+        with patch.object(m, "token", return_value="test-token"), \
+             patch.object(m, "get_service", side_effect=[
+                 service_fixture(), drift
+             ]), \
+             patch.object(m, "read_successor",
+                          side_effect=AssertionError("database reader called")):
+            with self.assertRaisesRegex(SystemExit, "SERVICE_DRIFT_DURING_SNAPSHOT"):
+                m.main(["--inspect-cloud-only"])
 
     def test_invalid_invocation_fails_closed(self):
         with self.assertRaisesRegex(SystemExit, "USE_INSPECT_ONLY"):
