@@ -148,6 +148,43 @@ class RecoveryValidationTests(unittest.TestCase):
         cloud.assert_called_with('fake-token', recovery.VALIDATE_URL, method='PATCH',
             body={'name': recovery.NAME, 'etag': 'test-etag', 'scaling': {'manualInstanceCount': 1}})
 
+    def test_pending_operation_is_polled_read_only(self):
+        service = service_fixture()
+        operation_name = f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test'
+        pending = {'name': operation_name}
+        completed = {
+            'name': operation_name,
+            'done': True,
+            'response': {'name': recovery.NAME, 'scaling': {'manualInstanceCount': 1}},
+        }
+        with patch.object(recovery.subprocess, 'run') as run, \
+                patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'cloud_json', side_effect=[
+                    service, revision_fixture(), service, revision_fixture(),
+                    pending, pending, completed,
+                ]) as cloud, patch('builtins.print'):
+            run.return_value.stdout = 'fake-token'
+            recovery.validate()
+        self.assertEqual(cloud.call_count, 7)
+        self.assertEqual(cloud.call_args.args[1],
+            'https://run.googleapis.com/v2/' + operation_name)
+        self.assertEqual(cloud.call_args.kwargs, {})
+
+    def test_pending_operation_cannot_be_claimed_as_success(self):
+        service = service_fixture()
+        operation_name = f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test'
+        pending = {'name': operation_name}
+        with patch.object(recovery.subprocess, 'run') as run, \
+                patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'cloud_json', side_effect=[
+                    service, revision_fixture(), service, revision_fixture(),
+                    pending, pending, pending, pending,
+                ]) as cloud:
+            run.return_value.stdout = 'fake-token'
+            with self.assertRaisesRegex(SystemExit, 'SCALING_PATCH_VALIDATION_PENDING'):
+                recovery.validate()
+        self.assertEqual(cloud.call_count, 8)
+
     def test_unknown_cli_never_uses_cloud(self):
         import subprocess
         result = subprocess.run(['python3', str(SCRIPT), '--apply'], capture_output=True, text=True)
