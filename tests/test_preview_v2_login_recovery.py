@@ -89,7 +89,11 @@ class RecoveryValidationTests(unittest.TestCase):
             recovery.require_revision(service_fixture(), changed)
 
     def test_cloud_run_operation_contract(self):
-        valid = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/example', 'done': True}
+        valid = {
+            'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/example',
+            'done': True,
+            'response': {'name': recovery.NAME, 'scaling': {'manualInstanceCount': 1}},
+        }
         recovery.require_validation_operation(valid)
         for value, reason in [
             ({'name': valid['name']}, 'SCALING_PATCH_VALIDATION_PENDING'),
@@ -97,6 +101,13 @@ class RecoveryValidationTests(unittest.TestCase):
             ({'name': valid['name'], 'done': True, 'error': {'code': 3}}, 'SCALING_PATCH_VALIDATION_REJECTED'),
             ({'name': 'operations/example', 'done': True}, 'SCALING_PATCH_VALIDATION_OPERATION_INVALID'),
             ({'name': valid['name'], 'done': True, 'response': 'invalid'}, 'SCALING_PATCH_VALIDATION_RESPONSE_INVALID'),
+            ({'name': valid['name'], 'done': True}, 'SCALING_PATCH_VALIDATION_RESPONSE_INVALID'),
+            ({'name': valid['name'], 'done': True,
+              'response': {'name': 'wrong-service', 'scaling': {'manualInstanceCount': 1}}},
+             'SCALING_PATCH_VALIDATION_RESPONSE_INVALID'),
+            ({'name': valid['name'], 'done': True,
+              'response': {'name': recovery.NAME, 'scaling': {'manualInstanceCount': 0}}},
+             'SCALING_PATCH_VALIDATION_RESPONSE_INVALID'),
         ]:
             with self.subTest(value=value), self.assertRaisesRegex(SystemExit, reason):
                 recovery.require_validation_operation(value)
@@ -117,7 +128,11 @@ class RecoveryValidationTests(unittest.TestCase):
     def test_only_validation_request_is_submitted(self):
         service = service_fixture()
         service['latestReadyRevision'] = recovery.NAME + '/revisions/' + recovery.REVISION
-        operation = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test', 'done': True}
+        operation = {
+            'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test',
+            'done': True,
+            'response': {'name': recovery.NAME, 'scaling': {'manualInstanceCount': 1}},
+        }
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
