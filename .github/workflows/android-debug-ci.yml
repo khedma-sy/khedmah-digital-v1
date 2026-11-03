@@ -43,13 +43,16 @@ jobs:
         with:
           cache-read-only: true
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android 36 without production credentials
+      - name: Install Android 36 using the runner's SDK manager
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          sdkmanager="${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          test -x "$sdkmanager"
+          "$sdkmanager" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Build Android debug source
         shell: bash
