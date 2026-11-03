@@ -100,8 +100,8 @@ class RecoveryValidationTests(unittest.TestCase):
     def test_service_drift_prevents_patch_validation(self):
         before, after = service_fixture(), service_fixture()
         after['etag'] = 'changed'
-        with patch.object(recovery.subprocess, 'run') as run, \\
-                patch.object(recovery, 'read_predecessor'), \\
+        with patch.object(recovery.subprocess, 'run') as run, \
+                patch.object(recovery, 'read_predecessor'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     before, revision_fixture(), after,
                 ]) as cloud:
@@ -114,8 +114,8 @@ class RecoveryValidationTests(unittest.TestCase):
         service = service_fixture()
         service['latestReadyRevision'] = recovery.NAME + '/revisions/' + recovery.REVISION
         operation = {'name': f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/operations/test', 'done': True}
-        with patch.object(recovery.subprocess, 'run') as run, \\
-                patch.object(recovery, 'read_predecessor'), \\
+        with patch.object(recovery.subprocess, 'run') as run, \
+                patch.object(recovery, 'read_predecessor'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     service, revision_fixture(), service, revision_fixture(), operation,
                 ]) as cloud, patch('builtins.print'):
