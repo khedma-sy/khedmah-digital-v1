@@ -140,6 +140,65 @@ class PreviewKnownWriterServicesTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "WRITER_SERVICE_STATE_DRIFT"):
                 m.main(["--inspect"])
 
+    def test_active_frontend_is_named_in_fail_closed_receipt(self):
+        back = service_fixture(m.BACKEND)
+        front = service_fixture(m.FRONTEND)
+        front["scaling"] = {"scalingMode": "AUTOMATIC"}
+        output = io.StringIO()
+        with patch.object(m, "access_token", return_value="fake"), \
+             patch.object(m, "read_service", side_effect=[
+                 back, front, back, front
+             ]) as reads, contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(SystemExit, "KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT"):
+                m.main(["--inspect"])
+        self.assertEqual(reads.call_count, 4)
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["stage"], "PREVIEW_V2_KNOWN_SERVICES_BLOCKED_READ_ONLY")
+        self.assertEqual([x["service"] for x in report["failed_checks"]],
+                         [m.FRONTEND, m.FRONTEND])
+        for failure in report["failed_checks"]:
+            self.assertEqual(failure["reason"], "SERVICE_NOT_MANUAL_ZERO")
+            self.assertEqual(failure["scaling"]["mode"], "AUTOMATIC")
+            self.assertEqual(failure["scaling"]["manual_instances"], "MISSING_OR_UNKNOWN")
+        for field in ("writer_quiescence_verified", "release_authorized",
+                      "database_checked", "cloud_resource_mutation"):
+            self.assertIs(report[field], False, field)
+        self.assertNotIn("DATABASE_URL", output.getvalue())
+        self.assertNotIn("PRIVATE", output.getvalue())
+
+    def test_both_active_services_are_reported_without_early_exit(self):
+        back = service_fixture(m.BACKEND)
+        back["scaling"]["manualInstanceCount"] = 2
+        front = service_fixture(m.FRONTEND)
+        front["scaling"]["manualInstanceCount"] = 1
+        output = io.StringIO()
+        with patch.object(m, "access_token", return_value="fake"), \
+             patch.object(m, "read_service", side_effect=[
+                 back, front, back, front
+             ]), contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(SystemExit, "KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT"):
+                m.main(["--inspect"])
+        report = json.loads(output.getvalue())
+        self.assertEqual(len(report["failed_checks"]), 4)
+        self.assertEqual(set(x["service"] for x in report["failed_checks"]), set(m.SERVICES))
+        self.assertTrue(all(x["scaling"]["manual_instances"] == "NONZERO"
+                            for x in report["failed_checks"]))
+
+    def test_failed_validation_does_not_print_untrusted_response_details(self):
+        front = service_fixture(m.FRONTEND)
+        front["trafficStatuses"][0]["tag"] = "private-tag-or-url"
+        output = io.StringIO()
+        with patch.object(m, "access_token", return_value="fake"), \
+             patch.object(m, "read_service", side_effect=[
+                 service_fixture(m.BACKEND), front,
+                 service_fixture(m.BACKEND), front
+             ]), contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(SystemExit, "KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT"):
+                m.main(["--inspect"])
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["failed_checks"][0]["reason"], "TAGGED_REVISION_PRESENT")
+        self.assertNotIn("private-tag-or-url", output.getvalue())
+
     def test_reject_unknown_cli_mode(self):
         with self.assertRaisesRegex(SystemExit, "READ_ONLY_INSPECT_ONLY"):
             m.main(["--deploy"])
