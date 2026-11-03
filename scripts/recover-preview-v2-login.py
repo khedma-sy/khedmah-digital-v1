@@ -84,7 +84,10 @@ def require_revision(service, revision):
             or revision.get('name') != NAME + '/revisions/' + REVISION
             or revision.get('service') not in (SERVICE, NAME)
             or revision.get('deletionTime') or revision.get('reconciling') is True
-            or revision.get('conditions') is None
+            or not isinstance(revision.get('conditions'), list)
+            or not any(isinstance(condition, dict) and condition.get('type') == 'Ready'
+                       and condition.get('state') == 'CONDITION_SUCCEEDED'
+                       for condition in revision['conditions'])
             or not isinstance(revision.get('containers'), list)
             or len(revision['containers']) != 1
             or revision['containers'][0].get('image') != service['template']['containers'][0]['image']
