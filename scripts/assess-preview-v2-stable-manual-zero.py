@@ -4,6 +4,8 @@
 Never changes Cloud Run, SQL, IAM, traffic, scaling, or releases. Missing
 Monitoring series are NOT zero-instance evidence. This is an independent
 review candidate, not permission to apply migration 036/037 or to deploy.
+Elapsed request timeout is not a substitute for instance lifecycle evidence:
+Cloud Run may continue processing a request after returning HTTP 504.
 """
 import datetime as dt
 import json
@@ -201,6 +203,8 @@ def inspect():
         "revision_untagged": True,
         "seconds_since_last_update_at_second_read": after["settled_seconds"],
         "minimum_required_settled_seconds": MAX_REQUEST_SECONDS + SETTLE_SECONDS,
+        "elapsed_timeout_is_shutdown_proof": False,
+        "independent_instance_lifecycle_review_required": True,
         "database_identity_snapshot": zero,
         "missing_monitoring_metrics_are_zero_proof": False,
         "independent_writer_inventory_review_required": True,
