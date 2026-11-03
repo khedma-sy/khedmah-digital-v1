@@ -218,10 +218,43 @@ def inspect():
     }, sort_keys=True))
 
 
+def inspect_cloud_only():
+    """Collect service-only evidence with the dedicated read-only GitHub WIF.
+
+    This restricted path never opens a database connection or reads credentials,
+    and cannot authorize writer quiescence or a release.
+    """
+    access_token = token()
+    before = service_state(get_service(access_token), dt.datetime.now(dt.timezone.utc))
+    after = service_state(get_service(access_token), dt.datetime.now(dt.timezone.utc))
+    if {key: value for key, value in before.items() if key != "settled_seconds"} != {
+        key: value for key, value in after.items() if key != "settled_seconds"
+    }:
+        stop("SERVICE_DRIFT_DURING_SNAPSHOT")
+    print(json.dumps({
+        "stage": "PREVIEW_V2_EXISTING_MANUAL_ZERO_CLOUD_ONLY_READ",
+        "project": PROJECT, "region": REGION, "service": SERVICE,
+        "manual_zero_read_twice": True,
+        "revision_untagged": True,
+        "seconds_since_last_update": after["settled_seconds"],
+        "request_timeout_is_shutdown_proof": False,
+        "monitoring_zero_proved": False,
+        "database_checked": False,
+        "independent_writer_inventory_review_required": True,
+        "writer_quiescence_verified": False,
+        "release_authorized": False,
+        "cloud_resource_mutation": False,
+        "database_mutation": False,
+    }, sort_keys=True))
+
+
 def main(argv):
-    if argv != ["--inspect"]:
+    if argv == ["--inspect"]:
+        inspect()
+    elif argv == ["--inspect-cloud-only"]:
+        inspect_cloud_only()
+    else:
         stop("USE_INSPECT_ONLY")
-    inspect()
 
 
 if __name__ == "__main__":
