@@ -1,5 +1,12 @@
 # Khedmah Digital — Current State
 
+## Google login recovery — PR #344 source checkpoint — 2026-11-04 UTC
+
+- Live main at this check: `495f9073a6f8599b12cae32e0f66d04b1d61317c`; open PRs #344 (draft) and #346. PR #344 source revision `a038c444a0e1f3966709032b36f9860a85c9e2df` passed Node.js CI [41745308181](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41745308181), Khedmah - Test & Verify [41745307989](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41745307989), and PR Preview [41745307995](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41745307995). These are source checks, not live recovery evidence.
+- Recovery validator now requires pinned, read-only runtime DB verification as `khedmah_app` and pins the verifier's Git blob before execution. No verified live receipt has been obtained. Independently inspect pinned Cloud Run revision secret/database bindings and current operational state before any recovery.
+- No production, database, Cloud Run scaling, Floot publication, merge, or live Google authentication change is authorized by this checkpoint. PR #344 remains draft pending exact-head checks and operational gates.
+
+
 ## Professional-service checkpoint — PR #333 source checks passed; checkpoint refresh requires current-head recheck — 2026-11-02 UTC
 
 **Latest `main` SHA observed at this checkpoint:** `70bf3c89726dbc71a41a11579b9d3b51de4cbce3` (commit dated 2026-10-31T11:28:59Z). PR #331 merged to this SHA. The preceding code fix PR #330 merged at `c8a0c02a27aa75b8bb39f813be5448ed6ba34b04`; PR #329 was closed without merge after its tests exposed an unclosed `urllib.error.HTTPError` response stream, which PR #330 closes before the fail-closed exit with offline regression coverage. The latest main checks recorded for PR #331 are Node.js CI [41197031074](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41197031074) and Khedmah - Test & Verify [41197031005](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41197031005); build, source inventory, code quality, and test jobs succeeded, while PR Validation was skipped on the main run. This is source-level evidence, not runtime or deployment proof.
