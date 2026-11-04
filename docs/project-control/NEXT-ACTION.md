@@ -1,5 +1,14 @@
 # Next Safe Action — Khedmah
 
+## Immediate Google login next safe action — PR #344 — 2026-11-04 UTC
+
+1. Re-read main, PR #344 head, and exact-head Actions; the last verified code head was `a038c444a0e1f3966709032b36f9860a85c9e2df` with three successful workflows. This documentation change requires fresh exact-head CI checks.
+2. From a separately authorized, read-only Cloud environment, execute the reviewed `scripts/verify-preview-v2-runtime.py --verify-runtime` gate and retain its redacted structured receipt. It must prove the `khedmah_app` credential and exact grants; a migrator-only schema receipt is insufficient. Do not change grants or run migrations to force success.
+3. Independently inspect actual Cloud Run backend revision service account, Cloud SQL connectivity, secret references, image digest, manual-zero state, traffic, IAM and latest readiness. If any expected evidence is missing or drifted, stop.
+4. Run `scripts/recover-preview-v2-login.py --validate` only after confirming its source and read-only requirements; this sends a Cloud Run `validateOnly=true` request, not a scaling change. No operational restore is proved by it.
+5. Do not merge or alter Preview scaling, DB, OAuth settings, or Production until exact operational receipts, separate change authorization, and rollback plan are reviewed. After authorized Preview recovery, prove actual mobile and desktop Google sign-in/session persistence.
+
+
 ## Immediate next action — complete PR #333 review gate; preserve runtime holds — 2026-11-02 UTC
 
 1. Resolve the live `main` SHA directly from GitHub at the start of every cycle. At this checkpoint, latest `main` observed = `70bf3c89726dbc71a41a11579b9d3b51de4cbce3`, after PR #331 merged. Treat this SHA as dated evidence, not a permanent pointer; reread GitHub before each action.
