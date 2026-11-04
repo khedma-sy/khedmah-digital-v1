@@ -170,7 +170,7 @@ def require_runtime_identity(receipt):
 def read_runtime_identity():
     path = Path(__file__).with_name('verify-preview-v2-runtime.py')
     source = path.read_bytes()
-    git_blob = hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\\0' + source).hexdigest()
+    git_blob = hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\0' + source).hexdigest()
     if git_blob != RUNTIME_READER_BLOB:
         stop('RUNTIME_READER_SOURCE_MISMATCH')
     result = subprocess.run([sys.executable, str(path), '--verify-runtime'],
