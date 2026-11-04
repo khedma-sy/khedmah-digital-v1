@@ -244,6 +244,13 @@ class RecoveryValidationTests(unittest.TestCase):
                     SystemExit, 'DATABASE_RUNTIME_IDENTITY_NOT_VERIFIED'):
                 recovery.require_runtime_identity(changed)
 
+    def test_tampered_runtime_reader_never_executes(self):
+        with patch.object(recovery.Path, 'read_bytes', return_value=b'changed source'), \
+                patch.object(recovery.subprocess, 'run') as run:
+            with self.assertRaisesRegex(SystemExit, 'RUNTIME_READER_SOURCE_MISMATCH'):
+                recovery.read_runtime_identity()
+        run.assert_not_called()
+
     def test_runtime_reader_must_return_valid_receipt(self):
         with patch.object(recovery.subprocess, 'run') as run:
             run.return_value.returncode = 0
