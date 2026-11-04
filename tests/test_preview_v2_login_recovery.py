@@ -121,6 +121,7 @@ class RecoveryValidationTests(unittest.TestCase):
         after['etag'] = 'changed'
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'read_runtime_identity'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     before, revision_fixture(), after,
                 ]) as cloud:
@@ -139,6 +140,7 @@ class RecoveryValidationTests(unittest.TestCase):
         }
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'read_runtime_identity'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     service, revision_fixture(), service, revision_fixture(),
                     operation, service, revision_fixture(),
@@ -162,6 +164,7 @@ class RecoveryValidationTests(unittest.TestCase):
         }
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'read_runtime_identity'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     service, revision_fixture(), service, revision_fixture(),
                     pending, pending, completed, service, revision_fixture(),
@@ -179,6 +182,7 @@ class RecoveryValidationTests(unittest.TestCase):
         pending = {'name': operation_name}
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'read_runtime_identity'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     service, revision_fixture(), service, revision_fixture(),
                     pending, pending, pending, pending,
@@ -199,6 +203,7 @@ class RecoveryValidationTests(unittest.TestCase):
         }
         with patch.object(recovery.subprocess, 'run') as run, \
                 patch.object(recovery, 'read_predecessor'), \
+                patch.object(recovery, 'read_runtime_identity'), \
                 patch.object(recovery, 'cloud_json', side_effect=[
                     service, revision_fixture(), service, revision_fixture(),
                     operation, changed,
@@ -207,6 +212,45 @@ class RecoveryValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, 'SERVICE_CHANGED_AFTER_VALIDATION'):
                 recovery.validate()
         self.assertEqual(cloud.call_count, 6)
+
+    def test_runtime_database_receipt_requires_app_login(self):
+        good = {
+            'stage': 'PREVIEW_V2_RUNTIME_LOGIN_READONLY_VERIFIED',
+            'project': recovery.PROJECT,
+            'instance': 'khedmah-preview-v2-db',
+            'database': 'khedmah',
+            'acl_state': 'EXPECTED_GRANTS_PRESENT',
+            'runtime_credential_access': True,
+            'runtime_login_verified': True,
+            'exact_acl_state_verified': True,
+            'runtime_allowed_select_probes': 62,
+            'runtime_denied_select_probes': 2,
+            'schema_mutation': False,
+            'runtime_grants_mutation': False,
+            'cloud_resource_configuration_mutation': False,
+            'credential_values_printed': False,
+        }
+        recovery.require_runtime_identity(good)
+        for key, value in [
+            ('runtime_login_verified', False),
+            ('runtime_credential_access', False),
+            ('acl_state', 'GRANTS_NOT_APPLIED'),
+            ('schema_mutation', True),
+            ('runtime_denied_select_probes', 0),
+        ]:
+            changed = dict(good)
+            changed[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(
+                    SystemExit, 'DATABASE_RUNTIME_IDENTITY_NOT_VERIFIED'):
+                recovery.require_runtime_identity(changed)
+
+    def test_runtime_reader_must_return_valid_receipt(self):
+        with patch.object(recovery.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = b'{"stage":"UNVERIFIED"}'
+            with self.assertRaisesRegex(SystemExit, 'DATABASE_RUNTIME_IDENTITY_NOT_VERIFIED'):
+                recovery.read_runtime_identity()
+            self.assertEqual(run.call_args.args[0][-1], '--verify-runtime')
 
     def test_unknown_cli_never_uses_cloud(self):
         import subprocess
