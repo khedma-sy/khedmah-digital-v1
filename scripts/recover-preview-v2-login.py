@@ -19,6 +19,7 @@ URL = 'https://run.googleapis.com/v2/' + NAME
 VALIDATE_URL = URL + '?updateMask=scaling.manualInstanceCount&validateOnly=true'
 REVISION_URL = f'https://run.googleapis.com/v2/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}/revisions/{REVISION}'
 SCHEMA_SCRIPT_SHA = '4665b14534b96bb4474495e681b0fea318798c18a9e86b7306af5f55456f02b7'
+RUNTIME_READER_BLOB = '44e5429f4d74c5674f88ff5414d55859d2d1e5a6'
 
 
 def stop(reason):
@@ -168,6 +169,10 @@ def require_runtime_identity(receipt):
 
 def read_runtime_identity():
     path = Path(__file__).with_name('verify-preview-v2-runtime.py')
+    source = path.read_bytes()
+    git_blob = hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\\0' + source).hexdigest()
+    if git_blob != RUNTIME_READER_BLOB:
+        stop('RUNTIME_READER_SOURCE_MISMATCH')
     result = subprocess.run([sys.executable, str(path), '--verify-runtime'],
         capture_output=True, timeout=360, check=False)
     if result.returncode or len(result.stdout) > 16384:
