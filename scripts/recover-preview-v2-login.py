@@ -146,6 +146,35 @@ def read_predecessor():
     require_predecessor(json.loads(result.stdout))
 
 
+
+def require_runtime_identity(receipt):
+    if (not isinstance(receipt, dict)
+            or receipt.get('stage') != 'PREVIEW_V2_RUNTIME_LOGIN_READONLY_VERIFIED'
+            or receipt.get('project') != PROJECT
+            or receipt.get('instance') != 'khedmah-preview-v2-db'
+            or receipt.get('database') != 'khedmah'
+            or receipt.get('acl_state') != 'EXPECTED_GRANTS_PRESENT'
+            or receipt.get('runtime_credential_access') is not True
+            or receipt.get('runtime_login_verified') is not True
+            or receipt.get('exact_acl_state_verified') is not True
+            or receipt.get('runtime_allowed_select_probes') != 62
+            or receipt.get('runtime_denied_select_probes') != 2
+            or receipt.get('schema_mutation') is not False
+            or receipt.get('runtime_grants_mutation') is not False
+            or receipt.get('cloud_resource_configuration_mutation') is not False
+            or receipt.get('credential_values_printed') is not False):
+        stop('DATABASE_RUNTIME_IDENTITY_NOT_VERIFIED')
+
+
+def read_runtime_identity():
+    path = Path(__file__).with_name('verify-preview-v2-runtime.py')
+    result = subprocess.run([sys.executable, str(path), '--verify-runtime'],
+        capture_output=True, timeout=360, check=False)
+    if result.returncode or len(result.stdout) > 16384:
+        stop('DATABASE_RUNTIME_READ_FAILED')
+    require_runtime_identity(json.loads(result.stdout))
+
+
 def validate():
     token = subprocess.run(['gcloud', 'auth', 'print-access-token', '--quiet'],
         capture_output=True, text=True, timeout=20, check=True).stdout.strip()
@@ -155,6 +184,7 @@ def validate():
     before = recovery_request(service)
     require_revision(service, cloud_json(token, REVISION_URL))
     read_predecessor()
+    read_runtime_identity()
     after_service = cloud_json(token, URL)
     if recovery_request(after_service) != before:
         stop('SERVICE_CHANGED_DURING_SCHEMA_READ')
@@ -182,7 +212,8 @@ def validate():
     print(json.dumps({'stage': 'PREVIEW_V2_LOGIN_RECOVERY_PATCH_VALIDATED',
         'project': PROJECT, 'service': SERVICE, 'revision': REVISION,
         'cloud_resource_mutation': False, 'database_mutation': False,
-        'recovery_authorized': False, 'database_connection_verified': False}, sort_keys=True))
+        'recovery_authorized': False, 'database_connection_verified': True,
+        'cloud_run_database_binding_verified': False}, sort_keys=True))
 
 
 if __name__ == '__main__':
