@@ -49,6 +49,14 @@ def receipt_fixture():
 
 
 class RecoveryValidationTests(unittest.TestCase):
+    def test_service_startup_override_is_rejected(self):
+        for override in ({'command': ['node', 'other.js']}, {'args': ['--unexpected']}):
+            service = service_fixture()
+            service['template']['containers'][0].update(override)
+            with self.subTest(override=override), self.assertRaisesRegex(
+                    SystemExit, 'SERVICE_STARTUP_OVERRIDE_PRESENT'):
+                recovery.recovery_request(service)
+
     def test_runtime_socket_binding_requires_exact_instance(self):
         revision = revision_fixture()
         revision['containers'][0]['env'] = [{
