@@ -13,7 +13,8 @@ const launchServices = [
   { href: '/food', icon: 'food' as const, title: 'المطاعم', copy: 'مطاعم ومقاهٍ ومخابز وطلبات الطعام.', tone: 'foodCard' as const },
   { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'التوصيل', copy: 'مندوبون وطلبات توصيل قريبة منك.', tone: 'deliveryCard' as const },
   { href: '/professionals', icon: 'tools' as const, title: 'الخدمات المهنية', copy: 'اعثر على أصحاب المهن والخبرات والتخصصات.', tone: 'professionalCard' as const },
-  { href: '/store', icon: 'storefront' as const, title: 'المتجر', copy: 'تصفح المنتجات والمتاجر واعثر على ما تحتاجه.', tone: 'storeCard' as const }
+  { href: '/store', icon: 'storefront' as const, title: 'المتجر', copy: 'تصفح المنتجات والمتاجر واعثر على ما تحتاجه.', tone: 'storeCard' as const },
+  { href: '/taxi', icon: 'car' as const, title: 'تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
 ];
 
 const trustItems = [
