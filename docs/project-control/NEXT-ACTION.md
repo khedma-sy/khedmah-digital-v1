@@ -11,6 +11,12 @@ Subsequent owner Cloud Run reads: generation=observedGeneration=9, MANUAL/0, lat
 **Next concrete action:** finish current-head validation/review, then prepare the reviewed recovery operation and reconcile exclusion from 036/037 transitions, current schema compatibility and uncertain-operation handling. Existing successful owner receipts are evidence, not prompts to restart IAM/Monitoring discovery. Do not infer that historical 025/incomplete037 evidence proves today's full schema. A successful validateOnly call cannot authorize or perform restoration. No apply operator, migration, candidate deployment, merge, Floot publication or Google login success is claimed. Preserve the existing owner authorization; the remaining issue is technical gate evidence, not repeated generic consent.
 
 
+
+**Pinned old-image startup audit (2026-11-05):** source `f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` has Dockerfile.backend CMD `node apps/backend/dist/main.js`; main.ts/app.ts create Nest and listen. DatabaseModule registers DatabaseMigrator, whose onModuleInit performs catalog/privilege SELECTs and requires canonical version **035**, not 037. Its AdSchemaGuard requires **025**. These sources do not execute migration DDL. Accordingly, absence of 036/037 alone is not an old-runtime startup incompatibility and must not be presented as one. This bounded audit does not establish all runtime hooks or today's complete schema compatibility.
+
+**Next missing binding evidence:** old DatabasePool uses the Cloud SQL socket only when CLOUD_SQL_INSTANCE_CONNECTION_NAME is set; without it, DATABASE_URL's localhost host is used. Prior owner projections showed Cloud SQL attachment but not this variable or command/args overrides. Read only the fixed revision, emit whether the exact connection variable is present once and matches, and whether startup overrides are absent. Never print other environment values. Then reconcile the old-runtime recovery plan against actual schema and concurrent transitions; do not apply the newer migrations simply to repair authentication.
+
+
 ## Immediate next action — complete PR #333 review gate; preserve runtime holds — 2026-11-02 UTC
 
 1. Resolve the live `main` SHA directly from GitHub at the start of every cycle. At this checkpoint, latest `main` observed = `70bf3c89726dbc71a41a11579b9d3b51de4cbce3`, after PR #331 merged. Treat this SHA as dated evidence, not a permanent pointer; reread GitHub before each action.
