@@ -83,6 +83,28 @@ FROM (""" + query + """) catalog;
 ROLLBACK;
 """
 
+def read_035_catalog(reader,work,password,sql):
+    import stat
+    if not re.fullmatch(r'[0-9a-f]{64}',password): stop('PASSWORD_FORMAT_INVALID')
+    socket_dir=str(work/reader.CONNECTION)
+    pgpass=work/'pgpass'
+    with pgpass.open('x') as stream:
+        os.chmod(pgpass,0o600)
+        host=socket_dir.replace(chr(92),chr(92)*2).replace(':',chr(92)+':')
+        stream.write(host+':5432:'+reader.DATABASE+':'+reader.USER+':'+password+'\\n')
+    env={k:v for k,v in os.environ.items() if not k.startswith(('PG','CSQL_PROXY_','GOOGLE_'))}
+    env.update(PGPASSFILE=str(pgpass),PGCONNECT_TIMEOUT='10',PGSSLMODE='disable',
+        PGOPTIONS='-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=5000')
+    try:
+        result=subprocess.run(['psql','-X','-w','-q','-A','-t','-h',socket_dir,'-p','5432',
+            '-U',reader.USER,'-d',reader.DATABASE,'-v','ON_ERROR_STOP=1','-P','pager=off'],
+            input=sql,text=True,capture_output=True,timeout=60,env=env)
+    finally:
+        pgpass.unlink(missing_ok=True)
+    if result.returncode or len(result.stdout)>262144: stop('SCHEMA_035_SQL_FAILED')
+    try: return json.loads(result.stdout)
+    except ValueError: stop('SCHEMA_035_SQL_RESPONSE_INVALID')
+
 def main():
     if sys.argv[1:]!=['--inspect']: stop('USE_INSPECT_ONLY')
     os.umask(0o077)
@@ -124,12 +146,7 @@ def main():
                     time.sleep(0.2)
                 if not socket.exists() or not stat.S_ISSOCK(socket.stat().st_mode):
                     stop('PRIVATE_PROXY_SOCKET_NOT_READY')
-                original=reader.CATALOG_SQL
-                try:
-                    reader.CATALOG_SQL=build_sql(query)
-                    result=reader.read_catalog(work,password)
-                finally:
-                    reader.CATALOG_SQL=original
+                result=read_035_catalog(reader,work,password,build_sql(query))
         finally:
             if proxy is not None: reader.stop_proxy(proxy)
     if not isinstance(result,dict) or result.get('database')!='khedmah' or result.get('user')!='khedmah_migrator' or result.get('read_only')!='on' or result.get('isolation')!='repeatable read':
