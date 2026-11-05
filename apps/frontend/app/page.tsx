@@ -10,9 +10,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://khedmah.uk';
 export const metadata: Metadata = { title: { absolute: 'خدمة ديجتل - كل ما تحتاجه أقرب إليك' }, description: 'اكتشف الأعمال والمهنيين والخدمات حسب الفئة والموقع، وتواصل مباشرة مع مقدم الخدمة.', alternates: { canonical: SITE_URL } };
 
 const launchServices = [
-  { href: '/food', icon: 'food' as const, title: 'خدمة فود', copy: 'مطاعم، مقاهٍ، مخابز وحلويات.', tone: 'foodCard' as const },
-  { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'مندوب التوصيل', copy: 'ابحث عن خدمات التوصيل القريبة.', tone: 'deliveryCard' as const },
-  { href: '/taxi', icon: 'car' as const, title: 'خدمة تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
+  { href: '/food', icon: 'food' as const, title: 'المطاعم', copy: 'مطاعم ومقاهٍ ومخابز وطلبات الطعام.', tone: 'foodCard' as const },
+  { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'التوصيل', copy: 'مندوبون وطلبات توصيل قريبة منك.', tone: 'deliveryCard' as const },
+  { href: '/professionals', icon: 'tools' as const, title: 'الخدمات المهنية', copy: 'اعثر على أصحاب المهن والخبرات والتخصصات.', tone: 'professionalCard' as const },
+  { href: '/store', icon: 'storefront' as const, title: 'المتجر', copy: 'تصفح المنتجات والمتاجر واعثر على ما تحتاجه.', tone: 'storeCard' as const },
+  { href: '/taxi', icon: 'car' as const, title: 'تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
 ];
 
 const trustItems = [
@@ -36,13 +38,13 @@ export default function Home() {
     </section>
 
     <section className={styles.launch} aria-labelledby="launch-title">
-      <div className={styles.launchHeading}><span>الخدمات الرئيسية</span><h2 id="launch-title">ماذا تحتاج اليوم؟</h2><p>اختر الخدمة المناسبة لتبدأ طلبك أو تصل إلى مقدم الخدمة.</p></div>
+      <div className={styles.launchHeading}><span>الخدمات الرئيسية</span><h2 id="launch-title">ماذا تحتاج اليوم؟</h2><p>ابدأ من الخدمة التي تحتاجها، أو استكشف الإعلانات والنتائج القريبة منك.</p></div>
       <div className={styles.launchGrid}>{launchServices.map((service) => <Link className={`${styles.launchCard} ${styles[service.tone]}`} href={service.href} key={service.href}>
         <span className={styles.launchIcon}><PlatformIcon name={service.icon} size={30}/></span>
         <span><b>{service.title}</b><small>{service.copy}</small></span>
         <PlatformIcon name="arrow" size={20}/>
       </Link>)}</div>
-      <div className={styles.secondaryServices}><Link href="/store"><PlatformIcon name="cart" size={18}/> متجر خدمة</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
+      <div className={styles.secondaryServices}><Link href="/store"><PlatformIcon name="cart" size={18}/> المتجر</Link><Link href="/taxi"><PlatformIcon name="car" size={18}/> تكسي</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
     </section>
 
     <section className={styles.discovery} aria-labelledby="categories-title">

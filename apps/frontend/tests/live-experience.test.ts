@@ -9,10 +9,12 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
 
   assert.match(home, /كل ما تحتاجه/);
   assert.match(home, /FeaturedCategories/);
-  assert.match(home, /خدمة فود/);
-  assert.match(home, /مندوب التوصيل/);
-  assert.match(home, /خدمة تكسي/);
-  assert.match(home, /متجر خدمة/);
+  assert.match(home, /المطاعم/);
+  assert.match(home, /التوصيل/);
+  assert.match(home, /الخدمات المهنية/);
+  assert.match(home, /href: '\/professionals'/);
+  assert.match(home, /تكسي/);
+  assert.match(home, /المتجر/);
   assert.match(home, /التصنيفات الرئيسية/);
   assert.match(home, /PlatformIcon name="search"/);
   assert.match(home, /khedma-community\.webp/);
