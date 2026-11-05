@@ -49,3 +49,21 @@ Each row must record test account **role only**, timestamp, frontend revision, b
 3. Execute the account and classifieds/professional journeys first, recording actual outcomes; open narrow repair branches with regression tests for confirmed failures.
 4. Follow with store and restaurant order tests, then taxi/courier disabled-state and admin authorization checks.
 5. Update this matrix with dated evidence; leave untested scenarios as NOT VERIFIED.
+
+## Professional registration and smart-admin acceptance — code review (2026-11-05)
+
+- Owner `POST /professionals` creates a profile with `moderation_status='pending'`, `lifecycle_status='created'`; owner `POST /professionals/:id/submit` requests content moderation. No implicit public publication on registration.
+- Content moderation is a **separate** reviewer decision: `approveModeration` requires `security.manage` or `content.approvals.approve`; rejection and suspension require `security.manage`. The reviewer must use the current revision; a stale decision must fail.
+- Identity/evidence verification is **not** content moderation. A professional can request verification only for their own profile and with 1–3 private evidence assets. The verification review service explicitly requires an authorized human reviewer, rejects self-approval and stale revisions, and does not publish or activate the professional profile.
+- Public discovery/detail requires **all three**: `visibility='public'`, `moderation_status='approved'`, `lifecycle_status='active'`. A pending registration must never appear in public results.
+- **Smart-admin limitation:** no autonomous professional verification approval is established by these paths. Automated assessment/triage can assist, but sensitive identity proof remains human-only. Do not label a submitted professional as automatically accepted without a separately implemented, tested, bounded moderation decision.
+- Hardening applied in this PR: professional owner workspace, submission and moderation responses use `Cache-Control: private, no-store` and `Vary: Cookie` to prevent sensitive reviewer/owner state being reused from shared caches. This is source-level hardening, not a runtime test result.
+
+### Required Preview acceptance receipts
+
+1. Create professional as a normal user; confirm owner workspace shows pending/created and public search returns no entry.
+2. Submit for moderation; confirm authorized review queue shows the exact revision and ordinary user cannot approve/reject/suspend.
+3. Approve content as authorized reviewer; verify stale revision fails, and publication still requires active lifecycle plus public visibility.
+4. Submit verification without evidence (must fail), with 1–3 private assets (pending), and attempt self-approval or ordinary-user approval (must fail).
+5. Have a distinct authorized human reviewer approve verification; verify audit history and **no implicit** moderation/publication change.
+6. Repeat for rejected/suspended profiles; verify no public exposure, and owner/reviewer responses are not cacheable.
