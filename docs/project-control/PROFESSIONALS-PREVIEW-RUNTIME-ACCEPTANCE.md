@@ -81,3 +81,16 @@ The product owner confirms that smart administration **must be able to approve p
 Source review shows a bounded content approval permission (`content.approvals.approve`), a human/admin moderation endpoint, exact-revision checks, a prohibition on approving one's own profile, and an audit history write. The inspected source does **not** establish a scheduled or event-driven smart-admin worker that performs those checks and calls the approval transition automatically. Do not report this feature as operational without that evidence.
 
 Safe implementation acceptance criteria: review complete snapshot; deterministic policy with explicit allowed categories and risk thresholds; only low-risk content auto-approval; independently authorized service identity (never impersonate the owner); atomic exact-revision compare; fail closed on incomplete/changed evidence; decision reason, policy version and actor recorded; replay/idempotency and concurrency tests; human escalation for ambiguous or sensitive cases. Identity/evidence verification remains human-only, and taxi/driver activation remains separately gated. No blanket approval of all new profiles.
+
+## Owner authorization — routine professional smart-admin decisions (2026-11-05)
+
+The owner explicitly authorizes **automatic approval of ordinary professional content profiles after smart-admin review**, without an individual owner confirmation for each eligible case. This is authorization to implement and test the bounded workflow, **not** authorization to bypass release gates or to grant production permissions blindly.
+
+Acceptance contract:
+1. Only complete, submitted, low-risk professional content, evaluated against an explicit reviewed allowlist and policy version, can be auto-approved. A draft, stale review snapshot, missing evidence, policy uncertainty or flagged content must fail closed and escalate.
+2. The automated decision must run under an authenticated, independently provisioned service principal with *only* content approval authority; no human impersonation or browser-supplied role claim.
+3. Reuse the existing atomic revision check, no-self-approval and trust-history audit. Persist a traceable decision reason and policy version; ensure retries cannot create duplicate decisions.
+4. Identity verification, sensitive documentation, driver/vehicle approvals, taxi activation and financial/legal commitments remain human-gated.
+5. Test safe approval, escalation, stale revision, concurrency, permission denial, audit trail and no publication before the authorized content transition. Verify actual preview E2E and the current deployment/schema gates before any activation.
+
+The repository currently proves a human-operated approval endpoint and bounded role definitions, but does not yet prove a deployed autonomous worker. No live role binding or deployment is implied by this authorization.
