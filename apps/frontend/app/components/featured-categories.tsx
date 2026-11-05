@@ -24,7 +24,7 @@ const categoryVisuals: Record<string, { image?: string; icon?: PlatformIconName;
   travel: { icon: 'travel', description: 'سفر وإقامة وخدمات سياحية' }
 };
 
-const defaultVisual = { icon: 'grid' as const, description: 'خدمات محلية موثوقة قريبة منك' };
+const defaultVisual: { image?: string; icon?: PlatformIconName; description: string } = { icon: 'grid', description: 'خدمات محلية موثوقة قريبة منك' };
 
 function getCategoryVisual(category: { visualKey: string; code: string; nameAr: string }) {
   const key = [category.visualKey, category.code, category.nameAr].join(' ').toLowerCase();
