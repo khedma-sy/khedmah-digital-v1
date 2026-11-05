@@ -94,3 +94,9 @@ Acceptance contract:
 5. Test safe approval, escalation, stale revision, concurrency, permission denial, audit trail and no publication before the authorized content transition. Verify actual preview E2E and the current deployment/schema gates before any activation.
 
 The repository currently proves a human-operated approval endpoint and bounded role definitions, but does not yet prove a deployed autonomous worker. No live role binding or deployment is implied by this authorization.
+
+## Owner request: expanded automated review of sensitive domains (2026-11-05)
+
+The owner requests automated post-check approval for identity/personal documents, driver and vehicle documents, and Taxi operational activation, in addition to routine content. **This request does not itself establish reliable document authenticity verification or authorize bypassing existing human-only service gates.** The current source explicitly enforces human review for sensitive verification, and the established deployment gates remain closed.
+
+Implementation is **blocked pending a separately reviewed security and legal acceptance design** demonstrating trustworthy identity/document authenticity, expiration, ownership matching, fraud and duplicate detection, current/latest evidence, non-self approval, auditability, independent service authority, fail-closed handling of uncertainty, and applicable transport/insurance/licensing prerequisites. Suspicious or noncompliant submissions must not be automatically approved; escalate or reject per policy. Never equate OCR or a successful upload with authenticity. Do not enable production permissions or Taxi activation until these controls and preview E2E are proven.
