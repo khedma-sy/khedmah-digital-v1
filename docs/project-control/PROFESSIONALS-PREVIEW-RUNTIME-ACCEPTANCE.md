@@ -73,3 +73,11 @@ Each row must record test account **role only**, timestamp, frontend revision, b
 The content-moderation **approval** transaction in `moderation/profile-review-write.ts` also sets a professional's `lifecycle_status='active'` atomically; submission sets it to `pending`. Therefore content approval + public visibility can make the profile discoverable immediately. Verification remains a distinct human-only workflow, and professional verification approval does **not** independently publish the profile. The acceptance run must explicitly test whether any profession category requires verification *before* publication, and treat any mismatch with approved product policy as a release hold. Do not assume an additional activation action is required after content approval.
 
 Added regression test `professional-controller-cache-privacy.test.ts` for the six owner/reviewer endpoints hardened in this PR. CI status must be checked at the exact latest commit before merge.
+
+## Approved product requirement: smart-admin post-review acceptance
+
+The product owner confirms that smart administration **must be able to approve professional content after review**. This is a requirement, **not evidence that an autonomous executor is deployed**.
+
+Source review shows a bounded content approval permission (`content.approvals.approve`), a human/admin moderation endpoint, exact-revision checks, a prohibition on approving one's own profile, and an audit history write. The inspected source does **not** establish a scheduled or event-driven smart-admin worker that performs those checks and calls the approval transition automatically. Do not report this feature as operational without that evidence.
+
+Safe implementation acceptance criteria: review complete snapshot; deterministic policy with explicit allowed categories and risk thresholds; only low-risk content auto-approval; independently authorized service identity (never impersonate the owner); atomic exact-revision compare; fail closed on incomplete/changed evidence; decision reason, policy version and actor recorded; replay/idempotency and concurrency tests; human escalation for ambiguous or sensitive cases. Identity/evidence verification remains human-only, and taxi/driver activation remains separately gated. No blanket approval of all new profiles.
