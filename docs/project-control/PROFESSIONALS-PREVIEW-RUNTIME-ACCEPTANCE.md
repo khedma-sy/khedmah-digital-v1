@@ -67,3 +67,9 @@ Each row must record test account **role only**, timestamp, frontend revision, b
 4. Submit verification without evidence (must fail), with 1–3 private assets (pending), and attempt self-approval or ordinary-user approval (must fail).
 5. Have a distinct authorized human reviewer approve verification; verify audit history and **no implicit** moderation/publication change.
 6. Repeat for rejected/suspended profiles; verify no public exposure, and owner/reviewer responses are not cacheable.
+
+### Correction from source-level review
+
+The content-moderation **approval** transaction in `moderation/profile-review-write.ts` also sets a professional's `lifecycle_status='active'` atomically; submission sets it to `pending`. Therefore content approval + public visibility can make the profile discoverable immediately. Verification remains a distinct human-only workflow, and professional verification approval does **not** independently publish the profile. The acceptance run must explicitly test whether any profession category requires verification *before* publication, and treat any mismatch with approved product policy as a release hold. Do not assume an additional activation action is required after content approval.
+
+Added regression test `professional-controller-cache-privacy.test.ts` for the six owner/reviewer endpoints hardened in this PR. CI status must be checked at the exact latest commit before merge.
