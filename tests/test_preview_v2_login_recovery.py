@@ -49,6 +49,25 @@ def receipt_fixture():
 
 
 class RecoveryValidationTests(unittest.TestCase):
+    def test_runtime_socket_binding_requires_exact_instance(self):
+        revision = revision_fixture()
+        revision['containers'][0]['env'] = [{
+            'name': 'CLOUD_SQL_INSTANCE_CONNECTION_NAME',
+            'value': recovery.PROJECT + ':' + recovery.REGION + ':khedmah-preview-v2-db',
+        }]
+        recovery.require_runtime_socket_binding(revision)
+        for changed in (
+            {'env': []},
+            {'env': [{'name': 'CLOUD_SQL_INSTANCE_CONNECTION_NAME', 'value': 'wrong'}]},
+            {'command': ['node', 'other.js']},
+            {'args': ['--unsafe']},
+        ):
+            candidate = revision_fixture()
+            candidate['containers'][0].update(revision['containers'][0])
+            candidate['containers'][0].update(changed)
+            with self.subTest(changed=changed), self.assertRaises(SystemExit):
+                recovery.require_runtime_socket_binding(candidate)
+
     def test_observed_service_tag_requires_exact_resolved_revision(self):
         service = service_fixture()
         service['template']['containers'][0]['image'] = recovery.KNOWN_IMAGE_TAG
