@@ -29,3 +29,13 @@ Baseline: main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. Scope: repository sou
 ## Guardrails
 
 No production mutation, deployment, permission grant, automatic approval, or merge is authorized by this audit. Audit findings require regression tests and exact-head CI before approval. PR #344 (Google recovery), #346 (Android account), and #348 (professional smart-admin planning) were draft at review time; do not confuse those proposals with deployed fixes.
+
+## Second-pass source inspection (same branch)
+
+- Merchant `orders/merchant/page.tsx`: order refresh uses an 8-second page interval, with a manually enabled localStorage alert preference. This is not a service-worker push channel. The merchant page attempts vibration, but comments acknowledge iOS vibration limitations. Acceptance must cover inactive tab, suspended mobile browser, and closed app.
+- Courier `orders/courier/page.tsx`: identical 8-second polling model. Notification permission is requested only after user interaction; alerts are conditioned on the page observing a status change and having completed its initial load. Verify whether tasks assigned while the page is closed are surfaced after reopening without silently suppressing the initial alert.
+- Shared `orders/order-alerts.ts`: uses browser AudioContext and `new Notification()`, with a catch for unsupported notification construction. No evidence in this file of durable push subscription, background delivery, full-screen call-like alert, or repeated acknowledgment timeout. Do not advertise closed-app ringing as supported until end-to-end tested.
+- KORA `admin/kora/page.tsx`: links to restaurant, courier, moderation, verification, taxi, pricing, billing and operations panels. Navigation presence is not proof of cross-role authorization; endpoint-level tests required.
+- Account page on this branch now links to customer orders, courier registration and courier tasks. Courier task link is explicitly labeled for approved couriers but is currently displayed to every signed-in user. Prefer eligibility-aware visibility or an explanatory onboarding affordance, without bypassing server authorization.
+
+**Additional P0 acceptance:** merchant and courier notification must not be marked production-ready for background/closed-app scenarios on the basis of 8-second foreground polling. Evaluate an OS-compliant push architecture separately; do not promise call-like behavior unsupported by iOS/Android.
