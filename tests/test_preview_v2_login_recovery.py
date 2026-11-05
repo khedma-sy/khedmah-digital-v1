@@ -26,7 +26,7 @@ def revision_fixture():
         'name': recovery.NAME + '/revisions/' + recovery.REVISION,
         'service': recovery.NAME,
         'conditions': [{'type': 'Ready', 'state': 'CONDITION_SUCCEEDED'}],
-        'containers': [{'image': recovery.IMAGE}],
+        'containers': [{'image': recovery.IMAGE, 'env': [{'name': 'CLOUD_SQL_INSTANCE_CONNECTION_NAME', 'value': recovery.PROJECT + ':' + recovery.REGION + ':khedmah-preview-v2-db'}]}],
     }
 
 
