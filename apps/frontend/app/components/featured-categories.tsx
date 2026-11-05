@@ -26,6 +26,31 @@ const categoryVisuals: Record<string, { image?: string; icon?: PlatformIconName;
 
 const defaultVisual = { icon: 'grid' as const, description: 'خدمات محلية موثوقة قريبة منك' };
 
+function getCategoryVisual(category: { visualKey: string; code: string; nameAr: string }) {
+  const key = [category.visualKey, category.code, category.nameAr].join(' ').toLowerCase();
+  const direct = categoryVisuals[category.visualKey];
+  if (direct) return direct;
+  const aliases: Array<[string[], keyof typeof categoryVisuals]> = [
+    [['مطعم', 'طعام', 'مخبز', 'حلويات', 'food', 'restaurant'], 'food'],
+    [['منزل', 'صيانة', 'تنظيف', 'سباكة', 'كهرباء', 'home'], 'home'],
+    [['صحة', 'طبيب', 'طب', 'health', 'medical'], 'health'],
+    [['تعليم', 'تدريب', 'مدرس', 'دروس', 'education'], 'education'],
+    [['مهنة', 'مهني', 'محاسب', 'محام', 'استشار', 'professional'], 'professional'],
+    [['جمال', 'تجميل', 'صالون', 'beauty'], 'beauty'],
+    [['متجر', 'تسوق', 'تجارة', 'shopping', 'store'], 'shopping'],
+    [['سيارات', 'سيارة', 'ميكانيك', 'automotive'], 'automotive'],
+    [['نقل', 'تكسي', 'توصيل', 'transport', 'delivery'], 'transport'],
+    [['تقنية', 'برمجة', 'حاسوب', 'technology'], 'technology'],
+    [['بناء', 'مقاولات', 'عقار', 'construction'], 'construction'],
+    [['مناسبات', 'فعاليات', 'events'], 'events'],
+    [['زراعة', 'زراعي', 'مواش', 'agriculture'], 'agriculture'],
+    [['صناعة', 'مصانع', 'صناعي', 'industry'], 'industry'],
+    [['سياحة', 'سفر', 'فندق', 'travel'], 'travel']
+  ];
+  const match = aliases.find(([terms]) => terms.some((term) => key.includes(term)));
+  return match ? categoryVisuals[match[1]] : defaultVisual;
+}
+
 export function FeaturedCategories() {
   const { categories, isLoading, error, retry } = useCategories();
 
@@ -46,7 +71,7 @@ export function FeaturedCategories() {
   const visible = (featured.length ? featured : roots).slice(0, 6);
 
   return <div className={styles.categoryGrid}>{visible.map((category) => {
-    const visual = categoryVisuals[category.visualKey] ?? defaultVisual;
+    const visual = getCategoryVisual(category);
     return <Link key={category.code} href={`/search?categoryCode=${encodeURIComponent(category.code)}`} className={styles.categoryCard}>
       <span className={`${styles.categoryImage}${visual.image ? '' : ` ${styles.categoryIllustration}`}`}>{visual.image ? <Image src={visual.image} alt="" fill sizes="(max-width: 700px) 100vw, (max-width: 1000px) 50vw, 33vw" /> : <PlatformIcon name={visual.icon ?? 'grid'} size={76} />}</span>
       <span className={styles.categoryBody}><b>{category.nameAr}</b><small>{visual.description}</small><i>استكشف الخدمات ←</i></span>
