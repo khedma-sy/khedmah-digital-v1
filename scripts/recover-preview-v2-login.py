@@ -76,6 +76,8 @@ def recovery_request(service):
     containers = service.get('template', {}).get('containers', [])
     if len(containers) != 1 or containers[0].get('image') not in (IMAGE, KNOWN_IMAGE_TAG):
         stop('SERVICE_IMAGE_CHANGED')
+    if containers[0].get('command') or containers[0].get('args'):
+        stop('SERVICE_STARTUP_OVERRIDE_PRESENT')
     etag = service.get('etag')
     if not isinstance(etag, str) or not etag or len(etag) > 256:
         stop('SERVICE_ETAG_UNAVAILABLE')
