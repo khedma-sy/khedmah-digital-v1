@@ -29,7 +29,7 @@ def source_blob(blob):
         v=json.loads(r.stdout)
         if v['sha']!=blob or v['encoding']!='base64': stop('PINNED_BLOB_METADATA_INVALID')
         data=base64.b64decode(''.join(v['content'].split()),validate=True)
-        if v['size']!=len(data) or hashlib.sha1(b'blob '+str(len(data)).encode()+b'\\0'+data).hexdigest()!=blob:
+        if v['size']!=len(data) or hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()!=blob:
             stop('PINNED_BLOB_HASH_INVALID')
         return data
     except (ValueError,KeyError,TypeError): stop('PINNED_BLOB_INVALID')
@@ -41,12 +41,12 @@ def contract(source):
     a=s.index('export const CANONICAL_SCHEMA_ANCHORS:')
     b=s.index('interface CatalogRow',a)
     anchors=s[a:b]
-    pattern=r"(table|column|constraint|index|fn)\\('([^']+)',\\s*'([0-9]+)',\\s*'([^']+)'(?:,\\s*'([^']+)')?\\)"
+    pattern=r"(table|column|constraint|index|fn)\('([^']+)',\s*'([0-9]+)',\s*'([^']+)'(?:,\s*'([^']+)')?\)"
     result=[]
     for match in re.finditer(pattern,anchors):
         kind,domain,migration,table,name=match.groups()
         result.append((('function' if kind=='fn' else kind),table,name or table,domain,migration))
-    spread=r"\\.\\.\\.\\[([^\\]]+)\\]\\.map\\(\\(name\\) => column\\('([^']+)',\\s*'([0-9]+)',\\s*'([^']+)', name\\)\\)"
+    spread=r"\.\.\.\[([^\]]+)\]\.map\(\(name\) => column\('([^']+)',\s*'([0-9]+)',\s*'([^']+)', name\)\)"
     for m in re.finditer(spread,anchors):
         names,domain,migration,table=m.groups()
         result.extend(('column',table,n,domain,migration) for n in re.findall(r"'([^']+)'",names))
@@ -54,7 +54,7 @@ def contract(source):
         stop('ANCHOR_PARSER_INCOMPLETE')
     stripped=re.sub(spread,'',anchors)
     stripped=re.sub(pattern,'',stripped)
-    if '=> column(' in stripped or re.search(r"\\b(?:table|column|constraint|index|fn)\\(",stripped):
+    if '=> column(' in stripped or re.search(r"\b(?:table|column|constraint|index|fn)\(",stripped):
         stop('UNPARSED_SCHEMA_ANCHORS')
     start=s.index('const CATALOG_QUERY = `')+len('const CATALOG_QUERY = `')
     end=s.index('`;',start)
