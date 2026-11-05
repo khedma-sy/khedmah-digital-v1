@@ -17,7 +17,7 @@ def service_fixture():
         'scaling': {'scalingMode': 'MANUAL', 'manualInstanceCount': 0},
         'traffic': [{'type': 'TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST', 'percent': 100}],
         'trafficStatuses': [{'revision': recovery.REVISION, 'percent': 100}],
-        'template': {'containers': [{'image': 'backend@' + recovery.DIGEST}]},
+        'template': {'containers': [{'image': recovery.IMAGE}]},
     }
 
 
@@ -26,7 +26,7 @@ def revision_fixture():
         'name': recovery.NAME + '/revisions/' + recovery.REVISION,
         'service': recovery.NAME,
         'conditions': [{'type': 'Ready', 'state': 'CONDITION_SUCCEEDED'}],
-        'containers': [{'image': 'backend@' + recovery.DIGEST}],
+        'containers': [{'image': recovery.IMAGE}],
     }
 
 
@@ -49,6 +49,28 @@ def receipt_fixture():
 
 
 class RecoveryValidationTests(unittest.TestCase):
+    def test_observed_service_tag_requires_exact_resolved_revision(self):
+        service = service_fixture()
+        service['template']['containers'][0]['image'] = recovery.KNOWN_IMAGE_TAG
+        recovery.recovery_request(service)
+        recovery.require_revision(service, revision_fixture())
+        revision = revision_fixture()
+        revision['containers'][0]['image'] = recovery.KNOWN_IMAGE_TAG
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service, revision)
+
+    def test_other_repository_or_tag_is_rejected(self):
+        for image in ('other/backend@' + recovery.DIGEST,
+                      recovery.IMAGE_REPOSITORY + ':latest'):
+            service = service_fixture()
+            service['template']['containers'][0]['image'] = image
+            with self.subTest(image=image), self.assertRaisesRegex(SystemExit, 'SERVICE_IMAGE_CHANGED'):
+                recovery.recovery_request(service)
+        revision = revision_fixture()
+        revision['containers'][0]['image'] = 'other/backend@' + recovery.DIGEST
+        with self.assertRaisesRegex(SystemExit, 'REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED'):
+            recovery.require_revision(service_fixture(), revision)
+
     def test_full_revision_resource_name(self):
         self.assertTrue(recovery.revision_matches(recovery.NAME + '/revisions/' + recovery.REVISION))
         self.assertFalse(recovery.revision_matches(f'projects/{recovery.PROJECT}/locations/{recovery.REGION}/revisions/{recovery.REVISION}'))
