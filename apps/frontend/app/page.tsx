@@ -44,7 +44,7 @@ export default function Home() {
         <span><b>{service.title}</b><small>{service.copy}</small></span>
         <PlatformIcon name="arrow" size={20}/>
       </Link>)}</div>
-      <div className={styles.secondaryServices}><Link href="/taxi"><PlatformIcon name="car" size={18}/> تكسي</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
+      <div className={styles.secondaryServices}><Link href="/store"><PlatformIcon name="cart" size={18}/> المتجر</Link><Link href="/taxi"><PlatformIcon name="car" size={18}/> تكسي</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
     </section>
 
     <section className={styles.discovery} aria-labelledby="categories-title">
