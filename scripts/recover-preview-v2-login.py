@@ -99,6 +99,22 @@ def require_revision(service, revision):
         stop('REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED')
 
 
+
+def require_runtime_socket_binding(revision):
+    """Fail closed unless the pinned revision uses its attached Cloud SQL socket."""
+    if not isinstance(revision, dict) or len(revision.get('containers', [])) != 1:
+        stop('RUNTIME_SOCKET_BINDING_NOT_VERIFIED')
+    container = revision['containers'][0]
+    if container.get('command') or container.get('args'):
+        stop('RUNTIME_STARTUP_OVERRIDE_PRESENT')
+    expected = PROJECT + ':' + REGION + ':khedmah-preview-v2-db'
+    env = container.get('env', [])
+    bindings = [item for item in env if isinstance(item, dict)
+                and item.get('name') == 'CLOUD_SQL_INSTANCE_CONNECTION_NAME']
+    if len(bindings) != 1 or bindings[0].get('value') != expected or bindings[0].get('valueSource'):
+        stop('RUNTIME_SOCKET_BINDING_NOT_VERIFIED')
+
+
 def require_validation_operation(result):
     if not isinstance(result, dict) or result.get('error'):
         stop('SCALING_PATCH_VALIDATION_REJECTED')
@@ -190,13 +206,17 @@ def validate():
         stop('TOKEN_UNAVAILABLE')
     service = cloud_json(token, URL)
     before = recovery_request(service)
-    require_revision(service, cloud_json(token, REVISION_URL))
+    revision = cloud_json(token, REVISION_URL)
+    require_revision(service, revision)
+    require_runtime_socket_binding(revision)
     read_predecessor()
     read_runtime_identity()
     after_service = cloud_json(token, URL)
     if recovery_request(after_service) != before:
         stop('SERVICE_CHANGED_DURING_SCHEMA_READ')
-    require_revision(after_service, cloud_json(token, REVISION_URL))
+    after_revision = cloud_json(token, REVISION_URL)
+    require_revision(after_service, after_revision)
+    require_runtime_socket_binding(after_revision)
     result = cloud_json(token, VALIDATE_URL, method='PATCH', body=before)
     if isinstance(result, dict) and result.get('done') is not True and not result.get('error'):
         operation = result.get('name')
@@ -216,7 +236,9 @@ def validate():
     final_service = cloud_json(token, URL)
     if recovery_request(final_service) != before:
         stop('SERVICE_CHANGED_AFTER_VALIDATION')
-    require_revision(final_service, cloud_json(token, REVISION_URL))
+    final_revision = cloud_json(token, REVISION_URL)
+    require_revision(final_service, final_revision)
+    require_runtime_socket_binding(final_revision)
     print(json.dumps({'stage': 'PREVIEW_V2_LOGIN_RECOVERY_PATCH_VALIDATED',
         'project': PROJECT, 'service': SERVICE, 'revision': REVISION,
         'cloud_resource_mutation': False, 'database_mutation': False,
