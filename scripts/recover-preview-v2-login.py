@@ -14,6 +14,9 @@ REGION = 'europe-west1'
 SERVICE = 'khedmah-pr-274-backend'
 REVISION = SERVICE + '-00008-tg8'
 DIGEST = 'sha256:be90387535778e81016126e8ca6d626e8f170c20d1bd8c5add8dbb98beecba17'
+IMAGE_REPOSITORY = f'europe-west1-docker.pkg.dev/{PROJECT}/khedmah-preview/backend'
+IMAGE = IMAGE_REPOSITORY + '@' + DIGEST
+KNOWN_IMAGE_TAG = IMAGE_REPOSITORY + ':preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a'
 NAME = f'projects/{PROJECT}/locations/{REGION}/services/{SERVICE}'
 URL = 'https://run.googleapis.com/v2/' + NAME
 VALIDATE_URL = URL + '?updateMask=scaling.manualInstanceCount&validateOnly=true'
@@ -71,7 +74,7 @@ def recovery_request(service):
                         and not traffic[0].get('revision')))):
             stop('SERVICE_TRAFFIC_CHANGED')
     containers = service.get('template', {}).get('containers', [])
-    if len(containers) != 1 or not containers[0].get('image', '').endswith('@' + DIGEST):
+    if len(containers) != 1 or containers[0].get('image') not in (IMAGE, KNOWN_IMAGE_TAG):
         stop('SERVICE_IMAGE_CHANGED')
     etag = service.get('etag')
     if not isinstance(etag, str) or not etag or len(etag) > 256:
@@ -91,8 +94,8 @@ def require_revision(service, revision):
                        for condition in revision['conditions'])
             or not isinstance(revision.get('containers'), list)
             or len(revision['containers']) != 1
-            or revision['containers'][0].get('image') != service['template']['containers'][0]['image']
-            or not revision['containers'][0]['image'].endswith('@' + DIGEST)):
+            or service['template']['containers'][0].get('image') not in (IMAGE, KNOWN_IMAGE_TAG)
+            or revision['containers'][0].get('image') != IMAGE):
         stop('REVISION_IDENTITY_OR_IMAGE_NOT_VERIFIED')
 
 
