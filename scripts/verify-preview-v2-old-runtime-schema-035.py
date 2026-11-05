@@ -91,7 +91,7 @@ def read_035_catalog(reader,work,password,sql):
     with pgpass.open('x') as stream:
         os.chmod(pgpass,0o600)
         host=socket_dir.replace(chr(92),chr(92)*2).replace(':',chr(92)+':')
-        stream.write(host+':5432:'+reader.DATABASE+':'+reader.USER+':'+password+'\\n')
+        stream.write(host+':5432:'+reader.DATABASE+':'+reader.USER+':'+password+'\n')
     env={k:v for k,v in os.environ.items() if not k.startswith(('PG','CSQL_PROXY_','GOOGLE_'))}
     env.update(PGPASSFILE=str(pgpass),PGCONNECT_TIMEOUT='10',PGSSLMODE='disable',
         PGOPTIONS='-c role=none -c search_path=pg_catalog -c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=5000')
