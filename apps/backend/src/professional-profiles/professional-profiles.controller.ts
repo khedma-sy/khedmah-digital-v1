@@ -17,6 +17,8 @@ export class ProfessionalProfilesController {
   }
 
   @Get('me')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async getMine(@Headers('cookie') cookieHeader: string | undefined) {
     return { professional: await this.professionals.getMine(cookieHeader) };
   }
@@ -66,6 +68,8 @@ export class ProfessionalProfilesController {
 
   // --- Verification ---
   @Post(':id/verification-request')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async requestVerification(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { request: await this.professionals.requestVerification(cookieHeader, id) };
   }
@@ -92,21 +96,29 @@ export class ProfessionalProfilesController {
   }
 
   @Post(':id/submit')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async submit(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string) {
     return { professional: await this.professionals.submitForReview(cookieHeader, id) };
   }
 
   @Post(':id/moderation/approve')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async approveModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { expectedRevision?: unknown } | null) {
     return { professional: await this.professionals.approveModeration(cookieHeader, id, body?.expectedRevision) };
   }
 
   @Post(':id/moderation/reject')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async rejectModeration(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string; expectedRevision?: unknown } | null) {
     return { professional: await this.professionals.rejectModeration(cookieHeader, id, body?.reason ?? '', body?.expectedRevision) };
   }
 
   @Post(':id/moderation/suspend')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('Vary', 'Cookie')
   async suspend(@Headers('cookie') cookieHeader: string | undefined, @Param('id') id: string, @Body() body: { reason: string }) {
     return { professional: await this.professionals.suspendProfessional(cookieHeader, id, body.reason) };
   }
