@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, PublicUserProfile } from '../../../lib/api-client';
+import type { PublicBusinessProfile } from '../../../lib/api-client';
 import { ActionButton, ActionLink, PageHeader, PageShell, SkeletonGrid, StatusMessage, Surface } from '../../components/ui-primitives';
 
 export default function ProfilePage() {
@@ -9,11 +10,13 @@ export default function ProfilePage() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [courierBusinesses, setCourierBusinesses] = useState<PublicBusinessProfile[] | null>(null);
 
   useEffect(() => {
     setUser(undefined);
     setSessionExpired(false);
     setError('');
+    setCourierBusinesses(null);
     let active = true;
     void api.auth.session()
       .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
@@ -28,6 +31,11 @@ export default function ProfilePage() {
         setError(reason instanceof Error ? reason.message : 'تعذر تحميل الحساب.');
         setUser(null);
       });
+    void api.businesses.listMine()
+      .then(({ businesses }) => {
+        if (active) setCourierBusinesses(businesses.filter((business) => business.categoryCode === 'delivery_courier'));
+      })
+      .catch(() => { if (active) setCourierBusinesses(null); });
     return () => { active = false; };
   }, [retryCount]);
 
@@ -48,7 +56,7 @@ export default function ProfilePage() {
       <Surface className="ui-account-links">
         <h2>إدارة حضورك في خدمة</h2>
         <p>أدر ملفك المهني وخدماتك وإعلاناتك ومنتجاتك ومسارات التنقل من حساب واحد.</p>
-        <div className="ui-page-actions"><ActionLink href="/professional-profiles">ملفي المهني</ActionLink><ActionLink href="/professional-profiles/new" variant="secondary">إنشاء أو تعديل الملف المهني</ActionLink><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/orders" variant="secondary">طلباتي ومتابعة التوصيل</ActionLink><ActionLink href="/courier-signup" variant="secondary">التسجيل كمندوب ووثائقي</ActionLink><ActionLink href="/orders/courier" variant="secondary">مهام المندوب (للمعتمدين)</ActionLink><ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink><ActionLink href="/billing" variant="secondary">الباقات والخصم والسداد</ActionLink><ActionLink href="/delete-account" variant="secondary">حذف الحساب والبيانات</ActionLink></div>
+        <div className="ui-page-actions"><ActionLink href="/professional-profiles">ملفي المهني</ActionLink><ActionLink href="/professional-profiles/new" variant="secondary">إنشاء أو تعديل الملف المهني</ActionLink><ActionLink href="/business-profiles">أعمالي</ActionLink><ActionLink href="/business-profiles/new" variant="secondary">إضافة نشاط</ActionLink><ActionLink href="/classifieds/manage" variant="secondary">إعلاناتي</ActionLink><ActionLink href="/classifieds/new" variant="secondary">إضافة إعلان</ActionLink><ActionLink href="/store/manage" variant="secondary">منتجاتي</ActionLink><ActionLink href="/store/sell" variant="secondary">عرض منتج للبيع</ActionLink><ActionLink href="/orders" variant="secondary">طلباتي ومتابعة التوصيل</ActionLink><ActionLink href="/courier-signup" variant="secondary">التسجيل كمندوب ووثائقي</ActionLink>{courierBusinesses && courierBusinesses.length > 0 ? <ActionLink href="/orders/courier" variant="secondary">مهام مندوب التوصيل</ActionLink> : null}<ActionLink href="/mobility" variant="secondary">تاكسي وتوصيل</ActionLink><ActionLink href="/billing" variant="secondary">الباقات والخصم والسداد</ActionLink><ActionLink href="/delete-account" variant="secondary">حذف الحساب والبيانات</ActionLink></div>
       </Surface>
     </div>
   </PageShell>;
