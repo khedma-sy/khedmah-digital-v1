@@ -20,3 +20,16 @@ test('restaurant push token registration rejects malformed or non-web payloads',
   assert.throws(() => validateRestaurantPushTokenRegistration({ token: 'fcm-token-value-1234567890', deviceId: 'bad device' }), /deviceId/);
   assert.throws(() => validateRestaurantPushTokenRegistration({ token: 'fcm-token-value-1234567890', deviceId: 'web-device_01', platform: 'ios' }), /platform/);
 });
+
+test('restaurant push token registration rejects whitespace and control characters before persistence', () => {
+  const valid = { token: 'fcm-token-value-1234567890', deviceId: 'web-device_01' };
+  for (const token of [
+    'fcm-token-value-12345 67890',
+    'fcm-token-value-12345\n67890',
+    'fcm-token-value-12345\t67890',
+    'fcm-token-value-12345\u000067890',
+    'fcm-token-value-12345\u007f67890',
+  ]) {
+    assert.throws(() => validateRestaurantPushTokenRegistration({ ...valid, token }), /token is invalid/);
+  }
+});
