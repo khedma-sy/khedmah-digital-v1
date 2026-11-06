@@ -1,6 +1,7 @@
 import { assessSmartAdminEligibility } from './smart-admin-eligibility';
 import type { DatabasePool } from '../database/database.pool';
 import { PROFILE_REVISION_SQL } from './profile-review-write';
+import { PROFESSIONAL_REVIEW_EVIDENCE_EXPRESSION } from './professional-review-evidence';
 
 /**
  * A preparation contract, not a runnable approval worker. The actual writer must
@@ -117,6 +118,7 @@ export type CanonicalProfessionalReviewState = {
   moderationStatus: string;
   lifecycleStatus: string;
   visibility: string;
+  snapshotFingerprint: string;
 };
 
 export async function readCanonicalProfessionalReviewState(
@@ -126,19 +128,22 @@ export async function readCanonicalProfessionalReviewState(
   const rows = await db.query<{
     profile_id: string; owner_user_id: string; revision: string;
     moderation_status: string; lifecycle_status: string; visibility: string;
+    evidence_fingerprint: string;
   }>(
-    `SELECT professional_profile_identifier AS profile_id,
-       user_identifier AS owner_user_id,
+    `SELECT p.professional_profile_identifier AS profile_id,
+       p.user_identifier AS owner_user_id,
        ${PROFILE_REVISION_SQL} AS revision,
-       moderation_status, lifecycle_status, visibility
-       FROM professional_profiles WHERE professional_profile_identifier=$1 LIMIT 1`,
+       p.moderation_status, p.lifecycle_status, p.visibility,
+       ${PROFESSIONAL_REVIEW_EVIDENCE_EXPRESSION} AS evidence_fingerprint
+       FROM professional_profiles p WHERE p.professional_profile_identifier=$1 LIMIT 1`,
     [profileId]
   );
   const row = rows[0];
   return row ? {
     profileId: row.profile_id, expectedRevision: row.revision,
     ownerUserId: row.owner_user_id, moderationStatus: row.moderation_status,
-    lifecycleStatus: row.lifecycle_status, visibility: row.visibility
+    lifecycleStatus: row.lifecycle_status, visibility: row.visibility,
+    snapshotFingerprint: row.evidence_fingerprint
   } : null;
 }
 
@@ -147,7 +152,7 @@ export type TrustedProfessionalPolicyAssessment = Pick<
   ProfessionalAutoReviewCandidate,
   'snapshotRevision' | 'snapshotComplete' | 'flagged' | 'categoryAllowed' |
   'checksPassed' | 'policyVersion'
->;
+> & { snapshotFingerprint: string };
 
 /**
  * Server-only handoff, NOT a route or worker. The request contributes ONLY
@@ -166,7 +171,7 @@ export async function executeAuthorizedProfessionalReview(
   loadCanonicalState: (profileId: string) => Promise<CanonicalProfessionalReviewState | null>,
   resolveTrustedPrincipal: () => Promise<AuthenticatedProfessionalReviewPrincipal | null>,
   assessTrustedPolicy: (state: CanonicalProfessionalReviewState) => Promise<TrustedProfessionalPolicyAssessment>,
-  writeApprovedReview: (profileId: string, actorId: string, expectedRevision: string) => Promise<void>
+  writeApprovedReview: (profileId: string, actorId: string, expectedRevision: string, expectedEvidenceFingerprint: string) => Promise<void>
 ): Promise<{ applied: true } | { applied: false; reason: string }> {
   if (!request || typeof request.profileId !== 'string' ||
       !request.profileId.trim() || request.profileId !== request.profileId.trim() ||
@@ -176,7 +181,9 @@ export async function executeAuthorizedProfessionalReview(
   const state = await loadCanonicalState(request.profileId);
   if (!state || typeof state !== 'object' ||
       state.profileId !== request.profileId || typeof state.ownerUserId !== 'string' ||
-      typeof state.expectedRevision !== 'string') {
+      typeof state.expectedRevision !== 'string' ||
+      typeof state.snapshotFingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(state.snapshotFingerprint)) {
     return { applied: false, reason: 'canonical_review_state_unavailable' };
   }
   if (state.expectedRevision !== request.expectedRevision) {
@@ -197,6 +204,10 @@ export async function executeAuthorizedProfessionalReview(
   if (!policy || typeof policy !== 'object') {
     return { applied: false, reason: 'missing_verified_policy_evidence' };
   }
+  if (typeof policy.snapshotFingerprint !== 'string' ||
+      policy.snapshotFingerprint !== state.snapshotFingerprint) {
+    return { applied: false, reason: 'stale_review_evidence' };
+  }
   const candidate: ProfessionalAutoReviewCandidate = {
     profileId: state.profileId, expectedRevision: state.expectedRevision,
     ownerUserId: state.ownerUserId, serviceActorUserId: principal.userId,
@@ -211,6 +222,7 @@ export async function executeAuthorizedProfessionalReview(
   if (!authorized.ready) return { applied: false, reason: authorized.reason };
   // The trusted writer must atomically revalidate status, revision and audit;
   // no positive result may be returned when the writer fails.
-  await writeApprovedReview(authorized.profileId, principal.userId, authorized.expectedRevision);
+  await writeApprovedReview(authorized.profileId, principal.userId, authorized.expectedRevision,
+    state.snapshotFingerprint);
   return { applied: true };
 }
