@@ -11,10 +11,6 @@ function text(value: unknown, field: string, min: number, max: number): string {
   return trimmed;
 }
 
-/**
- * Validates the browser/FCM registration payload only.
- * Persistence and sending remain separate authorities.
- */
 /** Reject malformed FCM tokens consistently at registration and send boundaries. */
 export function validateRestaurantPushToken(value: unknown): string {
   const token = text(value, 'token', 20, 4096);
@@ -22,6 +18,7 @@ export function validateRestaurantPushToken(value: unknown): string {
   return token;
 }
 
+/** Validates only the registration payload; persistence and sending remain separate authorities. */
 export function validateRestaurantPushTokenRegistration(value: unknown): RestaurantPushTokenRegistration {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Push registration is invalid.');
   const input = value as Record<string, unknown>;
