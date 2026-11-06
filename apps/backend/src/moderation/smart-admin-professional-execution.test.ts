@@ -126,11 +126,14 @@ test('malformed runtime payloads fail closed without throwing', () => {
 });
 
 const request = { profileId: candidate.profileId, expectedRevision: revision };
+const fingerprint = 'a'.repeat(64);
 const persisted = {
+  snapshotFingerprint: fingerprint,
   profileId: candidate.profileId, expectedRevision: revision, ownerUserId: candidate.ownerUserId,
   moderationStatus: 'pending', lifecycleStatus: 'pending', visibility: 'public'
 };
 const policy = {
+  snapshotFingerprint: fingerprint,
   snapshotRevision: revision, snapshotComplete: true, flagged: false,
   categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
 };
@@ -140,16 +143,16 @@ const resolve = async () => ({
 });
 
 test('server handoff obtains canonical state and independent policy before writing', async () => {
-  const writes: Array<[string, string, string]> = [];
+  const writes: Array<[string, string, string, string]> = [];
   const calls: string[] = [];
   const result = await executeAuthorizedProfessionalReview(request,
     async (id) => { calls.push('db:' + id); return persisted; },
     async () => { calls.push('identity'); return resolve(); },
     async () => { calls.push('policy'); return policy; },
-    async (id, actor, rev) => { calls.push('writer'); writes.push([id, actor, rev]); });
+    async (id, actor, rev, evidence) => { calls.push('writer'); writes.push([id, actor, rev, evidence]); });
   assert.deepEqual(result, { applied: true });
   assert.deepEqual(calls, ['db:professional_1', 'identity', 'policy', 'writer']);
-  assert.deepEqual(writes, [['professional_1', 'service_1', revision]]);
+  assert.deepEqual(writes, [['professional_1', 'service_1', revision, fingerprint]]);
 });
 
 test('server handoff rejects stale, non-pending, private or inconsistent canonical state', async () => {
@@ -184,6 +187,15 @@ test('server handoff cannot trust forged request approval flags or missing polic
   assert.deepEqual(await executeAuthorizedProfessionalReview(request, load, resolve,
     async () => null as unknown as typeof policy, writer),
     { applied: false, reason: 'missing_verified_policy_evidence' });
+  assert.equal(writes, 0);
+});
+
+test('server handoff rejects a policy assessment for different child evidence', async () => {
+  let writes = 0;
+  assert.deepEqual(await executeAuthorizedProfessionalReview(request, load, resolve,
+    async () => ({ ...policy, snapshotFingerprint: 'b'.repeat(64) }),
+    async () => { writes++; }),
+    { applied: false, reason: 'stale_review_evidence' });
   assert.equal(writes, 0);
 });
 
