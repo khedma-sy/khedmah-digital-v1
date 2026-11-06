@@ -83,11 +83,15 @@ export function authorizeProfessionalAutoReviewPlan(
   candidate: ProfessionalAutoReviewCandidate,
   principal: AuthenticatedProfessionalReviewPrincipal | null
 ): ProfessionalAutoReviewPlan {
+  if (!plan || typeof plan !== 'object' || typeof plan.ready !== 'boolean') {
+    return { ready: false, reason: 'invalid_review_plan' };
+  }
   if (!plan.ready) return plan;
   // Never trust a caller-supplied ready plan: recompute every policy and risk gate.
   const verifiedPlan = planProfessionalAutoReview(candidate);
   if (!verifiedPlan.ready) return verifiedPlan;
-  if (!principal || !principal.isServiceIdentity || !principal.canApproveProfessionalContent ||
+  if (!principal || typeof principal.userId !== 'string' ||
+      principal.isServiceIdentity !== true || principal.canApproveProfessionalContent !== true ||
       !principal.userId.trim() || principal.userId !== principal.userId.trim() ||
       principal.userId !== candidate.serviceActorUserId ||
       principal.userId === candidate.ownerUserId ||
