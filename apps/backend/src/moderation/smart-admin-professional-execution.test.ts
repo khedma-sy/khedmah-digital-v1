@@ -16,7 +16,7 @@ test('plans only eligible routine professional content without writing approval'
   });
 });
 test('stale revision fails closed', () => {
-  assert.deepEqual(planProfessionalAutoReview({ ...candidate, snapshotRevision: 'old' }),
+  assert.deepEqual(planProfessionalAutoReview({ ...candidate, snapshotRevision: '2026-11-05T14:55:19.000001Z' }),
     { ready: false, reason: 'stale_revision' });
 });
 test('self approval fails closed', () => {
