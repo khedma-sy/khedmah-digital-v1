@@ -1,5 +1,19 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — consolidated GitHub/Floot handoff, 2026-11-07 UTC
+
+1. **Start from live state**, never a conversation: fetch protected `main`, open PRs, exact-head Actions and `docs/project-control/CURRENT-STATE.md`. Latest observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; do not treat as permanent.
+2. **Restaurant source integration**: PR #356 at `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e` combines #353 strict token validation, #354 fingerprint compare-and-invalidate, #355 merchant eligibility. All 3 exact-head source CI workflows PASS; marked ready for review. Require formal security/code review; verify both stale-token and invalid-token tests survive conflict resolution. Do not separately merge the originals without reconciling duplicate changes. No live FCM sender, registration endpoint, durable DB store, worker or background push is authorized.
+3. **Frontend source integration**: PR #357 at `25a17976445e2bd5c1f6e3014248b95de9474806` combines #349 account, #350 home discovery and #351 professional onboarding. All 3 exact-head CI workflows PASS; marked ready for review. Require responsive/keyboard/accessibility/multi-role browser acceptance and review. This does not authorize admin/merchant actions.
+4. **Preserve Floot editor work in GitHub**: review `docs/project-control/FLOOT-EDITOR-CODE-SNAPSHOT-2026-11-07.json` (19 recent modified source/notes, original SHA-256, version `1794001333939`, public deployment URL values redacted in archival copies). Floot editor also retains native original/checkpoint versions. Do not infer this archive includes the whole Floot application or is a drop-in Next.js port. Editor Jasmine 139/139 PASS and TS clean. Published Floot remains the older Nov 4 release: no UI/API fix is verified live.
+5. **Documentation PR #352**: verify exact-head Node.js CI, Test & Verify, PR Preview after source-archive/checkpoint commits; previous P1 URL-in-docs review feedback was addressed and review thread resolved, but this is NOT formal APPROVED. Avoid main merge without review.
+6. **Keep blocked sources isolated**: #344 Preview Google login recovery remains draft, source-only, and behind main; do not invoke scaling or deployment until independently proved read-only writer-quiescence, Cloud IAM/traffic/revision/image/database identity and release authorization. #348 smart-admin planning contract is NOT an activated worker. #346 Android policy changes await user acceptance and current-head CI/review; App Store/Play publication remains separate.
+7. **Runtime acceptance P0**: reproduce signed-in desktop and mobile Google auth/session with owner-authorized accounts; cross-tenant RBAC/IDOR; atomic latest-document/approval and driver-document guards; taxi+restaurant+merchant+courier+payment journey; reliable background FCM registration/storage/outbox/delivery; backup+restore; logs/metrics and rollback evidence. Do not reopen security gates on frontend alone.
+8. **Production boundary**: no `main` merge merely from CI; no AutoMerge; no Floot public publish, GCP/Cloud SQL mutation, fee/payment, external submission, or unilateral release. Only promote independently reviewed, test-green and runtime-compatible components with owner-authorized release gates. Surface the exact blocking gate when not closed.
+
+---
+
+
 ## Next safe action — professionals checkpoint, 2026-11-06 UTC
 
 1. Re-read live GitHub `main`, open PR heads, reviews and Actions before acting; snapshot baseline `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is dated.
