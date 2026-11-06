@@ -14,7 +14,9 @@ function text(value: unknown, field: string, min: number, max: number): string {
 /** Reject malformed FCM tokens consistently at registration and send boundaries. */
 export function validateRestaurantPushToken(value: unknown): string {
   const token = text(value, 'token', 20, 4096);
-  // FCM registration tokens are printable ASCII. Reject invisible Unicode and\n  // bidirectional control characters before persistence or messaging.\n  if (value !== token || /[^\x21-\x7e]/u.test(token)) throw new Error('token is invalid.');
+  // FCM registration tokens are printable ASCII. Reject invisible Unicode and
+  // bidirectional control characters before persistence or messaging.
+  if (value !== token || /[^\x21-\x7e]/u.test(token)) throw new Error('token is invalid.');
   return token;
 }
 
