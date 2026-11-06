@@ -29,3 +29,17 @@ test('missing service actor, malformed revision, and risk flags fail closed', ()
     { checksPassed: false }, { categoryAllowed: false }, { submitted: false }
   ]) assert.equal(planProfessionalAutoReview({ ...candidate, ...changed }).ready, false);
 });
+
+test('rejects padded actor identifiers and impossible revision dates', () => {
+  for (const changed of [
+    { profileId: ' professional_1' },
+    { ownerUserId: 'owner_1 ' },
+    { serviceActorUserId: ' service_1' },
+    { expectedRevision: '2026-02-30T14:55:20.000001Z' },
+    { expectedRevision: '2026-11-05T25:55:20.000001Z' },
+    { expectedRevision: '2026-11-05T14:99:20.000001Z' }
+  ]) {
+    assert.deepEqual(planProfessionalAutoReview({ ...candidate, ...changed }),
+      { ready: false, reason: 'invalid_review_identity_or_revision' });
+  }
+});
