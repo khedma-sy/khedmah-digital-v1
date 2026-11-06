@@ -12,6 +12,7 @@ const account = read('apps/frontend/app/users/me/page.tsx');
 const layout = read('apps/frontend/app/layout.tsx');
 const sitemap = read('apps/frontend/app/sitemap.ts');
 const androidMain = read('apps/android/app/src/main/java/com/khedmah/digital/MainActivity.kt');
+const androidLegalUrls = read('apps/android/app/src/main/java/com/khedmah/digital/KhedmahLegalUrls.kt');
 
 test('Android targets the current Play submission API level and keeps sensitive permissions minimal', () => {
   assert.match(gradle, /targetSdk\s*=\s*36/);
@@ -36,8 +37,16 @@ test('account deletion request is reachable from Web and Android account surface
   assert.match(deletion, /لن نطلب كلمة المرور/);
   assert.ok(sitemap.includes('${SITE_URL}/delete-account'), 'delete-account must be listed in the sitemap');
   assert.match(androidMain, /طلب حذف الحساب والبيانات/);
-  assert.match(androidMain, /mailto:support@khedmah\.uk/);
-  assert.match(androidMain, /onDeleteAccount/);
+  // Android opens public instructions without requiring an installed email client.
+  // This source contract does not certify live delivery or automated deletion.
+  assert.match(androidLegalUrls, /const val deleteAccount = "https:\/\/khedmah\.uk\/platform\/delete-account"/);
+  const deletionHandler = androidMain.split('onDeleteAccount = {')[1]?.split('onPrivacy = {')[0];
+  assert.ok(deletionHandler, 'account must wire a deletion action');
+  assert.match(deletionHandler, /context\.startActivity\(Intent\(Intent\.ACTION_VIEW, Uri\.parse\(KhedmahLegalUrls\.deleteAccount\)\)\)/);
+  assert.match(deletionHandler, /\.onFailure\s*\{\s*accountError = "[^"\n]*support@khedmah\.uk/);
+  assert.match(androidMain, /OutlinedButton\(onClick = onDeleteAccount[^\n]*طلب حذف الحساب والبيانات/);
+  const signedInAccount = androidMain.split('if (user != null) {')[1]?.split('} else {')[0];
+  assert.match(signedInAccount, /if \(error != null\) item \{ KhedmahStateCard\("تنبيه الحساب", error/);
 });
 
 test('privacy disclosure is visible in Android and legal resources are discoverable in the Web shell', () => {

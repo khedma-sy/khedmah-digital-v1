@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Android deletion-entry contract repair — 2026-11-06 UTC
+
+Live main was independently verified at `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; its Node.js CI `42049716098` and Test & Verify `42049716046` succeeded. PR #333 is already merged; its pending instructions below are historical. Seven open PRs (#344, #346, #348–#352) remain drafts. The updated next-action checkpoint is proposed in #352, not yet merged to main.
+
+PR #346 failure in Test & Verify `41737065024`, job `126268866540`, was reproduced locally: the source contract required an Android mailto literal after the UI switched to browser-based deletion instructions. Implementation `579e1962698e2700e7f59a498ac63375f20ce03d` replaces that obsolete Android assertion with checks for the exact first-party URL, ACTION_VIEW callback, support fallback, button wiring and signed-in error visibility. Web mailto, password warning, sitemap and privacy assertions are preserved. Local `node --test tests/google-play-policy-contract.test.mjs`: before 3 pass/1 fail; after 4 pass/0 fail. `git diff --check` passed. No Android runtime behavior or compliance requirement was changed by this repair.
+
+Next: require fresh exact-head CI and Android Debug Build for #346, then independently verify the public Floot legal routes and device behavior. Source assertions do not prove public route availability, completed deletion, authenticated backend deletion, retention review or store eligibility. Keep #346 draft; no merge, deployment, Cloud, Floot publication, feature activation or Production mutation performed. Relevant files: `tests/google-play-policy-contract.test.mjs`, Android `MainActivity.kt` and `KhedmahLegalUrls.kt`. Do not reopen PR #333 or repeat its completed work.
+
+
 
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
