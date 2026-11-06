@@ -85,7 +85,9 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           }
           const after = await professionals.findById(id);
           assert.equal(after?.revision, before.revision);
-          assert.equal(after?.moderationStatus, 'pending');
+          const [pendingRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(pendingRow.moderation_status, 'pending');
           const [history] = await db.query<{ count: string }>(
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
@@ -130,7 +132,9 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           assert.deepEqual(await executeAuthorizedProfessionalReview(candidate, principal, writer),
             { applied: true });
           const current = await professionals.findById(id);
-          assert.equal(current?.moderationStatus, 'approved');
+          const [approvedRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(approvedRow.moderation_status, 'approved');
           assert.notEqual(current?.revision, before.revision);
           await assert.rejects(() => executeAuthorizedProfessionalReview(candidate, principal, writer),
             ConflictException);
@@ -156,7 +160,9 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           await writeProfileReview(db, 'professional', authorized.profileId, 'review_moderator',
             { status: 'approved', expectedRevision: authorized.expectedRevision });
           const current = await professionals.findById(id);
-          assert.equal(current?.moderationStatus, 'approved');
+          const [approvedRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(approvedRow.moderation_status, 'approved');
           const [history] = await db.query<{ count: string }>(
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '1');
