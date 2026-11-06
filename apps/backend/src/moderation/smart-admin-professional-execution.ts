@@ -102,3 +102,24 @@ export function authorizeProfessionalAutoReviewPlan(
   }
   return plan;
 }
+
+/**
+ * Server-only handoff. Authentication and permissions MUST be resolved by the
+ * trusted caller from server-side credentials, not from the request body.
+ * The writer is injected so this module cannot bypass the transactional writer.
+ * Not registered as a route or background worker.
+ */
+export async function executeAuthorizedProfessionalReview(
+  candidate: ProfessionalAutoReviewCandidate,
+  resolvePrincipal: () => Promise<AuthenticatedProfessionalReviewPrincipal | null>,
+  writeApprovedReview: (profileId: string, actorId: string, expectedRevision: string) => Promise<void>
+): Promise<{ applied: true } | { applied: false; reason: string }> {
+  const plan = planProfessionalAutoReview(candidate);
+  if (!plan.ready) return { applied: false, reason: plan.reason };
+  const principal = await resolvePrincipal();
+  const authorized = authorizeProfessionalAutoReviewPlan(plan, candidate, principal);
+  if (!authorized.ready) return { applied: false, reason: authorized.reason };
+  // The trusted writer must atomically revalidate revision, status, and audit.
+  await writeApprovedReview(authorized.profileId, principal!.userId, authorized.expectedRevision);
+  return { applied: true };
+}
