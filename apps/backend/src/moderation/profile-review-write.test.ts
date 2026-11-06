@@ -61,6 +61,35 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
         return (await repo.findById(id))!;
       }
       if (kind === 'professional') {
+        await t.test('professional: denied auto-review plans never reach the writer', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const principal = { userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true };
+          const scenarios = [
+            { candidate, principal: { ...principal, canApproveProfessionalContent: false } },
+            { candidate, principal: { ...principal, isServiceIdentity: false } },
+            { candidate: { ...candidate, flagged: true }, principal },
+            { candidate: { ...candidate, snapshotRevision: '2026-11-05T14:55:21.000001Z' }, principal }
+          ];
+          for (const scenario of scenarios) {
+            const plan = planProfessionalAutoReview(scenario.candidate);
+            const authorized = authorizeProfessionalAutoReviewPlan(plan, scenario.candidate, scenario.principal);
+            assert.equal(authorized.ready, false);
+            // No writeProfileReview call may be made for a denied plan.
+          }
+          const after = await professionals.findById(id);
+          assert.equal(after?.revision, before.revision);
+          assert.equal(after?.moderationStatus, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
         await t.test('professional: authorized auto-review plan uses atomic writer and rejects replay', async () => {
           const before = await reset();
           const candidate = {
