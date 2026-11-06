@@ -1,5 +1,18 @@
 # Khedmah Digital — Current State
 
+## Professionals repository checkpoint — 2026-11-06 UTC (source-only)
+
+- Verified live `main` at `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. This is a dated snapshot, not a permanent pointer.
+- PR #321 (professional privacy, authenticated navigation, account ownership, city-based Nearby bridge) is merged. PR #347 is also merged into the current main history.
+- Open **draft** PRs: #348 smart-admin fail-closed planning contract at `08dac17d4208adacf13a9b2f8ad03b6afcb14285`; #349 account/admin/courier/taxi/professional audit at `74ad6beb35c8d1b6ba98665a81111b1f7e177f45`; #350 homepage discovery/navigation at `858c3bbd2d9c04897c8b3c608604138a883e9d2d`; #351 simplified professional onboarding at `1f210bf78f251bbb0e2ac55e9a1e881660a1b76c`. Each exact head passed Node.js CI, Khedmah - Test & Verify and PR Preview. Green source checks are not browser/mobile acceptance, deployment proof, or merge authorization.
+- Draft PR #346 (Android account legal/deletion entry) at `f93dd45ca9f942949e13d0708119f40665c1a202`: Node.js CI, Test & Verify and PR Preview **failed**; Android Debug Build succeeded. Do not merge before correcting the test/contract discrepancy, checking public deletion-route behavior, and rerunning all gates.
+- Smart-admin PR #348 is a side-effect-free planning contract, **not** an active approval worker. Restaurant push and taxi end-to-end readiness remain unproven; keep runtime/feature release gates closed.
+- Scope: professionals, search, categories, Nearby, store, classifieds, restaurant/orders, taxi/courier, account and relevant admin. Separate Business Desk is excluded.
+- This checkpoint is repository documentation only. No live deployment, production mutation, Google Cloud/Cloud Shell, Floot publication, or release authorization. Hourly professionals monitoring automation was disabled at user request; this does not change repository runtime.
+
+---
+
+
 ## Professional-service checkpoint — PR #333 source checks passed; checkpoint refresh requires current-head recheck — 2026-11-02 UTC
 
 **Latest `main` SHA observed at this checkpoint:** `70bf3c89726dbc71a41a11579b9d3b51de4cbce3` (commit dated 2026-10-31T11:28:59Z). PR #331 merged to this SHA. The preceding code fix PR #330 merged at `c8a0c02a27aa75b8bb39f813be5448ed6ba34b04`; PR #329 was closed without merge after its tests exposed an unclosed `urllib.error.HTTPError` response stream, which PR #330 closes before the fail-closed exit with offline regression coverage. The latest main checks recorded for PR #331 are Node.js CI [41197031074](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41197031074) and Khedmah - Test & Verify [41197031005](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/41197031005); build, source inventory, code quality, and test jobs succeeded, while PR Validation was skipped on the main run. This is source-level evidence, not runtime or deployment proof.
