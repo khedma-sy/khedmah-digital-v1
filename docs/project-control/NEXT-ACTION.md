@@ -1,5 +1,18 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — reviewed integration candidates and Android link gate, 2026-11-07 UTC
+
+1. Re-read protected `main`, open PR heads/reviews and exact-head CI; the SHA values below are snapshots, not mutable pointers.
+2. **PR #356**: newest observed head `6718aa885cfa0c1b46b8ea1f3ef45fc377abe450` passed Node.js CI, Test & Verify, PR Preview. Require independent APPROVED review of the combined owner/status policy, token validation, rotated-token compare-and-invalidate, safe food notification mapping and their regression tests. Verify current diff after any review change. Do not wire a live endpoint, DB token writer, FCM sending or worker from green source tests alone.
+3. **PR #357**: newest observed head `e31018d49b06f09b2410896ca7a8f6da0897d919` passed all three source CI workflows; palette feedback is resolved but no formal APPROVED. Require mobile/responsive, keyboard accessibility, account navigation, authenticated professional/customer/courier role acceptance and review. Do not separately merge duplicate #349/#350/#351 sources.
+4. **PR #346**: `247d95cf55356f729535a83e1fdb777e827a0969` is now READY FOR REVIEW (not draft) with five green exact-head workflows including non-prod Android debug and Google readiness; public first-party privacy/terms/delete-account routes were verified anonymously on the currently served website. The PR is one commit behind main; require reviewed base reconciliation, formal APPROVED review and native/manual acceptance. No Play submission or assumption that Play Console account is unblocked.
+5. **PR #352 documentation**: previous head `8bd2090f5621f80f181b0dfea68e6a6201d6e0e4` passed three Actions; this fresh handoff changes its head, so require all three workflows again and formal approval. The P1 deployment-URL review thread was resolved, with historical reports preserved. Archive of 19 edited Floot source files is recovery evidence only, not a deployable full export.
+6. **Runtime P0**: independent, bounded read-only Google Preview V2 service scaling/revision/digest/traffic + DB writer/quiescence/restore evidence, real owner-authorized Google sign-in both mobile and desktop, cross-tenant authorization/IDOR, atomic smart-admin and driver-document approvals, full restaurant+courier+taxi journey, background push and reliable outbox delivery. Prior read-only gate `41710857994` STOPPED, not authorized. Floot editor fixes are not the Nov 4 live release.
+7. Until all scoped gates clear, **NO** auto-merge, protected-main merges based on CI alone, Preview/Production traffic mutation, Floot publish, Firebase domain changes, migration, payment, external contract submission or feature/approval activation.
+
+---
+
+
 ## Next Safe Action — consolidated GitHub/Floot handoff, 2026-11-07 UTC
 
 1. **Start from live state**, never a conversation: fetch protected `main`, open PRs, exact-head Actions and `docs/project-control/CURRENT-STATE.md`. Latest observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; do not treat as permanent.
