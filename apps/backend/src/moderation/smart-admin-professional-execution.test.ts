@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { planProfessionalAutoReview, type ProfessionalAutoReviewCandidate } from './smart-admin-professional-execution';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, type ProfessionalAutoReviewCandidate } from './smart-admin-professional-execution';
 
 const revision = '2026-11-05T14:55:20.000001Z';
 const candidate: ProfessionalAutoReviewCandidate = {
@@ -67,4 +67,24 @@ test('rejects impossible snapshot dates and unsafe policy identifiers', () => {
     assert.deepEqual(planProfessionalAutoReview({ ...candidate, ...changed }),
       { ready: false, reason: 'invalid_review_identity_or_revision' });
   }
+});
+
+test('only authenticated, permissioned service principal can receive ready plan', () => {
+  const plan = planProfessionalAutoReview(candidate);
+  assert.equal(plan.ready, true);
+  const principal = { userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true };
+  assert.deepEqual(authorizeProfessionalAutoReviewPlan(plan, candidate, principal), plan);
+  for (const rejected of [
+    null,
+    { ...principal, isServiceIdentity: false },
+    { ...principal, canApproveProfessionalContent: false },
+    { ...principal, userId: 'owner_1' },
+    { ...principal, userId: 'other_service' },
+    { ...principal, userId: ' service_1' }
+  ]) {
+    assert.deepEqual(authorizeProfessionalAutoReviewPlan(plan, candidate, rejected),
+      { ready: false, reason: 'untrusted_or_unauthorized_service_principal' });
+  }
+  assert.equal(authorizeProfessionalAutoReviewPlan({ ready: false, reason: 'risk_flag' }, candidate, principal).ready, false);
+  assert.equal(authorizeProfessionalAutoReviewPlan(plan, { ...candidate, profileId: 'other_profile' }, principal).ready, false);
 });
