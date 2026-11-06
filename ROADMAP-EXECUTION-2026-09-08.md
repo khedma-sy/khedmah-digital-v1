@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Current live integration handoff — 2026-11-07 UTC (checkpoint before deployment)
+
+This is a source/recovery checkpoint, NOT permission to release. Re-fetch GitHub main/PRs/Actions before continuing. Current observation: `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. Newly combined PR #356 (restaurant push safety #353/#354/#355) and PR #357 (account/home/professional UX #349/#350/#351) both passed all three exact-head source CI workflows and are ready for independent review, not merged or production activated. Formal APPROVED and authenticated runtime acceptance are missing. PR #352 preserves audit records and a snapshot of the 19 recently modified Floot editor files in `docs/project-control/FLOOT-EDITOR-CODE-SNAPSHOT-2026-11-07.json` (public deployment URLs redacted; original source in Floot). The editor version was `1794001333939` with 139/139 Floot specs passing and TypeScript clean; public Floot remains the Nov 4 release. Google Preview read-only writer-quiescence gate `41710857994` failed; backend/DB parity, real Google login, human-gated approvals, driver documents, background restaurant push and taxi trips remain blocked.
+
+**Canonical detailed handoff:** read the latest top entries of `docs/project-control/CURRENT-STATE.md` and `docs/project-control/NEXT-ACTION.md` on the same PR branch. The other dated checkpoints below are historical. No `main` merge, Cloud/Floot publish, DB/Production mutation or special-permission activation occurred.
+
+---
+
+
 
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
