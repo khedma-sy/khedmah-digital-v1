@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## PR #356 dispatch validation repair — 2026-11-07
+
+Live baseline: main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration head before this repair `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e`. This commit repairs `apps/backend/src/orders/restaurant-push-dispatch.ts`: trimming a malformed device token could bypass strict sender validation. Dispatch now uses the shared validator without normalization. A composed dispatch-to-sender regression failed before the repair and passed after it.
+
+Validation: all five restaurant-push test files, 22 tests passed, zero failed; Node 24.22.1 native TypeScript stripping with a scratch-only extension resolver; git diff --check clean. Fake messaging only, no Firebase contact. Valid food mapping and non-food filtering remain covered.
+
+Next: fresh exact-head CI and independent review before normal merge. Earlier green checks do not cover this repair. Preserve checkpoint PR #352's newer canonical handoff when reconciling roadmap edits. Live enrollment, storage, worker/device acceptance and Cloud/database parity remain outstanding. No main merge, live push, Floot publish or cloud/database mutation.
+
+---
+
 
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC

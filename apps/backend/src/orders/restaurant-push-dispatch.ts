@@ -1,4 +1,5 @@
 import type { RestaurantPushMessage } from './restaurant-push-sender';
+import { validateRestaurantPushToken } from './restaurant-push-token';
 
 export interface PlatformOrderNotification {
   eventType: 'order.created' | 'order.status_changed';
@@ -26,7 +27,7 @@ export function restaurantPushFromPlatformNotification(
 
   const status = text(notification.metadata.status, 'status', 64);
   return {
-    token: text(token, 'token', 4096),
+    token: validateRestaurantPushToken(token),
     title: text(notification.title, 'title', 120),
     body: text(notification.body, 'body', 500),
     orderId: text(notification.referenceId, 'orderId', 100),
