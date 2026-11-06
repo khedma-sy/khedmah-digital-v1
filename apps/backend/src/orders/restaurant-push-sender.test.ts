@@ -84,3 +84,21 @@ test('restaurant push rejects unsafe click-link origins before sending', async (
   }
   assert.equal(sendCalls, 0);
 });
+
+test('restaurant push sender rejects malformed FCM tokens before contacting Firebase', async () => {
+  let sends = 0;
+  const messaging = { async send() { sends += 1; return 'message-1'; } };
+  for (const token of [
+    ' fcm-token-value-1234567890',
+    'fcm-token-value-1234567890 ',
+    'fcm-token-value-12345 67890',
+    'fcm-token-value-12345\n67890',
+    'fcm-token-value-12345\t67890',
+    'fcm-token-value-12345\u000067890',
+  ]) {
+    await assert.rejects(sendRestaurantPush(messaging, {
+      token, title: 'طلب', body: 'نص', orderId: 'order-1', status: 'placed',
+    }), /token is invalid/);
+  }
+  assert.equal(sends, 0);
+});

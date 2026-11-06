@@ -73,3 +73,21 @@ test('only terminal Firebase token errors invalidate registration', async () => 
   assert.equal(stored.active, false);
   assert.equal(stored.invalidationReason, 'registration-token-not-registered');
 });
+
+test('invalid restaurant push tokens are rejected before any repository read or write', async () => {
+  let called = false;
+  const repo = {
+    async findByUserAndDevice() { called = true; return undefined; },
+    async upsert() { called = true; },
+    async invalidate() { called = true; },
+  };
+  await assert.rejects(
+    registerRestaurantPushToken(repo, 'user-1', {
+      token: 'fcm-token-value-12345\n67890',
+      deviceId: 'web-device_01',
+      platform: 'web',
+    }),
+    /token is invalid/,
+  );
+  assert.equal(called, false);
+});
