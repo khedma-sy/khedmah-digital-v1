@@ -13,7 +13,7 @@ import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
-import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan } from './smart-admin-professional-execution';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, executeAuthorizedProfessionalReview } from './smart-admin-professional-execution';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
@@ -89,6 +89,30 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           const [history] = await db.query<{ count: string }>(
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
+        });
+        await t.test('professional: server handoff commits once and fails closed on stale replay', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true });
+          const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
+            writeProfileReview(db, 'professional', profileId, actorId,
+              { status: 'approved', expectedRevision });
+          assert.deepEqual(await executeAuthorizedProfessionalReview(candidate, principal, writer),
+            { applied: true });
+          const current = await professionals.findById(id);
+          assert.equal(current?.moderationStatus, 'approved');
+          assert.notEqual(current?.revision, before.revision);
+          await assert.rejects(() => executeAuthorizedProfessionalReview(candidate, principal, writer),
+            ConflictException);
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
         });
         await t.test('professional: authorized auto-review plan uses atomic writer and rejects replay', async () => {
           const before = await reset();
