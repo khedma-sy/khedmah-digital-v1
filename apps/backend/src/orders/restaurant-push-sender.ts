@@ -1,3 +1,5 @@
+import { validateRestaurantPushToken } from './restaurant-push-token';
+
 export interface RestaurantPushMessage {
   token: string;
   title: string;
@@ -48,7 +50,7 @@ export async function sendRestaurantPush(
   input: RestaurantPushMessage,
   options: RestaurantPushSendOptions = {},
 ): Promise<{ messageId: string }> {
-  const token = safeText(input.token, 'token', 20, 4096);
+  const token = validateRestaurantPushToken(input.token);
   const title = safeText(input.title, 'title', 1, 120);
   const body = safeText(input.body, 'body', 1, 500);
   const orderId = safeText(input.orderId, 'orderId', 1, 100);
