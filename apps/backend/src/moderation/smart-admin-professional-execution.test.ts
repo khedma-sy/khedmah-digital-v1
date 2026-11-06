@@ -55,3 +55,16 @@ test('rejects invalid snapshot and unreviewed policy metadata', () => {
     assert.equal(planProfessionalAutoReview({ ...candidate, ...changed }).ready, false);
   }
 });
+
+test('rejects impossible snapshot dates and unsafe policy identifiers', () => {
+  for (const changed of [
+    { snapshotRevision: '2026-02-30T14:55:20.000001Z' },
+    { snapshotRevision: '2026-11-05T25:55:20.000001Z' },
+    { policyVersion: 'reviewed v1' },
+    { policyVersion: 'reviewed/v1' },
+    { policyVersion: 'reviewed\\nv1' }
+  ]) {
+    assert.deepEqual(planProfessionalAutoReview({ ...candidate, ...changed }),
+      { ready: false, reason: 'invalid_review_identity_or_revision' });
+  }
+});
