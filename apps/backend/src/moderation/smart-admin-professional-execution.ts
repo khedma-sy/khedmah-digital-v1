@@ -194,13 +194,16 @@ export async function executeAuthorizedProfessionalReview(
     return { applied: false, reason: 'untrusted_or_unauthorized_service_principal' };
   }
   const policy = await assessTrustedPolicy(state);
+  if (!policy || typeof policy !== 'object') {
+    return { applied: false, reason: 'missing_verified_policy_evidence' };
+  }
   const candidate: ProfessionalAutoReviewCandidate = {
     profileId: state.profileId, expectedRevision: state.expectedRevision,
     ownerUserId: state.ownerUserId, serviceActorUserId: principal.userId,
-    submitted: true, snapshotRevision: policy?.snapshotRevision,
-    snapshotComplete: policy?.snapshotComplete, flagged: policy?.flagged,
-    categoryAllowed: policy?.categoryAllowed, checksPassed: policy?.checksPassed,
-    policyVersion: policy?.policyVersion
+    submitted: true, snapshotRevision: policy.snapshotRevision,
+    snapshotComplete: policy.snapshotComplete, flagged: policy.flagged,
+    categoryAllowed: policy.categoryAllowed, checksPassed: policy.checksPassed,
+    policyVersion: policy.policyVersion
   };
   const plan = planProfessionalAutoReview(candidate);
   if (!plan.ready) return { applied: false, reason: plan.reason };
