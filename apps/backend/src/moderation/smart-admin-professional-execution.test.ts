@@ -88,3 +88,21 @@ test('only authenticated, permissioned service principal can receive ready plan'
   assert.equal(authorizeProfessionalAutoReviewPlan({ ready: false, reason: 'risk_flag' }, candidate, principal).ready, false);
   assert.equal(authorizeProfessionalAutoReviewPlan(plan, { ...candidate, profileId: 'other_profile' }, principal).ready, false);
 });
+
+test('forged ready plan cannot bypass live eligibility checks', () => {
+  const forged = { ready: true as const, profileId: candidate.profileId,
+    expectedRevision: candidate.expectedRevision, policyVersion: candidate.policyVersion };
+  const principal = { userId: candidate.serviceActorUserId, isServiceIdentity: true,
+    canApproveProfessionalContent: true };
+  for (const changed of [
+    { flagged: true },
+    { submitted: false },
+    { snapshotComplete: false },
+    { checksPassed: false },
+    { categoryAllowed: false },
+    { snapshotRevision: '2026-11-05T14:55:21.000001Z' },
+    { ownerUserId: candidate.serviceActorUserId }
+  ]) {
+    assert.equal(authorizeProfessionalAutoReviewPlan(forged, { ...candidate, ...changed }, principal).ready, false);
+  }
+});
