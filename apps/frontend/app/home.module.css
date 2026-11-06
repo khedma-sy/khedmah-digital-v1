@@ -143,8 +143,8 @@
 .deliveryCard .launchIcon { background:var(--k-color-green-tint); color:var(--k-color-green-text); }
 .taxiCard { border-block-start:3px solid #07427c; background:var(--k-gradient-blue); }
 .taxiCard .launchIcon { background:var(--k-color-blue-tint); color:var(--k-color-blue-text); }
-.professionalCard { border-block-start:3px solid #7656a8; background:linear-gradient(145deg,var(--k-color-surface),color-mix(in srgb,#7656a8 9%,var(--k-color-surface))); }
-.professionalCard .launchIcon { background:color-mix(in srgb,#7656a8 14%,var(--k-color-surface)); color:#7656a8; }
+.professionalCard { border-block-start:3px solid var(--k-color-primary); background:var(--k-gradient-blue); }
+.professionalCard .launchIcon { background:var(--k-color-blue-tint); color:var(--k-color-blue-text); }
 .storeCard { border-block-start:3px solid #d28a25; background:linear-gradient(145deg,var(--k-color-surface),color-mix(in srgb,#d28a25 9%,var(--k-color-surface))); }
 .storeCard .launchIcon { background:color-mix(in srgb,#d28a25 14%,var(--k-color-surface)); color:#9a6418; }
 .launchCard>svg { color:var(--k-color-text-muted); }
