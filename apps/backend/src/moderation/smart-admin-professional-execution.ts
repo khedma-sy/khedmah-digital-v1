@@ -24,9 +24,18 @@ export type ProfessionalAutoReviewPlan =
   | { ready: false; reason: string };
 
 export function planProfessionalAutoReview(candidate: ProfessionalAutoReviewCandidate): ProfessionalAutoReviewPlan {
+  const revisionPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+  const revisionDate = revisionPattern.test(candidate.expectedRevision)
+    ? new Date(candidate.expectedRevision.replace(/(\.\d{3})\d{3}Z$/, '$1Z'))
+    : new Date(Number.NaN);
   if (!candidate.profileId.trim() || !candidate.ownerUserId.trim() ||
       !candidate.serviceActorUserId.trim() ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(candidate.expectedRevision)) {
+      candidate.profileId !== candidate.profileId.trim() ||
+      candidate.ownerUserId !== candidate.ownerUserId.trim() ||
+      candidate.serviceActorUserId !== candidate.serviceActorUserId.trim() ||
+      !revisionPattern.test(candidate.expectedRevision) ||
+      Number.isNaN(revisionDate.getTime()) ||
+      revisionDate.toISOString().slice(0, 19) !== candidate.expectedRevision.slice(0, 19)) {
     return { ready: false, reason: 'invalid_review_identity_or_revision' };
   }
   const decision = assessSmartAdminEligibility({
