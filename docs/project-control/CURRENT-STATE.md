@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## Live GitHub recheck — 2026-11-07 UTC (post-integration review; SOURCE ONLY)
+
+- Fetched protected `main` afresh: `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. A historical status line on main still dates to Nov 2, so the live GitHub refs, not its old checkpoint, govern this update.
+- PR #352 latest verified head `8bd2090f5621f80f181b0dfea68e6a6201d6e0e4`: Node.js CI, Khedmah Test & Verify and PR Preview **completed successfully**. The former P1 documentation-URL thread is resolved/outdated, but formal APPROVED review remains absent. This note is a further documentation-only change, so recheck exact-head Actions after its commit.
+- PR #356 latest head `6718aa885cfa0c1b46b8ea1f3ef45fc377abe450` (11 changed files) and PR #357 latest head `e31018d49b06f09b2410896ca7a8f6da0897d919` (10 changed files): all three exact-head CI workflows completed successfully on both; both are ready for review, unmerged and without formal APPROVED. #356 additionally contains safe restaurant order-notification mapping tests; its token, owner and rotation safety contracts remain pure/source-only with NO live FCM delivery authorization. PR #357's brand-palette review thread is resolved/outdated; that is not an approval.
+- **PR #346 advanced from draft to ready for review** on head `247d95cf55356f729535a83e1fdb777e827a0969`; five exact-head workflows completed success: Node.js CI, Khedmah Test & Verify, PR Preview, Android Debug Build (non-production), and Google production readiness. Anonymous published-web reads confirmed the intended Android-facing `/platform/privacy`, `/platform/terms`, `/platform/delete-account` pages render the correct public legal/deletion instructions without sign-in. No actual deletion, native-store submission or production-app acceptance was tested. The branch is one main commit behind, reported mergeable, with no formal APPROVED review.
+- PR #344 Google-login scaling recovery remains draft and behind main; PR #348 smart-admin plan remains draft; overlapping source originals #349/#350/#351 and #353/#354/#355 are **not** additional independent merge permissions when integration PRs #357/#356 already include their scoped work.
+- **NO-GO** remains for runtime rollout: no independently accepted Cloud Run service/revision/image/DB/writer lineage, real Google session on mobile+desktop, cross-role approval/order/taxi/courier E2E, durable restaurant notification storage/outbox/worker/device delivery or restore drill. Keep all execution flags fail-closed. This review performed no main merge, GCP/DB/Floot production mutation, feature activation, or app-store submission.
+
+---
+
+
 ## Live integration handoff — 2026-11-07 UTC (GitHub and Floot preserved; no production release)
 
 - Re-verified protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. This reference is a dated observation: always re-fetch GitHub main, PRs and Actions.
