@@ -90,6 +90,30 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
         });
+        await t.test('professional: concurrent smart-admin handoffs have one winner and one audit event', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true });
+          const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
+            writeProfileReview(db, 'professional', profileId, actorId,
+              { status: 'approved', expectedRevision });
+          const results = await Promise.allSettled([
+            executeAuthorizedProfessionalReview(candidate, principal, writer),
+            executeAuthorizedProfessionalReview(candidate, principal, writer)
+          ]);
+          assert.equal(results.filter((result) => result.status === 'fulfilled' && result.value.applied).length, 1);
+          assert.equal(results.filter((result) => result.status === 'rejected' &&
+            result.reason instanceof ConflictException).length, 1);
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
+        });
         await t.test('professional: server handoff commits once and fails closed on stale replay', async () => {
           const before = await reset();
           const candidate = {
