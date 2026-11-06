@@ -92,6 +92,27 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
         });
+        await t.test('professional: a changed media asset invalidates guarded approval even if parent revision stays unchanged', async () => {
+          const before = await reset();
+          const state = await readCanonicalProfessionalReviewState(db, id);
+          assert.ok(state);
+          await db.query(
+            `UPDATE media_assets SET sort_order=sort_order+1, updated_at=clock_timestamp()
+             WHERE owner_type='professional_profile' AND owner_id=$1`, [id]);
+          const changed = await readCanonicalProfessionalReviewState(db, id);
+          assert.equal(changed?.expectedRevision, before.revision);
+          assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+          await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+            status: 'approved', expectedRevision: before.revision!,
+            expectedEvidenceFingerprint: state.snapshotFingerprint
+          }), ConflictException);
+          const [current] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(current.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
         await t.test('professional: concurrent smart-admin handoffs have one winner and one audit event', async () => {
           const before = await reset();
           const candidate = {
