@@ -24,6 +24,16 @@ export type ProfessionalAutoReviewPlan =
   | { ready: false; reason: string };
 
 export function planProfessionalAutoReview(candidate: ProfessionalAutoReviewCandidate): ProfessionalAutoReviewPlan {
+  // Treat runtime inputs as untrusted even when TypeScript callers declare a type.
+  if (!candidate || typeof candidate !== 'object' ||
+      !['profileId', 'expectedRevision', 'snapshotRevision', 'ownerUserId',
+        'serviceActorUserId', 'policyVersion'].every((key) =>
+        typeof candidate[key as keyof ProfessionalAutoReviewCandidate] === 'string') ||
+      !['submitted', 'snapshotComplete', 'flagged', 'categoryAllowed',
+        'checksPassed'].every((key) =>
+        typeof candidate[key as keyof ProfessionalAutoReviewCandidate] === 'boolean')) {
+    return { ready: false, reason: 'invalid_review_candidate' };
+  }
   const revisionPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
   const validRevision = (revision: string): boolean => {
     if (!revisionPattern.test(revision)) return false;
