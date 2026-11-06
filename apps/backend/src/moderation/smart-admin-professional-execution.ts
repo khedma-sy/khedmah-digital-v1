@@ -56,3 +56,32 @@ export function planProfessionalAutoReview(candidate: ProfessionalAutoReviewCand
   return { ready: true, profileId: candidate.profileId, expectedRevision: candidate.expectedRevision,
     policyVersion: decision.policyVersion };
 }
+
+/**
+ * Bind a prepared plan to an independently authenticated service principal.
+ * The caller must obtain principal identity and permissions from trusted server
+ * authentication, never from candidate/request fields. This is NOT a writer.
+ */
+export type AuthenticatedProfessionalReviewPrincipal = {
+  userId: string;
+  isServiceIdentity: boolean;
+  canApproveProfessionalContent: boolean;
+};
+
+export function authorizeProfessionalAutoReviewPlan(
+  plan: ProfessionalAutoReviewPlan,
+  candidate: ProfessionalAutoReviewCandidate,
+  principal: AuthenticatedProfessionalReviewPrincipal | null
+): ProfessionalAutoReviewPlan {
+  if (!plan.ready) return plan;
+  if (!principal || !principal.isServiceIdentity || !principal.canApproveProfessionalContent ||
+      !principal.userId.trim() || principal.userId !== principal.userId.trim() ||
+      principal.userId !== candidate.serviceActorUserId ||
+      principal.userId === candidate.ownerUserId ||
+      plan.profileId !== candidate.profileId ||
+      plan.expectedRevision !== candidate.expectedRevision ||
+      plan.policyVersion !== candidate.policyVersion) {
+    return { ready: false, reason: 'untrusted_or_unauthorized_service_principal' };
+  }
+  return plan;
+}
