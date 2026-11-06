@@ -74,6 +74,9 @@ export function authorizeProfessionalAutoReviewPlan(
   principal: AuthenticatedProfessionalReviewPrincipal | null
 ): ProfessionalAutoReviewPlan {
   if (!plan.ready) return plan;
+  // Never trust a caller-supplied ready plan: recompute every policy and risk gate.
+  const verifiedPlan = planProfessionalAutoReview(candidate);
+  if (!verifiedPlan.ready) return verifiedPlan;
   if (!principal || !principal.isServiceIdentity || !principal.canApproveProfessionalContent ||
       !principal.userId.trim() || principal.userId !== principal.userId.trim() ||
       principal.userId !== candidate.serviceActorUserId ||
