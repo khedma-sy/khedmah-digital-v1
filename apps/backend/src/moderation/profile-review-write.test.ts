@@ -101,7 +101,8 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
           };
           const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
-          const policy = async () => ({
+          const policy = async (state: { snapshotFingerprint: string }) => ({
+            snapshotFingerprint: state.snapshotFingerprint,
             snapshotRevision: candidate.snapshotRevision,
             snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
             categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
@@ -109,9 +110,9 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           });
           const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
             canApproveProfessionalContent: true });
-          const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
+          const writer = async (profileId: string, actorId: string, expectedRevision: string, expectedEvidenceFingerprint: string) =>
             writeProfileReview(db, 'professional', profileId, actorId,
-              { status: 'approved', expectedRevision });
+              { status: 'approved', expectedRevision, expectedEvidenceFingerprint });
           const results = await Promise.allSettled([
             executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
             executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer)
@@ -135,7 +136,8 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
           };
           const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
-          const policy = async () => ({
+          const policy = async (state: { snapshotFingerprint: string }) => ({
+            snapshotFingerprint: state.snapshotFingerprint,
             snapshotRevision: candidate.snapshotRevision,
             snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
             categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
@@ -143,9 +145,9 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
           });
           const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
             canApproveProfessionalContent: true });
-          const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
+          const writer = async (profileId: string, actorId: string, expectedRevision: string, expectedEvidenceFingerprint: string) =>
             writeProfileReview(db, 'professional', profileId, actorId,
-              { status: 'approved', expectedRevision });
+              { status: 'approved', expectedRevision, expectedEvidenceFingerprint });
           assert.deepEqual(await executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
             { applied: true });
           const current = await professionals.findById(id);
