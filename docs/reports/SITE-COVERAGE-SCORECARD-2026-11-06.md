@@ -74,3 +74,12 @@ Score = SUM(axis grade * axis weight) / 2. A grade of 1 is partial, 2 is directl
 - Source audit, public anonymous GET, Floot read-only DB SELECT and selected spec tests only; no authenticated private sessions, systematic pentest or exhaustive visual/device audit.
 - No production, Google Cloud scaling, DB writes, Floot publication, feature activation, PR merge or financial commitment performed.
 - See audit at `docs/reports/RELEASE-READINESS-AUTOPSY-2026-11-06.md` and live PRs #344/#346/#348-#355 for current status. Re-fetch main and exact-head Actions before further action.
+
+
+## Floot internal Google-popup preflight correction — 2026-11-06 (new verification)
+- Floot editor (not public release) now preloads the approved Preview-backend health check, allowlisted Firebase web config, compat SDK, and NONE persistence when a signed-out Khedmah session is confirmed. Google provider popup/redirect is invoked **synchronously from the click handler** before handing its pending Promise to React Query for confirmed-session handling. The prior flow awaited multiple network requests before opening the Google popup, risking browser popup blocking.
+- The Google button remains disabled if preflight is unconfirmed; a non-disclosing retry message is available. Origin allowlist, cross-origin redirect prohibition, server-owned session and least-privilege policy are unchanged.
+- Regression coverage: synchronous popup initiation in `helpers/khedmahPreviewAcceptance.spec.tsx` and no unready Google exchange in `helpers/khedmahPublicNavigation.spec.tsx`. Explicit full Floot run: 139/139 spec files PASS; TypeScript check CLEAN.
+- Floot checkpoint: `64bceac6-47aa-4ddc-8423-18b9b7dc74ff`. Internal detail: `static/__dev/notes/google-login-popup-preflight-2026-11-06.md`.
+- Independent anonymous GET from `khedmah.uk`: preview health 200 connected to preview V2 f4; verified public Firebase web config 200; unsigned Khedmah session 401 as expected. The separate Floot B2B /_api/auth/session 401 is not diagnostic of the Khedmah session.
+- **Not certified:** real Google redirect/popup on iOS and Android, completed signed-in session on the user's account, upstream credential exchange, source/digest parity to Cloud Run, or production. Public Floot release remains `2026-11-04T00:01:39.684Z`. No production mutation, Cloud Run change, database write, feature activation or Floot publish performed.
