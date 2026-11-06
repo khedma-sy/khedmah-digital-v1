@@ -13,6 +13,7 @@ import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan } from './smart-admin-professional-execution';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
@@ -58,6 +59,36 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
         await db.query(`DELETE FROM trust_history WHERE entity_type=$1 AND entity_id=$2`,[kind,id]);
         await db.query(`UPDATE ${table} SET moderation_status='pending',visibility='public',updated_at=clock_timestamp(),${kind==='business'?"trust_status='approved',status='active'":"lifecycle_status='pending'"} WHERE ${key}=$1`,[id]);
         return (await repo.findById(id))!;
+      }
+      if (kind === 'professional') {
+        await t.test('professional: authorized auto-review plan uses atomic writer and rejects replay', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const plan = planProfessionalAutoReview(candidate);
+          const authorized = authorizeProfessionalAutoReviewPlan(plan, candidate, {
+            userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true
+          });
+          assert.equal(authorized.ready, true);
+          if (!authorized.ready) throw new Error('Unexpected denied test plan');
+          await writeProfileReview(db, 'professional', authorized.profileId, 'review_moderator',
+            { status: 'approved', expectedRevision: authorized.expectedRevision });
+          const current = await professionals.findById(id);
+          assert.equal(current?.moderationStatus, 'approved');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
+          await assert.rejects(() => writeProfileReview(db, 'professional', authorized.profileId,
+            'review_moderator', { status: 'approved', expectedRevision: authorized.expectedRevision }), ConflictException);
+          const [afterReplay] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(afterReplay.count, '1');
+        });
       }
       await t.test(`${kind}: missing revisions and unauthorized reviewers cannot write`,async()=>{
         const before=await reset();
