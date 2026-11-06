@@ -43,3 +43,15 @@ test('rejects padded actor identifiers and impossible revision dates', () => {
       { ready: false, reason: 'invalid_review_identity_or_revision' });
   }
 });
+
+test('rejects invalid snapshot and unreviewed policy metadata', () => {
+  for (const changed of [
+    { snapshotRevision: 'not-a-revision' },
+    { policyVersion: '' },
+    { policyVersion: ' reviewed-v1' },
+    { policyVersion: 'reviewed-v1 ' },
+    { policyVersion: 'v'.repeat(129) }
+  ]) {
+    assert.equal(planProfessionalAutoReview({ ...candidate, ...changed }).ready, false);
+  }
+});
