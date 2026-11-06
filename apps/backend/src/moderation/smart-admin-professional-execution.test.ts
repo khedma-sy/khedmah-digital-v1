@@ -106,3 +106,21 @@ test('forged ready plan cannot bypass live eligibility checks', () => {
     assert.equal(authorizeProfessionalAutoReviewPlan(forged, { ...candidate, ...changed }, principal).ready, false);
   }
 });
+
+test('malformed runtime payloads fail closed without throwing', () => {
+  for (const input of [null, undefined, {}, { ...candidate, profileId: null },
+    { ...candidate, expectedRevision: 123 }, { ...candidate, flagged: 'false' },
+    { ...candidate, checksPassed: 1 }]) {
+    assert.deepEqual(planProfessionalAutoReview(input as ProfessionalAutoReviewCandidate),
+      { ready: false, reason: 'invalid_review_candidate' });
+  }
+  const ready = planProfessionalAutoReview(candidate);
+  for (const principal of [null, { userId: null, isServiceIdentity: true, canApproveProfessionalContent: true },
+    { userId: 'service_1', isServiceIdentity: 'true', canApproveProfessionalContent: true }]) {
+    assert.equal(authorizeProfessionalAutoReviewPlan(ready, candidate,
+      principal as Parameters<typeof authorizeProfessionalAutoReviewPlan>[2]).ready, false);
+  }
+  assert.deepEqual(authorizeProfessionalAutoReviewPlan(null as unknown as typeof ready, candidate,
+    { userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true }),
+    { ready: false, reason: 'invalid_review_plan' });
+});
