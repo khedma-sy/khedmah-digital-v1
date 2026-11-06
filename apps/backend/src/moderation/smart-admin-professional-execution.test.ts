@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, type ProfessionalAutoReviewCandidate } from './smart-admin-professional-execution';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, executeAuthorizedProfessionalReview, type ProfessionalAutoReviewCandidate } from './smart-admin-professional-execution';
 
 const revision = '2026-11-05T14:55:20.000001Z';
 const candidate: ProfessionalAutoReviewCandidate = {
@@ -123,4 +123,33 @@ test('malformed runtime payloads fail closed without throwing', () => {
   assert.deepEqual(authorizeProfessionalAutoReviewPlan(null as unknown as typeof ready, candidate,
     { userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true }),
     { ready: false, reason: 'invalid_review_plan' });
+});
+
+test('server handoff calls writer only after independent principal resolution', async () => {
+  const writes: Array<[string, string, string]> = [];
+  let resolutions = 0;
+  const resolve = async () => {
+    resolutions++;
+    return { userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true };
+  };
+  const write = async (id: string, actor: string, rev: string) => { writes.push([id, actor, rev]); };
+  assert.deepEqual(await executeAuthorizedProfessionalReview(candidate, resolve, write), { applied: true });
+  assert.deepEqual(writes, [['professional_1', 'service_1', revision]]);
+  assert.equal(resolutions, 1);
+  writes.length = 0;
+  resolutions = 0;
+  assert.deepEqual(await executeAuthorizedProfessionalReview({ ...candidate, flagged: true }, resolve, write),
+    { applied: false, reason: 'risk_flag' });
+  assert.equal(resolutions, 0);
+  assert.equal(writes.length, 0);
+  assert.deepEqual(await executeAuthorizedProfessionalReview(candidate,
+    async () => ({ userId: 'owner_1', isServiceIdentity: true, canApproveProfessionalContent: true }), write),
+    { applied: false, reason: 'untrusted_or_unauthorized_service_principal' });
+  assert.equal(writes.length, 0);
+});
+
+test('server handoff propagates writer failure without reporting applied', async () => {
+  const resolve = async () => ({ userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true });
+  await assert.rejects(() => executeAuthorizedProfessionalReview(candidate, resolve,
+    async () => { throw new Error('transaction rolled back'); }), /transaction rolled back/);
 });
