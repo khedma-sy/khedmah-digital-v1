@@ -1,5 +1,18 @@
 # Next Safe Action — Khedmah
 
+## Next safe action — professionals checkpoint, 2026-11-06 UTC
+
+1. Re-read live GitHub `main`, open PR heads, reviews and Actions before acting; snapshot baseline `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is dated.
+2. PR #346 is **blocked**: identify the exact failing assertions, validate first-party account-deletion instructions and privacy requirements, repair only a verified safe mismatch on its isolated branch, then require passing exact-head CI and Android Debug Build. Do not weaken compliance checks merely to turn CI green.
+3. Review #348 (smart-admin execution contract) for authenticated actor identity, atomic revision/approval/audit and human approval boundaries; do not activate autonomous approvals based on a pure planning contract.
+4. Review #349 acceptance matrix for account, admin permissions, professional registration, search/Nearby, store, classifieds, restaurants, taxi/courier and cross-role workflows. Require end-to-end/mobile evidence for P0 paths.
+5. #350 and #351 passed source CI but remain **draft**. Obtain responsive browser, keyboard accessibility, professional onboarding and regression acceptance before considering merge. Preserve existing taxi, store and classified navigation.
+6. Restaurant order push/token/worker and taxi trip lifecycle remain gated pending authenticated end-to-end evidence; do not infer runtime readiness from source tests.
+7. No Live/Production deployment or mutation, Google Cloud/Cloud Shell, Floot publication, or release gate bypass. Exclude Business Desk as an independent workstream. Hourly monitoring was stopped on user instruction; resume only on new request.
+
+---
+
+
 ## Immediate next action — complete PR #333 review gate; preserve runtime holds — 2026-11-02 UTC
 
 1. Resolve the live `main` SHA directly from GitHub at the start of every cycle. At this checkpoint, latest `main` observed = `70bf3c89726dbc71a41a11579b9d3b51de4cbce3`, after PR #331 merged. Treat this SHA as dated evidence, not a permanent pointer; reread GitHub before each action.
