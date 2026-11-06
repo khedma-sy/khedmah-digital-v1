@@ -94,7 +94,7 @@ test('restaurant push sender rejects malformed FCM tokens before contacting Fire
     'fcm-token-value-12345 67890',
     'fcm-token-value-12345\n67890',
     'fcm-token-value-12345\t67890',
-    'fcm-token-value-12345\u000067890',
+    'fcm-token-value-12345\u000067890',\n    'fcm-token-value-12345\u200b67890',\n    'fcm-token-value-12345\u202e67890',\n    'fcm-token-value-12345\u00e967890',
   ]) {
     await assert.rejects(sendRestaurantPush(messaging, {
       token, title: 'طلب', body: 'نص', orderId: 'order-1', status: 'placed',
