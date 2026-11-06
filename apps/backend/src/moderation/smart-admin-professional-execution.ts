@@ -34,6 +34,10 @@ export function planProfessionalAutoReview(candidate: ProfessionalAutoReviewCand
       candidate.ownerUserId !== candidate.ownerUserId.trim() ||
       candidate.serviceActorUserId !== candidate.serviceActorUserId.trim() ||
       !revisionPattern.test(candidate.expectedRevision) ||
+      !revisionPattern.test(candidate.snapshotRevision) ||
+      !candidate.policyVersion.trim() ||
+      candidate.policyVersion !== candidate.policyVersion.trim() ||
+      candidate.policyVersion.length > 128 ||
       Number.isNaN(revisionDate.getTime()) ||
       revisionDate.toISOString().slice(0, 19) !== candidate.expectedRevision.slice(0, 19)) {
     return { ready: false, reason: 'invalid_review_identity_or_revision' };
