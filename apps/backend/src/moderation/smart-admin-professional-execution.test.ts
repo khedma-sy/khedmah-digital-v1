@@ -125,31 +125,79 @@ test('malformed runtime payloads fail closed without throwing', () => {
     { ready: false, reason: 'invalid_review_plan' });
 });
 
-test('server handoff calls writer only after independent principal resolution', async () => {
+const request = { profileId: candidate.profileId, expectedRevision: revision };
+const persisted = {
+  profileId: candidate.profileId, expectedRevision: revision, ownerUserId: candidate.ownerUserId,
+  moderationStatus: 'pending', lifecycleStatus: 'pending', visibility: 'public'
+};
+const policy = {
+  snapshotRevision: revision, snapshotComplete: true, flagged: false,
+  categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+};
+const load = async () => persisted;
+const resolve = async () => ({
+  userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true
+});
+
+test('server handoff obtains canonical state and independent policy before writing', async () => {
   const writes: Array<[string, string, string]> = [];
-  let resolutions = 0;
-  const resolve = async () => {
-    resolutions++;
-    return { userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true };
-  };
-  const write = async (id: string, actor: string, rev: string) => { writes.push([id, actor, rev]); };
-  assert.deepEqual(await executeAuthorizedProfessionalReview(candidate, resolve, write), { applied: true });
+  const calls: string[] = [];
+  const result = await executeAuthorizedProfessionalReview(request,
+    async (id) => { calls.push('db:' + id); return persisted; },
+    async () => { calls.push('identity'); return resolve(); },
+    async () => { calls.push('policy'); return policy; },
+    async (id, actor, rev) => { calls.push('writer'); writes.push([id, actor, rev]); });
+  assert.deepEqual(result, { applied: true });
+  assert.deepEqual(calls, ['db:professional_1', 'identity', 'policy', 'writer']);
   assert.deepEqual(writes, [['professional_1', 'service_1', revision]]);
-  assert.equal(resolutions, 1);
-  writes.length = 0;
-  resolutions = 0;
-  assert.deepEqual(await executeAuthorizedProfessionalReview({ ...candidate, flagged: true }, resolve, write),
-    { applied: false, reason: 'risk_flag' });
-  assert.equal(resolutions, 0);
-  assert.equal(writes.length, 0);
-  assert.deepEqual(await executeAuthorizedProfessionalReview(candidate,
-    async () => ({ userId: 'owner_1', isServiceIdentity: true, canApproveProfessionalContent: true }), write),
-    { applied: false, reason: 'untrusted_or_unauthorized_service_principal' });
-  assert.equal(writes.length, 0);
+});
+
+test('server handoff rejects stale, non-pending, private or inconsistent canonical state', async () => {
+  let writes = 0;
+  let principalCalls = 0;
+  const writer = async () => { writes++; };
+  const principal = async () => { principalCalls++; return resolve(); };
+  const scenarios = [
+    { state: null, reason: 'canonical_review_state_unavailable' },
+    { state: { ...persisted, profileId: 'other_profile' }, reason: 'canonical_review_state_unavailable' },
+    { state: { ...persisted, expectedRevision: '2026-11-05T14:55:19.000001Z' }, reason: 'stale_revision' },
+    { state: { ...persisted, moderationStatus: 'approved' }, reason: 'professional_review_not_pending_or_public' },
+    { state: { ...persisted, lifecycleStatus: 'created' }, reason: 'professional_review_not_pending_or_public' },
+    { state: { ...persisted, visibility: 'private' }, reason: 'professional_review_not_pending_or_public' }
+  ];
+  for (const { state, reason } of scenarios) {
+    assert.deepEqual(await executeAuthorizedProfessionalReview(request, async () => state,
+      principal, async () => policy, writer), { applied: false, reason });
+  }
+  assert.equal(writes, 0);
+  assert.equal(principalCalls, 0);
+});
+
+test('server handoff cannot trust forged request approval flags or missing policy', async () => {
+  let writes = 0;
+  const writer = async () => { writes++; };
+  const forged = { ...request, flagged: false, checksPassed: true, categoryAllowed: true,
+    policyVersion: 'fake', ownerUserId: 'other_owner', snapshotComplete: true };
+  const result = await executeAuthorizedProfessionalReview(forged, load, resolve,
+    async () => ({ ...policy, flagged: true }), writer);
+  assert.deepEqual(result, { applied: false, reason: 'risk_flag' });
+  assert.deepEqual(await executeAuthorizedProfessionalReview(request, load, resolve,
+    async () => null as unknown as typeof policy, writer),
+    { applied: false, reason: 'missing_verified_policy_evidence' });
+  assert.equal(writes, 0);
+});
+
+test('server handoff rejects unauthorized principal before policy assessment', async () => {
+  let assessments = 0;
+  const result = await executeAuthorizedProfessionalReview(request, load,
+    async () => ({ userId: 'owner_1', isServiceIdentity: true, canApproveProfessionalContent: true }),
+    async () => { assessments++; return policy; },
+    async () => { throw Error('untrusted write'); });
+  assert.deepEqual(result, { applied: false, reason: 'untrusted_or_unauthorized_service_principal' });
+  assert.equal(assessments, 0);
 });
 
 test('server handoff propagates writer failure without reporting applied', async () => {
-  const resolve = async () => ({ userId: 'service_1', isServiceIdentity: true, canApproveProfessionalContent: true });
-  await assert.rejects(() => executeAuthorizedProfessionalReview(candidate, resolve,
-    async () => { throw new Error('transaction rolled back'); }), /transaction rolled back/);
+  await assert.rejects(() => executeAuthorizedProfessionalReview(request, load, resolve,
+    async () => policy, async () => { throw new Error('transaction rolled back'); }), /transaction rolled back/);
 });
