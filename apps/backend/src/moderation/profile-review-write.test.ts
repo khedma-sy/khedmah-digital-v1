@@ -13,7 +13,7 @@ import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
-import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, executeAuthorizedProfessionalReview } from './smart-admin-professional-execution';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, executeAuthorizedProfessionalReview, readCanonicalProfessionalReviewState } from './smart-admin-professional-execution';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
@@ -100,18 +100,28 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             submitted: true, snapshotComplete: true, flagged: false,
             categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
           };
+          const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
+          const policy = async () => ({
+            snapshotRevision: candidate.snapshotRevision,
+            snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
+            categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
+            policyVersion: candidate.policyVersion
+          });
           const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
             canApproveProfessionalContent: true });
           const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
             writeProfileReview(db, 'professional', profileId, actorId,
               { status: 'approved', expectedRevision });
           const results = await Promise.allSettled([
-            executeAuthorizedProfessionalReview(candidate, principal, writer),
-            executeAuthorizedProfessionalReview(candidate, principal, writer)
+            executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
+            executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer)
           ]);
           assert.equal(results.filter((result) => result.status === 'fulfilled' && result.value.applied).length, 1);
-          assert.equal(results.filter((result) => result.status === 'rejected' &&
-            result.reason instanceof ConflictException).length, 1);
+          assert.equal(results.filter((result) =>
+            (result.status === 'rejected' && result.reason instanceof ConflictException) ||
+            (result.status === 'fulfilled' && !result.value.applied &&
+              ['stale_revision', 'professional_review_not_pending_or_public'].includes(result.value.reason))
+          ).length, 1);
           const [history] = await db.query<{ count: string }>(
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '1');
@@ -124,20 +134,28 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             submitted: true, snapshotComplete: true, flagged: false,
             categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
           };
+          const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
+          const policy = async () => ({
+            snapshotRevision: candidate.snapshotRevision,
+            snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
+            categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
+            policyVersion: candidate.policyVersion
+          });
           const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
             canApproveProfessionalContent: true });
           const writer = async (profileId: string, actorId: string, expectedRevision: string) =>
             writeProfileReview(db, 'professional', profileId, actorId,
               { status: 'approved', expectedRevision });
-          assert.deepEqual(await executeAuthorizedProfessionalReview(candidate, principal, writer),
+          assert.deepEqual(await executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
             { applied: true });
           const current = await professionals.findById(id);
           const [approvedRow] = await db.query<{ moderation_status: string }>(
             'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
           assert.equal(approvedRow.moderation_status, 'approved');
           assert.notEqual(current?.revision, before.revision);
-          await assert.rejects(() => executeAuthorizedProfessionalReview(candidate, principal, writer),
-            ConflictException);
+          assert.deepEqual(await executeAuthorizedProfessionalReview(
+            { profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
+            { applied: false, reason: 'stale_revision' });
           const [history] = await db.query<{ count: string }>(
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '1');
