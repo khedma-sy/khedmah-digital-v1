@@ -21,7 +21,7 @@ export function validateRestaurantPushTokenRegistration(value: unknown): Restaur
   const token = text(input.token, 'token', 20, 4096);
   // FCM registration tokens must not contain whitespace or control characters.
   // Reject malformed tokens before they reach any future persistent token store.
-  if (/[\s\x00-\x1f\x7f]/u.test(token)) throw new Error('token is invalid.');
+  if (input.token !== token || /[\s\x00-\x1f\x7f]/u.test(token)) throw new Error('token is invalid.');
   const deviceId = text(input.deviceId, 'deviceId', 8, 200);
   if (!/^[A-Za-z0-9:_\-.]+$/.test(deviceId)) throw new Error('deviceId is invalid.');
   if (input.platform !== undefined && input.platform !== 'web') throw new Error('platform is invalid.');
