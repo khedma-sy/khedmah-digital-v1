@@ -1,16 +1,5 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
-## PR #357 review repair — approved professional-card palette — 2026-11-07
-
-- Live baseline verified: protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration PR #357 was open at `25a17976445e2bd5c1f6e3014248b95de9474806`, with an unresolved review finding on `apps/frontend/app/home.module.css`.
-- Repair commit: `56772c0b5cb9b3435a5ede910ba71c159a3dbd59`. The professional discovery card now uses the existing primary/blue gradient, tint and text tokens, including their dark-theme definitions, instead of the unapproved purple accent. No layout, authorization or release gate changed.
-- Local validation on Node 24.22.1: `node --test apps/frontend/tests/live-experience.test.ts apps/frontend/tests/sixth-audit-journeys.test.ts` — 15 passed, 0 failed; `git diff --check` passed. These source checks do not attest browser/mobile runtime or Floot parity.
-- Next safe action: require fresh exact-head Actions and review of this repair before normal merge. PR #356 still has no submitted formal review; do not interpret its source CI as live push readiness.
-- Concurrent checkpoint PR #352 has newer canonical continuation documents. Reconcile this bounded repair receipt with those documents when integrating; retain its newer handoff and avoid replacing it with this branch's historical sections below.
-- No main merge, Floot publication, cloud/database mutation, taxi activation or approval-gate activation was performed.
-
----
-
 
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
