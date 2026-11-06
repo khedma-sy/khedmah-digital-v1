@@ -24,6 +24,8 @@ test('restaurant push token registration rejects malformed or non-web payloads',
 test('restaurant push token registration rejects whitespace and control characters before persistence', () => {
   const valid = { token: 'fcm-token-value-1234567890', deviceId: 'web-device_01' };
   for (const token of [
+    ' fcm-token-value-1234567890',
+    'fcm-token-value-1234567890 ',
     'fcm-token-value-12345 67890',
     'fcm-token-value-12345\n67890',
     'fcm-token-value-12345\t67890',
