@@ -30,7 +30,7 @@ test('restaurant push token registration rejects whitespace and control characte
     'fcm-token-value-12345\n67890',
     'fcm-token-value-12345\t67890',
     'fcm-token-value-12345\u000067890',
-    'fcm-token-value-12345\u007f67890',
+    'fcm-token-value-12345\u007f67890',\n    'fcm-token-value-12345\u200b67890',\n    'fcm-token-value-12345\u202e67890',\n    'fcm-token-value-12345\u00e967890',
   ]) {
     assert.throws(() => validateRestaurantPushTokenRegistration({ ...valid, token }), /token is invalid/);
   }
