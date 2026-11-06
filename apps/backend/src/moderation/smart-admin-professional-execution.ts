@@ -25,21 +25,20 @@ export type ProfessionalAutoReviewPlan =
 
 export function planProfessionalAutoReview(candidate: ProfessionalAutoReviewCandidate): ProfessionalAutoReviewPlan {
   const revisionPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
-  const revisionDate = revisionPattern.test(candidate.expectedRevision)
-    ? new Date(candidate.expectedRevision.replace(/(\.\d{3})\d{3}Z$/, '$1Z'))
-    : new Date(Number.NaN);
+  const validRevision = (revision: string): boolean => {
+    if (!revisionPattern.test(revision)) return false;
+    const date = new Date(revision.replace(/(\.\d{3})\d{3}Z$/, '$1Z'));
+    return !Number.isNaN(date.getTime()) &&
+      date.toISOString().slice(0, 19) === revision.slice(0, 19);
+  };
   if (!candidate.profileId.trim() || !candidate.ownerUserId.trim() ||
       !candidate.serviceActorUserId.trim() ||
       candidate.profileId !== candidate.profileId.trim() ||
       candidate.ownerUserId !== candidate.ownerUserId.trim() ||
       candidate.serviceActorUserId !== candidate.serviceActorUserId.trim() ||
-      !revisionPattern.test(candidate.expectedRevision) ||
-      !revisionPattern.test(candidate.snapshotRevision) ||
-      !candidate.policyVersion.trim() ||
-      candidate.policyVersion !== candidate.policyVersion.trim() ||
-      candidate.policyVersion.length > 128 ||
-      Number.isNaN(revisionDate.getTime()) ||
-      revisionDate.toISOString().slice(0, 19) !== candidate.expectedRevision.slice(0, 19)) {
+      !validRevision(candidate.expectedRevision) ||
+      !validRevision(candidate.snapshotRevision) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(candidate.policyVersion)) {
     return { ready: false, reason: 'invalid_review_identity_or_revision' };
   }
   const decision = assessSmartAdminEligibility({
