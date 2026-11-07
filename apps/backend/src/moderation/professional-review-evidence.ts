@@ -12,7 +12,7 @@ export const PROFESSIONAL_REVIEW_EVIDENCE_EXPRESSION = `encode(sha256(convert_to
   ),
   'media', COALESCE((
     SELECT jsonb_agg(jsonb_build_array(
-      m.id, m.owner_user_id, m.asset_type, m.visibility,
+      m.id, m.owner_user_id, m.asset_type, m.visibility, m.filename,
       m.storage_key, m.public_url, m.sort_order,
       m.mime_type, m.size_bytes, m.created_at, m.updated_at
     ) ORDER BY m.id)
@@ -25,7 +25,7 @@ export const PROFESSIONAL_REVIEW_EVIDENCE_EXPRESSION = `encode(sha256(convert_to
       sl.id, sl.owner_type, sl.owner_id, sl.title_ar, sl.title_en,
       sl.description_ar, sl.description_en, sl.category_code,
       sl.price, sl.price_currency, sl.price_type, sl.status,
-      sl.is_featured, sl.created_at, sl.updated_at
+      sl.is_featured, sl.featured_at, sl.created_at, sl.updated_at
     ) ORDER BY sl.id)
     FROM service_listings sl
     WHERE sl.owner_type='professional'
