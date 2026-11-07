@@ -190,6 +190,40 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
         });
+        await t.test('professional: authenticated service edit invalidates review snapshot and parent revision', async () => {
+          const before = await reset();
+          const listingId = 'professional-review-owner-service-edit';
+          await db.query(
+            `INSERT INTO service_listings (id,owner_type,owner_id,title_ar,category_code)
+             VALUES ($1,'professional',$2,'خدمة قبل المراجعة',$3)`,
+            [listingId, id, category.code]
+          );
+          try {
+            const reviewed = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(reviewed);
+            const services = new ServiceCatalogRepository(db);
+            await services.patchOwned(
+              { id: listingId, ownerType: 'professional', ownerId: id },
+              { titleAr: 'خدمة معدلة أثناء الانتظار' }, 'review_owner'
+            );
+            const changed = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(changed);
+            assert.notEqual(changed.expectedRevision, before.revision);
+            assert.notEqual(changed.snapshotFingerprint, reviewed.snapshotFingerprint);
+            await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+              status: 'approved', expectedRevision: before.revision!,
+              expectedEvidenceFingerprint: reviewed.snapshotFingerprint
+            }), ConflictException);
+            const [current] = await db.query<{ moderation_status: string }>(
+              'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+            assert.equal(current.moderation_status, 'pending');
+            const [history] = await db.query<{ count: string }>(
+              "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+            assert.equal(history.count, '0');
+          } finally {
+            await db.query('DELETE FROM service_listings WHERE id=$1', [listingId]);
+          }
+        });
         await t.test('professional: concurrent smart-admin handoffs have one winner and one audit event', async () => {
           const before = await reset();
           const candidate = {
