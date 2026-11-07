@@ -13,8 +13,7 @@ const launchServices = [
   { href: '/food', icon: 'food' as const, title: 'المطاعم', copy: 'مطاعم ومقاهٍ ومخابز وطلبات الطعام.', tone: 'foodCard' as const },
   { href: '/mobility?type=delivery', icon: 'truck' as const, title: 'التوصيل', copy: 'مندوبون وطلبات توصيل قريبة منك.', tone: 'deliveryCard' as const },
   { href: '/professionals', icon: 'tools' as const, title: 'الخدمات المهنية', copy: 'اعثر على أصحاب المهن والخبرات والتخصصات.', tone: 'professionalCard' as const },
-  { href: '/store', icon: 'storefront' as const, title: 'المتجر', copy: 'تصفح المنتجات والمتاجر واعثر على ما تحتاجه.', tone: 'storeCard' as const },
-  { href: '/taxi', icon: 'car' as const, title: 'تكسي', copy: 'خطط للمسار أو ابحث عن مزود تكسي قريب.', tone: 'taxiCard' as const }
+  { href: '/store', icon: 'storefront' as const, title: 'المتجر', copy: 'تصفح المنتجات والمتاجر واعثر على ما تحتاجه.', tone: 'storeCard' as const }
 ];
 
 const trustItems = [
@@ -44,7 +43,7 @@ export default function Home() {
         <span><b>{service.title}</b><small>{service.copy}</small></span>
         <PlatformIcon name="arrow" size={20}/>
       </Link>)}</div>
-      <div className={styles.secondaryServices}><Link href="/store"><PlatformIcon name="cart" size={18}/> المتجر</Link><Link href="/taxi"><PlatformIcon name="car" size={18}/> تكسي</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
+      <div className={styles.secondaryServices}><Link href="/taxi"><PlatformIcon name="car" size={18}/> تكسي</Link><Link href="/classifieds"><PlatformIcon name="briefcase" size={18}/> الإعلانات</Link><Link href="/map"><PlatformIcon name="pin" size={18}/> بالقرب مني</Link></div>
     </section>
 
     <section className={styles.discovery} aria-labelledby="categories-title">
