@@ -1,5 +1,16 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — 2026-11-07 handoff and reviewer gate
+
+1. Read `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md` and fresh `main`/PRs/Actions; all SHA references are historical observations.
+2. Check three exact-head Actions triggered by this **documentation** update on #352. Prior #352 head `11ce8fe6192cde1103dafb9c5002da395a468f9b` was fully green; it does not prove new HEAD automatically.
+3. New verified green #348 HEAD `246b353bc2eeadb2242106e7bc8a436b6e267c5f`, but **keep DRAFT**. Audit whether legacy direct `ServiceCatalogRepository.save` and `ProfessionalProfileRepository.saveMediaAsset` are reachable through any untrusted runtime surface and enforce parent-row lock / revision/audit on any confirmed pathway. Do not assume absence of exploit or bypass.
+4. #356 `93a19977913a2e3d3a33b4ea50832f9fa3924642` and #357 `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197` each have three SUCCESS Actions but no independent APPROVED. Request authorized reviewers and complete real authenticated acceptance. Do not merge duplicate original PRs #349–#351 or #353–#355.
+5. Maintain NO-GO pending Cloud V2 image/revision/traffic/schema/DB writer quiescence, cross-role login/security E2E, actual restaurant/taxi/courier/merchant and reliable native device alert acceptance. No Cloud/Floot/DB/Production mutation, merges by CI alone, or financial/contract authorization.
+
+---
+
+
 ## Next Safe Action — live 2026-11-07 source verification and approval holds
 
 1. Re-fetch protected main, PRs and exact-head Actions. Observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is not a permanent pointer.
