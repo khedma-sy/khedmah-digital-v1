@@ -1,6 +1,12 @@
 # Khedmah Digital — Independent Release Readiness / EXPOSE + AUTOPSY + IQ200 + KILLCRITIC
 **Evidence time:** 2026-11-06 UTC. **Verdict:** NO-GO for an end-to-end production release. **No production mutation was performed.**
 
+## 2026-11-07 owner-reported Google login acceptance update
+
+The owner reported successfully signing in with Google on 2026-11-07. This is **one owner-reported positive runtime acceptance signal**, not an independently captured OAuth/session trace. It supersedes treating Google login as uniformly unavailable for this user's tested attempt, but does **not** establish a general fix, session persistence, cross-device success, verified admin-role authorization, logout/re-login safety, or runtime image/source parity. Keep the release gate **OPEN** pending authenticated acceptance receipts and correlated service logs. Do not reset Preview scaling, migrate the database, publish Floot, or change Production solely on this report.
+
+GitHub main and review/CI status must be refreshed directly before any merge or release. Floot public UI and preview sources are managed separately from the Next.js repository; do not equate file presence in one with a deployed fix in the other.
+
 ## 0. Evidence standard and important limitations
 This document distinguishes (a) repository source and CI, (b) Floot editor/preview source, tests and read-only Floot DB state, (c) real anonymous HTTP probes of public sites and the Google Cloud Run Preview health endpoint, and (d) dated Google Cloud evidence captured in GitHub Actions. A successful page GET, health response or mock/unit test is NOT an authenticated end-to-end journey or a checked production deployment.
 
