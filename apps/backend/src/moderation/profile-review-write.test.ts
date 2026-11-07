@@ -113,6 +113,59 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
             "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
           assert.equal(history.count, '0');
         });
+        await t.test('professional: media filename changes invalidate the fingerprint without touching parent revision', async () => {
+          const before = await reset();
+          const state = await readCanonicalProfessionalReviewState(db, id);
+          assert.ok(state);
+          // Simulate a direct child metadata update that omits updated_at.
+          await db.query(
+            "UPDATE media_assets SET filename=filename || '.revised' WHERE owner_type='professional_profile' AND owner_id=$1",
+            [id]
+          );
+          const changed = await readCanonicalProfessionalReviewState(db, id);
+          assert.equal(changed?.expectedRevision, before.revision);
+          assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+          await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+            status: 'approved', expectedRevision: before.revision!,
+            expectedEvidenceFingerprint: state.snapshotFingerprint
+          }), ConflictException);
+          const [current] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(current.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
+        await t.test('professional: featured timestamp changes invalidate the fingerprint without touching parent revision', async () => {
+          const before = await reset();
+          const serviceId = 'professional-review-featured-timestamp';
+          await db.query(
+            `INSERT INTO service_listings (id,owner_type,owner_id,title_ar,category_code)
+             VALUES ($1,'professional',$2,'عرض مهني للمراجعة',$3)`,
+            [serviceId, id, category.code]
+          );
+          try {
+            const state = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(state);
+            // A presentation timestamp may change even when the normal updated_at is unchanged.
+            await db.query('UPDATE service_listings SET featured_at=clock_timestamp() WHERE id=$1', [serviceId]);
+            const changed = await readCanonicalProfessionalReviewState(db, id);
+            assert.equal(changed?.expectedRevision, before.revision);
+            assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+            await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+              status: 'approved', expectedRevision: before.revision!,
+              expectedEvidenceFingerprint: state.snapshotFingerprint
+            }), ConflictException);
+            const [current] = await db.query<{ moderation_status: string }>(
+              'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+            assert.equal(current.moderation_status, 'pending');
+            const [history] = await db.query<{ count: string }>(
+              "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+            assert.equal(history.count, '0');
+          } finally {
+            await db.query('DELETE FROM service_listings WHERE id=$1', [serviceId]);
+          }
+        });
         await t.test('professional: concurrent smart-admin handoffs have one winner and one audit event', async () => {
           const before = await reset();
           const candidate = {
