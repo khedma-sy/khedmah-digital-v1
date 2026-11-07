@@ -1,5 +1,17 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — live 2026-11-07 source verification and approval holds
+
+1. Re-fetch protected main, PRs and exact-head Actions. Observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is not a permanent pointer.
+2. **PR #348:** verify three Actions on `ac6fbae2c4d9533e203348892cd73245a561238c`; inspect any failures in `apps/backend/src/moderation/profile-review-write.test.ts` and `professional-review-evidence.ts` before source-only correction. Scope: fingerprint now covers profession type, featured state, media filename, service featured timestamp. **Do not mark ready or activate** until trusted service identity, content risk policy, atomic database/source version, independent reviewer and Preview role acceptance are proven.
+3. **PR #356:** exact head `93a19977913a2e3d3a33b4ea50832f9fa3924642` passed Node.js CI, Test & Verify, PR Preview after fixing malformed newline test syntax. Still needs independent security APPROVED and real authenticated token enrollment/FCM server outbox/device tests. Keep live push disabled.
+4. **PR #357 and #352:** latest completed heads `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197` and `754db61ff5af9cd759b0cafa21b7ab8f0049b502` passed three source checks each; PR #352 head changes with this checkpoint. Require fresh checks and formal reviewer approval before normal merge. Avoid duplicate merging original overlapping PRs.
+5. **Runtime P0:** do not dispatch Cloud/Floot publication; independently establish Cloud Run image/revision/traffic + DB schema and writer-quiescence, trusted Google desktop/mobile login and session persistence, tenant RBAC, smart-admin/driver gate, restaurants/taxi/courier E2E, background delivery, backup/restore. Old read-only gate #41710857994 STOPPED and release remains unauthorized.
+6. No automatic merge, no production/security/financial actions or authorization bypass. Archive updated source and PR evidence; report the exact gate still open.
+
+---
+
+
 ## Next Safe Action — reviewed integration candidates and Android link gate, 2026-11-07 UTC
 
 1. Re-read protected `main`, open PR heads/reviews and exact-head CI; the SHA values below are snapshots, not mutable pointers.
