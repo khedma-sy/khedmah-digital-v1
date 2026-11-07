@@ -5,10 +5,12 @@
  */
 export const PROFESSIONAL_REVIEW_EVIDENCE_EXPRESSION = `encode(sha256(convert_to(jsonb_build_object(
   'profile', jsonb_build_array(
-    p.professional_profile_identifier, p.user_identifier, p.lifecycle_status,
+    p.professional_profile_identifier, p.profile_identifier, p.user_identifier,
+    p.profession_type, p.lifecycle_status,
     p.moderation_status, p.visibility, p.headline_ar, p.headline_en,
     p.bio_ar, p.bio_en, p.availability, p.city_code, p.country_code,
-    p.skills, p.updated_at
+    p.skills, p.is_featured, p.featured_at, p.created_at, p.archived_at,
+    p.updated_at
   ),
   'media', COALESCE((
     SELECT jsonb_agg(jsonb_build_array(
