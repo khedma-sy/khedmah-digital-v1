@@ -1,5 +1,42 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Current live integration handoff — 2026-11-07 UTC (checkpoint before deployment)
+
+This is a source/recovery checkpoint, NOT permission to release. Re-fetch GitHub main/PRs/Actions before continuing. Current observation: `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. Newly combined PR #356 (restaurant push safety #353/#354/#355) and PR #357 (account/home/professional UX #349/#350/#351) both passed all three exact-head source CI workflows and are ready for independent review, not merged or production activated. Formal APPROVED and authenticated runtime acceptance are missing. PR #352 preserves audit records and a snapshot of the 19 recently modified Floot editor files in `docs/project-control/FLOOT-EDITOR-CODE-SNAPSHOT-2026-11-07.json` (public deployment URLs redacted; original source in Floot). The editor version was `1794001333939` with 139/139 Floot specs passing and TypeScript clean; public Floot remains the Nov 4 release. Google Preview read-only writer-quiescence gate `41710857994` failed; backend/DB parity, real Google login, human-gated approvals, driver documents, background restaurant push and taxi trips remain blocked.
+
+**Continuation verification — 2026-11-07 (Damascus):** PR #357 palette repair `56772c0b5cb9b3435a5ede910ba71c159a3dbd59` is included in head `e31018d49b06f09b2410896ca7a8f6da0897d919`. Its exact-head Node.js CI `42305354902`, Test & Verify `42305354896`, and PR Preview `42305354988` are completed/success. The purple-card review thread was resolved after source readback; this is not a formal APPROVED review or runtime acceptance.
+
+PR #356 at `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e` received a bounded source review of all eight changed files and local execution of its four changed restaurant-push test files: **18 tests passed, 0 failed** on Node 24.22.1, using native TypeScript stripping plus a scratch-only extension resolver (no source edits or dependency installs). Both malformed-token and stale-token-rotation regression groups survived integration. Production-source call-site search found the new merchant eligibility and lifecycle helpers only at their definitions, not wired into a controller/worker. Therefore this validates isolated policy contracts, NOT real device delivery, database atomicity or merchant enrollment. No source blocker was found within this narrow review; independent formal review remains outstanding.
+
+**Next concrete operational evidence:** establish the authorized Cloud service/revision/image/database lineage and authenticated Preview role/device acceptance. The current session has no gcloud executable or connected workflow-dispatch/Cloud administration tool; do not substitute public health or unit tests for that evidence. Floot inventory remains version `1794001333939`; its previously successful tests need not be rerun without changes. Preserve approval/upload default-off gates and the no-production-mutation boundary. Reconcile this handoff with the bounded roadmap receipt carried by #357 during integration.
+
+
+### Bounded integration repair receipts (preserved from #356 / #357)
+
+## PR #356 dispatch validation repair — 2026-11-07
+
+Live baseline: main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration head before this repair `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e`. This commit repairs `apps/backend/src/orders/restaurant-push-dispatch.ts`: trimming a malformed device token could bypass strict sender validation. Dispatch now uses the shared validator without normalization. A composed dispatch-to-sender regression failed before the repair and passed after it.
+
+Validation: all five restaurant-push test files, 22 tests passed, zero failed; Node 24.22.1 native TypeScript stripping with a scratch-only extension resolver; git diff --check clean. Fake messaging only, no Firebase contact. Valid food mapping and non-food filtering remain covered.
+
+Next: fresh exact-head CI and independent review before normal merge. Earlier green checks do not cover this repair. Preserve checkpoint PR #352's newer canonical handoff when reconciling roadmap edits. Live enrollment, storage, worker/device acceptance and Cloud/database parity remain outstanding. No main merge, live push, Floot publish or cloud/database mutation.
+
+## PR #357 review repair — approved professional-card palette — 2026-11-07
+
+- Live baseline verified: protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration PR #357 was open at `25a17976445e2bd5c1f6e3014248b95de9474806`, with an unresolved review finding on `apps/frontend/app/home.module.css`.
+- Repair commit: `56772c0b5cb9b3435a5ede910ba71c159a3dbd59`. The professional discovery card now uses the existing primary/blue gradient, tint and text tokens, including their dark-theme definitions, instead of the unapproved purple accent. No layout, authorization or release gate changed.
+- Local validation on Node 24.22.1: `node --test apps/frontend/tests/live-experience.test.ts apps/frontend/tests/sixth-audit-journeys.test.ts` — 15 passed, 0 failed; `git diff --check` passed. These source checks do not attest browser/mobile runtime or Floot parity.
+- Next safe action: require fresh exact-head Actions and review of this repair before normal merge. PR #356 still has no submitted formal review; do not interpret its source CI as live push readiness.
+- Concurrent checkpoint PR #352 has newer canonical continuation documents. Reconcile this bounded repair receipt with those documents when integrating; retain its newer handoff and avoid replacing it with this branch's historical sections below.
+- No main merge, Floot publication, cloud/database mutation, taxi activation or approval-gate activation was performed.
+
+**Provenance:** these are historical source-only verification receipts copied from the integrated code branches, not an authorization to deploy or a representation of current runtime. Their original branch sources remain unchanged until CI validates the source-only split.
+
+**Canonical detailed handoff:** read the latest top entries of `docs/project-control/CURRENT-STATE.md` and `docs/project-control/NEXT-ACTION.md` on the same PR branch. The other dated checkpoints below are historical. No `main` merge, Cloud/Floot publish, DB/Production mutation or special-permission activation occurred.
+
+---
+
+
 
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC

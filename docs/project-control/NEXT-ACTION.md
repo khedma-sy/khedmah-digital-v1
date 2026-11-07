@@ -1,5 +1,68 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — 2026-11-07 handoff and reviewer gate
+
+1. Read `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md` and fresh `main`/PRs/Actions; all SHA references are historical observations.
+2. Check three exact-head Actions triggered by this **documentation** update on #352. Prior #352 head `11ce8fe6192cde1103dafb9c5002da395a468f9b` was fully green; it does not prove new HEAD automatically.
+3. New verified green #348 HEAD `246b353bc2eeadb2242106e7bc8a436b6e267c5f`, but **keep DRAFT**. Audit whether legacy direct `ServiceCatalogRepository.save` and `ProfessionalProfileRepository.saveMediaAsset` are reachable through any untrusted runtime surface and enforce parent-row lock / revision/audit on any confirmed pathway. Do not assume absence of exploit or bypass.
+4. #356 `93a19977913a2e3d3a33b4ea50832f9fa3924642` and #357 `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197` each have three SUCCESS Actions but no independent APPROVED. Request authorized reviewers and complete real authenticated acceptance. Do not merge duplicate original PRs #349–#351 or #353–#355.
+5. Maintain NO-GO pending Cloud V2 image/revision/traffic/schema/DB writer quiescence, cross-role login/security E2E, actual restaurant/taxi/courier/merchant and reliable native device alert acceptance. No Cloud/Floot/DB/Production mutation, merges by CI alone, or financial/contract authorization.
+
+---
+
+
+## Next Safe Action — live 2026-11-07 source verification and approval holds
+
+1. Re-fetch protected main, PRs and exact-head Actions. Observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is not a permanent pointer.
+2. **PR #348:** verify three Actions on `ac6fbae2c4d9533e203348892cd73245a561238c`; inspect any failures in `apps/backend/src/moderation/profile-review-write.test.ts` and `professional-review-evidence.ts` before source-only correction. Scope: fingerprint now covers profession type, featured state, media filename, service featured timestamp. **Do not mark ready or activate** until trusted service identity, content risk policy, atomic database/source version, independent reviewer and Preview role acceptance are proven.
+3. **PR #356:** exact head `93a19977913a2e3d3a33b4ea50832f9fa3924642` passed Node.js CI, Test & Verify, PR Preview after fixing malformed newline test syntax. Still needs independent security APPROVED and real authenticated token enrollment/FCM server outbox/device tests. Keep live push disabled.
+4. **PR #357 and #352:** latest completed heads `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197` and `754db61ff5af9cd759b0cafa21b7ab8f0049b502` passed three source checks each; PR #352 head changes with this checkpoint. Require fresh checks and formal reviewer approval before normal merge. Avoid duplicate merging original overlapping PRs.
+5. **Runtime P0:** do not dispatch Cloud/Floot publication; independently establish Cloud Run image/revision/traffic + DB schema and writer-quiescence, trusted Google desktop/mobile login and session persistence, tenant RBAC, smart-admin/driver gate, restaurants/taxi/courier E2E, background delivery, backup/restore. Old read-only gate #41710857994 STOPPED and release remains unauthorized.
+6. No automatic merge, no production/security/financial actions or authorization bypass. Archive updated source and PR evidence; report the exact gate still open.
+
+---
+
+
+## Next Safe Action — reviewed integration candidates and Android link gate, 2026-11-07 UTC
+
+1. Re-read protected `main`, open PR heads/reviews and exact-head CI; the SHA values below are snapshots, not mutable pointers.
+2. **PR #356**: newest observed head `6718aa885cfa0c1b46b8ea1f3ef45fc377abe450` passed Node.js CI, Test & Verify, PR Preview. Require independent APPROVED review of the combined owner/status policy, token validation, rotated-token compare-and-invalidate, safe food notification mapping and their regression tests. Verify current diff after any review change. Do not wire a live endpoint, DB token writer, FCM sending or worker from green source tests alone.
+3. **PR #357**: newest observed head `e31018d49b06f09b2410896ca7a8f6da0897d919` passed all three source CI workflows; palette feedback is resolved but no formal APPROVED. Require mobile/responsive, keyboard accessibility, account navigation, authenticated professional/customer/courier role acceptance and review. Do not separately merge duplicate #349/#350/#351 sources.
+4. **PR #346**: `247d95cf55356f729535a83e1fdb777e827a0969` is now READY FOR REVIEW (not draft) with five green exact-head workflows including non-prod Android debug and Google readiness; public first-party privacy/terms/delete-account routes were verified anonymously on the currently served website. The PR is one commit behind main; require reviewed base reconciliation, formal APPROVED review and native/manual acceptance. No Play submission or assumption that Play Console account is unblocked.
+5. **PR #352 documentation**: previous head `8bd2090f5621f80f181b0dfea68e6a6201d6e0e4` passed three Actions; this fresh handoff changes its head, so require all three workflows again and formal approval. The P1 deployment-URL review thread was resolved, with historical reports preserved. Archive of 19 edited Floot source files is recovery evidence only, not a deployable full export.
+6. **Runtime P0**: independent, bounded read-only Google Preview V2 service scaling/revision/digest/traffic + DB writer/quiescence/restore evidence, real owner-authorized Google sign-in both mobile and desktop, cross-tenant authorization/IDOR, atomic smart-admin and driver-document approvals, full restaurant+courier+taxi journey, background push and reliable outbox delivery. Prior read-only gate `41710857994` STOPPED, not authorized. Floot editor fixes are not the Nov 4 live release.
+7. Until all scoped gates clear, **NO** auto-merge, protected-main merges based on CI alone, Preview/Production traffic mutation, Floot publish, Firebase domain changes, migration, payment, external contract submission or feature/approval activation.
+
+---
+
+
+## Next Safe Action — consolidated GitHub/Floot handoff, 2026-11-07 UTC
+
+1. **Start from live state**, never a conversation: fetch protected `main`, open PRs, exact-head Actions and `docs/project-control/CURRENT-STATE.md`. Latest observed main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; do not treat as permanent.
+2. **Restaurant source integration**: PR #356 at `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e` combines #353 strict token validation, #354 fingerprint compare-and-invalidate, #355 merchant eligibility. All 3 exact-head source CI workflows PASS; marked ready for review. Require formal security/code review; verify both stale-token and invalid-token tests survive conflict resolution. Do not separately merge the originals without reconciling duplicate changes. No live FCM sender, registration endpoint, durable DB store, worker or background push is authorized.
+3. **Frontend source integration**: PR #357 at `25a17976445e2bd5c1f6e3014248b95de9474806` combines #349 account, #350 home discovery and #351 professional onboarding. All 3 exact-head CI workflows PASS; marked ready for review. Require responsive/keyboard/accessibility/multi-role browser acceptance and review. This does not authorize admin/merchant actions.
+4. **Preserve Floot editor work in GitHub**: review `docs/project-control/FLOOT-EDITOR-CODE-SNAPSHOT-2026-11-07.json` (19 recent modified source/notes, original SHA-256, version `1794001333939`, public deployment URL values redacted in archival copies). Floot editor also retains native original/checkpoint versions. Do not infer this archive includes the whole Floot application or is a drop-in Next.js port. Editor Jasmine 139/139 PASS and TS clean. Published Floot remains the older Nov 4 release: no UI/API fix is verified live.
+5. **Documentation PR #352**: verify exact-head Node.js CI, Test & Verify, PR Preview after source-archive/checkpoint commits; previous P1 URL-in-docs review feedback was addressed and review thread resolved, but this is NOT formal APPROVED. Avoid main merge without review.
+6. **Keep blocked sources isolated**: #344 Preview Google login recovery remains draft, source-only, and behind main; do not invoke scaling or deployment until independently proved read-only writer-quiescence, Cloud IAM/traffic/revision/image/database identity and release authorization. #348 smart-admin planning contract is NOT an activated worker. #346 Android policy changes await user acceptance and current-head CI/review; App Store/Play publication remains separate.
+7. **Runtime acceptance P0**: reproduce signed-in desktop and mobile Google auth/session with owner-authorized accounts; cross-tenant RBAC/IDOR; atomic latest-document/approval and driver-document guards; taxi+restaurant+merchant+courier+payment journey; reliable background FCM registration/storage/outbox/delivery; backup+restore; logs/metrics and rollback evidence. Do not reopen security gates on frontend alone.
+8. **Production boundary**: no `main` merge merely from CI; no AutoMerge; no Floot public publish, GCP/Cloud SQL mutation, fee/payment, external submission, or unilateral release. Only promote independently reviewed, test-green and runtime-compatible components with owner-authorized release gates. Surface the exact blocking gate when not closed.
+
+---
+
+
+## Next safe action — professionals checkpoint, 2026-11-06 UTC
+
+1. Re-read live GitHub `main`, open PR heads, reviews and Actions before acting; snapshot baseline `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` is dated.
+2. PR #346 is **blocked**: identify the exact failing assertions, validate first-party account-deletion instructions and privacy requirements, repair only a verified safe mismatch on its isolated branch, then require passing exact-head CI and Android Debug Build. Do not weaken compliance checks merely to turn CI green.
+3. Review #348 (smart-admin execution contract) for authenticated actor identity, atomic revision/approval/audit and human approval boundaries; do not activate autonomous approvals based on a pure planning contract.
+4. Review #349 acceptance matrix for account, admin permissions, professional registration, search/Nearby, store, classifieds, restaurants, taxi/courier and cross-role workflows. Require end-to-end/mobile evidence for P0 paths.
+5. #350 and #351 passed source CI but remain **draft**. Obtain responsive browser, keyboard accessibility, professional onboarding and regression acceptance before considering merge. Preserve existing taxi, store and classified navigation.
+6. Restaurant order push/token/worker and taxi trip lifecycle remain gated pending authenticated end-to-end evidence; do not infer runtime readiness from source tests.
+7. No Live/Production deployment or mutation, Google Cloud/Cloud Shell, Floot publication, or release gate bypass. Exclude Business Desk as an independent workstream. Hourly monitoring was stopped on user instruction; resume only on new request.
+
+---
+
+
 ## Immediate next action — complete PR #333 review gate; preserve runtime holds — 2026-11-02 UTC
 
 1. Resolve the live `main` SHA directly from GitHub at the start of every cycle. At this checkpoint, latest `main` observed = `70bf3c89726dbc71a41a11579b9d3b51de4cbce3`, after PR #331 merged. Treat this SHA as dated evidence, not a permanent pointer; reread GitHub before each action.
