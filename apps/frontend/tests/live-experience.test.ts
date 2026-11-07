@@ -9,13 +9,27 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
 
   assert.match(home, /كل ما تحتاجه/);
   assert.match(home, /FeaturedCategories/);
-  assert.match(home, /خدمة فود/);
-  assert.match(home, /مندوب التوصيل/);
-  assert.match(home, /خدمة تكسي/);
-  assert.match(home, /متجر خدمة/);
+  assert.match(home, /المطاعم/);
+  assert.match(home, /التوصيل/);
+  assert.match(home, /الخدمات المهنية/);
+  assert.match(home, /href: '\/professionals'/);
+  assert.match(home, /تكسي/);
+  assert.match(home, /المتجر/);
   assert.match(home, /التصنيفات الرئيسية/);
   assert.match(home, /PlatformIcon name="search"/);
   assert.match(home, /khedma-community\.webp/);
+});
+
+test('homepage keeps four unique primary journeys and secondary taxi navigation', async () => {
+  const home = await read('app/page.tsx');
+  const launch = home.match(/const launchServices = \[([\s\S]*?)\];/)?.[1];
+  assert.ok(launch, 'homepage launch services must be declared');
+  const urls = [...launch.matchAll(/href: '([^']+)'/g)].map((match) => match[1]);
+  assert.deepEqual(urls, ['/food', '/mobility?type=delivery', '/professionals', '/store']);
+  const secondary = home.match(/<div className=\{styles\.secondaryServices\}>([\s\S]*?)<\/div>/)?.[1];
+  assert.ok(secondary, 'secondary navigation must be present');
+  assert.match(secondary, /href="\/taxi"/);
+  assert.doesNotMatch(secondary, /href="\/store"/);
 });
 
 test('homepage removes competing marketing and decorative concepts', async () => {
