@@ -1,5 +1,15 @@
 # Khedmah Digital — Current State
 
+## Latest verified checkpoint — 2026-11-07: all scoped source CI green, runtime NO-GO
+
+- Canonical **new** review evidence: `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md` at commit `4a9aaa5cdaa66bf7e5bf4b08ccaf4107ffaf30b0`. It includes exact-head Actions run IDs, GitHub and Floot publication/version boundaries, reviewer blockers, parent-row locking inventory and live release holds.
+- Main observed `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; 12 PRs open. #348 at `246b353bc2eeadb2242106e7bc8a436b6e267c5f` now **three CI SUCCESS**, including the owner-service edit / stale approval PostgreSQL regression. #352 previous head `11ce8fe6192cde1103dafb9c5002da395a468f9b`, #356 `93a19977913a2e3d3a33b4ea50832f9fa3924642`, #357 `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197`: **three checks SUCCESS each**. Android PR #346 had five source/nonproduction checks SUCCESS.
+- No `APPROVED` review for #346/#348/#352/#356/#357. #348 must remain DRAFT; principal credential resolver, content policy and comprehensive legacy writer inventory remain unresolved. Exact-head CI for **this documentation update** must be rechecked before considering #352 ready.
+- Floot editor `1794001333939` is not the live release; published release `1793750504473f0272d7f-c673-4f61-acff-130b2f13d3e9` dated 2026-11-04. No main merge, Floot publish, Google Cloud/DB production mutation, or sensitive gate activation. Full commercial release remains **NO-GO**.
+
+---
+
+
 ## Live source readiness — 2026-11-07 UTC (post-restaurant CI and smart-admin evidence extension)
 
 - Protected `main` freshly observed at `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; this remains a **dated observation**, re-fetch each cycle.
