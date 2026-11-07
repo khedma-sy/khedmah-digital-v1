@@ -1,5 +1,17 @@
 # Khedmah Digital — Current State
 
+## Live source readiness — 2026-11-07 UTC (post-restaurant CI and smart-admin evidence extension)
+
+- Protected `main` freshly observed at `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; this remains a **dated observation**, re-fetch each cycle.
+- Restaurant source integration PR #356 latest verified head `93a19977913a2e3d3a33b4ea50832f9fa3924642`: all **Node.js CI, Khedmah Test & Verify, PR Preview** completed `success` after correcting two test-file literal newline parse errors. The production token rule rejects invisible/non-ASCII bytes; message sending, device enrollment, outbox/worker, merchant E2E and independent formal APPROVED remain unverified. PR remains unmerged.
+- Frontend integration PR #357 head `4ec8391e7f01e7f1c2d2986dd4b3b360fe883197` and documentation PR #352 previously checked head `754db61ff5af9cd759b0cafa21b7ab8f0049b502`: each three source workflows `success`, review still `COMMENTED` rather than APPROVED. PR #352's head will change with this handoff; **re-check exact-head CI**. The shared roadmap was separated from #356/#357; repair receipts consolidated in #352.
+- Smart Admin source-only draft PR #348 now head `ac6fbae2c4d9533e203348892cd73245a561238c`: evidence SHA-256 SQL now binds canonical profile identity, profession classification, featured state/dates, media filenames and service featured dates. Three new PostgreSQL regression cases are present for changes without parent revision increment, testing stale fingerprint rejection and no approval/audit write. **Current-head CI pending at this snapshot**; never treat earlier checks as proof. Real privileged service credential resolver, trusted policy assessor and runtime/Cloud compatibility are still missing; remain DRAFT / NO ACTIVATION.
+- Android legal routes PR #346 is review-ready with five passing source/Android checks but no formal approval; Google-login scaling PR #344 remains draft/blocked. Source original PRs #349/#350/#351 and #353/#354/#355 overlap with integrated #357/#356 and must not be merged as duplicates.
+- Production verdict unchanged: **NO-GO**. Cloud V2 writer/quiescence gate run `41710857994` stopped; no authorized source-to-image-to-serving-revision/DB writer proof, real Google mobile/desktop session, cross-tenant RBAC/IDOR, taxi/restaurant/merchant/courier full journey, restored backup or live FCM. No main merge, deployment, database, IAM, approvals flag or live Floot mutation performed.
+
+---
+
+
 ## Live GitHub recheck — 2026-11-07 UTC (post-integration review; SOURCE ONLY)
 
 - Fetched protected `main` afresh: `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. A historical status line on main still dates to Nov 2, so the live GitHub refs, not its old checkpoint, govern this update.
