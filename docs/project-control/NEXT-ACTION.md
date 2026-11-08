@@ -1,5 +1,14 @@
 # Next Safe Action — Khedmah
 
+## Immediate production request — live release decision, 2026-11-08 (NO-GO)
+
+- Source-of-truth release inventory: `docs/reports/FLOOT-GITHUB-RELEASE-MIGRATION-INVENTORY-2026-11-08.md`. Evidence includes all **12 still-open PRs**, source/preview/published provenance, current Floot editor **144/144** spec files passing, 25 previously blank legacy routes repaired in editor, and all remaining launch gates. This does **not** authorize publication.
+- Recheck current `main`, PR #352's **new** SHA after the inventory commits, the three exact-head Actions and recorded independent `APPROVED` before merging. At last read #352's previous HEAD `6448cc0167e6ddde6d63c75fdb205c8ec6e354cf` had PR Preview and Node.js SUCCESS, but Test & Verify still running. No shortcut through previous-head checks.
+- Require independent review and authorized cross-role browser acceptance for #357 and security approval and device/outbox/worker acceptance for #356 before any code merge or production feature activation. Review #346 separately for Android/Play.
+- Floot editor-only checkpoint `d62c818f-f977-4e28-8e2f-81dd7f7352eb` holds 25 legacy redirect repairs and 26 route tests; Floot published release remains **2026-11-04**. Do not publish a newer editor from 144 source tests alone. A real authorized admin/customer/professional/driver/merchant browser matrix is required.
+- Cloud Run/Cloud SQL current immutable image, traffic, database writers/quiescence, backup and rollback gates are not attested. The prior read-only `KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT` STOP remains a blocking historical result. No authenticated Google Cloud mutation can be safely performed or asserted here.
+- A reversible publish/canary can be considered **only after** all applicable gates turn green. Smart Admin approval and driver document uploads remain intentionally disabled; billing, fare updates, taxi trip activation, real FCM and external commitments need distinct reviewed authorization.
+
 ## Next Safe Action — Floot native administrative migration (2026-11-08)
 
 1. Floot editor has internal native routes for KORA executive/EXPOSE/KILLCRITIC/AUTOPSY, category tree, taxi pricing and history, pending billing, operations overview/history, plus existing moderation/verification/driver review queues. Source gate: **142/142 Jasmine files PASS; TypeScript clean**. Floot checkpoint `9e3353a7-77e7-43c9-ba71-e4a01c7d582d`; editor version `1794146562587`. This DOES NOT mean published parity or complete functional transfer.
