@@ -59,7 +59,7 @@ test('category icons use semantic official brand tones instead of one global blu
 test('homepage blends lighter brand tones and prioritizes launch services', () => {
   assert.match(home, /href: '\/food'/);
   assert.match(home, /href: '\/mobility\?type=delivery'/);
-  assert.match(home, /href: '\/professionals'/);
+  assert.match(home, /href: '\/professional-profiles\/search'/);
   assert.match(home, /href: '\/store'/);
   assert.match(home, /href="\/taxi"/);
   assert.match(homeStyles, /\.hero\s*\{[^}]*var\(--k-gradient-brand-blue\)/i);
