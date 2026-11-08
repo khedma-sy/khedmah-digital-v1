@@ -80,6 +80,32 @@ class ServingReadOnlyTests(unittest.TestCase):
         self.assertEqual(m.serving_state(back, m.reader.BACKEND)["scaling_class"],
                          "automatic")
 
+    def test_documented_default_automatic_scaling_is_accepted_when_omitted(self):
+        for scaling in ({}, {"minInstanceCount": 1}, {"minInstanceCount": "2"}):
+            with self.subTest(scaling=scaling):
+                response = fixture(m.reader.FRONTEND)
+                response["scaling"] = scaling
+                result = m.serving_state(response, m.reader.FRONTEND)
+                self.assertEqual(result["scaling_class"], "automatic")
+        no_scaling_object = fixture(m.reader.BACKEND)
+        del no_scaling_object["scaling"]
+        self.assertEqual(
+            m.serving_state(no_scaling_object, m.reader.BACKEND)["scaling_class"],
+            "automatic",
+        )
+
+    def test_default_automatic_does_not_accept_a_manual_instance_count(self):
+        for scaling in ({"manualInstanceCount": 1},
+                        {"minInstanceCount": 1, "manualInstanceCount": 0},
+                        {"scalingMode": None},
+                        {"scalingMode": ""},
+                        {"scalingMode": "SCALING_MODE_UNSPECIFIED"}):
+            with self.subTest(scaling=scaling):
+                response = fixture(m.reader.FRONTEND)
+                response["scaling"] = scaling
+                with self.assertRaisesRegex(SystemExit, "SERVICE_SCALING_INVALID"):
+                    m.serving_state(response, m.reader.FRONTEND)
+
     def test_revision_drifts_are_not_falsely_treated_as_release_proof(self):
         back = fixture(m.reader.BACKEND)
         revision = m.reader.BACKEND + "-00009-xyz"
