@@ -2,6 +2,22 @@
 
 Captured: 2026-11-07 UTC. **GitHub source/CI checkpoint, NOT deployment authorization.**
 
+## 2026-11-08 Floot map migration — new editor-only routes and limits
+
+**Scope:** The historical Next.js `/map` in GitHub `main` has a Google Maps JS map, rendered-tile readiness, interactive provider markers, viewport/bounds and map/list exploration. Those advanced features have **not** been reproduced fully in Floot, and no live driver tracking is attested.
+
+**Implemented on the current Floot editor (version `1794147323691`):**
+- Created `/platform/map` with geolocation requested only on user action, read-only nearby search using Khedmah upstream, selected provider map point and optional route to a provider, per-user separate consent before loading the Google Maps iframe. A link to Google Maps always requires a deliberate click. Clear-location removes the page location and cancels/removes location-indexed React Query results.
+- Replaced formerly blank `/map` route with internal redirect to `/platform/map`. Added entry points from `/platform` and `/platform/nearby`.
+- Updated business and professional public profile location previews (including business branches) to use `KhedmahMapPreview`, retaining separate user consent before loading an embedded third-party map.
+- Extended `khedmah_nearby_GET`'s display-only contract to project **only valid pairs** of published business `lat/lng` into `latitude/longitude` for selected nearby providers, after verifying public, active, approved search rows. Partial, malformed and out-of-range coordinates are omitted rather than plotted. No owner identity, hidden phone or private raw payload is returned.
+- Search/nearby responses without publicly available provider coordinates remain list-only, never fabricated map pins. The destination/route is constructed only from validated provider coordinates and user-initiated geolocation.
+- Added `helpers/khedmahMapJourney.spec.tsx` and extended `helpers/khedmahNearby.spec.tsx` for explicit location permission, consent-gated embed, profile navigation, invalid coordinates, legacy route, selected point/route and clear-location. **143/143 enumerated Jasmine spec files PASS** in 8 batches; incremental TypeScript `clean`. Restore checkpoint `a0c12a5b-5702-47e4-bcca-ce9afec773f8`.
+
+**Not attested / release BLOCKERS:** Google Maps JavaScript multi-marker rendering, geographic viewport-based search, automatic address geocoding, real-time taxi/courier tracking, physical iOS/Android location permissions, native app navigation, browser mobile/desktop interactive screenshot acceptance and published-site parity. The editor preview window did not answer a navigation request. Floot public release still dates to Nov 4 and does not yet contain these changes. Cloud production and financial/mutation gates remain NO-GO.
+
+**Next Safe Action:** test new Floot `/platform/map` in an actual desktop and iPhone browser with consent deny/accept, verify published business geocoordinates and selected route, then design approved Google Maps JS key/domain controls and backend viewport contract if full multi-marker parity is required. Complete independent security review and release gates before any public publication.
+
 ## 2026-11-08 Floot admin migration — editor source, not published
 
 Owner requested full consolidation of platform administration in Floot. **Current completed bounded work is a source-level migration milestone, NOT a claim all administrative mutations are operational**:
