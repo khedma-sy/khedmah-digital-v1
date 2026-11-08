@@ -2,6 +2,29 @@
 
 Captured: 2026-11-07 UTC. **GitHub source/CI checkpoint, NOT deployment authorization.**
 
+## 2026-11-08 release acceptance execution — exact observed evidence (source/HTTP/DB only)
+
+**Live protected `main` observed:** `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. **NO-GO for full Production.** Do not promote previous successful PR workflows to runtime or release authorization.
+
+| Gate | 2026-11-08 evidence | Decision |
+| --- | --- | --- |
+| PR #352 documentation | Head `25605353d66b0048ee1fcb84506928b5417f58e4` had 3/3 exact-head Actions SUCCESS, resolved/outdated inline thread; no independent `APPROVED` | HOLD merge for reviewer; writing this receipt changes head and invalidates prior-head status |
+| PR #357 frontend integration | Head `500f7ebfe30b5b8f29d0701f4950af68e1cdf943` had 3/3 exact-head Actions SUCCESS, earlier palette thread resolved; no independent `APPROVED` or real multi-role/mobile acceptance | HOLD |
+| PR #356 restaurant source safety | Head `93a19977913a2e3d3a33b4ea50832f9fa3924642` had 3/3 exact-head Actions SUCCESS; no independent security `APPROVED` | HOLD; no FCM activation |
+| Floot editor static validation | Editor version `1794142750431` passed 139 of 139 enumerated Jasmine spec files in seven explicit 20/20/20/20/20/20/19 batches, 0 failed; TypeScript `clean` | PASS source-only |
+| Floot editor restore point | Checkpoint `f81abdbe-8b6e-4dcc-ad63-f5634ced6d20` contains clarified administrative source-parity wording; `khedmahApprovalExecution.enabled` remains false | SAFE editor-only |
+| Floot published provenance | Public release `1793750504473f0272d7f-c673-4f61-acff-130b2f13d3e9` dated **2026-11-04** (1324 files), distinct from newer editor; no independent GitHub/Floot serving-source attestation | BLOCK |
+| Floot preview HTTP | GET health 200 / `connected=true`, serving upstream version `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a`; public browser config GET 200; anonymous session/admin/reviews GET each **401** | PASS bounded anonymous contract only |
+| Published site HTTP | Nine public HTML route GETs returned 200 (home/account/professionals/professional manage/admin/reviews/orders/restaurants/business); published health 200 but identifies same **Preview V2** upstream; anonymous session/admin/reviews API GET each **401** | PASS route-shell/auth-denial smoke only; **not** authenticated E2E or verified Production backend |
+| Owner-reported Google login | Owner reports successful Google sign-in for one account. No authenticated session traces, role matrix, cross-device persistence or independent admin acceptance captured here | PARTIAL; keep role/security gate open |
+| Floot read-only business DB counts | `business_companies=1`, `business_market_opportunities=31`; `business_client_access=0`, `business_access_requests=0`, `business_tender_alert_preferences=0`, `business_tender_alert_deliveries=0` | Business content exists; customer access and actual alert delivery not demonstrated |
+| iPhone visual acceptance | Preview screenshot request could not capture: no Floot editor/preview browser window open | BLOCK mobile visual acceptance |
+| Google Cloud production controls | No new authenticated Cloud Run/Cloud SQL effective release evidence. Earlier read-only gate `41710857994` STOPPED on writer quiescence | BLOCK Production, schema, scale/traffic, release |
+
+**Interpretation and safety:** Anonymous `200` HTML is only proof that a shell/route was served, not that its interactive page rendered, authorized APIs worked, or business acceptance passed. Anonymous `401` checks validate denial without a session, not permissions of real customers, professionals, drivers, merchants, or admins. No live push, financial commitment, moderation approval, database write, deployment or published-site mutation occurred.
+
+**Next Safe Action:** secure independent formal current-head `APPROVED` reviews for #352/#357/#356; run authenticated cross-role browser acceptance and phone/keyboard review; capture authoritative current Cloud V2 serving image/revision/traffic, database writer/quiescence, rollback and backend target attestations; compare editor with serving source and run a scoped release candidate. Only after all relevant gates are affirmative may any sensitive activation or Production/Floot publication be separately considered. Keep original overlapping PRs unmerged independently.
+
 ## Sources re-checked in this cycle
 
 - Repository: `khedma-sy/khedmah-digital-v1`; last observed protected `main`: `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. Always refresh before making decisions.
