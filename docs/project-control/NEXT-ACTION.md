@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — 2026-11-08 live acceptance follow-up (NO-GO)
+
+1. Read the 2026-11-08 evidence block at the top of `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md`. Refresh `main`, exact PR heads, reviewers and Actions before any action. The observed main was `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` but is not a permanent pointer.
+2. This 2026-11-08 documentation update changes PR #352 head. Await **three green exact-new-head** Actions and get an independent formal `APPROVED` review. A previous-head success or a comment does not approve merge.
+3. For #357 (`500f7ebfe30b5b8f29d0701f4950af68e1cdf943` at check): 3/3 source CI successful, review thread resolved, **no `APPROVED`**. Complete actual Google customer/professional/admin role journeys, account session persistence and mobile/a11y acceptance; independent reviewer must approve before merge. Do not separately merge #349/#350/#351.
+4. For #356 (`93a19977913a2e3d3a33b4ea50832f9fa3924642` at check): 3/3 CI successful, **no independent security `APPROVED`**. Require full server-side authenticated merchant eligibility/atomic writes, device rotation and FCM background/outbox/dedup/retry acceptance before activating any restaurant push. Do not separately merge #353/#354/#355.
+5. Floot editor version `1794142750431` is TypeScript clean and 139/139 spec files passed, with checkpoint `f81abdbe-8b6e-4dcc-ad63-f5634ced6d20`. Published release remains Nov 4 and connects to **Preview V2**, not an attested Production backend. No Floot publish or approval-toggle change. Obtain real desktop/phone browser acceptance when the preview is opened; headless GETs with 200 and anonymous 401 are insufficient.
+6. Floot business DB read-only counts show 31 opportunities but zero `business_client_access`, zero tender alert preferences/deliveries. Require consented customer/merchant acceptance and real delivery evidence before claiming activated business subscription/notification capability.
+7. Before any Google Cloud mutation or site release, obtain authoritative read-only current source/revision/traffic/secret bindings, database migration and writer-quiescence proof (last read-only release gate stopped), backup/rollback evidence, and human release authorization. Keep finance/legal/external submission and production changes blocked until their separate explicit gates pass.
+
 ## Next Safe Action — 2026-11-07 handoff and reviewer gate
 
 1. Read `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md` and fresh `main`/PRs/Actions; all SHA references are historical observations.
