@@ -1,5 +1,18 @@
 # Next Safe Action — Khedmah
 
+## RC0 release-candidate actions — 2026-11-08 current front-door
+
+**Read [Full RC0 audit](../reports/RELEASE-CANDIDATE-RC0-FLOOT-GITHUB-2026-11-08.md) and [CURRENT-STATE](CURRENT-STATE.md) first.** Freeze source/feature set at the verified Floot editor `1794170960833`; **148/148 spec files PASS, TypeScript clean** and legacy classifieds 502→200 verified in the editor. Floot public site is still published 2026-11-04. **Production decision remains NO-GO.**
+
+1. **Independent GitHub review:** recheck main, open PR heads, review threads and exact-HEAD workflows. There are 13 open PRs; #352/#357/#356/#358 were 3/3 green **before the RC0 documentation commits**. #352's head now changed. Obtain independent authorized human `APPROVED` reviews. Do not self-approve, use admin-override or merge all overlapping #349–#351/#353–#355. Leave #344/#348 DRAFT.
+2. **Visual & roles:** request an actual open Floot preview window to capture iPhone and desktop screenshots (Floot's screenshot operation returned `awaiting_window` without it), inspect `/platform/map`, `/platform/categories`, seller/professional onboarding, checkout, courier, admin and Business Desk. Test real customer, professional, merchant, courier, taxi-driver and admin identities, both positive and denied cross-tenant operations. A public `200` HTML shell does not prove a new frontend route rendered.
+3. **Google Preview/Cloud SQL:** capture independent read-only serving revision/image/traffic/IAM and SQL writer-quiescence/schema/backup/rollback evidence. After independent approval and safe main merge of #358 consider its optional GET-only `serving_diagnostic`, **never** as SQL writer evidence; the original writer fence STOPPED.
+4. **Transactions & device testing:** prove customer→merchant→courier fulfillment with live authorized Preview accounts and location consent; wire/verify FCM token enrollment, outbox/worker/retry/dedupe and iOS/Android background/closed-app delivery. Taxi trip activation, driver-document upload, Smart Admin approvals, prices and financial settlement remain fail-closed until compatible atomic backend and reviewer approval.
+5. **Business Desk acceptance:** Floot DB read showed 1 company/85 tenders/31 opportunities but zero client access/alert delivery, invoicing and payment. Validate per-recipient privacy, opt-out, real subscriber entry, human-approved tenders, revenue reconciliation, and published scheduler changes before any change to cron code.
+6. **RC1:** once all above P0 are evidenced, pin frozen Floot source digest + GitHub main/PR sha + exact Cloud Run/SQL revision, repeat full suites and visual/manual E2E on canary, exercise restore/rollback. Obtain separate explicit public release authorization. **No public publish or Cloud/DB mutation from this RC0 checkpoint.**
+
+---
+
 ## Immediate next safe action — 2026-11-08 13-PR review gate
 
 1. **Refresh before any mutation:** resolve protected `main` and open PR HEADs from GitHub; observed `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb` and **13 open PRs** here, but references are dated. Read the top of `ROADMAP-EXECUTION-2026-09-08.md`, this checkpoint, live PR reviews/threads, Actions and `CURRENT-STATE.md`.
