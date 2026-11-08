@@ -44,9 +44,9 @@ class ServingReadOnlyTests(unittest.TestCase):
         output = io.StringIO()
         back = fixture(m.reader.BACKEND, 1)
         front = fixture(m.reader.FRONTEND, 2)
-        with patch.object(m.reader, "access_token", return_value="private-token"), \\
+        with patch.object(m.reader, "access_token", return_value="private-token"), \
              patch.object(m.reader, "read_service",
-                          side_effect=[back, front, back, front]) as reads, \\
+                          side_effect=[back, front, back, front]) as reads, \
              contextlib.redirect_stdout(output):
             m.main(["--inspect"])
         self.assertEqual(
@@ -132,7 +132,7 @@ class ServingReadOnlyTests(unittest.TestCase):
         front = fixture(m.reader.FRONTEND)
         changed = fixture(m.reader.FRONTEND)
         changed["generation"] = changed["observedGeneration"] = "9"
-        with patch.object(m.reader, "access_token", return_value="private"), \\
+        with patch.object(m.reader, "access_token", return_value="private"), \
              patch.object(m.reader, "read_service",
                           side_effect=[back, front, back, changed]):
             with self.assertRaisesRegex(SystemExit, "SERVICE_STATE_DRIFT_DURING_READ"):
