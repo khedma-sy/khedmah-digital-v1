@@ -12,7 +12,7 @@ test('homepage presents the approved five-second discovery hierarchy', async () 
   assert.match(home, /المطاعم/);
   assert.match(home, /التوصيل/);
   assert.match(home, /الخدمات المهنية/);
-  assert.match(home, /href: '\/professionals'/);
+  assert.match(home, /href: '\/professional-profiles\/search'/);
   assert.match(home, /تكسي/);
   assert.match(home, /المتجر/);
   assert.match(home, /التصنيفات الرئيسية/);
@@ -25,7 +25,7 @@ test('homepage keeps four unique primary journeys and secondary taxi navigation'
   const launch = home.match(/const launchServices = \[([\s\S]*?)\];/)?.[1];
   assert.ok(launch, 'homepage launch services must be declared');
   const urls = [...launch.matchAll(/href: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(urls, ['/food', '/mobility?type=delivery', '/professionals', '/store']);
+  assert.deepEqual(urls, ['/food', '/mobility?type=delivery', '/professional-profiles/search', '/store']);
   const secondary = home.match(/<div className=\{styles\.secondaryServices\}>([\s\S]*?)<\/div>/)?.[1];
   assert.ok(secondary, 'secondary navigation must be present');
   assert.match(secondary, /href="\/taxi"/);
@@ -97,4 +97,12 @@ test('service discovery always leads to the real provider profile', async () => 
   assert.doesNotMatch(search, /`\/(?:business|professional)-profiles\/\$\{s\.ownerId\}`/);
   assert.match(search, /عرض مقدم الخدمة/);
   assert.doesNotMatch(search, /[🔍🗺🟢🟡🔴]/u);
+});
+test('professional discovery card opens anonymous searchable directory, not owner profile', async () => {
+  const home = await read('app/page.tsx');
+  const publicSearch = await read('app/professional-profiles/search/page.tsx');
+  assert.match(home, /href: '\/professional-profiles\/search'/);
+  assert.match(publicSearch, /api\.professionals\.search\(/);
+  assert.doesNotMatch(publicSearch, /api\.professionals\.getMine\(/);
+  assert.doesNotMatch(publicSearch, /router\.replace\('\/auth\/login/);
 });
