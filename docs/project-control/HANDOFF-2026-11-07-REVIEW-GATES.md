@@ -2,6 +2,22 @@
 
 Captured: 2026-11-07 UTC. **GitHub source/CI checkpoint, NOT deployment authorization.**
 
+## 2026-11-08 Floot admin migration — editor source, not published
+
+Owner requested full consolidation of platform administration in Floot. **Current completed bounded work is a source-level migration milestone, NOT a claim all administrative mutations are operational**:
+
+- Added Floot-internal pages: `/platform/admin/kora`, `/platform/admin/categories`, `/platform/admin/taxi-pricing`, `/platform/admin/billing`, `/platform/admin/operations`. These replace external handoff links in the **editor** for executive, category, taxi fare, pending billing and operations **read-only** workflows.
+- Introduced a single fail-closed allowlisted authenticated read adapter at `endpoints/integrations/khedmah_admin_modules_GET.ts`, with fixed backend paths, strict selector and zone validation, cookie-only credential forwarding, no upstream redirect, bounded responses, private/no-store headers, Zod response projections, and no mutation verbs. Upstream enforces independent category, pricing, billing and operations roles. Anonymous smoke for all five endpoints yielded 401, with no credentials supplied.
+- Reused the existing Floot review center for professional/business, listings/products, verification, driver documents and taxi-candidate review; approvals still require unimplemented independent execution/transaction/identity gates.
+- Added manually initiated KORA **KILLCRITIC and AUTOPSY** analytic forms and `endpoints/integrations/khedmah_admin_analysis_POST.ts`. Only the two fixed server-side analysis endpoints are reachable; origin and session checks are required; output contract demands `automaticExecutionAllowed:false` and undetermined root cause for autopsy. No automatic execution or external production operations.
+- Added operations history in read-only mode, with projected audit/change/incident fields rather than passing arbitrary server payload properties.
+- Fixed module navigation visibility for operations-only role holders; source tests confirm the five internal links without granting access to review domains.
+- Latest Floot editor version observed `1794146562587`; 142/142 enumerated Jasmine spec **files** passed in 8 batches, TypeScript **clean**. Checkpoint `9e3353a7-77e7-43c9-ba71-e4a01c7d582d` captured the source changes. The earlier account logout fix and admin permissions hardening remain in the editor.
+- **Not yet transferred as working authorized writes**: category create/update, fare revision save, financial settlement/receipt confirmation, advanced operations changes/release/rollback, complete report moderation decisions, full KORA task orchestration. Merely displaying the new Floot page or seeing an HTTP 200 does not prove an authenticated RBAC journey. Server Preview runtime/source parity, category/billing/taxi exact endpoint acceptance, real phone/desktop interaction and full E2E have not been captured.
+- **Published Floot remains the 2026-11-04 release**. No publication or Google Cloud/SQL/financial/production mutation occurred. Keep project release **NO-GO** pending reviewer approvals and gates. Do not copy Next.js files verbatim into Floot or activate unauthorized writers.
+
+**Next Safe Action:** complete explicit administrator-role login journeys on Floot Preview, attest serving preview backend route contracts and current Cloud Run/DB state, then implement and independently test guarded category edits, fare simulation/change, billing receipts and administrative operations, each with transaction safety, review receipts, human approval where necessary and rollback. Only then approve separate publish.
+
 ## 2026-11-08 release acceptance execution — exact observed evidence (source/HTTP/DB only)
 
 **Live protected `main` observed:** `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. **NO-GO for full Production.** Do not promote previous successful PR workflows to runtime or release authorization.
