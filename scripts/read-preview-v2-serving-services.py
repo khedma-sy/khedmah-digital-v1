@@ -68,10 +68,13 @@ def serving_state(raw, service):
         stop("SERVICE_REVISION_INVALID")
     if serving != latest:
         stop("SERVICE_LATEST_REVISION_DRIFT")
-    scaling = raw.get("scaling")
+    # Cloud Run v2 omits service-level scaling and scalingMode when using
+    # the documented default automatic scaling; an explicitly unknown mode
+    # must still fail closed.
+    scaling = raw.get("scaling", {})
     if not isinstance(scaling, dict):
         stop("SERVICE_SCALING_INVALID")
-    mode = scaling.get("scalingMode")
+    mode = scaling.get("scalingMode", "AUTOMATIC")
     if mode == "MANUAL":
         count = numeric(scaling.get("manualInstanceCount"))
         scaling_class = "manual_zero" if count == 0 else "manual_nonzero"
