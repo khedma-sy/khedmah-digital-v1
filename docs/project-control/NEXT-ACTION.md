@@ -1,5 +1,13 @@
 # Next Safe Action — Khedmah
 
+## Next Safe Action — Floot native administrative migration (2026-11-08)
+
+1. Floot editor has internal native routes for KORA executive/EXPOSE/KILLCRITIC/AUTOPSY, category tree, taxi pricing and history, pending billing, operations overview/history, plus existing moderation/verification/driver review queues. Source gate: **142/142 Jasmine files PASS; TypeScript clean**. Floot checkpoint `9e3353a7-77e7-43c9-ba71-e4a01c7d582d`; editor version `1794146562587`. This DOES NOT mean published parity or complete functional transfer.
+2. **Never activate** confirmation of payment, fare changes, service release, trust/document approvals, taxi activation or automatic Smart Admin solely on source tests. Implement guarded write contracts and explicit role/CSRF/atomic compare-and-write/audit/rollback acceptance, independent of the display-only transport. KORA analysis is user-triggered and must return `automaticExecutionAllowed:false`.
+3. Test real server-accepted role permissions (separate operations, category admin, taxi-pricing admin, billing admin, reviewers) on Floot Preview. 401 anonymous denial is positive but insufficient. Need screenshots/browser E2E mobile and desktop when an active Floot editor window is accessible.
+4. Verify Cloud Run Preview image, serving revision/traffic and SQL gates, ensure API routes are present in actual serving backend, compare the Floot editor with published source, and secure protected-main PR reviews #352/#357/#356 before merges/publication.
+5. This note changes PR #352 head; recheck exact-new-head 3 Actions. Release remains NO-GO. No external financial action or Production mutation.
+
 ## Next Safe Action — 2026-11-08 live acceptance follow-up (NO-GO)
 
 1. Read the 2026-11-08 evidence block at the top of `docs/project-control/HANDOFF-2026-11-07-REVIEW-GATES.md`. Refresh `main`, exact PR heads, reviewers and Actions before any action. The observed main was `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` but is not a permanent pointer.
