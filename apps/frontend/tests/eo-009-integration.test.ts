@@ -40,7 +40,7 @@ test('EO-009 navigation is wired from main and admin surfaces', async () => {
   assert.match(home, /href: '\/food'/);
   assert.match(home, /href: '\/mobility\?type=delivery'/);
   assert.match(home, /href="\/taxi"/);
-  assert.match(home, /href="\/store"/);
+  assert.match(home, /href: '\/store'/);
   assert.match(home, /href="\/auth\/register"/);
 
   for (const href of ['/admin/moderation', '/categories', '/admin/operations-product']) assert.match(admin, new RegExp(`href=\\"${href}\\"`));
