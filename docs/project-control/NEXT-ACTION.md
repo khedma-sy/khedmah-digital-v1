@@ -1,5 +1,16 @@
 # Next Safe Action — Khedmah
 
+## RC1 source/test checkpoint — 2026-11-09 (NO-GO)
+
+- **Read first:** `docs/reports/RELEASE-CANDIDATE-RC1-2026-11-09.md` (cross-role P0/P1 owner/acceptance register); this supersedes dated RC0 **counts**, not the original release barriers.
+- Current observed `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; 13 open PRs. #352 docs now changed by RC1 commits: **recheck its NEW exact HEAD and three Actions** plus an independent human `APPROVED` before merge. #357, #356, #358 previously each 3/3 source tests green, #346 5/5, none independently approved. No production/PR/override merge from source checks.
+- Floot editor version **`1794202630811`**, restore checkpoint **`4dfd4771-7055-4fa5-86cd-2ba517a14b2e`**, **150/150 Jasmine spec FILES PASS** in eight batches, TypeScript clean. Newly fixed privacy gate: cached courier location is hidden after customer order delivery, courier reassignment or revision/status drift; foreground read-only customer order refresh added; tender public slug/locale tests reconciled without relaxing validation. Public Floot release remains **2026-11-04**, not editor-parity.
+- Anonymous Preview health/categories/public tender GET 200; private session/orders/admin GET 401. No authenticated role/device acceptance. Cloud SQL writer, exact serving image/traffic, backup/rollback and independent release authorization still unproved. TinyFish connected browser has no recorded Google Cloud sign-in; no authenticated cloud inspection or mutation occurred.
+- **Next SAFE execution:** independent human PR reviews; permitted **read-only** Cloud Run and SQL release diagnostics; real customer/pro/merchant/courier/driver/admin iPhone+desktop acceptance; server-bound WebPush/FCM subscription-outbox-worker architecture and real closed-app device tests; then reversible canary with separate authorization. Leave financial, taxi, driver-doc and Smart Admin execution disabled. No native push resource was provisioned.
+
+---
+
+
 ## RC0 release-candidate actions — 2026-11-08 current front-door
 
 **Read [Full RC0 audit](../reports/RELEASE-CANDIDATE-RC0-FLOOT-GITHUB-2026-11-08.md) and [CURRENT-STATE](CURRENT-STATE.md) first.** Freeze source/feature set at the verified Floot editor `1794170960833`; **148/148 spec files PASS, TypeScript clean** and legacy classifieds 502→200 verified in the editor. Floot public site is still published 2026-11-04. **Production decision remains NO-GO.**
