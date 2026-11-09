@@ -1,5 +1,18 @@
 # Khedmah Digital — Current State
 
+## 2026-11-09 — Live GitHub and owner Cloud Shell reconciliation (NO-GO)
+
+- Protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **14 open PRs** at this read. The `main` copy of CURRENT-STATE.md still begins with a dated November 2 checkpoint; this PR branch carries later evidence, not yet merged source of truth.
+- #352 head `83fd08c53024e2885ac2aadcb6cbbb4c709e9b4b`: Node.js CI, Test & Verify, and PR Preview 3/3 SUCCESS before this checkpoint change. #359 is DRAFT head `bc5f312c612b5fb75b5e4a4489ff7c0ada2c312b`; **its three exact-head workflows were in_progress when observed**. Earlier 3/3 success on `46795fee` does not cover `bc5f312c`.
+- #344 and #348 remain DRAFT; #356/#357/#358 remain open and unmerged. No APPROVED reviews on #352/#356/#357/#358/#359 (review threads on #352/#357/#358 are resolved, which is not an approval). Do not merge based on mergeable=true or a historical green run.
+- Owner read-only PostgreSQL 16.15 inspection: schema classification `prerequisite-invalid`; 035 role target true; 036 quota target false, exact 025 function body true, target 036 body false; 037 asset predecessor true and private target false. No SQL/schema mutation.
+- Owner read-only Cloud SQL: `khedmah-preview-v2-db` RUNNABLE, automated backup and PITR enabled; latest observed successful backup `1794189600000`, end 2026-11-09T03:08:11.633Z; **isolated restore not verified**.
+- Owner Cloud Run v2 GET: backend `MANUAL` with `manualInstanceCount=1`, serving `khedmah-pr-274-backend-00008-tg8` at 100%; frontend has no explicit manual scaling and serves `khedmah-pr-274-frontend-00003-pzm` at 100%. Backend image commit `f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` predates #359. Nine schema jobs' latest three executions were dated October 14–16; no Scheduler jobs listed in europe-west1. This sampled inventory is not all-writer isolation.
+- #359 source audit: optional `expectedQuote` protects matching customer confirmations atomically, but legacy status-only confirmation bypasses quote binding by design. Regression in `bc5f312c` documents this compatibility gap and rejects malformed supplied snapshots. Require reviewed sunset/enforcement policy, Floot UX wiring, actual compatible backend evidence, exact-head green CI and independent review.
+- **Next Safe Action:** verify #359's new exact-head CI completion, request independent review, and preserve separate writer-fence/restore/compatible-image gates. Do not run 036/037, scale Cloud Run, deploy backend, publish Floot, enable push/taxi/Smart Admin, or mutate Production merely to advance the checkpoint. No release authorization.
+
+---
+
 ## RC1 evidence checkpoint — 2026-11-09 (SOURCE-ONLY NO-GO)
 
 Protected `main` last observed `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **13 open PRs**. The exact-head checks for #352/#357/#356/#358 were 3/3 SUCCESS and #346 was 5/5 before this RC1 documentation change; **#352 head will change and must be rechecked**. No independent recorded human `APPROVED`; no merge performed, including overlapping source branches.
