@@ -1,5 +1,16 @@
 # Khedmah Digital — Current State
 
+## 2026-11-09 — Live release reconciliation / customer quote integration (NO-GO)
+
+- **Live refs checked before editing:** protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; 14 open PRs: #344, #346, #348–#359 (excluding #345 and #347). The `main` version of this file and `NEXT-ACTION.md` still lead with 2026-11-02 evidence; this #352 branch is a proposed checkpoint, not merged main.
+- **PR #359:** DRAFT head `2f966d613cec14dc37e463edd08465f2b6869b37`, all three exact-head Actions completed SUCCESS (Node.js CI `42636312383`, PR Preview `42636312301`, Test & Verify `42636312279`). No recorded independent `APPROVED` review. Backend atomic `expectedQuote` comparison and repo UI binding are source-only; **legacy status-only confirmations remain accepted** for compatibility. Do not certify blanket consent or enable enforcement without reviewed cutover.
+- **Independent review blocker:** #352, #356, #357, #358, #359, #346, #344 and #348 currently have zero independent `APPROVED` reviews; #344/#348/#359 remain DRAFT. Exact-head CI is not review, merge or deployment authority.
+- **Floot separate source:** editor version `1794239525642` (read directly) now forwards `expectedQuote={updatedAt,total,currency}` for customer confirmation and contains a regression for an upstream 409 with exactly one PATCH and redacted error; targeted contract and UI spec files 2/2 PASS, TypeScript clean. Restore checkpoints `7fa029c3-34f2-4f19-9be3-2bfae0f46858` and `651a1e02-bf91-4b0d-a4e8-4060e5cc8c08`. **Published release remains 2026-11-04T00:01:39.684Z** (digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`); editor fixes are NOT live.
+- **Owner's read-only billing migration history:** failed Cloud Run executions `62wvx`/`pzh4g` each emitted exact `030_VERIFIED` then exited 44, consistent with a later 033 partial/unverified check. Subsequent `jzkp5` (2026-10-16) completed and emitted exact `030_VERIFIED` + `033_VERIFIED`. This closes the historical sequence, **not a fresh November SQL schema attestation**. 036/037 prerequisites still fail; writer quiescence and isolated backup restore unverified. No SQL/job replay.
+- **Next Safe Action:** obtain independent authorized human reviews; validate current billing 030/033 via bounded READ-ONLY approved inspection, independently audit serving revision/image/traffic and all live writers/restore; then only an explicitly authorized compatible canary with real customer→merchant→courier, mobile Google auth and 409 re-review acceptance. No merge, Floot public publish, Cloud Run scaling/deploy, migrations 036/037, financial settlement, push/taxi/Smart Admin activation or production mutation before all gates.
+
+---
+
 ## 2026-11-09 — Live GitHub and owner Cloud Shell reconciliation (NO-GO)
 
 - Protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **14 open PRs** at this read. The `main` copy of CURRENT-STATE.md still begins with a dated November 2 checkpoint; this PR branch carries later evidence, not yet merged source of truth.
