@@ -40,7 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private enum class Destination(val label: String, val symbol: String) {
-    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Map("الخريطة", "⌖"), Store("المتجر", "▣"), Mobility("تاكسي", "◇"), Account("حسابي", "◎")
+    Home("الرئيسية", "⌂"), Search("البحث", "⌕"), Classifieds("الإعلانات", "▤"), Map("الخريطة", "⌖"), Store("المتجر", "▣"), Mobility("تاكسي", "◇"), Account("حسابي", "◎")
 }
 
 class MainActivity : ComponentActivity() {
@@ -101,6 +101,11 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
             var ownerError by remember { mutableStateOf<String?>(null) }
             var products by remember { mutableStateOf<List<KhedmahProduct>>(emptyList()) }
             var storeError by remember { mutableStateOf<String?>(null) }
+            var classifieds by remember { mutableStateOf<List<KhedmahClassifiedAd>>(emptyList()) }
+            var classifiedsQuery by remember { mutableStateOf("") }
+            var classifiedsError by remember { mutableStateOf<String?>(null) }
+            var classifiedsLoading by remember { mutableStateOf(false) }
+            var classifiedsRequestId by remember { mutableIntStateOf(0) }
             var mobilityProviders by remember { mutableStateOf<List<KhedmahResult>>(emptyList()) }
             var mobilityError by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
@@ -142,6 +147,28 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                 }
             }
 
+            fun loadClassifieds() {
+                destination = Destination.Classifieds
+                val requestId = ++classifiedsRequestId
+                if (!api.configured) {
+                    classifiedsLoading = false
+                    classifiedsError = "عنوان خادم خدمة غير مضبوط في نسخة التطبيق."
+                    return
+                }
+                val requestedQuery = classifiedsQuery
+                classifiedsLoading = true
+                classifiedsError = null
+                scope.launch {
+                    val response = runCatching { api.classifieds(requestedQuery) }
+                    // A later search/tab refresh wins, regardless of network completion order.
+                    if (requestId == classifiedsRequestId) {
+                        response.onSuccess { classifieds = it }
+                            .onFailure { classifiedsError = it.message ?: "تعذر تحميل الإعلانات." }
+                        classifiedsLoading = false
+                    }
+                }
+            }
+
             fun openMobility() {
                 destination = Destination.Mobility
                 mobilityProviders = emptyList(); mobilityError = null
@@ -155,14 +182,19 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                 }
             }, bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(Destination.Home, Destination.Search, Destination.Map, Destination.Account).forEach { item ->
-                        NavigationBarItem(selected = destination == item, onClick = { destination = item }, icon = { Text(item.symbol, fontSize = 18.sp) }, label = { Text(item.label) })
+                    listOf(Destination.Home, Destination.Search, Destination.Classifieds, Destination.Map, Destination.Account).forEach { item ->
+                        NavigationBarItem(selected = destination == item, onClick = { if (item == Destination.Classifieds) loadClassifieds() else destination = item }, icon = { Text(item.symbol, fontSize = 18.sp) }, label = { Text(item.label) })
                     }
                 }
             }) { padding ->
                 when (destination) {
                     Destination.Home -> HomeScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it; runSearch() }, ::runSearch, ::loadStore, ::openMobility)
                     Destination.Search -> SearchScreen(Modifier.padding(padding), query, { query = it }, categories, selectedCategory, { selectedCategory = it }, results, loading, error, ::runSearch)
+                    Destination.Classifieds -> ClassifiedsScreen(
+                        Modifier.padding(padding),
+                        classifieds, classifiedsLoading, classifiedsError, classifiedsQuery,
+                        { classifiedsQuery = it }, ::loadClassifieds
+                    )
                     Destination.Map -> MapScreen(Modifier.padding(padding), locationGranted, onRequestLocation)
                     Destination.Store -> StoreScreen(Modifier.padding(padding), products, loading, storeError, ::loadStore)
                     Destination.Mobility -> MobilityScreen(
@@ -234,9 +266,22 @@ private fun KhedmahApplication(locationGranted: Boolean, currentLocation: LatLng
                             scope.launch { loading = true; runCatching { api.logout() }; runCatching { googleIdentity.signOut() }; user = null; loading = false }
                         },
                         onDeleteAccount = {
-                            val request = Uri.parse("mailto:support@khedmah.uk?subject=%D8%B7%D9%84%D8%A8%20%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D8%AE%D8%AF%D9%85%D8%A9")
-                            runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, request)) }
-                                .onFailure { accountError = "تعذر فتح تطبيق البريد. استخدم support@khedmah.uk لإرسال طلب الحذف." }
+                            // Open public deletion instructions even when no email application is installed.
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(KhedmahLegalUrls.deleteAccount)))
+                            }.onFailure {
+                                accountError = "تعذر فتح صفحة حذف الحساب. يمكنك إرسال طلبك إلى support@khedmah.uk."
+                            }
+                        },
+                        onPrivacy = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(KhedmahLegalUrls.privacy)))
+                            }.onFailure { accountError = "تعذر فتح صفحة سياسة الخصوصية." }
+                        },
+                        onTerms = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(KhedmahLegalUrls.terms)))
+                            }.onFailure { accountError = "تعذر فتح صفحة شروط الاستخدام." }
                         }
                     )
                 }
@@ -268,7 +313,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
     }
 }
 
-@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, businesses: List<KhedmahBusiness>, onManageBusiness: (KhedmahBusiness) -> Unit, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit, onDeleteAccount: () -> Unit) {
+@Composable private fun AccountScreen(modifier: Modifier, user: KhedmahUser?, loading: Boolean, message: String?, error: String?, businesses: List<KhedmahBusiness>, onManageBusiness: (KhedmahBusiness) -> Unit, googleConfigured: Boolean, onLogin: (String, String) -> Unit, onRegister: (String, String, String) -> Unit, onGoogle: () -> Unit, onLogout: () -> Unit, onDeleteAccount: () -> Unit, onPrivacy: () -> Unit, onTerms: () -> Unit) {
     var registering by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
     var displayName by remember { mutableStateOf("") }
@@ -279,6 +324,7 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
         if (user != null) {
             item { Text("مرحباً ${user.displayName}", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Black) }
             item { Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (error != null) item { KhedmahStateCard("تنبيه الحساب", error, KhedmahStateTone.Error) }
             item { Text("أنشطتي", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth()) }
             if (businesses.isEmpty()) item { KhedmahStateCard("لا توجد أنشطة", "أنشئ نشاطك من موقع خدمة، ثم أدر صوره من التطبيق.") }
             items(businesses, key = { it.id }) { business ->
@@ -304,7 +350,17 @@ private fun ThemePreferenceBar(selected: KhedmahThemePreference, onSelect: (Khed
             if (googleConfigured) item { OutlinedButton(onGoogle, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("المتابعة باستخدام Google") } }
             item { OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Facebook — قريبًا") } }
         }
-        item { TextButton(onClick = { showPrivacy = !showPrivacy }, modifier = Modifier.fillMaxWidth()) { Text(if (showPrivacy) "إخفاء سياسة الخصوصية" else "سياسة الخصوصية") } }
+        item { TextButton(onClick = { showPrivacy = !showPrivacy }, modifier = Modifier.fillMaxWidth()) { Text(if (showPrivacy) "إخفاء ملخص الخصوصية" else "ملخص الخصوصية") } }
+        item {
+            OutlinedButton(onClick = onPrivacy, modifier = Modifier.fillMaxWidth()) {
+                Text("قراءة سياسة الخصوصية الكاملة")
+            }
+        }
+        item {
+            TextButton(onClick = onTerms, modifier = Modifier.fillMaxWidth()) {
+                Text("شروط الاستخدام")
+            }
+        }
         if (showPrivacy) item {
             Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

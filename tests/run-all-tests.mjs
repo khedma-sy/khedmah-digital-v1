@@ -23,3 +23,4 @@ if (failures.length > 0) {
 } else {
   process.stdout.write('\nCanonical test run passed: root, backend workspace, frontend workspace, and Preview login recovery Python regression.\n');
 }
+

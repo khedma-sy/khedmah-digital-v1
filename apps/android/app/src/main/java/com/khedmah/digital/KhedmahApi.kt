@@ -23,6 +23,7 @@ data class KhedmahUser(val id: String, val email: String, val displayName: Strin
 data class KhedmahBusiness(val id: String, val name: String, val descriptionAr: String, val cityCode: String, val moderationStatus: String)
 data class KhedmahMedia(val id: String, val publicUrl: String, val assetType: String)
 data class KhedmahProduct(val id: String, val titleAr: String, val businessName: String, val price: Double, val currency: String, val availability: String, val imageUrl: String?)
+data class KhedmahClassifiedAd(val id: String, val titleAr: String, val descriptionAr: String, val cityCode: String?, val kind: String, val imageUrl: String?)
 
 class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.trimEnd('/')) {
     private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
@@ -96,6 +97,13 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
                 imageUrl = item.optString("imageUrl").takeIf { it.isNotBlank() }?.let(::absoluteMediaUrl)
             )
         }
+    }
+
+    // Public listings only: the server applies moderation and publication gates.
+    suspend fun classifieds(query: String = ""): List<KhedmahClassifiedAd> = withContext(Dispatchers.IO) {
+        val text = query.trim()
+        val path = if (text.isEmpty()) "/api/v1/classifieds" else "/api/v1/classifieds?q=${encode(text)}"
+        decodePublicClassifieds(get(path), ::absoluteMediaUrl)
     }
 
     suspend fun login(email: String, password: String): KhedmahUser = withContext(Dispatchers.IO) {
@@ -186,5 +194,39 @@ class KhedmahApi(private val baseUrl: String = BuildConfig.KHEDMAH_API_BASE_URL.
         } finally {
             connection.disconnect()
         }
+    }
+}
+
+/**
+ * Strict public classifieds response decoder. Only the first published page is
+ * shown in this initial mobile screen; pagination is a separate feature.
+ * This does not make any client-side moderation or approval decision.
+ */
+internal fun decodePublicClassifieds(
+    payload: JSONObject,
+    resolveMediaUrl: (String) -> String
+): List<KhedmahClassifiedAd> {
+    val ads = payload.getJSONArray("ads")
+    require(ads.length() <= 100) { "Classifieds response exceeds the mobile safety limit." }
+    val ids = mutableSetOf<String>()
+    return List(ads.length()) { index ->
+        val item = ads.getJSONObject(index)
+        val id = item.getString("id")
+        val title = item.getString("titleAr")
+        require(id.isNotBlank() && title.isNotBlank() && ids.add(id)) {
+            "Classifieds response contains an invalid or duplicate item."
+        }
+        val media = item.optJSONArray("imageUrls")?.opt(0) as? String
+        val safeImage = media?.trim()?.takeIf { value ->
+            value.startsWith("https://") || (value.startsWith("/") && !value.startsWith("//"))
+        }?.let(resolveMediaUrl)
+        KhedmahClassifiedAd(
+            id = id,
+            titleAr = title,
+            descriptionAr = item.optString("descriptionAr", ""),
+            cityCode = item.optString("cityCode").takeIf { it.isNotBlank() },
+            kind = item.optString("kind", "sale"),
+            imageUrl = safeImage
+        )
     }
 }

@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      serving_diagnostic:
+        description: 'Optional read-only active-service inspection; never SQL or writer proof'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -140,6 +145,19 @@ jobs:
           # Uses the existing dedicated reader with run.services.get only.
           # No database, job listing, migrations, IAM change, scaling or deploy.
           python3 scripts/read-preview-v2-known-writer-services.py --inspect
+      - name: Inspect actively serving Preview V2 services (read-only)
+        if: ${{ inputs.serving_diagnostic == true }}
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'
+          CLOUDSDK_CORE_LOG_HTTP: 'false'
+        run: |
+          set -euo pipefail
+          # Separate from the manual-zero writer fence; no database or production proof.
+          # Keep fail-closed role/revision and anti-drift validation in the Python probe.
+          python3 scripts/read-preview-v2-serving-services.py --inspect
+
       - name: Diagnose Cloud Monitoring telemetry only (read-only)
         if: ${{ inputs.monitoring_diagnostic == true }}
         shell: bash

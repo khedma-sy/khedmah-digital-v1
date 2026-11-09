@@ -1,19 +1,88 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Customer confirmation quote guard — 2026-11-09 Damascus
+
+- Draft #359, head `46795fee08bede537982460b72433ccef5b72f63`, adds optional `expectedQuote` to the existing order status action for the owning customer confirming a quoted order. The PostgreSQL update checks reviewed timestamp, total and currency together with ownership and current status. A stale quote returns 409 without committing the transition. Legacy status-only clients remain compatible.
+- Backend build and 20 focused local tests passed. The extended disposable PostgreSQL role journey covers all three stale fields, invalid input, outsider rejection, rollback and a matching confirmation. Its GitHub result still needs verification on the current head.
+- Next safe action is to verify PostgreSQL CI and independent review. Wire Floot to the opt-in guard after the serving Preview image is attested to implement it. The currently deployed older backend would not enforce the new field. Live order mutation and release remain behind the existing gates.
+
+---
+
+## Google sign-in and customer order read verified in Floot Preview — 2026-11-09 Damascus
+
+- Floot editor `1794229492166`, restore checkpoint `5d6e0cb2-809e-4365-ace1-be5f0a20118a`. The Google config request initially received sandbox HTTP 403 while Preview health returned 200. The request in `endpoints/integrations/khedmah_web_config_GET.schema.ts` now uses explicit GET with same-origin credentials and no-store. The connected preview browser then received 200 and showed an enabled Google button. The regression in `helpers/khedmahPreviewAcceptance.spec.tsx` covers the request contract. Four focused spec files passed and TypeScript was clean.
+- The owner completed sign-in in the connected Preview. Browser metadata on 2026-11-09 at 16:07:43–46 Damascus recorded Google session exchange POST 200, session GET 200, and customer orders GET 200 followed by a second session GET 200. Matching server logs corroborated these statuses. This receipt contains only route, method, status and time.
+- Scope of evidence is one signed-in browser and the customer read path. Continue with role isolation on distinct test accounts and authenticated transaction/device acceptance. No order confirmation was issued during this verification. Production release and Cloud Run/SQL gates remain pending.
+
+---
+
+## Cash confirmation reload protection — 2026-11-09 Damascus
+
+- Floot editor version `1794219307682`, restore checkpoint `f20f7f8c-1b92-4c94-b833-531a7bd1a278`. `pages/platform.orders.tsx` reserves a SHA-256 confirmation fingerprint in per-tab session storage before the cash confirmation POST. Only a verified success or explicit not-applied response clears the hold. An unknown result prevents resubmission of the same account/order revision within that tab after reload. Storage failure blocks dispatch. The browser stores a hash and pending marker.
+- In `helpers/khedmahCustomerOrderAccountIsolation.spec.tsx`, the remount regression reproduced a second mocked POST before the repair. After the repair, one POST was observed. Seven focused order/commerce/tracking spec files passed and TypeScript was clean.
+- Scope is editor/browser recovery. Server-side idempotency and atomic quote binding across tabs/devices remain Preview acceptance work. Protected main remains `cc8d4980`, with 13 open PRs at the latest inventory. Prior #352 head `a0ac6c6f` had one completed success and two running workflows when checked. Recheck this new documentation head before merge. Independent review, authenticated role/device tests and Cloud Run/SQL evidence remain release gates.
+
+---
+
+## Order confirmation recovery and release review — 2026-11-09 Damascus
+
+- Live baseline was protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` and 13 open PRs. The observed heads #352 `bee9f2c8`, #356 `93a19977`, #357 `60b01036`, and #358 `dd4e1492` each passed the three source workflows. No independent APPROVED review appeared on any of these four. This handoff edit changes #352's head, so recheck its new runs before merge.
+- Floot editor repair at `1794218938321`, restore checkpoint `702c5b52-e05f-430b-94c0-1e709a05bb0a`. In `pages/platform.orders.tsx`, switching accounts used to clear an unknown-result confirmation hold and expose another confirmation when the first account returned. Hold keys now include the verified account, order ID, order version and action. The hold survives switching within the mounted page. Server-side idempotency and persistence across full reloads are separate acceptance work. The regression in `helpers/khedmahCustomerOrderAccountIsolation.spec.tsx` failed before the fix and passed afterward. Seven targeted spec files passed and TypeScript was clean. The prior 152-file full run applies to editor `1794204241298`.
+- The public release check still reported the 4 November Floot release. Latest observed direct Cloud Run read-only attempt `41710857994` attempt 2 confirmed Preview service scope and read both known services twice. Backend scaling was manual and nonzero, frontend scaling metadata was unknown to that diagnostic. It stopped at `KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT`. That attempt did not check SQL writers. #358 is awaiting independent review before it can provide the separate active-service diagnostic.
+- Next safe step is independent review of the four scoped PRs and authorized account/device acceptance on Preview. Require a serving image and SQL receipt, plus release authorization, before publication. No public publication, merge, cloud or database change in this pass.
+
+---
+
+## Verified continuation — 2026-11-08: reviewer and Cloud diagnostic gate (source only)
+
+**This is an observed source checkpoint, not deployment authorization.** At this live read protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **13 PRs are OPEN**. PR #352 (documentation, current pre-edit HEAD `12f7e38890771c9e00e22935a22ed09171fb27e4`), PR #357 (frontend `500f7ebfe30b5b8f29d0701f4950af68e1cdf943`), PR #356 (restaurant `93a19977913a2e3d3a33b4ea50832f9fa3924642`), and PR #358 (new read-only Preview serving diagnostic `dd4e1492472309053f9717923ff6d170af3a4ae9`) each passed three exact-head Actions. #358's Cloud Run automatic-scaling default P2 review finding was corrected, tested and resolved. **None has an independent recorded `APPROVED` review.** The sole `.github/CODEOWNERS` identity is the PR author `@khedma-sy`; obtain an independently authorized human reviewer rather than self-review or falsely treating Codex COMMENTED as approval.
+
+Floot editor version `1794149056995`: 145 enumerated helper spec files passed in the last full run (earlier verified), and TypeScript was rechecked `clean` in this cycle. Direct editor source includes native administrative consoles, consent-gated map, repaired legacy navigation, and category-page add-business CTA. This editor is **not** the public Floot release: the latter is dated 2026-11-04. Source tests do not attest role/device/runtime acceptance. Smart Admin executor, driver upload, taxi trip activation, restaurant background FCM pipeline and sensitive financial/price writes remain gated.
+
+Existing Cloud Preview V2 manual-zero / writer-quiescence diagnostic previously STOPPED; **PR #358 implements only a new opt-in diagnostic of actively serving Cloud Run services**. It is not on `main`, has not been dispatched, and must not replace the separate stopped-writer/DB/schema gate. No current image/traffic/SQL writer/backup/rollback release proof. **NO-GO for Production**. No merge, Cloud/DB mutation, public Floot publication or finance/approval activation was performed in this continuation.
+
+**Next Safe Action:** independent formal review and exact-new-head CI for #352, then independently review #357 and #356 for their scoped source changes (not feature activation) and #358 for a guarded read-only main workflow. Separately capture real multi-role Google/mobile/server acceptance, FCM/outbox/device delivery and canonical Cloud Run/Cloud SQL provenance/backup/rollback before any canary publication. Follow the detailed [CURRENT-STATE](docs/project-control/CURRENT-STATE.md) and [NEXT-ACTION](docs/project-control/NEXT-ACTION.md); historical checkpoints below are dated snapshots and may not reflect current heads.
+
+---
+
+## Current live integration handoff — 2026-11-07 UTC (checkpoint before deployment)
+
+This is a source/recovery checkpoint, NOT permission to release. Re-fetch GitHub main/PRs/Actions before continuing. Current observation: `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`. Newly combined PR #356 (restaurant push safety #353/#354/#355) and PR #357 (account/home/professional UX #349/#350/#351) both passed all three exact-head source CI workflows and are ready for independent review, not merged or production activated. Formal APPROVED and authenticated runtime acceptance are missing. PR #352 preserves audit records and a snapshot of the 19 recently modified Floot editor files in `docs/project-control/FLOOT-EDITOR-CODE-SNAPSHOT-2026-11-07.json` (public deployment URLs redacted; original source in Floot). The editor version was `1794001333939` with 139/139 Floot specs passing and TypeScript clean; public Floot remains the Nov 4 release. Google Preview read-only writer-quiescence gate `41710857994` failed; backend/DB parity, real Google login, human-gated approvals, driver documents, background restaurant push and taxi trips remain blocked.
+
+**Continuation verification — 2026-11-07 (Damascus):** PR #357 palette repair `56772c0b5cb9b3435a5ede910ba71c159a3dbd59` is included in head `e31018d49b06f09b2410896ca7a8f6da0897d919`. Its exact-head Node.js CI `42305354902`, Test & Verify `42305354896`, and PR Preview `42305354988` are completed/success. The purple-card review thread was resolved after source readback; this is not a formal APPROVED review or runtime acceptance.
+
+PR #356 at `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e` received a bounded source review of all eight changed files and local execution of its four changed restaurant-push test files: **18 tests passed, 0 failed** on Node 24.22.1, using native TypeScript stripping plus a scratch-only extension resolver (no source edits or dependency installs). Both malformed-token and stale-token-rotation regression groups survived integration. Production-source call-site search found the new merchant eligibility and lifecycle helpers only at their definitions, not wired into a controller/worker. Therefore this validates isolated policy contracts, NOT real device delivery, database atomicity or merchant enrollment. No source blocker was found within this narrow review; independent formal review remains outstanding.
+
+**Next concrete operational evidence:** establish the authorized Cloud service/revision/image/database lineage and authenticated Preview role/device acceptance. The current session has no gcloud executable or connected workflow-dispatch/Cloud administration tool; do not substitute public health or unit tests for that evidence. Floot inventory remains version `1794001333939`; its previously successful tests need not be rerun without changes. Preserve approval/upload default-off gates and the no-production-mutation boundary. Reconcile this handoff with the bounded roadmap receipt carried by #357 during integration.
 
 
-## Google login recovery — live owner evidence and image-reference repair — 2026-11-05 UTC
+### Bounded integration repair receipts (preserved from #356 / #357)
 
-Owner receipt at `2026-11-05T12:25:01.547562+00:00` reached `PREVIEW_V2_RUNTIME_LOGIN_READONLY_VERIFIED`: runtime login true, EXPECTED_GRANTS_PRESENT, exact ACLs, 62 allowed and 2 denied read probes. No application rows read/printed, schema/grant/cloud changes. The former missing runtime-credential receipt is now closed; this is not full schema, DML or Cloud Run network acceptance.
+## PR #356 dispatch validation repair — 2026-11-07
 
-Subsequent owner Cloud Run reads: generation=observedGeneration=9, MANUAL/0, latest created/ready and sole untagged 100% target `khedmah-pr-274-backend-00008-tg8`. Service template references DATABASE_URL version 1 and the expected runtime identity/Cloud SQL instance. The revision independently has that identity and SQL attachment, and exact immutable digest `sha256:be90387535778e81016126e8ca6d626e8f170c20d1bd8c5add8dbb98beecba17`. Historical Ready/ContainerHealthy conditions do not prove present availability; TrafficShutDown is true. No restoration occurred in these reads.
+Live baseline: main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration head before this repair `5132d83c3a78f32d47fb69a2ff24f1ddc776ef3e`. This commit repairs `apps/backend/src/orders/restaurant-push-dispatch.ts`: trimming a malformed device token could bypass strict sender validation. Dispatch now uses the shared validator without normalization. A composed dispatch-to-sender regression failed before the repair and passed after it.
 
-**Concrete source defect repaired:** service template carries the exact historical `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` tag, while the revision resolves it to a digest. The validator incorrectly required both strings to equal a digest. Implementation `8efdf4f22c7e4b86cab6c8fdebf179f0939175fa` accepts only that known service tag or the exact canonical digest reference, and independently requires the fixed revision's canonical repository plus digest. It does not resolve or deploy the mutable tag. Tests `9fec43dc896b0bd06264eb2012826a95bb9f5842`: 17 local Python cases pass; regression rejects arbitrary tags, foreign repositories with the same digest, and unresolved revision tags. Files: scripts/recover-preview-v2-login.py and tests/test_preview_v2_login_recovery.py. PR #344 remains validation-only; latest-head CI must be checked separately.
+Validation: all five restaurant-push test files, 22 tests passed, zero failed; Node 24.22.1 native TypeScript stripping with a scratch-only extension resolver; git diff --check clean. Fake messaging only, no Firebase contact. Valid food mapping and non-food filtering remain covered.
 
-**Next concrete action:** finish current-head validation/review, then prepare the reviewed recovery operation and reconcile exclusion from 036/037 transitions, current schema compatibility and uncertain-operation handling. Existing successful owner receipts are evidence, not prompts to restart IAM/Monitoring discovery. Do not infer that historical 025/incomplete037 evidence proves today's full schema. A successful validateOnly call cannot authorize or perform restoration. No apply operator, migration, candidate deployment, merge, Floot publication or Google login success is claimed. Preserve the existing owner authorization; the remaining issue is technical gate evidence, not repeated generic consent.
+Next: fresh exact-head CI and independent review before normal merge. Earlier green checks do not cover this repair. Preserve checkpoint PR #352's newer canonical handoff when reconciling roadmap edits. Live enrollment, storage, worker/device acceptance and Cloud/database parity remain outstanding. No main merge, live push, Floot publish or cloud/database mutation.
+
+## PR #357 review repair — approved professional-card palette — 2026-11-07
+
+- Live baseline verified: protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; integration PR #357 was open at `25a17976445e2bd5c1f6e3014248b95de9474806`, with an unresolved review finding on `apps/frontend/app/home.module.css`.
+- Repair commit: `56772c0b5cb9b3435a5ede910ba71c159a3dbd59`. The professional discovery card now uses the existing primary/blue gradient, tint and text tokens, including their dark-theme definitions, instead of the unapproved purple accent. No layout, authorization or release gate changed.
+- Local validation on Node 24.22.1: `node --test apps/frontend/tests/live-experience.test.ts apps/frontend/tests/sixth-audit-journeys.test.ts` — 15 passed, 0 failed; `git diff --check` passed. These source checks do not attest browser/mobile runtime or Floot parity.
+- Next safe action: require fresh exact-head Actions and review of this repair before normal merge. PR #356 still has no submitted formal review; do not interpret its source CI as live push readiness.
+- Concurrent checkpoint PR #352 has newer canonical continuation documents. Reconcile this bounded repair receipt with those documents when integrating; retain its newer handoff and avoid replacing it with this branch's historical sections below.
+- No main merge, Floot publication, cloud/database mutation, taxi activation or approval-gate activation was performed.
+
+**Provenance:** these are historical source-only verification receipts copied from the integrated code branches, not an authorization to deploy or a representation of current runtime. Their original branch sources remain unchanged until CI validates the source-only split.
+
+**Canonical detailed handoff:** read the latest top entries of `docs/project-control/CURRENT-STATE.md` and `docs/project-control/NEXT-ACTION.md` on the same PR branch. The other dated checkpoints below are historical. No `main` merge, Cloud/Floot publish, DB/Production mutation or special-permission activation occurred.
+
+---
 
 
-## Historical checkpoint (superseded; retained for audit)
+
 
 ## Current professional-service checkpoint — PR #333 map-boundary parsing follow-up; exact-head checks required — 2026-11-01 UTC
 
