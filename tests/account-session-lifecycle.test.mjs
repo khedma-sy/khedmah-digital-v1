@@ -5,7 +5,7 @@ const user={id:'owner',email:'owner@example.test',profile:{displayName:'مالك
 function fixture(kind='navigation'){
   let pathname='/';const sessions=[],logouts=[],navigations=[];
   const call=list=>{const d=deferred();list.push(d);return d.promise;};
-  const api={auth:{session:()=>call(sessions),logout:()=>call(logouts)}};
+  const api={auth:{session:()=>call(sessions),logout:()=>call(logouts)},businesses:{listMine:async()=>({businesses:[]})}};
   const router={push:p=>navigations.push(p),replace:p=>navigations.push(p)};
   const source=kind==='navigation'?readSource('apps/frontend/app/auth-navigation.tsx')+'\nexport default AuthNavigation;':readSource('apps/frontend/app/users/me/page.tsx');
   const page=clientPage(source,kind==='navigation'?{

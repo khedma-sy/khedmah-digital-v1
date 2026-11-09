@@ -48,3 +48,11 @@ test('Preview V2 read-only workflow diagnostics use pinned GET-only Monitoring i
   assert.match(metricStep, /CLOUDSDK_CORE_PROJECT: khedmah-preview-v2-20261012/);
   assert.match(metricStep, /writer|quiescence|proof/);
 });
+
+test('Serving diagnostic is explicit, read-only and cannot replace writer quiescence', () => {
+  assert.match(workflow, /workflow_dispatch:[\s\S]*?serving_diagnostic:[\s\S]*?default: false/);
+  assert.match(workflow, /if:.*inputs\.serving_diagnostic == true/);
+  assert.match(workflow, /python3 scripts\/read-preview-v2-serving-services\.py --inspect/);
+  assert.match(workflow, /Separate from the manual-zero writer fence/);
+  assert.doesNotMatch(workflow, /python3 scripts\/read-preview-v2-serving-services\.py --deploy/);
+});
