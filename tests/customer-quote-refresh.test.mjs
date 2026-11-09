@@ -57,8 +57,12 @@ test('each stale order remains blocked until its own usable quote or removal', (
 test('a quoted order needs a valid amount, currency and canonical timestamp', () => {
   const valid = { id: 'one', status: 'quoted', total: 0, updatedAt: '2026-11-10T01:00:00.000Z', currency: 'SYP' };
   assert.equal(isReviewableQuote(valid), true);
+  for (const total of [0.1 + 0.2, 10_000_000_000.03, 999_999_999_999.99]) {
+    assert.equal(isReviewableQuote({ ...valid, total }), true, `valid total ${total}`);
+  }
   for (const patch of [
-    { total: -1 }, { total: NaN }, { total: undefined }, { currency: 'BAD' },
+    { total: -1 }, { total: NaN }, { total: undefined }, { total: 1.234 },
+    { total: 1_000_000_000_000 }, { currency: 'BAD' },
     { updatedAt: '2026-11-10' }, { updatedAt: '2026-02-30T01:00:00.000Z' },
     { status: 'cancelled' },
   ]) assert.equal(isReviewableQuote({ ...valid, ...patch }), false);

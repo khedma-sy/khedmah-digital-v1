@@ -8,10 +8,26 @@ type QuoteSnapshot = {
   currency?: string;
 };
 
+// Keep the confirmation boundary aligned with the NUMERIC(14,2) server
+// validator, including its tolerance for normal floating-point arithmetic.
+function isSupportedCashTotal(value: number): boolean {
+  if (!Number.isFinite(value) || value < 0) return false;
+  const decimal = /^(0|[1-9]\d{0,11})(?:\.(\d{1,2}))?$/.exec(String(value).trim());
+  const maximumCents = 99_999_999_999_999n;
+  if (decimal) {
+    const cents = BigInt(decimal[1]) * 100n + BigInt((decimal[2] ?? "").padEnd(2, "0"));
+    return cents <= maximumCents;
+  }
+  const scaled = value * 100;
+  const cents = Math.round(scaled);
+  return Number.isSafeInteger(cents) && Math.abs(scaled - cents) <= 1e-7 &&
+    cents >= 0 && BigInt(cents) <= maximumCents;
+}
+
 /** Match the date/currency boundaries expected by the confirmation API. */
 export function isReviewableQuote(order: QuoteSnapshot): boolean {
   if (order.status !== "quoted" || typeof order.total !== "number" ||
-      !Number.isFinite(order.total) || order.total < 0 ||
+      !isSupportedCashTotal(order.total) ||
       typeof order.updatedAt !== "string" ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(order.updatedAt) ||
       (order.currency !== "SYP" && order.currency !== "USD")) return false;
