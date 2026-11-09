@@ -41,8 +41,7 @@ test('delivery decisions still preserve the canonical fulfillment transitions', 
 
 test('customer confirmation submits the exact visible quote and refreshes on 409 without legacy fallback', () => {
   assert.match(customer, /status === "merchant_confirmed"/);
-  assert.match(customer, /order\.status !== "quoted"/);
-  assert.match(customer, /typeof order\.total !== "number"/);
+  assert.match(customer, /!isReviewableQuote\(order\)/);
   assert.match(customer, /expectedQuote:\s*\{/);
   assert.match(customer, /updatedAt: order\.updatedAt, total: order\.total, currency: order\.currency/);
   assert.match(customer, /api\.orders\.transition\(order\.id, status, data\)/);

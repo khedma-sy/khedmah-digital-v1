@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pendingQuoteIds, reloadQuoteForReview } from '../apps/frontend/app/orders/quote-refresh.ts';
+import { isReviewableQuote, pendingQuoteIds, reloadQuoteForReview } from '../apps/frontend/app/orders/quote-refresh.ts';
 
 test('a stale quote is blocked before a successful refresh and requires review', async () => {
   const events = [];
@@ -52,6 +52,16 @@ test('each stale order remains blocked until its own usable quote or removal', (
     { id: 'changed-status', status: 'cancelled' },
   ]);
   assert.deepEqual([...pending], ['missing-total', 'bad-currency']);
+});
+
+test('a quoted order needs a valid amount, currency and canonical timestamp', () => {
+  const valid = { id: 'one', status: 'quoted', total: 0, updatedAt: '2026-11-10T01:00:00.000Z', currency: 'SYP' };
+  assert.equal(isReviewableQuote(valid), true);
+  for (const patch of [
+    { total: -1 }, { total: NaN }, { total: undefined }, { currency: 'BAD' },
+    { updatedAt: '2026-11-10' }, { updatedAt: '2026-02-30T01:00:00.000Z' },
+    { status: 'cancelled' },
+  ]) assert.equal(isReviewableQuote({ ...valid, ...patch }), false);
 });
 
 test('an incomplete refreshed quote remains blocked with an explicit message', async () => {

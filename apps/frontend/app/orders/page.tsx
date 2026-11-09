@@ -16,6 +16,7 @@ import { OrderTracking } from "./order-tracking";
 import { OrderTimeline } from "./order-timeline";
 import { showOrderNotification } from "./order-alerts";
 import {
+  isReviewableQuote,
   pendingQuoteIds,
   quoteRefreshMessage,
   reloadQuoteForReview,
@@ -133,8 +134,7 @@ export default function OrdersPage() {
       // to this customer; never fall back to an unprotected status-only request.
       let data: Record<string, unknown> = {};
       if (status === "merchant_confirmed") {
-        if (order.status !== "quoted" || typeof order.total !== "number" ||
-            !Number.isFinite(order.total) || !Number.isFinite(Date.parse(order.updatedAt))) {
+        if (!isReviewableQuote(order)) {
           await refreshForReview();
           return;
         }

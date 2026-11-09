@@ -8,15 +8,24 @@ type QuoteSnapshot = {
   currency?: string;
 };
 
+/** Match the date/currency boundaries expected by the confirmation API. */
+export function isReviewableQuote(order: QuoteSnapshot): boolean {
+  if (order.status !== "quoted" || typeof order.total !== "number" ||
+      !Number.isFinite(order.total) || order.total < 0 ||
+      typeof order.updatedAt !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(order.updatedAt) ||
+      (order.currency !== "SYP" && order.currency !== "USD")) return false;
+  const timestamp = Date.parse(order.updatedAt);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === order.updatedAt;
+}
+
 /** Only unblock a visible quoted order after its own usable quote is refreshed. */
 export function pendingQuoteIds(blocked: ReadonlySet<string>, orders: readonly QuoteSnapshot[]): Set<string> {
   const byId = new Map(orders.map((order) => [order.id, order]));
   return new Set([...blocked].filter((id) => {
     const order = byId.get(id);
     if (!order || order.status !== "quoted") return false;
-    return typeof order.total !== "number" || !Number.isFinite(order.total) ||
-      typeof order.updatedAt !== "string" || !Number.isFinite(Date.parse(order.updatedAt)) ||
-      (order.currency !== "SYP" && order.currency !== "USD");
+    return !isReviewableQuote(order);
   }));
 }
 
