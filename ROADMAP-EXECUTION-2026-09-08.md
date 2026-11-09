@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Cash confirmation reload protection — 2026-11-09 Damascus
+
+- Floot editor version `1794219307682`, restore checkpoint `f20f7f8c-1b92-4c94-b833-531a7bd1a278`. `pages/platform.orders.tsx` reserves a SHA-256 confirmation fingerprint in per-tab session storage before the cash confirmation POST. Only a verified success or explicit not-applied response clears the hold. An unknown result prevents resubmission of the same account/order revision within that tab after reload. Storage failure blocks dispatch. The browser stores a hash and pending marker.
+- In `helpers/khedmahCustomerOrderAccountIsolation.spec.tsx`, the remount regression reproduced a second mocked POST before the repair. After the repair, one POST was observed. Seven focused order/commerce/tracking spec files passed and TypeScript was clean.
+- Scope is editor/browser recovery. Server-side idempotency and atomic quote binding across tabs/devices remain Preview acceptance work. Protected main remains `cc8d4980`, with 13 open PRs at the latest inventory. Prior #352 head `a0ac6c6f` had one completed success and two running workflows when checked. Recheck this new documentation head before merge. Independent review, authenticated role/device tests and Cloud Run/SQL evidence remain release gates.
+
+---
+
 ## Order confirmation recovery and release review — 2026-11-09 Damascus
 
 - Live baseline was protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` and 13 open PRs. The observed heads #352 `bee9f2c8`, #356 `93a19977`, #357 `60b01036`, and #358 `dd4e1492` each passed the three source workflows. No independent APPROVED review appeared on any of these four. This handoff edit changes #352's head, so recheck its new runs before merge.
