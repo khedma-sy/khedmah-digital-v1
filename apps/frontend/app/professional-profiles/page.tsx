@@ -100,7 +100,7 @@ export default function ProfessionalProfilesPage() {
         <p className={styles.description}>{profile.bioAr || 'لم تضف نبذة مهنية بعد. أكمل الملف لتوضيح خبرتك للعملاء.'}</p>
         <div className={styles.profileMeta}><span><PlatformIcon name="pin" size={15}/>{cityLabel(profile.cityCode, cities)}</span><span>{profile.countryCode}</span></div>
         {profile.skills.length > 0 && <div className={styles.skillList} aria-label="المهارات">{profile.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-        <div className={styles.actions}>{profile.contactEligibility?.eligible && <ActionLink href={`/professional-profiles/${profile.id}`}>عرض الملف العام</ActionLink>}<ActionLink href="/professional-profiles/new" variant="secondary">تعديل</ActionLink>{canSubmit && <ActionButton type="button" variant="secondary" disabled={isSubmitting} onClick={() => void submitForReview()}>{isSubmitting ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}</ActionButton>}</div>
+        <div className={styles.actions}>{profile.contactEligibility?.eligible && <ActionLink href={`/professional-profiles/${profile.id}`}>عرض الملف العام</ActionLink>}{canSubmit ? <ActionButton type="button" disabled={isSubmitting} onClick={() => void submitForReview()}>{isSubmitting ? 'جارٍ الإرسال…' : 'إرسال الملف للمراجعة'}</ActionButton> : null}<ActionLink href="/professional-profiles/new" variant="secondary">إكمال البيانات أو تعديلها</ActionLink></div>
       </Surface>
 
       <Surface as="aside" className={styles.guide}>
@@ -109,6 +109,6 @@ export default function ProfessionalProfilesPage() {
         <ol><li>عنوان مهني واضح</li><li>نبذة مختصرة عن الخبرة</li><li>مهارات وخدمات دقيقة</li><li>مدينة وحالة توفر محدثة</li></ol>
         <ActionLink href="/professional-profiles/new" variant="secondary">مراجعة البيانات</ActionLink>
       </Surface>
-    </div> : <EmptyState icon={<PlatformIcon name="user" size={32}/>} title="أنشئ ملفك المهني" description="أضف تخصصك وخبرتك ومهاراتك لتظهر أمام العملاء الباحثين عن مهنيين في منطقتهم." actions={<ActionLink href="/professional-profiles/new">إنشاء ملف مهني</ActionLink>} />}
+    </div> : <EmptyState icon={<PlatformIcon name="user" size={32}/>} title="أنشئ ملفك المهني" description="ابدأ بعنوان مهنتك ومدينتك، ثم أكمل بياناتك وأرسل ملفك للمراجعة. لا يظهر الملف للعامة قبل الاعتماد." actions={<ActionLink href="/professional-profiles/new">إنشاء ملف مهني</ActionLink>} />}
   </PageShell>;
 }
