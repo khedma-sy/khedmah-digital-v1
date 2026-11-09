@@ -119,3 +119,58 @@ test('overlapping account roles select the authority that owns the requested tra
   await courierService.transition('cookie','order-1',{status:'courier_accepted'});
   assert.equal(courierOptions?.authority,'courier');
 });
+
+test('customer quote confirmation forwards the exact reviewed snapshot and reports a stale-quote conflict', async () => {
+  const quoted: FulfillmentOrder = {
+    ...delivered,
+    status: 'quoted',
+    paymentStatus: 'pending',
+    updatedAt: '2026-11-09T13:00:00.000Z',
+  };
+  const expectedQuote = {
+    updatedAt: quoted.updatedAt, total: quoted.total!, currency: quoted.currency,
+  };
+  let transitionOptions: Record<string, unknown> | undefined;
+  const repo = {
+    findById: async () => quoted,
+    transition: async (_order: FulfillmentOrder, _status: string, _actor: string, options: Record<string, unknown>) => {
+      transitionOptions = options;
+      return { ...quoted, status: 'merchant_confirmed' };
+    },
+  };
+  const instance = new OrderService(repo as never, {} as never, {
+    getCurrentUser: async () => ({ id: 'customer-1' }),
+  } as never);
+  const result = await instance.transition('cookie', 'order-1', {
+    status: 'merchant_confirmed', expectedQuote,
+  });
+  assert.equal(result.status, 'merchant_confirmed');
+  assert.deepEqual(transitionOptions, { authority: 'customer', expectedQuote });
+
+  const stale = new OrderService({
+    findById: async () => quoted,
+    transition: async () => undefined,
+  } as never, {} as never, { getCurrentUser: async () => ({ id: 'customer-1' }) } as never);
+  await assert.rejects(
+    () => stale.transition('cookie', 'order-1', {
+      status: 'merchant_confirmed', expectedQuote,
+    }),
+    (error: unknown) => {
+      assert.equal((error as { status?: number }).status, 409);
+      return true;
+    },
+  );
+
+  let unauthorizedUpdates = 0;
+  const outsider = new OrderService({
+    findById: async () => quoted,
+    transition: async () => { unauthorizedUpdates += 1; return quoted; },
+  } as never, {} as never, { getCurrentUser: async () => ({ id: 'outsider' }) } as never);
+  await assert.rejects(
+    () => outsider.transition('cookie', 'order-1', {
+      status: 'merchant_confirmed', expectedQuote,
+    }),
+    /Access denied/,
+  );
+  assert.equal(unauthorizedUpdates, 0);
+});
