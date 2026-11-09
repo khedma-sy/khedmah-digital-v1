@@ -27,3 +27,19 @@ test('incomplete, stale, risky, self-reviewed, or unapproved content fails close
     assert.equal(assessSmartAdminEligibility({ ...valid, ...patch }).eligible, false);
   }
 });
+
+test('unknown runtime approval domain cannot inherit routine content eligibility', () => {
+  // Simulates malformed or future API input bypassing static TypeScript typing.
+  const forged = { ...valid, domain: 'unrecognized_content' } as unknown as SmartAdminEligibilityInput;
+  assert.deepEqual(assessSmartAdminEligibility(forged), {
+    eligible: false, reason: 'unknown_domain'
+  });
+});
+
+test('all four known routine content domains still qualify with complete evidence', () => {
+  for (const domain of ['professional_content', 'business_content', 'classified_content', 'product_content'] as const) {
+    assert.deepEqual(assessSmartAdminEligibility({ ...valid, domain }), {
+      eligible: true, policyVersion: 'reviewed-v1'
+    });
+  }
+});
