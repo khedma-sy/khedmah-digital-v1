@@ -102,10 +102,31 @@ export default function OrdersPage() {
     setError("");
     setNotice("");
     try {
-      await api.orders.transition(order.id, status);
+      // Bind the confirmation to the exact amount and order revision displayed
+      // to this customer; never fall back to an unprotected status-only request.
+      let data: Record<string, unknown> = {};
+      if (status === "merchant_confirmed") {
+        if (order.status !== "quoted" || typeof order.total !== "number" ||
+            !Number.isFinite(order.total) || !Number.isFinite(Date.parse(order.updatedAt))) {
+          setError("تعذر التحقق من الإجمالي. حدّث الطلب وراجعه قبل الموافقة.");
+          await load();
+          return;
+        }
+        data = { expectedQuote: {
+          updatedAt: order.updatedAt, total: order.total, currency: order.currency,
+        } };
+      }
+      await api.orders.transition(order.id, status, data);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر تحديث الطلب.");
+      if (status === "merchant_confirmed" &&
+          cause instanceof Error &&
+          (cause as Error & { statusCode?: number }).statusCode === 409) {
+        await load();
+        setError("تغيّر إجمالي الطلب أو حالته. راجع العرض المحدّث قبل الموافقة مجددًا.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "تعذر تحديث الطلب.");
+      }
     } finally {
       actionInFlight.current = false;
       setActionLoadingId("");
