@@ -42,13 +42,22 @@ test('provider visibility SQL executes read-only on isolated PostgreSQL 16 fixtu
     const removed = docker(['rm', '-f', container]);
     assert.equal(removed.status, 0, 'Fixture cleanup failed: ' + diagnostic(removed));
   });
+  // PostgreSQL's official entrypoint briefly starts a bootstrap server,
+  // then shuts it down before launching the final server. pg_isready alone
+  // is a false positive during that bootstrap window (CI regression 42695458953).
+  // Wait for the entrypoint's final-start marker AND a current socket probe.
   let ready = false;
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const probe = docker(['exec', container, 'pg_isready', '-U', 'postgres', '-d', 'khedmah']);
-    if (probe.status === 0) { ready = true; break; }
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const logs = docker(['logs', container]);
+    if (logs.status === 0
+        && logs.stdout.includes('PostgreSQL init process complete; ready for start up.')) {
+      const probe = docker(['exec', container, 'pg_isready', '-U', 'postgres', '-d', 'khedmah']);
+      if (probe.status === 0) { ready = true; break; }
+    }
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  assert.equal(ready, true, 'Disposable PostgreSQL never became ready');
+  assert.equal(ready, true,
+    'Final isolated PostgreSQL did not become ready after init shutdown/restart');
 
   const psql = (source, database = 'khedmah') => docker([
     'exec', '-i', container, 'psql', '-U', 'postgres', '-d', database,
