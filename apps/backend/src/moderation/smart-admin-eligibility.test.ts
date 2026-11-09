@@ -43,3 +43,33 @@ test('all four known routine content domains still qualify with complete evidenc
     });
   }
 });
+
+test('malformed runtime input is denied without throwing', () => {
+  for (const malformed of [null, undefined, false, 1, '', [], 'professional_content']) {
+    assert.deepEqual(
+      assessSmartAdminEligibility(malformed as unknown as SmartAdminEligibilityInput),
+      { eligible: false, reason: 'invalid_input' },
+    );
+  }
+});
+
+test('truthy strings, absent booleans and nonstring policy versions cannot grant eligibility', () => {
+  for (const key of ['submitted', 'snapshotComplete', 'revisionMatches', 'categoryAllowed', 'checksPassed'] as const) {
+    for (const malformed of ['true', 1, undefined]) {
+      const input = { ...valid, [key]: malformed } as unknown as SmartAdminEligibilityInput;
+      assert.equal(assessSmartAdminEligibility(input).eligible, false, key + ':' + String(malformed));
+    }
+  }
+  for (const key of ['ownerIsReviewer', 'flagged'] as const) {
+    for (const malformed of [undefined, null, 0, '']) {
+      const input = { ...valid, [key]: malformed } as unknown as SmartAdminEligibilityInput;
+      assert.equal(assessSmartAdminEligibility(input).eligible, false, key + ':' + String(malformed));
+    }
+  }
+  for (const malformed of [123, true, [], {}, '   ']) {
+    const input = { ...valid, policyVersion: malformed } as unknown as SmartAdminEligibilityInput;
+    assert.deepEqual(assessSmartAdminEligibility(input), {
+      eligible: false, reason: 'missing_policy_version'
+    });
+  }
+});
