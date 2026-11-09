@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Google sign-in and customer order read verified in Floot Preview — 2026-11-09 Damascus
+
+- Floot editor `1794229492166`, restore checkpoint `5d6e0cb2-809e-4365-ace1-be5f0a20118a`. The Google config request initially received sandbox HTTP 403 while Preview health returned 200. The request in `endpoints/integrations/khedmah_web_config_GET.schema.ts` now uses explicit GET with same-origin credentials and no-store. The connected preview browser then received 200 and showed an enabled Google button. The regression in `helpers/khedmahPreviewAcceptance.spec.tsx` covers the request contract. Four focused spec files passed and TypeScript was clean.
+- The owner completed sign-in in the connected Preview. Browser metadata on 2026-11-09 at 16:07:43–46 Damascus recorded Google session exchange POST 200, session GET 200, and customer orders GET 200 followed by a second session GET 200. Matching server logs corroborated these statuses. This receipt contains only route, method, status and time.
+- Scope of evidence is one signed-in browser and the customer read path. Continue with role isolation on distinct test accounts and authenticated transaction/device acceptance. No order confirmation was issued during this verification. Production release and Cloud Run/SQL gates remain pending.
+
+---
+
 ## Cash confirmation reload protection — 2026-11-09 Damascus
 
 - Floot editor version `1794219307682`, restore checkpoint `f20f7f8c-1b92-4c94-b833-531a7bd1a278`. `pages/platform.orders.tsx` reserves a SHA-256 confirmation fingerprint in per-tab session storage before the cash confirmation POST. Only a verified success or explicit not-applied response clears the hold. An unknown result prevents resubmission of the same account/order revision within that tab after reload. Storage failure blocks dispatch. The browser stores a hash and pending marker.
