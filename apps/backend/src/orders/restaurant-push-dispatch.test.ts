@@ -1,6 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { restaurantPushFromPlatformNotification } from './restaurant-push-dispatch';
+import { sendRestaurantPush } from './restaurant-push-sender';
+
+test('dispatch cannot normalize malformed device tokens into sendable tokens', async () => {
+  let sends = 0;
+  const messaging = { async send() { sends += 1; return 'message-test'; } };
+  const notification = {
+    eventType: 'order.created' as const,
+    referenceType: 'order' as const,
+    referenceId: 'order-123',
+    title: 'طلب جديد',
+    body: 'راجع الطلب.',
+    metadata: { status: 'placed', vertical: 'food' },
+  };
+  for (const token of [
+    ' fcm-token-value-1234567890',
+    'fcm-token-value-1234567890 ',
+    '\tfcm-token-value-1234567890\n',
+    'fcm-token-value-12345 67890',
+    'short',
+  ]) {
+    await assert.rejects(async () => {
+      const message = restaurantPushFromPlatformNotification(token, notification);
+      assert.ok(message);
+      await sendRestaurantPush(messaging, message);
+    }, /token is invalid/);
+  }
+  assert.equal(sends, 0);
+});
 
 test('food platform notification becomes a safe restaurant push message', () => {
   assert.deepEqual(restaurantPushFromPlatformNotification(

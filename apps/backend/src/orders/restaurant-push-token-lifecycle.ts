@@ -17,7 +17,8 @@ export interface RestaurantPushTokenRecord {
 export interface RestaurantPushTokenRepositoryPort {
   upsert(record: RestaurantPushTokenRecord): Promise<void>;
   findByUserAndDevice(userId: string, deviceId: string): Promise<RestaurantPushTokenRecord | undefined>;
-  invalidate(userId: string, deviceId: string, reason: string, at: string): Promise<void>;
+  /** Atomic compare-and-invalidate: never disable a rotated token for the same device. */
+  invalidate(userId: string, deviceId: string, expectedTokenFingerprint: string, reason: string, at: string): Promise<boolean>;
 }
 
 function safeIdentity(value: unknown, field: string): string {
@@ -67,6 +68,7 @@ export async function invalidateRestaurantPushTokenForFirebaseError(
   repo: RestaurantPushTokenRepositoryPort,
   userIdValue: unknown,
   deviceIdValue: unknown,
+  expectedTokenFingerprintValue: unknown,
   error: unknown,
   now = new Date(),
 ): Promise<boolean> {
@@ -74,6 +76,10 @@ export async function invalidateRestaurantPushTokenForFirebaseError(
   if (!reason) return false;
   const userId = safeIdentity(userIdValue, 'userId');
   const deviceId = safeIdentity(deviceIdValue, 'deviceId');
-  await repo.invalidate(userId, deviceId, reason, now.toISOString());
-  return true;
+  if (typeof expectedTokenFingerprintValue !== 'string' || !/^[a-f0-9]{64}$/.test(expectedTokenFingerprintValue)) {
+    throw new Error('tokenFingerprint is invalid.');
+  }
+  // Repository implementations MUST match the fingerprint and active state
+  // atomically (e.g. one conditional UPDATE). A read-then-write is unsafe.
+  return repo.invalidate(userId, deviceId, expectedTokenFingerprintValue, reason, now.toISOString());
 }
