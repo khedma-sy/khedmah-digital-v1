@@ -1,5 +1,13 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Customer confirmation quote guard — 2026-11-09 Damascus
+
+- Draft #359, head `46795fee08bede537982460b72433ccef5b72f63`, adds optional `expectedQuote` to the existing order status action for the owning customer confirming a quoted order. The PostgreSQL update checks reviewed timestamp, total and currency together with ownership and current status. A stale quote returns 409 without committing the transition. Legacy status-only clients remain compatible.
+- Backend build and 20 focused local tests passed. The extended disposable PostgreSQL role journey covers all three stale fields, invalid input, outsider rejection, rollback and a matching confirmation. Its GitHub result still needs verification on the current head.
+- Next safe action is to verify PostgreSQL CI and independent review. Wire Floot to the opt-in guard after the serving Preview image is attested to implement it. The currently deployed older backend would not enforce the new field. Live order mutation and release remain behind the existing gates.
+
+---
+
 ## Google sign-in and customer order read verified in Floot Preview — 2026-11-09 Damascus
 
 - Floot editor `1794229492166`, restore checkpoint `5d6e0cb2-809e-4365-ace1-be5f0a20118a`. The Google config request initially received sandbox HTTP 403 while Preview health returned 200. The request in `endpoints/integrations/khedmah_web_config_GET.schema.ts` now uses explicit GET with same-origin credentials and no-store. The connected preview browser then received 200 and showed an enabled Google button. The regression in `helpers/khedmahPreviewAcceptance.spec.tsx` covers the request contract. Four focused spec files passed and TypeScript was clean.
