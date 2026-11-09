@@ -1,6 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import type { OrderConfirmationQuote, OrderStatus } from "./order.types";
 import { normalizeFoodPromoCode } from "./food-promotion.validation";
+import { orderMoneyCents } from "./order-money";
 
 const statuses: readonly OrderStatus[] = [
   "placed",
@@ -135,7 +136,8 @@ function validateConfirmationQuote(input: unknown): OrderConfirmationQuote {
     throw new BadRequestException("expectedQuote.updatedAt is invalid.");
   if (currency !== "SYP" && currency !== "USD")
     throw new BadRequestException("expectedQuote.currency is invalid.");
-  return { updatedAt, currency, total: expectedMoney(total, "expectedQuote.total") };
+  if (typeof total !== "number") throw new BadRequestException("expectedQuote.total is invalid.");
+  return { updatedAt, currency, total: Number(orderMoneyCents(total, "expectedQuote.total")) / 100 };
 }
 
 export function validateOrderAction(value: Record<string, unknown>) {

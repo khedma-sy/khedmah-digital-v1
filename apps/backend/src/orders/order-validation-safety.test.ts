@@ -4,6 +4,11 @@ import { validateCreateOrder, validateOrderAction, validateRestaurantDeliveryQuo
 import { OrderService } from './order.service';
 
 const payload={items:[{productListingId:'p1',quantity:1}],deliveryAddress:'دمشق المزة',customerPhone:'0999999999'};
+test('confirmation accepts exact cents throughout the stored money range', () => {
+  const expectedQuote = { updatedAt: '2026-11-09T13:00:00.000Z', total: 10_000_000_000.03, currency: 'SYP' };
+  assert.deepEqual(validateOrderAction({ status: 'merchant_confirmed', expectedQuote }).expectedQuote, expectedQuote);
+  assert.throws(() => validateOrderAction({ status: 'merchant_confirmed', expectedQuote: { ...expectedQuote, total: 1.234 } }), /expectedQuote.total/);
+});
 test('order creation rejects non-finite coordinates and malformed bodies before persistence',()=>{
   for(const coordinates of [{deliveryLatitude:'NaN',deliveryLongitude:36},{deliveryLatitude:33,deliveryLongitude:'bad'},{deliveryLatitude:Infinity,deliveryLongitude:36}])assert.throws(()=>validateCreateOrder({...payload,...coordinates}),/coordinates are invalid/);
   assert.equal(validateCreateOrder({...payload,deliveryLatitude:0,deliveryLongitude:0}).deliveryLatitude,0);
