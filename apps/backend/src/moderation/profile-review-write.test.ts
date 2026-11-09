@@ -13,6 +13,7 @@ import { IdentityRepository } from '../identity/identity.repository';
 import { OperationsRbacService } from '../operations-product/operations-rbac.service';
 import { ServiceCatalogRepository } from '../service-catalog/service-catalog.repository';
 import { writeProfileReview, writeBusinessTrust, writeProfessionalSuspension } from './profile-review-write';
+import { planProfessionalAutoReview, authorizeProfessionalAutoReviewPlan, executeAuthorizedProfessionalReview, readCanonicalProfessionalReviewState } from './smart-admin-professional-execution';
 
 test('profile decisions bind exact revisions and atomic history on PostgreSQL', async (t) => {
   const pool=createTestPool();const db=DatabasePool.fromPool(pool);
@@ -58,6 +59,271 @@ test('profile decisions bind exact revisions and atomic history on PostgreSQL', 
         await db.query(`DELETE FROM trust_history WHERE entity_type=$1 AND entity_id=$2`,[kind,id]);
         await db.query(`UPDATE ${table} SET moderation_status='pending',visibility='public',updated_at=clock_timestamp(),${kind==='business'?"trust_status='approved',status='active'":"lifecycle_status='pending'"} WHERE ${key}=$1`,[id]);
         return (await repo.findById(id))!;
+      }
+      if (kind === 'professional') {
+        await t.test('professional: denied auto-review plans never reach the writer', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const principal = { userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true };
+          const scenarios = [
+            { candidate, principal: { ...principal, canApproveProfessionalContent: false } },
+            { candidate, principal: { ...principal, isServiceIdentity: false } },
+            { candidate: { ...candidate, flagged: true }, principal },
+            { candidate: { ...candidate, snapshotRevision: '2026-11-05T14:55:21.000001Z' }, principal }
+          ];
+          for (const scenario of scenarios) {
+            const plan = planProfessionalAutoReview(scenario.candidate);
+            const authorized = authorizeProfessionalAutoReviewPlan(plan, scenario.candidate, scenario.principal);
+            assert.equal(authorized.ready, false);
+            // No writeProfileReview call may be made for a denied plan.
+          }
+          const after = await professionals.findById(id);
+          assert.equal(after?.revision, before.revision);
+          const [pendingRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(pendingRow.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
+        await t.test('professional: a changed media asset invalidates guarded approval even if parent revision stays unchanged', async () => {
+          const before = await reset();
+          const state = await readCanonicalProfessionalReviewState(db, id);
+          assert.ok(state);
+          await db.query(
+            `UPDATE media_assets SET sort_order=sort_order+1, updated_at=clock_timestamp()
+             WHERE owner_type='professional_profile' AND owner_id=$1`, [id]);
+          const changed = await readCanonicalProfessionalReviewState(db, id);
+          assert.equal(changed?.expectedRevision, before.revision);
+          assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+          await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+            status: 'approved', expectedRevision: before.revision!,
+            expectedEvidenceFingerprint: state.snapshotFingerprint
+          }), ConflictException);
+          const [current] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(current.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
+        await t.test('professional: media filename changes invalidate the fingerprint without touching parent revision', async () => {
+          const before = await reset();
+          const state = await readCanonicalProfessionalReviewState(db, id);
+          assert.ok(state);
+          // Simulate a direct child metadata update that omits updated_at.
+          await db.query(
+            "UPDATE media_assets SET filename=filename || '.revised' WHERE owner_type='professional_profile' AND owner_id=$1",
+            [id]
+          );
+          const changed = await readCanonicalProfessionalReviewState(db, id);
+          assert.equal(changed?.expectedRevision, before.revision);
+          assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+          await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+            status: 'approved', expectedRevision: before.revision!,
+            expectedEvidenceFingerprint: state.snapshotFingerprint
+          }), ConflictException);
+          const [current] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(current.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
+        await t.test('professional: featured timestamp changes invalidate the fingerprint without touching parent revision', async () => {
+          const before = await reset();
+          const serviceId = 'professional-review-featured-timestamp';
+          await db.query(
+            `INSERT INTO service_listings (id,owner_type,owner_id,title_ar,category_code)
+             VALUES ($1,'professional',$2,'عرض مهني للمراجعة',$3)`,
+            [serviceId, id, category.code]
+          );
+          try {
+            const state = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(state);
+            // A presentation timestamp may change even when the normal updated_at is unchanged.
+            await db.query('UPDATE service_listings SET featured_at=clock_timestamp() WHERE id=$1', [serviceId]);
+            const changed = await readCanonicalProfessionalReviewState(db, id);
+            assert.equal(changed?.expectedRevision, before.revision);
+            assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+            await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+              status: 'approved', expectedRevision: before.revision!,
+              expectedEvidenceFingerprint: state.snapshotFingerprint
+            }), ConflictException);
+            const [current] = await db.query<{ moderation_status: string }>(
+              'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+            assert.equal(current.moderation_status, 'pending');
+            const [history] = await db.query<{ count: string }>(
+              "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+            assert.equal(history.count, '0');
+          } finally {
+            await db.query('DELETE FROM service_listings WHERE id=$1', [serviceId]);
+          }
+        });
+        await t.test('professional: changed profession type invalidates evidence without parent revision update', async () => {
+          const before = await reset();
+          const state = await readCanonicalProfessionalReviewState(db, id);
+          assert.ok(state);
+          await db.query(
+            `UPDATE professional_profiles
+               SET profession_type = CASE WHEN profession_type='engineer' THEN 'freelancer' ELSE 'engineer' END
+               WHERE professional_profile_identifier=$1`,
+            [id]
+          );
+          const changed = await readCanonicalProfessionalReviewState(db, id);
+          assert.equal(changed?.expectedRevision, before.revision);
+          assert.notEqual(changed?.snapshotFingerprint, state.snapshotFingerprint);
+          await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+            status: 'approved', expectedRevision: before.revision!,
+            expectedEvidenceFingerprint: state.snapshotFingerprint
+          }), ConflictException);
+          const [current] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(current.moderation_status, 'pending');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '0');
+        });
+        await t.test('professional: authenticated service edit invalidates review snapshot and parent revision', async () => {
+          const before = await reset();
+          const listingId = 'professional-review-owner-service-edit';
+          await db.query(
+            `INSERT INTO service_listings (id,owner_type,owner_id,title_ar,category_code)
+             VALUES ($1,'professional',$2,'خدمة قبل المراجعة',$3)`,
+            [listingId, id, category.code]
+          );
+          try {
+            const reviewed = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(reviewed);
+            const services = new ServiceCatalogRepository(db);
+            await services.patchOwned(
+              { id: listingId, ownerType: 'professional', ownerId: id },
+              { titleAr: 'خدمة معدلة أثناء الانتظار' }, 'review_owner'
+            );
+            const changed = await readCanonicalProfessionalReviewState(db, id);
+            assert.ok(changed);
+            assert.notEqual(changed.expectedRevision, before.revision);
+            assert.notEqual(changed.snapshotFingerprint, reviewed.snapshotFingerprint);
+            await assert.rejects(() => writeProfileReview(db, 'professional', id, 'review_moderator', {
+              status: 'approved', expectedRevision: before.revision!,
+              expectedEvidenceFingerprint: reviewed.snapshotFingerprint
+            }), ConflictException);
+            const [current] = await db.query<{ moderation_status: string }>(
+              'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+            assert.equal(current.moderation_status, 'pending');
+            const [history] = await db.query<{ count: string }>(
+              "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+            assert.equal(history.count, '0');
+          } finally {
+            await db.query('DELETE FROM service_listings WHERE id=$1', [listingId]);
+          }
+        });
+        await t.test('professional: concurrent smart-admin handoffs have one winner and one audit event', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
+          const policy = async (state: { snapshotFingerprint: string }) => ({
+            snapshotFingerprint: state.snapshotFingerprint,
+            snapshotRevision: candidate.snapshotRevision,
+            snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
+            categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
+            policyVersion: candidate.policyVersion
+          });
+          const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true });
+          const writer = async (profileId: string, actorId: string, expectedRevision: string, expectedEvidenceFingerprint: string) =>
+            writeProfileReview(db, 'professional', profileId, actorId,
+              { status: 'approved', expectedRevision, expectedEvidenceFingerprint });
+          const results = await Promise.allSettled([
+            executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
+            executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer)
+          ]);
+          assert.equal(results.filter((result) => result.status === 'fulfilled' && result.value.applied).length, 1);
+          assert.equal(results.filter((result) =>
+            (result.status === 'rejected' && result.reason instanceof ConflictException) ||
+            (result.status === 'fulfilled' && !result.value.applied &&
+              ['stale_revision', 'professional_review_not_pending_or_public'].includes(result.value.reason))
+          ).length, 1);
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
+        });
+        await t.test('professional: server handoff commits once and fails closed on stale replay', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const load = (profileId: string) => readCanonicalProfessionalReviewState(db, profileId);
+          const policy = async (state: { snapshotFingerprint: string }) => ({
+            snapshotFingerprint: state.snapshotFingerprint,
+            snapshotRevision: candidate.snapshotRevision,
+            snapshotComplete: candidate.snapshotComplete, flagged: candidate.flagged,
+            categoryAllowed: candidate.categoryAllowed, checksPassed: candidate.checksPassed,
+            policyVersion: candidate.policyVersion
+          });
+          const principal = async () => ({ userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true });
+          const writer = async (profileId: string, actorId: string, expectedRevision: string, expectedEvidenceFingerprint: string) =>
+            writeProfileReview(db, 'professional', profileId, actorId,
+              { status: 'approved', expectedRevision, expectedEvidenceFingerprint });
+          assert.deepEqual(await executeAuthorizedProfessionalReview({ profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
+            { applied: true });
+          const current = await professionals.findById(id);
+          const [approvedRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(approvedRow.moderation_status, 'approved');
+          assert.notEqual(current?.revision, before.revision);
+          assert.deepEqual(await executeAuthorizedProfessionalReview(
+            { profileId: id, expectedRevision: before.revision! }, load, principal, policy, writer),
+            { applied: false, reason: 'stale_revision' });
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
+        });
+        await t.test('professional: authorized auto-review plan uses atomic writer and rejects replay', async () => {
+          const before = await reset();
+          const candidate = {
+            profileId: id, expectedRevision: before.revision!, snapshotRevision: before.revision!,
+            ownerUserId: 'review_owner', serviceActorUserId: 'review_moderator',
+            submitted: true, snapshotComplete: true, flagged: false,
+            categoryAllowed: true, checksPassed: true, policyVersion: 'reviewed-v1'
+          };
+          const plan = planProfessionalAutoReview(candidate);
+          const authorized = authorizeProfessionalAutoReviewPlan(plan, candidate, {
+            userId: 'review_moderator', isServiceIdentity: true,
+            canApproveProfessionalContent: true
+          });
+          assert.equal(authorized.ready, true);
+          if (!authorized.ready) throw new Error('Unexpected denied test plan');
+          await writeProfileReview(db, 'professional', authorized.profileId, 'review_moderator',
+            { status: 'approved', expectedRevision: authorized.expectedRevision });
+          const current = await professionals.findById(id);
+          const [approvedRow] = await db.query<{ moderation_status: string }>(
+            'SELECT moderation_status FROM professional_profiles WHERE professional_profile_identifier=$1', [id]);
+          assert.equal(approvedRow.moderation_status, 'approved');
+          const [history] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(history.count, '1');
+          await assert.rejects(() => writeProfileReview(db, 'professional', authorized.profileId,
+            'review_moderator', { status: 'approved', expectedRevision: authorized.expectedRevision }), ConflictException);
+          const [afterReplay] = await db.query<{ count: string }>(
+            "SELECT count(*) FROM trust_history WHERE entity_type='professional' AND entity_id=$1", [id]);
+          assert.equal(afterReplay.count, '1');
+        });
       }
       await t.test(`${kind}: missing revisions and unauthorized reviewers cannot write`,async()=>{
         const before=await reset();
