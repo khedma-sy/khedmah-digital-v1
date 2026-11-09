@@ -1,5 +1,18 @@
 # Khedmah Digital — Current State
 
+## RC1 evidence checkpoint — 2026-11-09 (SOURCE-ONLY NO-GO)
+
+Protected `main` last observed `cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **13 open PRs**. The exact-head checks for #352/#357/#356/#358 were 3/3 SUCCESS and #346 was 5/5 before this RC1 documentation change; **#352 head will change and must be rechecked**. No independent recorded human `APPROVED`; no merge performed, including overlapping source branches.
+
+Floot editor `1794202630811`, checkpoint `4dfd4771-7055-4fa5-86cd-2ba517a14b2e`: **150/150 Jasmine spec FILES PASS and TypeScript clean**. The latest source protects a customer's displayed courier coordinate against a completed, reassigned, stale, or mismatched-order response and adds foreground order-state refresh; tests for public tender detail now match a deliberately strict slug/locale allowlist, preserving privacy. **Published Floot is the older 2026-11-04 release**; source/checkpoint success is not live production behavior.
+
+Preview VM anonymous health GET 200 `connected=true`, categories and public tenders 200, unauthorized private session/orders/admin 401. No live customer/merchant/courier/driver/admin, background push or device acceptance in this cycle. No authenticated Google Cloud run/SQL inspection; writer-quiescence previously STOPPED. Floot-managed push is available to provision but **not connected or activated** because end-to-end recipient/device binding and audited outbox/worker chain are not ready. All production, payment, Smart Admin and taxi-driver sensitive actions still gated.
+
+**Single current register:** `docs/reports/RELEASE-CANDIDATE-RC1-2026-11-09.md`; **Next safe action:** `docs/project-control/NEXT-ACTION.md` RC1 section above dated historical blocks. Release decision **NO-GO**.
+
+---
+
+
 ## Release Candidate RC0 — verified 2026-11-08: audited source, HTTP compatibility and bounded business evidence
 
 **Active release decision: NO-GO for public deployment; RC0 is a checkpoint for controlled acceptance only.** The authoritative detailed cross-functional EXPOSE/AUTOPSY/KILLCRITIC audit is [RC0 FLOOT/GITHUB RELEASE INVENTORY](../reports/RELEASE-CANDIDATE-RC0-FLOOT-GITHUB-2026-11-08.md). This update is the current checkpoint at 2026-11-08; older dated notes below remain history.
