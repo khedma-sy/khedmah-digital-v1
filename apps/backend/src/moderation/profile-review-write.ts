@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
+import { PROFESSIONAL_REVIEW_EVIDENCE_SQL } from './professional-review-evidence';
 
 type ProfileKind = 'business' | 'professional';
-type Decision = { status: 'approved' | 'rejected'; expectedRevision: unknown; reason?: string } | { status: 'pending'; ownerSubmission: true };
+type Decision = { status: 'approved' | 'rejected'; expectedRevision: unknown; reason?: string; expectedEvidenceFingerprint?: string } | { status: 'pending'; ownerSubmission: true };
 
 // All identifiers are fixed here. Values from requests are bound parameters.
 const targets = {
@@ -16,6 +17,11 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
   if (decision.status !== 'pending') {
     if (typeof decision.expectedRevision !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(decision.expectedRevision)) {
       throw new BadRequestException('expectedRevision must identify the exact profile revision shown to the reviewer.');
+    }
+    if (decision.expectedEvidenceFingerprint !== undefined &&
+        (kind !== 'professional' || decision.status !== 'approved' ||
+         !/^[a-f0-9]{64}$/.test(decision.expectedEvidenceFingerprint))) {
+      throw new BadRequestException('An exact professional evidence fingerprint is required for guarded review.');
     }
     if (decision.status === 'rejected' && (typeof decision.reason !== 'string' || decision.reason.trim().length < 5 || decision.reason.trim().length > 2000)) {
       throw new BadRequestException('A rejection reason between 5 and 2000 characters is required.');
@@ -46,6 +52,16 @@ export async function writeProfileReview(db: DatabasePool, kind: ProfileKind, id
       if (current.moderation_status === 'suspended' || ['suspended','archived'].includes(current.lifecycle) ||
           (decision.status === 'approved' ? current.moderation_status !== 'pending' : !['pending','approved'].includes(current.moderation_status))) {
         throw new ConflictException('This profile is no longer eligible for this review decision.');
+      }
+      if (kind === 'professional' && decision.status === 'approved' && decision.expectedEvidenceFingerprint !== undefined) {
+        // Parent row is already FOR UPDATE-locked. Owner service writes lock this
+        // same parent before modifying child rows, serializing normal mutations.
+        const evidence = await client.query<{ evidence_fingerprint: string }>(
+          PROFESSIONAL_REVIEW_EVIDENCE_SQL, [id]
+        );
+        if (evidence.rows[0]?.evidence_fingerprint !== decision.expectedEvidenceFingerprint) {
+          throw new ConflictException('Professional content evidence changed. Reassess before approving.');
+        }
       }
       if (kind === 'business' && decision.status === 'approved' && ['taxi','delivery_courier'].includes(current.category_code ?? '')) {
         const documentState = await client.query<{ total: number; approved: number }>(
