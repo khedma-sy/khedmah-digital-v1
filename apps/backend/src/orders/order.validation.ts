@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import type { OrderStatus } from "./order.types";
+import type { OrderConfirmationQuote, OrderStatus } from "./order.types";
 import { normalizeFoodPromoCode } from "./food-promotion.validation";
 
 const statuses: readonly OrderStatus[] = [
@@ -124,6 +124,20 @@ export function validateRestaurantDeliveryQuote(value: Record<string, unknown>) 
   };
 }
 
+function validateConfirmationQuote(input: unknown): OrderConfirmationQuote {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new BadRequestException("expectedQuote is invalid.");
+  const { updatedAt, currency, total } = input as Record<string, unknown>;
+  if (typeof updatedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(updatedAt))
+    throw new BadRequestException("expectedQuote.updatedAt is invalid.");
+  const date = new Date(updatedAt);
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== updatedAt)
+    throw new BadRequestException("expectedQuote.updatedAt is invalid.");
+  if (currency !== "SYP" && currency !== "USD")
+    throw new BadRequestException("expectedQuote.currency is invalid.");
+  return { updatedAt, currency, total: expectedMoney(total, "expectedQuote.total") };
+}
+
 export function validateOrderAction(value: Record<string, unknown>) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Order action is invalid.');
   if (
@@ -131,6 +145,9 @@ export function validateOrderAction(value: Record<string, unknown>) {
     !statuses.includes(value.status as OrderStatus)
   )
     throw new BadRequestException("status is invalid.");
+  const expectedQuote = value.expectedQuote === undefined ? undefined : validateConfirmationQuote(value.expectedQuote);
+  if (expectedQuote && value.status !== "merchant_confirmed")
+    throw new BadRequestException("expectedQuote is only accepted for customer confirmation.");
   const deliveryFee =
     value.deliveryFee === undefined ? undefined : Number(value.deliveryFee);
   if (
@@ -143,6 +160,7 @@ export function validateOrderAction(value: Record<string, unknown>) {
     throw new BadRequestException("deliveryFee is invalid.");
   return {
     status: value.status as OrderStatus,
+    expectedQuote,
     deliveryFee,
     courierBusinessId:
       value.courierBusinessId === undefined

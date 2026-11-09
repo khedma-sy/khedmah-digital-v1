@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -290,7 +291,13 @@ export class OrderService {
       throw new BadRequestException("Order transition is not allowed.");
     } else throw new ForbiddenException("Access denied.");
 
+    if (action.expectedQuote) {
+      if (authority !== "customer" || o.status !== "quoted" || action.status !== "merchant_confirmed")
+        throw new BadRequestException("expectedQuote is only accepted for customer confirmation.");
+      options.expectedQuote = action.expectedQuote;
+    }
     const updated = await this.repo.transition(o, action.status, actor.id, options);
+    if (!updated && action.expectedQuote) throw new ConflictException("Order quote changed; refresh and review the total.");
     if (!updated) throw new BadRequestException("Order changed; refresh and retry.");
     return expose(updated, authority);
   }

@@ -19,6 +19,10 @@ export interface OrderItem {
   readonly requiresPrescription: boolean;
 }
 
+export type OrderConfirmationQuote = Pick<FulfillmentOrder, "updatedAt" | "currency"> & {
+  readonly total: number;
+};
+
 export interface FulfillmentOrderEvent {
   readonly id: string;
   readonly fromStatus?: OrderStatus;
