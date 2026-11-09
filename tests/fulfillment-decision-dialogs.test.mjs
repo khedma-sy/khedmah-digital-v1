@@ -47,6 +47,8 @@ test('customer confirmation submits the exact visible quote and refreshes on 409
   assert.match(customer, /updatedAt: order\.updatedAt, total: order\.total, currency: order\.currency/);
   assert.match(customer, /api\.orders\.transition\(order\.id, status, data\)/);
   assert.match(customer, /statusCode === 409/);
-  assert.match(customer, /await load\(\);[\s\S]*?تغيّر إجمالي الطلب/);
+  assert.match(customer, /reloadQuoteForReview/);
+  assert.match(customer, /blockedQuotes\.has\(order\.id\)/);
   assert.doesNotMatch(customer, /api\.orders\.transition\(order\.id, status\);/);
 });
+
