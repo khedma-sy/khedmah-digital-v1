@@ -1,5 +1,15 @@
 # Next Safe Action — Khedmah
 
+## Current next safe action — 2026-11-09 (NO-GO; read-only and review first)
+
+1. **Proven live state:** protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`, 14 open PRs. #352 documentation and #359 quote-consent code are both unmerged. #359 is **DRAFT** at `2f966d613cec14dc37e463edd08465f2b6869b37`, with **three exact-head Actions SUCCESS**. #352 had three successful workflows on its earlier head `9d0cd6fa8222fe2b2215b282d80ae5728b66576b` and this documentation edit changes its HEAD again: **recheck CI**. No independent reviewer APPROVED on #352/#356/#357/#358/#359.
+2. **Immediate human gate:** request independent authorized reviewer for the relevant exact PR heads via GitHub. Do not self-approve or merge; overlapping #349–#351 with #357 and #353–#355 with #356 must not be double-integrated. #344/#348/#359 remain draft until their specific safety barriers are resolved.
+3. **Source/runtime mismatch:** Floot editor `1794239525642` contains quote snapshot forwarding and a 409/no-retry test; the public Floot release is still Nov 4. Backend currently observed in owner Cloud Run read-only receipt at `00008-tg8`/`f4f8ce2...`, older than PR #359. Never publish Floot editor independently of a reviewed compatible backend and explicit canary authorization. The optional Backend `expectedQuote` remains a documented legacy bypass.
+4. **Next owner Cloud Shell evidence (READ ONLY):** use an already reviewed read-only schema verifier or bounded read-only database inspection to classify current billing 030/033. Historical Oct 16 `jzkp5` verified both schemas but cannot prove current state. In separate independent read-only gates, verify Cloud Run serving image/revision/traffic, writer quiescence across all service/job/trigger paths, isolated backup restore and rollback. Owner's 036/037 prerequisite classification remains invalid; do NOT execute migrations or scale writers to obtain evidence.
+5. **Acceptance evidence before release:** exact compatible customer/merchant/courier order and stale-quote 409 behavior, session ownership and Google auth on mobile/desktop, role-denied tests, restaurant push to closed devices with verified outbox/token lifecycle, taxi/driver document and Smart Admin authorization. Keep all sensitive capabilities default-off. Only after independent approvals and those proofs consider a separately authorized reversible canary; production remains **NO-GO**.
+
+---
+
 ## RC1 source/test checkpoint — 2026-11-09 (NO-GO)
 
 - **Read first:** `docs/reports/RELEASE-CANDIDATE-RC1-2026-11-09.md` (cross-role P0/P1 owner/acceptance register); this supersedes dated RC0 **counts**, not the original release barriers.
