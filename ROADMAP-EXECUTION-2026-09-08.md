@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## Order confirmation recovery and release review — 2026-11-09 Damascus
+
+- Live baseline was protected main `cc8d49809cb9543ee1620432d9c0ba73fb801cbb` and 13 open PRs. The observed heads #352 `bee9f2c8`, #356 `93a19977`, #357 `60b01036`, and #358 `dd4e1492` each passed the three source workflows. No independent APPROVED review appeared on any of these four. This handoff edit changes #352's head, so recheck its new runs before merge.
+- Floot editor repair at `1794218938321`, restore checkpoint `702c5b52-e05f-430b-94c0-1e709a05bb0a`. In `pages/platform.orders.tsx`, switching accounts used to clear an unknown-result confirmation hold and expose another confirmation when the first account returned. Hold keys now include the verified account, order ID, order version and action. The hold survives switching within the mounted page. Server-side idempotency and persistence across full reloads are separate acceptance work. The regression in `helpers/khedmahCustomerOrderAccountIsolation.spec.tsx` failed before the fix and passed afterward. Seven targeted spec files passed and TypeScript was clean. The prior 152-file full run applies to editor `1794204241298`.
+- The public release check still reported the 4 November Floot release. Latest observed direct Cloud Run read-only attempt `41710857994` attempt 2 confirmed Preview service scope and read both known services twice. Backend scaling was manual and nonzero, frontend scaling metadata was unknown to that diagnostic. It stopped at `KNOWN_SERVICE_INVENTORY_NOT_QUIESCENT`. That attempt did not check SQL writers. #358 is awaiting independent review before it can provide the separate active-service diagnostic.
+- Next safe step is independent review of the four scoped PRs and authorized account/device acceptance on Preview. Require a serving image and SQL receipt, plus release authorization, before publication. No public publication, merge, cloud or database change in this pass.
+
+---
+
 ## Verified continuation — 2026-11-08: reviewer and Cloud diagnostic gate (source only)
 
 **This is an observed source checkpoint, not deployment authorization.** At this live read protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; **13 PRs are OPEN**. PR #352 (documentation, current pre-edit HEAD `12f7e38890771c9e00e22935a22ed09171fb27e4`), PR #357 (frontend `500f7ebfe30b5b8f29d0701f4950af68e1cdf943`), PR #356 (restaurant `93a19977913a2e3d3a33b4ea50832f9fa3924642`), and PR #358 (new read-only Preview serving diagnostic `dd4e1492472309053f9717923ff6d170af3a4ae9`) each passed three exact-head Actions. #358's Cloud Run automatic-scaling default P2 review finding was corrected, tested and resolved. **None has an independent recorded `APPROVED` review.** The sole `.github/CODEOWNERS` identity is the PR author `@khedma-sy`; obtain an independently authorized human reviewer rather than self-review or falsely treating Codex COMMENTED as approval.
