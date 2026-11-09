@@ -106,3 +106,12 @@ test('professional discovery card opens anonymous searchable directory, not owne
   assert.doesNotMatch(publicSearch, /api\.professionals\.getMine\(/);
   assert.doesNotMatch(publicSearch, /router\.replace\('\/auth\/login/);
 });
+
+test('search does not misrepresent profile availability as real-time online presence', async () => {
+  const search = await read('app/search/page.tsx');
+  assert.match(search, /يعلن أنه متاح للعمل/);
+  assert.match(search, /يعلن أنه مشغول/);
+  assert.match(search, /حسب الاتفاق/);
+  assert.doesNotMatch(search, /value === 'available' \? 'متاح'/);
+  assert.match(search, /availabilityLabel\(item\.availability\)/);
+});
