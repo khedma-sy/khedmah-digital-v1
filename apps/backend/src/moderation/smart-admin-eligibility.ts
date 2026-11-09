@@ -27,6 +27,11 @@ export function assessSmartAdminEligibility(input: SmartAdminEligibilityInput): 
   if (['identity_verification', 'driver_document', 'vehicle_document', 'taxi_activation'].includes(input.domain)) {
     return { eligible: false, reason: 'sensitive_domain_requires_independent_verified_workflow' };
   }
+  // Treat unrecognized runtime values as untrusted, even if TypeScript callers are typed.
+  // An unknown domain must never acquire routine content approval eligibility.
+  if (!['professional_content', 'business_content', 'classified_content', 'product_content'].includes(input.domain)) {
+    return { eligible: false, reason: 'unknown_domain' };
+  }
   if (!input.submitted) return { eligible: false, reason: 'not_submitted' };
   if (!input.snapshotComplete) return { eligible: false, reason: 'incomplete_review_snapshot' };
   if (!input.revisionMatches) return { eligible: false, reason: 'stale_revision' };
