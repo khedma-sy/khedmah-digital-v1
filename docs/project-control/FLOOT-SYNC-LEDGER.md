@@ -13,7 +13,7 @@ This is a *conservative evidence readiness index*, NOT engineering % complete. F
 
 | Domain | Points / weight | Why not full |
 |---|---:|---|
-| Protected main, PR workflow and CI | 8 / 10 | main green; draft #368 CI/review not finished at baseline |
+| Protected main, PR workflow and CI | 8 / 10 | main and #368 exact-head CI green; #368 still DRAFT with zero independent APPROVED reviews |
 | Floot editor UI/code/test readiness | 7 / 10 | 109 routes; TypeScript clean; 155 specs pass when serial rerun, but concurrency-sensitive quote spec and missing device rendering |
 | Floot published parity | 3 / 15 | 2026-11-04 publish is older, 55 helper/endpoints diverged, two sampled route mismatches |
 | Google auth, roles, isolation | 2 / 10 | unauthenticated routes deny as expected, no positive cross-role/mobile acceptance |
@@ -22,7 +22,7 @@ This is a *conservative evidence readiness index*, NOT engineering % complete. F
 | Taxi, driver documents, Smart Admin | 2 / 10 | safety contracts/source, operational mutation deliberately disabled |
 | Background order and courier notifications | 1 / 5 | foreground 30-second polling/ring; closed-app device push not proved |
 | Business Desk, tenders and entitlements | 3 / 5 | public tenders and source implementation; no subscriber/payment/alerts journey |
-| SDET/UAT, device UX and observability | 4 / 10 | 155 specs mostly green; no signed mobile/desktop E2E or SRE rollback |
+| SDET/UAT, device UX and observability | 4 / 10 | 155/155 spec files pass sequentially, TypeScript clean; no signed mobile/desktop E2E or SRE rollback |
 | **Total** | **36 / 100** | **NO-GO** |
 
 **Next hourly reports:** keep these weights; report previous→current delta and exact new evidence. Do not increase unverified buckets. First iteration delta = N/A.
@@ -95,6 +95,17 @@ The GitHub history includes other merged PRs not individually enumerated here; t
 - **Definitive observed run:** eight `mcp__Floot__run_tests` calls invoked **sequentially**, batches of 20, last batch 15: **155 PASS / 0 FAIL**, including checkout delivery quote and all Business Desk files. TypeScript also clean.
 - **Avoid concurrent runs in this same Floot project.** Running multiple `run_tests` calls concurrently led to repeatable shared-state failures in the quote test's asynchronous prerequisite. A temporary 8-second test timeout change was trialled, did **not** fix concurrent collisions, and was **reverted**. Do not label the test fail fixed by a larger timeout, and do not equate isolated Jasmine success with cross-account/order E2E acceptance.
 - The score remains **36/100** because this verification does not close the live Google auth, Cloud SQL, checkout acceptance, device push or rollback gates.
+
+## Hourly evidence — 2026-11-10 01:55 UTC (automation run 1)
+
+- **GitHub fresh:** protected main `2cae37037da91e2a75f0d482f04d9773a5bdde10` unchanged; exactly **one open PR**, [#368](https://github.com/khedma-sy/khedmah-digital-v1/pull/368), head `ebb90de4180dfa1ea119aaa471813167a4ee73ba`, still **DRAFT** and **zero reviews**. All 6 applicable exact-head check-runs completed **SUCCESS**, 6 non-applicable jobs **SKIPPED**. Main's 4 applicable checks also SUCCESS; no permission to merge follows.
+- **Floot editor:** version `1794273045532`, 155 spec files inventory, TypeScript `clean` on current source. The last verified complete **sequential** run was 155/155 PASS; it was **not rerun in full** in this hourly cycle. `khedmahApprovalExecution.enabled=false` and `khedmahForegroundRing` refuses hidden-tab sound by source read.
+- **Published:** still 2026-11-04T00:01:39.684Z / `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`, domain `khedmah.uk` and `www.khedmah.uk`. 55 changed helper/endpoint files **not live**. Published `discoverSources` every 6 hours (next 2026-11-10 03:00 UTC) and `buildTenderAlerts` daily (next 05:00 UTC) continue executing old release code. Published background check at 01:55 UTC reported no active run, and no cut-off run in the last 7 days; this is not proof of alert delivery.
+- **Floot-managed database SELECT:** 86 tenders, 0 client-access bindings, 0 alert deliveries, 0 service payments. These counts do not prove or disprove live subscription eligibility, and this database is **not Cloud SQL**.
+- **Mobile visual check:** Floot screenshot job timed out after 15 minutes waiting for an open user preview tab. **No screenshot captured.** Do not mark mobile/RTL acceptance.
+- **Cloud Run / Cloud SQL:** no authenticated fresh GCP access receipt in this cycle. Prior backend `f4f8ce2` and SQL backup/schema information are dated; exact serving image/traffic, writer fence, isolated restore and release authorization **still unverified**.
+- **Score:** **36/100 (Δ 0)**, **NO-GO**. Score did not increase for CI success or test-source presence because independent release gates and live parity are still missing. Evidence confidence: high for GitHub and Floot metadata, partial for anonymous/live logs, unavailable for authenticated GCP and device acceptance.
+- **Action this run:** repaired the stale ledger's CI and 155-spec wording; source-only documentation on #368 + Floot editor note, no functional code change, no production mutation. **Next Safe Action:** obtain read-only independently signed Cloud Run serving image/revision/traffic + Cloud SQL writer-quiescence/schema/isolated restore receipt before compatible Preview acceptance.
 
 ## Hourly reporting contract
 
