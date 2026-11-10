@@ -1,5 +1,19 @@
 # Khedmah Digital — Current State
 
+## 2026-11-10 — Floot/GitHub release reconciliation (NO-GO)
+
+**New checkpoint; dated findings below are historical and must not override this evidence. This draft document is NOT a release or a production deployment.**
+
+- **GitHub:** protected `main=2cae37037da91e2a75f0d482f04d9773a5bdde10` (merge #367). Zero open PRs at inspection. Exact main push workflows **Node.js CI** and **Khedmah - Test & Verify** completed SUCCESS. This does not attest cloud traffic or public Floot publication.
+- **Floot editor (separate codebase):** project `5e271f43-96a6-40de-a634-ec3eae023a49`; inspected version `1794271560737` after editor-only corrections for advertised professional availability across `/platform/search`, `/platform/nearby`, and provider detail, with targeted Jasmine checks and clean TypeScript. Editor-only production roadmap: `static/__dev/plans/khedmah-full-production-roadmap-2026-11-10.md`. No GitHub source merge was claimed for this Floot change.
+- **Published Floot:** `https://khedma-meeting.floot.app` with attached `khedmah.uk` and `www.khedmah.uk`, still live release dated **2026-11-04T00:01:39.684Z**, digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`. Floot reports **55 helper/endpoint source files changed since publish**; the production code and scheduled `discoverSources`/`buildTenderAlerts` workers are still older. Do NOT mistake editor parity for public deployment.
+- **Read-only anonymous HTTP differential:** canonical `/_api/integrations/khedmah_classifieds?view=list&page=1` is **200 with one public listing** on both published and editor; **only the sampled legacy** `/_api/integrations/khedmah_public?section=classifieds` is **502 published versus 200 editor**. Do not claim all classifieds are unavailable. `/_api/integrations/khedmah_admin_modules?module=kora` is **404 published versus 401 unauthenticated editor**, consistent with missing deployed module; anonymous result cannot prove a privileged session. Preview health 200 on both, but reports backend image version `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a`, behind GitHub main.
+- **Safety still closed:** Floot `khedmahApprovalExecution.enabled=false`; driver document `documentUploadEnabled=false`; taxi is a listing, not an independently proven real-time dispatch service. No authorized customer→merchant→courier full-flow test, Android/iPhone Google auth, background order push, full SQL writer quiescence, isolated restore or reversible canary was obtained.
+- **Next safe action:** reconcile exact source/serving version and document downstream dependencies of the legacy classifieds route and admin module; perform approved READ-ONLY Cloud Run/SQL inspection and separate account/device acceptance; recheck all publish gates before any canary. Keep Floot public publish, Cloud Run/SQL mutation, financial settlement and sensitive feature activation **blocked** until independent review, compatible target, rollback and explicit release approval. See `docs/project-control/NEXT-ACTION.md` top checkpoint.
+
+---
+
+
 ## 2026-11-09 — Live release reconciliation / customer quote integration (NO-GO)
 
 - **Live refs checked before editing:** protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; 14 open PRs: #344, #346, #348–#359 (excluding #345 and #347). The `main` version of this file and `NEXT-ACTION.md` still lead with 2026-11-02 evidence; this #352 branch is a proposed checkpoint, not merged main.
