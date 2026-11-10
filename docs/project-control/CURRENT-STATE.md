@@ -4,6 +4,31 @@
 
 **New checkpoint; dated findings below are historical and must not override this evidence. This draft document is NOT a release or a production deployment.**
 
+### Anonymous read-only HTTP parity matrix (16 paired routes)
+
+Floot editor and currently published Floot were tested with equal read-only GET selectors (32 requests, no login, no production mutation). **HTTP statuses alone do not prove functional flows**; private 401 denials are expected. Evidence observed 2026-11-10:
+
+| API route / selector | Published | Editor | Interpretation |
+|---|---:|---:|---|
+| `business/client_portal` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_admin_modules?module=kora` | **404** | **401** | published/editor route mismatch |
+| `integrations/khedmah_classifieds?view=list&page=1` | 200 | 200 | canonical list available; one public ad |
+| `integrations/khedmah_food?view=directory&page=1` | 200 | 200 | empty directory is not an order-flow proof |
+| `integrations/khedmah_mobility?type=taxi&latitude=...&longitude=...` | 200 | 200 | public directory only, NOT dispatch |
+| `integrations/khedmah_orders` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_preview_health` | 200 | 200 | both report older backend f4f8ce2 |
+| `integrations/khedmah_public?section=categories` | 200 | 200 | public categories available |
+| `integrations/khedmah_public?section=cities` | 200 | 200 | public cities available |
+| `integrations/khedmah_public?section=classifieds` | **502** | **200** | legacy route mismatch |
+| `integrations/khedmah_search?type=professional&page=1` | 200 | 200 | anonymous search; no results in sample |
+| `integrations/khedmah_session` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_store?view=list` | 200 | 200 | empty listing, not checkout proof |
+| `integrations/khedmah_web_config` | 200 | 200 | configuration endpoint available |
+| `public/market_opportunities` | 200 | 200 | 21 public results at sampling |
+| `public/tenders` | 200 | 200 | 14 public results at sampling |
+
+**Follow-up gate:** formally audit which current frontend callers still invoke the legacy classifieds route; validate the KORA route with authorized accounts on a compatible backend; add exact backend serving image/revision/traffic and writer/restore evidence. No claim of full runtime parity or completed production acceptance.
+
 - **GitHub:** protected `main=2cae37037da91e2a75f0d482f04d9773a5bdde10` (merge #367). Zero open PRs at inspection. Exact main push workflows **Node.js CI** and **Khedmah - Test & Verify** completed SUCCESS. This does not attest cloud traffic or public Floot publication.
 - **Floot editor (separate codebase):** project `5e271f43-96a6-40de-a634-ec3eae023a49`; inspected version `1794271560737` after editor-only corrections for advertised professional availability across `/platform/search`, `/platform/nearby`, and provider detail, with targeted Jasmine checks and clean TypeScript. Editor-only production roadmap: `static/__dev/plans/khedmah-full-production-roadmap-2026-11-10.md`. No GitHub source merge was claimed for this Floot change.
 - **Published Floot:** `https://khedma-meeting.floot.app` with attached `khedmah.uk` and `www.khedmah.uk`, still live release dated **2026-11-04T00:01:39.684Z**, digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`. Floot reports **55 helper/endpoint source files changed since publish**; the production code and scheduled `discoverSources`/`buildTenderAlerts` workers are still older. Do NOT mistake editor parity for public deployment.
