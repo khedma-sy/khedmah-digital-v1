@@ -133,3 +133,12 @@ The GitHub history includes other merged PRs not individually enumerated here; t
 ## Hourly reporting contract
 
 Every run reports current GitHub main/PRs/Actions, Floot editor version, Floot live release digest, Preview backend version, 36/100 baseline score with delta according to the *same 10 weights*, status per launch-critical module (M/E/L/S/B/U), top 3 P0 failures, actual safe fixes/tests/checkpoints/links, findings newly resolved or reopened, and **one Next Safe Action**. Do not overwrite prior evidence or convert uncertain data into completed claims.
+
+## Hourly read-only verification — 2026-11-10 06:01 UTC
+
+- GitHub protected main `2cae37037da91e2a75f0d482f04d9773a5bdde10`; only open PR #368, DRAFT head `ae215c8404bafabd229f33f34ccbc9975ce4c524`, 6 SUCCESS/6 SKIPPED exact-head checks, zero independent submitted reviews. Main checks 4 SUCCESS/1 SKIPPED.
+- `CURRENT-STATE.md` and `NEXT-ACTION.md` on main still lead with 2026-11-09 and old `cc8d498`/14-PR references: historical, not live authority.
+- Floot editor version `1794283046045`, 156 spec files; 8 **sequential** test batches (20×7+16) **156 PASS/0 FAIL**. Floot published 2026-11-04T00:01:39.684Z, source digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`; 56 helper/endpoint files newer than publish. Domains `khedmah.uk` and `www.khedmah.uk` remain attached.
+- Published scheduled `discoverSources` next 09:00 UTC 2026-11-10, `buildTenderAlerts` next 05:00 UTC 2026-11-11. No running jobs at 06:01 UTC. Database READ ONLY: tenders 86, discovery runs 69, client access 0, alert preferences 0, alert deliveries 0, service payments 0, user tender submissions 0. Scheduled execution does not establish delivery.
+- No new authorized Cloud Run/Cloud SQL image/traffic/writer/isolated-restore attestation; historical backend `f4f8ce2` remains unverified this hour. No signed real-device UAT. Score **36/100 unchanged; NO-GO**. No production mutation, publish or merge.
+- Next Safe Action: independent read-only Cloud Run image/traffic plus all SQL writers, current schema and isolated restore evidence.
