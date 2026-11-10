@@ -13,7 +13,7 @@ import styles from '../discovery.module.css';
 
 const tabs: [SearchTab, string][] = [['all', 'الأنشطة والخدمات'], ['business', 'الأنشطة'], ['professional', 'المهنيون'], ['service', 'الخدمات']];
 const priceLabel = (type: string) => type === 'fixed' ? 'سعر ثابت' : type === 'hourly' ? 'بالساعة' : 'قابل للتفاوض';
-const availabilityLabel = (value: string) => value === 'available' ? 'متاح' : value === 'busy' ? 'مشغول' : 'حسب الموعد';
+const availabilityLabel = (value: string) => value === 'available' ? 'يعلن أنه متاح للعمل' : value === 'busy' ? 'يعلن أنه مشغول' : 'حسب الاتفاق';
 
 function paginationPages(current: number, totalPages: number) {
   const visibleCount = Math.min(totalPages, 7);
