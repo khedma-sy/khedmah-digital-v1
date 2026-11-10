@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { BusinessProfileRepository } from "../business-profiles/business-profile.repository";
@@ -290,7 +292,23 @@ export class OrderService {
       throw new BadRequestException("Order transition is not allowed.");
     } else throw new ForbiddenException("Access denied.");
 
+    if (action.expectedQuote) {
+      if (authority !== "customer" || o.status !== "quoted" || action.status !== "merchant_confirmed")
+        throw new BadRequestException("expectedQuote is only accepted for customer confirmation.");
+      options.expectedQuote = action.expectedQuote;
+    }
+    // The reviewed-quote requirement is opt-in until every deployed client
+    // sends expectedQuote. A malformed rollout value fails closed rather than
+    // silently reverting to status-only confirmation.
+    if (authority === "customer" && o.status === "quoted" && action.status === "merchant_confirmed") {
+      const requirement = process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE;
+      if (requirement !== undefined && requirement !== "true" && requirement !== "false")
+        throw new ServiceUnavailableException("Reviewed quote enforcement is misconfigured.");
+      if (requirement === "true" && !action.expectedQuote)
+        throw new BadRequestException("Reviewed order quote is required before confirmation.");
+    }
     const updated = await this.repo.transition(o, action.status, actor.id, options);
+    if (!updated && action.expectedQuote) throw new ConflictException("Order quote changed; refresh and review the total.");
     if (!updated) throw new BadRequestException("Order changed; refresh and retry.");
     return expose(updated, authority);
   }

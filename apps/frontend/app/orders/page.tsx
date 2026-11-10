@@ -15,6 +15,13 @@ import {
 import { OrderTracking } from "./order-tracking";
 import { OrderTimeline } from "./order-timeline";
 import { showOrderNotification } from "./order-alerts";
+import {
+  isReviewableQuote,
+  pendingQuoteIds,
+  quoteRefreshMessage,
+  reloadQuoteForReview,
+  type QuoteRefreshResult,
+} from "./quote-refresh";
 
 const label: Record<FulfillmentOrder["status"], string> = {
   placed: "بانتظار مراجعة المنشأة",
@@ -45,6 +52,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [quoteNotice, setQuoteNotice] = useState("");
+  const [blockedQuotes, setBlockedQuotes] = useState<Set<string>>(new Set());
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [ratingDialog, setRatingDialog] = useState<RatingDialog | null>(null);
   const [ratingScore, setRatingScore] = useState(5);
@@ -54,12 +63,13 @@ export default function OrdersPage() {
   const priorStatusesRef = useRef<Map<string, FulfillmentOrder["status"]>>(new Map());
   const requestSequence = useRef(0);
   const actionInFlight = useRef(false);
+  const blockedQuoteIds = useRef<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<QuoteRefreshResult> => {
     const request = ++requestSequence.current;
     try {
       const response = await api.orders.mine();
-      if (request !== requestSequence.current) return;
+      if (request !== requestSequence.current) return "superseded";
       if (loadedOnceRef.current) {
         response.orders.forEach((order) => {
           const prior = priorStatusesRef.current.get(order.id);
@@ -75,12 +85,20 @@ export default function OrdersPage() {
       priorStatusesRef.current = new Map(response.orders.map((order) => [order.id, order.status]));
       loadedOnceRef.current = true;
       setOrders(response.orders);
+      if (blockedQuoteIds.current.size > 0) {
+        blockedQuoteIds.current = pendingQuoteIds(blockedQuoteIds.current, response.orders);
+        setBlockedQuotes(new Set(blockedQuoteIds.current));
+        setQuoteNotice(quoteRefreshMessage(blockedQuoteIds.current.size ? "incomplete" : "updated"));
+      }
       setError("");
+      return blockedQuoteIds.current.size ? "incomplete" : "updated";
     } catch (cause) {
-      if (request !== requestSequence.current) return;
+      if (request !== requestSequence.current) return "superseded";
       if (cause instanceof Error && (cause as Error & { statusCode?: number }).statusCode === 401)
         router.replace("/auth/login?next=%2Forders");
       else setError(cause instanceof Error ? cause.message : "تعذر تحميل الطلبات.");
+      if (blockedQuoteIds.current.size > 0) setQuoteNotice(quoteRefreshMessage("failed"));
+      return "failed";
     } finally {
       if (request === requestSequence.current) setLoading(false);
     }
@@ -97,15 +115,43 @@ export default function OrdersPage() {
 
   async function move(order: FulfillmentOrder, status: FulfillmentOrder["status"]) {
     if (actionInFlight.current) return;
+    if (status === "merchant_confirmed" && blockedQuoteIds.current.has(order.id)) return;
     actionInFlight.current = true;
     setActionLoadingId(order.id);
     setError("");
     setNotice("");
+    setQuoteNotice("");
+    const refreshForReview = () => reloadQuoteForReview({
+      markStale: () => {
+        blockedQuoteIds.current.add(order.id);
+        setBlockedQuotes(new Set(blockedQuoteIds.current));
+      },
+      refresh: load,
+      showStatus: setQuoteNotice,
+    });
     try {
-      await api.orders.transition(order.id, status);
+      // Bind the confirmation to the exact amount and order revision displayed
+      // to this customer; never fall back to an unprotected status-only request.
+      let data: Record<string, unknown> = {};
+      if (status === "merchant_confirmed") {
+        if (!isReviewableQuote(order)) {
+          await refreshForReview();
+          return;
+        }
+        data = { expectedQuote: {
+          updatedAt: order.updatedAt, total: order.total, currency: order.currency,
+        } };
+      }
+      await api.orders.transition(order.id, status, data);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر تحديث الطلب.");
+      if (status === "merchant_confirmed" &&
+          cause instanceof Error &&
+          (cause as Error & { statusCode?: number }).statusCode === 409) {
+        await refreshForReview();
+      } else {
+        setError(cause instanceof Error ? cause.message : "تعذر تحديث الطلب.");
+      }
     } finally {
       actionInFlight.current = false;
       setActionLoadingId("");
@@ -168,6 +214,7 @@ export default function OrdersPage() {
         <ActionLink href="/store" variant="secondary">تصفح المتجر</ActionLink>
       </div>
       {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      {quoteNotice && <StatusMessage tone="danger">{quoteNotice}</StatusMessage>}
       {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
 
       {ratingDialog && (
@@ -238,7 +285,7 @@ export default function OrdersPage() {
                   </ActionLink>
                 )}
                 {order.status === "quoted" && (
-                  <ActionButton disabled={busy || actionInFlight.current} onClick={() => void move(order, "merchant_confirmed")}>
+                  <ActionButton disabled={busy || actionInFlight.current || blockedQuotes.has(order.id)} onClick={() => void move(order, "merchant_confirmed")}>
                     {busy ? "جارٍ الحفظ…" : "أوافق على الإجمالي"}
                   </ActionButton>
                 )}
@@ -273,3 +320,4 @@ export default function OrdersPage() {
     </PageShell>
   );
 }
+

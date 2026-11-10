@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [merchant, courier, courierDialog] = await Promise.all([
+const [merchant, courier, courierDialog, customer] = await Promise.all([
   read('apps/frontend/app/orders/merchant/page.tsx'),
   read('apps/frontend/app/orders/courier/page.tsx'),
-  read('apps/frontend/app/orders/courier/courier-evidence-dialog.tsx')
+  read('apps/frontend/app/orders/courier/courier-evidence-dialog.tsx'),
+  read('apps/frontend/app/orders/page.tsx')
 ]);
 
 test('merchant pricing rejection and pharmacy review use internal dialogs, never browser prompt or confirm', () => {
@@ -37,3 +38,16 @@ test('delivery decisions still preserve the canonical fulfillment transitions', 
   assert.match(merchant, /transition\(o,"courier_assigned"/);
   assert.match(merchant, /transition\(o,"ready_for_pickup"\)/);
 });
+
+test('customer confirmation submits the exact visible quote and refreshes on 409 without legacy fallback', () => {
+  assert.match(customer, /status === "merchant_confirmed"/);
+  assert.match(customer, /!isReviewableQuote\(order\)/);
+  assert.match(customer, /expectedQuote:\s*\{/);
+  assert.match(customer, /updatedAt: order\.updatedAt, total: order\.total, currency: order\.currency/);
+  assert.match(customer, /api\.orders\.transition\(order\.id, status, data\)/);
+  assert.match(customer, /statusCode === 409/);
+  assert.match(customer, /reloadQuoteForReview/);
+  assert.match(customer, /blockedQuotes\.has\(order\.id\)/);
+  assert.doesNotMatch(customer, /api\.orders\.transition\(order\.id, status\);/);
+});
+
