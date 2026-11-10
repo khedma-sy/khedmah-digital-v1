@@ -1,5 +1,20 @@
 # Next Safe Action — Khedmah
 
+## 2026-11-10 — Next Safe Action (NO-GO; Floot differential verified)
+
+**Live baseline:** protected GitHub `main=2cae37037da91e2a75f0d482f04d9773a5bdde10`; zero open PRs at inspection; main Node.js CI and Test & Verify success. Floot editor `1794271560737` is NOT the public release. Public Floot release is still 2026-11-04 / digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`; backend Preview advertises `f4f8ce2...` rather than current main.
+
+1. **P0 version matrix and ownership (read-only):** inventory every published/editor-only Floot endpoint (55 helper/endpoint files differ); explicitly map each important browser page to live adapter route and backend revision, including canonical classifieds, *legacy* classifieds, KORA, Google callback, quote confirmation and delivery. Canonical classifieds list `/_api/integrations/khedmah_classifieds?view=list&page=1` is **HTTP 200** public; legacy `/_api/integrations/khedmah_public?section=classifieds` is **HTTP 502** public vs **200 editor**. KORA module is **404 public vs 401 unauthenticated editor**. Keep legacy failure classified as path-specific; DO NOT claim blanket listing outage.
+2. **Safe editor QA:** maintain existing professional availability wording parity and regression, and test the affected read-only public/anonymous routes. Do not enable `khedmahApprovalExecution`, driver document upload, taxi dispatch or background notifications. Do not use public publishing as a test mechanism.
+3. **Independent Cloud/SQL release gates:** request signed READ-ONLY evidence for serving image/revision/traffic, all writers/quiescence, current billing 030/033 and prerequisites 036/037, isolated backup restoration and rollback. Older successful historical migrations and a 200 health ping are insufficient.
+4. **Real user/device acceptance:** test separate customer, merchant, courier, professional, driver, admin and Business Desk accounts; Google auth on Android/iPhone/desktop; actual customer→merchant→courier receipt, stale quote 409 re-review, closed-device restaurant/courier push, taxi lease/dispatch/document controls and private tender contact disclosure. A 200 public HTML shell is not account acceptance.
+5. **Release decision:** block public Floot publish, Cloud Run deployment/scaling, SQL migrations, financial writes and Smart Admin/taxi activation until independently authorized reviewed compatible canary + verified rollback and complete P0 signoff. After explicit owner approval, ship a narrow reversible pilot, verify telemetry and then decide broader production; no automatic production changes.
+
+**Owners:** CTO/DevOps for serving image/database/rollback; FE/UX for editor and route parity; BE/Security for access/atomic contracts; SDET for exact-version device/E2E evidence; PM/CEO for independent go/no-go. **Next measurable deliverable:** source-to-serving 4-column compatibility matrix with pass/fail proof, not a blanket publish.
+
+---
+
+
 ## Current next safe action — 2026-11-09 (NO-GO; read-only and review first)
 
 1. **Proven live state:** protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`, 14 open PRs. #352 documentation and #359 quote-consent code are both unmerged. #359 is **DRAFT** at `2f966d613cec14dc37e463edd08465f2b6869b37`, with **three exact-head Actions SUCCESS**. #352 had three successful workflows on its earlier head `9d0cd6fa8222fe2b2215b282d80ae5728b66576b` and this documentation edit changes its HEAD again: **recheck CI**. No independent reviewer APPROVED on #352/#356/#357/#358/#359.
