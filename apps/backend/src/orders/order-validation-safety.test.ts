@@ -4,6 +4,33 @@ import { validateCreateOrder, validateOrderAction, validateRestaurantDeliveryQuo
 import { OrderService } from './order.service';
 
 const payload={items:[{productListingId:'p1',quantity:1}],deliveryAddress:'دمشق المزة',customerPhone:'0999999999'};
+test('confirmation accepts exact cents throughout the stored money range', () => {
+  const expectedQuote = { updatedAt: '2026-11-09T13:00:00.000Z', total: 10_000_000_000.03, currency: 'SYP' };
+  assert.deepEqual(validateOrderAction({ status: 'merchant_confirmed', expectedQuote }).expectedQuote, expectedQuote);
+  assert.throws(() => validateOrderAction({ status: 'merchant_confirmed', expectedQuote: { ...expectedQuote, total: 1.234 } }), /expectedQuote.total/);
+});
+test('confirmation quote input fails closed while legacy status-only callers remain explicitly detectable', () => {
+  const valid = { updatedAt: '2026-11-09T13:00:00.000Z', total: 123.45, currency: 'SYP' };
+  assert.deepEqual(validateOrderAction({ status: 'merchant_confirmed', expectedQuote: valid }).expectedQuote, valid);
+  for (const expectedQuote of [
+    null, [], {}, { ...valid, updatedAt: '2026-11-09T13:00:00Z' },
+    { ...valid, updatedAt: '2026-02-30T13:00:00.000Z' },
+    { ...valid, currency: 'EUR' }, { ...valid, total: '123.45' },
+    { ...valid, total: -1 }, { ...valid, total: 123.456 },
+  ]) {
+    assert.throws(
+      () => validateOrderAction({ status: 'merchant_confirmed', expectedQuote }),
+      /expectedQuote/,
+    );
+  }
+  assert.throws(
+    () => validateOrderAction({ status: 'cancelled', expectedQuote: valid }),
+    /expectedQuote is only accepted/,
+  );
+  // Compatibility is deliberately NOT quote-protected. Do not certify full
+  // quote enforcement or remove this assertion before the reviewed client cutover.
+  assert.equal(validateOrderAction({ status: 'merchant_confirmed' }).expectedQuote, undefined);
+});
 test('order creation rejects non-finite coordinates and malformed bodies before persistence',()=>{
   for(const coordinates of [{deliveryLatitude:'NaN',deliveryLongitude:36},{deliveryLatitude:33,deliveryLongitude:'bad'},{deliveryLatitude:Infinity,deliveryLongitude:36}])assert.throws(()=>validateCreateOrder({...payload,...coordinates}),/coordinates are invalid/);
   assert.equal(validateCreateOrder({...payload,deliveryLatitude:0,deliveryLongitude:0}).deliveryLatitude,0);

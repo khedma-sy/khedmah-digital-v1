@@ -119,3 +119,111 @@ test('overlapping account roles select the authority that owns the requested tra
   await courierService.transition('cookie','order-1',{status:'courier_accepted'});
   assert.equal(courierOptions?.authority,'courier');
 });
+
+test('customer quote confirmation forwards the exact reviewed snapshot and reports a stale-quote conflict', async () => {
+  const quoted: FulfillmentOrder = {
+    ...delivered,
+    status: 'quoted',
+    paymentStatus: 'pending',
+    updatedAt: '2026-11-09T13:00:00.000Z',
+  };
+  const expectedQuote = {
+    updatedAt: quoted.updatedAt, total: quoted.total!, currency: quoted.currency,
+  };
+  let transitionOptions: Record<string, unknown> | undefined;
+  const repo = {
+    findById: async () => quoted,
+    transition: async (_order: FulfillmentOrder, _status: string, _actor: string, options: Record<string, unknown>) => {
+      transitionOptions = options;
+      return { ...quoted, status: 'merchant_confirmed' };
+    },
+  };
+  const instance = new OrderService(repo as never, {} as never, {
+    getCurrentUser: async () => ({ id: 'customer-1' }),
+  } as never);
+  const result = await instance.transition('cookie', 'order-1', {
+    status: 'merchant_confirmed', expectedQuote,
+  });
+  assert.equal(result.status, 'merchant_confirmed');
+  assert.deepEqual(transitionOptions, { authority: 'customer', expectedQuote });
+
+  const stale = new OrderService({
+    findById: async () => quoted,
+    transition: async () => undefined,
+  } as never, {} as never, { getCurrentUser: async () => ({ id: 'customer-1' }) } as never);
+  await assert.rejects(
+    () => stale.transition('cookie', 'order-1', {
+      status: 'merchant_confirmed', expectedQuote,
+    }),
+    (error: unknown) => {
+      assert.equal((error as { status?: number }).status, 409);
+      return true;
+    },
+  );
+
+  let unauthorizedUpdates = 0;
+  const outsider = new OrderService({
+    findById: async () => quoted,
+    transition: async () => { unauthorizedUpdates += 1; return quoted; },
+  } as never, {} as never, { getCurrentUser: async () => ({ id: 'outsider' }) } as never);
+  await assert.rejects(
+    () => outsider.transition('cookie', 'order-1', {
+      status: 'merchant_confirmed', expectedQuote,
+    }),
+    /Access denied/,
+  );
+  assert.equal(unauthorizedUpdates, 0);
+});
+
+
+test('reviewed customer quote enforcement rejects legacy confirmation before any write, but accepts a reviewed snapshot', async () => {
+  const previous = process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE;
+  const order: FulfillmentOrder = {
+    ...delivered, status: 'quoted', paymentStatus: 'pending',
+    updatedAt: '2026-11-09T13:00:00.000Z',
+  };
+  let writes = 0;
+  let latestOptions: Record<string, unknown> | undefined;
+  const instance = new OrderService({
+    findById: async () => order,
+    transition: async (_order: FulfillmentOrder, _next: string, _actor: string, options: Record<string, unknown>) => {
+      writes += 1;
+      latestOptions = options;
+      return { ...order, status: 'merchant_confirmed' };
+    },
+  } as never, {} as never, {
+    getCurrentUser: async () => ({ id: 'customer-1' }),
+  } as never);
+  const expectedQuote = { updatedAt: order.updatedAt, total: order.total!, currency: order.currency };
+  try {
+    process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE = 'true';
+    await assert.rejects(
+      () => instance.transition('cookie', order.id, { status: 'merchant_confirmed' }),
+      (error: unknown) => {
+        assert.equal((error as { status?: number }).status, 400);
+        return true;
+      },
+    );
+    assert.equal(writes, 0, 'legacy caller cannot persist a quote-free confirmation');
+    await instance.transition('cookie', order.id, { status: 'merchant_confirmed', expectedQuote });
+    assert.deepEqual(latestOptions, { authority: 'customer', expectedQuote });
+    assert.equal(writes, 1);
+
+    process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE = 'invalid';
+    await assert.rejects(
+      () => instance.transition('cookie', order.id, { status: 'merchant_confirmed' }),
+      (error: unknown) => {
+        assert.equal((error as { status?: number }).status, 503);
+        return true;
+      },
+    );
+    assert.equal(writes, 1, 'invalid rollout setting cannot bypass the quote guard');
+
+    process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE = 'false';
+    await instance.transition('cookie', order.id, { status: 'merchant_confirmed' });
+    assert.equal(writes, 2, 'legacy acceptance remains explicit only until the approved cutover');
+  } finally {
+    if (previous === undefined) delete process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE;
+    else process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE = previous;
+  }
+});

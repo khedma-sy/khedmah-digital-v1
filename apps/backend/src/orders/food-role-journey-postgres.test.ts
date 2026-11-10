@@ -21,6 +21,7 @@ import { OperationsRbacService } from '../operations-product/operations-rbac.ser
 import { OrderController } from './order.controller';
 import { OrderRepository } from './order.repository';
 import { OrderService } from './order.service';
+import type { OrderConfirmationQuote } from './order.types';
 import { FoodPromotionController } from './food-promotion.controller';
 import { FoodPromotionRepository } from './food-promotion.repository';
 import { FoodPromotionService } from './food-promotion.service';
@@ -200,16 +201,27 @@ test('food delivery role journey uses canonical sessions, governed review and at
     await request(`/orders/merchant?businessId=${merchantBusinessId}`, 'outsider', { expected: 403 });
     let merchantOrders = await request<{ orders: Array<Record<string, unknown>> }>(`/orders/merchant?businessId=${merchantBusinessId}`, 'merchant');
     assert.equal(merchantOrders.orders[0].customerPhone, '0999999999');
-    await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'quoted', deliveryFee: 250 } });
+    const quoted = await request<{ order: OrderConfirmationQuote }>(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'quoted', deliveryFee: 250 } });
+    const { updatedAt, total, currency } = quoted.order;
+    const expectedQuote = { updatedAt, total, currency };
+    for (const stale of [
+      { ...expectedQuote, updatedAt: new Date(Date.parse(updatedAt) - 1).toISOString() },
+      { ...expectedQuote, total: total - 1 },
+      { ...expectedQuote, currency: 'USD' },
+    ]) {
+      await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed', expectedQuote: stale }, expected: 409 });
+    }
+    await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed', expectedQuote: { ...expectedQuote, total: String(total) } }, expected: 400 });
+    await request(`/orders/${orderId}/status`, 'outsider', { method: 'PATCH', body: { status: 'merchant_confirmed', expectedQuote }, expected: 403 });
     await pool.query(`ALTER TABLE platform_notifications ADD CONSTRAINT synthetic_transition_notification_failure CHECK (title <> 'تم تأكيد الطلب') NOT VALID`);
     try {
-      await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed' }, expected: 500 });
+      await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed', expectedQuote }, expected: 500 });
       const rolledBack = (await pool.query(`SELECT status,(SELECT count(*)::int FROM fulfillment_order_events WHERE order_id=$1) events,(SELECT count(*)::int FROM audit_logs WHERE correlation_id=$1 OR correlation_id LIKE $1 || ':%') audits FROM fulfillment_orders WHERE id=$1`, [orderId])).rows[0];
       assert.deepEqual(rolledBack, { status: 'quoted', events: 2, audits: 2 });
     } finally {
       await pool.query('ALTER TABLE platform_notifications DROP CONSTRAINT synthetic_transition_notification_failure');
     }
-    await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed' } });
+    await request(`/orders/${orderId}/status`, 'customer', { method: 'PATCH', body: { status: 'merchant_confirmed', expectedQuote } });
     assert.equal((await pool.query(`SELECT status FROM food_promo_claims WHERE order_id=$1`, [orderId])).rows[0].status, 'redeemed');
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'courier_assigned', courierBusinessId: otherCityCourierId }, expected: 400 });
     await request(`/orders/${orderId}/status`, 'merchant', { method: 'PATCH', body: { status: 'courier_assigned', courierBusinessId } });
