@@ -63,7 +63,7 @@ The GitHub history includes other merged PRs not individually enumerated here; t
 | R09 | P0 | No signed end-to-end Google account session, admin role and customer→merchant→courier cash order, stale quote 409 test | QA / BE / Product | independent cross-role test receipts in compatible Preview |
 | R10 | P1 | Business Desk Floot DB counters: tenders 86, discovery runs 68; client access 0, alert preferences 0, alert deliveries 0, service payments 0, user tenders 0 at read. Public tender endpoint lists 14 and market opportunities 21. Counters alone do not prove subscriber delivery or payment | GM / CFO / Product / BE | opt-in subscriber → reviewed tender → alert → access → reconciled order |
 | R11 | P1 | Some paths have zero public results (food/store/pro search in anonymous sample); this may reflect no approved rows, not a confirmed UI defect | PM / UXR / BE | verified approved fixtures in isolated Preview, complete search & empty/error states |
-| R12 | P1 | The delivery quote UI spec fails under simultaneous eight-batch test execution, but passes alone and when its 20-file batch is rerun sequentially. No confirmed product defect from this evidence | SDET / FE | stable isolated CI reruns and no stale location/price acceptance across address/quantity changes |
+| R12 | P1 | Parallel Jasmine tool invocations on the same Floot project caused conflicting test state (mocked fetch/localStorage). Full rerun in eight strictly sequential batches **155/155 spec files PASS, 0 FAIL**. No proven checkout product defect; require serialized test execution until runner isolation is demonstrated | SDET / FE | stable isolated CI reruns and no stale location/price acceptance across address/quantity changes |
 | R13 | P1 | Mobile visual preview capture not confirmed; web HTTP shell 200 is not visual/accessibility acceptance | UXR / UX / UI / QA | desktop+iPhone+Android screenshots and keyboard/RTL/a11y/UAT checks |
 | R14 | P1 | Public tenders hide contact strings in editor sample (14 cards), but broad private document/record access remains unproven | Security / Business Desk | negative disclosure and ACL tests for person/company/subscriber roles |
 
@@ -89,6 +89,12 @@ The GitHub history includes other merged PRs not individually enumerated here; t
 2. **P0 parallel:** keep Floot Editor current with source safety copies and exact regression tests, map legacy classifieds and KORA consumers. Owner FE+QA+UX.
 3. **P0 parallel:** prepare real device and role acceptance for Google login, customer/merchant/courier quote transaction, restaurant push, taxi, Smart Admin. Owner QA+SDET+Security+Product.
 4. **No-go rule:** never publicly publish, merge unsafe draft, bypass review, deploy Cloud Run, mutate SQL, or activate payment/taxi/push/admin until independently verified gates and explicit release approval.
+
+## QA execution correction — 2026-11-10
+
+- **Definitive observed run:** eight `mcp__Floot__run_tests` calls invoked **sequentially**, batches of 20, last batch 15: **155 PASS / 0 FAIL**, including checkout delivery quote and all Business Desk files. TypeScript also clean.
+- **Avoid concurrent runs in this same Floot project.** Running multiple `run_tests` calls concurrently led to repeatable shared-state failures in the quote test's asynchronous prerequisite. A temporary 8-second test timeout change was trialled, did **not** fix concurrent collisions, and was **reverted**. Do not label the test fail fixed by a larger timeout, and do not equate isolated Jasmine success with cross-account/order E2E acceptance.
+- The score remains **36/100** because this verification does not close the live Google auth, Cloud SQL, checkout acceptance, device push or rollback gates.
 
 ## Hourly reporting contract
 
