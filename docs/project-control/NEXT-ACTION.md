@@ -1,5 +1,19 @@
 # Next Safe Action — Khedmah
 
+## 2026-11-11 — Next Safe Action after owner Cloud Shell receipts (NO-GO)
+
+**Do not repeat basic health/backup inventory unnecessarily.** `main=2cae37037da91e2a75f0d482f04d9773a5bdde10`, DRAFT PR #368; current read-only owner evidence confirms Backend `00008-tg8`/image `f4f8ce2...` at 100% traffic, 9 schema Jobs latest completed October 16, Cloud SQL RUNNABLE and Nov 9–11 backup SUCCESS with PITR, health/ready 200, anonymous session 401. Floot Editor `1794384251846` passed **157/157 spec files** (155 ordinary + 2 hook) and TypeScript clean; published source remains Nov 4. **P0 #369** records the old-backend no-`expectedQuote` contract.
+
+1. **Next safe action — close Google Cloud read-only provenance and recovery evidence:** use an authorized *read-only* Cloud Shell/inspector to inventory all writer principals/active connections (Cloud Run revisions, Jobs, Scheduler across relevant regions, external writers), effective DB role permissions, current 030/033 and 036/037 schema prerequisites, serving immutable image digest, IAM exposure and logs. A completed Job list, backup SUCCESS, or health 200 is insufficient. Never stop/scale writers or execute schema jobs merely to produce evidence.
+2. **Isolated recovery:** schedule separately authorized restore of a recent verified backup **to a separate isolated target**, with isolation, RPO/RTO, schema integrity and rollback attestations; no copy into the existing Preview/Production database. No restore was executed during this documentation pass.
+3. **Reviewed compatible candidate:** after gates, build an immutable commit-pinned Backend from current reviewed source in a truly isolated nonproduction environment and verify `expectedQuote` atomic comparison, intentional strict/legacy cutover policy and rollback. Do not bind the editor to old `f4f8ce2` nor enable `ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE` without explicit operational review.
+4. **Authenticated E2E:** test legitimate customer→merchant→courier order; stale timestamp/total/currency returns 409 without state change or automatic retry; exact quote confirms once; cross-account/session is denied. Test Google OAuth mobile/desktop and admin/driver roles, taxi disabled flags, restaurant background alerts on real phones, and KORA/admin route in authorized session.
+5. **Public release only after GO:** complete applicable security/independent acceptance, clear P0/P1, document digest/candidate/rollback and explicit canary authorization. Published Floot remains Nov 4 on `khedmah.uk`. Do **not** merge draft #368 as release authorization, migrate 036/037, deploy Cloud Run, publish Floot or activate taxi/Smart Admin/financial functionality from green source tests.
+
+**Handoff:** [P0 #369](https://github.com/khedma-sy/khedmah-digital-v1/issues/369), [PR #368](https://github.com/khedma-sy/khedmah-digital-v1/pull/368); update ledger with fresh owner evidence only. No Production mutation.
+
+---
+
 ## 2026-11-10 — Next Safe Action (NO-GO; Floot differential verified)
 
 **Live baseline:** protected GitHub `main=2cae37037da91e2a75f0d482f04d9773a5bdde10`; zero open PRs at inspection; main Node.js CI and Test & Verify success. Floot editor `1794271560737` is NOT the public release. Public Floot release is still 2026-11-04 / digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`; backend Preview advertises `f4f8ce2...` rather than current main.
