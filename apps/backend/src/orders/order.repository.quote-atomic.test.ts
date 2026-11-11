@@ -18,6 +18,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
     updatedAt: '2026-11-11T12:00:00.000Z',
   };
   const expectedQuote = { updatedAt: quoted.updatedAt, total: quoted.total!, currency: quoted.currency };
+  let updated = false;
   const client = {
     query: async (statement: string, values?: unknown[]) => {
       sql.push(statement);
@@ -27,8 +28,10 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
         assert.equal(values?.[14], expectedQuote.updatedAt);
         assert.equal(values?.[15], expectedQuote.total);
         assert.equal(values?.[16], expectedQuote.currency);
-        // Simulate the database rejecting a stale revision/amount atomically.
-        return { rowCount: 0, rows: [] };
+        // Simulate PostgreSQL rejecting the conditional UPDATE atomically.
+        updated = true;
+        if (updated) throw new Error('SQL after rejected quote UPDATE must not execute');
+      return { rowCount: 0, rows: [] };
       }
       return { rowCount: 0, rows: [] };
     },
@@ -42,6 +45,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
     authority: 'customer', expectedQuote,
   });
   assert.equal(result, undefined);
+  assert.equal(updated, true, 'the conditional UPDATE must be attempted');
   assert.equal(sql.filter(statement => statement.includes('UPDATE fulfillment_orders SET')).length, 1);
   assert.equal(sql.some(statement => /INSERT INTO fulfillment_order_events|INSERT INTO .*notifications|UPDATE food_promo_claims/.test(statement)), false);
 });
