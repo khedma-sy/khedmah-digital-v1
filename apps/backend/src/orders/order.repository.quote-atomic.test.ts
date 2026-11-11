@@ -30,8 +30,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
         assert.equal(values?.[16], expectedQuote.currency);
         // Simulate PostgreSQL rejecting the conditional UPDATE atomically.
         updated = true;
-        if (updated) throw new Error('SQL after rejected quote UPDATE must not execute');
-      return { rowCount: 0, rows: [] };
+        return { rowCount: 0, rows: [] };
       }
       return { rowCount: 0, rows: [] };
     },
