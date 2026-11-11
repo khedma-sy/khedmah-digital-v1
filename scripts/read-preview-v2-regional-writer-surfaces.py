@@ -109,6 +109,29 @@ def gcloud_list(kind, job=None):
     return data
 
 
+def completion_timestamp_present(item):
+    """A completed execution is not necessarily successful (Cloud Run v1/v2)."""
+    status = item.get("status")
+    legacy = status.get("completionTime") if isinstance(status, dict) else None
+    modern = item.get("completionTime")
+
+    for value in (legacy, modern):
+        if value is None:
+            continue
+        if not isinstance(value, str) or "T" not in value:
+            stop("EXECUTION_COMPLETION_TIME_INVALID")
+        try:
+            parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            stop("EXECUTION_COMPLETION_TIME_INVALID")
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            stop("EXECUTION_COMPLETION_TIME_INVALID")
+
+    if legacy is not None and modern is not None and legacy != modern:
+        stop("EXECUTION_COMPLETION_TIME_CONFLICT")
+    return legacy is not None or modern is not None
+
+
 def inspect():
     service_names = list_names(gcloud_list("services"), "services")
     if BACKEND not in service_names or FRONTEND not in service_names:
@@ -120,8 +143,7 @@ def inspect():
         names = list_names(rows, "executions", expected_job=job)
         pending = 0
         for item in rows:
-            status = item.get("status")
-            if not isinstance(status, dict) or not status.get("completionTime"):
+            if not completion_timestamp_present(item):
                 pending += 1
         executions.append({
             "job": job,
