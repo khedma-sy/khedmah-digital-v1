@@ -79,7 +79,7 @@ SQL
 
 before=$(signature "$source_db")
 test -n "$before" || stop "SOURCE_SIGNATURE_MISSING"
-pg pg_dump --format=custom --no-owner --no-acl --dbname="$source_db" --file=/artifacts/snapshot.dump
+pg sh -ec 'pg_dump --format=custom --no-owner --no-acl --dbname=khedmah_recovery_source_test --file=/artifacts/snapshot.dump && chmod 644 /artifacts/snapshot.dump'
 test -s "$work/snapshot.dump" || stop "BACKUP_ARCHIVE_EMPTY"
 backup_sha256=$(sha256sum "$work/snapshot.dump" | awk '{print $1}')
 restore_started=$(date +%s)
