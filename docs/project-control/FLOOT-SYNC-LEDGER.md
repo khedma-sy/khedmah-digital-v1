@@ -1,5 +1,21 @@
 # Khedma Digital — Floot / GitHub release synchronization ledger
 
+## 2026-11-11 — Owner Cloud Shell evidence saved to repository (NO-GO; schema and IAM gates)
+
+**Canonical detailed receipt:** [Preview V2 owner read-only receipts — 2026-11-11](PREVIEW-V2-OWNER-READONLY-RECEIPTS-2026-11-11.md). This supersedes only older **claims of unverified state**, not the source-owned release requirements or safety gates.
+
+| Newly established | Live finding | Release significance |
+|---|---|---|
+| SQL quota and 037 | Installed quota body exactly **025**, not 036; required routine/trigger shape intact; roles at target, verification-media predecessor, catalog `prerequisite-invalid` | **NO-GO** for migrating without writer fence, and for deploying backend requiring 037 |
+| Regional jobs / schedulers | 9 schema Jobs last shown October 16, 30 sampled executions with completion timestamps, Scheduler `[]` in `europe-west1`, Cloud Tasks API `SERVICE_DISABLED` | Does **not** attest all writers stopped or every job succeeded |
+| Backend / DB session snapshot | `00008-tg8` receives 100%; backend `MANUAL 1`; SQL sessions runtime/other migrator/other identities = `0` **at 15:41 UTC**; `pg_read_all_stats_member=false` | **`writer_quiescence_verified=false`**; no active/idle detail, no future writer fence |
+| Frontend direct permissions | Service account `khedmah-pv2-frontend@khedmah-preview-v2-20261012.iam.gserviceaccount.com`; `NO_DIRECT_PROJECT_BINDINGS`; Policy Troubleshooter **`CANNOT_ACCESS`** for `cloudsql.instances.connect` on Preview DB | Denies that IAM permission in evaluated scope; does not rule out proxy, direct TCP/credentials, other writer paths |
+| Candidate | 20/20 backend unit checks; build `43477d0a...`, immutable backend image `sha256:04c05...` **not deployed**; tool reports historical candidate `sha256:2146...` | Do **not** confuse images or infer 037 readiness from build success |
+
+**Conservative evidence-readiness index remains 36/100 and release NO-GO** (not recalculated by this document). Most recent read-only owner receipt: 2026-11-11T15:41:16Z; Frontend Policy Troubleshooter returned `CANNOT_ACCESS` afterward (exact time not supplied). No SQL migration, Cloud Run deploy/scaling/traffic, IAM change or Floot public Publish occurred during these inspections. The single current documentation PR remains **DRAFT #368**; recheck CI on the new documentation commit.
+
+---
+
 ## 2026-11-11 — Verified GitHub / Floot / Google handoff (NO-GO, no publication)
 
 | Dimension | Fresh receipt | Classification / remaining gate |
