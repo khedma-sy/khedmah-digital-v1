@@ -1,5 +1,58 @@
 # Khedmah Digital — Current State
 
+## 2026-11-11 — GitHub/Google and Floot evidence reconciliation (NO-GO; documentation only)
+
+**Fresh checked release baseline:** protected `main=2cae37037da91e2a75f0d482f04d9773a5bdde10` (latest merged #367). Only open PR at inspection: **DRAFT #368**, source head `f017f997069727820e85e5813ed01c29175bb751` before this documentation update; its three exact-head PR workflows succeeded and zero submitted reviews were recorded. PR #359's reviewed-quote work is already in merged main; the old 2026-11-09 statements below describing it as open are **historical and superseded**. Risk-based source governance is recorded in [issue #363](https://github.com/khedma-sy/khedmah-digital-v1/issues/363); do not invent a blanket reviewer requirement for ordinary documentation, but maintain security and serving release gates for transactions.
+
+**Floot editor versus published:** Editor version `1794384251846`; **155/155 ordinary Jasmine files PASS** in eight sequential batches and **2/2 hook files PASS** separately, **157/157 files total**, with TypeScript clean. Public Floot release still `2026-11-04T00:01:39.684Z`, release `1793750504473f0272d7f-c673-4f61-acff-130b2f13d3e9`, digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`; custom domains `khedmah.uk` and `www.khedmah.uk`. No editor updates were published. **16 GET-only route pairs** (editor versus live domain): 14 status-code pairs match; mismatches are legacy classifieds `/_api/integrations/khedmah_public?section=classifieds` **editor 200/live 502** (canonical `khedmah_classifieds?view=list&page=1` is 200/200) and admin KORA `/_api/integrations/khedmah_admin_modules?module=kora` **editor anonymous 401/live 404**. Status parity is NOT authenticated end-to-end acceptance.
+
+**Owner-supplied authenticated Cloud Shell receipts on 2026-11-11, corroborated with fresh anonymous GET:** Project `khedmah-preview-v2-20261012`, region `europe-west1`; Backend Cloud Run serving revision `khedmah-pr-274-backend-00008-tg8` at 100%, Frontend latest ready `khedmah-pr-274-frontend-00003-pzm`. Backend image version `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a` remains older than main. Backend `/api/v1/health` HTTP 200, `/api/v1/health/ready` HTTP 200, unauthenticated `/api/v1/auth/session` HTTP 401 (expected); the frontend proxy showed the same statuses in the separate GET probe. Cloud SQL `khedmah-preview-v2-db` RUNNABLE; automated backups for November 9, 10, 11 all SUCCESSFUL; PITR enabled; `sslMode=ENCRYPTED_ONLY`, public IPv4 enabled, no authorized networks listed in the sampled output (not a complete ingress exposure assessment). Nine schema Jobs have latest listed completed/successful executions dated 2026-10-16; one earlier billing failure was followed by two successes. These sampled reads **DO NOT prove** all-writer quiescence, present schema 030/033 or 036/037 prerequisites, isolated restore, or rollback.
+
+**P0 release blocker:** Exact deployed backend commit `f4f8ce2` does not parse or atomically compare `expectedQuote` in `order.validation.ts`, `order.service.ts` or `order.repository.ts`; current main does. Floot Editor forwards this quote, but deployed server does not enforce it. Recorded in [issue #369](https://github.com/khedma-sy/khedmah-digital-v1/issues/369). The strict new-backend `ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE` gate is opt-in and not proven enabled; 409 source tests do not validate the old backend live. No mutating order test was executed.
+
+**Decision: NO-GO.** The evidence readiness scale was previously 36/100 in the sync ledger (a prior conversational 38/100 was provisional, not a formal all-gate recertification). Open gates: isolated database restoration, comprehensive writer/role/schema inspection, independently accepted compatible and isolated backend build, customer/merchant/courier 409 journey, mobile Google sign-in and role isolation, taxi/Smart Admin/closed-device push, monitoring, rollback and explicit release authorization. No Cloud Run deploy/scaling, SQL mutation, production Floot publish, financial transaction or PR merge occurred during this evidence capture.
+
+---
+
+## 2026-11-10 — Floot/GitHub release reconciliation (NO-GO)
+
+**New checkpoint; dated findings below are historical and must not override this evidence. This draft document is NOT a release or a production deployment.**
+
+### Anonymous read-only HTTP parity matrix (16 paired routes)
+
+Floot editor and currently published Floot were tested with equal read-only GET selectors (32 requests, no login, no production mutation). **HTTP statuses alone do not prove functional flows**; private 401 denials are expected. Evidence observed 2026-11-10:
+
+| API route / selector | Published | Editor | Interpretation |
+|---|---:|---:|---|
+| `business/client_portal` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_admin_modules?module=kora` | **404** | **401** | published/editor route mismatch |
+| `integrations/khedmah_classifieds?view=list&page=1` | 200 | 200 | canonical list available; one public ad |
+| `integrations/khedmah_food?view=directory&page=1` | 200 | 200 | empty directory is not an order-flow proof |
+| `integrations/khedmah_mobility?type=taxi&latitude=...&longitude=...` | 200 | 200 | public directory only, NOT dispatch |
+| `integrations/khedmah_orders` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_preview_health` | 200 | 200 | both report older backend f4f8ce2 |
+| `integrations/khedmah_public?section=categories` | 200 | 200 | public categories available |
+| `integrations/khedmah_public?section=cities` | 200 | 200 | public cities available |
+| `integrations/khedmah_public?section=classifieds` | **502** | **200** | legacy route mismatch |
+| `integrations/khedmah_search?type=professional&page=1` | 200 | 200 | anonymous search; no results in sample |
+| `integrations/khedmah_session` | 401 | 401 | anonymous access denied |
+| `integrations/khedmah_store?view=list` | 200 | 200 | empty listing, not checkout proof |
+| `integrations/khedmah_web_config` | 200 | 200 | configuration endpoint available |
+| `public/market_opportunities` | 200 | 200 | 21 public results at sampling |
+| `public/tenders` | 200 | 200 | 14 public results at sampling |
+
+**Follow-up gate:** formally audit which current frontend callers still invoke the legacy classifieds route; validate the KORA route with authorized accounts on a compatible backend; add exact backend serving image/revision/traffic and writer/restore evidence. No claim of full runtime parity or completed production acceptance.
+
+- **GitHub:** protected `main=2cae37037da91e2a75f0d482f04d9773a5bdde10` (merge #367). Zero open PRs at inspection. Exact main push workflows **Node.js CI** and **Khedmah - Test & Verify** completed SUCCESS. This does not attest cloud traffic or public Floot publication.
+- **Floot editor (separate codebase):** project `5e271f43-96a6-40de-a634-ec3eae023a49`; inspected version `1794271560737` after editor-only corrections for advertised professional availability across `/platform/search`, `/platform/nearby`, and provider detail, with targeted Jasmine checks and clean TypeScript. Editor-only production roadmap: `static/__dev/plans/khedmah-full-production-roadmap-2026-11-10.md`. No GitHub source merge was claimed for this Floot change.
+- **Published Floot:** `https://khedma-meeting.floot.app` with attached `khedmah.uk` and `www.khedmah.uk`, still live release dated **2026-11-04T00:01:39.684Z**, digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`. Floot reports **55 helper/endpoint source files changed since publish**; the production code and scheduled `discoverSources`/`buildTenderAlerts` workers are still older. Do NOT mistake editor parity for public deployment.
+- **Read-only anonymous HTTP differential:** canonical `/_api/integrations/khedmah_classifieds?view=list&page=1` is **200 with one public listing** on both published and editor; **only the sampled legacy** `/_api/integrations/khedmah_public?section=classifieds` is **502 published versus 200 editor**. Do not claim all classifieds are unavailable. `/_api/integrations/khedmah_admin_modules?module=kora` is **404 published versus 401 unauthenticated editor**, consistent with missing deployed module; anonymous result cannot prove a privileged session. Preview health 200 on both, but reports backend image version `preview-pr-274-f4f8ce2b4b3d0efafedcddfe5f49e7fa4d783d9a`, behind GitHub main.
+- **Safety still closed:** Floot `khedmahApprovalExecution.enabled=false`; driver document `documentUploadEnabled=false`; taxi is a listing, not an independently proven real-time dispatch service. No authorized customer→merchant→courier full-flow test, Android/iPhone Google auth, background order push, full SQL writer quiescence, isolated restore or reversible canary was obtained.
+- **Next safe action:** reconcile exact source/serving version and document downstream dependencies of the legacy classifieds route and admin module; perform approved READ-ONLY Cloud Run/SQL inspection and separate account/device acceptance; recheck all publish gates before any canary. Keep Floot public publish, Cloud Run/SQL mutation, financial settlement and sensitive feature activation **blocked** until independent review, compatible target, rollback and explicit release approval. See `docs/project-control/NEXT-ACTION.md` top checkpoint.
+
+---
+
+
 ## 2026-11-09 — Live release reconciliation / customer quote integration (NO-GO)
 
 - **Live refs checked before editing:** protected `main=cc8d49809cb9543ee1620432d9c0ba73fb801cbb`; 14 open PRs: #344, #346, #348–#359 (excluding #345 and #347). The `main` version of this file and `NEXT-ACTION.md` still lead with 2026-11-02 evidence; this #352 branch is a proposed checkpoint, not merged main.
