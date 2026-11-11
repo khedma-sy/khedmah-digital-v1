@@ -31,7 +31,7 @@ def short_name(value):
     return value
 
 
-def resource_name(item, kind):
+def resource_name(item, kind, expected_job=None):
     if not isinstance(item, dict):
         stop("RESOURCE_NAME_INVALID")
     metadata = item.get("metadata")
@@ -53,6 +53,8 @@ def resource_name(item, kind):
                      and parts[0] == "jobs" and parts[2] == "executions")
             if valid:
                 short_name(parts[1])
+                if expected_job is not None and parts[1] != short_name(expected_job):
+                    stop("EXECUTION_PARENT_MISMATCH")
         if not valid:
             stop("RESOURCE_NAME_INVALID")
         modern = short_name(parts[-1])
@@ -63,8 +65,10 @@ def resource_name(item, kind):
     return legacy if legacy is not None else modern
 
 
-def list_names(rows, kind="jobs"):
-    names = [resource_name(item, kind) for item in rows]
+def list_names(rows, kind="jobs", expected_job=None):
+    if expected_job is not None and kind != "executions":
+        stop("COMMAND_SCOPE_REJECTED")
+    names = [resource_name(item, kind, expected_job) for item in rows]
     if len(set(names)) != len(names):
         stop("DUPLICATE_RESOURCE_NAME")
     return sorted(names)
@@ -113,7 +117,7 @@ def inspect():
     executions = []
     for job in job_names:
         rows = gcloud_list("executions", job)
-        names = list_names(rows, "executions")
+        names = list_names(rows, "executions", expected_job=job)
         pending = 0
         for item in rows:
             status = item.get("status")
