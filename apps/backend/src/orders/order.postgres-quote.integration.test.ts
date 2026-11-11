@@ -18,6 +18,8 @@ test('PostgreSQL rejects stale quote atomically without events or promotion rede
   assert.match(database, /_test$/, 'test database name must end with _test');
   assert.ok(['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname), 'remote databases are forbidden');
   assert.ok(['postgres:', 'postgresql:'].includes(parsed.protocol), 'PostgreSQL only');
+  assert.equal(parsed.search, '', 'connection-string query overrides are forbidden');
+  assert.equal(parsed.hash, '', 'connection-string fragments are forbidden');
   const pool = new Pool({ connectionString: connection!, max: 1 });
   try {
     const client = await pool.connect();
@@ -60,6 +62,8 @@ test('real OrderRepository transition enforces each quote field and has exactly-
   assert.ok(['postgres:', 'postgresql:'].includes(parsed.protocol), 'PostgreSQL only');
   assert.ok(['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname), 'loopback only');
   assert.match(decodeURIComponent(parsed.pathname.slice(1)), /_test$/, 'disposable database only');
+  assert.equal(parsed.search, '', 'connection-string query overrides are forbidden');
+  assert.equal(parsed.hash, '', 'connection-string fragments are forbidden');
   assert.equal(process.env.DATABASE_URL, connection, 'canonical fixture must use the same local _test database');
   assert.equal(process.env.ALLOW_DESTRUCTIVE_DB_TESTS, 'true', 'canonical fixture reset requires explicit test gate');
 
