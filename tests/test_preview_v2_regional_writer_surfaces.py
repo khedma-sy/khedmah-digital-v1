@@ -154,6 +154,53 @@ class PreviewRegionalWriterTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "EXECUTION_PARENT_MISMATCH"):
                 m.inspect()
 
+    def test_v1_and_v2_completion_timestamps_are_counted_not_certified(self):
+        time = "2026-11-11T22:49:14.413Z"
+        self.assertTrue(m.completion_timestamp_present({"status": {"completionTime": time}}))
+        self.assertTrue(m.completion_timestamp_present({"completionTime": time}))
+        self.assertTrue(m.completion_timestamp_present({
+            "status": {"completionTime": time}, "completionTime": time
+        }))
+        self.assertFalse(m.completion_timestamp_present({"status": {}}))
+        self.assertFalse(m.completion_timestamp_present({"conditions": []}))
+
+    def test_bad_or_conflicting_completion_timestamps_fail_closed(self):
+        invalid_rows = (
+            {"completionTime": ""},
+            {"completionTime": "not-a-date"},
+            {"completionTime": "2026-11-11T22:49:14"},
+            {"completionTime": 12345},
+            {"status": {"completionTime": "not-a-date"}},
+            {"status": {"completionTime": "2026-11-11T22:49:14Z"},
+             "completionTime": "2026-11-12T22:49:14Z"},
+        )
+        for row_data in invalid_rows:
+            with self.subTest(row=row_data):
+                with self.assertRaisesRegex(SystemExit, "EXECUTION_COMPLETION_TIME"):
+                    m.completion_timestamp_present(row_data)
+
+    def test_v2_inventory_completed_does_not_claim_success(self):
+        prefix = "projects/" + m.PROJECT + "/locations/" + m.REGION + "/"
+        rows = [
+            {"name": prefix + "jobs/job-1/executions/ex-1",
+             "completionTime": "2026-11-11T22:49:14.413Z",
+             "conditions": [{"type": "Completed", "state": "CONDITION_FAILED"}]},
+            {"name": prefix + "jobs/job-1/executions/ex-2"},
+        ]
+        with patch.object(m, "gcloud_list", side_effect=[
+            [row(m.BACKEND), row(m.FRONTEND)],
+            [row("job-1")],
+            rows,
+        ]), contextlib.redirect_stdout(io.StringIO()) as output:
+            m.main(["--inspect"])
+        summary = json.loads(output.getvalue())
+        execution_summary = summary["job_execution_summaries"][0]
+        self.assertEqual(execution_summary["completion_timestamp_count"], 1)
+        self.assertEqual(execution_summary["nonterminal_or_unknown_count"], 1)
+        self.assertTrue(execution_summary["success_not_inferred_from_completion"])
+        self.assertFalse(summary["writer_quiescence_verified"])
+        self.assertFalse(summary["release_authorized"])
+
     def test_only_expected_job_checked(self):
         with patch.object(m.subprocess, "run", return_value=SimpleNamespace(
             returncode=0, stdout=b"[]"
