@@ -31,9 +31,40 @@ def short_name(value):
     return value
 
 
-def list_names(rows):
-    names = [short_name((item.get("metadata") or {}).get("name")
-                        if isinstance(item, dict) else None) for item in rows]
+def resource_name(item, kind):
+    if not isinstance(item, dict):
+        stop("RESOURCE_NAME_INVALID")
+    metadata = item.get("metadata")
+    legacy = metadata.get("name") if isinstance(metadata, dict) else None
+    modern = item.get("name")
+    if legacy is not None:
+        legacy = short_name(legacy)
+    if modern is not None:
+        if not isinstance(modern, str):
+            stop("RESOURCE_NAME_INVALID")
+        prefix = "projects/" + PROJECT + "/locations/" + REGION + "/"
+        if not modern.startswith(prefix):
+            stop("RESOURCE_NAME_INVALID")
+        parts = modern[len(prefix):].split("/")
+        if kind in ("services", "jobs"):
+            valid = len(parts) == 2 and parts[0] == kind
+        else:
+            valid = (kind == "executions" and len(parts) == 4
+                     and parts[0] == "jobs" and parts[2] == "executions")
+            if valid:
+                short_name(parts[1])
+        if not valid:
+            stop("RESOURCE_NAME_INVALID")
+        modern = short_name(parts[-1])
+    if legacy is None and modern is None:
+        stop("RESOURCE_NAME_INVALID")
+    if legacy is not None and modern is not None and legacy != modern:
+        stop("RESOURCE_NAME_CONFLICT")
+    return legacy if legacy is not None else modern
+
+
+def list_names(rows, kind="jobs"):
+    names = [resource_name(item, kind) for item in rows]
     if len(set(names)) != len(names):
         stop("DUPLICATE_RESOURCE_NAME")
     return sorted(names)
@@ -75,14 +106,14 @@ def gcloud_list(kind, job=None):
 
 
 def inspect():
-    service_names = list_names(gcloud_list("services"))
+    service_names = list_names(gcloud_list("services"), "services")
     if BACKEND not in service_names or FRONTEND not in service_names:
         stop("KNOWN_SERVICE_NOT_ENUMERATED")
-    job_names = list_names(gcloud_list("jobs"))
+    job_names = list_names(gcloud_list("jobs"), "jobs")
     executions = []
     for job in job_names:
         rows = gcloud_list("executions", job)
-        names = list_names(rows)
+        names = list_names(rows, "executions")
         pending = 0
         for item in rows:
             status = item.get("status")
