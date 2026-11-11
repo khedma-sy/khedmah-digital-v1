@@ -32,6 +32,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
         updated = true;
         return { rowCount: 0, rows: [] };
       }
+      if (updated) throw new Error('SQL after rejected quote UPDATE must not execute');
       return { rowCount: 0, rows: [] };
     },
   };
