@@ -1,5 +1,22 @@
 # Khedma Digital — Floot / GitHub release synchronization ledger
 
+## 2026-11-11 — Verified GitHub / Floot / Google handoff (NO-GO, no publication)
+
+| Dimension | Fresh receipt | Classification / remaining gate |
+|---|---|---|
+| GitHub main | `2cae37037da91e2a75f0d482f04d9773a5bdde10`, merge #367; #359's quote source is already merged | **M**, not serving |
+| Draft release docs | Only open PR #368, head `f017f997069727820e85e5813ed01c29175bb751` before this documentation commit, 3 exact-head workflow successes and 0 submitted reviews | Documentation-only; must recheck CI on new head |
+| Floot Editor | version `1794384251846`; 155 ordinary Jasmine + 2 hooks **157/157 PASS**, TypeScript clean | **E**, not live UAT |
+| Floot Published | November 4, release `1793750504473f0272d7f-c673-4f61-acff-130b2f13d3e9`, digest `49d52b158ff4bc3baf73905b343a4b1b1bbc6bca801a9f514baf3bbefc587c08`, domains `khedmah.uk`, `www.khedmah.uk` | **L**, older; do not publish blindly |
+| Public GET parity | 16 Editor/live pairs: 14 matching HTTP statuses; legacy classified adapter **200/502** Editor/live, KORA anonymous **401/404**; canonical classified adapter **200/200** | **L**, endpoint-only, no full journey |
+| Google Cloud Preview | Owner Cloud Shell verified backend revision `00008-tg8` at 100%, frontend ready `00003-pzm`; backend `f4f8ce2`. GET health/ready **200**, unauth session **401** | **L**, old serving image; independent immutable digest gate still needed |
+| Cloud SQL | Owner read: instance RUNNABLE, backups Nov 9/10/11 SUCCESS, PITR true, encrypted-only SSL, public IPv4; 9 schema Jobs' latest listed October 16 completions successful | Partial **L**; NO writer-zero / current schema / isolated-restore proof |
+| Quote mismatch | `f4f8ce2` lacks `expectedQuote` processing; main has validation and atomic SQL check, Editor forwards it. [P0 #369](https://github.com/khedma-sy/khedmah-digital-v1/issues/369) | **B** for safe launch pending isolated backend + authenticated 409 E2E |
+
+**Readiness accounting:** keep the ledger's official **36/100** evidence score until all fixed-weight dimensions are deliberately recertified; a prior conversation's 38/100 was provisional after Cloud Shell reads. The new Cloud receipts improve evidence but **do not** close full writer/restore/roles requirements or override **NO-GO**. P0 owners: **CTO/BE/DevOps** backend compatibility; **DBA/SRE/Security** writer fence/isolated restore; **QA/SDET/Product** cross-role order, Google OAuth/mobile, taxi/push/admin acceptance. No new code fix, no additional Floot checkpoint, no production modification or merge. The PR comment receipts and issue #369 supply granular test/evidence details.
+
+---
+
 **Baseline:** 2026-11-10. **Decision:** NO-GO. **Owner scope:** CEO, GM, CTO, EM, TL, PJM, PM, UXR, UX, UI, QA, SDET, DevOps, FS/FSD, BE/BED, FE/FED, Security, Operations, CFO.
 **GitHub:** `khedma-sy/khedmah-digital-v1`, protected `main=2cae37037da91e2a75f0d482f04d9773a5bdde10`, latest merged #367. Draft #368 (documentation only) is open; do not infer CI from an earlier head.
 **Floot:** project `5e271f43-96a6-40de-a634-ec3eae023a49`, editor version `1794272024135`, 109 routed page files and 155 Jasmine specs in the current file inventory; TypeScript clean.
