@@ -131,6 +131,29 @@ class PreviewRegionalWriterTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "DUPLICATE_RESOURCE_NAME"):
             m.list_names([row("same"), {"name": prefix + "jobs/same"}], "jobs")
 
+    def test_v2_cross_job_execution_is_rejected(self):
+        prefix = "projects/" + m.PROJECT + "/locations/" + m.REGION + "/"
+        good = {"name": prefix + "jobs/expected-job/executions/run-1"}
+        wrong = {"name": prefix + "jobs/other-job/executions/run-2"}
+        self.assertEqual(
+            m.list_names([good], "executions", expected_job="expected-job"),
+            ["run-1"],
+        )
+        with self.assertRaisesRegex(SystemExit, "EXECUTION_PARENT_MISMATCH"):
+            m.list_names([wrong], "executions", expected_job="expected-job")
+        with self.assertRaisesRegex(SystemExit, "COMMAND_SCOPE_REJECTED"):
+            m.list_names([row("test")], "jobs", expected_job="expected-job")
+
+    def test_inventory_refuses_cross_job_v2_execution(self):
+        prefix = "projects/" + m.PROJECT + "/locations/" + m.REGION + "/"
+        with patch.object(m, "gcloud_list", side_effect=[
+            [row(m.BACKEND), row(m.FRONTEND)],
+            [row("expected-job")],
+            [{"name": prefix + "jobs/wrong-job/executions/run-3"}],
+        ]), contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(SystemExit, "EXECUTION_PARENT_MISMATCH"):
+                m.inspect()
+
     def test_only_expected_job_checked(self):
         with patch.object(m.subprocess, "run", return_value=SimpleNamespace(
             returncode=0, stdout=b"[]"
