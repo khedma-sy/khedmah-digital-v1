@@ -105,6 +105,32 @@ class PreviewRegionalWriterTests(unittest.TestCase):
                     with self.assertRaisesRegex(SystemExit, code):
                         m.gcloud_list("jobs")
 
+    def test_v2_fully_qualified_resource_names(self):
+        prefix = "projects/" + m.PROJECT + "/locations/" + m.REGION + "/"
+        for kind, names in (
+            ("services", [prefix + "services/" + m.BACKEND]),
+            ("jobs", [prefix + "jobs/migration-job"]),
+            ("executions", [prefix + "jobs/migration-job/executions/run-abc"]),
+        ):
+            with self.subTest(kind=kind):
+                self.assertEqual(m.list_names([{"name": n} for n in names], kind),
+                                 [names[0].split("/")[-1]])
+
+    def test_v2_scope_conflicts_and_duplicate_names_fail_closed(self):
+        prefix = "projects/" + m.PROJECT + "/locations/" + m.REGION + "/"
+        invalid = [
+            ({"name": "services/unsafe"}, "services"),
+            ({"name": prefix.replace(m.REGION, "us-central1") + "services/x"}, "services"),
+            ({"name": prefix + "jobs/job/executions/../bad"}, "executions"),
+            ({"metadata": {"name": "first"}, "name": prefix + "jobs/second"}, "jobs"),
+        ]
+        for record, kind in invalid:
+            with self.subTest(record=record):
+                with self.assertRaises(SystemExit):
+                    m.list_names([record], kind)
+        with self.assertRaisesRegex(SystemExit, "DUPLICATE_RESOURCE_NAME"):
+            m.list_names([row("same"), {"name": prefix + "jobs/same"}], "jobs")
+
     def test_only_expected_job_checked(self):
         with patch.object(m.subprocess, "run", return_value=SimpleNamespace(
             returncode=0, stdout=b"[]"
