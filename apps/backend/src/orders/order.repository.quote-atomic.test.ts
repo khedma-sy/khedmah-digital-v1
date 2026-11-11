@@ -11,7 +11,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
     merchantBusinessId: 'merchant-1', merchantOwnerUserId: 'merchant-owner',
     merchantName: 'مطعم', vertical: 'food', status: 'quoted',
     paymentMethod: 'cash', paymentStatus: 'pending', currency: 'SYP',
-    subtotal: 1000, discountAmount: 0, deliveryFee: 200, total: 1200,
+    subtotal: 1000, discountAmount: 100, deliveryFee: 200, total: 1100,
     deliveryAddress: 'دمشق', customerPhone: '0999999999',
     prescriptionAttested: false, pharmacyReviewStatus: 'not_required',
     items: [], createdAt: '2026-11-11T12:00:00.000Z',
@@ -33,6 +33,9 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
         return { rowCount: 0, rows: [] };
       }
       if (updated) throw new Error('SQL after rejected quote UPDATE must not execute');
+      if (statement.includes('FROM food_promo_claims claim')) {
+        return { rowCount: 1, rows: [{ id: 'promo-claim-1', status: 'applied' }] };
+      }
       return { rowCount: 0, rows: [] };
     },
   };
@@ -46,6 +49,7 @@ test('stale reviewed quote yields no order transition, event, promotion redempti
   });
   assert.equal(result, undefined);
   assert.equal(updated, true, 'the conditional UPDATE must be attempted');
+  assert.equal(sql.some(statement => statement.includes('FROM food_promo_claims claim')), true, 'a redeemable promotion must be present before rejection');
   assert.equal(sql.filter(statement => statement.includes('UPDATE fulfillment_orders SET')).length, 1);
   assert.equal(sql.some(statement => /INSERT INTO fulfillment_order_events|INSERT INTO .*notifications|UPDATE food_promo_claims/.test(statement)), false);
 });
