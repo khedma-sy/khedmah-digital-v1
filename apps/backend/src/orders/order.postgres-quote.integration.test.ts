@@ -90,7 +90,7 @@ test('real OrderRepository transition enforces each quote field and has exactly-
        VALUES($1,$4,'individual_user','active','active','private'),
              ($2,$5,'individual_user','active','active','private'),
              ($3,$6,'individual_user','active','active','private')`,
-      [customer, merchantOwner, outsider, 'id-' + customer, 'id-' + merchantOwner, 'id-' + outsider],
+      [customer, merchantOwner, outsider, 'identity_' + customer, 'identity_' + merchantOwner, 'identity_' + outsider],
     );
     await pool.query(
       `INSERT INTO business_profiles(id,name,owner_user_id,category_code,city_code,country_code,visibility,moderation_status,trust_status,status)
