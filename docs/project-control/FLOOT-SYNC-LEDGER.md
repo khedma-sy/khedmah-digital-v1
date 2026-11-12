@@ -1,5 +1,8 @@
 # Khedma Digital — Floot / GitHub release synchronization ledger
 
+> **2026-11-12 LIVE CORRECTION:** [Floot live parity audit & transfer matrix](FLOOT-LIVE-PARITY-AND-LAUNCH-READINESS-2026-11-12.md) supersedes the 2026-11-10/11 statement that the Floot public release is still Nov 4. Floot web release `17944528331124c03df28-23e1-4345-ad73-f248adfce602`, 03:07:07Z 12 Nov, is published; 109 route files (37 canonical platform + 72 legacy/business/redirect), 32 Khedmah integrations and 159/159 helper specs PASS, TypeScript clean. **Documentation-only scoring update 36→47/100 PROVISIONAL** under the existing 10 fixed weights; do NOT change any P0 GO flag. Cloud backend parity, writer fence, actual restore, approvals, taxi ride and restaurant push still unproven. Sections below remain retained as historical evidence.
+
+
 ## 2026-11-11 — Owner Cloud Shell evidence saved to repository (NO-GO; schema and IAM gates)
 
 **Canonical detailed receipt:** [Preview V2 owner read-only receipts — 2026-11-11](PREVIEW-V2-OWNER-READONLY-RECEIPTS-2026-11-11.md). This supersedes only older **claims of unverified state**, not the source-owned release requirements or safety gates.

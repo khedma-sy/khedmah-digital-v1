@@ -1,5 +1,8 @@
 # Next Safe Action — Khedmah
 
+> **LATEST 2026-11-12 ACTION (supersedes the older checklists below):** [Live Floot / GitHub parity, matrix and launch score](FLOOT-LIVE-PARITY-AND-LAUNCH-READINESS-2026-11-12.md). Public Floot web was actually republished at **03:07 UTC 12 Nov**; do not keep calling it unpublished. **Next immediately executable lanes:** (1) Floot UX: owner professional registration → human review → verified public Nearby flow, maps and legacy-route parity, with tested low-risk web republish; do not enable driver uploads, taxi trips or native approvals; (2) Cloud/backend: independently read the exact Preview serving image/schema and full writer inventory, then plan authorized writer fence + separate current-backup restore; do not run migrations or production mutations until all gates. **P0** real customer→merchant→courier order & locked-screen push, taxi whole ride, trusted admin documents and cross-role UAT remain unsigned. Provisional evidence-readiness **47/100, NO-GO** for full production. Old notes are dated historical context.
+
+
 ## 2026-11-11 — Next Safe Action after owner Cloud Shell receipts (NO-GO)
 
 **Do not repeat basic health/backup inventory unnecessarily.** `main=2cae37037da91e2a75f0d482f04d9773a5bdde10`, DRAFT PR #368; current read-only owner evidence confirms Backend `00008-tg8`/image `f4f8ce2...` at 100% traffic, 9 schema Jobs latest completed October 16, Cloud SQL RUNNABLE and Nov 9–11 backup SUCCESS with PITR, health/ready 200, anonymous session 401. Floot Editor `1794384251846` passed **157/157 spec files** (155 ordinary + 2 hook) and TypeScript clean; published source remains Nov 4. **P0 #369** records the old-backend no-`expectedQuote` contract.
