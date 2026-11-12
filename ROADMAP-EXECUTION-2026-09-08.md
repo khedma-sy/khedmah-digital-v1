@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-12 — Recovery network and budget design narrowed (planning only)
+
+- **Repository checkpoint:** current previously merged main `d6b7028fb445d7ad0a779cda5bf8e8c3d796ae46`, PR #380 passed independent review and three workflows. Owner's real Cloud Shell `scripts/inspect-recovery-lab-readonly.py --inspect` returned `INITIAL_INVENTORY_ONLY_NO_GO`; project identity/unbilled initial state established but neither effective IAM nor network isolation, price or restore approval.
+- **Design to validate, not deploy:** isolated project `khedmah-restore-lab-20261112`, target-only Cloud SQL PostgreSQL16 (no public IPv4), lab-only PSC VPC/endpoint, and a temporary Cloud Run Job with Direct VPC egress for metadata/integrity reads. **Cloud Shell cannot connect directly to PSC using `gcloud sql connect`**; a private test runner must be scoped and costed. See [recovery evidence boundary](docs/project-control/PREVIEW-V2-RESTORE-EVIDENCE-BOUNDARY.md#b2-proposed-private-recovery-design--not-approved-for-cloud-deployment-2026-11-12).
+- **Price scope:** illustrative Cloud SQL+10 GiB disk+assumed 10 GiB backups ~$1.76/24h plus one PSC endpoint ~$0.24/24h (published $0.01/hour): ~$2.00/24h **partial subtotal only**. Compute/Run Job runtime, network traffic, DNS, telemetry, growth and taxes are additional and unknown; budget alerts aren't guaranteed hard stops. **No budget cap or paid-resource activation approved.**
+- **Actual mutations:** this branch changes only source documentation. No billing, services, VPC, PSC, Cloud SQL target, backup restore, data movement, migrations, Cloud Run deployment, Floot publish or Preview/Production mutation.
+- **Next one action:** run the existing GitHub-only synthetic PostgreSQL restore workflow via a documentation PR while reviewing the network design, then require exact all-in quote/cap, reviewed effective principals and private test-runner identity **before** any scoped cloud activation. Full release `NO-GO`, indicator `47/100` unchanged.
+
+---
+
 ## 2026-11-12 — Recovery Lab exists; prebilling/principal-type checks done (source-only documentation)
 
 - **Actual target identity (owner Cloud Shell):** `khedmah-restore-lab-20261112` / `36942020932`, under organization `594049370623`, ACTIVE; `billingEnabled=false`, no enabled API names reported, direct project roles `roles/owner` only. Parent organization policy includes eight individual `user` bindings (not necessarily eight distinct principals), one Cloud Asset Viewer `serviceAccount` binding, no binding condition or explicit public/group/domain principal in the inspected allow policy. **These results do not prove effective IAM isolation or data access safety.**
