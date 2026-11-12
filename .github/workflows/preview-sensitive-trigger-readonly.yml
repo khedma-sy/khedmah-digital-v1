@@ -1,0 +1,22 @@
+name: Preview sensitive SQL metadata inspector offline safety
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/read-preview-v2-sensitive-trigger-grants.py'
+      - 'tests/test_preview_v2_sensitive_trigger_grants.py'
+      - '.github/workflows/preview-sensitive-trigger-readonly.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify fixed-scope read-only SQL and fail-closed results
+        run: python3 -m unittest discover -s tests -p test_preview_v2_sensitive_trigger_grants.py -v
