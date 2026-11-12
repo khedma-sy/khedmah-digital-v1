@@ -39,7 +39,38 @@ The read-only `scripts/read-preview-v2-regional-writer-surfaces.py --inspect` in
 
 **Do not run the source-pinned 035/037 migration runner, Cloud SQL restore, revision retirement, or maintenance-fence scripts against the shared Preview instance.** An isolated clone/recovery rehearsal is a separate planned operation and does not itself require stopping Preview; later mutation of the shared Preview DOES require independently proven writer isolation and release gates.
 
-## 3. Proposed *new* target, not yet created
+## 3. Recovery Lab project exists — no Cloud SQL resource, billing or isolation approval
+
+**Owner read-only Cloud Shell receipts (12 Nov 2026):** The distinct recovery project was created and verified after the original plan was written. This updates the earlier **proposal**, not the release-go decision. Its confirmed identity and preliminary gate state are:
+
+| Property | Owner-confirmed live readback |
+| --- | --- |
+| Target project ID | `khedmah-restore-lab-20261112` |
+| Target project number | `36942020932` |
+| Name, parent, state | `Khedmah Recovery Lab`; organization `594049370623`; `ACTIVE` |
+| Billing | `billingEnabled=false` |
+| Enabled services | `gcloud services list --enabled` returned no service names |
+| Target's direct IAM bindings | Role names: `roles/owner` only |
+| Parent organization's allow-policy role bindings | Nine bindings: eight `user` entries and one `serviceAccount` on `roles/cloudasset.viewer`; all conditions `false`; no group/domain/public principals in the inspected response |
+| Target Cloud SQL database or VPC | **Not created and not attested**; no API enablement or database resource creation was performed in the read-only gates |
+
+**Security limitations:** The eight user bindings may refer to one or more actual principals, whose identities were deliberately not published; the project `roles/owner` principal is not attested. Organization-level role names and binding types do not prove actual project effective access, inherited denies/principal access boundary, or allowed data access. The organization and project IAM policy reads do **not** establish resource-level network, firewall, IAM or application isolation. The user-visible Cloud Shell default is another project (`khedma-dl-e409d`): all eventual operations must specify `--project` and exact targets, never rely on defaults.
+
+**Other existing projects are excluded:** `khedma-dl` is canonical legacy production in source; `khedma-dl-e409d` contains Firebase/Identity Toolkit/API key and billing; `khedmah-preview-v2-20261012` is source/shared Preview; `khedmah-production` is production-named and not approved for recovery rehearsals.
+
+**Scope of completed work:** `target_project_identity_verified=true` and `target_unbilled=true` only. Set `isolated_target_ready=false`, `target_billing_approved=false`, `target_network_verified=false`, `cloud_sql_backup_restored=false`, `release_authorized=false`.
+
+### Indicative cost & operation boundary — NOT an authorization
+
+Google Cloud's Cloud SQL region Belgium (`europe-west1`) source tier is **Enterprise zonal PostgreSQL 16, 1 vCPU, 3.75 GiB RAM, configured SSD 10 GiB**. A public catalog snapshot updated 2026-10-30 reports comparable `db-n1-standard-1` compute+memory at about **USD 0.0676 per hour (USD 1.62 for 24 hours)**; its exact correspondence to the selected `db-custom-1-3840` SKU, live currency, negotiated discounts, taxes and destination billing account is **not yet confirmed**. **Storage, automated backups/PITR, networking, operations, additional VPC connectors/VMs and any excess disk/retained backup are extra.** Treat this as an indicative *compute-only* planning figure, not an agreed limit or a firm total bill. Independent pricing sources: <https://cloud.google.com/sql/pricing>, <https://cloud.google.com/products/calculator>, <https://instances.usage.ai/gcp/sql/region/europe-west1>.
+
+Proposed *time limit*: a single supervised restore/reconciliation/rehearsal session of at most 24 hours, with named operator/teardown owner, prior documented estimated total and maximum accepted spend; none of these are authorized yet. Google Cloud **alerts-only budgets do not stop billing**. An actual spend-cap budget may be available to eligible billing accounts/services but may permit overages because enforcement is delayed: <https://docs.cloud.google.com/billing/docs/how-to/budgets>, <https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps>. The teardown must be verified separately; simply stopping Cloud SQL can leave storage charges.
+
+### Private network design options to evaluate
+
+Google Cloud documentation currently recommends **Private Service Connect (PSC)** for new private-IP connectivity in many use cases; **Private Services Access (PSA)** is another supported path. Select only after checking whether the verified isolated test reader/runner will have a private path, API requirements, resource cost, and no inherited shared network/project access. Use target-owned private network and exact allowlist with public IPv4 **disabled**; do not automatically copy the source's public-IP settings. No actual PSC/PSA, VPC, private service connection, connector/runner or Cloud SQL resource has been set up or verified. <https://docs.cloud.google.com/sql/docs/postgres/private-ip>.
+
+
 
 Use a **separate isolated nonproduction project and private VPC** where feasible, with separate IAM bindings, no application routes/Cloud Run service pointing to the target, no public IPv4, no authorized public networks, no shared runtime service account or Secret Manager grants, and no external clients. An independent operator must verify these properties **before the backup is restored**, because restore copies source databases and users.
 
@@ -49,7 +80,7 @@ If a separate project is unavailable, **do not silently assume a new instance in
 
 Provisional sizing: PostgreSQL 16; Enterprise, `db-custom-1-3840`, zonal, SSD **at least 10 GiB**, possibly larger because Cloud SQL chooses the maximum of configured and backup disk size and can automatically increase storage. Source and target PostgreSQL **major versions must match**. Do not claim an identical security/network configuration; configure target isolation independently.
 
-Target instance ID, target project, private VPC, isolation owner, estimated hourly/day cost, maximum lifetime, billing alerts and teardown responsibility are **unresolved**. Costs begin on provisioning and include compute, RAM, storage and backups; obtain a target-region quote using Google's current Cloud SQL pricing calculator. Nothing has been created.
+The **target project ID is resolved and exists but is unbilled**. Target Cloud SQL instance ID, private VPC/PSC or PSA, isolation owner, verified eligible principals, exact region-specific total quote, agreed maximum spend, lifetime, cost controls and teardown responsibility remain **unresolved**. Costs begin on paid provisioning and may outlast an instance stop; obtain an account-specific quote before any change. **No database or network has been created.**
 
 ## 4. Read-only checks before an explicit scoped GO
 
