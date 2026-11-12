@@ -99,6 +99,37 @@ test "$before" = "$restored" || stop "RESTORED_CONTENT_MISMATCH"
 # Verify that restore did not mutate its source; backup captures a bounded point.
 test "$before" = "$(signature "$source_db")" || stop "RESTORE_TOUCHED_SOURCE"
 
+# Demonstrate that every fixture's non-key content affects the recovery
+# signature. Mutations are limited to this disposable restored CI target;
+# each test returns the synthetic fixture to its exact archived state.
+tamper_and_restore() {
+  local mutation="$1" rollback="$2" reason="$3"
+  pg psql -X -v ON_ERROR_STOP=1 -d "$target_db" -c "$mutation" >/dev/null
+  test "$before" != "$(signature "$target_db")" || stop "$reason"
+  pg psql -X -v ON_ERROR_STOP=1 -d "$target_db" -c "$rollback" >/dev/null
+  test "$before" = "$(signature "$target_db")" || stop "FIXTURE_RESTORE_AFTER_TAMPER_FAILED"
+}
+tamper_and_restore \
+  "UPDATE recovery_orders SET updated_at='2026-11-12T12:00:00Z' WHERE id='synthetic-1'" \
+  "UPDATE recovery_orders SET updated_at='2026-11-11T12:00:00Z' WHERE id='synthetic-1'" \
+  "TAMPERED_ORDER_TIMESTAMP_NOT_DETECTED"
+tamper_and_restore \
+  "UPDATE recovery_events SET event_type='tampered' WHERE id='event-1'" \
+  "UPDATE recovery_events SET event_type='confirmed' WHERE id='event-1'" \
+  "TAMPERED_EVENT_TYPE_NOT_DETECTED"
+tamper_and_restore \
+  "UPDATE recovery_events SET order_id='synthetic-1' WHERE id='event-1'" \
+  "UPDATE recovery_events SET order_id='synthetic-2' WHERE id='event-1'" \
+  "TAMPERED_EVENT_ORDER_ID_NOT_DETECTED"
+tamper_and_restore \
+  "UPDATE recovery_claims SET status='redeemed' WHERE id='claim-1'" \
+  "UPDATE recovery_claims SET status='applied' WHERE id='claim-1'" \
+  "TAMPERED_CLAIM_STATUS_NOT_DETECTED"
+tamper_and_restore \
+  "UPDATE recovery_claims SET order_id='synthetic-2' WHERE id='claim-1'" \
+  "UPDATE recovery_claims SET order_id='synthetic-1' WHERE id='claim-1'" \
+  "TAMPERED_CLAIM_ORDER_ID_NOT_DETECTED"
+
 # A post-snapshot source write MUST NOT magically appear in the recovered target.
 pg psql -X -v ON_ERROR_STOP=1 -d "$source_db" -c "
   INSERT INTO recovery_orders VALUES
