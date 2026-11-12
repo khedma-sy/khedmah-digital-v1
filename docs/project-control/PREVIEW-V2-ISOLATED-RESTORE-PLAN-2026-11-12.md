@@ -1,0 +1,93 @@
+# Preview V2 — isolated Cloud SQL restore and schema rehearsal plan (12 Nov 2026)
+
+**Status: PREPARED, NOT EXECUTED. Official launch: NO-GO.**
+This plan records the owner's read-only Cloud Shell receipts and defines the next controlled operation. **It is not permission to provision a paid resource, restore data, modify source Preview, migrate any existing database, or publish Floot.** Follow `AGENTS.md`, `ROADMAP-EXECUTION-2026-09-08.md` and `docs/project-control/PREVIEW-V2-RESTORE-EVIDENCE-BOUNDARY.md`.
+
+## 1. Identified source and exact backup
+
+Owner independently observed on 2026-11-12:
+
+| Field | Verified read-only value |
+| --- | --- |
+| Project | `khedmah-preview-v2-20261012` |
+| Instance | `khedmah-preview-v2-db` |
+| Region | `europe-west1` (Belgium) |
+| Instance state | `RUNNABLE` |
+| Engine | `POSTGRES_16` |
+| Edition and tier | `ENTERPRISE`, `db-custom-1-3840` (1 vCPU; 3.75 GiB RAM) |
+| Availability | `ZONAL` |
+| Disk | `PD_SSD`, configured 10 GiB |
+| Source public IPv4 | Enabled (this must NOT be copied as the target's desired network policy) |
+| Backup system | Standard, automatic backups enabled, 7 retained by count, PITR enabled, 7 transaction-log retention days |
+| Recovery candidate | Automated backup `1794448800000`, `SUCCESSFUL`, started `2026-11-12T02:50:32.920Z`, completed `2026-11-12T02:52:14.307Z` |
+| Existing SQL instances in source project | Only `khedmah-preview-v2-db` at observation time |
+
+The owner also verified 2026-11-08 through 2026-11-11 automated backups successful; detailed evidence is recorded in [issue #373](https://github.com/khedma-sy/khedmah-digital-v1/issues/373). Cloud SQL backup retention makes these source observations **time-limited**: re-read backup existence/status immediately before any restore.
+
+## 2. Why the current schema may not be upgraded in place
+
+The independently executed `scripts/read-preview-v2-approval-schema.py --inspect-quota` returned:
+
+- `classification=prerequisite-invalid`, `required_relation_anchors=true`, `quota_columns_exact=true`, `role_target=true`;
+- `quota_target=false`, `asset_target=false`, `private_constraint_target=false`;
+- `schema_mutation=false`, `application_data_mutation=false`, `release_gates_verified=false`.
+
+The read-only `scripts/read-preview-v2-regional-writer-surfaces.py --inspect` inventoried exactly two Cloud Run services and nine schema Jobs / 39 execution records in `europe-west1` with no *listed* nonterminal or unknown execution. It **did not** inventory other regions, Scheduler, Tasks, external writers, or DB sessions. A separate read-only successor check observed current backend revision `khedmah-pr-274-backend-00008-tg8` with **100% traffic** and `manualInstanceCount=1`, and instantaneous `khedmah_app` sessions `0`, without `pg_read_all_stats` visibility. Thus `writer_quiescence_verified=false`.
+
+**Do not run the source-pinned 035/037 migration runner, Cloud SQL restore, revision retirement, or maintenance-fence scripts against the shared Preview instance.** An isolated clone/recovery rehearsal is a separate planned operation and does not itself require stopping Preview; later mutation of the shared Preview DOES require independently proven writer isolation and release gates.
+
+## 3. Proposed *new* target, not yet created
+
+Use a **separate isolated nonproduction project and private VPC** where feasible, with separate IAM bindings, no application routes/Cloud Run service pointing to the target, no public IPv4, no authorized public networks, no shared runtime service account or Secret Manager grants, and no external clients. An independent operator must verify these properties **before the backup is restored**, because restore copies source databases and users.
+
+If a separate project is unavailable, **do not silently assume a new instance in the existing project is isolated**: inherited project IAM, VPC reachability, shared proxy access and credential reuse must be reviewed before approving an alternative. Reject a target with public ingress or unintended principal access.
+
+Provisional sizing: PostgreSQL 16; Enterprise, `db-custom-1-3840`, zonal, SSD **at least 10 GiB**, possibly larger because Cloud SQL chooses the maximum of configured and backup disk size and can automatically increase storage. Source and target PostgreSQL **major versions must match**. Do not claim an identical security/network configuration; configure target isolation independently.
+
+Target instance ID, target project, private VPC, isolation owner, estimated hourly/day cost, maximum lifetime, billing alerts and teardown responsibility are **unresolved**. Costs begin on provisioning and include compute, RAM, storage and backups; obtain a target-region quote using Google's current Cloud SQL pricing calculator. Nothing has been created.
+
+## 4. Read-only checks before an explicit scoped GO
+
+Run only against the **source**, with project/instance explicitly pinned. These commands do not create resources:
+
+```bash
+PROJECT="khedmah-preview-v2-20261012"
+SOURCE="khedmah-preview-v2-db"
+BACKUP="1794448800000"
+
+gcloud config get-value account
+gcloud config get-value project
+
+gcloud sql instances describe "$SOURCE" --project="$PROJECT" \
+  --format="json(name,region,state,databaseVersion,settings.edition,settings.tier,settings.dataDiskSizeGb,settings.ipConfiguration,settings.backupConfiguration)"
+
+gcloud sql backups describe "$BACKUP" --instance="$SOURCE" --project="$PROJECT" \
+  --format="json(id,status,type,startTime,endTime)"
+
+gcloud sql instances list --project="$PROJECT" \
+  --format="table(name,region,state,databaseVersion)"
+
+gcloud compute networks list --project="$PROJECT" \
+  --format="table(name,autoCreateSubnetworks)"
+```
+
+Never include passwords, tokens, secret payloads, public URLs, or rows containing personal information in output artifacts. Read-only network enumeration is not a security attestation. Scope all future commands to **the new target**, never the `SOURCE` variable.
+
+## 5. Operation gates and acceptance criteria
+
+1. **Approval and budget:** record a separate explicit scope authorizing a *new* paid isolated target only; budget ceiling and expiry/deletion process; destination project and identity verified. No permission is inferred from this plan or prior read-only commands.
+2. **Isolation first:** independent security review of private VPC, permitted principals, service accounts, credentials, public ingress, egress, authorized networks, and cross-project path. Verify exact source-vs-target names and distinct instance IDs; abort on any ambiguity.
+3. **Target provision:** create the distinct PostgreSQL 16 target using reviewed values. Require `RUNNABLE` and confirm no app connections or public endpoint. Provisioning itself is a paid mutation and is not performed by this document.
+4. **Restore:** re-verify `1794448800000` is still present and successful, and choose `backup-instance=SOURCE`, `restore-instance=NEW_TARGET` only after a two-person exact-name check. Cloud SQL restore **overwrites the target** and copies source database/users. Never allow `restore-instance=khedmah-preview-v2-db`. Consult the vendor guide before running any `gcloud sql backups restore` command.
+5. **Reconciliation:** record restore operation ID, completion and wall clock duration; prove target PostgreSQL 16, expected databases/schema, schema catalog/trigger constraints, migrations currently installed, and selected non-sensitive consistency counts/digests. No direct public PII access. Verify source's application path, service traffic, schema and counts remain unchanged.
+6. **Target-only migration rehearsal:** independently adapt and review the 036/037 migration to allow ONLY the explicitly named isolated target; fail closed if the target matches the Preview source. Dry-run predecessor checks first, then execute reviewed migration on isolated target only. Verify atomic commit/readback, intended quota routine and private evidence constraints, and regression tests. Do not reuse a pinned-to-Preview production migration script unchanged.
+7. **Rollback:** perform and document a target-only rollback/rebuild-from-backup exercise; measure isolated RTO/RPO *for the target*, not automatically for shared Preview. Preserve data integrity and source nonmutation receipts.
+8. **Teardown:** separately approve deletion of test resources only after sanitised evidence export. Verify billing stopped. Never delete the source instance or source backups.
+
+**STOP** on backup expiry, source/target name collision, unsupported VPC isolation, identity/permissions ambiguity, unsupported restore/DDL path, unexplained discrepancies, or nonzero unexpected source mutation.
+
+## 6. Required release declaration
+
+This plan does **not** establish `cloud_sql_backup_restored=true`, `writer_quiescence_verified=true`, `schema_readiness_verified=true`, `release_authorized=true`, or readiness to enable Floot Smart Admin. The site remains an officially **unlaunched trial/Preview** even though a web preview may be reachable. Keep approval execution and driver-document writes fail-closed.
+
+Upstream docs: [PostgreSQL restore overview](https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/restore), [restore from backup instructions](https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/restoring), [private IP configuration](https://docs.cloud.google.com/sql/docs/postgres/configure-private-ip), [Cloud SQL prices](https://cloud.google.com/sql/pricing).
