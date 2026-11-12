@@ -193,7 +193,7 @@ def inspect():
     if not token or any(c.isspace() for c in token):
         stop("TOKEN_UNAVAILABLE")
     password = reader.read_password(token)
-    with tempfile.TemporaryDirectory(prefix="pv2-sensitive-", dir="/tmp") as d:
+    with tempfile.TemporaryDirectory(prefix="pv2-", dir="/tmp") as d:
         work = Path(d)
         os.chmod(work, 0o700)
         socket = work / reader.CONNECTION / ".s.PGSQL.5432"
