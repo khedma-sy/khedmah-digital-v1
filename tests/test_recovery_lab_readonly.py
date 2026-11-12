@@ -75,6 +75,11 @@ class TestRecoveryLabSafety(unittest.TestCase):
         self.assertTrue(all(word not in args for word in (
             "create", "enable", "disable", "update", "delete", "restore", "set-iam-policy")))
         self.assertEqual(runner.call_args.kwargs["env"]["CLOUDSDK_CORE_DISABLE_PROMPTS"], "1")
+        # gcloud's user_output_enabled=false hides stdout even for --format=json.
+        # The subprocess captures raw policy JSON and never prints it.
+        self.assertEqual(runner.call_args.kwargs["env"]["CLOUDSDK_CORE_USER_OUTPUT_ENABLED"], "true")
+        self.assertIs(runner.call_args.kwargs["stderr"], m.subprocess.DEVNULL)
+        self.assertIs(runner.call_args.kwargs["stdout"], m.subprocess.PIPE)
         with patch.object(m, "gcloud_read") as cloud:
             with self.assertRaisesRegex(SystemExit, "READ_ONLY_INSPECT_ONLY"):
                 m.main(["--execute"])
