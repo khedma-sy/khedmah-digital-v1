@@ -1,5 +1,17 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-12 — Live Floot map GPS retry privacy checkpoint (web published, full operations NO-GO)
+
+- **Release actually published to Floot:** project `5e271f43-96a6-40de-a634-ec3eae023a49`, latest verified web release `17944528331124c03df28-23e1-4345-ad73-f248adfce602`, timestamp `2026-11-12T03:07:07.733Z`, source digest `c0e60c33a24d9da745e862337165cf99e9d46f37cabed0d61e9f6e6dfee7482e`. Public origin is intentionally not recorded, per `AGENTS.md`.
+- **Floot repair:** `pages/platform.map.tsx` now clears previous location, selected provider, map preview and cached nearby query as soon as a user retries GPS, so a denial/timeout or stale callback cannot leave a previous map on screen. `helpers/khedmahMapJourney.spec.tsx` adds an exact denial-after-success and late callback regression. No location is requested on render or forwarded to Google before the user chooses a map preview.
+- **Validation:** 157 ordinary spec files + 2 hook spec files **159/159 PASS** in sequential batches, 4 focused map/guard/professional files PASS, Floot TypeScript clean; publish job confirmed `succeeded` and post-publish liveRelease re-read. Previous external public route fetch proved map and Nearby landing pages render, not actual phone GPS permissions or third-party iframe delivery.
+- **GitHub control:** protected main at audit `f3fb146fb04dd90011a8ffdfced8a7368eaca993`. [Live Floot parity audit](docs/project-control/FLOOT-LIVE-PARITY-AND-LAUNCH-READINESS-2026-11-12.md) is staged in documentation PR #377, awaiting exact-new-head Actions/review. The older 2026-11-09 roadmap checkpoints below are preserved as historical receipts.
+- **Open blocker / next safe work:** positive physical-device map/GPS and permission denied/timeout acceptance, approved professional Nearby discovery, backend exact serving quote compatibility, real restaurant courier end-to-end, taxi dispatch/driver docs, protected audit history, isolated Cloud SQL current-backup restore and writer fence are **not verified**. Keep native approval execution, driver document upload and taxi trip activation OFF. Do not infer a Cloud backend rollout or full production GO from a successful Floot web publish.
+
+---
+
+
+
 ## Customer confirmation quote guard — 2026-11-09 Damascus
 
 - Draft #359, head `46795fee08bede537982460b72433ccef5b72f63`, adds optional `expectedQuote` to the existing order status action for the owning customer confirming a quoted order. The PostgreSQL update checks reviewed timestamp, total and currency together with ownership and current status. A stale quote returns 409 without committing the transition. Legacy status-only clients remain compatible.
