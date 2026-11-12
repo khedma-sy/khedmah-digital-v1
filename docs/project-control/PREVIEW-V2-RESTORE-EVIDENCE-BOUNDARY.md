@@ -21,7 +21,7 @@
 
 Sources: `docs/project-control/PREVIEW-V2-OWNER-READONLY-RECEIPTS-2026-11-11.md`, `docs/project-control/PRODUCTION-RECONCILIATION.md`, GitHub issues [#369](https://github.com/khedma-sy/khedmah-digital-v1/issues/369) and [#373](https://github.com/khedma-sy/khedmah-digital-v1/issues/373).
 
-## B2. Approved-in-principle *design*, not an approved cloud deployment (2026-11-12)
+## B2. Proposed private recovery design — not approved for cloud deployment (2026-11-12)
 
 Owner's **real** merged guard execution returned `INITIAL_INVENTORY_ONLY_NO_GO` for `khedmah-restore-lab-20261112` / `36942020932`, `billing_disabled=true`, `enabled_api_count=0`, `direct_project_roles=[roles/owner]`, nine parent principal **binding entries** (8 user; 1 service account), and `cloud_resource_mutation=false`. It explicitly returned `effective_iam_verified=false`, `network_isolation_verified=false`, `pricing_approved=false`, `restore_authorized=false`. Evidence is recorded in [release issue #373](https://github.com/khedma-sy/khedmah-digital-v1/issues/373). Do not reclassify the guard's success as readiness to copy data.
 
