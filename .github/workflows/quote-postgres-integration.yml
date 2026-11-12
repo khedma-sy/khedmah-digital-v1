@@ -1,0 +1,45 @@
+name: Isolated PostgreSQL quote integration
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/src/orders/**'
+      - '.github/workflows/quote-postgres-integration.yml'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quote-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: quote_test
+          POSTGRES_PASSWORD: local_only_test_password
+          POSTGRES_DB: khedmah_quote_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quote_test -d khedmah_quote_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Execute real local PostgreSQL conditional update regression
+        env:
+          # The full-schema fixture reset is only permitted on this disposable
+          # loopback PostgreSQL service. No shared Preview/Production credentials.
+          KHD_QUOTE_TEST_DATABASE_URL: postgresql://quote_test:local_only_test_password@127.0.0.1:5432/khedmah_quote_test
+          DATABASE_URL: postgresql://quote_test:local_only_test_password@127.0.0.1:5432/khedmah_quote_test
+          ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
+        working-directory: apps/backend
+        run: node --import tsx --test src/orders/order.postgres-quote.integration.test.ts
