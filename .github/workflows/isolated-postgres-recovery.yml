@@ -1,0 +1,52 @@
+name: Synthetic PostgreSQL isolated restore and role separation
+on:
+  pull_request:
+    paths:
+      - 'scripts/rehearse-isolated-postgres-recovery.sh'
+      - '.github/workflows/isolated-postgres-recovery.yml'
+      - 'docs/project-control/PREVIEW-V2-RESTORE-EVIDENCE-BOUNDARY.md'
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-rehearsal:
+    name: Ephemeral backup restore and read-only writer denial
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: recovery_ci
+          POSTGRES_PASSWORD: local_recovery_ci_only_password
+          POSTGRES_DB: khedmah_recovery_source_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U recovery_ci -d khedmah_recovery_source_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # Intentional CI-only synthetic credential and explicit absence of GCP.
+      PGPASSWORD: local_recovery_ci_only_password
+      DATABASE_URL: ''
+      CLOUD_SQL_INSTANCE_CONNECTION_NAME: ''
+      GOOGLE_APPLICATION_CREDENTIALS: ''
+      DOCKER_HOST: ''
+      DOCKER_CONTEXT: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm fail-closed non-CI execution
+        run: |
+          set -euo pipefail
+          if GITHUB_ACTIONS=false bash scripts/rehearse-isolated-postgres-recovery.sh >"$RUNNER_TEMP/recovery-denied.log" 2>&1; then
+            echo 'STOP: off-CI execution unexpectedly allowed'
+            exit 1
+          fi
+          grep -q 'STOP: GITHUB_HOSTED_CI_ONLY' "$RUNNER_TEMP/recovery-denied.log"
+      - name: Prove synthetic snapshot, isolated restore and SQL write denial
+        run: bash scripts/rehearse-isolated-postgres-recovery.sh
