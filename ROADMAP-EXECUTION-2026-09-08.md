@@ -1,5 +1,15 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-12 — Recovery Lab exists; prebilling/principal-type checks done (source-only documentation)
+
+- **Actual target identity (owner Cloud Shell):** `khedmah-restore-lab-20261112` / `36942020932`, under organization `594049370623`, ACTIVE; `billingEnabled=false`, no enabled API names reported, direct project roles `roles/owner` only. Parent organization policy includes eight individual `user` bindings (not necessarily eight distinct principals), one Cloud Asset Viewer `serviceAccount` binding, no binding condition or explicit public/group/domain principal in the inspected allow policy. **These results do not prove effective IAM isolation or data access safety.**
+- **Source of truth:** [existing isolated restore plan](docs/project-control/PREVIEW-V2-ISOLATED-RESTORE-PLAN-2026-11-12.md) now records the real target rather than saying no target project exists. Four other projects are excluded; never target `khedma-dl`, `khedma-dl-e409d`, `khedmah-production`, or the shared source `khedmah-preview-v2-20261012`.
+- **Cost research:** a comparable Belgium 1 vCPU/3.75 GiB Enterprise compute/RAM catalog reference is around USD 0.0676/h (USD 1.62 for 24h **compute only**); a project-specific all-in quote, agreed spend ceiling, eligible spend cap, VPC/PSC/PSA cost, teardown owner and short-lived test schedule are **not yet accepted**. Standard budget alerts are not hard limits.
+- **Actual operations:** only documentation in this branch, **no** Cloud billing link, APIs, VPC/private connectivity, Cloud SQL target, restore, migrations, Cloud Run revision or Floot publish. `isolated_target_ready=false`; official full release **NO-GO (47/100 provisional)**.
+- **Next *one* actionable gate:** establish effective allowed principals + org-policy scope of the lab and a reviewed private-network topology and total cost quote; obtain explicit scoped paid-resource approval before any API enablement or provisioning. Recheck source backup existence before actual restore. Avoid repetitive read-only inventories already completed.
+
+---
+
 ## 2026-11-12 — Isolated Preview Cloud SQL restore plan prepared (source-only; NOT executed)
 
 - **Evidence:** owner read-only Cloud Shell established `khedmah-preview-v2-db` in `europe-west1`, `POSTGRES_16`, Enterprise `db-custom-1-3840` (1 vCPU/3.75 GiB), ZONAL, SSD 10 GiB, public IPv4 enabled **on source**. Standard automated backup `1794448800000` completed `2026-11-12T02:52:14.307Z` with status `SUCCESSFUL`; PITR enabled. There is only one listed Cloud SQL instance in source project. Latest read-only 035/037 catalog returned `prerequisite-invalid`, `quota_target=false`, `asset_target=false`, `private_constraint_target=false`; no source schema changes.
