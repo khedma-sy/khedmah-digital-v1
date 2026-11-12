@@ -18,6 +18,9 @@ Owner independently observed on 2026-11-12:
 | Availability | `ZONAL` |
 | Disk | `PD_SSD`, configured 10 GiB |
 | Source public IPv4 | Enabled (this must NOT be copied as the target's desired network policy) |
+| Source private VPC | No `privateNetwork` field in the owner's full `settings.ipConfiguration` readback; private path for Google services `false` |
+| Current transport security | `sslMode=ENCRYPTED_ONLY`, `requireSsl=false`, Google-managed internal CA; SSL mode is authoritative. TLS encryption required; this does not by itself establish public ingress reachability |
+| Compute API on source project | `compute.googleapis.com` disabled as surfaced by `gcloud compute networks list`; the user did not authorize enabling it |
 | Backup system | Standard, automatic backups enabled, 7 retained by count, PITR enabled, 7 transaction-log retention days |
 | Recovery candidate | Automated backup `1794448800000`, `SUCCESSFUL`, started `2026-11-12T02:50:32.920Z`, completed `2026-11-12T02:52:14.307Z` |
 | Existing SQL instances in source project | Only `khedmah-preview-v2-db` at observation time |
@@ -39,6 +42,8 @@ The read-only `scripts/read-preview-v2-regional-writer-surfaces.py --inspect` in
 ## 3. Proposed *new* target, not yet created
 
 Use a **separate isolated nonproduction project and private VPC** where feasible, with separate IAM bindings, no application routes/Cloud Run service pointing to the target, no public IPv4, no authorized public networks, no shared runtime service account or Secret Manager grants, and no external clients. An independent operator must verify these properties **before the backup is restored**, because restore copies source databases and users.
+
+**New 2026-11-12 networking blocker:** the existing Preview project has Compute Engine API disabled; `gcloud compute networks list` prompted to enable it, and operator did not enable it. The source SQL `settings.ipConfiguration` has `ipv4Enabled=true`, `enablePrivatePathForGoogleCloudServices=false`, no `privateNetwork` key, and `sslMode=ENCRYPTED_ONLY`. A public IP paired with encrypted-only SSL is **not sufficient to assert public unauthorized access**; inspect authorized networks and IAM through Cloud SQL API separately. Google Cloud's PostgreSQL private-services-access documentation requires `compute.googleapis.com` and `servicenetworking.googleapis.com` enabled **in the target VPC host project**, plus approved network/private-services connection. Do not enable APIs on the source project simply to complete a read-only inventory. The preferred path is an independently governed, separately funded isolated target project. Any API enablement and VPC construction there require an explicit scoped authorization. <https://docs.cloud.google.com/sql/docs/postgres/configure-private-services-access>.
 
 If a separate project is unavailable, **do not silently assume a new instance in the existing project is isolated**: inherited project IAM, VPC reachability, shared proxy access and credential reuse must be reviewed before approving an alternative. Reject a target with public ingress or unintended principal access.
 
@@ -67,8 +72,13 @@ gcloud sql backups describe "$BACKUP" --instance="$SOURCE" --project="$PROJECT" 
 gcloud sql instances list --project="$PROJECT" \
   --format="table(name,region,state,databaseVersion)"
 
-gcloud compute networks list --project="$PROJECT" \
-  --format="table(name,autoCreateSubnetworks)"
+# Only inspect API enablement; do NOT auto-enable compute.googleapis.com.
+gcloud services list --enabled --project="$PROJECT" \
+  --filter="config.name:compute.googleapis.com OR config.name:servicenetworking.googleapis.com" \
+  --format="table(config.name)"
+
+# The earlier gcloud compute networks list triggered an API-enable prompt.
+# Do not run that command in the source project until a scoped API change is approved.
 ```
 
 Never include passwords, tokens, secret payloads, public URLs, or rows containing personal information in output artifacts. Read-only network enumeration is not a security attestation. Scope all future commands to **the new target**, never the `SOURCE` variable.
