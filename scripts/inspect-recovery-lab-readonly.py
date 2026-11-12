@@ -28,7 +28,7 @@ def gcloud_read(key):
         stop("UNSUPPORTED_READ_SCOPE")
     cmd = ["gcloud", "--quiet", *QUERIES[key], "--format=json"]
     env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1",
-               CLOUDSDK_CORE_LOG_HTTP="false", CLOUDSDK_CORE_USER_OUTPUT_ENABLED="false")
+               CLOUDSDK_CORE_LOG_HTTP="false", CLOUDSDK_CORE_USER_OUTPUT_ENABLED="true")
     try:
         r = subprocess.run(cmd, input=b"", stdout=subprocess.PIPE,
                            stderr=subprocess.DEVNULL, timeout=40, env=env, check=False)
