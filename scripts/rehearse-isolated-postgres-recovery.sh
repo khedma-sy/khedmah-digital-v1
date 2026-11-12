@@ -44,10 +44,14 @@ signature() {
     SELECT
       (SELECT count(*)::text FROM recovery_orders) || ':' ||
       (SELECT coalesce(sum(total),0)::text FROM recovery_orders) || ':' ||
-      (SELECT md5(string_agg(id || '/' || status || '/' || total || '/' || currency,
-             ',' ORDER BY id)) FROM recovery_orders) || ':' ||
+      (SELECT md5(coalesce(string_agg(md5(to_jsonb(o)::text), ','
+             ORDER BY o.id), '<empty>')) FROM recovery_orders o) || ':' ||
       (SELECT count(*)::text FROM recovery_events) || ':' ||
-      (SELECT count(*)::text FROM recovery_claims);
+      (SELECT md5(coalesce(string_agg(md5(to_jsonb(e)::text), ','
+             ORDER BY e.id), '<empty>')) FROM recovery_events e) || ':' ||
+      (SELECT count(*)::text FROM recovery_claims) || ':' ||
+      (SELECT md5(coalesce(string_agg(md5(to_jsonb(c)::text), ','
+             ORDER BY c.id), '<empty>')) FROM recovery_claims c);
   "
 }
 
