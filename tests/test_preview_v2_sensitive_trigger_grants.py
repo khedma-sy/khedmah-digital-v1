@@ -68,6 +68,15 @@ class SensitiveTriggerReaderTests(unittest.TestCase):
             "billing_promo_redemptions",
         })
 
+    def test_unix_socket_path_length_uses_short_temporary_prefix(self):
+        import inspect
+        source = inspect.getsource(m.inspect)
+        self.assertIn('prefix="pv2-"', source)
+        connection = "khedmah-preview-v2-20261012:europe-west1:khedmah-preview-v2-db"
+        with tempfile.TemporaryDirectory(prefix="pv2-", dir="/tmp") as tmp:
+            socket = Path(tmp) / connection / ".s.PGSQL.5432"
+            self.assertLess(len(str(socket).encode()), 104)
+
     def test_active_source_triggers_and_unprotected_audit_are_distinct(self):
         rows = self.execute_offline(self.response())
         mapped = {r["table"]: r for r in rows}
