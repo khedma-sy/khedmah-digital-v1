@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-12 — Isolated Preview Cloud SQL restore plan prepared (source-only; NOT executed)
+
+- **Evidence:** owner read-only Cloud Shell established `khedmah-preview-v2-db` in `europe-west1`, `POSTGRES_16`, Enterprise `db-custom-1-3840` (1 vCPU/3.75 GiB), ZONAL, SSD 10 GiB, public IPv4 enabled **on source**. Standard automated backup `1794448800000` completed `2026-11-12T02:52:14.307Z` with status `SUCCESSFUL`; PITR enabled. There is only one listed Cloud SQL instance in source project. Latest read-only 035/037 catalog returned `prerequisite-invalid`, `quota_target=false`, `asset_target=false`, `private_constraint_target=false`; no source schema changes.
+- **Prepared artifact:** [Preview V2 isolated restore and schema rehearsal plan](docs/project-control/PREVIEW-V2-ISOLATED-RESTORE-PLAN-2026-11-12.md). Specifies separate network/project preferred, explicit paid-resource approval, private ingress and IAM isolation **before** restoring copied source databases/users, target-only 036/037 validation, exact-name guard, integrity/readback and target-only teardown.
+- **Actual mutations:** source-only GitHub documentation branch; **no Cloud SQL target created**, no restore, no 036/037 migration, no change to Cloud Run/Floot, no production launch. The currently serving application backend remains at 100% traffic, so writer fence is **not** established.
+- **Next concrete gate:** obtain live, target-specific cost quote and isolate destination project/VPC/IAM; confirm a separate scoped paid-instance approval before creation. Recheck backup retention/status at execution time. Once isolated, execute and document restore rehearsal there only. Continue to block the shared Preview migration and native Floot approvals until independent writer/release gates.
+
+---
+
 ## 2026-11-12 — Live Floot map GPS retry privacy checkpoint (web published, full operations NO-GO)
 
 - **Release actually published to Floot:** project `5e271f43-96a6-40de-a634-ec3eae023a49`, latest verified web release `17944528331124c03df28-23e1-4345-ad73-f248adfce602`, timestamp `2026-11-12T03:07:07.733Z`, source digest `c0e60c33a24d9da745e862337165cf99e9d46f37cabed0d61e9f6e6dfee7482e`. Public origin is intentionally not recorded, per `AGENTS.md`.
