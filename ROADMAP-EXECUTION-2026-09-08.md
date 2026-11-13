@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-12 — Source Backup Freshness Read Gate (implementation branch, not cloud execution)
+
+- **Source-of-truth:** merged `main=9119f5dbd34961cb9853c3195022685cf885f6ee` includes isolated PSC design and CI synthetic backup restore PASS (#381). Owner-run separate unbilled lab inspector already returned `INITIAL_INVENTORY_ONLY_NO_GO`; do not repeat it by default.
+- **New actual source implementation:** fixed-scope `scripts/inspect-preview-backup-candidate-readonly.py --inspect` reads only instance and automatic backups metadata in source Preview `khedmah-preview-v2-20261012` / `khedmah-preview-v2-db`. Rejects unexpected source instance, non-PostgreSQL16, backup config disabled, truncated lists, failed/missing or older-than-48h backup candidates. Outputs latest **successful** automated backup ID/end-time without any application rows or SQL sessions and with explicit `restore_authorized=false`. No execute mode, no Cloud mutation, no target connection. Tests `tests/test_preview_backup_candidate_readonly.py` are run by canonical Node root test runner via `tests/preview-backup-candidate-readonly.test.mjs`.
+- **Status:** source-only code + synthetic offline regression tests in a PR branch. **No real backup freshness check has run** on the current day yet; Cloud Shell owner must execute the reviewed `--inspect` after merge for live attestation. Future backup ID is chosen from live metadata, never assume the 12 Nov backup survives retention.
+- **One next gate after the reviewed PR:** obtain that live source-read-only receipt, then target-only IAM/network total-spend/teardown authorization before paid Cloud SQL, PSC and temporary private Cloud Run Job. No production or Floot mutation. Full launch NO-GO at the historical provisional 47/100.
+
+---
+
 ## 2026-11-12 — Recovery network and budget design narrowed (planning only)
 
 - **Repository checkpoint:** current previously merged main `d6b7028fb445d7ad0a779cda5bf8e8c3d796ae46`, PR #380 passed independent review and three workflows. Owner's real Cloud Shell `scripts/inspect-recovery-lab-readonly.py --inspect` returned `INITIAL_INVENTORY_ONLY_NO_GO`; project identity/unbilled initial state established but neither effective IAM nor network isolation, price or restore approval.
