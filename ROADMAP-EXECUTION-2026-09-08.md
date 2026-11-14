@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-14 — $20 preliminary recovery budget accepted; target-deny read gate prepared (NO-GO)
+
+- **Repository baseline:** current merged `main=e38b4fada311e6a46e9dfe4871f6a192d6cfa2e8` includes #383 and the owner's successful real source backup metadata check. No open PRs at initial inspection. Owner's prior unbilled lab admission read already passed; **do not repeat it** as a substitute for security isolation.
+- **Recorded owner decision:** owner replied **«موافق»** to **one** isolated Recovery Lab test at up to **USD 20 provisional planning ceiling** and **at most 24 hours**, **expressly conditional** on actual all-in pricing and private-network/isolation review *before any chargeable action*. [Evidence #373](https://github.com/khedma-sy/khedmah-digital-v1/issues/373#issuecomment-6877071775). **This is not an automatic spending limit nor approval to link billing, enable APIs, create Cloud SQL/VPC/PSC/Cloud Run resources, move customer data or operate production.**
+- **New executable read-only source gate (no GCP execution in this change):** `scripts/inspect-recovery-lab-deny-policies-readonly.py --inspect` inventories **only** IAM deny-policy *counts* directly attached to the lab project and its known organization. Outputs no principal identifiers or policy bodies; always reports `DENY_POLICY_METADATA_ONLY_NO_GO`, `effective_iam_verified=false` and `paid_resource_setup_authorized=false`. Fails closed on unreadable or invalid API responses. Tests `tests/test_recovery_lab_deny_readonly.py` and `tests/recovery-lab-deny-readonly.test.mjs`. **No absence of deny policies certifies allowed principals/constraints;** a separate reviewer must check effective allow/deny/PAB and the proposed private data access path.
+- **Next one live gate:** after tests/merge, read **target+organization deny metadata** with the pinned read-only script, then privately verify effective allowed principals and lab-owned PSC/private reader design plus provider-account **all-in** quote within the accepted $20 ceiling, 24h deletion accountability and expense controls. STOP if any part is unknown or if costs might exceed $20. Revalidate the backup only immediately before an authorized restore. Serving Preview / Production / Floot remains unchanged. **Official launch NO-GO, evidence score 47/100 provisional.**
+
+---
+
 ## 2026-11-14 — Live Preview backup freshness check PASSED; isolated restore still NO-GO
 
 - **Confirmed current `main` before this documentation edit:** `60b5a3bcfea1cb9e3b2c8cad77a80ed687336509` (merged #382); 0 open PRs. Earlier #381 isolated PSC/private runner design and synthetic PostgreSQL restore tests completed successfully. Owner already ran the distinct unbilled-lab admission guard: `INITIAL_INVENTORY_ONLY_NO_GO`.
