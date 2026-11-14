@@ -1,5 +1,13 @@
 name: Isolated PostgreSQL quote integration
 on:
+  # Run on current main after an approved merge; no GCP credentials or
+  # shared Preview/Production database is available to this workflow.
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/src/orders/**'
+      - '.github/workflows/quote-postgres-integration.yml'
+      - 'package-lock.json'
   pull_request:
     paths:
       - 'apps/backend/src/orders/**'
@@ -13,6 +21,7 @@ permissions:
 jobs:
   quote-postgres:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -29,10 +38,17 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+      - name: Identify exact tested source
+        run: |
+          echo "Tested source commit: $(git rev-parse HEAD)"
+          echo "Target: loopback-only disposable PostgreSQL 16"
+          echo "Cloud SQL, Cloud Run, secrets and production: NOT ACCESSED"
       - run: npm ci
       - name: Execute real local PostgreSQL conditional update regression
         env:
