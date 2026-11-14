@@ -1,0 +1,189 @@
+# Boot the real Backend Docker image against PostgreSQL 16 schema 037 in
+# a short-lived runner-only network namespace. No cloud auth, SQL instance,
+# production data, public service port, or runtime secret is ever used.
+name: Backend container — isolated schema 037 startup
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/backend-container-schema037.yml'
+      - 'Dockerfile.backend'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/backend/**'
+      - 'backend/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-schema037-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  boot-with-disposable-pg16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PG_NAME: khedmah-schema037-fixture
+      BACKEND_NAME: khedmah-schema037-candidate
+      DB_URL: postgresql://candidate_test:runner_fixture_only@127.0.0.1:5432/khedmah_candidate_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Create disconnected PostgreSQL 16 fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --network none: database and all clients share only loopback.
+          # Never map database or Backend ports to the host/internet.
+          docker run --detach --rm --network none \
+            --name "$PG_NAME" \
+            -e POSTGRES_USER=candidate_test \
+            -e POSTGRES_PASSWORD=runner_fixture_only \
+            -e POSTGRES_DB=khedmah_candidate_test \
+            postgres:16-alpine
+          for attempt in $(seq 1 60); do
+            if docker exec "$PG_NAME" pg_isready -h 127.0.0.1 \
+              -U candidate_test -d khedmah_candidate_test >/dev/null 2>&1; then
+              echo 'DISPOSABLE_PG16_READY'
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'STOP: DISPOSABLE_PG16_NOT_READY' >&2
+          exit 1
+
+      - name: Install the original repository dependencies
+        run: npm ci
+
+      - name: Install canonical schema 001-037 and verify actual NestJS health
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The existing health.test.ts executes the canonical migrations and
+          # boots the NestJS application on real PostgreSQL. Its destructive
+          # fixture guard requires a disposable *_test database.
+          docker run --rm --network "container:$PG_NAME" \
+            -v "$PWD:/workspace:ro" -w /workspace/apps/backend \
+            -e DATABASE_URL="$DB_URL" \
+            -e ALLOW_DESTRUCTIVE_DB_TESTS=true \
+            -e NODE_ENV=preview \
+            node:24-slim node --import tsx --test src/health.test.ts
+          echo 'CANONICAL_SCHEMA_037_AND_NEST_STARTUP_TEST_PASSED'
+
+      - name: Build the existing production Backend Dockerfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          docker build -f Dockerfile.backend \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --tag "khedmah-backend-schema037:$SOURCE_SHA" .
+
+      - name: Boot the real Docker image against disconnected PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --rm \
+            --network "container:$PG_NAME" \
+            --name "$BACKEND_NAME" \
+            -e NODE_ENV=preview -e PORT=8080 \
+            -e APP_VERSION="isolated-$SOURCE_SHA" \
+            -e DATABASE_URL="$DB_URL" \
+            "khedmah-backend-schema037:$SOURCE_SHA"
+          echo 'REAL_BACKEND_IMAGE_STARTED_WITHOUT_EXTERNAL_NETWORK'
+
+      - name: Verify HTTP liveness, DB readiness, version and anonymous auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if docker exec "$BACKEND_NAME" node -e '
+              const assert = require("node:assert/strict");
+              (async () => {
+                const origin = "http://127.0.0.1:8080";
+                const health = await fetch(origin + "/api/v1/health");
+                assert.equal(health.status, 200, "health must return 200");
+                const body = await health.json();
+                assert.equal(body.status, "ok");
+                assert.equal(body.version, process.env.APP_VERSION);
+                const ready = await fetch(origin + "/api/v1/health/ready");
+                assert.equal(ready.status, 200, "ready must return 200");
+                const readiness = await ready.json();
+                assert.deepEqual(readiness.dependencies, { database: "ok" });
+                const session = await fetch(origin + "/api/v1/auth/session");
+                assert.equal(session.status, 401, "anonymous session must fail closed");
+                console.log("BACKEND_037_RUNTIME_ACCEPTANCE_PASSED");
+              })().catch(() => process.exit(1));' >/dev/null 2>&1; then
+              echo 'BACKEND_037_RUNTIME_ACCEPTANCE_PASSED'
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'STOP: BACKEND_037_RUNTIME_ACCEPTANCE_FAILED' >&2
+          docker logs --tail 45 "$BACKEND_NAME" 2>&1 || true
+          exit 1
+
+      - name: Write exact-image and isolation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          source = os.environ['SOURCE_SHA']
+          image = 'khedmah-backend-schema037:' + source
+          image_id = subprocess.check_output(
+              ['docker', 'image', 'inspect', '--format={{.Id}}', image], text=True
+          ).strip()
+          assert image_id.startswith('sha256:')
+          data = {
+              'result': 'ISOLATED_BACKEND_DOCKER_SCHEMA_037_STARTUP_PASSED',
+              'source_sha': source,
+              'backend_tree': subprocess.check_output(
+                  ['git', 'rev-parse', 'HEAD:apps/backend'], text=True
+              ).strip(),
+              'local_docker_image_id': image_id,
+              'database': 'disposable PostgreSQL 16 / canonical schema 037',
+              'network': 'network=none on PostgreSQL, shared loopback namespace only',
+              'health_http': 200, 'readiness_http': 200,
+              'anonymous_session_http': 401,
+              'production_traffic_changed': False,
+              'cloud_sql_access': False,
+              'cloud_run_deployed': False,
+              'registry_digest_verified': False,
+              'authenticated_order_e2e_verified': False,
+              'production_release_authorized': False
+          }
+          Path('backend-schema037-startup-receipt.json').write_text(
+              json.dumps(data, indent=2, sort_keys=True) + '\n'
+          )
+          print('ISOLATED_BACKEND_DOCKER_SCHEMA_037_STARTUP_PASSED')
+          PY
+
+      - name: Retain startup evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-schema037-startup-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend-schema037-startup-receipt.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Always remove both disposable containers
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force "$BACKEND_NAME" >/dev/null 2>&1 || true
+          docker rm --force "$PG_NAME" >/dev/null 2>&1 || true
+          echo 'DISPOSABLE_BACKEND_AND_POSTGRES_REMOVED'
