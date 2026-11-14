@@ -1,0 +1,123 @@
+# Build a loadable Backend image from an exact reviewed source snapshot.
+# Deliberately NO GCP authentication, deployment, database, secret or traffic access.
+name: Backend candidate — offline image
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/backend-candidate-offline.yml'
+      - 'Dockerfile.backend'
+      - '.npmrc'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/backend/**'
+      - 'apps/frontend/package.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-candidate-offline-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  package-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Build existing Backend Dockerfile only (no deployment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          test "$SOURCE_COMMIT" = "${{ github.event.pull_request.head.sha }}"
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          docker build --file Dockerfile.backend \
+            --label "org.opencontainers.image.revision=$SOURCE_COMMIT" \
+            --tag "khedmah-backend-candidate:$SOURCE_COMMIT" .
+          # Offline container filesystem smoke check, without network or database.
+          docker run --rm --network none \
+            --entrypoint node "khedmah-backend-candidate:$SOURCE_COMMIT" \
+            -e 'require("fs").accessSync("apps/backend/dist/main.js")'
+          docker save "khedmah-backend-candidate:$SOURCE_COMMIT" \
+            | gzip -1 -n > backend-candidate-image.tar.gz
+
+      - name: Write provenance and archive checksums (not registry digest)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          def sha256(path):
+              h = hashlib.sha256()
+              with open(path, "rb") as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b""):
+                      h.update(block)
+              return "sha256:" + h.hexdigest()
+
+          source = git("rev-parse", "HEAD")
+          assert source == os.environ["SOURCE_COMMIT"]
+          image = "khedmah-backend-candidate:" + source
+          image_id = subprocess.check_output(
+              ["docker", "image", "inspect", "--format={{.Id}}", image],
+              text=True
+          ).strip()
+          assert image_id.startswith("sha256:")
+          report = {
+              "kind": "BACKEND_OFFLINE_CANDIDATE_ONLY",
+              "source_commit": source,
+              "backend_tree": git("rev-parse", "HEAD:apps/backend"),
+              "dockerfile_sha256": sha256("Dockerfile.backend"),
+              "lockfile_sha256": sha256("package-lock.json"),
+              "image_local_id": image_id,
+              "docker_archive_sha256": sha256("backend-candidate-image.tar.gz"),
+              "archive_name": "backend-candidate-image.tar.gz",
+              "registry_digest_verified": False,
+              "database_schema_037_verified": False,
+              "cloud_build_executed": False,
+              "cloud_deployment_executed": False,
+              "secret_access": False,
+              "production_release_authorized": False
+          }
+          Path("backend-candidate-evidence.json").write_text(
+              json.dumps(report, sort_keys=True, indent=2) + "\n"
+          )
+          print(json.dumps({
+              "result": report["kind"],
+              "source_commit": source,
+              "backend_tree": report["backend_tree"],
+              "archive_sha256": report["docker_archive_sha256"],
+              "cloud_deployment_executed": False
+          }, sort_keys=True))
+          PY
+
+      - name: Upload loadable image and provenance (7-day artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-offline-${{ github.event.pull_request.head.sha }}
+          path: |
+            backend-candidate-image.tar.gz
+            backend-candidate-evidence.json
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Summarize evidence boundary
+        shell: bash
+        run: |
+          echo '### Backend offline candidate built' >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: \`$SOURCE_COMMIT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Image: downloadable Docker archive + SHA-256 provenance artifact (NOT a registry digest).' >> "$GITHUB_STEP_SUMMARY"
+          echo 'NO Google Cloud/Cloud SQL/Preview/Floot access; no Cloud Run deployment or traffic switch.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Schema 037, isolation, image registry digest, real order E2E and rollback remain release gates.' >> "$GITHUB_STEP_SUMMARY"
