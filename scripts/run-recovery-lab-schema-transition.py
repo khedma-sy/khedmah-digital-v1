@@ -140,8 +140,10 @@ def apply(host, content):
                "--vpc-egress=all-traffic", "--tasks=1", "--parallelism=1",
                "--max-retries=0", "--task-timeout=240s",
                "--cpu=1", "--memory=512Mi"]
-        call(cmd, timeout=900)
+        # Own the name before creation: a timed-out control-plane response
+        # can still leave a billable job, so always attempt deletion in finally.
         owned.append(("job", job))
+        call(cmd, timeout=900)
         cfg = call(["run", "jobs", "describe", job, "--region=" + REGION],
                    output_json=True)
         blob = json.dumps(cfg).lower()
