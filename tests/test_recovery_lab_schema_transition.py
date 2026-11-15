@@ -82,7 +82,7 @@ class Transition(unittest.TestCase):
         self.assertNotIn("khedmah-preview-v2-20261012", line)
         self.assertNotIn("khedma-dl", line)
         self.assertTrue(any(c[0][:3] == ("run", "jobs", "delete") for c in calls))
-        self.assertTrue(any(c[0][:3] == ("secrets", "delete") for c in calls))
+        self.assertTrue(any(c[0][:2] == ("secrets", "delete") for c in calls))
 
     def test_failed_execution_attempts_cleanup(self):
         calls = []
