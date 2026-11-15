@@ -333,7 +333,7 @@ def execute(host):
     grant_job = BOOT_JOB + "-" + tag
     audit_job = JOB + "-" + tag
     owned = []
-    granted = False
+    grant_cleanup_required = False
     auditor_password = secrets.token_urlsafe(48)
     admin_password = secrets.token_urlsafe(48)
     try:
@@ -385,11 +385,12 @@ def execute(host):
         print("LAB_POSTGRES_ADMIN_PASSWORD_ROTATED: True", flush=True)
         create_job(grant_job, email, BOOT_SECRET, host, GRANT_SQL, admin=True)
         owned.append(("job", grant_job))
+        # Even if its success logs are missing, the grant may already have run.
+        grant_cleanup_required = True
         require_markers(run_job(grant_job), {
             "GRANT_CONNECT": "true", "GRANT_USAGE": "true",
             "GRANT_CREATE": "false", "GRANT_SELECT": "false",
         })
-        granted = True
         print("LAB_MINIMAL_CONNECT_AND_SCHEMA_USAGE: VERIFIED", flush=True)
         create_job(audit_job, email, SECRET, host, CATALOG_SQL)
         owned.append(("job", audit_job))
@@ -404,7 +405,7 @@ def execute(host):
         return 0
     finally:
         # Grants depend on the PostgreSQL account; REVOKE before dropping it.
-        if granted:
+        if grant_cleanup_required:
             try:
                 require_markers(run_job(grant_job, override_sql=REVOKE_SQL), {
                     "REVOKED_CONNECT": "false", "REVOKED_USAGE": "false",
