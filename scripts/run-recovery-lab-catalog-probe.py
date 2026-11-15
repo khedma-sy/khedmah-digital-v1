@@ -153,16 +153,12 @@ def require_rules(rules):
 
 
 def classify_log(payload):
-    """Return only exact catalog markers; never echo raw SQL output or user records."""
-    found = {}
-    for line in payload.splitlines():
-        marker = re.fullmatch(
-            r"\s*LAB_PROBE_([A-Z0-9_]+)=(true|false|on|off|khedmah)\s*", line)
-        if marker and marker.group(1) in MARKERS:
-            old = found.get(marker.group(1))
-            if old is not None and old != marker.group(2):
-                raise GuardStop("INCONSISTENT_CATALOG_LOG")
-            found[marker.group(1)] = marker.group(2)
+    """Return only exact catalog markers; never echo SQL output or user records."""
+    tokens = _log_tokens([{"textPayload": payload}])
+    found = {
+        key: tokens["PROBE_" + key]
+        for key in MARKERS if "PROBE_" + key in tokens
+    }
     if set(found) != set(MARKERS):
         raise GuardStop("INCOMPLETE_CATALOG_EVIDENCE")
     if found["DATABASE"] != "khedmah" or found["READ_ONLY"] != "on" \
