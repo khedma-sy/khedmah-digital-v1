@@ -21,10 +21,10 @@ PATTERNS = {
     "PERMISSION_DENIED": r"permission.denied|does not have permission|access denied|\bforbidden\b|\b403\b",
     "ORG_POLICY": r"organization(?:al)? policy|orgpolicy|org.policy|allowedpolicymemberdomains|constraints/iam",
     "INVALID_ARGUMENT": r"invalid.argument|unrecognized arguments|too few arguments|required arguments",
-    "SECRET_MISSING": r"secret[^\n]{0,250}(?:does not exist|not found)",
+    "NOT_FOUND_OR_MISSING": r"\bnot.found\b|does not exist|doesn't exist",
     "AUTHENTICATION": r"unauthenticated|invalid_grant|reauthentication|credentials? (?:have )?expired",
     "TRANSIENT_OR_QUOTA": r"timed? ?out|deadline.exceeded|connection (?:refused|reset)|resource.exhausted|\b(?:429|500|502|503|504)\b",
-    "ETAG_OR_CONDITION": r"\betag\b|condition required|policy modification failed|\baborted\b|\b409\b",
+    "ETAG_OR_CONDITION": r"\betag\b|condition required|\baborted\b|\b409\b",
 }
 
 
