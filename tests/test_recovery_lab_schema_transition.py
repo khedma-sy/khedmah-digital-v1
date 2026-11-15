@@ -76,8 +76,9 @@ class Transition(unittest.TestCase):
         self.assertIn("PGUSER=khedmah_migrator", line)
         self.assertIn("set-password khedmah_migrator", line)
         self.assertIn("/run/transition/036-037.sql=", line)
-        self.assertIn("run jobs execute", " ".join(
-            " ".join(str(x) for x in args) for args, _ in calls))
+        # catalog.run_job is mocked in this unit test: verify invocation via
+        # the distinct catalog helper tests, not by assuming a gcloud call here.
+        self.assertIn("run jobs create", line)
         self.assertNotIn("khedmah-preview-v2-20261012", line)
         self.assertNotIn("khedma-dl", line)
         self.assertTrue(any(c[0][:3] == ("run", "jobs", "delete") for c in calls))
