@@ -55,7 +55,7 @@ class CatalogSafety(unittest.TestCase):
 
     def test_sanitization_and_identity_check(self):
         values={"DATABASE":"khedmah","READ_ONLY":"on","SUPERUSER":"false",
-                "CORE_001":"true","ORDER_026":"true","035":"true",
+                "TABLE_SELECT":"false","CORE_001":"true","ORDER_026":"true","035":"true",
                 "036":"false","037_TYPE":"false","037_PRIVATE":"false"}
         log="\n".join("LAB_PROBE_"+k+"="+v for k,v in values.items())
         result=m.classify_log("PRIVATE email@example.invalid\n"+log)
@@ -63,6 +63,7 @@ class CatalogSafety(unittest.TestCase):
         self.assertNotIn("example.invalid",str(result))
         for bad in (log.replace("READ_ONLY=on","READ_ONLY=off"),
                     log.replace("SUPERUSER=false","SUPERUSER=true"),
+                    log.replace("TABLE_SELECT=false","TABLE_SELECT=true"),
                     log.replace("LAB_PROBE_035=true",""),
                     log+"\nLAB_PROBE_036=true"):
             with self.assertRaises(m.GuardStop):m.classify_log(bad)
@@ -86,27 +87,41 @@ class CatalogSafety(unittest.TestCase):
         for cmd in commands:
             self.assertFalse({"create","delete","update","enable","restore"}.intersection(cmd))
 
-    def test_execute_is_lab_scoped_and_cleans_credentials(self):
-        commands=[]
-        created=False
-        def mock(args,*,data=None,timeout=240,output_json=False):
-            nonlocal created
+    def test_execute_is_lab_scoped_and_revokes_narrow_grants(self):
+        commands = []
+        auditor_created = False
+        last_job = ""
+        revoke = False
+        def mock(args, *, data=None, timeout=240, output_json=False):
+            nonlocal auditor_created, last_job, revoke
             commands.append(tuple(args))
-            if args[:3]==["run","jobs","list"]:return "[]"
-            if args[:3]==["iam","service-accounts","list"]:return []
-            if args[:2]==["secrets","list"]:return []
-            if args[:3]==["sql","users","create"]:created=True
-            if args[:3]==["sql","users","list"]:
-                return [{"name":m.USER,"databaseRoles":[m.ROLE]}] if created else []
-            if args[:3]==["run","jobs","describe"]:
-                return {"network":m.NET,"subnet":m.SUB,
-                        "egress":"ALL_TRAFFIC",
+            if args[:3] == ["run", "jobs", "list"]:return []
+            if args[:3] == ["iam", "service-accounts", "list"]:return []
+            if args[:2] == ["secrets", "list"]:return []
+            if args[:3] == ["sql", "users", "create"]:auditor_created = True
+            if args[:3] == ["sql", "users", "list"]:
+                return [{"name":m.USER,"databaseRoles":[m.ROLE]}] if auditor_created else []
+            if args[:3] == ["run", "jobs", "describe"]:
+                return {"network":m.NET,"subnet":m.SUB,"egress":"ALL_TRAFFIC",
                         "serviceAccount":m.SA+"@"+m.LAB+".iam.gserviceaccount.com"}
-            if args[:4]==["run","jobs","logs","read"]:
-                rows={"DATABASE":"khedmah","READ_ONLY":"on","SUPERUSER":"false",
-                      "CORE_001":"true","ORDER_026":"true","035":"true",
-                      "036":"false","037_TYPE":"false","037_PRIVATE":"false"}
-                return [{"textPayload":"\n".join("LAB_PROBE_"+k+"="+v for k,v in rows.items())}]
+            if args[:3] == ["run", "jobs", "execute"]:
+                last_job = args[3]
+                revoke = any(x.startswith("--update-env-vars=") for x in args)
+            if args[:3] == ["run", "jobs", "executions"]:
+                return {"name":last_job+"-exec1"}
+            if args[:2] == ["logging", "read"]:
+                if m.BOOT_JOB in last_job:
+                    values = ({"REVOKED_CONNECT":"false","REVOKED_USAGE":"false"} if revoke else
+                              {"GRANT_CONNECT":"true","GRANT_USAGE":"true","GRANT_CREATE":"false","GRANT_SELECT":"false"})
+                else:
+                    values={"PROBE_DATABASE":"khedmah","PROBE_READ_ONLY":"on",
+                            "PROBE_SUPERUSER":"false","PROBE_TABLE_SELECT":"false",
+                            "PROBE_CORE_001":"true","PROBE_ORDER_026":"true",
+                            "PROBE_035":"true","PROBE_036":"false",
+                            "PROBE_037_TYPE":"false","PROBE_037_PRIVATE":"false"}
+                return [{"resource":{"labels":{"job_name":last_job}},
+                         "labels":{"execution_name":last_job+"-exec1"},
+                         "textPayload":"\n".join("LAB_"+k+"="+v for k,v in values.items())}]
             return ""
         with patch.object(m,"call",side_effect=mock):
             self.assertEqual(m.execute("10.166.4.5"),0)
@@ -115,9 +130,15 @@ class CatalogSafety(unittest.TestCase):
         self.assertIn("--database-roles=pg_read_all_settings",flat)
         self.assertIn("--vpc-egress=all-traffic",flat)
         self.assertIn("--set-secrets=PGPASSWORD=",flat)
-        self.assertIn(("run","jobs","delete",m.JOB,"--region="+m.REGION),commands)
-        self.assertIn(("sql","users","delete",m.USER,"--instance="+m.SQL),commands)
-        self.assertIn(("secrets","delete",m.SECRET),commands)
+        self.assertIn("--instance="+m.SQL,flat)
+        self.assertIn("set-password postgres",flat)
+        self.assertIn("run jobs execute",flat)
+        self.assertIn("--update-env-vars=CHECKS_B64=",flat)
+        self.assertTrue(any(c[:2]==("logging","read") and "labels.execution_name=" in c[2]
+                            for c in commands))
+        self.assertTrue(any(c[:3]==("sql","users","delete") for c in commands))
+        self.assertTrue(any(c[:2]==("secrets","delete") for c in commands))
+        self.assertFalse(any("--project=khedmah-preview-v2-20261012" in arg for c in commands for arg in c))
 
 
 if __name__=="__main__":unittest.main()
