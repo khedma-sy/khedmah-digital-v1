@@ -13,11 +13,15 @@ import re
 COMMAND = "gcloud.secrets.add-iam-policy-binding"
 SECRET = "khedmah-lab-transition-sql"
 PROJECT = "khedmah-restore-lab-20261112"
+LAB_PRINCIPAL = "khedmah-lab-transition@" + PROJECT + ".iam.gserviceaccount.com"
 MAX_FILES = 4000
 MAX_BYTES = 2_000_000
 
 PATTERNS = {
     "SERVICE_ACCOUNT_MISSING": r"(?:service\s*account|serviceaccount|principal|member)[^\n]{0,250}(?:does not exist|not found|doesn't exist)",
+    "EXACT_LAB_ACCOUNT_MISSING": (r"service\s*account\s+['\"\[]?" +
+                                  re.escape(LAB_PRINCIPAL) +
+                                  r"['\"\]]?\s+(?:does not exist|not found)"),
     "PERMISSION_DENIED": r"permission.denied|does not have permission|access denied|\bforbidden\b|\b403\b",
     "ORG_POLICY": r"organization(?:al)? policy|orgpolicy|org.policy|allowedpolicymemberdomains|constraints/iam",
     "INVALID_ARGUMENT": r"invalid.argument|unrecognized arguments|too few arguments|required arguments",

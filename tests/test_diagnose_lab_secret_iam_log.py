@@ -48,6 +48,13 @@ class Diagnosis(unittest.TestCase):
         unknown = mod.inspect_log(prefix + "unrecognized error text")
         self.assertFalse(any(unknown.values()))
 
+    def test_exact_lab_account_is_distinguished_from_other_missing_accounts(self):
+        prefix = mod.COMMAND + " " + mod.SECRET + "\nERROR: INVALID_ARGUMENT: "
+        exact = mod.inspect_log(prefix + "Service account [" + mod.LAB_PRINCIPAL + "] does not exist.")
+        other = mod.inspect_log(prefix + "Service account another@example.com does not exist.")
+        self.assertTrue(exact["EXACT_LAB_ACCOUNT_MISSING"])
+        self.assertFalse(other["EXACT_LAB_ACCOUNT_MISSING"])
+
     def test_missing_directory_is_reported_as_no_match(self):
         with tempfile.TemporaryDirectory() as folder:
             state, when, result = mod.classify(Path(folder) / "absent")

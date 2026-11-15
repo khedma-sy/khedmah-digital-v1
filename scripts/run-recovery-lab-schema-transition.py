@@ -11,10 +11,13 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -75,6 +78,51 @@ SECRET_IAM_PERMISSIONS = (
     "secretmanager.secrets.getIamPolicy",
     "secretmanager.secrets.setIamPolicy",
 )
+
+# IAM account creation is eventually consistent across services. Retry only a
+# specific rejection identifying our just-created LAB principal; all other
+# failures, including uncertain timeouts, stop before any SQL/job action.
+SECRET_BIND_BACKOFF_SECONDS = (2, 4, 8, 16, 30, 30)
+
+
+def _is_new_lab_principal_missing(stderr, email):
+    if not isinstance(stderr, bytes) or len(stderr) > 262144:
+        return False
+    principal = re.escape(email)
+    named = r'(?:\[' + principal + r'\]|"' + principal + r'"|\x27' + principal + r'\x27|' + principal + r')'
+    pattern = (r'\s*ERROR:\s*\(gcloud\.secrets\.add-iam-policy-binding\)\s*'
+               r'INVALID_ARGUMENT:\s*Service account\s+' + named +
+               r'\s+does not exist\.?\s*')
+    return any(re.fullmatch(pattern, line, re.IGNORECASE)
+               for line in stderr.decode(errors="replace").splitlines())
+
+
+def bind_temporary_secret_accessor(secret):
+    if secret not in (SQL_SECRET, PASSWORD_SECRET):
+        raise GuardStop("LAB_SECRET_BINDING_TARGET_UNEXPECTED")
+    email = SA + "@" + LAB + ".iam.gserviceaccount.com"
+    command = ["gcloud", "--quiet", "--project=" + LAB,
+               "secrets", "add-iam-policy-binding", secret,
+               "--member=serviceAccount:" + email,
+               "--role=roles/secretmanager.secretAccessor"]
+    env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1",
+               CLOUDSDK_CORE_USER_OUTPUT_ENABLED="true")
+    for attempt in range(len(SECRET_BIND_BACKOFF_SECONDS) + 1):
+        try:
+            result = subprocess.run(command, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, timeout=45, env=env)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            # The remote outcome is uncertain, so do not retry this write.
+            raise GuardStop("LAB_SECRET_BINDING_OUTCOME_UNCERTAIN") from exc
+        if result.returncode == 0:
+            return
+        if not _is_new_lab_principal_missing(result.stderr, email):
+            raise GuardStop("LAB_SECRET_BINDING_FAILED")
+        if attempt == len(SECRET_BIND_BACKOFF_SECONDS):
+            raise GuardStop("LAB_SERVICE_ACCOUNT_NOT_VISIBLE_AFTER_RETRIES")
+        print("LAB_SERVICE_ACCOUNT_PROPAGATION_RETRY", flush=True)
+        delay = SECRET_BIND_BACKOFF_SECONDS[attempt] + secrets.randbelow(1000) / 1000
+        time.sleep(delay)
 
 
 def require_project_secret_iam_capability():
@@ -150,7 +198,6 @@ def cleanup(owned):
             print("WARNING_" + kind.upper() + "_CLEANUP_UNVERIFIED", flush=True)
 
 def apply(host, content):
-    import os
     email = SA + "@" + LAB + ".iam.gserviceaccount.com"
     job = JOB_PREFIX + secrets.token_hex(4)
     password = secrets.token_urlsafe(48)
@@ -167,9 +214,7 @@ def apply(host, content):
               "--display-name=One-shot lab migration 036 037"])
         owned.append(("service_account", email))
         for name in (SQL_SECRET, PASSWORD_SECRET):
-            call(["secrets", "add-iam-policy-binding", name,
-                  "--member=serviceAccount:" + email,
-                  "--role=roles/secretmanager.secretAccessor"])
+            bind_temporary_secret_accessor(name)
         # LAB ONLY. This changes the copied migrator password and persists after
         # secrets are removed. It never sets a source Preview credential.
         call(["sql", "users", "set-password", MIGRATOR,
