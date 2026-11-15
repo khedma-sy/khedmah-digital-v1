@@ -192,6 +192,17 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+      - name: Preserve the verified candidate for the next lab window
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-verified-40c1f847-${{ github.run_id }}
+          path: |
+            retained-candidate/backend-candidate-image.tar.gz
+            retained-candidate/backend-candidate-evidence.json
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Always remove disposable containers
         if: always()
         shell: bash
