@@ -1,0 +1,212 @@
+name: Backend retained archive — isolated schema 037
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/backend-retained-archive-schema037.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backend-retained-archive-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-exact-retained-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PG_NAME: khedmah-archive-pg037
+      BACKEND_NAME: khedmah-archive-backend
+      FIXTURE_DB_URL: postgresql://candidate_test:runner_fixture_only@127.0.0.1:5432/khedmah_candidate_test
+      CANDIDATE_SOURCE: 40c1f847b09ddffe457399c25a4d30424d655c03
+      IMAGE_NAME: khedmah-backend-candidate:40c1f847b09ddffe457399c25a4d30424d655c03
+
+    steps:
+      - name: Checkout exact current source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact build and migration inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:apps)" = "5f083c34fc58c69cffd3753f8e49376c6c9105aa"
+          test "$(git rev-parse HEAD:backend)" = "ab2c85f9b99aa3e056490e05f173429218da3f40"
+          test "$(git rev-parse HEAD:Dockerfile.backend)" = "88dabbb4a409e0043d120a3abc6b38dfe169120c"
+          test "$(git rev-parse HEAD:.npmrc)" = "4a6e0c1f5dd5113f91d90150860666989fd282b0"
+          test "$(git rev-parse HEAD:package.json)" = "66b95a0614590035cdb97b97c870eec46bf702d7"
+          test "$(git rev-parse HEAD:package-lock.json)" = "533dbacf151c8e1a38f40e938f0c9540af9a75f3"
+          echo 'ARCHIVE_SOURCE_INPUTS_MATCH_CURRENT_TREE'
+
+      - name: Download previously built Backend archive
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-offline-40c1f847b09ddffe457399c25a4d30424d655c03
+          path: retained-candidate
+          github-token: ${{ github.token }}
+          run-id: 43602169318
+
+      - name: Verify archive provenance and load exact image
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' 'b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de' \
+            'retained-candidate/backend-candidate-image.tar.gz' | sha256sum -c -
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          e = json.loads(Path('retained-candidate/backend-candidate-evidence.json').read_text())
+          required = {
+              'kind': 'BACKEND_OFFLINE_CANDIDATE_ONLY',
+              'source_commit': '40c1f847b09ddffe457399c25a4d30424d655c03',
+              'backend_tree': 'd5f0c32cac416f2b31201c26c92d9023fff1ffff',
+              'docker_archive_sha256': 'sha256:b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de',
+              'image_local_id': 'sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e',
+              'registry_digest_verified': False,
+              'cloud_deployment_executed': False,
+          }
+          assert all(e.get(k) == v for k, v in required.items()), 'ARCHIVE_PROVENANCE_MISMATCH'
+          print('ARCHIVE_PROVENANCE_VERIFIED')
+          PY
+          gzip -dc retained-candidate/backend-candidate-image.tar.gz | docker load
+          test "$(docker image inspect --format='{{.Id}}' "$IMAGE_NAME")" = \
+            "sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e"
+          echo 'EXACT_RETAINED_IMAGE_LOADED'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install repository dependencies for disposable fixture
+        run: npm ci
+
+      - name: Create disconnected PostgreSQL 16 fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --rm --network none --name "$PG_NAME" \
+            -e POSTGRES_USER=candidate_test \
+            -e POSTGRES_PASSWORD=runner_fixture_only \
+            -e POSTGRES_DB=khedmah_candidate_test postgres:16-alpine
+          for attempt in $(seq 1 60); do
+            if docker exec "$PG_NAME" pg_isready -h 127.0.0.1 \
+              -U candidate_test -d khedmah_candidate_test >/dev/null 2>&1; then
+              echo 'DISPOSABLE_PG16_READY'
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'STOP: DISPOSABLE_PG16_NOT_READY' >&2
+          exit 1
+
+      - name: Apply canonical schema 037 to disposable PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network "container:$PG_NAME" \
+            -v "$PWD:/workspace:ro" -w /workspace/apps/backend \
+            -e DATABASE_URL="$FIXTURE_DB_URL" \
+            -e ALLOW_DESTRUCTIVE_DB_TESTS=true -e NODE_ENV=preview \
+            node:24-slim node --import tsx --test src/health.test.ts
+          echo 'DISPOSABLE_SCHEMA_037_READY'
+
+      - name: Start retained image in disconnected fixture namespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --rm --network "container:$PG_NAME" \
+            --name "$BACKEND_NAME" \
+            -e NODE_ENV=preview -e PORT=8080 \
+            -e APP_VERSION="archive-$CANDIDATE_SOURCE" \
+            -e DATABASE_URL="$FIXTURE_DB_URL" "$IMAGE_NAME"
+
+      - name: Verify exact image health, database readiness and anonymous denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if docker exec "$BACKEND_NAME" node -e '
+              const assert = require("node:assert/strict");
+              (async () => {
+                const origin = "http://127.0.0.1:8080";
+                const health = await fetch(origin + "/api/v1/health");
+                assert.equal(health.status, 200);
+                const body = await health.json();
+                assert.equal(body.status, "ok");
+                assert.equal(body.version, process.env.APP_VERSION);
+                const ready = await fetch(origin + "/api/v1/health/ready");
+                assert.equal(ready.status, 200);
+                const readiness = await ready.json();
+                assert.deepEqual(readiness.dependencies, { database: "ok" });
+                const session = await fetch(origin + "/api/v1/auth/session");
+                assert.equal(session.status, 401);
+              })().catch(() => process.exit(1));' >/dev/null 2>&1; then
+              echo 'RETAINED_IMAGE_SCHEMA037_HTTP_PASSED'
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'STOP: RETAINED_IMAGE_STARTUP_FAILED' >&2
+          docker logs --tail 45 "$BACKEND_NAME" 2>&1 || true
+          exit 1
+
+      - name: Write exact-archive runtime receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          receipt = {
+              'result': 'RETAINED_BACKEND_IMAGE_SCHEMA037_HTTP_PASSED',
+              'fixture_source_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'candidate_source_sha': '40c1f847b09ddffe457399c25a4d30424d655c03',
+              'candidate_artifact_id': 14116617875,
+              'candidate_archive_sha256': 'b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de',
+              'candidate_local_image_id': 'sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e',
+              'database': 'disposable PostgreSQL 16 / canonical schema 037',
+              'network': 'database network none, backend shares loopback namespace',
+              'health_http': 200, 'readiness_http': 200, 'anonymous_session_http': 401,
+              'cloud_sql_access': False, 'cloud_run_deployed': False,
+              'registry_digest_verified': False, 'authenticated_order_e2e_verified': False,
+              'production_release_authorized': False,
+          }
+          Path('backend-retained-archive-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(receipt['result'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-retained-archive-schema037-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend-retained-archive-receipt.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Preserve the verified candidate for the next lab window
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-verified-40c1f847-${{ github.run_id }}
+          path: |
+            retained-candidate/backend-candidate-image.tar.gz
+            retained-candidate/backend-candidate-evidence.json
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Always remove disposable containers
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force "$BACKEND_NAME" >/dev/null 2>&1 || true
+          docker rm --force "$PG_NAME" >/dev/null 2>&1 || true
+          echo 'DISPOSABLE_BACKEND_AND_POSTGRES_REMOVED'
