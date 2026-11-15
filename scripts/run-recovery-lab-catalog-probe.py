@@ -153,16 +153,12 @@ def require_rules(rules):
 
 
 def classify_log(payload):
-    """Return only exact catalog markers; never echo raw SQL output or user records."""
-    found = {}
-    for line in payload.splitlines():
-        marker = re.fullmatch(
-            r"\s*LAB_PROBE_([A-Z0-9_]+)=(true|false|on|off|khedmah)\s*", line)
-        if marker and marker.group(1) in MARKERS:
-            old = found.get(marker.group(1))
-            if old is not None and old != marker.group(2):
-                raise GuardStop("INCONSISTENT_CATALOG_LOG")
-            found[marker.group(1)] = marker.group(2)
+    """Return only exact catalog markers; never echo SQL output or user records."""
+    tokens = _log_tokens([{"textPayload": payload}])
+    found = {
+        key: tokens["PROBE_" + key]
+        for key in MARKERS if "PROBE_" + key in tokens
+    }
     if set(found) != set(MARKERS):
         raise GuardStop("INCOMPLETE_CATALOG_EVIDENCE")
     if found["DATABASE"] != "khedmah" or found["READ_ONLY"] != "on" \
@@ -255,32 +251,50 @@ SELECT 'LAB_REVOKED_USAGE=' || has_schema_privilege('khedmah_catalog_ro','public
 """.strip()
 
 
-def require_markers(rows, expected):
+# Logs can arrive asynchronously, and Cloud Logging text payloads sometimes
+# include a timestamp or structured logger prefix on the same line. Only read
+# preselected job+execution log entries, and parse exact LAB_* key/value tokens.
+_LOG_TOKEN = re.compile(
+    r"(?:^|[^A-Za-z0-9_])LAB_([A-Z0-9_]+)="
+    r"(true|false|on|off|khedmah)(?=$|[^A-Za-z0-9_=])"
+)
+
+
+def _log_tokens(rows):
     found = {}
     for row in rows:
         if not isinstance(row, dict):
             continue
-        raw = row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or row.get("message")
+        payload = row.get("jsonPayload") or {}
+        raw = (row.get("textPayload")
+               or (payload.get("message") if isinstance(payload, dict) else None)
+               or row.get("message"))
         if not isinstance(raw, str):
             continue
         for line in raw.splitlines():
-            hit = re.fullmatch(r"\s*LAB_([A-Z0-9_]+)=(true|false|on|off|khedmah)\s*", line)
-            if hit and hit.group(1) in expected:
-                if hit.group(1) in found and found[hit.group(1)] != hit.group(2):
+            for hit in _LOG_TOKEN.finditer(line):
+                key, value = hit.groups()
+                if key in found and found[key] != value:
                     raise GuardStop("CONFLICTING_SCOPED_MARKER")
-                found[hit.group(1)] = hit.group(2)
-    if found != expected:
-        raise GuardStop("SCOPED_MARKERS_MISSING_OR_UNEXPECTED")
+                found[key] = value
     return found
 
 
-def job_logs_for_one_execution(job, execution):
-    """Cloud Run logs have a distinct labels.execution_name: never accept prior jobs."""
+def require_markers(rows, expected):
+    found = _log_tokens(rows)
+    actual = {key: found[key] for key in expected if key in found}
+    if actual != expected:
+        raise GuardStop("SCOPED_MARKERS_MISSING_OR_UNEXPECTED")
+    return actual
+
+
+def job_logs_for_one_execution(job, execution, required_keys):
+    """Wait for complete *current execution* evidence, not first log line."""
     query = ('resource.type="cloud_run_job" AND '
              'resource.labels.job_name="' + job + '" AND '
              '(labels.execution_name="' + execution + '" OR '
              'labels."run.googleapis.com/execution_name"="' + execution + '")')
-    for attempt in range(5):
+    for attempt in range(10):
         rows = call(["logging", "read", query, "--limit=100"], output_json=True)
         if not isinstance(rows, list):
             raise GuardStop("JOB_LOG_FORMAT_INVALID")
@@ -290,14 +304,17 @@ def job_logs_for_one_execution(job, execution):
             and (row.get("labels", {}).get("execution_name") == execution
                  or row.get("labels", {}).get("run.googleapis.com/execution_name") == execution)
         ]
-        if filtered:
+        tokens = _log_tokens(filtered)
+        if set(required_keys).issubset(tokens):
             return filtered
-        if attempt < 4:
+        if attempt < 9:
             time.sleep(3)
-    raise GuardStop("EXACT_EXECUTION_LOGS_UNAVAILABLE")
+    raise GuardStop("EXACT_EXECUTION_MARKERS_INCOMPLETE")
 
 
-def run_job(job, *, override_sql=None):
+def run_job(job, *, override_sql=None, required_keys=None):
+    if not required_keys:
+        raise GuardStop("REQUIRED_MARKERS_NOT_CONFIGURED")
     args = ["run", "jobs", "execute", job, "--region=" + REGION, "--wait"]
     if override_sql is not None:
         args += ["--update-env-vars=CHECKS_B64=" +
@@ -308,7 +325,7 @@ def run_job(job, *, override_sql=None):
     name = str(latest.get("name") or (latest.get("metadata") or {}).get("name") or "").split("/")[-1]
     if not re.fullmatch(re.escape(job) + r"-[a-z0-9-]+", name):
         raise GuardStop("EXECUTION_IDENTITY_UNVERIFIED")
-    return job_logs_for_one_execution(job, name)
+    return job_logs_for_one_execution(job, name, required_keys)
 
 
 def create_job(job, email, secret, host, sql_text, *, admin=False):
@@ -415,15 +432,19 @@ def execute(host):
         owned.append(("job", grant_job))
         # Even if its success logs are missing, the grant may already have run.
         grant_cleanup_required = True
-        require_markers(run_job(grant_job), {
+        required_grants = {
             "GRANT_ROLE": "true", "GRANT_ADMIN": "false",
             "GRANT_CONNECT": "true", "GRANT_USAGE": "true",
             "GRANT_CREATE": "false", "GRANT_SELECT": "false",
-        })
+        }
+        require_markers(
+            run_job(grant_job, required_keys=required_grants),
+            required_grants,
+        )
         print("LAB_MINIMAL_CONNECT_AND_SCHEMA_USAGE: VERIFIED", flush=True)
         create_job(audit_job, email, SECRET, host, CATALOG_SQL)
         owned.append(("job", audit_job))
-        rows = run_job(audit_job)
+        rows = run_job(audit_job, required_keys={"PROBE_" + name for name in MARKERS})
         markers = classify_log("\n".join(
             str(row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or "")
             for row in rows))
@@ -436,9 +457,14 @@ def execute(host):
         # Grants depend on the PostgreSQL account; REVOKE before dropping it.
         if grant_cleanup_required:
             try:
-                require_markers(run_job(grant_job, override_sql=REVOKE_SQL), {
+                required_revocations = {
                     "REVOKED_CONNECT": "false", "REVOKED_USAGE": "false",
-                })
+                }
+                require_markers(
+                    run_job(grant_job, override_sql=REVOKE_SQL,
+                            required_keys=required_revocations),
+                    required_revocations,
+                )
                 print("TEMPORARY_PG_GRANTS_REVOKED: VERIFIED", flush=True)
             except GuardStop:
                 print("WARNING_TEMPORARY_PG_GRANT_REVOKE_UNVERIFIED", flush=True)

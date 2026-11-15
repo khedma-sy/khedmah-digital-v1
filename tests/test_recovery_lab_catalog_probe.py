@@ -160,6 +160,72 @@ class CatalogSafety(unittest.TestCase):
         self.assertFalse(any("--project=khedmah-preview-v2-20261012" in arg for c in commands for arg in c))
 
 
+    def test_live_grant_success_in_prefixed_cloud_logging(self):
+        # Regression from the actual Cloud Logging receipt: 6 booleans present,
+        # but original fullmatch-per-line parser rejected prefixed log lines.
+        expected = {"GRANT_ROLE": "true", "GRANT_ADMIN": "false",
+                    "GRANT_CONNECT": "true", "GRANT_USAGE": "true",
+                    "GRANT_CREATE": "false", "GRANT_SELECT": "false"}
+        rows = [
+            {"textPayload": "2026-11-15T20:44:00Z INFO LAB_GRANT_" + label + "=" + value}
+            for label, value in (
+                ("ROLE", "true"), ("ADMIN", "false"), ("CONNECT", "true"),
+                ("USAGE", "true"), ("CREATE", "false"), ("SELECT", "false"))
+        ]
+        self.assertEqual(m.require_markers(rows, expected), expected)
+        self.assertEqual(m._log_tokens(rows), expected)
+        with self.assertRaises(m.GuardStop):
+            m.require_markers(rows[:-1], expected)
+        bad = rows + [{"textPayload": "LAB_GRANT_ROLE=false"}]
+        with self.assertRaisesRegex(m.GuardStop, "CONFLICTING_SCOPED_MARKER"):
+            m.require_markers(bad, expected)
+
+    def test_current_execution_poll_waits_for_all_markers(self):
+        job = "khedmah-lab-catalog-grant-test"
+        current = job + "-abcde"
+        stale = job + "-old99"
+        necessary = {"GRANT_ROLE": "true", "GRANT_ADMIN": "false"}
+        reads = []
+        def mock(args, *, data=None, timeout=240, output_json=False):
+            reads.append(args)
+            self.assertIn(current, args[2])
+            if len(reads) == 1:
+                return [{"resource": {"labels": {"job_name": job}},
+                         "labels": {"execution_name": stale},
+                         "textPayload": "LAB_GRANT_ROLE=true\nLAB_GRANT_ADMIN=false"}]
+            if len(reads) == 2:
+                return [{"resource": {"labels": {"job_name": job}},
+                         "labels": {"execution_name": current},
+                         "textPayload": "time INFO LAB_GRANT_ROLE=true"}]
+            return [
+                {"resource": {"labels": {"job_name": job}},
+                 "labels": {"execution_name": current},
+                 "textPayload": "time INFO LAB_GRANT_ROLE=true"},
+                {"resource": {"labels": {"job_name": job}},
+                 "labels": {"execution_name": current},
+                 "textPayload": "time INFO LAB_GRANT_ADMIN=false"}
+            ]
+        with patch.object(m, "call", side_effect=mock), \
+             patch.object(m.time, "sleep"):
+            result = m.job_logs_for_one_execution(job, current, necessary)
+        self.assertEqual(len(reads), 3)
+        self.assertEqual(m.require_markers(result, necessary), necessary)
+
+    def test_catalog_markers_with_cloud_log_prefixes(self):
+        vals = {"DATABASE": "khedmah", "READ_ONLY": "on",
+                "SUPERUSER": "false", "TABLE_SELECT": "false",
+                "CORE_001": "true", "ORDER_026": "true",
+                "035": "true", "036": "false",
+                "037_TYPE": "false", "037_PRIVATE": "false"}
+        prefixed = "\n".join("timestamp INFO LAB_PROBE_" + k + "=" + v
+                             for k, v in vals.items())
+        self.assertEqual(m.classify_log(prefixed), vals)
+        with self.assertRaisesRegex(m.GuardStop, "INCOMPLETE_CATALOG_EVIDENCE"):
+            m.classify_log(prefixed.replace("LAB_PROBE_037_PRIVATE=false", ""))
+        with self.assertRaisesRegex(m.GuardStop, "UNSAFE_CATALOG_SESSION"):
+            m.classify_log(prefixed.replace("LAB_PROBE_READ_ONLY=on",
+                                            "LAB_PROBE_READ_ONLY=off"))
+
     def test_grant_cleanup_still_attempted_if_bootstrap_log_missing(self):
         commands=[]
         user_exists=False
@@ -174,7 +240,7 @@ class CatalogSafety(unittest.TestCase):
                 return [{"name":m.USER,"databaseRoles":[m.ROLE]}] if user_exists else []
             return ""
         invocations=[]
-        def fake_run(job, *, override_sql=None):
+        def fake_run(job, *, override_sql=None, required_keys=None):
             invocations.append((job,override_sql))
             if override_sql is None:
                 raise m.GuardStop("INCOMPLETE_GRANT_EVIDENCE")
