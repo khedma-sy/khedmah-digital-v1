@@ -338,7 +338,8 @@ def execute(host):
     admin_password = secrets.token_urlsafe(48)
     try:
         print("=== LAB-ONLY TEMPORARY CATALOG READER ===", flush=True)
-        call(["services", "enable", "iam.googleapis.com", "secretmanager.googleapis.com"], timeout=900)
+        call(["services", "enable", "iam.googleapis.com", "secretmanager.googleapis.com",
+              "logging.googleapis.com"], timeout=900)
         jobs = call(["run", "jobs", "list", "--region=" + REGION], output_json=True)
         if not isinstance(jobs, list):
             raise GuardStop("JOB_INVENTORY_UNVERIFIED")
