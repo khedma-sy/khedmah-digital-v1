@@ -87,6 +87,25 @@ class CatalogSafety(unittest.TestCase):
         for cmd in commands:
             self.assertFalse({"create","delete","update","enable","restore"}.intersection(cmd))
 
+    def test_catalog_role_proof_is_inside_postgresql(self):
+        sql = m.GRANT_SQL
+        self.assertIn("DO $guard$", sql)
+        self.assertIn("pg_catalog.pg_has_role('khedmah_catalog_ro', 'pg_read_all_settings', 'member')", sql)
+        self.assertIn("pg_catalog.pg_has_role('khedmah_catalog_ro', 'cloudsqlsuperuser', 'member')", sql)
+        self.assertIn("rolcreaterole", sql)
+        self.assertLess(sql.index("DO $guard$"), sql.index("GRANT CONNECT"))
+        self.assertIn("LAB_GRANT_ROLE=", sql)
+        self.assertIn("LAB_GRANT_ADMIN=", sql)
+
+    def test_empty_cli_database_roles_do_not_override_postgres_guard(self):
+        # Cloud SQL users.list may omit roles even if creation succeeded.
+        # The actual role must pass the server-side guard inside GRANT_SQL.
+        self.assertIn("AUDIT_ROLE_PROOF: DEFERRED_TO_PRIVATE_POSTGRESQL_GUARD",
+                      Path(m.__file__).read_text())
+        self.assertIn('if roles != [ROLE]:', Path(m.__file__).read_text())
+        self.assertIn('"GRANT_ROLE": "true", "GRANT_ADMIN": "false"',
+                      Path(m.__file__).read_text())
+
     def test_execute_is_lab_scoped_and_revokes_narrow_grants(self):
         commands = []
         auditor_created = False
@@ -100,7 +119,7 @@ class CatalogSafety(unittest.TestCase):
             if args[:2] == ["secrets", "list"]:return []
             if args[:3] == ["sql", "users", "create"]:auditor_created = True
             if args[:3] == ["sql", "users", "list"]:
-                return [{"name":m.USER,"databaseRoles":[m.ROLE]}] if auditor_created else []
+                return [{"name":m.USER,"type":"BUILT_IN"}] if auditor_created else []
             if args[:3] == ["run", "jobs", "describe"]:
                 return {"network":m.NET,"subnet":m.SUB,"egress":"ALL_TRAFFIC",
                         "serviceAccount":m.SA+"@"+m.LAB+".iam.gserviceaccount.com"}
@@ -112,7 +131,7 @@ class CatalogSafety(unittest.TestCase):
             if args[:2] == ["logging", "read"]:
                 if m.BOOT_JOB in last_job:
                     values = ({"REVOKED_CONNECT":"false","REVOKED_USAGE":"false"} if revoke else
-                              {"GRANT_CONNECT":"true","GRANT_USAGE":"true","GRANT_CREATE":"false","GRANT_SELECT":"false"})
+                              {"GRANT_ROLE":"true","GRANT_ADMIN":"false","GRANT_CONNECT":"true","GRANT_USAGE":"true","GRANT_CREATE":"false","GRANT_SELECT":"false"})
                 else:
                     values={"PROBE_DATABASE":"khedmah","PROBE_READ_ONLY":"on",
                             "PROBE_SUPERUSER":"false","PROBE_TABLE_SELECT":"false",
