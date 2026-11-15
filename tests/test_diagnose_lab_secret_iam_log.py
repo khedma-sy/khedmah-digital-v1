@@ -30,6 +30,7 @@ class Diagnosis(unittest.TestCase):
             value = output.getvalue()
             self.assertIn("MATCHING_FAILED_LOG_FOUND", value)
             self.assertIn("SERVICE_ACCOUNT_MISSING: True", value)
+            self.assertIn("NOT_FOUND_OR_MISSING: True", value)
             self.assertIn("PROJECT_MARKER_PRESENT: True", value)
             self.assertNotIn("SECRET-SENTINEL-NEVER-PRINT", value)
             self.assertNotIn("some-private-email", value)
