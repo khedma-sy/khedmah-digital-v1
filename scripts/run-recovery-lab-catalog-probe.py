@@ -15,6 +15,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import time
 
 LAB = "khedmah-restore-lab-20261112"
 SQL = "khedmah-restore-pg16-20261114"
@@ -206,6 +207,8 @@ def result_from_cloud_logging(logs):
             payload = entry.get("jsonPayload") or {}
             if isinstance(payload, dict) and isinstance(payload.get("message"), str):
                 messages.append(payload["message"])
+            if isinstance(entry.get("message"), str):
+                messages.append(entry["message"])
     return classify_log("\n".join(messages))
 
 
@@ -289,9 +292,17 @@ def execute(host):
             raise GuardStop("CLOUD_RUN_PRIVATE_EGRESS_UNVERIFIED")
         call(["run", "jobs", "execute", JOB, "--region=" + REGION,
               "--wait"], timeout=600)
-        logs = call(["run", "jobs", "logs", "read", JOB,
-                     "--region=" + REGION, "--limit=50"], output_json=True)
-        markers = result_from_cloud_logging(logs)
+        # Cloud Logging delivery can lag behind the completed job.
+        for attempt in range(5):
+            logs = call(["run", "jobs", "logs", "read", JOB,
+                         "--region=" + REGION, "--limit=50"], output_json=True)
+            try:
+                markers = result_from_cloud_logging(logs)
+                break
+            except GuardStop as exc:
+                if str(exc) != "INCOMPLETE_CATALOG_EVIDENCE" or attempt == 4:
+                    raise
+                time.sleep(3)
         print("=== LAB SCHEMA CATALOG (NO CUSTOMER ROWS) ===", flush=True)
         for key, value in markers.items():
             print("LAB_PROBE_" + key + ": " + value, flush=True)
