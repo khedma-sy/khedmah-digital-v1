@@ -13,7 +13,10 @@ import importlib.util
 import json
 from pathlib import Path
 import secrets
+import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 LAB = "khedmah-restore-lab-20261112"
@@ -63,6 +66,50 @@ def candidate_sql():
         raise GuardStop("TRANSITION_ATOMICITY_UNVERIFIED")
     return sql + "\n" + "\n".join(postflight) + "\n"
 
+# This tests the caller's inherited *project-level* grants for new secrets.
+# Google notes that testIamPermissions is advisory (and may fail open), so a
+# positive result is NOT an authorization receipt or evidence of an org-policy
+# allow. A missing permission or unavailable response must stop before secrets
+# are created, without guessing or expanding IAM grants.
+SECRET_IAM_PERMISSIONS = (
+    "secretmanager.secrets.getIamPolicy",
+    "secretmanager.secrets.setIamPolicy",
+)
+
+
+def require_project_secret_iam_capability():
+    command = ["gcloud", "--quiet", "--project=" + LAB,
+               "auth", "print-access-token"]
+    try:
+        credential = subprocess.run(command, capture_output=True, timeout=35)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GuardStop("LAB_IAM_DIAGNOSTIC_UNAVAILABLE") from exc
+    if credential.returncode or not credential.stdout.strip():
+        raise GuardStop("LAB_IAM_DIAGNOSTIC_UNAVAILABLE")
+    url = ("https://cloudresourcemanager.googleapis.com/v1/projects/"
+           + LAB + ":testIamPermissions")
+    request = urllib.request.Request(
+        url,
+        data=json.dumps({"permissions": list(SECRET_IAM_PERMISSIONS)}).encode(),
+        headers={
+            "Authorization": "Bearer " + credential.stdout.decode().strip(),
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.load(response)
+    except (OSError, ValueError, urllib.error.HTTPError) as exc:
+        raise GuardStop("LAB_IAM_DIAGNOSTIC_UNAVAILABLE") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("permissions", []), list):
+        raise GuardStop("LAB_IAM_DIAGNOSTIC_UNAVAILABLE")
+    allowed = payload.get("permissions", [])
+    if not set(SECRET_IAM_PERMISSIONS).issubset(allowed):
+        raise GuardStop("LAB_SECRET_POLICY_WRITE_PERMISSION_NOT_REPORTED")
+    print("LAB_SECRET_POLICY_PERMISSION_CHECK=ADVISORY_PRESENT", flush=True)
+
+
 def guarded_preflight():
     host = catalog.preflight()  # pins 1 private SQL, VPC/PSA, firewall and DB
     services = call(["run", "services", "list", "--region=" + REGION],
@@ -86,6 +133,7 @@ def guarded_preflight():
             x for x in users if x.get("name") == MIGRATOR
             and x.get("type", "BUILT_IN") == "BUILT_IN"]) != 1:
         raise GuardStop("LAB_EXISTING_MIGRATOR_MISSING")
+    require_project_secret_iam_capability()
     return host
 
 def cleanup(owned):
