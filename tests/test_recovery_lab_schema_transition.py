@@ -84,6 +84,20 @@ class Transition(unittest.TestCase):
         self.assertTrue(any(c[0][:3] == ("run", "jobs", "delete") for c in calls))
         self.assertTrue(any(c[0][:2] == ("secrets", "delete") for c in calls))
 
+    def test_job_create_timeout_still_attempts_cleanup(self):
+        calls = []
+        def fake(args, *, data=None, timeout=240, output_json=False):
+            calls.append(tuple(args))
+            if args[:3] == ["run", "jobs", "create"]:
+                raise m.GuardStop("GCLOUD_UNAVAILABLE_OR_TIMEOUT")
+            return ""
+        with patch.object(m, "call", side_effect=fake):
+            with self.assertRaisesRegex(m.GuardStop, "GCLOUD_UNAVAILABLE_OR_TIMEOUT"):
+                m.apply("10.166.1.9", "BEGIN;COMMIT;")
+        self.assertTrue(any(c[:3] == ("run", "jobs", "delete") for c in calls))
+        self.assertTrue(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
+        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 2)
+
     def test_failed_execution_attempts_cleanup(self):
         calls = []
         def fake(args, *, data=None, timeout=240, output_json=False):
