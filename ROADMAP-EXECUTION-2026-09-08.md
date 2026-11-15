@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-16 — Lab IAM project permissions reported; original CLI error still unknown (NO-GO)
+
+- On merged #393 (main `35089c18921f3d2e9b2554e114efcf223d1357c5`), the owner supplied a read-only `projects.testIamPermissions` result: `SECRET_IAM_GET_REPORTED: True` and `SECRET_IAM_SET_REPORTED: True`. This is a project-level advisory result, not a successful per-secret binding, a definitive IAM authorization decision or an explanation of the earlier failure. Prior owner inventory reported `TEMP_SECRETS: False`, `TEMP_SERVICE_ACCOUNT: False`, `TEMP_JOB: False`, and the filtered audit lookup returned `IAM_EVENTS_FOUND: 0`; no inference of the failed request's cause follows from these numbers.
+- The last real 036+037 attempt stopped at the first Secret Manager binding before lab migrator password rotation, Cloud Run job creation or SQL migration. Do not replay `--execute`, change broad IAM, repeat the restore or deploy the Backend while the reason remains unknown.
+- New **local, read-only** `scripts/diagnose-lab-secret-iam-log.py` searches at most 4,000 local gcloud logs up to 2 MB each for the exact prior command and secret. It emits only fixed Boolean category hints and a file modification timestamp; no raw logs, user identities, access tokens or secret values. Categories are clues, not a definitive determination; no matching log is inconclusive. Its offline Python tests include a sentinel secret/identity non-disclosure check and negative matching cases.
+- **Next:** on the same Cloud Shell used for the failed attempt, run the SHA-pinned diagnostic once, return its fixed-label result and investigate the matching category before any retry. If a future bounded lab mutation is proposed, first complete an up-to-date exact-source `--plan`, isolation/cost gates and review. The user-supplied permission result does not replace those gates. No Preview or Production mutation is authorized by this checkpoint.
+
+---
+
 ## 2026-11-15 — LAB 036+037 execution blocked at Secret Manager IAM BEFORE SQL; resource cleanup confirmed (NO-GO)
 
 - **Exact current main at failure** `aae83fb251fa1f6b9187ec84f452582b8be1d56c`, zero open PRs. Owner Cloud Shell verified runner git blob `c9e6953e391672c23be64258153ff8e53600b88e`, `PRIVATE_LAB_INSTANCE_VERIFIED`, `LAB_036_037_PLAN_ONLY_NO_MUTATIONS`, `PLAN_EXIT_CODE:0`. Confirmed LAB execution stopped at **`GCLOUD_OPERATION_FAILED: secrets_add-iam-policy-binding_khedmah-lab-transition-sql`** before `LAB_MIGRATOR_PASSWORD_ROTATED` or Cloud Run Job create/execute; `MIGRATION_EXIT_CODE:2`. No SQL transition occurred, no production/Preview mutations, no backup restoration repeated. Actual lab schema last remains `035=true`, `036=false`, `037_TYPE=false`, `037_PRIVATE=false` until a **new** postflight demonstrates otherwise.
