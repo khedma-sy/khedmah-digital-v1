@@ -1,5 +1,14 @@
 # خدمة — خارطة بدء التنفيذ 2026-09-08
 
+## 2026-11-15 — Owner prioritizes a working site and no recurring billing discussion
+
+- The owner asks for practical progress toward operating the site and rejects repeated questions about charges. Avoid redundant verification and do not rebuild or re-restore completed work.
+- Fresh connector checks in this session: GitHub `main=20951b4eb991440083a61c611771f7828e440944`; no open PRs; main Node.js CI succeeded while Test & Verify was still running at inspection. Published Floot health returned HTTP 200 at 22:25 UTC, connected to the older `preview-pr-274-f4f8ce2` backend. The retained candidate already passed isolated schema-037 startup, but has not been deployed to the lab or production.
+- The most recent owner-supplied lab receipt showed `activationPolicy=NEVER`. Direct access to the owner's Cloud Shell or Google Cloud credentials was not available in this agent session. The previously approved lab time/spending boundary expired and the current message did not specify a replacement; do not silently infer that it was lifted. Continue non-billable launch preparation and make any necessary boundary/access decision concrete only at the execution step. No lab restart, production mutation or new public deployment occurred in this pass.
+- **Next concrete action:** prepare the single bounded lab restart/036+037 transition and candidate deployment using the existing restored database and retained artifact; verify the exact target and authorization immediately before execution, then perform only the necessary postflight. Preserve production release gates.
+
+---
+
 ## 2026-11-16 — Owner stopped expired LAB; prepared Backend image can be reused (NO-GO)
 
 - **Owner Cloud Shell receipt:** on lab project `khedmah-restore-lab-20261112`, the isolated PostgreSQL instance was created `2026-11-14T16:30:16.555Z`; owner time `2026-11-15T21:41:56Z` showed `activationPolicy=ALWAYS`. At the subsequent guarded stop the script printed `LAB_AGE_HOURS: 29.26`, `LAB_ACTIVATION_POLICY: NEVER`, `LAB_STOP_COMMAND_COMPLETED: True`, `DATA_DELETION_REQUESTED: False` and `PRODUCTION_MUTATION_REQUESTED: False`. These are owner-supplied command/readback results, not a current independent GCP session or a measurement of uninterrupted runtime. No database deletion was requested. Stopping compute does **not** eliminate storage charges. Actual spend and remaining balance under the owner's USD 20 cap are unknown.
