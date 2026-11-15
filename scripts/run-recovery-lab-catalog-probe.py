@@ -222,8 +222,26 @@ def result_from_cloud_logging(logs):
 # alone cannot even connect. The bootstrap grants ONLY these two privileges;
 # it does not grant SELECT/INSERT/UPDATE/DELETE on application data.
 GRANT_SQL = """
+-- Validate privileges INSIDE PostgreSQL; Cloud SQL users.list can omit databaseRoles.
+-- A failed guard prevents even the two temporary privilege grants.
+DO $guard$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles
+    WHERE rolname = 'khedmah_catalog_ro'
+      AND rolcanlogin AND NOT rolsuper AND NOT rolcreatedb
+      AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls
+  )
+  OR NOT pg_catalog.pg_has_role('khedmah_catalog_ro', 'pg_read_all_settings', 'member')
+  OR pg_catalog.pg_has_role('khedmah_catalog_ro', 'cloudsqlsuperuser', 'member')
+  THEN
+    RAISE EXCEPTION 'LAB_AUDITOR_ROLE_PROOF_FAILED';
+  END IF;
+END $guard$;
 GRANT CONNECT ON DATABASE khedmah TO khedmah_catalog_ro;
 GRANT USAGE ON SCHEMA public TO khedmah_catalog_ro;
+SELECT 'LAB_GRANT_ROLE=' || pg_catalog.pg_has_role('khedmah_catalog_ro','pg_read_all_settings','member')::text;
+SELECT 'LAB_GRANT_ADMIN=' || pg_catalog.pg_has_role('khedmah_catalog_ro','cloudsqlsuperuser','member')::text;
 SELECT 'LAB_GRANT_CONNECT=' || has_database_privilege('khedmah_catalog_ro','khedmah','CONNECT')::text;
 SELECT 'LAB_GRANT_USAGE=' || has_schema_privilege('khedmah_catalog_ro','public','USAGE')::text;
 SELECT 'LAB_GRANT_CREATE=' || has_schema_privilege('khedmah_catalog_ro','public','CREATE')::text;
@@ -339,7 +357,7 @@ def execute(host):
     try:
         print("=== LAB-ONLY TEMPORARY CATALOG READER ===", flush=True)
         call(["services", "enable", "iam.googleapis.com", "secretmanager.googleapis.com",
-              "logging.googleapis.com"], timeout=900)
+              "logging.googleapis.com", "run.googleapis.com"], timeout=900)
         jobs = call(["run", "jobs", "list", "--region=" + REGION], output_json=True)
         if not isinstance(jobs, list):
             raise GuardStop("JOB_INVENTORY_UNVERIFIED")
@@ -372,11 +390,21 @@ def execute(host):
               "--database-roles=" + ROLE], timeout=600)
         owned.append(("database_user", USER))
         users = call(["sql", "users", "list", "--instance=" + SQL], output_json=True)
+        # Cloud SQL user-list API may omit the databaseRoles member entirely.
+        # Do not confuse missing control-plane metadata with a missing SQL role.
+        # The real PostgreSQL role/attribute membership is enforced by GRANT_SQL
+        # BEFORE granting CONNECT/USAGE, and that job must return verified proof.
         found = [row for row in users if row.get("name") == USER]
-        roles = ([r.get("name") if isinstance(r, dict) else r
-                  for r in found[0].get("databaseRoles", [])] if len(found) == 1 else [])
-        if roles != [ROLE] or "cloudsqlsuperuser" in roles:
-            raise GuardStop("AUDIT_USER_DATABASE_ROLE_UNVERIFIED")
+        if len(found) != 1 or found[0].get("type", "BUILT_IN") != "BUILT_IN":
+            raise GuardStop("AUDITOR_USER_IDENTITY_UNVERIFIED")
+        roles = found[0].get("databaseRoles")
+        if roles is not None:
+            if not isinstance(roles, list) or any(
+                (r.get("name") if isinstance(r, dict) else r) != ROLE for r in roles
+            ):
+                raise GuardStop("AUDIT_USER_CONTROL_PLANE_ROLE_MISMATCH")
+        if roles != [ROLE]:
+            print("AUDIT_ROLE_PROOF: DEFERRED_TO_PRIVATE_POSTGRESQL_GUARD", flush=True)
 
         # Rotating only the LAB postgres password avoids importing source credentials
         # into an admin job; old source password will NOT be restored on the lab.
@@ -388,6 +416,7 @@ def execute(host):
         # Even if its success logs are missing, the grant may already have run.
         grant_cleanup_required = True
         require_markers(run_job(grant_job), {
+            "GRANT_ROLE": "true", "GRANT_ADMIN": "false",
             "GRANT_CONNECT": "true", "GRANT_USAGE": "true",
             "GRANT_CREATE": "false", "GRANT_SELECT": "false",
         })
