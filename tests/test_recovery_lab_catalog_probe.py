@@ -141,4 +141,34 @@ class CatalogSafety(unittest.TestCase):
         self.assertFalse(any("--project=khedmah-preview-v2-20261012" in arg for c in commands for arg in c))
 
 
+    def test_grant_cleanup_still_attempted_if_bootstrap_log_missing(self):
+        commands=[]
+        user_exists=False
+        def fake(args, *, data=None, timeout=240, output_json=False):
+            nonlocal user_exists
+            commands.append(tuple(args))
+            if args[:3]==["run","jobs","list"]:return []
+            if args[:3]==["iam","service-accounts","list"]:return []
+            if args[:2]==["secrets","list"]:return []
+            if args[:3]==["sql","users","create"]:user_exists=True
+            if args[:3]==["sql","users","list"]:
+                return [{"name":m.USER,"databaseRoles":[m.ROLE]}] if user_exists else []
+            return ""
+        invocations=[]
+        def fake_run(job, *, override_sql=None):
+            invocations.append((job,override_sql))
+            if override_sql is None:
+                raise m.GuardStop("INCOMPLETE_GRANT_EVIDENCE")
+            return [{"textPayload":"LAB_REVOKED_CONNECT=false\nLAB_REVOKED_USAGE=false"}]
+        with patch.object(m,"call",side_effect=fake), \
+             patch.object(m,"create_job"), \
+             patch.object(m,"run_job",side_effect=fake_run):
+            with self.assertRaisesRegex(m.GuardStop,"INCOMPLETE_GRANT_EVIDENCE"):
+                m.execute("10.166.4.5")
+        self.assertEqual(len(invocations),2)
+        self.assertIsNone(invocations[0][1])
+        self.assertEqual(invocations[1][1],m.REVOKE_SQL)
+        self.assertTrue(any(cmd[:3]==("sql","users","delete") for cmd in commands))
+
+
 if __name__=="__main__":unittest.main()
