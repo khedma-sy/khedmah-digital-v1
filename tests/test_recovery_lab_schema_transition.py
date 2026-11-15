@@ -1,5 +1,8 @@
 """Offline tests for isolated 036+037 lab transition. No GCP access."""
 import importlib.util
+import io
+import subprocess
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 import unittest
@@ -42,7 +45,8 @@ class Transition(unittest.TestCase):
                 return [{"name": "khedmah_migrator", "type": "BUILT_IN"}]
             raise AssertionError(args)
         with patch.object(m.catalog, "preflight", return_value="10.166.1.9"), \
-             patch.object(m, "call", side_effect=fake):
+             patch.object(m, "call", side_effect=fake), \
+             patch.object(m, "require_project_secret_iam_capability"):
             self.assertEqual(m.guarded_preflight(), "10.166.1.9")
         def extra_job(args, *, data=None, timeout=240, output_json=False):
             if args[:3] == ["run", "services", "list"]: return [{"name": "writer"}]
@@ -51,6 +55,53 @@ class Transition(unittest.TestCase):
              patch.object(m, "call", side_effect=extra_job):
             with self.assertRaisesRegex(m.GuardStop, "WRITERS_NOT_QUIESCENT"):
                 m.guarded_preflight()
+
+    def test_secret_iam_project_permission_read_only_diagnostic(self):
+        permissions = m.SECRET_IAM_PERMISSIONS
+        self.assertEqual(permissions, (
+            "secretmanager.secrets.getIamPolicy",
+            "secretmanager.secrets.setIamPolicy",
+        ))
+        # Test permissions is advisory; no IAM grant is requested.
+        class Token:
+            returncode = 0
+            stdout = b"dummy-token"
+        payload = b'{"permissions":["secretmanager.secrets.getIamPolicy","secretmanager.secrets.setIamPolicy"]}'
+        with patch.object(m.subprocess, "run", return_value=Token()) as token, \
+             patch.object(m.urllib.request, "urlopen", return_value=io.BytesIO(payload)) as web:
+            m.require_project_secret_iam_capability()
+        self.assertEqual(token.call_args.args[0][-2:], ["auth", "print-access-token"])
+        req = web.call_args.args[0]
+        self.assertEqual(req.get_method(), "POST")
+        self.assertIn(m.LAB, req.full_url)
+        self.assertNotIn("preview-v2", req.full_url)
+
+        with patch.object(m.subprocess, "run", return_value=Token()), \
+             patch.object(m.urllib.request, "urlopen",
+                          return_value=io.BytesIO(b'{"permissions":["secretmanager.secrets.getIamPolicy"]}')):
+            with self.assertRaisesRegex(m.GuardStop, "POLICY_WRITE_PERMISSION_NOT_REPORTED"):
+                m.require_project_secret_iam_capability()
+
+        with patch.object(m.subprocess, "run", return_value=Token()), \
+             patch.object(m.urllib.request, "urlopen",
+                          side_effect=OSError("network unavailable")):
+            with self.assertRaisesRegex(m.GuardStop, "LAB_IAM_DIAGNOSTIC_UNAVAILABLE"):
+                m.require_project_secret_iam_capability()
+
+    def test_missing_secret_iam_permission_blocks_before_create(self):
+        def inventory(args, *, data=None, timeout=240, output_json=False):
+            if args[:3] == ["run", "services", "list"]: return []
+            if args[:3] == ["run", "jobs", "list"]: return []
+            if args[:3] == ["iam", "service-accounts", "list"]: return []
+            if args[:2] == ["secrets", "list"]: return []
+            if args[:3] == ["sql", "users", "list"]:
+                return [{"name": m.MIGRATOR, "type": "BUILT_IN"}]
+            raise AssertionError("Mutation or unexpected read: " + repr(args))
+        with patch.object(m.catalog, "preflight", return_value="10.166.1.9"), \
+             patch.object(m, "call", side_effect=inventory), \
+             patch.object(m, "require_project_secret_iam_capability",
+                          side_effect=m.GuardStop("LAB_SECRET_POLICY_WRITE_PERMISSION_NOT_REPORTED")):
+            self.assertEqual(m.main(["--plan"]), 2)
 
     def test_migration_job_pins_private_network_and_migrator(self):
         calls = []
