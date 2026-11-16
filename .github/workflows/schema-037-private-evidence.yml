@@ -21,6 +21,8 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: fixture_only
           POSTGRES_DB: fixture
+        ports:
+          - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U postgres -d fixture"
           --health-interval 5s
