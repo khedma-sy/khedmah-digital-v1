@@ -3,6 +3,7 @@ import copy
 import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -43,6 +44,8 @@ class ResumeLab(unittest.TestCase):
         for update in (lambda x: x.update(project="production"),
                        lambda x: x.update(name="production-db"),
                        lambda x: x["settings"]["ipConfiguration"].update(ipv4Enabled=True),
+                       lambda x: x["settings"]["ipConfiguration"].update(pscConfig={"pscEnabled": True}),
+                       lambda x: x["settings"]["ipConfiguration"].update(enablePrivatePathForGoogleCloudServices=True),
                        lambda x: x["settings"]["ipConfiguration"].update(sslMode="ALLOW_UNENCRYPTED_AND_ENCRYPTED"),
                        lambda x: x["ipAddresses"].append({"type": "PRIMARY", "ipAddress": "1.1.1.1"}),
                        lambda x: x["ipAddresses"][0].update(ipAddress="10.200.0.1")):
@@ -52,6 +55,7 @@ class ResumeLab(unittest.TestCase):
     def test_no_confirmation_does_nothing(self):
         with patch.object(m, "stage") as stage, patch.object(m, "gcloud") as call:
             self.assertEqual(m.main([]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
         stage.assert_not_called(); call.assert_not_called()
 
     def test_only_lab_project_is_passed_to_gcloud(self):
@@ -59,20 +63,25 @@ class ResumeLab(unittest.TestCase):
             self.assertEqual(m.gcloud(["run", "jobs", "list", "--region=" + m.REGION], json_output=True), [])
         self.assertEqual(call.call_args.args[0][:3], ["gcloud", "--quiet", "--project=" + m.PROJECT])
 
+    def test_partial_cloud_list_warning_is_not_treated_as_empty(self):
+        result = subprocess.CompletedProcess([], 0, "[]", "WARNING: one region could not be reached")
+        with patch.object(m.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(m.Stop, "READ_WITH_WARNINGS"):
+                m.gcloud(["compute", "instances", "list"], json_output=True)
+
     def test_restart_then_execute_once_and_verify_policy(self):
         events = []
         def call(args, **kwargs):
             events.append(args)
             if args[:3] == ["sql", "instances", "describe"]:
-                return instance("NEVER" if sum(x[:3] == args[:3] for x in events) == 1 else "ALWAYS")
-            if args[:2] == ["run", "services"] or args[:2] == ["run", "jobs"]: return []
+                return instance("NEVER" if sum(x[:3] == args[:3] for x in events) <= 2 else "ALWAYS")
             if args[:3] == ["sql", "instances", "patch"]: return None
             raise AssertionError(args)
-        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 0)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers") as writers, patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 0)
         self.assertEqual(len([x for x in events if x[:3] == ["sql", "instances", "patch"]]), 1)
-        self.assertEqual(events[1][:3], ["run", "services", "list"])
-        self.assertEqual(events[2][:3], ["run", "jobs", "list"])
+        self.assertEqual(writers.call_count, 2)
         run.assert_called_once()
 
     def test_existing_writers_stop_before_restart(self):
@@ -80,10 +89,11 @@ class ResumeLab(unittest.TestCase):
         def call(args, **kwargs):
             calls.append(args)
             if args[:3] == ["sql", "instances", "describe"]: return instance()
-            if args[:3] == ["run", "services", "list"]: return [{"name": "writer"}]
             raise AssertionError(args)
-        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers", side_effect=m.Stop("WRITER_FOUND")), \
+             patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
         self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
         run.assert_not_called()
 
@@ -92,36 +102,132 @@ class ResumeLab(unittest.TestCase):
         def call(args, **kwargs):
             calls.append(args)
             if args[:3] == ["sql", "instances", "describe"]: return instance("ALWAYS")
-            if args[:2] in (["run", "services"], ["run", "jobs"]): return []
             raise AssertionError(args)
-        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 0)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers") as writers, patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
         self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
-        run.assert_called_once()
+        writers.assert_not_called(); run.assert_not_called()
 
     def test_unverified_restart_stops_before_transition(self):
         def call(args, **kwargs):
             if args[:3] == ["sql", "instances", "describe"]: return instance("NEVER")
-            if args[:2] in (["run", "services"], ["run", "jobs"]): return []
             if args[:3] == ["sql", "instances", "patch"]: return None
             raise AssertionError(args)
-        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
         run.assert_not_called()
 
     def test_restart_failure_never_runs_transition(self):
         def call(args, **kwargs):
             if args[:3] == ["sql", "instances", "describe"]: return instance()
-            if args[:2] in (["run", "services"], ["run", "jobs"]): return []
             raise m.Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN")
-        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+        run.assert_not_called()
+
+    def test_changed_stopped_baseline_prevents_restart(self):
+        calls = []
+        def cloud(args, **kwargs):
+            calls.append(args)
+            if args[:3] == ["sql", "instances", "describe"]:
+                return instance("NEVER" if len(calls) == 1 else "ALWAYS")
+            raise AssertionError(args)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=cloud), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+        self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
         run.assert_not_called()
 
     def test_download_failure_causes_no_cloud_calls(self):
         with patch.object(m, "stage", side_effect=m.Stop("PINNED_SOURCE_DOWNLOAD_FAILED")), patch.object(m, "gcloud") as call:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
         call.assert_not_called()
+
+    def test_global_inventory_paginates_and_rejects_unreachable_regions(self):
+        class Opener:
+            def __init__(self, pages): self.pages = list(pages); self.urls = []
+            def open(self, request, timeout):
+                self.urls.append(request.full_url)
+                self.assert_google_only(request)
+                return io.BytesIO(json.dumps(self.pages.pop(0)).encode())
+            def assert_google_only(self, request):
+                assert request.full_url.startswith("https://run.googleapis.com/")
+                assert request.get_header("Authorization") == "Bearer synthetic-token"
+        opener = Opener([
+            {"apiVersion": "serving.knative.dev/v1", "kind": "ServiceList", "items": [], "metadata": {"continue": "next/page"}},
+            {"apiVersion": "serving.knative.dev/v1", "kind": "ServiceList", "items": [{"metadata": {"name": "elsewhere"}}], "metadata": {}}
+        ])
+        with patch.object(m.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(len(m.global_run_items("synthetic-token", "services", "ServiceList")), 1)
+        self.assertIn("continue=next%2Fpage", opener.urls[1])
+        bad = Opener([{"apiVersion": "serving.knative.dev/v1", "kind": "ServiceList", "unreachable": ["other-region"], "metadata": {}}])
+        with patch.object(m.urllib.request, "build_opener", return_value=bad):
+            with self.assertRaisesRegex(m.Stop, "INCOMPLETE"):
+                m.global_run_items("synthetic-token", "services", "ServiceList")
+
+    def test_global_writers_and_unknown_executions_block_restart(self):
+        def list_global(_token, resource, _kind):
+            if resource == "services": return [{"metadata": {"name": "off-region-writer"}}]
+            return []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", side_effect=list_global), \
+             patch.object(m, "gcloud") as cloud:
+            with self.assertRaisesRegex(m.Stop, "SERVICES_REVIEW_REQUIRED"): m.reject_known_lab_writers()
+        cloud.assert_not_called()
+        def active(_token, resource, _kind):
+            return [{"status": {"runningCount": 1}}] if resource == "executions" else []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", side_effect=active):
+            with self.assertRaisesRegex(m.Stop, "EXECUTION_ACTIVE_OR_UNKNOWN"): m.reject_known_lab_writers()
+
+    def test_extra_vpc_peering_and_vm_block(self):
+        def cloud(args, **kwargs):
+            if args == ["compute", "networks", "describe", m.NETWORK_NAME]:
+                return {"name": m.NETWORK_NAME, "peerings": [
+                    {"name": "servicenetworking-googleapis-com", "state": "ACTIVE"},
+                    {"name": "another-network", "state": "ACTIVE"}]}
+            if args == ["services", "list", "--enabled"]:
+                return [{"config": {"name": "run.googleapis.com"}},
+                        {"config": {"name": "compute.googleapis.com"}}]
+            return []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", return_value=[]), patch.object(m, "gcloud", side_effect=cloud):
+            with self.assertRaisesRegex(m.Stop, "PEERING_REVIEW_REQUIRED"): m.reject_known_lab_writers()
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", return_value=[]), patch.object(m, "gcloud", return_value=[{"name": "vm"}]):
+            with self.assertRaisesRegex(m.Stop, "VMS_REVIEW_REQUIRED"): m.reject_known_lab_writers()
+
+    def test_scheduler_jobs_in_any_listed_region_block(self):
+        def cloud(args, **kwargs):
+            if args == ["services", "list", "--enabled"]:
+                return [{"config": {"name": x}} for x in (
+                    "run.googleapis.com", "compute.googleapis.com", "cloudscheduler.googleapis.com")]
+            if args == ["scheduler", "locations", "list"]:
+                return [{"locationId": m.REGION}, {"locationId": "us-central1"}]
+            if args[:3] == ["scheduler", "jobs", "list"]:
+                return [{"name": "elsewhere"}] if args[-1] == "--location=us-central1" else []
+            return []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", return_value=[]), patch.object(m, "gcloud", side_effect=cloud):
+            with self.assertRaisesRegex(m.Stop, "SCHEDULER_JOBS_REVIEW_REQUIRED"): m.reject_known_lab_writers()
+
+    def test_completed_executions_do_not_count_as_active_writers(self):
+        def global_items(_token, resource, _kind):
+            return [{"status": {"completionTime": "2026-11-16T07:00:00Z"}}] if resource == "executions" else []
+        def cloud(args, **kwargs):
+            if args == ["services", "list", "--enabled"]:
+                return [{"config": {"name": "run.googleapis.com"}},
+                        {"config": {"name": "compute.googleapis.com"}}]
+            if args == ["compute", "networks", "describe", m.NETWORK_NAME]:
+                return {"name": m.NETWORK_NAME, "peerings": [
+                    {"name": "servicenetworking-googleapis-com", "state": "ACTIVE"}]}
+            return []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", side_effect=global_items), patch.object(m, "gcloud", side_effect=cloud):
+            self.assertIsNone(m.reject_known_lab_writers())
 
 
 if __name__ == "__main__":
