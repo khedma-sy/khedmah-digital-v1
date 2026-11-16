@@ -140,7 +140,7 @@ class ResumeLab(unittest.TestCase):
             self.assertEqual(m.main(["--diagnose"]), 2)
             self.assertEqual(m.main(["--diagnose", "--confirm", m.CONFIRM]), 2)
         self.assertEqual(cloud.call_count, 1)
-        self.assertEqual(inventory.call_count, 4)
+        self.assertEqual(inventory.call_count, 5)
         self.assertIn("LAB_SQL_STATE=SUSPENDED", output.getvalue())
         self.assertIn("LAB_ACTIVATION_POLICY=NEVER", output.getvalue())
         self.assertIn("LAB_SUSPENSION_REASONS=OPERATIONAL_ISSUE", output.getvalue())
@@ -172,7 +172,8 @@ class ResumeLab(unittest.TestCase):
                 kinds = {"services": ("serving.knative.dev/v1", "ServiceList"),
                          "jobs": ("run.googleapis.com/v1", "JobList"),
                          "executions": ("run.googleapis.com/v1", "ExecutionList"),
-                         "workerpools": ("run.googleapis.com/v1", "WorkerPoolList")}
+                         "workerpools": ("run.googleapis.com/v1", "WorkerPoolList"),
+                         "instances": ("run.googleapis.com/v1", "InstanceList")}
                 api, kind = kinds[path.rsplit("/", 1)[-1]]
                 return io.BytesIO(json.dumps({"apiVersion": api, "kind": kind}).encode())
             def assert_google_get(self, request):
@@ -203,7 +204,7 @@ class ResumeLab(unittest.TestCase):
              patch.object(m.urllib.request, "build_opener", return_value=Opener()), \
              contextlib.redirect_stdout(output):
             self.assertEqual(m.main(["--inspect"]), 0)
-        self.assertEqual(len(requests), 4)
+        self.assertEqual(len(requests), 5)
         self.assertIn("READ_ONLY_NO_CLOUD_MUTATIONS=True", output.getvalue())
         self.assertIn("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", output.getvalue())
         self.assertNotIn("synthetic-token", output.getvalue())
@@ -453,7 +454,8 @@ class ResumeLab(unittest.TestCase):
             def open(self, request, timeout):
                 return io.BytesIO(json.dumps({"apiVersion": "run.googleapis.com/v1", "kind": self.kind}).encode())
         for resource, expected, forms in (("jobs", "JobsList", ("JobsList", "JobList")),
-                                           ("executions", "ExecutionsList", ("ExecutionsList", "ExecutionList"))):
+                                           ("executions", "ExecutionsList", ("ExecutionsList", "ExecutionList")),
+                                           ("instances", "InstancesList", ("InstancesList", "InstanceList"))):
             for kind in forms:
                 with patch.object(m.urllib.request, "build_opener", return_value=Opener(kind)):
                     self.assertEqual(m.global_run_items("synthetic", resource, expected), [])
@@ -473,6 +475,13 @@ class ResumeLab(unittest.TestCase):
              patch.object(m, "global_run_items", side_effect=list_global), \
              patch.object(m, "gcloud") as cloud:
             with self.assertRaisesRegex(m.Stop, "SERVICES_REVIEW_REQUIRED"): m.reject_known_lab_writers()
+        cloud.assert_not_called()
+        def standalone(_token, resource, _kind):
+            return [{"metadata": {"name": "off-region-instance"}}] if resource == "instances" else []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", side_effect=standalone), \
+             patch.object(m, "gcloud") as cloud:
+            with self.assertRaisesRegex(m.Stop, "INSTANCES_REVIEW_REQUIRED"): m.reject_known_lab_writers()
         cloud.assert_not_called()
         def active(_token, resource, _kind):
             return [{"status": {"runningCount": 1}}] if resource == "executions" else []

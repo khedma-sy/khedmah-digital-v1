@@ -32,13 +32,13 @@ INSTANCE = "khedmah-restore-pg16-20261114"
 REGION = "europe-west1"
 NETWORK = f"projects/{PROJECT}/global/networks/khedmah-restore-private"
 NETWORK_NAME = "khedmah-restore-private"
-SOURCE_COMMIT = "05fc658ac482c45ca30ae2a65c7401af9d7bac74"
+SOURCE_COMMIT = "a4bf38d8e1ceffe5eb8fdcd7ce61d5e2f7cf3b3d"
 CONFIRM = "RESUME_EXISTING_LAB_AND_APPLY_036_037"
 FENCE_CONFIRM = "RUN_AUTOMATED_LAB_ISOLATION_AND_FENCE"
 RUNNER_CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 SOURCES = {
-    "scripts/run-recovery-lab-schema-transition.py": "46bde58e7429e3f242d76a5345c15679c75ade16c6601e0c7eef56fbfed3bec1",
-    "scripts/deployment/lab-fenced-migration.sh": "a87946d04147eb2c1461d802f7d57370293a7b904a39c847002f340a1a55e6d5",
+    "scripts/run-recovery-lab-schema-transition.py": "e2ba7f442b9b7fa2454e2597c5b1efe9eb0bee2757584678c1e59560baee4555",
+    "scripts/deployment/lab-fenced-migration.sh": "94a68a12e1b9cf73d3567bd8ecd08c6195d37fdb1a90fc58b1076c1d2f918100",
     "scripts/inspect-recovery-lab-external-paths.py": "c8b032bdea574f7adb487d01e2679f4f851024a893ac2e11fa3443b6f26b4e4b",
     "scripts/run-recovery-lab-catalog-probe.py": "9da8198506d36eb79f83fbe350b9db34d56b0332e5c97f2df195411f225273da",
     "scripts/prepare-preview-v2-approval-transition.py": "6d0e119ed0c4ad137a82ef571e5aefdf376c36675895283f76fcf7f4cb3ca4d5",
@@ -200,7 +200,8 @@ def global_run_items(token, resource, expected_kind):
     # Cloud Run's v1 global list spans regions and reports unreachable regions.
     # v2 does not support a wildcard region. Never follow a credential redirect.
     paths = {"services": "serving.knative.dev", "jobs": "run.googleapis.com",
-             "executions": "run.googleapis.com", "workerpools": "run.googleapis.com"}
+             "executions": "run.googleapis.com", "workerpools": "run.googleapis.com",
+             "instances": "run.googleapis.com"}
     if resource not in paths:
         raise Stop("LAB_GLOBAL_INVENTORY_TARGET_INVALID")
     root = ("https://run.googleapis.com/apis/" + paths[resource] + "/v1/namespaces/"
@@ -229,7 +230,8 @@ def global_run_items(token, resource, expected_kind):
         # API documentation uses the plural forms. Both refer to the same
         # fixed endpoint; version, incomplete pages and reachability still gate.
         kinds = {"JobsList": ("JobsList", "JobList"),
-                 "ExecutionsList": ("ExecutionsList", "ExecutionList")}
+                 "ExecutionsList": ("ExecutionsList", "ExecutionList"),
+                 "InstancesList": ("InstancesList", "InstanceList")}
         accepted_kinds = kinds.get(expected_kind, (expected_kind,))
         if (not isinstance(data, dict) or data.get("kind") not in accepted_kinds
                 or data.get("apiVersion") != paths[resource] + "/v1"):
@@ -299,7 +301,8 @@ def diagnose_blockers():
         problems.append(str(exc))
     if token:
         for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
-                               ("executions", "ExecutionsList"), ("workerpools", "WorkerPoolList")):
+                               ("executions", "ExecutionsList"), ("workerpools", "WorkerPoolList"),
+                               ("instances", "InstancesList")):
             try:
                 items = global_run_items(token, resource, kind)
                 print("LAB_GLOBAL_" + resource.upper() + "_RESULT=" + ("ITEMS_PRESENT" if items else "EMPTY"), flush=True)
@@ -346,7 +349,7 @@ def reject_known_lab_writers(*, collect_all=False):
     token = check(read_access_token)
     if token:
         for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
-                               ("workerpools", "WorkerPoolList")):
+                               ("workerpools", "WorkerPoolList"), ("instances", "InstancesList")):
             def no_run_resource(resource=resource, kind=kind):
                 if global_run_items(token, resource, kind):
                     raise Stop("LAB_EXISTING_RUN_" + resource.upper() + "_REVIEW_REQUIRED")
