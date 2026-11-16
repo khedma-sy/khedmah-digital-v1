@@ -4,9 +4,9 @@
 This entrypoint is prepared for an authorized operator; it does not authorize
 additional runtime or spending. It never targets preview/production. It only
 downloads checksum-pinned repository files, restarts the exact private lab
-instance if needed, and invokes the existing guarded transition once. The
-writer-review confirmation is an operator assertion, not proof of isolation;
-do not supply it until the external/shared-network and session review is done.
+instance if needed, and invokes the fenced transition once. Network guards run
+against live LAB resources and the SQL entrypoint blocks new connections while
+checking existing sessions. A failed or unavailable guard stops execution.
 After a restart request, the script attempts to restore the lab's NEVER policy
 even when the transition fails. This is best effort, not a remote watchdog.
 """
@@ -14,6 +14,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import datetime
 import hashlib
+import importlib.util
 import ipaddress
 import json
 import os
@@ -31,12 +32,14 @@ INSTANCE = "khedmah-restore-pg16-20261114"
 REGION = "europe-west1"
 NETWORK = f"projects/{PROJECT}/global/networks/khedmah-restore-private"
 NETWORK_NAME = "khedmah-restore-private"
-SOURCE_COMMIT = "0dd14862c4960d69960d4a323e5d0c5ecb3c245f"
+SOURCE_COMMIT = "05fc658ac482c45ca30ae2a65c7401af9d7bac74"
 CONFIRM = "RESUME_EXISTING_LAB_AND_APPLY_036_037"
-WRITER_REVIEW = "EXTERNAL_WRITERS_AND_SHARED_NETWORK_REVIEWED"
+FENCE_CONFIRM = "RUN_AUTOMATED_LAB_ISOLATION_AND_FENCE"
 RUNNER_CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 SOURCES = {
-    "scripts/run-recovery-lab-schema-transition.py": "a596c77c0efc0c4af599a6fd80c6e89aefd4991fe8b2c17b9a2a13aad7bad1f5",
+    "scripts/run-recovery-lab-schema-transition.py": "46bde58e7429e3f242d76a5345c15679c75ade16c6601e0c7eef56fbfed3bec1",
+    "scripts/deployment/lab-fenced-migration.sh": "a87946d04147eb2c1461d802f7d57370293a7b904a39c847002f340a1a55e6d5",
+    "scripts/inspect-recovery-lab-external-paths.py": "c8b032bdea574f7adb487d01e2679f4f851024a893ac2e11fa3443b6f26b4e4b",
     "scripts/run-recovery-lab-catalog-probe.py": "9da8198506d36eb79f83fbe350b9db34d56b0332e5c97f2df195411f225273da",
     "scripts/prepare-preview-v2-approval-transition.py": "6d0e119ed0c4ad137a82ef571e5aefdf376c36675895283f76fcf7f4cb3ca4d5",
     "scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh": "248fad2079180ed751293a36709c4faf65f0872699576a651b8ab4c4d5340230",
@@ -424,20 +427,38 @@ def stop_restarted_lab():
     print("LAB_AUTOSTOP_POLICY_READBACK=NEVER", flush=True)
 
 
+def require_additional_network_isolation(root):
+    """Use a hash-pinned read-only helper; unavailable evidence fails closed."""
+    path = root / "scripts/inspect-recovery-lab-external-paths.py"
+    spec = importlib.util.spec_from_file_location("lab_external_paths", path)
+    if spec is None or spec.loader is None:
+        raise Stop("LAB_NETWORK_HELPER_UNAVAILABLE")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    if (helper.PROJECT != PROJECT or helper.SHELL_QUOTA_PROJECT != "khedma-dl-e409d"):
+        raise Stop("LAB_NETWORK_HELPER_TARGET_MISMATCH")
+    try:
+        access_token = helper.token()
+        helper.require_no_additional_network_paths(access_token)
+    except helper.Unavailable as exc:
+        raise Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED:" + str(exc)) from exc
+    print("LAB_LIVE_ADDITIONAL_NETWORK_PATHS=EMPTY", flush=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inspect", action="store_true", help="read-only stopped-lab inventory")
     parser.add_argument("--diagnose", action="store_true", help="read-only state and Cloud Run response labels")
     parser.add_argument("--confirm", default="")
-    parser.add_argument("--confirm-writer-review", default="")
+    parser.add_argument("--confirm-fence-plan", default="")
     args = parser.parse_args(argv)
     if args.diagnose:
-        if args.inspect or args.confirm or args.confirm_writer_review:
+        if args.inspect or args.confirm or args.confirm_fence_plan:
             print("STOP: DIAGNOSE_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
             return 2
         return diagnose_blockers()
     if args.inspect:
-        if args.confirm or args.confirm_writer_review:
+        if args.confirm or args.confirm_fence_plan:
             print("STOP: INSPECT_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
             return 2
         problems = []
@@ -462,7 +483,7 @@ def main(argv=None):
         print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
         print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
         return 2 if problems else 0
-    if args.confirm != CONFIRM or args.confirm_writer_review != WRITER_REVIEW:
+    if args.confirm != CONFIRM or args.confirm_fence_plan != FENCE_CONFIRM:
         print("STOP: EXPLICIT_LAB_AUTHORIZATION_REQUIRED", flush=True)
         return 2
     restart_requested = False
@@ -477,6 +498,7 @@ def main(argv=None):
             if policy != "NEVER":
                 raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
             reject_known_lab_writers()
+            require_additional_network_isolation(root)
             if validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)) != "NEVER":
                 raise Stop("LAB_STOPPED_BASELINE_CHANGED")
             print("LAB_RESTART_REQUESTED", flush=True)
@@ -487,6 +509,7 @@ def main(argv=None):
                 raise Stop("LAB_RESTART_UNVERIFIED")
             print("LAB_RESTART_VERIFIED", flush=True)
             reject_known_lab_writers()
+            require_additional_network_isolation(root)
             run_transition(root)
             print("LAB_NEXT_STEP_BACKEND_DEPLOYMENT", flush=True)
             exit_code = 0

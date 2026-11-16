@@ -16,6 +16,7 @@ HERE = Path(__file__).resolve().parents[1] / "scripts/resume-recovery-lab-transi
 spec = importlib.util.spec_from_file_location("resume_lab", HERE)
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
+REAL_NETWORK_GUARD = m.require_additional_network_isolation
 
 
 def instance(policy="NEVER"):
@@ -28,6 +29,13 @@ def instance(policy="NEVER"):
 
 
 class ResumeLab(unittest.TestCase):
+    def setUp(self):
+        # Most lifecycle tests simulate the live network check; separate tests
+        # below verify it blocks both before and after a restart.
+        self.network_patch = patch.object(m, "require_additional_network_isolation")
+        self.network = self.network_patch.start()
+        self.addCleanup(self.network_patch.stop)
+
     def test_pinned_inputs_stage_and_tampering_stops(self):
         contents = {path: ("synthetic:" + path).encode() for path in m.SOURCES}
         pins = {path: hashlib.sha256(data).hexdigest() for path, data in contents.items()}
@@ -243,12 +251,62 @@ class ResumeLab(unittest.TestCase):
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers") as writers, patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 0)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 0)
         self.assertEqual([x[-1] for x in events if x[:3] == ["sql", "instances", "patch"]],
                          ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
         self.assertEqual(policy[0], "NEVER")
         self.assertEqual(writers.call_count, 2)
+        self.assertEqual(self.network.call_count, 2)
         run.assert_called_once()
+
+    def test_unverified_external_path_stops_before_restart(self):
+        calls = []
+        self.network.side_effect = m.Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED")
+        def call(args, **kwargs):
+            calls.append(args)
+            if args[:3] == ["sql", "instances", "describe"]: return instance()
+            raise AssertionError(args)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
+        self.assertFalse(any(args[:3] == ["sql", "instances", "patch"] for args in calls))
+        run.assert_not_called()
+
+    def test_changed_external_path_after_restart_stops_and_requests_shutdown(self):
+        calls, policy = [], ["NEVER"]
+        self.network.side_effect = [None, m.Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED")]
+        def call(args, **kwargs):
+            calls.append(args)
+            if args[:3] == ["sql", "instances", "describe"]: return instance(policy[0])
+            if args[:3] == ["sql", "instances", "patch"]:
+                policy[0] = args[-1].split("=", 1)[1]; return None
+            raise AssertionError(args)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
+        self.assertEqual(policy[0], "NEVER")
+        self.assertEqual([x[-1] for x in calls if x[:3] == ["sql", "instances", "patch"]],
+                         ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
+        run.assert_not_called()
+
+    def test_network_helper_checks_scope_and_propagates_only_safe_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            helper = root / "scripts/inspect-recovery-lab-external-paths.py"
+            helper.parent.mkdir()
+            base = ("PROJECT = " + repr(m.PROJECT) + "\n"
+                    "SHELL_QUOTA_PROJECT = 'khedma-dl-e409d'\n"
+                    "class Unavailable(Exception): pass\n"
+                    "def token(): return 'synthetic-token'\n")
+            helper.write_text(base + "def require_no_additional_network_paths(t): return True\n")
+            REAL_NETWORK_GUARD(root)
+            helper.write_text(base + "def require_no_additional_network_paths(t): raise Unavailable('LAB_NCC_UNVERIFIED_HTTP_403')\n")
+            with self.assertRaisesRegex(m.Stop, "LAB_NCC_UNVERIFIED_HTTP_403"):
+                REAL_NETWORK_GUARD(root)
+            helper.write_text(base.replace(repr(m.PROJECT), "'other-project'") +
+                              "def require_no_additional_network_paths(t): return True\n")
+            with self.assertRaisesRegex(m.Stop, "TARGET_MISMATCH"):
+                REAL_NETWORK_GUARD(root)
 
     def test_transition_failure_still_requests_lab_stop(self):
         policy, patches = ["NEVER"], []
@@ -262,7 +320,7 @@ class ResumeLab(unittest.TestCase):
              patch.object(m, "reject_known_lab_writers"), \
              patch.object(m, "run_transition", side_effect=m.Stop("LAB_TRANSITION_STOPPED_DO_NOT_RETRY")), \
              contextlib.redirect_stdout(output):
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertEqual(patches, ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
         self.assertIn("LAB_AUTOSTOP_POLICY_READBACK=NEVER", output.getvalue())
         self.assertIn("LAB_TRANSITION_STOPPED_DO_NOT_RETRY", output.getvalue())
@@ -278,7 +336,7 @@ class ResumeLab(unittest.TestCase):
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertEqual(patches, ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
         run.assert_not_called()
 
@@ -293,7 +351,7 @@ class ResumeLab(unittest.TestCase):
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run, \
              contextlib.redirect_stdout(output):
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertIn("LAB_AUTOSTOP_UNVERIFIED_DO_NOT_RETRY_TRANSITION", output.getvalue())
         self.assertNotIn("LAB_AUTOSTOP_POLICY_READBACK=NEVER", output.getvalue())
         run.assert_called_once()
@@ -314,7 +372,7 @@ class ResumeLab(unittest.TestCase):
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers", side_effect=m.Stop("WRITER_FOUND")), \
              patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
         run.assert_not_called()
 
@@ -326,7 +384,7 @@ class ResumeLab(unittest.TestCase):
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers") as writers, patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
         writers.assert_not_called(); run.assert_not_called()
 
@@ -337,7 +395,7 @@ class ResumeLab(unittest.TestCase):
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         run.assert_not_called()
 
     def test_restart_failure_never_runs_transition(self):
@@ -346,7 +404,7 @@ class ResumeLab(unittest.TestCase):
             raise m.Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN")
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         run.assert_not_called()
 
     def test_changed_stopped_baseline_prevents_restart(self):
@@ -358,13 +416,13 @@ class ResumeLab(unittest.TestCase):
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=cloud), \
              patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         self.assertFalse(any(x[:3] == ["sql", "instances", "patch"] for x in calls))
         run.assert_not_called()
 
     def test_download_failure_causes_no_cloud_calls(self):
         with patch.object(m, "stage", side_effect=m.Stop("PINNED_SOURCE_DOWNLOAD_FAILED")), patch.object(m, "gcloud") as call:
-            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM]), 2)
         call.assert_not_called()
 
     def test_global_inventory_paginates_and_rejects_unreachable_regions(self):
