@@ -7,6 +7,8 @@ downloads checksum-pinned repository files, restarts the exact private lab
 instance if needed, and invokes the existing guarded transition once. The
 writer-review confirmation is an operator assertion, not proof of isolation;
 do not supply it until the external/shared-network and session review is done.
+After a restart request, the script attempts to restore the lab's NEVER policy
+even when the transition fails. This is best effort, not a remote watchdog.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -404,6 +406,24 @@ def reject_known_lab_writers(*, collect_all=False):
     return problems
 
 
+def stop_restarted_lab():
+    """Best-effort stop of the exact lab after this invocation tried to start it."""
+    row = gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)
+    if not isinstance(row, dict) or row.get("project") != PROJECT or row.get("name") != INSTANCE:
+        raise Stop("LAB_AUTOSTOP_IDENTITY_UNVERIFIED")
+    print("LAB_AUTOSTOP_REQUESTED", flush=True)
+    # Always issue NEVER after a start request, including an uncertain response;
+    # a successful read of NEVER before an in-flight start is not enough.
+    gcloud(["sql", "instances", "patch", INSTANCE, "--activation-policy=NEVER"], timeout=900)
+    row = gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)
+    settings = row.get("settings") if isinstance(row, dict) else None
+    if (not isinstance(row, dict) or row.get("project") != PROJECT or row.get("name") != INSTANCE
+            or not isinstance(settings, dict) or settings.get("activationPolicy") != "NEVER"):
+        raise Stop("LAB_AUTOSTOP_POLICY_UNVERIFIED")
+    # This verifies the policy readback, not necessarily the instance state yet.
+    print("LAB_AUTOSTOP_POLICY_READBACK=NEVER", flush=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inspect", action="store_true", help="read-only stopped-lab inventory")
@@ -445,6 +465,8 @@ def main(argv=None):
     if args.confirm != CONFIRM or args.confirm_writer_review != WRITER_REVIEW:
         print("STOP: EXPLICIT_LAB_AUTHORIZATION_REQUIRED", flush=True)
         return 2
+    restart_requested = False
+    exit_code = 2
     try:
         with tempfile.TemporaryDirectory(prefix="khedmah-lab-transition-") as directory:
             root = Path(directory)
@@ -458,6 +480,8 @@ def main(argv=None):
             if validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)) != "NEVER":
                 raise Stop("LAB_STOPPED_BASELINE_CHANGED")
             print("LAB_RESTART_REQUESTED", flush=True)
+            # Set before sending: a timed-out call may still start the lab.
+            restart_requested = True
             gcloud(["sql", "instances", "patch", INSTANCE, "--activation-policy=ALWAYS"], timeout=900)
             if validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)) != "ALWAYS":
                 raise Stop("LAB_RESTART_UNVERIFIED")
@@ -465,10 +489,20 @@ def main(argv=None):
             reject_known_lab_writers()
             run_transition(root)
             print("LAB_NEXT_STEP_BACKEND_DEPLOYMENT", flush=True)
-            return 0
+            exit_code = 0
     except (Stop, OSError) as exc:
         print("STOP:", str(exc) if isinstance(exc, Stop) else "LOCAL_PREPARATION_FAILED", flush=True)
-        return 2
+    finally:
+        if restart_requested:
+            try:
+                stop_restarted_lab()
+            except (Stop, OSError) as exc:
+                # The transition may already have committed. Never rerun it to
+                # fix a failed stop; investigate the exact lab's state first.
+                print("STOP: LAB_AUTOSTOP_UNVERIFIED_DO_NOT_RETRY_TRANSITION", flush=True)
+                print("LAB_AUTOSTOP_REASON=" + (str(exc) if isinstance(exc, Stop) else "UNAVAILABLE"), flush=True)
+                exit_code = 2
+    return exit_code
 
 
 if __name__ == "__main__":

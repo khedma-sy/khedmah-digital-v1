@@ -232,18 +232,78 @@ class ResumeLab(unittest.TestCase):
 
     def test_restart_then_execute_once_and_verify_policy(self):
         events = []
+        policy = ["NEVER"]
         def call(args, **kwargs):
             events.append(args)
             if args[:3] == ["sql", "instances", "describe"]:
-                return instance("NEVER" if sum(x[:3] == args[:3] for x in events) <= 2 else "ALWAYS")
-            if args[:3] == ["sql", "instances", "patch"]: return None
+                return instance(policy[0])
+            if args[:3] == ["sql", "instances", "patch"]:
+                policy[0] = args[-1].split("=", 1)[1]
+                return None
             raise AssertionError(args)
         with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
              patch.object(m, "reject_known_lab_writers") as writers, patch.object(m, "run_transition") as run:
             self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 0)
-        self.assertEqual(len([x for x in events if x[:3] == ["sql", "instances", "patch"]]), 1)
+        self.assertEqual([x[-1] for x in events if x[:3] == ["sql", "instances", "patch"]],
+                         ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
+        self.assertEqual(policy[0], "NEVER")
         self.assertEqual(writers.call_count, 2)
         run.assert_called_once()
+
+    def test_transition_failure_still_requests_lab_stop(self):
+        policy, patches = ["NEVER"], []
+        def call(args, **kwargs):
+            if args[:3] == ["sql", "instances", "describe"]: return instance(policy[0])
+            if args[:3] == ["sql", "instances", "patch"]:
+                patches.append(args[-1]); policy[0] = args[-1].split("=", 1)[1]; return None
+            raise AssertionError(args)
+        output = io.StringIO()
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), \
+             patch.object(m, "run_transition", side_effect=m.Stop("LAB_TRANSITION_STOPPED_DO_NOT_RETRY")), \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+        self.assertEqual(patches, ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
+        self.assertIn("LAB_AUTOSTOP_POLICY_READBACK=NEVER", output.getvalue())
+        self.assertIn("LAB_TRANSITION_STOPPED_DO_NOT_RETRY", output.getvalue())
+
+    def test_uncertain_start_still_requests_stop(self):
+        patches = []
+        def call(args, **kwargs):
+            if args[:3] == ["sql", "instances", "describe"]: return instance("NEVER")
+            if args[:3] == ["sql", "instances", "patch"]:
+                patches.append(args[-1])
+                if args[-1] == "--activation-policy=ALWAYS": raise m.Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN")
+                return None
+            raise AssertionError(args)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+        self.assertEqual(patches, ["--activation-policy=ALWAYS", "--activation-policy=NEVER"])
+        run.assert_not_called()
+
+    def test_failed_stop_is_reported_without_repeating_transition(self):
+        policy = ["NEVER"]
+        def call(args, **kwargs):
+            if args[:3] == ["sql", "instances", "describe"]: return instance(policy[0])
+            if args[-1] == "--activation-policy=ALWAYS": policy[0] = "ALWAYS"; return None
+            if args[-1] == "--activation-policy=NEVER": raise m.Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN")
+            raise AssertionError(args)
+        output = io.StringIO()
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=call), \
+             patch.object(m, "reject_known_lab_writers"), patch.object(m, "run_transition") as run, \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-writer-review", m.WRITER_REVIEW]), 2)
+        self.assertIn("LAB_AUTOSTOP_UNVERIFIED_DO_NOT_RETRY_TRANSITION", output.getvalue())
+        self.assertNotIn("LAB_AUTOSTOP_POLICY_READBACK=NEVER", output.getvalue())
+        run.assert_called_once()
+
+    def test_autostop_never_patches_an_unverified_identity(self):
+        row = instance("ALWAYS"); row["project"] = "other-project"
+        with patch.object(m, "gcloud", return_value=row) as cloud:
+            with self.assertRaisesRegex(m.Stop, "LAB_AUTOSTOP_IDENTITY_UNVERIFIED"):
+                m.stop_restarted_lab()
+        self.assertEqual(cloud.call_count, 1)
 
     def test_existing_writers_stop_before_restart(self):
         calls = []
