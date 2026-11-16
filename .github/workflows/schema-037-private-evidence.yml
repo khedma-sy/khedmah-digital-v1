@@ -69,6 +69,12 @@ jobs:
           sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('professional_verification_evidence','business_profile','private')", False)
           sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('unknown_type','business_profile','private')", False)
           sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('product_image','business_profile','public')", True)
+          # A previously valid evidence row must not be made public or reassigned.
+          sql("UPDATE media_assets SET visibility='public' WHERE asset_type='business_verification_evidence'", False)
+          sql("UPDATE media_assets SET owner_type='business_profile' WHERE asset_type='professional_verification_evidence'", False)
+          sql("UPDATE media_assets SET asset_type='business_verification_evidence' WHERE asset_type='product_image'", False)
+          # Correctly preserving the private evidence designation remains legal.
+          sql("UPDATE media_assets SET visibility='private' WHERE asset_type='business_verification_evidence'", True)
           sql("SELECT 1", True)
           print("SCHEMA_037_DISPOSABLE_PRIVACY_FIXTURE=PASS")
           PY
