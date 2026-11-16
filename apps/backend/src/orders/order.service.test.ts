@@ -228,7 +228,7 @@ test('reviewed customer quote enforcement rejects legacy confirmation before any
   }
 });
 
-test('merchant cannot supply customer expectedQuote to bypass transition authority', async () => {
+test('rejects customer expectedQuote on merchant quoting before persistence', async () => {
   const order: FulfillmentOrder = {
     ...delivered, status: 'placed', paymentStatus: 'pending',
     updatedAt: '2026-11-16T11:00:00.000Z',
