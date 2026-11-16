@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/deployment/lab-fenced-migration.sh'
+      - 'scripts/inspect-recovery-lab-external-paths.py'
+      - 'scripts/tests/test_lab_external_paths_fail_closed.py'
       - '.github/workflows/lab-connection-fence.yml'
 
 permissions:
@@ -30,6 +32,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Verify external-network inventory stays fail-closed offline
+        run: python3 -m unittest discover -s scripts/tests -p 'test_lab_external_paths_fail_closed.py'
       - name: Verify connection barrier and restoration on success and failure
         env:
           PG_CONTAINER: ${{ job.services.postgres.id }}
