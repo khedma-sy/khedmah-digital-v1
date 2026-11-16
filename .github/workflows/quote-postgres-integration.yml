@@ -58,4 +58,6 @@ jobs:
           DATABASE_URL: postgresql://quote_test:local_only_test_password@127.0.0.1:5432/khedmah_quote_test
           ALLOW_DESTRUCTIVE_DB_TESTS: 'true'
         working-directory: apps/backend
-        run: node --import tsx --test src/orders/order.postgres-quote.integration.test.ts
+        run: |
+          node --import tsx --test src/orders/order.postgres-quote.integration.test.ts
+          node --import tsx --test src/orders/order.http.integration.test.ts
