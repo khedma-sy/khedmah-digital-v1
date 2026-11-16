@@ -54,13 +54,21 @@ jobs:
           run_fence() {
             docker exec -e PGHOST=127.0.0.1 -e PGSSLMODE=disable -e PGDATABASE=khedmah \
               -e PGUSER=khedmah_migrator -e PGPASSWORD=fixture_migrator_only \
-              -e LAB_FENCE_ADMIN_PASSWORD=fixture_admin_only "$PG_CONTAINER" sh "/tmp/fence-$1.sh"
+              -e LAB_FENCE_ADMIN_PASSWORD=fixture_admin_only -e LAB_FENCE_MODE="${2:-TRANSITION}" \
+              "$PG_CONTAINER" sh "/tmp/fence-$1.sh"
           }
           admin_sql() {
             docker exec "$PG_CONTAINER" psql -U fixture_super -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"
           }
           run_fence success >"$RUNNER_TEMP/success.log" 2>&1
           grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/success.log"
+          test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t
+          if docker exec -e PGHOST=127.0.0.1 -e PGSSLMODE=disable -e PGDATABASE=khedmah \
+            -e PGUSER=khedmah_migrator -e PGPASSWORD=fixture_migrator_only \
+            -e LAB_FENCE_ADMIN_PASSWORD=wrong_password "$PG_CONTAINER" sh /tmp/fence-conflict.sh >"$RUNNER_TEMP/bad-admin.log" 2>&1; then
+            echo 'STOP: invalid admin credential was accepted'; exit 1
+          fi
+          grep -q 'LAB_FENCE_NOT_ATTEMPTED=true' "$RUNNER_TEMP/bad-admin.log"
           test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t
           docker exec -e PGAPPNAME=fixture_writer "$PG_CONTAINER" psql -U fixture_super -d khedmah -c 'SELECT pg_sleep(60)' >/dev/null 2>&1 &
           writer_pid=$!
@@ -98,4 +106,8 @@ jobs:
           if docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -qAt -c 'SELECT 1' > /dev/null 2>&1; then echo 'STOP: new connection was not blocked'; exit 1; fi
           wait "$fence_pid"
           grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/blocking.log"
+          test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t
+          admin_sql 'ALTER DATABASE khedmah ALLOW_CONNECTIONS false' >/dev/null
+          run_fence success RECOVER >"$RUNNER_TEMP/recover.log" 2>&1
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/recover.log"
           test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t

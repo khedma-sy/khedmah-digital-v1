@@ -127,5 +127,57 @@ class ExternalPaths(unittest.TestCase):
         self.assertIn("LAB_NCC_SERVICE=UNKNOWN_SERVICE_STATE_INVALID", output.getvalue())
         self.assertNotIn("LAB_NCC_SERVICE=DISABLED", output.getvalue())
 
+    def test_quota_override_is_fixed_and_resource_remains_lab(self):
+        captured = []
+        class Opener:
+            def open(self, request, timeout):
+                captured.append(request)
+                return io.BytesIO(b'{"spokes": []}')
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()):
+            m.read_json(m.NCC, "secret", quota_project=m.SHELL_QUOTA_PROJECT)
+            with self.assertRaisesRegex(m.Unavailable, "QUOTA_PROJECT_UNEXPECTED"):
+                m.read_json(m.NCC, "secret", quota_project="production")
+        self.assertEqual(len(captured), 1)
+        self.assertIn(m.PROJECT, captured[0].full_url)
+        self.assertEqual(captured[0].get_header("X-goog-user-project"), m.SHELL_QUOTA_PROJECT)
+        self.assertEqual(captured[0].get_method(), "GET")
+
+    def test_quota_fallback_never_calls_a_write_or_claims_session_fence(self):
+        calls = []
+        def get(url, secret, quota_project=None):
+            calls.append((url, quota_project))
+            self.assertEqual(quota_project, m.SHELL_QUOTA_PROJECT)
+            path = url.split("?", 1)[0]
+            if path == m.NCC: return {"spokes": []}
+            if path == m.VPC: return {"locations": [{"locationId": m.REGION}]}
+            if path == m.VPC + "/" + m.REGION + "/connectors": return {"connectors": []}
+            raise AssertionError(path)
+        output = io.StringIO()
+        with patch.object(m, "token", return_value="private-token"), \
+             patch.object(m, "read_json", side_effect=get), contextlib.redirect_stdout(output):
+            self.assertEqual(m.quota_fallback(), 0)
+        self.assertEqual(len(calls), 3)
+        self.assertIn("LAB_GLOBAL_NCC_SPOKES=EMPTY", output.getvalue())
+        self.assertIn("LAB_ALL_REGIONS_VPC_CONNECTORS=EMPTY", output.getvalue())
+        self.assertIn("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", output.getvalue())
+        self.assertNotIn("private-token", output.getvalue())
+
+    def test_execution_gate_rejects_unknown_or_nonempty_network_paths(self):
+        def app_absent(url, token, quota_project=None): raise m.Unavailable("HTTP_404")
+        with patch.object(m, "pages", return_value=[]), patch.object(m, "connectors", return_value=0), \
+             patch.object(m, "read_json", side_effect=app_absent):
+            self.assertTrue(m.require_no_additional_network_paths("token"))
+        with patch.object(m, "pages", return_value=[{}]), patch.object(m, "connectors") as con:
+            with self.assertRaisesRegex(m.Unavailable, "NCC_SPOKES_PRESENT"):
+                m.require_no_additional_network_paths("token")
+        con.assert_not_called()
+        with patch.object(m, "pages", return_value=[]), patch.object(m, "connectors", return_value=1):
+            with self.assertRaisesRegex(m.Unavailable, "VPC_CONNECTORS_PRESENT"):
+                m.require_no_additional_network_paths("token")
+        with patch.object(m, "pages", return_value=[]), patch.object(m, "connectors", return_value=0), \
+             patch.object(m, "read_json", side_effect=m.Unavailable("HTTP_403")):
+            with self.assertRaisesRegex(m.Unavailable, "APP_ENGINE_UNVERIFIED"):
+                m.require_no_additional_network_paths("token")
+
 
 if __name__ == "__main__": unittest.main()

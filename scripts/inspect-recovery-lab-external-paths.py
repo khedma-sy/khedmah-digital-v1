@@ -17,6 +17,7 @@ import urllib.request
 
 PROJECT = "khedmah-restore-lab-20261112"
 PROJECT_NUMBER = "36942020932"
+SHELL_QUOTA_PROJECT = "khedma-dl-e409d"
 REGION = "europe-west1"
 NCC = "https://networkconnectivity.googleapis.com/v1/projects/" + PROJECT + "/locations/global/spokes"
 VPC = "https://vpcaccess.googleapis.com/v1/projects/" + PROJECT + "/locations"
@@ -53,8 +54,14 @@ def token():
     return value
 
 
-def read_json(url, access_token):
-    request = urllib.request.Request(url, headers={"Authorization": "Bearer " + access_token})
+def read_json(url, access_token, quota_project=None):
+    if quota_project not in (None, SHELL_QUOTA_PROJECT):
+        raise Unavailable("QUOTA_PROJECT_UNEXPECTED")
+    headers = {"Authorization": "Bearer " + access_token}
+    if quota_project:
+        # Only the quota/consumer changes. Resource paths remain pinned to LAB.
+        headers["x-goog-user-project"] = quota_project
+    request = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=25) as response:
             data = response.read(2_000_001)
@@ -87,13 +94,15 @@ def read_json(url, access_token):
     return value
 
 
-def pages(url, field, access_token, params=()):
+def pages(url, field, access_token, params=(), quota_project=None):
     found, seen, cursor = [], set(), ""
     for _ in range(100):
         query = list(params) + [("pageSize", "100")]
         if cursor:
             query.append(("pageToken", cursor))
-        body = read_json(url + "?" + urllib.parse.urlencode(query), access_token)
+        target = url + "?" + urllib.parse.urlencode(query)
+        body = (read_json(target, access_token, quota_project=quota_project)
+                if quota_project else read_json(target, access_token))
         items = body.get(field, [])
         if ("error" in body or not isinstance(items, list) or not all(isinstance(x, dict) for x in items)
                 or body.get("unreachable") not in (None, [])):
@@ -110,8 +119,8 @@ def pages(url, field, access_token, params=()):
     raise Unavailable("PAGINATION_LIMIT")
 
 
-def connectors(access_token):
-    locations = pages(VPC, "locations", access_token)
+def connectors(access_token, quota_project=None):
+    locations = pages(VPC, "locations", access_token, quota_project=quota_project)
     ids = [row.get("locationId") for row in locations]
     if (not ids or len(ids) > 200
             or not all(isinstance(x, str) and re.fullmatch(r"[a-z]+(?:-[a-z0-9]+)+[0-9]+", x)
@@ -119,7 +128,8 @@ def connectors(access_token):
             or REGION not in ids or len(ids) != len(set(ids))):
         raise Unavailable("LOCATIONS_INVALID")
     def one(region):
-        return pages(VPC + "/" + region + "/connectors", "connectors", access_token)
+        return pages(VPC + "/" + region + "/connectors", "connectors", access_token,
+                     quota_project=quota_project)
     with ThreadPoolExecutor(max_workers=8) as executor:
         return sum(len(rows) for rows in executor.map(one, ids))
 
@@ -165,6 +175,47 @@ def diagnose_403():
     print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
     print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
     return 0
+
+
+def quota_fallback():
+    """Try the existing Cloud Shell project's quota, reading LAB resources only."""
+    try:
+        access_token = token()
+    except Unavailable as exc:
+        print("STOP:", str(exc), flush=True)
+        print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+        return 2
+    try:
+        rows = pages(NCC, "spokes", access_token, quota_project=SHELL_QUOTA_PROJECT)
+        print("LAB_GLOBAL_NCC_SPOKES=" + ("PRESENT" if rows else "EMPTY"), flush=True)
+    except Unavailable as exc:
+        print("LAB_GLOBAL_NCC_SPOKES=UNKNOWN_" + str(exc), flush=True)
+    try:
+        count = connectors(access_token, quota_project=SHELL_QUOTA_PROJECT)
+        print("LAB_ALL_REGIONS_VPC_CONNECTORS=" + ("PRESENT" if count else "EMPTY"), flush=True)
+    except Unavailable as exc:
+        print("LAB_ALL_REGIONS_VPC_CONNECTORS=UNKNOWN_" + str(exc), flush=True)
+    print("LAB_RESOURCE_PROJECT_FIXED=True", flush=True)
+    print("QUOTA_PROJECT_IS_EXISTING_CLOUD_SHELL_PROJECT=True", flush=True)
+    print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
+    print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+    return 0
+
+
+def require_no_additional_network_paths(access_token):
+    """Require fresh live empty inventories before any isolated-lab restart."""
+    if pages(NCC, "spokes", access_token, quota_project=SHELL_QUOTA_PROJECT):
+        raise Unavailable("LAB_NCC_SPOKES_PRESENT")
+    if connectors(access_token, quota_project=SHELL_QUOTA_PROJECT):
+        raise Unavailable("LAB_VPC_CONNECTORS_PRESENT")
+    try:
+        read_json(APP, access_token)
+    except Unavailable as exc:
+        if str(exc) != "HTTP_404":
+            raise Unavailable("LAB_APP_ENGINE_UNVERIFIED_" + str(exc)) from exc
+    else:
+        raise Unavailable("LAB_APP_ENGINE_PRESENT")
+    return True
 
 
 def main():
@@ -213,6 +264,8 @@ def main():
 if __name__ == "__main__":
     if sys.argv[1:] == ["--explain-403"]:
         sys.exit(diagnose_403())
+    if sys.argv[1:] == ["--quota-fallback"]:
+        sys.exit(quota_fallback())
     if sys.argv[1:]:
         print("STOP: UNKNOWN_OPTION", flush=True)
         sys.exit(2)

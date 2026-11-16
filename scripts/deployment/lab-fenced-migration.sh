@@ -17,6 +17,24 @@ admin_psql() {
     psql -X -qAt -v ON_ERROR_STOP=1 "$@"
 }
 
+mode=${LAB_FENCE_MODE:-TRANSITION}
+if [ "$mode" = RECOVER ]; then
+  # Only the operator may request this mode, after verifying the baseline=true
+  # marker from the exact completed transition execution.
+  identity=$(admin_psql -c "SELECT CASE WHEN current_database()='postgres' AND session_user='postgres' AND current_setting('server_version_num')::integer BETWEEN 160000 AND 169999 AND EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname='khedmah' AND pg_catalog.pg_has_role(current_user,datdba,'USAGE')) THEN 'READY' ELSE 'NOT_READY' END") || exit 2
+  if [ "$identity" != READY ] || ! admin_psql -c 'ALTER DATABASE khedmah ALLOW_CONNECTIONS true' >/dev/null || \
+     [ "$(admin_psql -c "SELECT datallowconn FROM pg_catalog.pg_database WHERE datname='khedmah'")" != t ]; then
+    echo 'LAB_FENCE_RESTORED=false'
+    exit 2
+  fi
+  echo 'LAB_FENCE_RESTORED=true'
+  exit 0
+fi
+if [ "$mode" != TRANSITION ]; then
+  echo 'STOP: LAB_FENCE_MODE_UNEXPECTED'
+  exit 2
+fi
+
 finish() {
   status=$1
   trap - EXIT HUP INT TERM
@@ -56,6 +74,7 @@ BEGIN
     RAISE EXCEPTION 'LAB_FENCE_IDENTITY_OR_BASELINE_MISMATCH';
   END IF;
 END $lab_fence_baseline$;
+SELECT 'LAB_FENCE_BASELINE_TRUE=true';
 \! touch /tmp/khedmah-lab-fence-attempted && PGUSER=postgres PGPASSWORD="$LAB_FENCE_ADMIN_PASSWORD" PGDATABASE=postgres psql -X -qAt -v ON_ERROR_STOP=1 -c 'ALTER DATABASE khedmah ALLOW_CONNECTIONS false' >/dev/null
 \if :SHELL_ERROR
 SELECT 1/0;
