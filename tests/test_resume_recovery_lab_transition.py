@@ -1,5 +1,6 @@
 """Offline guards for resuming only the isolated recovery lab."""
 import copy
+import contextlib
 import hashlib
 import importlib.util
 import io
@@ -67,6 +68,52 @@ class ResumeLab(unittest.TestCase):
         self.assertEqual(cloud.call_count, 1)
         self.assertEqual(cloud.call_args.args[0][:3], ["sql", "instances", "describe"])
         inventory.assert_called_once(); stage.assert_not_called(); transition.assert_not_called()
+
+    def test_inspect_integration_uses_only_allowlisted_reads(self):
+        commands, requests = [], []
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                self_url = request.full_url
+                self.assert_google_get(request)
+                path = self_url.split("?", 1)[0]
+                kinds = {"services": ("serving.knative.dev/v1", "ServiceList"),
+                         "jobs": ("run.googleapis.com/v1", "JobsList"),
+                         "executions": ("run.googleapis.com/v1", "ExecutionsList"),
+                         "workerpools": ("run.googleapis.com/v1", "WorkerPoolList")}
+                api, kind = kinds[path.rsplit("/", 1)[-1]]
+                return io.BytesIO(json.dumps({"apiVersion": api, "kind": kind}).encode())
+            def assert_google_get(self, request):
+                assert request.get_method() == "GET"
+                assert request.full_url.startswith("https://run.googleapis.com/")
+        def command(cmd, **kwargs):
+            commands.append(cmd)
+            assert cmd[:3] == ["gcloud", "--quiet", "--project=" + m.PROJECT]
+            args = cmd[3:]
+            if args == ["auth", "print-access-token"]:
+                return subprocess.CompletedProcess(cmd, 0, "synthetic-token\n", "")
+            assert args[-1] == "--format=json"
+            args = args[:-1]
+            if args == ["sql", "instances", "describe", m.INSTANCE]: data = instance()
+            elif args in (["compute", "instances", "list"], ["compute", "vpn-tunnels", "list"],
+                          ["compute", "interconnects", "attachments", "list"]): data = []
+            elif args == ["compute", "project-info", "describe"]: data = {"name": m.PROJECT}
+            elif args == ["services", "list", "--enabled"]:
+                data = [{"config": {"name": name}} for name in ("run.googleapis.com", "compute.googleapis.com")]
+            elif args == ["compute", "networks", "describe", m.NETWORK_NAME]:
+                data = {"name": m.NETWORK_NAME, "peerings": [
+                    {"name": "servicenetworking-googleapis-com", "state": "ACTIVE"}]}
+            else: raise AssertionError(args)
+            return subprocess.CompletedProcess(cmd, 0, json.dumps(data), "")
+        output = io.StringIO()
+        with patch.object(m.subprocess, "run", side_effect=command), \
+             patch.object(m.urllib.request, "build_opener", return_value=Opener()), \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.main(["--inspect"]), 0)
+        self.assertEqual(len(requests), 4)
+        self.assertIn("READ_ONLY_NO_CLOUD_MUTATIONS=True", output.getvalue())
+        self.assertIn("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", output.getvalue())
+        self.assertNotIn("synthetic-token", output.getvalue())
 
     def test_only_lab_project_is_passed_to_gcloud(self):
         with patch.object(m.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "[]", "")) as call:
