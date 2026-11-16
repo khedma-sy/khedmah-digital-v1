@@ -31,12 +31,12 @@ INSTANCE = "khedmah-restore-pg16-20261114"
 REGION = "europe-west1"
 NETWORK = f"projects/{PROJECT}/global/networks/khedmah-restore-private"
 NETWORK_NAME = "khedmah-restore-private"
-SOURCE_COMMIT = "20951b4eb991440083a61c611771f7828e440944"
+SOURCE_COMMIT = "0dd14862c4960d69960d4a323e5d0c5ecb3c245f"
 CONFIRM = "RESUME_EXISTING_LAB_AND_APPLY_036_037"
 WRITER_REVIEW = "EXTERNAL_WRITERS_AND_SHARED_NETWORK_REVIEWED"
 RUNNER_CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 SOURCES = {
-    "scripts/run-recovery-lab-schema-transition.py": "b7c0494aae106fa9fe32e6706cd2dfe89986a3c7043f8a38048670b586e5fb9f",
+    "scripts/run-recovery-lab-schema-transition.py": "a596c77c0efc0c4af599a6fd80c6e89aefd4991fe8b2c17b9a2a13aad7bad1f5",
     "scripts/run-recovery-lab-catalog-probe.py": "9da8198506d36eb79f83fbe350b9db34d56b0332e5c97f2df195411f225273da",
     "scripts/prepare-preview-v2-approval-transition.py": "6d0e119ed0c4ad137a82ef571e5aefdf376c36675895283f76fcf7f4cb3ca4d5",
     "scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh": "248fad2079180ed751293a36709c4faf65f0872699576a651b8ab4c4d5340230",
