@@ -20,6 +20,7 @@ jobs:
           POSTGRES_USER: fixture_super
           POSTGRES_PASSWORD: fixture_super_only
           POSTGRES_DB: postgres
+          POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
         options: >-
           --health-cmd "pg_isready -U fixture_super -d postgres"
           --health-interval 10s
