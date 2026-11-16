@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import urllib.error
 import unittest
 from unittest.mock import patch
 
@@ -209,6 +210,25 @@ class ResumeLab(unittest.TestCase):
         with patch.object(m.subprocess, "run", return_value=result):
             with self.assertRaisesRegex(m.Stop, "READ_WITH_WARNINGS"):
                 m.gcloud(["compute", "instances", "list"], json_output=True)
+
+    def test_cloud_error_category_never_exposes_stderr(self):
+        result = subprocess.CompletedProcess([], 1, "", "PERMISSION_DENIED private-detail-must-not-appear")
+        with patch.object(m.subprocess, "run", return_value=result):
+            with self.assertRaises(m.Stop) as failure:
+                m.gcloud(["compute", "instances", "list"], json_output=True)
+        self.assertIn("PERMISSION_DENIED", str(failure.exception))
+        self.assertNotIn("private-detail-must-not-appear", str(failure.exception))
+
+    def test_global_http_error_reports_status_only(self):
+        class Opener:
+            def open(self, request, timeout):
+                raise urllib.error.HTTPError(request.full_url, 403, "private-detail", {}, None)
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()):
+            with self.assertRaises(m.Stop) as failure:
+                m.global_run_items("synthetic-secret", "jobs", "JobsList")
+        self.assertIn("LAB_GLOBAL_JOBS_HTTP_403", str(failure.exception))
+        self.assertNotIn("synthetic-secret", str(failure.exception))
+        self.assertNotIn("private-detail", str(failure.exception))
 
     def test_restart_then_execute_once_and_verify_policy(self):
         events = []

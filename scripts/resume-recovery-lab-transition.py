@@ -63,6 +63,21 @@ def stage(root):
         target.write_bytes(data)
 
 
+def safe_gcloud_reason(stderr):
+    value = stderr.lower() if isinstance(stderr, str) else ""
+    if "permission_denied" in value or "permission denied" in value or "does not have permission" in value:
+        return "PERMISSION_DENIED"
+    if "service_disabled" in value or "api has not been used" in value or "api is disabled" in value:
+        return "SERVICE_DISABLED"
+    if "not_found" in value or "not found" in value:
+        return "NOT_FOUND"
+    if "unreachable" in value or "partial" in value:
+        return "PARTIAL_RESPONSE"
+    if "quota" in value or "rate limit" in value:
+        return "QUOTA_OR_RATE"
+    return "UNCLASSIFIED"
+
+
 def gcloud(args, *, timeout=180, json_output=False):
     cmd = ["gcloud", "--quiet", "--project=" + PROJECT, *args]
     operation = "_".join(str(x).split("=", 1)[0].replace("-", "_").upper()
@@ -75,12 +90,12 @@ def gcloud(args, *, timeout=180, json_output=False):
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN:" + operation) from exc
     if result.returncode:
-        raise Stop("LAB_GCLOUD_FAILED:" + operation)
+        raise Stop("LAB_GCLOUD_FAILED:" + operation + ":" + safe_gcloud_reason(result.stderr))
     if json_output:
         # Aggregate list commands may return partial data with a warning and
         # exit 0. Never interpret such an output as a complete empty inventory.
         if result.stderr.strip():
-            raise Stop("LAB_GCLOUD_READ_WITH_WARNINGS:" + operation)
+            raise Stop("LAB_GCLOUD_READ_WITH_WARNINGS:" + operation + ":" + safe_gcloud_reason(result.stderr))
         try:
             return json.loads(result.stdout)
         except ValueError as exc:
@@ -201,7 +216,9 @@ def global_run_items(token, resource, expected_kind):
             if len(raw) > 2_000_000:
                 raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_TOO_LARGE")
             data = json.loads(raw)
-        except (OSError, ValueError, urllib.error.HTTPError) as exc:
+        except urllib.error.HTTPError as exc:
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_HTTP_" + str(exc.code)) from exc
+        except (OSError, ValueError) as exc:
             raise Stop("LAB_GLOBAL_" + resource.upper() + "_UNAVAILABLE") from exc
         # The live Google v1 endpoint reported the singular forms; published
         # API documentation uses the plural forms. Both refer to the same
