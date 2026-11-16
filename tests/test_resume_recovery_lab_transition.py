@@ -47,11 +47,36 @@ class ResumeLab(unittest.TestCase):
                        lambda x: x["settings"]["ipConfiguration"].update(ipv4Enabled=True),
                        lambda x: x["settings"]["ipConfiguration"].update(pscConfig={"pscEnabled": True}),
                        lambda x: x["settings"]["ipConfiguration"].update(enablePrivatePathForGoogleCloudServices=True),
+                       lambda x: x["settings"].update(dataApiAccess="ALLOW_DATA_API"),
                        lambda x: x["settings"]["ipConfiguration"].update(sslMode="ALLOW_UNENCRYPTED_AND_ENCRYPTED"),
                        lambda x: x["ipAddresses"].append({"type": "PRIMARY", "ipAddress": "1.1.1.1"}),
                        lambda x: x["ipAddresses"][0].update(ipAddress="10.200.0.1")):
             row = copy.deepcopy(instance()); update(row)
             with self.assertRaises(m.Stop): m.validate_instance(row)
+
+    def test_exact_official_network_reference_forms_and_no_other_project(self):
+        for reference in (m.NETWORK, "/" + m.NETWORK,
+                          "https://www.googleapis.com/compute/v1/" + m.NETWORK,
+                          "https://compute.googleapis.com/compute/v1/" + m.NETWORK):
+            row = instance()
+            row["settings"]["ipConfiguration"]["privateNetwork"] = reference
+            self.assertEqual(m.validate_instance(row), "NEVER")
+        for reference in (m.NETWORK.replace(m.PROJECT, "another-project"),
+                          "https://attacker.example/" + m.NETWORK,
+                          m.NETWORK + "?extra=true"):
+            row = instance()
+            row["settings"]["ipConfiguration"]["privateNetwork"] = reference
+            with self.assertRaisesRegex(m.Stop, "PRIVATE_NETWORK"):
+                m.validate_instance(row)
+
+    def test_mismatch_reports_only_failed_field_names(self):
+        row = instance()
+        row["settings"]["ipConfiguration"]["privateNetwork"] = "private-reference-must-not-be-printed"
+        row["settings"]["ipConfiguration"]["ipv4Enabled"] = True
+        with self.assertRaises(m.Stop) as failure: m.validate_instance(row)
+        self.assertIn("PRIVATE_NETWORK", str(failure.exception))
+        self.assertIn("PUBLIC_IPV4_DISABLED", str(failure.exception))
+        self.assertNotIn("private-reference-must-not-be-printed", str(failure.exception))
 
     def test_no_confirmation_does_nothing(self):
         with patch.object(m, "stage") as stage, patch.object(m, "gcloud") as call:
@@ -68,6 +93,21 @@ class ResumeLab(unittest.TestCase):
         self.assertEqual(cloud.call_count, 1)
         self.assertEqual(cloud.call_args.args[0][:3], ["sql", "instances", "describe"])
         inventory.assert_called_once(); stage.assert_not_called(); transition.assert_not_called()
+
+    def test_inspect_reports_safe_field_and_inventory_errors_together(self):
+        row = instance()
+        row["settings"]["ipConfiguration"]["privateNetwork"] = "private-reference-must-not-be-printed"
+        output = io.StringIO()
+        with patch.object(m, "gcloud", return_value=row), \
+             patch.object(m, "reject_known_lab_writers", side_effect=m.Stop("LAB_GLOBAL_SERVICES_UNAVAILABLE")), \
+             patch.object(m, "stage") as stage, patch.object(m, "run_transition") as transition, \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.main(["--inspect"]), 2)
+        self.assertIn("PRIVATE_NETWORK", output.getvalue())
+        self.assertIn("LAB_GLOBAL_SERVICES_UNAVAILABLE", output.getvalue())
+        self.assertNotIn("private-reference-must-not-be-printed", output.getvalue())
+        self.assertIn("READ_ONLY_NO_CLOUD_MUTATIONS=True", output.getvalue())
+        stage.assert_not_called(); transition.assert_not_called()
 
     def test_inspect_integration_uses_only_allowlisted_reads(self):
         commands, requests = [], []

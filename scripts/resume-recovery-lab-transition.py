@@ -65,25 +65,38 @@ def stage(root):
 
 def gcloud(args, *, timeout=180, json_output=False):
     cmd = ["gcloud", "--quiet", "--project=" + PROJECT, *args]
+    operation = "_".join(str(x).split("=", 1)[0].replace("-", "_").upper()
+                         for x in args[:3])
     if json_output:
         cmd.append("--format=json")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
                                 env={**os.environ, "CLOUDSDK_CORE_DISABLE_PROMPTS": "1"})
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN") from exc
+        raise Stop("LAB_GCLOUD_OUTCOME_UNCERTAIN:" + operation) from exc
     if result.returncode:
-        raise Stop("LAB_GCLOUD_FAILED")
+        raise Stop("LAB_GCLOUD_FAILED:" + operation)
     if json_output:
         # Aggregate list commands may return partial data with a warning and
         # exit 0. Never interpret such an output as a complete empty inventory.
         if result.stderr.strip():
-            raise Stop("LAB_GCLOUD_READ_WITH_WARNINGS")
+            raise Stop("LAB_GCLOUD_READ_WITH_WARNINGS:" + operation)
         try:
             return json.loads(result.stdout)
         except ValueError as exc:
             raise Stop("LAB_GCLOUD_RESPONSE_INVALID") from exc
     return None
+
+
+def private_network_is_exact(reference):
+    # Google documents both relative references and links. Accept only the
+    # exact approved project and network in known API representations.
+    return isinstance(reference, str) and reference in {
+        NETWORK,
+        "/" + NETWORK,
+        "https://www.googleapis.com/compute/v1/" + NETWORK,
+        "https://compute.googleapis.com/compute/v1/" + NETWORK,
+    }
 
 
 def validate_instance(row):
@@ -97,23 +110,37 @@ def validate_instance(row):
     if not isinstance(ip, dict) or not isinstance(ips, list) or not all(isinstance(x, dict) for x in ips):
         raise Stop("LAB_INSTANCE_UNVERIFIED")
     psc = ip.get("pscConfig") or {}
-    if not isinstance(psc, dict) or psc.get("pscEnabled") is True \
-            or ip.get("enablePrivatePathForGoogleCloudServices") is True:
-        raise Stop("LAB_ADDITIONAL_SQL_NETWORK_PATH")
+    if not isinstance(psc, dict):
+        raise Stop("LAB_INSTANCE_UNVERIFIED")
     private = [x.get("ipAddress") for x in ips if x.get("type") == "PRIVATE"]
-    if not (row.get("project") == PROJECT and row.get("name") == INSTANCE
-            and row.get("region") == REGION and row.get("state") == "RUNNABLE"
-            and row.get("databaseVersion") == "POSTGRES_16"
-            and settings.get("activationPolicy") in ("NEVER", "ALWAYS")
-            and ip.get("ipv4Enabled") is False and ip.get("privateNetwork") == NETWORK
-            and ip.get("sslMode") == "ENCRYPTED_ONLY" and not ip.get("authorizedNetworks")
-            and len(private) == 1 and not any(x.get("type") == "PRIMARY" for x in ips)):
-        raise Stop("LAB_INSTANCE_OR_ISOLATION_MISMATCH")
-    try:
-        if ipaddress.ip_address(private[0]) not in ipaddress.ip_network("10.166.0.0/16"):
-            raise Stop("LAB_PRIVATE_ADDRESS_MISMATCH")
-    except (TypeError, ValueError) as exc:
-        raise Stop("LAB_PRIVATE_ADDRESS_MISMATCH") from exc
+    valid_private_address = False
+    if len(private) == 1:
+        try:
+            valid_private_address = ipaddress.ip_address(private[0]) in ipaddress.ip_network("10.166.0.0/16")
+        except (TypeError, ValueError):
+            pass
+    checks = {
+        "PROJECT": row.get("project") == PROJECT,
+        "INSTANCE": row.get("name") == INSTANCE,
+        "REGION": row.get("region") == REGION,
+        "STATE": row.get("state") == "RUNNABLE",
+        "POSTGRES_VERSION": row.get("databaseVersion") == "POSTGRES_16",
+        "ACTIVATION_POLICY": settings.get("activationPolicy") in ("NEVER", "ALWAYS"),
+        "PUBLIC_IPV4_DISABLED": ip.get("ipv4Enabled") is False,
+        "PRIVATE_NETWORK": private_network_is_exact(ip.get("privateNetwork")),
+        "ENCRYPTED_ONLY": ip.get("sslMode") == "ENCRYPTED_ONLY",
+        "AUTHORIZED_NETWORKS_EMPTY": ip.get("authorizedNetworks") in (None, []),
+        "NO_PRIMARY_ADDRESS": not any(x.get("type") == "PRIMARY" for x in ips),
+        "PRIVATE_ADDRESS": valid_private_address,
+        "PRIVATE_SERVICE_CONNECT_DISABLED": psc.get("pscEnabled") is None or psc.get("pscEnabled") is False,
+        "GOOGLE_PRIVATE_PATH_DISABLED": ip.get("enablePrivatePathForGoogleCloudServices") is None or ip.get("enablePrivatePathForGoogleCloudServices") is False,
+        "DATA_API_DISABLED": settings.get("dataApiAccess") in (
+            None, "DISALLOW_DATA_API", "DATA_API_ACCESS_UNSPECIFIED"),
+    }
+    failed = [name for name, ok in checks.items() if not ok]
+    if failed:
+        # Labels only: never print addresses, raw configuration or credentials.
+        raise Stop("LAB_INSTANCE_OR_ISOLATION_MISMATCH:" + ",".join(failed))
     return settings["activationPolicy"]
 
 
@@ -169,32 +196,32 @@ def global_run_items(token, resource, expected_kind):
             with opener.open(request, timeout=30) as response:
                 raw = response.read(2_000_001)
             if len(raw) > 2_000_000:
-                raise Stop("LAB_GLOBAL_INVENTORY_RESPONSE_TOO_LARGE")
+                raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_TOO_LARGE")
             data = json.loads(raw)
         except (OSError, ValueError, urllib.error.HTTPError) as exc:
-            raise Stop("LAB_GLOBAL_INVENTORY_UNAVAILABLE") from exc
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_UNAVAILABLE") from exc
         if (not isinstance(data, dict) or data.get("kind") != expected_kind
                 or data.get("apiVersion") != paths[resource] + "/v1"):
-            raise Stop("LAB_GLOBAL_INVENTORY_RESPONSE_INVALID")
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_INVALID")
         unreachable = data.get("unreachable", [])
         rows = data.get("items", [])
         meta = data.get("metadata", {})
         if (not isinstance(unreachable, list) or unreachable
                 or not isinstance(rows, list) or not all(isinstance(x, dict) for x in rows)
                 or not isinstance(meta, dict)):
-            raise Stop("LAB_GLOBAL_INVENTORY_INCOMPLETE")
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_INCOMPLETE")
         collected.extend(rows)
         if len(collected) > 4000:
-            raise Stop("LAB_GLOBAL_INVENTORY_TOO_MANY_ITEMS")
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_TOO_MANY_ITEMS")
         continuation = meta.get("continue", "")
         if not isinstance(continuation, str) or len(continuation) > 4096:
-            raise Stop("LAB_GLOBAL_INVENTORY_RESPONSE_INVALID")
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_INVALID")
         if not continuation:
             return collected
         if continuation in seen:
-            raise Stop("LAB_GLOBAL_INVENTORY_PAGINATION_UNCERTAIN")
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_PAGINATION_UNCERTAIN")
         seen.add(continuation)
-    raise Stop("LAB_GLOBAL_INVENTORY_PAGINATION_UNCERTAIN")
+    raise Stop("LAB_GLOBAL_" + resource.upper() + "_PAGINATION_UNCERTAIN")
 
 
 def reject_known_lab_writers():
@@ -272,21 +299,25 @@ def main(argv=None):
         if args.confirm or args.confirm_writer_review:
             print("STOP: INSPECT_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
             return 2
+        problems = []
         try:
             policy = validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             if policy != "NEVER":
                 raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
-            reject_known_lab_writers()
             print("LAB_PRIVATE_CONFIGURATION_VERIFIED=True", flush=True)
             print("LAB_ACTIVATION_POLICY=NEVER", flush=True)
-            print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
-            print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
-            print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
-            return 0
         except (Stop, OSError) as exc:
-            print("STOP:", str(exc) if isinstance(exc, Stop) else "LAB_INSPECTION_FAILED", flush=True)
-            print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
-            return 2
+            problems.append(str(exc) if isinstance(exc, Stop) else "LAB_INSPECTION_FAILED")
+        try:
+            reject_known_lab_writers()
+            print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
+        except (Stop, OSError) as exc:
+            problems.append(str(exc) if isinstance(exc, Stop) else "LAB_INVENTORY_FAILED")
+        for problem in problems:
+            print("STOP:", problem, flush=True)
+        print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
+        print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+        return 2 if problems else 0
     if args.confirm != CONFIRM or args.confirm_writer_review != WRITER_REVIEW:
         print("STOP: EXPLICIT_LAB_AUTHORIZATION_REQUIRED", flush=True)
         return 2
