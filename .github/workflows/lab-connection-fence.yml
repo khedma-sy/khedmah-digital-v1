@@ -1,0 +1,101 @@
+name: Lab connection fence — disposable PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/deployment/lab-fenced-migration.sh'
+      - '.github/workflows/lab-connection-fence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fence-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fixture_super
+          POSTGRES_PASSWORD: fixture_super_only
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U fixture_super -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify connection barrier and restoration on success and failure
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d postgres -v ON_ERROR_STOP=1 -q -c "CREATE ROLE postgres LOGIN NOSUPERUSER PASSWORD 'fixture_admin_only'; CREATE ROLE khedmah_migrator LOGIN NOSUPERUSER PASSWORD 'fixture_migrator_only';"
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d postgres -v ON_ERROR_STOP=1 -q -c 'CREATE DATABASE khedmah OWNER postgres;'
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q -c 'GRANT CONNECT ON DATABASE khedmah TO khedmah_migrator; GRANT CREATE ON SCHEMA public TO khedmah_migrator;'
+          python3 - <<'PY'
+          from pathlib import Path
+          template=Path('scripts/deployment/lab-fenced-migration.sh').read_text()
+          assert template.count('__KHEDMA_CANONICAL_SQL__') == 1
+          cases={
+              'success': 'BEGIN; CREATE TABLE public.fence_events(n integer); INSERT INTO public.fence_events VALUES (1); COMMIT;',
+              'conflict': 'BEGIN; INSERT INTO public.fence_events VALUES (2); COMMIT;',
+              'failure': 'BEGIN; INSERT INTO public.fence_events VALUES (3); SELECT 1/0; COMMIT;',
+              'blocking': 'BEGIN; SELECT pg_sleep(8); INSERT INTO public.fence_events VALUES (4); COMMIT;',
+          }
+          for name, sql in cases.items():
+              Path('/tmp/fence-'+name+'.sh').write_text(template.replace('__KHEDMA_CANONICAL_SQL__',sql))
+          PY
+          for case in success conflict failure blocking; do docker cp "/tmp/fence-$case.sh" "$PG_CONTAINER:/tmp/fence-$case.sh"; done
+          run_fence() {
+            docker exec -e PGHOST=127.0.0.1 -e PGSSLMODE=disable -e PGDATABASE=khedmah \
+              -e PGUSER=khedmah_migrator -e PGPASSWORD=fixture_migrator_only \
+              -e LAB_FENCE_ADMIN_PASSWORD=fixture_admin_only "$PG_CONTAINER" sh "/tmp/fence-$1.sh"
+          }
+          admin_sql() {
+            docker exec "$PG_CONTAINER" psql -U fixture_super -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"
+          }
+          run_fence success >"$RUNNER_TEMP/success.log" 2>&1
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/success.log"
+          test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t
+          docker exec -e PGAPPNAME=fixture_writer "$PG_CONTAINER" psql -U fixture_super -d khedmah -c 'SELECT pg_sleep(60)' >/dev/null 2>&1 &
+          writer_pid=$!
+          trap 'kill "$writer_pid" 2>/dev/null || true' EXIT
+          found=0
+          for attempt in $(seq 1 30); do
+            count=$(admin_sql "SELECT count(*) FROM pg_stat_activity WHERE application_name='fixture_writer' AND state='active'")
+            if [ "$count" = 1 ]; then found=1; break; fi
+            sleep 1
+          done
+          test "$found" = 1
+          if run_fence conflict >"$RUNNER_TEMP/conflict.log" 2>&1; then echo 'STOP: existing session was not rejected'; exit 1; fi
+          grep -q 'LAB_OTHER_DATABASE_SESSION_PRESENT' "$RUNNER_TEMP/conflict.log"
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/conflict.log"
+          admin_sql "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name='fixture_writer'" >/dev/null
+          for attempt in $(seq 1 30); do
+            count=$(admin_sql "SELECT count(*) FROM pg_stat_activity WHERE application_name='fixture_writer'")
+            if [ "$count" = 0 ]; then break; fi
+            sleep 1
+          done
+          test "$count" = 0
+          if run_fence failure >"$RUNNER_TEMP/failure.log" 2>&1; then echo 'STOP: failed SQL was not rejected'; exit 1; fi
+          grep -q 'division by zero' "$RUNNER_TEMP/failure.log"
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/failure.log"
+          test "$(docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -qAt -c 'SELECT count(*) FROM public.fence_events WHERE n IN (2,3)')" = 0
+          run_fence blocking >"$RUNNER_TEMP/blocking.log" 2>&1 &
+          fence_pid=$!
+          closed=0
+          for attempt in $(seq 1 30); do
+            state=$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")
+            if [ "$state" = f ]; then closed=1; break; fi
+            sleep 1
+          done
+          test "$closed" = 1
+          if docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -qAt -c 'SELECT 1' > /dev/null 2>&1; then echo 'STOP: new connection was not blocked'; exit 1; fi
+          wait "$fence_pid"
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/blocking.log"
+          test "$(admin_sql "SELECT datallowconn FROM pg_database WHERE datname='khedmah'")" = t
