@@ -277,7 +277,8 @@ def main(argv=None):
             if policy != "NEVER":
                 raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
             reject_known_lab_writers()
-            print("LAB_INSTANCE_PRIVATE_AND_STOPPED=True", flush=True)
+            print("LAB_PRIVATE_CONFIGURATION_VERIFIED=True", flush=True)
+            print("LAB_ACTIVATION_POLICY=NEVER", flush=True)
             print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
             print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
             print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
