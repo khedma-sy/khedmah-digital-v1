@@ -85,6 +85,12 @@ BEGIN
   SELECT oid INTO db_oid FROM pg_catalog.pg_database
     WHERE datname='khedmah' AND datallowconn IS false;
   IF db_oid IS NULL THEN RAISE EXCEPTION 'LAB_FENCE_NOT_ACTIVE'; END IF;
+  -- A logical replication worker can start independently of SQL clients.
+  -- These two catalog columns do not include subscription connection strings.
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_subscription
+      WHERE subdbid=db_oid AND subenabled) THEN
+    RAISE EXCEPTION 'LAB_ENABLED_SUBSCRIPTION_PRESENT';
+  END IF;
   -- PostgreSQL 16 holds this shared-object lock while a connection starts.
   -- Check startup locks before pg_stat_activity, then refuse existing sessions.
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_locks

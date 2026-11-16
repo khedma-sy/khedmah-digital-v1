@@ -3,9 +3,9 @@
 
 --plan validates pinned sources and lab preflight with read-only APIs.
 --execute requires explicit confirmation, creates one temporary private job,
-rotates only the LAB migrator password, and cleans up job/SA/secrets afterward.
-An execution failure may leave the LAB password rotated, with no rollback to a
-copied source password. Never retry without inspecting current LAB resources.
+rotates the LAB migrator and postgres passwords, and cleans up job/SA/secrets
+when safe. An uncertain fence retains recovery resources. A failure may leave
+LAB passwords rotated. Never retry without inspecting current LAB resources.
 """
 import argparse
 import datetime
@@ -34,7 +34,7 @@ SQL_SECRET = "khedmah-lab-transition-sql"
 PASSWORD_SECRET = "khedmah-lab-transition-password"
 ADMIN_SECRET = "khedmah-lab-transition-admin"
 FENCE_TEMPLATE = "scripts/deployment/lab-fenced-migration.sh"
-FENCE_TEMPLATE_SHA256 = "a87946d04147eb2c1461d802f7d57370293a7b904a39c847002f340a1a55e6d5"
+FENCE_TEMPLATE_SHA256 = "94a68a12e1b9cf73d3567bd8ecd08c6195d37fdb1a90fc58b1076c1d2f918100"
 JOB_PREFIX = "khedmah-lab-transition-"
 CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 
@@ -318,11 +318,19 @@ def apply(host, content):
         for name, data in ((SQL_SECRET, fenced_payload(content).encode()),
                            (PASSWORD_SECRET, password.encode()),
                            (ADMIN_SECRET, admin_password.encode())):
-            call(["secrets", "create", name, "--replication-policy=automatic",
-                  "--data-file=-"], data=data, timeout=180)
+            try:
+                call(["secrets", "create", name, "--replication-policy=automatic",
+                      "--data-file=-"], data=data, timeout=180)
+            except GuardStop:
+                print("STOP: LAB_TEMP_SECRET_CREATION_OUTCOME_UNCERTAIN_DO_NOT_RETRY", flush=True)
+                raise
             owned.append(("secret", name))
-        call(["iam", "service-accounts", "create", SA,
-              "--display-name=One-shot lab migration 036 037"])
+        try:
+            call(["iam", "service-accounts", "create", SA,
+                  "--display-name=One-shot lab migration 036 037"])
+        except GuardStop:
+            print("STOP: LAB_TEMP_IDENTITY_CREATION_OUTCOME_UNCERTAIN_DO_NOT_RETRY", flush=True)
+            raise
         owned.append(("service_account", email))
         for name in (SQL_SECRET, PASSWORD_SECRET, ADMIN_SECRET):
             bind_temporary_secret_accessor(name)

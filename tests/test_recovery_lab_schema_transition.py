@@ -195,6 +195,23 @@ class Transition(unittest.TestCase):
         self.assertTrue(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
         self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 3)
 
+    def test_uncertain_temporary_creation_is_reported_without_password_rotation(self):
+        for failing_prefix, expected in ((["secrets", "create"], "LAB_TEMP_SECRET_CREATION_OUTCOME_UNCERTAIN"),
+                                         (["iam", "service-accounts", "create"], "LAB_TEMP_IDENTITY_CREATION_OUTCOME_UNCERTAIN")):
+            calls, output = [], io.StringIO()
+            def fake(args, *, data=None, timeout=240, output_json=False):
+                calls.append(tuple(args))
+                if args[:len(failing_prefix)] == failing_prefix:
+                    raise m.GuardStop("GCLOUD_UNAVAILABLE_OR_TIMEOUT")
+                return ""
+            with self.subTest(prefix=failing_prefix), patch.object(m, "call", side_effect=fake), \
+                 contextlib.redirect_stdout(output):
+                with self.assertRaises(m.GuardStop):
+                    m.apply("10.166.1.9", "BEGIN;COMMIT;")
+            self.assertIn(expected, output.getvalue())
+            self.assertFalse(any(c[:3] == ("sql", "users", "set-password") for c in calls))
+            self.assertFalse(any(c[:3] == ("run", "jobs", "create") for c in calls))
+
     def test_migration_job_pins_private_network_and_migrator(self):
         calls = []
         def fake(args, *, data=None, timeout=240, output_json=False):

@@ -91,6 +91,21 @@ jobs:
             sleep 1
           done
           test "$count" = 0
+          # A non-superuser must read only the safe columns, and an enabled
+          # subscription must stop the transition even when no client is open.
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q \
+            -c "CREATE SUBSCRIPTION fixture_sub CONNECTION 'host=127.0.0.1 port=1 dbname=postgres connect_timeout=1' PUBLICATION fixture_pub WITH (connect=false, slot_name=fixture_slot);"
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q \
+            -c 'ALTER SUBSCRIPTION fixture_sub ENABLE;'
+          if run_fence conflict >"$RUNNER_TEMP/subscription.log" 2>&1; then echo 'STOP: enabled subscription was not rejected'; exit 1; fi
+          grep -q 'LAB_ENABLED_SUBSCRIPTION_PRESENT' "$RUNNER_TEMP/subscription.log"
+          grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/subscription.log"
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q \
+            -c 'ALTER SUBSCRIPTION fixture_sub DISABLE;'
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q \
+            -c 'ALTER SUBSCRIPTION fixture_sub SET (slot_name=NONE);'
+          docker exec "$PG_CONTAINER" psql -U fixture_super -d khedmah -v ON_ERROR_STOP=1 -q \
+            -c 'DROP SUBSCRIPTION fixture_sub;'
           if run_fence failure >"$RUNNER_TEMP/failure.log" 2>&1; then echo 'STOP: failed SQL was not rejected'; exit 1; fi
           grep -q 'division by zero' "$RUNNER_TEMP/failure.log"
           grep -q 'LAB_FENCE_RESTORED=true' "$RUNNER_TEMP/failure.log"
