@@ -54,6 +54,12 @@ class ResumeLab(unittest.TestCase):
             row = copy.deepcopy(instance()); update(row)
             with self.assertRaises(m.Stop): m.validate_instance(row)
 
+    def test_stopped_lab_is_valid_only_with_never_activation(self):
+        stopped = instance("NEVER"); stopped["state"] = "STOPPED"
+        self.assertEqual(m.validate_instance(stopped), "NEVER")
+        stopped["settings"]["activationPolicy"] = "ALWAYS"
+        with self.assertRaisesRegex(m.Stop, "STATE"): m.validate_instance(stopped)
+
     def test_exact_official_network_reference_forms_and_no_other_project(self):
         for reference in (m.NETWORK, "/" + m.NETWORK,
                           "https://www.googleapis.com/compute/v1/" + m.NETWORK,
@@ -86,7 +92,7 @@ class ResumeLab(unittest.TestCase):
 
     def test_inspect_is_read_only_and_rejects_execution_flags(self):
         with patch.object(m, "gcloud", return_value=instance()) as cloud, \
-             patch.object(m, "reject_known_lab_writers") as inventory, \
+             patch.object(m, "reject_known_lab_writers", return_value=[]) as inventory, \
              patch.object(m, "stage") as stage, patch.object(m, "run_transition") as transition:
             self.assertEqual(m.main(["--inspect"]), 0)
             self.assertEqual(m.main(["--inspect", "--confirm", m.CONFIRM]), 2)
@@ -137,12 +143,12 @@ class ResumeLab(unittest.TestCase):
     def test_invalid_cloud_run_schema_exposes_only_safe_schema_labels(self):
         class Opener:
             def open(self, request, timeout):
-                return io.BytesIO(json.dumps({"kind": "JobList", "apiVersion": "run.googleapis.com/v1",
+                return io.BytesIO(json.dumps({"kind": "UnrelatedList", "apiVersion": "run.googleapis.com/v1",
                     "privatePayload": "should-never-be-printed"}).encode())
         with patch.object(m.urllib.request, "build_opener", return_value=Opener()):
             with self.assertRaises(m.Stop) as failure:
                 m.global_run_items("synthetic-secret", "jobs", "JobsList")
-        self.assertIn("KIND=JobList:API_VERSION=run.googleapis.com/v1", str(failure.exception))
+        self.assertIn("KIND=UnrelatedList:API_VERSION=run.googleapis.com/v1", str(failure.exception))
         self.assertNotIn("synthetic-secret", str(failure.exception))
         self.assertNotIn("should-never-be-printed", str(failure.exception))
 
@@ -155,8 +161,8 @@ class ResumeLab(unittest.TestCase):
                 self.assert_google_get(request)
                 path = self_url.split("?", 1)[0]
                 kinds = {"services": ("serving.knative.dev/v1", "ServiceList"),
-                         "jobs": ("run.googleapis.com/v1", "JobsList"),
-                         "executions": ("run.googleapis.com/v1", "ExecutionsList"),
+                         "jobs": ("run.googleapis.com/v1", "JobList"),
+                         "executions": ("run.googleapis.com/v1", "ExecutionList"),
                          "workerpools": ("run.googleapis.com/v1", "WorkerPoolList")}
                 api, kind = kinds[path.rsplit("/", 1)[-1]]
                 return io.BytesIO(json.dumps({"apiVersion": api, "kind": kind}).encode())
@@ -171,7 +177,8 @@ class ResumeLab(unittest.TestCase):
                 return subprocess.CompletedProcess(cmd, 0, "synthetic-token\n", "")
             assert args[-1] == "--format=json"
             args = args[:-1]
-            if args == ["sql", "instances", "describe", m.INSTANCE]: data = instance()
+            if args == ["sql", "instances", "describe", m.INSTANCE]:
+                data = instance(); data["state"] = "STOPPED"
             elif args in (["compute", "instances", "list"], ["compute", "vpn-tunnels", "list"],
                           ["compute", "interconnects", "attachments", "list"]): data = []
             elif args == ["compute", "project-info", "describe"]: data = {"name": m.PROJECT}
@@ -302,6 +309,24 @@ class ResumeLab(unittest.TestCase):
             with self.assertRaisesRegex(m.Stop, "INCOMPLETE"):
                 m.global_run_items("synthetic-token", "services", "ServiceList")
 
+    def test_cloud_run_observed_singular_and_documented_plural_kinds(self):
+        class Opener:
+            def __init__(self, kind): self.kind = kind
+            def open(self, request, timeout):
+                return io.BytesIO(json.dumps({"apiVersion": "run.googleapis.com/v1", "kind": self.kind}).encode())
+        for resource, expected, forms in (("jobs", "JobsList", ("JobsList", "JobList")),
+                                           ("executions", "ExecutionsList", ("ExecutionsList", "ExecutionList"))):
+            for kind in forms:
+                with patch.object(m.urllib.request, "build_opener", return_value=Opener(kind)):
+                    self.assertEqual(m.global_run_items("synthetic", resource, expected), [])
+
+        class WrongVersion:
+            def open(self, request, timeout):
+                return io.BytesIO(json.dumps({"apiVersion": "other/v1", "kind": "JobList"}).encode())
+        with patch.object(m.urllib.request, "build_opener", return_value=WrongVersion()):
+            with self.assertRaisesRegex(m.Stop, "RESPONSE_INVALID"):
+                m.global_run_items("synthetic", "jobs", "JobsList")
+
     def test_global_writers_and_unknown_executions_block_restart(self):
         def list_global(_token, resource, _kind):
             if resource == "services": return [{"metadata": {"name": "off-region-writer"}}]
@@ -316,6 +341,29 @@ class ResumeLab(unittest.TestCase):
         with patch.object(m, "read_access_token", return_value="synthetic"), \
              patch.object(m, "global_run_items", side_effect=active):
             with self.assertRaisesRegex(m.Stop, "EXECUTION_ACTIVE_OR_UNKNOWN"): m.reject_known_lab_writers()
+
+    def test_read_only_inventory_reports_multiple_independent_blockers(self):
+        def global_items(_token, resource, _kind):
+            if resource == "jobs": return [{"metadata": {"name": "hidden-job"}}]
+            if resource == "executions": return [{"status": {"runningCount": 1}}]
+            return []
+        def cloud(args, **kwargs):
+            if args == ["compute", "instances", "list"]: return [{"name": "hidden-vm"}]
+            if args == ["compute", "project-info", "describe"]: return {"name": m.PROJECT}
+            if args == ["services", "list", "--enabled"]:
+                return [{"config": {"name": "run.googleapis.com"}},
+                        {"config": {"name": "compute.googleapis.com"}}]
+            if args == ["compute", "networks", "describe", m.NETWORK_NAME]:
+                return {"name": m.NETWORK_NAME, "peerings": []}
+            return []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", side_effect=global_items), patch.object(m, "gcloud", side_effect=cloud):
+            problems = m.reject_known_lab_writers(collect_all=True)
+        self.assertIn("LAB_EXISTING_RUN_JOBS_REVIEW_REQUIRED", problems)
+        self.assertIn("LAB_RUN_EXECUTION_ACTIVE_OR_UNKNOWN", problems)
+        self.assertIn("LAB_EXISTING_VMS_REVIEW_REQUIRED", problems)
+        self.assertIn("LAB_NETWORK_PEERING_REVIEW_REQUIRED", problems)
+        self.assertNotIn("hidden-job", str(problems)); self.assertNotIn("hidden-vm", str(problems))
 
     def test_extra_vpc_peering_and_vm_block(self):
         def cloud(args, **kwargs):
@@ -364,7 +412,7 @@ class ResumeLab(unittest.TestCase):
             return []
         with patch.object(m, "read_access_token", return_value="synthetic"), \
              patch.object(m, "global_run_items", side_effect=global_items), patch.object(m, "gcloud", side_effect=cloud):
-            self.assertIsNone(m.reject_known_lab_writers())
+            self.assertEqual(m.reject_known_lab_writers(), [])
 
     def test_shared_vpc_host_blocks(self):
         def cloud(args, **kwargs):

@@ -123,7 +123,10 @@ def validate_instance(row):
         "PROJECT": row.get("project") == PROJECT,
         "INSTANCE": row.get("name") == INSTANCE,
         "REGION": row.get("region") == REGION,
-        "STATE": row.get("state") == "RUNNABLE",
+        # Cloud Shell returned STOPPED for the confirmed NEVER-policy lab.
+        # Do not accept STOPPED for an ALWAYS-policy instance after restart.
+        "STATE": row.get("state") == "RUNNABLE" or (
+            row.get("state") == "STOPPED" and settings.get("activationPolicy") == "NEVER"),
         "POSTGRES_VERSION": row.get("databaseVersion") == "POSTGRES_16",
         "ACTIVATION_POLICY": settings.get("activationPolicy") in ("NEVER", "ALWAYS"),
         "PUBLIC_IPV4_DISABLED": ip.get("ipv4Enabled") is False,
@@ -200,7 +203,13 @@ def global_run_items(token, resource, expected_kind):
             data = json.loads(raw)
         except (OSError, ValueError, urllib.error.HTTPError) as exc:
             raise Stop("LAB_GLOBAL_" + resource.upper() + "_UNAVAILABLE") from exc
-        if (not isinstance(data, dict) or data.get("kind") != expected_kind
+        # The live Google v1 endpoint reported the singular forms; published
+        # API documentation uses the plural forms. Both refer to the same
+        # fixed endpoint; version, incomplete pages and reachability still gate.
+        kinds = {"JobsList": ("JobsList", "JobList"),
+                 "ExecutionsList": ("ExecutionsList", "ExecutionList")}
+        accepted_kinds = kinds.get(expected_kind, (expected_kind,))
+        if (not isinstance(data, dict) or data.get("kind") not in accepted_kinds
                 or data.get("apiVersion") != paths[resource] + "/v1"):
             if not isinstance(data, dict):
                 raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_NOT_OBJECT")
@@ -281,14 +290,7 @@ def diagnose_blockers():
     return 2 if problems else 0
 
 
-def reject_known_lab_writers():
-    # These checks reduce known connection paths. They do not independently
-    # prove external-client isolation or a database fence.
-    token = read_access_token()
-    for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
-                           ("workerpools", "WorkerPoolList")):
-        if global_run_items(token, resource, kind):
-            raise Stop("LAB_EXISTING_RUN_" + resource.upper() + "_REVIEW_REQUIRED")
+def require_no_active_run_executions(token):
     for execution in global_run_items(token, "executions", "ExecutionsList"):
         status = execution.get("status")
         running = status.get("runningCount", 0) if isinstance(status, dict) else None
@@ -301,27 +303,61 @@ def reject_known_lab_writers():
                 raise ValueError("missing timezone")
         except ValueError as exc:
             raise Stop("LAB_RUN_EXECUTION_ACTIVE_OR_UNKNOWN") from exc
+
+
+def reject_known_lab_writers(*, collect_all=False):
+    # Read-only inspection may collect all independent blockers in one pass.
+    # The mutation path remains fail-closed on the first blocker. Neither mode
+    # proves external-client isolation or establishes a database writer fence.
+    problems = []
+
+    def check(fn):
+        try:
+            return fn()
+        except (Stop, OSError) as exc:
+            code = str(exc) if isinstance(exc, Stop) else "LAB_INVENTORY_FAILED"
+            if not collect_all:
+                raise Stop(code) from exc
+            problems.append(code)
+            return None
+
+    token = check(read_access_token)
+    if token:
+        for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
+                               ("workerpools", "WorkerPoolList")):
+            def no_run_resource(resource=resource, kind=kind):
+                if global_run_items(token, resource, kind):
+                    raise Stop("LAB_EXISTING_RUN_" + resource.upper() + "_REVIEW_REQUIRED")
+            check(no_run_resource)
+        check(lambda: require_no_active_run_executions(token))
     for args, label in ((["compute", "instances", "list"], "VMS"),
                         (["compute", "vpn-tunnels", "list"], "VPN"),
                         (["compute", "interconnects", "attachments", "list"], "INTERCONNECT")):
-        rows = gcloud(args, json_output=True)
-        if not isinstance(rows, list) or rows:
-            raise Stop("LAB_EXISTING_" + label + "_REVIEW_REQUIRED")
-    project = gcloud(["compute", "project-info", "describe"], json_output=True)
-    if (not isinstance(project, dict) or project.get("name") != PROJECT
-            or project.get("xpnProjectStatus") not in
-            (None, "UNSPECIFIED_XPN_PROJECT_STATUS")):
-        raise Stop("LAB_SHARED_VPC_HOST_REVIEW_REQUIRED")
-    enabled = gcloud(["services", "list", "--enabled"], json_output=True)
-    if (not isinstance(enabled, list) or not enabled
-            or not all(isinstance(x, dict) and isinstance(x.get("config"), dict)
-                       and isinstance(x["config"].get("name"), str) for x in enabled)):
-        raise Stop("LAB_ENABLED_SERVICES_UNVERIFIED")
-    names = {x["config"]["name"] for x in enabled}
-    if not {"run.googleapis.com", "compute.googleapis.com"}.issubset(names):
-        raise Stop("LAB_REQUIRED_SERVICES_UNVERIFIED")
-    if "cloudscheduler.googleapis.com" in names:
-        locations = gcloud(["scheduler", "locations", "list"], json_output=True)
+        def no_compute_resource(args=args, label=label):
+            rows = gcloud(args, timeout=35, json_output=True)
+            if not isinstance(rows, list) or rows:
+                raise Stop("LAB_EXISTING_" + label + "_REVIEW_REQUIRED")
+        check(no_compute_resource)
+
+    def no_shared_vpc_host():
+        project = gcloud(["compute", "project-info", "describe"], timeout=35, json_output=True)
+        if (not isinstance(project, dict) or project.get("name") != PROJECT
+                or project.get("xpnProjectStatus") not in (None, "UNSPECIFIED_XPN_PROJECT_STATUS")):
+            raise Stop("LAB_SHARED_VPC_HOST_REVIEW_REQUIRED")
+    check(no_shared_vpc_host)
+
+    def no_scheduler_jobs():
+        enabled = gcloud(["services", "list", "--enabled"], timeout=35, json_output=True)
+        if (not isinstance(enabled, list) or not enabled
+                or not all(isinstance(x, dict) and isinstance(x.get("config"), dict)
+                           and isinstance(x["config"].get("name"), str) for x in enabled)):
+            raise Stop("LAB_ENABLED_SERVICES_UNVERIFIED")
+        names = {x["config"]["name"] for x in enabled}
+        if not {"run.googleapis.com", "compute.googleapis.com"}.issubset(names):
+            raise Stop("LAB_REQUIRED_SERVICES_UNVERIFIED")
+        if "cloudscheduler.googleapis.com" not in names:
+            return
+        locations = gcloud(["scheduler", "locations", "list"], timeout=35, json_output=True)
         if (not isinstance(locations, list) or not locations or len(locations) > 200
                 or not all(isinstance(x, dict) and isinstance(x.get("locationId"), str)
                            and re.fullmatch(r"[a-z]+(?:-[a-z0-9]+)+[0-9]+", x["locationId"])
@@ -331,19 +367,24 @@ def reject_known_lab_writers():
         if len(location_ids) != len(set(location_ids)) or REGION not in location_ids:
             raise Stop("LAB_SCHEDULER_LOCATIONS_UNVERIFIED")
         def scheduler_jobs(location):
-            rows = gcloud(["scheduler", "jobs", "list", "--location=" + location], json_output=True)
+            rows = gcloud(["scheduler", "jobs", "list", "--location=" + location], timeout=35, json_output=True)
             if not isinstance(rows, list) or rows:
                 raise Stop("LAB_SCHEDULER_JOBS_REVIEW_REQUIRED")
         with ThreadPoolExecutor(max_workers=6) as executor:
             list(executor.map(scheduler_jobs, location_ids))
-    network = gcloud(["compute", "networks", "describe", NETWORK_NAME], json_output=True)
-    if not isinstance(network, dict) or network.get("name") != NETWORK_NAME:
-        raise Stop("LAB_NETWORK_UNVERIFIED")
-    peers = network.get("peerings", [])
-    if (not isinstance(peers, list) or len(peers) != 1 or not isinstance(peers[0], dict)
-            or peers[0].get("name") != "servicenetworking-googleapis-com"
-            or peers[0].get("state") != "ACTIVE"):
-        raise Stop("LAB_NETWORK_PEERING_REVIEW_REQUIRED")
+    check(no_scheduler_jobs)
+
+    def only_expected_peering():
+        network = gcloud(["compute", "networks", "describe", NETWORK_NAME], timeout=35, json_output=True)
+        if not isinstance(network, dict) or network.get("name") != NETWORK_NAME:
+            raise Stop("LAB_NETWORK_UNVERIFIED")
+        peers = network.get("peerings", [])
+        if (not isinstance(peers, list) or len(peers) != 1 or not isinstance(peers[0], dict)
+                or peers[0].get("name") != "servicenetworking-googleapis-com"
+                or peers[0].get("state") != "ACTIVE"):
+            raise Stop("LAB_NETWORK_PEERING_REVIEW_REQUIRED")
+    check(only_expected_peering)
+    return problems
 
 
 def main(argv=None):
@@ -372,8 +413,11 @@ def main(argv=None):
         except (Stop, OSError) as exc:
             problems.append(str(exc) if isinstance(exc, Stop) else "LAB_INSPECTION_FAILED")
         try:
-            reject_known_lab_writers()
-            print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
+            inventory_problems = reject_known_lab_writers(collect_all=True)
+            if inventory_problems:
+                problems.extend(inventory_problems)
+            else:
+                print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
         except (Stop, OSError) as exc:
             problems.append(str(exc) if isinstance(exc, Stop) else "LAB_INVENTORY_FAILED")
         for problem in problems:
