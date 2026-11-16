@@ -34,6 +34,20 @@ PASSWORD_SECRET = "khedmah-lab-transition-password"
 JOB_PREFIX = "khedmah-lab-transition-"
 CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 
+# This rejects other sessions immediately before the lab transition. It is a
+# snapshot guard, not a fence: new sessions can still connect afterward.
+# Network isolation and a durable external-writer/session fence are separate
+# prerequisites for any real execution.
+LAB_SESSION_CHECK = """DO $lab_session_check$
+BEGIN
+  PERFORM pg_catalog.pg_stat_clear_snapshot();
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_stat_activity
+    WHERE datname = current_database() AND pid <> pg_catalog.pg_backend_pid()) THEN
+    RAISE EXCEPTION 'LAB_OTHER_DATABASE_SESSION_PRESENT';
+  END IF;
+END $lab_session_check$;
+"""
+
 def import_file(path, name):
     spec = importlib.util.spec_from_file_location(name, ROOT / path)
     module = importlib.util.module_from_spec(spec)
@@ -52,6 +66,10 @@ def candidate_sql():
     source = {name: (ROOT / pin[0]).read_bytes()
               for name, pin in offline.SOURCE_PINS.items()}
     sql = offline.build_transition_sql(source)
+    anchor = "SET LOCAL search_path=pg_catalog;\n"
+    if sql.count(anchor) != 1:
+        raise GuardStop("LAB_SESSION_CHECK_INSERTION_POINT_UNVERIFIED")
+    sql = sql.replace(anchor, anchor + LAB_SESSION_CHECK, 1)
     selected = ("035", "036", "037_TYPE", "037_PRIVATE")
     postflight = []
     parts = catalog.CATALOG_SQL.split(";")

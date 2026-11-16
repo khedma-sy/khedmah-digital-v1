@@ -27,6 +27,15 @@ class Transition(unittest.TestCase):
         self.assertIn("LAB_PROBE_037_PRIVATE", sql)
         self.assertNotIn("khedmah-preview-v2-20261012", m.LAB)
 
+    def test_session_guard_is_before_lab_schema_changes_and_fails_closed_on_bad_anchor(self):
+        sql = m.candidate_sql()
+        self.assertEqual(sql.count("LAB_OTHER_DATABASE_SESSION_PRESENT"), 1)
+        self.assertLess(sql.index("BEGIN ISOLATION LEVEL"), sql.index("LAB_OTHER_DATABASE_SESSION_PRESENT"))
+        self.assertLess(sql.index("LAB_OTHER_DATABASE_SESSION_PRESENT"), sql.index("EXECUTE $migration036$"))
+        with patch.object(m.offline, "build_transition_sql", return_value="BEGIN; COMMIT;"):
+            with self.assertRaisesRegex(m.GuardStop, "SESSION_CHECK_INSERTION_POINT_UNVERIFIED"):
+                m.candidate_sql()
+
     def test_plan_is_read_only(self):
         calls = []
         with patch.object(m, "guarded_preflight", return_value="10.166.4.5"), \
