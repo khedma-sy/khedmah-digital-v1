@@ -178,6 +178,11 @@ def run_transition(root):
         raise Stop("LAB_TRANSITION_STOPPED_DO_NOT_RETRY")
 
 
+def require_stopped_instance(row):
+    if validate_instance(row) != "NEVER" or row.get("state") != "STOPPED":
+        raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -466,9 +471,7 @@ def main(argv=None):
             return 2
         problems = []
         try:
-            policy = validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
-            if policy != "NEVER":
-                raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
+            require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             print("LAB_PRIVATE_CONFIGURATION_VERIFIED=True", flush=True)
             print("LAB_ACTIVATION_POLICY=NEVER", flush=True)
         except (Stop, OSError) as exc:
@@ -495,15 +498,12 @@ def main(argv=None):
         with tempfile.TemporaryDirectory(prefix="khedmah-lab-transition-") as directory:
             root = Path(directory)
             stage(root)
-            policy = validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             # A previously running instance can have existing DB sessions;
-            # this wrapper cannot inspect them before restarting.
-            if policy != "NEVER":
-                raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
+            # require an actual stopped state, not only the NEVER policy.
+            require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             reject_known_lab_writers()
             require_additional_network_isolation(root)
-            if validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)) != "NEVER":
-                raise Stop("LAB_STOPPED_BASELINE_CHANGED")
+            require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             print("LAB_RESTART_REQUESTED", flush=True)
             # Set before sending: a timed-out call may still start the lab.
             restart_requested = True

@@ -21,7 +21,7 @@ REAL_NETWORK_GUARD = m.require_additional_network_isolation
 
 def instance(policy="NEVER"):
     return {"project": m.PROJECT, "name": m.INSTANCE, "region": m.REGION,
-            "state": "RUNNABLE", "databaseVersion": "POSTGRES_16",
+            "state": "STOPPED" if policy == "NEVER" else "RUNNABLE", "databaseVersion": "POSTGRES_16",
             "settings": {"activationPolicy": policy, "ipConfiguration": {
                 "ipv4Enabled": False, "privateNetwork": m.NETWORK,
                 "sslMode": "ENCRYPTED_ONLY", "authorizedNetworks": []}},
@@ -68,6 +68,9 @@ class ResumeLab(unittest.TestCase):
         self.assertEqual(m.validate_instance(stopped), "NEVER")
         stopped["settings"]["activationPolicy"] = "ALWAYS"
         with self.assertRaisesRegex(m.Stop, "STATE"): m.validate_instance(stopped)
+        running = instance("NEVER"); running["state"] = "RUNNABLE"
+        with self.assertRaisesRegex(m.Stop, "NOT_STOPPED"):
+            m.require_stopped_instance(running)
 
     def test_exact_official_network_reference_forms_and_no_other_project(self):
         for reference in (m.NETWORK, "/" + m.NETWORK,
