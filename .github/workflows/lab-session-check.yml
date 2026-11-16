@@ -36,7 +36,8 @@ jobs:
           set -euo pipefail
           python3 -c 'import importlib.util; s=importlib.util.spec_from_file_location("lab_transition", "scripts/run-recovery-lab-schema-transition.py"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.LAB_SESSION_CHECK)' > "$RUNNER_TEMP/lab-session-check.sql"
           docker cp "$RUNNER_TEMP/lab-session-check.sql" "$PG_CONTAINER:/tmp/lab-session-check.sql"
-          docker exec "$PG_CONTAINER" psql -U guard_ci -d lab_guard_test -v ON_ERROR_STOP=1 -q -f /tmp/lab-session-check.sql
+          docker exec "$PG_CONTAINER" psql -U guard_ci -d lab_guard_test -v ON_ERROR_STOP=1 -q -c 'CREATE ROLE guard_reader LOGIN NOSUPERUSER; GRANT CONNECT ON DATABASE lab_guard_test TO guard_reader;'
+          docker exec "$PG_CONTAINER" psql -U guard_reader -d lab_guard_test -v ON_ERROR_STOP=1 -q -f /tmp/lab-session-check.sql
           docker exec -e PGAPPNAME=lab_fixture_writer "$PG_CONTAINER" psql -U guard_ci -d lab_guard_test -c 'SELECT pg_sleep(60)' >/dev/null 2>&1 &
           fixture_pid=$!
           trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
@@ -47,7 +48,7 @@ jobs:
             sleep 1
           done
           test "$observed" = 1
-          if docker exec "$PG_CONTAINER" psql -U guard_ci -d lab_guard_test -v ON_ERROR_STOP=1 -q -f /tmp/lab-session-check.sql >"$RUNNER_TEMP/check.log" 2>&1; then
+          if docker exec "$PG_CONTAINER" psql -U guard_reader -d lab_guard_test -v ON_ERROR_STOP=1 -q -f /tmp/lab-session-check.sql >"$RUNNER_TEMP/check.log" 2>&1; then
             echo 'STOP: session guard failed to detect the fixture session'
             exit 1
           fi
