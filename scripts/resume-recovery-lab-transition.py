@@ -199,7 +199,7 @@ def global_run_items(token, resource, expected_kind):
 
 def reject_known_lab_writers():
     # These checks reduce known connection paths. They do not independently
-    # prove external-client isolation, shared-VPC access, or a database fence.
+    # prove external-client isolation or a database fence.
     token = read_access_token()
     for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
                            ("workerpools", "WorkerPoolList")):
@@ -223,6 +223,11 @@ def reject_known_lab_writers():
         rows = gcloud(args, json_output=True)
         if not isinstance(rows, list) or rows:
             raise Stop("LAB_EXISTING_" + label + "_REVIEW_REQUIRED")
+    project = gcloud(["compute", "project-info", "describe"], json_output=True)
+    if (not isinstance(project, dict) or project.get("name") != PROJECT
+            or project.get("xpnProjectStatus") not in
+            (None, "UNSPECIFIED_XPN_PROJECT_STATUS")):
+        raise Stop("LAB_SHARED_VPC_HOST_REVIEW_REQUIRED")
     enabled = gcloud(["services", "list", "--enabled"], json_output=True)
     if (not isinstance(enabled, list) or not enabled
             or not all(isinstance(x, dict) and isinstance(x.get("config"), dict)
@@ -259,9 +264,28 @@ def reject_known_lab_writers():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--inspect", action="store_true", help="read-only stopped-lab inventory")
     parser.add_argument("--confirm", default="")
     parser.add_argument("--confirm-writer-review", default="")
     args = parser.parse_args(argv)
+    if args.inspect:
+        if args.confirm or args.confirm_writer_review:
+            print("STOP: INSPECT_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
+            return 2
+        try:
+            policy = validate_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
+            if policy != "NEVER":
+                raise Stop("LAB_NOT_STOPPED_SESSION_BASELINE_UNVERIFIED")
+            reject_known_lab_writers()
+            print("LAB_INSTANCE_PRIVATE_AND_STOPPED=True", flush=True)
+            print("LAB_BOUNDED_KNOWN_WRITER_CHECKS=PASS", flush=True)
+            print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
+            print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+            return 0
+        except (Stop, OSError) as exc:
+            print("STOP:", str(exc) if isinstance(exc, Stop) else "LAB_INSPECTION_FAILED", flush=True)
+            print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+            return 2
     if args.confirm != CONFIRM or args.confirm_writer_review != WRITER_REVIEW:
         print("STOP: EXPLICIT_LAB_AUTHORIZATION_REQUIRED", flush=True)
         return 2
