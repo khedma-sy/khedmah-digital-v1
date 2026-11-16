@@ -1,0 +1,72 @@
+name: Schema 037 private evidence — disposable PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - 'backend/migrations/versions/037_verification_evidence_media.sql'
+      - '.github/workflows/schema-037-private-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-evidence-constraints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture_only
+          POSTGRES_DB: fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply canonical migration 037 and verify privacy constraints
+        env:
+          PGPASSWORD: fixture_only
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: fixture
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE public.media_assets (
+            id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            asset_type text,
+            owner_type text NOT NULL,
+            visibility text NOT NULL
+          );
+          ALTER TABLE public.media_assets ADD CONSTRAINT media_assets_asset_type_check
+            CHECK (asset_type IN ('logo','cover','gallery','profile_image','service_image','product_image','ad_image',
+              'driver_photo','identity_card','driving_license','vehicle_license'));
+          SQL
+          psql -v ON_ERROR_STOP=1 -f backend/migrations/versions/037_verification_evidence_media.sql
+          python3 - <<'PY'
+          import os, subprocess
+          env={**os.environ, "PGPASSWORD":"fixture_only"}
+          def sql(statement, valid):
+              p=subprocess.run(["psql","-X","-v","ON_ERROR_STOP=1","-qAt","-c",statement],
+                               env=env,capture_output=True,text=True,timeout=15)
+              if (p.returncode==0)!=valid:
+                  raise SystemExit("SCHEMA_037_PRIVACY_EXPECTATION_FAILED")
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('business_verification_evidence','business_profile','private')", True)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('professional_verification_evidence','professional_profile','private')", True)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('business_verification_evidence','business_profile','public')", False)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('professional_verification_evidence','professional_profile','public')", False)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('business_verification_evidence','professional_profile','private')", False)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('professional_verification_evidence','business_profile','private')", False)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('unknown_type','business_profile','private')", False)
+          sql("INSERT INTO media_assets(asset_type,owner_type,visibility) VALUES ('product_image','business_profile','public')", True)
+          sql("SELECT 1", True)
+          print("SCHEMA_037_DISPOSABLE_PRIVACY_FIXTURE=PASS")
+          PY
