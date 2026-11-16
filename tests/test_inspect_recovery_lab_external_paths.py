@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import urllib.error
 import unittest
 from unittest.mock import patch
 
@@ -83,6 +84,48 @@ class ExternalPaths(unittest.TestCase):
         self.assertIn("LAB_GLOBAL_NCC_SPOKES=UNKNOWN_HTTP_403", output.getvalue())
         self.assertIn("LAB_ALL_REGIONS_VPC_CONNECTORS=UNKNOWN_HTTP_403", output.getvalue())
         self.assertNotIn("=EMPTY", output.getvalue())
+
+    def test_google_403_reason_is_allowlisted_without_private_details(self):
+        class Opener:
+            def open(self, request, timeout):
+                body = json.dumps({"error": {"message": "private detail", "details": [{
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo", "domain": "googleapis.com",
+                    "reason": "SERVICE_DISABLED", "metadata": {"private": "secret"}}]}}).encode()
+                raise urllib.error.HTTPError(request.full_url, 403, "forbidden", {}, io.BytesIO(body))
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()):
+            with self.assertRaises(m.Unavailable) as error:
+                m.read_json(m.NCC, "synthetic-secret")
+        self.assertEqual(str(error.exception), "HTTP_403_SERVICE_DISABLED")
+        self.assertNotIn("private", str(error.exception)); self.assertNotIn("secret", str(error.exception))
+
+    def test_403_diagnosis_reads_only_failed_services_and_never_claims_isolation(self):
+        urls = []
+        def get(url, secret):
+            urls.append(url)
+            if url.startswith(m.SERVICE_USAGE):
+                service = url.split("/")[-1]
+                return {"name": "projects/" + m.PROJECT_NUMBER + "/services/" + service,
+                        "state": "DISABLED"}
+            raise m.Unavailable("HTTP_403_SERVICE_DISABLED")
+        output = io.StringIO()
+        with patch.object(m, "token", return_value="private-token"), \
+             patch.object(m, "read_json", side_effect=get), contextlib.redirect_stdout(output):
+            self.assertEqual(m.diagnose_403(), 0)
+        self.assertEqual(len(urls), 4)
+        self.assertFalse(any(url.startswith(m.ASSET) for url in urls))
+        self.assertIn("LAB_NCC_SERVICE=DISABLED", output.getvalue())
+        self.assertIn("LAB_VPC_ACCESS_READ=UNKNOWN_HTTP_403_SERVICE_DISABLED", output.getvalue())
+        self.assertIn("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", output.getvalue())
+        self.assertNotIn("private-token", output.getvalue())
+
+    def test_wrong_service_identity_is_unknown_not_disabled(self):
+        output = io.StringIO()
+        with patch.object(m, "token", return_value="token"), \
+             patch.object(m, "read_json", return_value={"name": "wrong", "state": "DISABLED"}), \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.diagnose_403(), 0)
+        self.assertIn("LAB_NCC_SERVICE=UNKNOWN_SERVICE_STATE_INVALID", output.getvalue())
+        self.assertNotIn("LAB_NCC_SERVICE=DISABLED", output.getvalue())
 
 
 if __name__ == "__main__": unittest.main()

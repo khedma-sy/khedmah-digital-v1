@@ -16,11 +16,15 @@ import urllib.parse
 import urllib.request
 
 PROJECT = "khedmah-restore-lab-20261112"
+PROJECT_NUMBER = "36942020932"
 REGION = "europe-west1"
 NCC = "https://networkconnectivity.googleapis.com/v1/projects/" + PROJECT + "/locations/global/spokes"
 VPC = "https://vpcaccess.googleapis.com/v1/projects/" + PROJECT + "/locations"
 APP = "https://appengine.googleapis.com/v1/apps/" + PROJECT
 ASSET = "https://cloudasset.googleapis.com/v1/projects/" + PROJECT + "/assets"
+SERVICE_USAGE = "https://serviceusage.googleapis.com/v1/projects/" + PROJECT_NUMBER + "/services/"
+REASONS = frozenset(("SERVICE_DISABLED", "IAM_PERMISSION_DENIED", "CONSUMER_INVALID",
+                     "ACCESS_TOKEN_SCOPE_INSUFFICIENT", "BILLING_DISABLED"))
 ASSET_TYPES = {
     "networkconnectivity.googleapis.com/Spoke": "NCC",
     "vpcaccess.googleapis.com/Connector": "CONNECTORS",
@@ -55,7 +59,21 @@ def read_json(url, access_token):
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=25) as response:
             data = response.read(2_000_001)
     except urllib.error.HTTPError as exc:
-        raise Unavailable("HTTP_" + str(exc.code)) from exc
+        reason = ""
+        if exc.code == 403:
+            try:
+                payload = json.loads(exc.read(65537))
+                details = payload.get("error", {}).get("details", [])
+                matches = {x.get("reason") for x in details
+                           if isinstance(x, dict)
+                           and x.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo"
+                           and x.get("domain") == "googleapis.com"
+                           and x.get("reason") in REASONS}
+                if len(matches) == 1:
+                    reason = "_" + matches.pop()
+            except (ValueError, TypeError, AttributeError, OSError):
+                pass
+        raise Unavailable("HTTP_" + str(exc.code) + reason) from exc
     except (OSError, ValueError) as exc:
         raise Unavailable("UNAVAILABLE") from exc
     if len(data) > 2_000_000:
@@ -118,6 +136,37 @@ def snapshot(access_token):
     return counts
 
 
+def diagnose_403():
+    """Explain only the two failed reads; do not repeat the asset inventory."""
+    try:
+        access_token = token()
+    except Unavailable as exc:
+        print("STOP:", str(exc), flush=True)
+        print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+        return 2
+    for label, service, endpoint in (
+        ("NCC", "networkconnectivity.googleapis.com", NCC),
+        ("VPC_ACCESS", "vpcaccess.googleapis.com", VPC),
+    ):
+        try:
+            state = read_json(SERVICE_USAGE + service, access_token)
+            name = state.get("name")
+            if (name != "projects/" + PROJECT_NUMBER + "/services/" + service
+                    or state.get("state") not in ("ENABLED", "DISABLED")):
+                raise Unavailable("SERVICE_STATE_INVALID")
+            print("LAB_" + label + "_SERVICE=" + state["state"], flush=True)
+        except Unavailable as exc:
+            print("LAB_" + label + "_SERVICE=UNKNOWN_" + str(exc), flush=True)
+        try:
+            read_json(endpoint + "?pageSize=1", access_token)
+            print("LAB_" + label + "_READ=ACCESSIBLE", flush=True)
+        except Unavailable as exc:
+            print("LAB_" + label + "_READ=UNKNOWN_" + str(exc), flush=True)
+    print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
+    print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+    return 0
+
+
 def main():
     try:
         access_token = token()
@@ -162,4 +211,9 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--explain-403"]:
+        sys.exit(diagnose_403())
+    if sys.argv[1:]:
+        print("STOP: UNKNOWN_OPTION", flush=True)
+        sys.exit(2)
     sys.exit(main())
