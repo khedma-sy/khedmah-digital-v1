@@ -227,3 +227,28 @@ test('reviewed customer quote enforcement rejects legacy confirmation before any
     else process.env.ORDER_CONFIRMATION_REQUIRE_REVIEWED_QUOTE = previous;
   }
 });
+
+test('merchant cannot supply customer expectedQuote to bypass transition authority', async () => {
+  const order: FulfillmentOrder = {
+    ...delivered, status: 'placed', paymentStatus: 'pending',
+    updatedAt: '2026-11-16T11:00:00.000Z',
+  };
+  let writes = 0;
+  const instance = new OrderService({
+    findById: async () => order,
+    transition: async () => { writes++; return order; },
+  } as never, {} as never, {
+    getCurrentUser: async () => ({ id: 'merchant-owner' }),
+  } as never);
+  await assert.rejects(
+    () => instance.transition('cookie', order.id, {
+      status: 'quoted', deliveryFee: 10,
+      expectedQuote: { updatedAt: order.updatedAt, total: 1000, currency: 'SYP' },
+    }),
+    (error: unknown) => {
+      assert.equal((error as { status?: number }).status, 400);
+      return true;
+    },
+  );
+  assert.equal(writes, 0, 'unauthorized quote snapshot must not reach persistence');
+});
