@@ -58,6 +58,16 @@ class ResumeLab(unittest.TestCase):
             self.assertEqual(m.main(["--confirm", m.CONFIRM]), 2)
         stage.assert_not_called(); call.assert_not_called()
 
+    def test_inspect_is_read_only_and_rejects_execution_flags(self):
+        with patch.object(m, "gcloud", return_value=instance()) as cloud, \
+             patch.object(m, "reject_known_lab_writers") as inventory, \
+             patch.object(m, "stage") as stage, patch.object(m, "run_transition") as transition:
+            self.assertEqual(m.main(["--inspect"]), 0)
+            self.assertEqual(m.main(["--inspect", "--confirm", m.CONFIRM]), 2)
+        self.assertEqual(cloud.call_count, 1)
+        self.assertEqual(cloud.call_args.args[0][:3], ["sql", "instances", "describe"])
+        inventory.assert_called_once(); stage.assert_not_called(); transition.assert_not_called()
+
     def test_only_lab_project_is_passed_to_gcloud(self):
         with patch.object(m.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "[]", "")) as call:
             self.assertEqual(m.gcloud(["run", "jobs", "list", "--region=" + m.REGION], json_output=True), [])
@@ -185,6 +195,7 @@ class ResumeLab(unittest.TestCase):
 
     def test_extra_vpc_peering_and_vm_block(self):
         def cloud(args, **kwargs):
+            if args == ["compute", "project-info", "describe"]: return {"name": m.PROJECT}
             if args == ["compute", "networks", "describe", m.NETWORK_NAME]:
                 return {"name": m.NETWORK_NAME, "peerings": [
                     {"name": "servicenetworking-googleapis-com", "state": "ACTIVE"},
@@ -202,6 +213,7 @@ class ResumeLab(unittest.TestCase):
 
     def test_scheduler_jobs_in_any_listed_region_block(self):
         def cloud(args, **kwargs):
+            if args == ["compute", "project-info", "describe"]: return {"name": m.PROJECT}
             if args == ["services", "list", "--enabled"]:
                 return [{"config": {"name": x}} for x in (
                     "run.googleapis.com", "compute.googleapis.com", "cloudscheduler.googleapis.com")]
@@ -218,6 +230,7 @@ class ResumeLab(unittest.TestCase):
         def global_items(_token, resource, _kind):
             return [{"status": {"completionTime": "2026-11-16T07:00:00Z"}}] if resource == "executions" else []
         def cloud(args, **kwargs):
+            if args == ["compute", "project-info", "describe"]: return {"name": m.PROJECT}
             if args == ["services", "list", "--enabled"]:
                 return [{"config": {"name": "run.googleapis.com"}},
                         {"config": {"name": "compute.googleapis.com"}}]
@@ -228,6 +241,14 @@ class ResumeLab(unittest.TestCase):
         with patch.object(m, "read_access_token", return_value="synthetic"), \
              patch.object(m, "global_run_items", side_effect=global_items), patch.object(m, "gcloud", side_effect=cloud):
             self.assertIsNone(m.reject_known_lab_writers())
+
+    def test_shared_vpc_host_blocks(self):
+        def cloud(args, **kwargs):
+            return {"name": m.PROJECT, "xpnProjectStatus": "HOST"} if args == ["compute", "project-info", "describe"] else []
+        with patch.object(m, "read_access_token", return_value="synthetic"), \
+             patch.object(m, "global_run_items", return_value=[]), patch.object(m, "gcloud", side_effect=cloud):
+            with self.assertRaisesRegex(m.Stop, "SHARED_VPC_HOST_REVIEW_REQUIRED"):
+                m.reject_known_lab_writers()
 
 
 if __name__ == "__main__":
