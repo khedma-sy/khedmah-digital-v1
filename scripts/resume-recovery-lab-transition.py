@@ -202,7 +202,12 @@ def global_run_items(token, resource, expected_kind):
             raise Stop("LAB_GLOBAL_" + resource.upper() + "_UNAVAILABLE") from exc
         if (not isinstance(data, dict) or data.get("kind") != expected_kind
                 or data.get("apiVersion") != paths[resource] + "/v1"):
-            raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_INVALID")
+            if not isinstance(data, dict):
+                raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_NOT_OBJECT")
+            kind = safe_api_label(data.get("kind"))
+            version = safe_api_label(data.get("apiVersion"))
+            raise Stop("LAB_GLOBAL_" + resource.upper() + "_RESPONSE_INVALID:KIND="
+                       + kind + ":API_VERSION=" + version)
         unreachable = data.get("unreachable", [])
         rows = data.get("items", [])
         meta = data.get("metadata", {})
@@ -222,6 +227,58 @@ def global_run_items(token, resource, expected_kind):
             raise Stop("LAB_GLOBAL_" + resource.upper() + "_PAGINATION_UNCERTAIN")
         seen.add(continuation)
     raise Stop("LAB_GLOBAL_" + resource.upper() + "_PAGINATION_UNCERTAIN")
+
+
+def safe_api_label(value):
+    # These are provider schema labels only, never resource names or payloads.
+    if value is None:
+        return "MISSING"
+    if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_./-]{1,80}", value):
+        return value
+    return "UNEXPECTED"
+
+
+def diagnose_blockers():
+    problems = []
+    try:
+        row = gcloud(["sql", "instances", "describe", INSTANCE], json_output=True)
+        if not isinstance(row, dict) or row.get("project") != PROJECT or row.get("name") != INSTANCE:
+            raise Stop("LAB_INSTANCE_IDENTITY_UNVERIFIED")
+        settings = row.get("settings") or {}
+        if not isinstance(settings, dict):
+            raise Stop("LAB_INSTANCE_SETTINGS_UNVERIFIED")
+        states = {"RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE",
+                  "FAILED", "ONLINE_MAINTENANCE", "REPAIRING", "SQL_INSTANCE_STATE_UNSPECIFIED",
+                  "STOPPED", "STOPPING", "UPDATING", "UNKNOWN"}
+        state = row.get("state")
+        policy = settings.get("activationPolicy")
+        print("LAB_SQL_STATE=" + (state if isinstance(state, str) and state in states else "OTHER_OR_MISSING"), flush=True)
+        print("LAB_ACTIVATION_POLICY=" + (policy if policy in ("NEVER", "ALWAYS", "ON_DEMAND") else "OTHER_OR_MISSING"), flush=True)
+        reasons = row.get("suspensionReason") or []
+        allowed = {"SQL_SUSPENSION_REASON_UNSPECIFIED", "BILLING_ISSUE", "LEGAL_ISSUE", "OPERATIONAL_ISSUE", "KMS_KEY_ISSUE"}
+        if not isinstance(reasons, list) or not all(isinstance(x, str) and x in allowed for x in reasons):
+            raise Stop("LAB_SUSPENSION_REASON_UNVERIFIED")
+        print("LAB_SUSPENSION_REASONS=" + (",".join(reasons) if reasons else "NONE_REPORTED"), flush=True)
+    except (Stop, OSError) as exc:
+        problems.append(str(exc) if isinstance(exc, Stop) else "LAB_SQL_DIAGNOSTIC_FAILED")
+    try:
+        token = read_access_token()
+    except Stop as exc:
+        token = None
+        problems.append(str(exc))
+    if token:
+        for resource, kind in (("services", "ServiceList"), ("jobs", "JobsList"),
+                               ("executions", "ExecutionsList"), ("workerpools", "WorkerPoolList")):
+            try:
+                items = global_run_items(token, resource, kind)
+                print("LAB_GLOBAL_" + resource.upper() + "_RESULT=" + ("ITEMS_PRESENT" if items else "EMPTY"), flush=True)
+            except Stop as exc:
+                problems.append(str(exc))
+    for problem in problems:
+        print("STOP:", problem, flush=True)
+    print("EXTERNAL_WRITERS_AND_DB_SESSION_FENCE_VERIFIED=False", flush=True)
+    print("READ_ONLY_NO_CLOUD_MUTATIONS=True", flush=True)
+    return 2 if problems else 0
 
 
 def reject_known_lab_writers():
@@ -292,9 +349,15 @@ def reject_known_lab_writers():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inspect", action="store_true", help="read-only stopped-lab inventory")
+    parser.add_argument("--diagnose", action="store_true", help="read-only state and Cloud Run response labels")
     parser.add_argument("--confirm", default="")
     parser.add_argument("--confirm-writer-review", default="")
     args = parser.parse_args(argv)
+    if args.diagnose:
+        if args.inspect or args.confirm or args.confirm_writer_review:
+            print("STOP: DIAGNOSE_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
+            return 2
+        return diagnose_blockers()
     if args.inspect:
         if args.confirm or args.confirm_writer_review:
             print("STOP: INSPECT_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)

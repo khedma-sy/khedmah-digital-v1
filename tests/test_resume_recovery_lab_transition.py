@@ -109,6 +109,43 @@ class ResumeLab(unittest.TestCase):
         self.assertIn("READ_ONLY_NO_CLOUD_MUTATIONS=True", output.getvalue())
         stage.assert_not_called(); transition.assert_not_called()
 
+    def test_diagnose_reports_state_and_all_resource_failures_without_writes(self):
+        row = instance()
+        row["state"] = "SUSPENDED"
+        row["suspensionReason"] = ["OPERATIONAL_ISSUE"]
+        def global_items(_token, resource, _kind):
+            if resource == "jobs": raise m.Stop("LAB_GLOBAL_JOBS_RESPONSE_INVALID:KIND=JobList:API_VERSION=MISSING")
+            return []
+        output = io.StringIO()
+        with patch.object(m, "gcloud", return_value=row) as cloud, \
+             patch.object(m, "read_access_token", return_value="synthetic-secret"), \
+             patch.object(m, "global_run_items", side_effect=global_items) as inventory, \
+             patch.object(m, "stage") as stage, patch.object(m, "run_transition") as transition, \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(m.main(["--diagnose"]), 2)
+            self.assertEqual(m.main(["--diagnose", "--confirm", m.CONFIRM]), 2)
+        self.assertEqual(cloud.call_count, 1)
+        self.assertEqual(inventory.call_count, 4)
+        self.assertIn("LAB_SQL_STATE=SUSPENDED", output.getvalue())
+        self.assertIn("LAB_ACTIVATION_POLICY=NEVER", output.getvalue())
+        self.assertIn("LAB_SUSPENSION_REASONS=OPERATIONAL_ISSUE", output.getvalue())
+        self.assertIn("KIND=JobList:API_VERSION=MISSING", output.getvalue())
+        self.assertIn("READ_ONLY_NO_CLOUD_MUTATIONS=True", output.getvalue())
+        self.assertNotIn("synthetic-secret", output.getvalue())
+        stage.assert_not_called(); transition.assert_not_called()
+
+    def test_invalid_cloud_run_schema_exposes_only_safe_schema_labels(self):
+        class Opener:
+            def open(self, request, timeout):
+                return io.BytesIO(json.dumps({"kind": "JobList", "apiVersion": "run.googleapis.com/v1",
+                    "privatePayload": "should-never-be-printed"}).encode())
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()):
+            with self.assertRaises(m.Stop) as failure:
+                m.global_run_items("synthetic-secret", "jobs", "JobsList")
+        self.assertIn("KIND=JobList:API_VERSION=run.googleapis.com/v1", str(failure.exception))
+        self.assertNotIn("synthetic-secret", str(failure.exception))
+        self.assertNotIn("should-never-be-printed", str(failure.exception))
+
     def test_inspect_integration_uses_only_allowlisted_reads(self):
         commands, requests = [], []
         class Opener:
