@@ -73,7 +73,7 @@ def scan_logs(directory, now=None):
         fragment = text[error.start():]
         out['PINNED_RUNNER_RETRY_PATTERN_MATCH'] = pinned_runner_retry_match(fragment)
         out['GCLOUD_BIND_ERROR_PREFIX_PRESENT'] = bool(re.search(
-            r'ERROR:\\s*\\(gcloud\\.secrets\\.add-iam-policy-binding\\)', fragment, re.I))
+            r'ERROR:\s*\(gcloud\.secrets\.add-iam-policy-binding\)', fragment, re.I))
         out.update({name: bool(re.search(pattern, fragment, re.I)) for name, pattern in PATTERNS.items()})
         return out
     return {'LOG_STATUS': 'NO_MATCHING_FAILED_LOG'}
