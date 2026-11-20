@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import hashlib
 from pathlib import PurePosixPath
 import re
 import subprocess
@@ -73,7 +74,28 @@ def main() -> int:
             if not isinstance(record, dict):
                 raise ValueError("malformed Gitleaks record")
             name, line = history_line(record)
-            counts[classify(name, line)] += 1
+            category = classify(name, line)
+            counts[category] += 1
+            if category.startswith("unresolved_"):
+                area = (
+                    "application" if name.startswith(("apps/", "backend/")) else
+                    "infrastructure" if name.startswith(("scripts/", ".github/", "cloudbuild")) else
+                    "documentation" if name.startswith(("docs/",)) else
+                    "test_or_fixture" if name.startswith(("tests/",)) or name.endswith(".test.ts") else
+                    "other"
+                )
+                # One-way source identifier; no full path, line, commit or match.
+                identifier = hashlib.sha256(name.encode()).hexdigest()[:16]
+                raw = line or ""
+                hint = (
+                    "google_api_key_format" if re.search(r"AIza[A-Za-z0-9_-]{25,}", raw) else
+                    "apparent_assignment" if re.search(r"(?:key|token|secret|password)\\s*[:=]", raw, re.I) else
+                    "high_entropy_source_text" if re.search(r"[A-Za-z0-9+/=_-]{45,}", raw) else
+                    "other_source_text"
+                )
+                print(f"HISTORICAL_UNRESOLVED_AREA={area}")
+                print(f"HISTORICAL_UNRESOLVED_SOURCE_ID={identifier}")
+                print(f"HISTORICAL_UNRESOLVED_PATTERN={hint}")
         print("HISTORICAL_TRIAGE_TOTAL=" + str(sum(counts.values())))
         for category, count in sorted(counts.items()):
             print(f"HISTORICAL_TRIAGE_{category.upper()}={count}")
