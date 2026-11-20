@@ -56,7 +56,12 @@ export function createCsrfOriginMiddleware() {
     }
 
     const nativeClient = request.headers['x-khedmah-client'];
-    if (nativeClient === 'android' && !request.headers.origin && !request.headers.referer) {
+    // A browser can claim to be Android by setting this header. A genuine
+    // Android HttpURLConnection client does not send browser Fetch Metadata;
+    // never allow a browser-originated request to use the native exemption.
+    const browserFetchSite = request.headers['sec-fetch-site'];
+    if (nativeClient === 'android' && !request.headers.origin && !request.headers.referer &&
+        browserFetchSite === undefined) {
       next();
       return;
     }
