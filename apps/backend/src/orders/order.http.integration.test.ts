@@ -133,10 +133,32 @@ test('real signed HTTP order confirmation enforces persisted quote, actor and ex
       const stranger = await read('/api/v1/orders/mine', cookies[2]);
       assert.equal(stranger.status, 200);
       assert.deepEqual((await stranger.json() as { orders: unknown[] }).orders, []);
+      const merchantOrdersPath = '/api/v1/orders/merchant?businessId=' + merchantId;
+      const merchantOrders = await read(merchantOrdersPath, cookies[1]);
+      assert.equal(merchantOrders.status, 200);
+      assert.equal((await merchantOrders.json() as { orders: { id: string }[] }).orders.some(o => o.id === orderId), true);
+      assert.equal((await read(merchantOrdersPath)).status, 401, 'anonymous cannot read merchant orders');
+      assert.equal((await read(merchantOrdersPath, cookies[0])).status, 403, 'customer cannot impersonate merchant');
+      assert.equal((await read(merchantOrdersPath, cookies[2])).status, 403, 'unrelated user cannot read merchant orders');
+      assert.equal((await read('/api/v1/orders/courier?businessId=' + merchantId, cookies[1])).status, 403,
+        'merchant account is not automatically a courier account');
+      assert.equal((await read('/api/v1/orders/' + orderId + '/tracking', cookies[2])).status, 403,
+        'unrelated user cannot inspect order tracking');
+      assert.equal((await read('/api/v1/orders/' + orderId + '/tracking', cookies[0])).status, 200);
       assert.equal((await read('/api/v1/auth/session', cookies[0])).status, 200);
       const reviewed = { updatedAt: originalRevision, total: 1200, currency: 'SYP' };
       const initial = await snapshot();
       assert.equal((await patch(cookies[2], {status:'merchant_confirmed',expectedQuote:reviewed})).status, 403);
+      assert.equal((await patch(cookies[1], {status:'merchant_confirmed',expectedQuote:reviewed})).status, 400,
+        'merchant cannot impersonate customer confirmation');
+      assert.equal((await patch('', {status:'merchant_confirmed',expectedQuote:reviewed})).status, 401,
+        'anonymous confirmation must not succeed');
+      const crossOrigin = await fetch(origin + '/api/v1/orders/' + orderId + '/status', {
+        method: 'PATCH',
+        headers: { Cookie: cookies[0], Origin: 'https://untrusted.example', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'merchant_confirmed', expectedQuote: reviewed }),
+      });
+      assert.equal(crossOrigin.status, 403, 'untrusted browser origin cannot confirm a quote');
       assert.equal((await patch(cookies[0], {status:'merchant_confirmed'})).status, 400);
       assert.equal((await patch(cookies[0], {status:'merchant_confirmed',
         expectedQuote:{...reviewed,total:1199}})).status, 409);
