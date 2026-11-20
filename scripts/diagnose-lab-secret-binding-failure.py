@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Read-only classification of the latest lab secret-binding failure and cleanup."""
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+
+PROJECT = 'khedmah-restore-lab-20261112'
+INSTANCE = 'khedmah-restore-pg16-20261114'
+REGION = 'europe-west1'
+PRINCIPAL = 'khedmah-lab-transition@' + PROJECT + '.iam.gserviceaccount.com'
+SECRETS = {
+    'SQL': 'khedmah-lab-transition-sql',
+    'PASSWORD': 'khedmah-lab-transition-password',
+    'ADMIN': 'khedmah-lab-transition-admin',
+}
+PATTERNS = {
+    'EXACT_PRINCIPAL_MISSING': r'service\s*account\s+[\'"\[]?' + re.escape(PRINCIPAL) + r'[\'"\]]?\s+(?:does not exist|not found)',
+    'SERVICE_ACCOUNT_MISSING': r'(?:service\s*account|serviceaccount|principal|member)[^\n]{0,250}(?:does not exist|not found|doesn\x27t exist)',
+    'PERMISSION_DENIED': r'permission.denied|does not have permission|access denied|\bforbidden\b|\b403\b',
+    'ORGANIZATION_POLICY': r'organization(?:al)? policy|orgpolicy|org.policy|allowedpolicymemberdomains|constraints/iam',
+    'INVALID_ARGUMENT': r'invalid.argument|unrecognized arguments|too few arguments|required arguments',
+    'NOT_FOUND': r'\bnot.found\b|does not exist|doesn\x27t exist',
+    'AUTHENTICATION': r'unauthenticated|invalid_grant|reauthentication|credentials? (?:have )?expired',
+    'TRANSIENT_OR_QUOTA': r'timed? ?out|deadline.exceeded|connection (?:refused|reset)|resource.exhausted|\b(?:429|500|502|503|504)\b',
+    'ETAG_OR_CONDITION': r'\betag\b|condition required|\baborted\b|\b409\b',
+}
+
+
+def scan_logs(directory, now=None):
+    now = now or dt.datetime.now(dt.timezone.utc)
+    try:
+        paths = [p for p in directory.rglob('*.log') if p.is_file()]
+        paths.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return {'LOG_STATUS': 'UNAVAILABLE'}
+    for path in paths[:4000]:
+        try:
+            stat = path.stat()
+            if stat.st_size > 2_000_000:
+                continue
+            text = path.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        if 'gcloud.secrets.add-iam-policy-binding' not in text:
+            continue
+        kinds = [kind for kind, value in SECRETS.items() if value in text]
+        error = re.search(r'\bERROR\b|Traceback \(most recent call last\)', text, re.I)
+        if not kinds or not error:
+            continue
+        when = dt.datetime.fromtimestamp(stat.st_mtime, dt.timezone.utc)
+        out = {'LOG_STATUS': 'RECENT_MATCH', 'LOG_MODIFIED_UTC': when.strftime('%Y-%m-%dT%H:%M:%SZ')}
+        if not 0 <= (now - when).total_seconds() <= 7200:
+            out['LOG_STATUS'] = 'STALE_OR_CLOCK_UNVERIFIED'
+            return out
+        out['LOG_SECRET_KIND'] = kinds[0] if len(kinds) == 1 else 'MULTIPLE'
+        out['LOG_PROJECT_MARKER_PRESENT'] = PROJECT in text
+        fragment = text[error.start():]
+        out.update({name: bool(re.search(pattern, fragment, re.I)) for name, pattern in PATTERNS.items()})
+        return out
+    return {'LOG_STATUS': 'NO_MATCHING_FAILED_LOG'}
+
+
+def read_cloud(args):
+    try:
+        result = subprocess.run(['gcloud', '--quiet', '--project=' + PROJECT, *args, '--format=json'],
+                                capture_output=True, text=True, timeout=90,
+                                env={**os.environ, 'CLOUDSDK_CORE_DISABLE_PROMPTS': '1'})
+        if result.returncode or result.stderr.strip():
+            return None
+        return json.loads(result.stdout)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+
+
+def list_names(items, kind):
+    if not isinstance(items, list):
+        return None
+    names = []
+    for item in items:
+        if not isinstance(item, dict):
+            return None
+        if kind == 'job':
+            meta = item.get('metadata') or {}
+            if not isinstance(meta, dict):
+                return None
+            name = meta.get('name') or item.get('name')
+        else:
+            name = item.get('email' if kind == 'account' else 'name')
+        if not isinstance(name, str) or not name:
+            return None
+        names.append(name if kind == 'account' else name.rsplit('/', 1)[-1])
+    return names
+
+
+def inspect_cloud():
+    row = read_cloud(['sql', 'instances', 'describe', INSTANCE])
+    if isinstance(row, dict) and row.get('project') == PROJECT and row.get('name') == INSTANCE:
+        settings = row.get('settings')
+        policy = settings.get('activationPolicy') if isinstance(settings, dict) else None
+        state = row.get('state')
+        policy = policy if policy in ('ALWAYS', 'NEVER') else 'UNKNOWN'
+        state = state if state in ('RUNNABLE', 'STOPPED', 'SUSPENDED', 'MAINTENANCE', 'FAILED') else 'UNKNOWN'
+    else:
+        policy = state = 'UNKNOWN'
+    secrets = list_names(read_cloud(['secrets', 'list']), 'secret')
+    accounts = list_names(read_cloud(['iam', 'service-accounts', 'list']), 'account')
+    jobs = list_names(read_cloud(['run', 'jobs', 'list', '--region=' + REGION]), 'job')
+    return {
+        'LAB_STATE': state,
+        'LAB_ACTIVATION_POLICY': policy,
+        'TEMP_SECRETS_PRESENT': 'UNKNOWN' if secrets is None else any(name in secrets for name in SECRETS.values()),
+        'TEMP_SERVICE_ACCOUNT_PRESENT': 'UNKNOWN' if accounts is None else PRINCIPAL in accounts,
+        'TEMP_TRANSITION_JOB_PRESENT': 'UNKNOWN' if jobs is None else any(name.startswith('khedmah-lab-transition-') for name in jobs),
+    }
+
+
+def main():
+    directory = Path(os.environ.get('CLOUDSDK_CONFIG') or (Path.home() / '.config/gcloud')).expanduser() / 'logs'
+    for name, value in {**scan_logs(directory), **inspect_cloud()}.items():
+        print(name + ':', value)
+    print('RAW_LOG_OR_SECRET_PRINTED: False')
+    print('READ_ONLY_NO_CLOUD_MUTATIONS: True')
+
+
+if __name__ == '__main__':
+    main()
