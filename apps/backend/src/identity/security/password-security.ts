@@ -1,6 +1,10 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const ITERATIONS = 220_000;
+// Bound work before the synchronous KDF: a malformed stored credential must
+// not lock up the Node event loop for billions of iterations.
+const MAX_VERIFY_ITERATIONS = 1_000_000;
+const MAX_SALT_LENGTH = 128;
 const KEY_LENGTH = 64;
 const DIGEST = 'sha512';
 
@@ -17,7 +21,8 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   const iterations = Number(iterationsText);
 
   if (parts.length !== 4 || algorithm !== `pbkdf2_${DIGEST}` || !/^[1-9][0-9]*$/.test(iterationsText ?? '') ||
-      !Number.isSafeInteger(iterations) || iterations > 2_147_483_647 || !salt || !hash) {
+      !Number.isSafeInteger(iterations) || iterations > MAX_VERIFY_ITERATIONS || !salt || salt.length > MAX_SALT_LENGTH ||
+      !hash || !/^[A-Za-z0-9_-]{86}$/.test(hash)) {
     return false;
   }
 
