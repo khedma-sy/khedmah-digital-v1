@@ -127,7 +127,7 @@ const HERO_WEBP_BASE64 = [
   'BXdt7S1S' +
   'nTR6P/a5' +
   'fyjaqyxy' +
-  't+apigUw',
+  't+ap' + 'igUw',
   'aIUmCdo1D90ovvRDcNRHqveFCala6yxDcxRRpvYt0+qps3c5h1gWGCq7RfEyCPBFK4fQY79ZAmSN/yOUI0Hif70zXmbwLuovRNm/zIMSjd7x4y6SqNkzbYzE',
   'M7CO9ua2Aq5p75hdOJZbZNTWdFMTa+n8dz2OnR3IlEYNqVtSmp13gKUFG86Oyxzi2kn0s9toZa4A78LD8zNNQADfX3cjgYJT+EsUy0J68pue7Wy49HwTjBy5',
   'pvzndCwL0RTl5VtqwKPMWfKLdBbbY9otxtET5nYhr8KxALCCMs38t+KTIzw4E2BbE3JwIGrQOyGBmvgFf/GGm1P2lk3I7hhAxmFCx0tQgDIUsPGb/x3OXROZ',
