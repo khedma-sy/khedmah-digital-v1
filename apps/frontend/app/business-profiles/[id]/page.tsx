@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, type BusinessBranch, type BusinessSocialLink, type MediaAsset, type OpeningHours, type PublicBusinessProfile, type PublicServiceListing, type VerificationRequest } from '../../../lib/api-client';
 import { cityLabel, useSyrianCities } from '../../../lib/use-syrian-cities';
+import { serializeJsonLd } from '../../../lib/json-ld';
 import { useCategories } from '../../../lib/use-categories';
 import { ContactInquiryForm } from '../../../components/contact-inquiry-form';
 import { ProviderReportForm } from '../../../components/provider-report-form';
@@ -113,7 +114,7 @@ export default function BusinessProfilePage() {
   };
 
   return <PageShell className={styles.page} label={`ملف ${business.name}`}>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
     <div className={styles.stack}>
       <div className={styles.cover}>
         {cover ? <img src={cover.url} alt={`غلاف ${business.name}`} /> : <div className={`business-cover-placeholder ${styles.coverFallback}`} aria-hidden="true">خدمة</div>}

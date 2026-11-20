@@ -1,5 +1,7 @@
 # Credential & Session Boundary Contract
 
+Sections describing the Mission 069J decision and future authority are historical governance context. The runtime findings below reflect the proposed security-hardening branch; they do not authorize deployment or change the release gates.
+
 ## 1. Mission 069J Decision
 
 This contract separates authentication credentials, sessions, HTTP security, canonical identity, user accounts, and profiles according to Missions 069F–069I.
@@ -12,7 +14,7 @@ This status authorizes only a future bounded adapter implementation against the 
 
 ### Runtime composition
 
-The executable NestJS runtime registers `AuthController`, `UsersController`, `IdentityService`, `IdentityRepository`, and `SessionTokenService`. Authentication is service-driven; no NestJS guard, Passport strategy, or authentication middleware establishes a request subject globally.
+The executable NestJS runtime registers `AuthController`, `UsersController`, `IdentityService`, `IdentityRepository`, and `SessionTokenService`. A global NestJS guard requires a valid active session for write methods unless an explicitly decorated public endpoint is intended to handle its own authentication or remain anonymous. Safe methods and use-case authorization remain the responsibility of each service.
 
 Protected operations currently parse the `khedmah_session` cookie and call `IdentityService.getCurrentUser` or `getSession`. Organizations and Contact also call identity services directly. Request context contains request id, correlation id, and start time, but no authenticated subject.
 
@@ -21,10 +23,10 @@ Protected operations currently parse the `khedmah_session` cookie and call `Iden
 | Concern | Current behavior |
 | --- | --- |
 | Login identifier | Email is trimmed, lowercased, format-checked, and limited to 254 characters |
-| Password input | Required string, 12–128 characters |
-| Password hashing | Random 16-byte salt, PBKDF2-SHA512, 120,000 iterations, 64-byte derived key |
+| Password input | Required string, 8–128 characters |
+| Password hashing | Random 16-byte salt, PBKDF2-SHA512, 220,000 iterations for new hashes, 64-byte derived key; legacy 120,000-iteration hashes upgrade on successful login |
 | Password verification | Stored format is parsed, candidate is derived, lengths are compared, then timing-safe comparison is used |
-| Duplicate lookup | In-memory account lookup by normalized email |
+| Duplicate lookup | PostgreSQL credential lookup by normalized email |
 | Authentication failure | Generic `Invalid credentials.` for absent account, inactive account, or wrong password |
 
 The current password policy does not enforce the canonical non-common-password requirement. Changing it is outside this contract and requires a compatibility mission.
@@ -37,12 +39,12 @@ The current password policy does not enforce the canonical non-common-password r
 | Stored token representation | SHA-256 token hash only |
 | Session lifetime | One hour |
 | Session validation | Hash presented token, locate unrevoked and unexpired session, then load active account/profile |
-| Revocation | Set `revokedAt` on the in-memory session |
-| Cookie | HTTP-only, SameSite None and secure in production for the credentialed cross-site frontend, SameSite Strict outside production, `/api/v1` path, one-hour max age |
+| Revocation | Record `revoked_at` on the session |
+| Cookie | HTTP-only, secure and SameSite None by default in deployed environments for the credentialed cross-site frontend; SameSite Lax is an explicit opt-in after same-site deployment verification; SameSite Strict outside deployed environments, `/api/v1` path, one-hour max age |
 | Refresh token | Not implemented |
-| Durable session store | Not implemented |
+| Durable session store | PostgreSQL `identity_sessions` stores token hashes |
 
-Raw session tokens exist only at generation and transport boundaries. The in-memory repository mixes account, profile, credential hash, session, and audit storage and is not an approved production credential store.
+Raw session tokens exist only at generation and transport boundaries. PostgreSQL credentials and sessions are separate from public profiles. Deployment still requires its own database, privilege and release gates.
 
 ## 3. Credential Ownership Boundary
 

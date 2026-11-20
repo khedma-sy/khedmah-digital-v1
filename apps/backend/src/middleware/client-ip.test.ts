@@ -67,3 +67,17 @@ test('malformed forwarded values fall back to socket address', () => {
     '198.51.100.60'
   );
 });
+
+test('a malformed nearest hop cannot promote a client-supplied prefix', () => {
+  assert.equal(
+    resolveRateLimitClientIp(request('203.0.113.77, invalid', '198.51.100.60')),
+    '198.51.100.60'
+  );
+});
+
+test('a proxy hop remains the rate-limit identity until its topology is trusted', () => {
+  const first = resolveRateLimitClientIp(request('203.0.113.10, 198.51.100.5', '10.0.0.1'));
+  const second = resolveRateLimitClientIp(request('203.0.113.11, 198.51.100.5', '10.0.0.1'));
+  assert.equal(first, '198.51.100.5');
+  assert.equal(second, first);
+});

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Inject, Param, Post } from '@nestjs/common';
 import { ContactService } from './contact.service';
 import { SubmitContactInquiryRequest, TrackContactClickRequest } from './dto/contact.dto';
+import { AllowAnonymousMutation } from '../identity/security/session-auth.guard';
 
 @Controller('businesses/:businessProfileId')
 export class ContactController {
@@ -25,6 +26,7 @@ export class ContactController {
   }
 
   @Post('contact-click')
+  @AllowAnonymousMutation()
   async trackContactClick(
     @Headers('cookie') cookieHeader: string | undefined,
     @Param('businessProfileId') businessProfileId: string,

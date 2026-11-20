@@ -25,17 +25,9 @@ export function resolveRateLimitClientIp(request: Request): string {
   const forwarded = request.headers['x-forwarded-for'];
 
   if (typeof forwarded === 'string') {
-    const addresses = forwarded
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    for (let index = addresses.length - 1; index >= 0; index -= 1) {
-      const forwardedIp = normalizeAddress(addresses[index]);
-      if (forwardedIp) {
-        return forwardedIp;
-      }
-    }
+    const addresses = forwarded.split(',');
+    const forwardedIp = normalizeAddress(addresses[addresses.length - 1]);
+    if (forwardedIp) return forwardedIp;
   }
 
   return normalizeAddress(request.socket.remoteAddress) ?? 'unknown';

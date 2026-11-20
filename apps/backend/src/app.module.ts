@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BillingModule } from './billing/billing.module';
 import { BusinessProfilesModule } from './business-profiles/business-profiles.module';
@@ -9,6 +10,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { IdentityModule } from './identity/identity.module';
+import { SessionAuthGuard } from './identity/security/session-auth.guard';
 import { KoraAdminModule } from './kora-admin/kora-admin.module';
 import { LocationsModule } from './locations/locations.module';
 import { MediaModule } from './media/media.module';
@@ -51,6 +53,6 @@ import { TaxiModule } from './taxi/taxi.module';
     OrderModule
   ],
   controllers: [HealthController],
-  providers: [HealthService, PlatformLogger]
+  providers: [HealthService, PlatformLogger, { provide: APP_GUARD, useClass: SessionAuthGuard }]
 })
 export class AppModule {}
