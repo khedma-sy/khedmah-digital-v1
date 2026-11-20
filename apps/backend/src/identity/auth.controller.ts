@@ -7,6 +7,7 @@ import { IdentityService } from "./identity.service";
 import { PasswordRecoveryService } from "./password-recovery.service";
 import { PublicUserProfile } from "./identity.types";
 import { attachSessionCookie, clearSessionCookie, readSessionToken } from "./session-cookie";
+import { AllowAnonymousMutation } from "./security/session-auth.guard";
 
 interface AuthResponse {
   readonly user: PublicUserProfile;
@@ -22,6 +23,7 @@ export class AuthController {
   ) {}
 
   @Post("register")
+  @AllowAnonymousMutation()
   async register(@Body() body: RegisterRequest): Promise<{ user: PublicUserProfile; verificationRequired: true }> {
     const result = await this.identityService.register(body);
     await this.emailVerification.requestVerification(result.user.id, result.user.email);
@@ -29,6 +31,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @AllowAnonymousMutation()
   async login(@Body() body: LoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
     const result = await this.identityService.login(body);
     attachSessionCookie(response, result.sessionToken);
@@ -36,6 +39,7 @@ export class AuthController {
   }
 
   @Post("google")
+  @AllowAnonymousMutation()
   async google(@Body() body: GoogleLoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
     const result = await this.googleAuth.signIn(body.idToken, "google");
     attachSessionCookie(response, result.sessionToken);
@@ -43,6 +47,7 @@ export class AuthController {
   }
 
   @Post("facebook")
+  @AllowAnonymousMutation()
   async facebook(@Body() body: FacebookLoginRequest, @Res({ passthrough: true }) response: Response): Promise<AuthResponse> {
     const result = await this.googleAuth.signIn(body.idToken, "facebook");
     attachSessionCookie(response, result.sessionToken);
@@ -50,6 +55,7 @@ export class AuthController {
   }
 
   @Post("logout")
+  @AllowAnonymousMutation()
   async logout(@Headers("cookie") cookieHeader: string | undefined, @Res({ passthrough: true }) response: Response) {
     await this.identityService.logout(readSessionToken(cookieHeader));
     clearSessionCookie(response);
@@ -64,12 +70,14 @@ export class AuthController {
   }
 
   @Post("forgot-password")
+  @AllowAnonymousMutation()
   async forgotPassword(@Body() body: ForgotPasswordRequest) {
     await this.passwordRecovery.requestReset(body.email);
     return { message: "If the email exists, a password reset link has been sent." };
   }
 
   @Post("reset-password")
+  @AllowAnonymousMutation()
   async resetPassword(@Body() body: ResetPasswordRequest) {
     await this.passwordRecovery.resetPassword(body.token, body.newPassword);
     return { message: "Password reset successful." };

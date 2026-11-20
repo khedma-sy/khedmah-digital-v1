@@ -5,7 +5,7 @@ import { LoginRequest, RegisterRequest, UpdateProfileRequest } from './dto/auth.
 import { IdentityRepository } from './identity.repository';
 import { PublicUserProfile, UserAccount, UserProfile } from './identity.types';
 import { EmailVerificationRequiredError, SafeAuthenticationError } from './identity.errors';
-import { hashPassword, verifyPassword } from './security/password-security';
+import { hashPassword, passwordNeedsRehash, verifyPassword } from './security/password-security';
 import { SessionTokenService } from './security/session-token.service';
 import { validateLoginRequest, validateRegisterRequest, validateUpdateProfileRequest } from './identity.validation';
 
@@ -82,6 +82,20 @@ export class IdentityService {
     const profile = await this.repository.findProfile(account.id);
     if (!profile) {
       throw new UnauthorizedException('Session could not be established.');
+    }
+
+    if (passwordNeedsRehash(account.passwordHash)) {
+      const updated = await this.repository.updatePasswordHashIfUnchanged(
+        account.id, account.passwordHash, hashPassword(input.password)
+      );
+      if (!updated) {
+        // A concurrent password reset or login may have changed the hash.
+        const current = await this.repository.findAccountById(account.id);
+        if (!current || current.status !== 'active' || !verifyPassword(input.password, current.passwordHash)) {
+          await this.audit('auth.login_failed', account.id);
+          throw new SafeAuthenticationError();
+        }
+      }
     }
 
     await this.audit('auth.login_success', account.id);

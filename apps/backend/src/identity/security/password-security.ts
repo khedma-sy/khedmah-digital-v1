@@ -1,6 +1,6 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
 
-const ITERATIONS = 120_000;
+const ITERATIONS = 220_000;
 const KEY_LENGTH = 64;
 const DIGEST = 'sha512';
 
@@ -12,10 +12,12 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, storedHash: string): boolean {
-  const [algorithm, iterationsText, salt, hash] = storedHash.split('$');
-  const iterations = Number.parseInt(iterationsText, 10);
+  const parts = storedHash.split('$');
+  const [algorithm, iterationsText, salt, hash] = parts;
+  const iterations = Number(iterationsText);
 
-  if (algorithm !== `pbkdf2_${DIGEST}` || !Number.isInteger(iterations) || !salt || !hash) {
+  if (parts.length !== 4 || algorithm !== `pbkdf2_${DIGEST}` || !/^[1-9][0-9]*$/.test(iterationsText ?? '') ||
+      !Number.isSafeInteger(iterations) || iterations > 2_147_483_647 || !salt || !hash) {
     return false;
   }
 
@@ -24,4 +26,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   const hashBuffer = Buffer.from(hash);
 
   return candidateBuffer.length === hashBuffer.length && timingSafeEqual(candidateBuffer, hashBuffer);
+}
+
+export function passwordNeedsRehash(storedHash: string): boolean {
+  const [algorithm, iterationsText] = storedHash.split('$');
+  return algorithm === `pbkdf2_${DIGEST}` && /^[1-9][0-9]*$/.test(iterationsText ?? '') &&
+    Number(iterationsText) < ITERATIONS;
 }

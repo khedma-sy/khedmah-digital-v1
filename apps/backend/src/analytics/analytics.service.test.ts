@@ -38,7 +38,7 @@ async function createService() {
   return {
     identityRepository,
     repository,
-    service: new AnalyticsService(repository, identityRepository, logger)
+    service: new AnalyticsService(repository, logger)
   };
 }
 
@@ -100,10 +100,10 @@ test('safe metadata is stored with a privacy-safe receipt', async () => {
   assert.deepEqual(Object.keys(receipt).sort(), ['entityId', 'entityType', 'eventType', 'id', 'recordedAt']);
 });
 
-test('audit boundary records event submission without storing private actor profiles', async () => {
+test('recording an analytics event does not create an audit record', async () => {
   const { identityRepository, service } = await createService();
   await service.recordEvent({ eventType: 'contact_click', entityType: 'business_profile', entityId: 'business-1', occurredAt });
 
   const logs = await identityRepository.listAuditLogs();
-  assert.ok(logs.some((event) => event.eventType === 'analytics.event.recorded'));
+  assert.equal(logs.some((event) => event.eventType === 'analytics.event.recorded'), false);
 });

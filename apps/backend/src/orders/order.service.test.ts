@@ -5,6 +5,30 @@ import type { FulfillmentOrder } from './order.types';
 
 const delivered:FulfillmentOrder={id:'order-1',customerUserId:'customer-1',merchantBusinessId:'merchant-1',merchantOwnerUserId:'merchant-owner',merchantName:'مطعم',courierBusinessId:'courier-1',courierOwnerUserId:'courier-owner',courierName:'مندوب',vertical:'food',status:'delivered',paymentMethod:'cash',paymentStatus:'cash_collected',currency:'SYP',subtotal:1000,discountAmount:0,deliveryFee:200,total:1200,deliveryAddress:'دمشق المزة',customerPhone:'0999999999',prescriptionAttested:false,pharmacyReviewStatus:'not_required',items:[{productListingId:'p1',titleAr:'وجبة',unitPrice:1000,quantity:1,requiresPrescription:false}],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
 function service(actor='customer-1',order:FulfillmentOrder=delivered){const authorized=[order.customerUserId,order.merchantOwnerUserId,order.courierOwnerUserId].includes(actor);const repo={findIdempotent:async()=>undefined,findProducts:async()=>[],findById:async()=>order,rate:async()=>undefined,trackingForActor:async()=>({status:order.status,authorized,location:["courier_accepted","ready_for_pickup","picked_up"].includes(order.status)?{latitude:33.5,longitude:36.3,recordedAt:new Date().toISOString()}:undefined}),recordLocation:async()=>true,transition:async()=>order};const businesses={findById:async()=>undefined};const identity={getCurrentUser:async()=>({id:actor,email:'user@example.com'})};return{repo,instance:new OrderService(repo as never,businesses as never,identity as never)}}
+test('order transitions enforce customer, merchant, courier and outsider authorities', async () => {
+  const cases = [
+    { from: 'placed', to: 'quoted', payload: { status: 'quoted', deliveryFee: 100 }, allowed: 'merchant-owner' },
+    { from: 'quoted', to: 'merchant_confirmed', payload: { status: 'merchant_confirmed' }, allowed: 'customer-1' },
+    { from: 'picked_up', to: 'delivered', payload: { status: 'delivered' }, allowed: 'courier-owner' },
+  ] as const;
+  for (const item of cases) {
+    const order: FulfillmentOrder = { ...delivered, status: item.from, paymentStatus: 'pending' };
+    for (const actor of ['customer-1', 'merchant-owner', 'courier-owner', 'outsider']) {
+      let writes = 0;
+      const instance = new OrderService({
+        findById: async () => order,
+        transition: async () => { writes += 1; return { ...order, status: item.to }; },
+      } as never, {} as never, { getCurrentUser: async () => ({ id: actor }) } as never);
+      if (actor === item.allowed) {
+        await instance.transition('cookie', order.id, item.payload);
+        assert.equal(writes, 1);
+      } else {
+        await assert.rejects(() => instance.transition('cookie', order.id, item.payload));
+        assert.equal(writes, 0);
+      }
+    }
+  }
+});
 test('only delivered order customer can rate merchant and courier',async()=>{const owner=service();await owner.instance.rate('cookie','order-1',{targetType:'merchant',score:5,comment:'ممتاز'});await assert.rejects(()=>service('other-user').instance.rate('cookie','order-1',{targetType:'merchant',score:5}),/Only the order customer/);await assert.rejects(()=>service('customer-1',{...delivered,status:'picked_up'}).instance.rate('cookie','order-1',{targetType:'courier',score:5}),/only after delivery/);});
 test('location updates are courier-only and active-lifecycle-only',async()=>{const active={...delivered,status:'picked_up' as const,paymentStatus:'pending' as const};await service('courier-owner',active).instance.location('cookie','order-1',{latitude:33.5,longitude:36.3,accuracy:12});await assert.rejects(()=>service('customer-1',active).instance.location('cookie','order-1',{latitude:33.5,longitude:36.3}),/Only the assigned courier/);await assert.rejects(()=>service('courier-owner',delivered).instance.location('cookie','order-1',{latitude:33.5,longitude:36.3}),/not active/);});
 test('tracking is private and never returns a courier location after closure',async()=>{for(const actor of ['customer-1','merchant-owner','courier-owner']){const result=await service(actor).instance.tracking('cookie','order-1');assert.equal(result.status,'delivered');assert.equal(result.location,undefined)}const active={...delivered,status:'picked_up' as const,paymentStatus:'pending' as const};assert.equal((await service('customer-1',active).instance.tracking('cookie','order-1')).location?.latitude,33.5);await assert.rejects(()=>service('stranger').instance.tracking('cookie','order-1'),/Access denied/);});
