@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { afterEach, test } from 'node:test';
 import type { Request } from 'express';
 import { resolveRateLimitClientIp } from './client-ip';
+
+const originalTrustedHops = process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS;
+
+afterEach(() => {
+  if (originalTrustedHops === undefined) delete process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS;
+  else process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = originalTrustedHops;
+});
 
 function request(
   forwarded: string | undefined,
@@ -80,4 +87,30 @@ test('a proxy hop remains the rate-limit identity until its topology is trusted'
   const second = resolveRateLimitClientIp(request('203.0.113.11, 198.51.100.5', '10.0.0.1'));
   assert.equal(first, '198.51.100.5');
   assert.equal(second, first);
+});
+
+test('explicit zero trusted hops never trusts XFF from a direct client', () => {
+  process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = '0';
+  assert.equal(
+    resolveRateLimitClientIp(request('203.0.113.55', '198.51.100.70')),
+    '198.51.100.70'
+  );
+});
+
+test('two verified appended hops select the client before the trusted proxy suffix', () => {
+  process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = '2';
+  const first = resolveRateLimitClientIp(request('203.0.113.99, 198.51.100.21, 192.0.2.10', '10.0.0.1'));
+  const second = resolveRateLimitClientIp(request('203.0.113.100, 198.51.100.21, 192.0.2.10', '10.0.0.1'));
+  assert.equal(first, '198.51.100.21');
+  assert.equal(second, first);
+});
+
+test('unproven hop count and malformed trusted suffix fail closed to socket identity', () => {
+  process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = '2';
+  assert.equal(resolveRateLimitClientIp(request('203.0.113.33', '198.51.100.90')), '198.51.100.90');
+  assert.equal(resolveRateLimitClientIp(request('203.0.113.33, invalid', '198.51.100.90')), '198.51.100.90');
+  for (const invalid of ['abc', '-1', '5', '1.5', '']) {
+    process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = invalid;
+    assert.equal(resolveRateLimitClientIp(request('203.0.113.33', '198.51.100.90')), '198.51.100.90');
+  }
 });
