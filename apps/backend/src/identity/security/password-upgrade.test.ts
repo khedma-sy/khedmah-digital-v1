@@ -56,136 +56,6 @@ test('a concurrent password reset cannot be overwritten by login migration', asy
   assert.equal(f.current().sessions, 0);
 });
 
-
-test('stored credentials with excessive work factors fail before PBKDF2 derivation', () => {
-  // These are syntactically plausible 64-byte base64url digests, but an
-  // untrusted/corrupted database row must not monopolize the event loop.
-  const excessive = 'pbkdf2_sha512$1000001$salt verify without downgrading and malformed hashes are rejected', async () => {
-  const current = hashPassword(PASSWORD);
-  assert.match(current, /^pbkdf2_sha512\$220000\$/);
-  assert.equal(verifyPassword(PASSWORD, current), true);
-  assert.equal(passwordNeedsRehash(current), false);
-  const stronger = encoded(PASSWORD, 220_001);
-  const f = fixture(stronger);
-  await f.service.login({ email: 'user@example.org', password: PASSWORD });
-  assert.equal(f.current().updates, 0);
-  for (const hash of [
-    '', 'pbkdf2_sha512$0$salt$hash', 'pbkdf2_sha512$wat$salt$hash',
-    'pbkdf2_sha512$2147483648$salt$hash', `${current}$extra`,
-    'pbkdf2_sha512$1000001$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 's'.repeat(129) + '
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(87),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + '*'.repeat(86)
-  ]) {
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86);
-  assert.equal(verifyPassword(PASSWORD, excessive), false);
-  assert.equal(passwordNeedsRehash(excessive), false);
-  assert.equal(verifyPassword(PASSWORD, 'pbkdf2_sha512$220000 verify without downgrading and malformed hashes are rejected', async () => {
-  const current = hashPassword(PASSWORD);
-  assert.match(current, /^pbkdf2_sha512\$220000\$/);
-  assert.equal(verifyPassword(PASSWORD, current), true);
-  assert.equal(passwordNeedsRehash(current), false);
-  const stronger = encoded(PASSWORD, 220_001);
-  const f = fixture(stronger);
-  await f.service.login({ email: 'user@example.org', password: PASSWORD });
-  assert.equal(f.current().updates, 0);
-  for (const hash of [
-    '', 'pbkdf2_sha512$0$salt$hash', 'pbkdf2_sha512$wat$salt$hash',
-    'pbkdf2_sha512$2147483648$salt$hash', `${current}$extra`,
-    'pbkdf2_sha512$1000001$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 's'.repeat(129) + '
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(87),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + '*'.repeat(86)
-  ]) {
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 's'.repeat(129) + ' verify without downgrading and malformed hashes are rejected', async () => {
-  const current = hashPassword(PASSWORD);
-  assert.match(current, /^pbkdf2_sha512\$220000\$/);
-  assert.equal(verifyPassword(PASSWORD, current), true);
-  assert.equal(passwordNeedsRehash(current), false);
-  const stronger = encoded(PASSWORD, 220_001);
-  const f = fixture(stronger);
-  await f.service.login({ email: 'user@example.org', password: PASSWORD });
-  assert.equal(f.current().updates, 0);
-  for (const hash of [
-    '', 'pbkdf2_sha512$0$salt$hash', 'pbkdf2_sha512$wat$salt$hash',
-    'pbkdf2_sha512$2147483648$salt$hash', `${current}$extra`,
-    'pbkdf2_sha512$1000001$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 's'.repeat(129) + '
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(87),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + '*'.repeat(86)
-  ]) {
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86)), false);
-});
-
 test('new and stronger hashes verify without downgrading and malformed hashes are rejected', async () => {
   const current = hashPassword(PASSWORD);
   assert.match(current, /^pbkdf2_sha512\$220000\$/);
@@ -195,34 +65,19 @@ test('new and stronger hashes verify without downgrading and malformed hashes ar
   const f = fixture(stronger);
   await f.service.login({ email: 'user@example.org', password: PASSWORD });
   assert.equal(f.current().updates, 0);
-  for (const hash of [
-    '', 'pbkdf2_sha512$0$salt$hash', 'pbkdf2_sha512$wat$salt$hash',
-    'pbkdf2_sha512$2147483648$salt$hash', `${current}$extra`,
-    'pbkdf2_sha512$1000001$salty
+  for (const hash of ['', 'pbkdf2_sha512$0$salt$hash', 'pbkdf2_sha512$wat$salt$hash', 'pbkdf2_sha512$2147483648$salt$hash', `${current}$extra`]) {
     assert.equal(verifyPassword(PASSWORD, hash), false);
   }
 });
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000
-    assert.equal(verifyPassword(PASSWORD, hash), false);
+
+test('rejects oversized PBKDF2 work factors and stored credential fields before key derivation', () => {
+  const digest = 'A'.repeat(86);
+  const excessive = ['pbkdf2_sha512', '1000001', 'salt', digest].join('$');
+  const longSalt = ['pbkdf2_sha512', '220000', 's'.repeat(129), digest].join('$');
+  const longDigest = ['pbkdf2_sha512', '220000', 'salt', 'A'.repeat(87)].join('$');
+  const badDigest = ['pbkdf2_sha512', '220000', 'salt', '*'.repeat(86)].join('$');
+  for (const value of [excessive, longSalt, longDigest, badDigest]) {
+    assert.equal(verifyPassword(PASSWORD, value), false);
   }
-});
- + 's'.repeat(129) + '
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(86),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + 'A'.repeat(87),
-    'pbkdf2_sha512$220000$salty
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
-});
- + '*'.repeat(86)
-  ]) {
-    assert.equal(verifyPassword(PASSWORD, hash), false);
-  }
+  assert.equal(passwordNeedsRehash(excessive), false);
 });
