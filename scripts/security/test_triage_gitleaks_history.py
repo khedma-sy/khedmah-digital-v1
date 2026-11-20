@@ -37,6 +37,19 @@ class HistoryClassifierTests(unittest.TestCase):
             "candidate_git_commit_reference",
         )
 
+    def test_only_specific_historical_synthetic_fixtures_are_recognized(self):
+        path = "scripts/security/test_triage_gitleaks_history.py"
+        sample = "-".join(("123e4567", "e89b", "12d3", "a456", "426614174000"))
+        self.assertEqual(
+            triage.classify(path, "KEY_UID = " + chr(34) + sample + chr(34)),
+            "candidate_synthetic_test_fixture",
+        )
+        self.assertEqual(
+            triage.classify(path, "API_" + "TOKEN = '" + "nonpublic-" + "replace-me'"),
+            "candidate_synthetic_test_fixture",
+        )
+        self.assertTrue(triage.classify(path, "API_" + "TOKEN = 'unknown'").startswith("unresolved_"))
+
     def test_unknown_values_are_never_automatically_accepted(self):
         cases = [
             ("docs/project-control/CURRENT-STATE.md",
