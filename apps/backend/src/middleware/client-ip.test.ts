@@ -114,3 +114,28 @@ test('unproven hop count and malformed trusted suffix fail closed to socket iden
     assert.equal(resolveRateLimitClientIp(request('203.0.113.33', '198.51.100.90')), '198.51.100.90');
   }
 });
+
+test('external Google Load Balancer two-address suffix ignores forged client prefix', () => {
+  // Google's external HTTP(S) Load Balancer appends CLIENT_IP, LOAD_BALANCER_IP
+  // after any untrusted XFF values that the caller supplied.
+  // https://docs.cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
+  process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS = '2';
+  const legitimate = resolveRateLimitClientIp(
+    request('203.0.113.77, 198.51.100.44, 192.0.2.3', '10.0.0.1')
+  );
+  const changedSpoof = resolveRateLimitClientIp(
+    request('203.0.113.99, 198.51.100.44, 192.0.2.3', '10.0.0.1')
+  );
+  assert.equal(legitimate, '198.51.100.44');
+  assert.equal(changedSpoof, legitimate);
+});
+
+test('a load-balancer suffix must not be assumed under the default direct ingress configuration', () => {
+  delete process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS;
+  // One-hop mode deliberately resolves the final address, so deployment
+  // operators must verify topology before enabling a two-hop LB path.
+  assert.equal(
+    resolveRateLimitClientIp(request('198.51.100.44, 192.0.2.3', '10.0.0.1')),
+    '192.0.2.3'
+  );
+});
