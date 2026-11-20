@@ -305,6 +305,45 @@ jobs:
           else
             echo 'MAIN_BASELINE_CURRENT_FINDINGS=0'
           fi
+          # Privately compare exact matched source spans, not raw secrets,
+          # between main and PR. Only aggregate counts leave the runner.
+          python3 - "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" \
+            "$RUNNER_TEMP/khedmah-gitleaks-baseline.json" \
+            "$PWD" "$RUNNER_TEMP/khedmah-base-tree" <<'PY'
+          import collections, hashlib, json, pathlib, sys
+          head_report, base_report, head_root, base_root = sys.argv[1:]
+          def findings(report, root, mount):
+              root = pathlib.Path(root).resolve()
+              with open(report, encoding='utf-8') as stream:
+                  records = json.load(stream)
+              records = records if isinstance(records, list) else []
+              result = collections.Counter()
+              for record in records:
+                  path = record.get('File')
+                  start, end = record.get('StartLine'), record.get('EndLine')
+                  rule = record.get('RuleID')
+                  if not isinstance(path, str) or not isinstance(start, int) or not isinstance(end, int) or not isinstance(rule, str):
+                      raise SystemExit('STOP: invalid Gitleaks report structure')
+                  path = path.replace('\\\\', '/')
+                  if path.startswith(mount + '/'):
+                      path = path[len(mount) + 1:]
+                  else:
+                      path = path.lstrip('/')
+                  source = (root / path).resolve()
+                  if not source.is_relative_to(root) or not source.is_file():
+                      raise SystemExit('STOP: unable to resolve scanned file safely')
+                  lines = source.read_bytes().splitlines()
+                  if not (1 <= start <= end <= len(lines)):
+                      raise SystemExit('STOP: invalid finding line range')
+                  span = b'\\n'.join(lines[start - 1:end])
+                  digest = hashlib.sha256(span).hexdigest()
+                  result[(path, rule, digest)] += 1
+              return result
+          head = findings(head_report, head_root, '/repo')
+          base = findings(base_report, base_root, '/baseline')
+          print('NEW_MATCHED_SPANS_ABOVE_MAIN=' + str(sum((head - base).values())))
+          print('UNCHANGED_MATCHED_SPANS_FROM_MAIN=' + str(sum((head & base).values())))
+          PY
           rm -rf "$RUNNER_TEMP/khedmah-base-tree"
           rm -f "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
           rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json" "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
