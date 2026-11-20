@@ -258,8 +258,30 @@ jobs:
             jq -r '[.[].RuleID] | group_by(.)[] | "rule=\(.[0]) count=\(length)"' \
               "$RUNNER_TEMP/khedmah-gitleaks-private.json"
           fi
-          rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json"
-          exit "$scan_status"
+          # Distinguish historical-only leaks from still-present source findings.
+          # Both reports remain on the ephemeral runner and are deleted.
+          set +e
+          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP:/output" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            dir --redact --report-format=json \
+            --report-path=/output/khedmah-gitleaks-worktree.json /repo
+          worktree_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" ]]; then
+            jq -r 'length | "CURRENT_WORKTREE_POTENTIAL_FINDINGS=\(.)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+          else
+            echo "CURRENT_WORKTREE_POTENTIAL_FINDINGS=0 (or scan failed; check exit status)"
+          fi
+          rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json" "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+          if [ "$scan_status" -ne 0 ]; then
+            echo "Historical secrets scan failed; classify findings privately before release."
+            exit "$scan_status"
+          fi
+          if [ "$worktree_status" -ne 0 ]; then
+            echo "Current source secrets scan failed; inspect before release."
+            exit "$worktree_status"
+          fi
 
 
   validate-pr:
