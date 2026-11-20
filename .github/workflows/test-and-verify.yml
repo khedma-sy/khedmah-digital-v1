@@ -279,6 +279,22 @@ jobs:
               else "other" end] | group_by(.)[] |
               "current_area=\(.[0]) count=\(length)"' \
               "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+            # One-way path IDs let a reviewer localize candidates against an
+            # independently held source checkout without logging values/paths.
+            # Never output matched contents, commit IDs, excerpts or line numbers.
+            python3 - "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" <<'PY'
+          import hashlib, json, sys
+          with open(sys.argv[1], encoding='utf-8') as stream:
+              records = json.load(stream)
+          if not isinstance(records, list):
+              raise SystemExit('STOP: unexpected secrets report format')
+          for record in records:
+              path = record.get('File')
+              if not isinstance(path, str) or not path.startswith('/repo/'):
+                  raise SystemExit('STOP: unexpected scanned file path')
+              ident = hashlib.sha256(path.removeprefix('/repo/').encode()).hexdigest()[:20]
+              print('CURRENT_SCAN_FILE_ID=' + ident)
+          PY
           else
             echo "CURRENT_WORKTREE_POTENTIAL_FINDINGS=0 (or scan failed; check exit status)"
           fi
