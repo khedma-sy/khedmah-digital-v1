@@ -8,14 +8,17 @@ const MAX_SALT_LENGTH = 128;
 const KEY_LENGTH = 64;
 const DIGEST = 'sha512';
 
-// Fixed, valid PBKDF2 credential used only to equalise login work when an
-// email is absent. It is not the hash of an account and cannot authenticate.
-const DUMMY_LOGIN_HASH = 'pbkdf2_sha512$220000$khedmah-dummy-credential-2026$TmLxxN3mbfojTcba22EnMvdkF8WLtHoQYo09X0e8DzNyDXJ9VQUnfP0ShdA12puYTD9o1LebhqPMwabwXxjmEg';
+// Not a credential: a stable salt for equal-cost work when the account is absent.
+// Never embed a dummy credential hash or perform an early unknown-email return.
+const ABSENT_ACCOUNT_SALT = 'khedmah-absent-account-timing-v1';
 
-/** Apply equivalent KDF work for missing accounts, always denying the dummy. */
+/** Apply equivalent PBKDF2 cost for unknown accounts; never allow dummy login. */
 export function verifyLoginPassword(password: string, accountHash: string | undefined): boolean {
-  const matches = verifyPassword(password, accountHash ?? DUMMY_LOGIN_HASH);
-  return accountHash !== undefined && matches;
+  if (accountHash === undefined) {
+    pbkdf2Sync(password, ABSENT_ACCOUNT_SALT, ITERATIONS, KEY_LENGTH, DIGEST);
+    return false;
+  }
+  return verifyPassword(password, accountHash);
 }
 
 
