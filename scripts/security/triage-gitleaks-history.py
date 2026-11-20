@@ -15,7 +15,7 @@ import sys
 
 SHA = re.compile(r"^[a-f0-9]{40}$")
 UUID = re.compile(r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
-WEBP_LINE = re.compile(r"^\\s*['\"]([A-Za-z0-9+/=]{72,})['\"]\\s*,?\\s*$")
+WEBP_LINE = re.compile(r"^\s*['\"]([A-Za-z0-9+/=]{72,})['\"]\s*,?\s*$")
 # Some historical lines include long JS base64 chunks in a static image array.
 
 def history_line(record: dict) -> tuple[str, str | None]:
@@ -53,7 +53,7 @@ def classify(filename: str, line: str | None) -> str:
         "scripts/stage-preview-v2-maps-config.py",
         "scripts/stage-preview-v2-firebase-server-config.py",
     }:
-        match = re.fullmatch(r"\\s*KEY_UID\\s*=\\s*['\"]([^'\"]+)['\"]\\s*", line)
+        match = re.fullmatch(r"\s*KEY_UID\s*=\s*['\"]([^'\"]+)['\"]\s*", line)
         if match and UUID.fullmatch(match.group(1)):
             return "candidate_google_resource_uuid"
     if filename.endswith(".test.ts") and "fulfillment_cancellations_24h" in line:
