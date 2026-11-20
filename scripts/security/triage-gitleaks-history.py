@@ -59,6 +59,15 @@ def classify(filename: str, line: str | None) -> str:
             return "candidate_google_resource_uuid"
     if filename.endswith(".test.ts") and "fulfillment_cancellations_24h" in line:
         return "candidate_test_metric_name"
+    if filename == "scripts/security/test_triage_gitleaks_history.py":
+        # Historical test-only literals committed during classifier development,
+        # never runtime credentials. Match both the exact fixture file and
+        # independently recognisable synthetic markers.
+        if ("123e4567" in line and "426614174000" in line) or (
+            "nonpublic-" in line and "replace-me" in line
+        ):
+            return "candidate_synthetic_test_fixture"
+
     if filename == "docs/project-control/CURRENT-STATE.md":
         # A public Git commit SHA is not a credential. Accept as a *candidate*
         # only when a full 40-hex reference is in an explicit commit context.
