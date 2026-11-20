@@ -282,6 +282,31 @@ jobs:
           else
             echo "CURRENT_WORKTREE_POTENTIAL_FINDINGS=0 (or scan failed; check exit status)"
           fi
+          # Compare with the exact main merge-base on an ephemeral runner only.
+          # This is a COUNT comparison, not proof of identical leaked credentials.
+          baseline="$(git merge-base HEAD origin/main)"
+          test -n "$baseline" || { echo "Unable to verify main baseline"; exit 2; }
+          mkdir -p "$RUNNER_TEMP/khedmah-base-tree"
+          git archive "$baseline" | tar -xf - -C "$RUNNER_TEMP/khedmah-base-tree"
+          set +e
+          docker run --rm -v "$RUNNER_TEMP/khedmah-base-tree:/baseline:ro" \
+            -v "$RUNNER_TEMP:/output" -w /baseline \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            dir --redact --report-format=json \
+            --report-path=/output/khedmah-gitleaks-baseline.json /baseline
+          baseline_scan_status=$?
+          set -e
+          if [[ "$baseline_scan_status" != 0 && "$baseline_scan_status" != 1 ]]; then
+            echo "STOP: main baseline secrets scan did not finish"; exit "$baseline_scan_status"
+          fi
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-baseline.json" ]]; then
+            jq -r 'length | "MAIN_BASELINE_CURRENT_FINDINGS=\\(.)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
+          else
+            echo 'MAIN_BASELINE_CURRENT_FINDINGS=0'
+          fi
+          rm -rf "$RUNNER_TEMP/khedmah-base-tree"
+          rm -f "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
           rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json" "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
           if [ "$scan_status" -ne 0 ]; then
             echo "Historical secrets scan failed; classify findings privately before release."
