@@ -153,29 +153,6 @@ jobs:
       - name: Validate read-only production gate script syntax
         run: bash -n scripts/production-operator-live-validation.sh
 
-      - name: Scan full git history for exposed secrets (redacted)
-        shell: bash
-        run: |
-          set -euo pipefail
-          git rev-parse --is-shallow-repository | grep -Fx false
-          # No output of matched secret values; a finding blocks this PR.
-          # Generate a PRIVATE temporary report for reviewer metadata only.
-          # Do not upload the raw JSON: even redacted reports may contain sensitive context.
-          set +e
-          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP:/output" -w /repo \
-            ghcr.io/gitleaks/gitleaks:v8.24.3 \
-            git --redact --log-opts="--all" --report-format=json \
-            --report-path=/output/khedmah-gitleaks-private.json /repo
-          scan_status=$?
-          set -e
-          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-private.json" ]]; then
-            echo 'Historical potential secret findings by rule category only (no paths, commits or values):'
-            jq -r '[.[].RuleID] | group_by(.)[] | "rule=\(.[0]) count=\(length)"' \
-              "$RUNNER_TEMP/khedmah-gitleaks-private.json"
-          fi
-          rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json"
-          exit "$scan_status"
-
       - name: 📦 Setup Node.js 24
         uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
@@ -260,6 +237,30 @@ jobs:
           fi
 
           echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
+
+      - name: Scan full git history for exposed secrets (redacted)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse --is-shallow-repository | grep -Fx false
+          # No output of matched secret values; a finding blocks this PR.
+          # Generate a PRIVATE temporary report for reviewer metadata only.
+          # Do not upload the raw JSON: even redacted reports may contain sensitive context.
+          set +e
+          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP:/output" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            git --redact --log-opts="--all" --report-format=json \
+            --report-path=/output/khedmah-gitleaks-private.json /repo
+          scan_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-private.json" ]]; then
+            echo 'Historical potential secret findings by rule category only (no paths, commits or values):'
+            jq -r '[.[].RuleID] | group_by(.)[] | "rule=\(.[0]) count=\(length)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-private.json"
+          fi
+          rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json"
+          exit "$scan_status"
+
 
   validate-pr:
     name: PR Validation
