@@ -65,6 +65,10 @@ def classify(filename: str, line: str | None) -> str:
         # independently recognisable synthetic markers.
         if ("123e4567" in line and "426614174000" in line) or (
             "nonpublic-" in line and "replace-me" in line
+        ) or (
+            "an-unknown-" in line and "high-entropy-" in line
+        ) or (
+            "this-is-not-" in line and "a-uuid" in line
         ):
             return "candidate_synthetic_test_fixture"
 
