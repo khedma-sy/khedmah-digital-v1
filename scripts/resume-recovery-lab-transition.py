@@ -33,14 +33,14 @@ INSTANCE = "khedmah-restore-pg16-20261114"
 REGION = "europe-west1"
 NETWORK = f"projects/{PROJECT}/global/networks/khedmah-restore-private"
 NETWORK_NAME = "khedmah-restore-private"
-SOURCE_COMMIT = "8809a679ab9efa546f6d59919893f5e9c7b6b3aa"
+SOURCE_COMMIT = "329d6c1cee6a8bab37782d0cea85abd368a0e6f7"
 CONFIRM = "RESUME_EXISTING_LAB_AND_APPLY_036_037"
 FENCE_CONFIRM = "RUN_AUTOMATED_LAB_ISOLATION_AND_FENCE"
 RUNNER_CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 SOURCES = {
     "scripts/run-recovery-lab-schema-transition.py": "e2ba7f442b9b7fa2454e2597c5b1efe9eb0bee2757584678c1e59560baee4555",
     "scripts/deployment/lab-fenced-migration.sh": "94a68a12e1b9cf73d3567bd8ecd08c6195d37fdb1a90fc58b1076c1d2f918100",
-    "scripts/inspect-recovery-lab-external-paths.py": "846a5d2941d21bafd30752b0bf3f6528e81e6ef5b4bfedaab815c72d4103474f",
+    "scripts/inspect-recovery-lab-external-paths.py": "243532f93d448b81ef619e8923b44e0cc63134314ecb1c54e57acf0e0e07d468",
     "scripts/run-recovery-lab-catalog-probe.py": "9da8198506d36eb79f83fbe350b9db34d56b0332e5c97f2df195411f225273da",
     "scripts/prepare-preview-v2-approval-transition.py": "6d0e119ed0c4ad137a82ef571e5aefdf376c36675895283f76fcf7f4cb3ca4d5",
     "scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh": "248fad2079180ed751293a36709c4faf65f0872699576a651b8ab4c4d5340230",
