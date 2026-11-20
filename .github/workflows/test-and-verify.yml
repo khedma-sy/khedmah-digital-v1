@@ -274,7 +274,7 @@ jobs:
             jq -r '[.[] | (.File | ascii_downcase) |
               if test("(^|/)(docs|documentation|examples?|samples?)(/|$)") then "documentation"
               elif test("(^|/)(test|tests|fixtures?|__tests__)(/|$)|[.]test[.]|[.]spec[.]") then "test_or_fixture"
-              elif test("(^|/)(\.github|infra|scripts|cloudbuild)(/|$)") then "infrastructure"
+              elif test("(^|/)([.]github|infra|scripts|cloudbuild)(/|$)") then "infrastructure"
               elif test("(^|/)(apps|backend)(/|$)") then "application"
               else "other" end] | group_by(.)[] |
               "current_area=\(.[0]) count=\(length)"' \
