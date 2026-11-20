@@ -276,6 +276,58 @@ class ResumeLab(unittest.TestCase):
         self.assertFalse(any(args[:3] == ["sql", "instances", "patch"] for args in calls))
         run.assert_not_called()
 
+    def test_network_api_activation_is_scoped_after_conservative_prechecks(self):
+        class Helper:
+            class Unavailable(Exception): pass
+            APP = "synthetic-lab-app"
+            def token(self): return "synthetic-token"
+            def snapshot(self, token): return {"NCC": 0, "CONNECTORS": 0, "APP_ENGINE": 0}
+            def read_json(self, url, token): raise self.Unavailable("HTTP_404")
+        calls = []
+        def cloud(args, **kwargs):
+            calls.append(args)
+            if args[:3] == ["sql", "instances", "describe"]: return instance("NEVER")
+            if args == ["services", "list", "--enabled"]:
+                return [{"config": {"name": "networkconnectivity.googleapis.com"}}]
+            if args == ["services", "enable", "vpcaccess.googleapis.com"]: return None
+            raise AssertionError(args)
+        with patch.object(m, "load_network_helper", return_value=Helper()), \
+             patch.object(m, "gcloud", side_effect=cloud):
+            m.enable_lab_network_apis(Path("synthetic"))
+        self.assertEqual(calls[-1], ["services", "enable", "vpcaccess.googleapis.com"])
+        self.assertFalse(any(args[:3] == ["sql", "instances", "patch"] for args in calls))
+
+    def test_network_api_activation_stops_on_uncertain_or_nonempty_snapshot(self):
+        class Helper:
+            class Unavailable(Exception): pass
+            APP = "synthetic-lab-app"
+            def token(self): return "synthetic-token"
+            def snapshot(self, token): return {"NCC": 1, "CONNECTORS": 0, "APP_ENGINE": 0}
+        with patch.object(m, "load_network_helper", return_value=Helper()), patch.object(m, "gcloud") as cloud:
+            with self.assertRaisesRegex(m.Stop, "SNAPSHOT_NOT_EMPTY"):
+                m.enable_lab_network_apis(Path("synthetic"))
+        cloud.assert_not_called()
+
+    def test_network_api_flag_requires_confirmation_and_precedes_restart(self):
+        with patch.object(m, "enable_lab_network_apis") as enable:
+            self.assertEqual(m.main(["--enable-lab-network-apis"]), 2)
+            self.assertEqual(m.main(["--inspect", "--enable-lab-network-apis"]), 2)
+        enable.assert_not_called()
+        events = []
+        def cloud(args, **kwargs):
+            events.append(args)
+            if args[:3] == ["sql", "instances", "describe"]: return instance("NEVER")
+            raise AssertionError(args)
+        with patch.object(m, "stage"), patch.object(m, "gcloud", side_effect=cloud), \
+             patch.object(m, "reject_known_lab_writers"), \
+             patch.object(m, "enable_lab_network_apis", side_effect=m.Stop("API_ENABLE_FAILED")) as enable, \
+             patch.object(m, "run_transition") as transition:
+            self.assertEqual(m.main(["--confirm", m.CONFIRM, "--confirm-fence-plan", m.FENCE_CONFIRM,
+                                     "--enable-lab-network-apis"]), 2)
+        enable.assert_called_once()
+        transition.assert_not_called()
+        self.assertFalse(any(args[:3] == ["sql", "instances", "patch"] for args in events))
+
     def test_changed_external_path_after_restart_stops_and_requests_shutdown(self):
         calls, policy = [], ["NEVER"]
         self.network.side_effect = [None, m.Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED")]
@@ -311,6 +363,25 @@ class ResumeLab(unittest.TestCase):
                               "def require_no_additional_network_paths(t): return True\n")
             with self.assertRaisesRegex(m.Stop, "TARGET_MISMATCH"):
                 REAL_NETWORK_GUARD(root)
+
+    def test_network_guard_waits_only_for_service_enablement_propagation(self):
+        class Helper:
+            class Unavailable(Exception): pass
+            def __init__(self, reason): self.reason, self.calls = reason, 0
+            def token(self): return "synthetic-token"
+            def require_no_additional_network_paths(self, token):
+                self.calls += 1
+                if self.calls == 1: raise self.Unavailable(self.reason)
+        helper = Helper("LAB_NCC_UNVERIFIED_HTTP_403_SERVICE_DISABLED")
+        with patch.object(m, "load_network_helper", return_value=helper), patch.object(m.time, "sleep") as sleep:
+            REAL_NETWORK_GUARD(Path("synthetic"), wait_for_enable=True)
+        self.assertEqual(helper.calls, 2)
+        sleep.assert_called_once_with(5)
+        denied = Helper("LAB_NCC_UNVERIFIED_HTTP_403_IAM_PERMISSION_DENIED")
+        with patch.object(m, "load_network_helper", return_value=denied), patch.object(m.time, "sleep") as sleep:
+            with self.assertRaisesRegex(m.Stop, "IAM_PERMISSION_DENIED"):
+                REAL_NETWORK_GUARD(Path("synthetic"), wait_for_enable=True)
+        sleep.assert_not_called()
 
     def test_transition_failure_still_requests_lab_stop(self):
         policy, patches = ["NEVER"], []

@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -32,14 +33,14 @@ INSTANCE = "khedmah-restore-pg16-20261114"
 REGION = "europe-west1"
 NETWORK = f"projects/{PROJECT}/global/networks/khedmah-restore-private"
 NETWORK_NAME = "khedmah-restore-private"
-SOURCE_COMMIT = "a4bf38d8e1ceffe5eb8fdcd7ce61d5e2f7cf3b3d"
+SOURCE_COMMIT = "8809a679ab9efa546f6d59919893f5e9c7b6b3aa"
 CONFIRM = "RESUME_EXISTING_LAB_AND_APPLY_036_037"
 FENCE_CONFIRM = "RUN_AUTOMATED_LAB_ISOLATION_AND_FENCE"
 RUNNER_CONFIRM = "APPLY_LAB_ONLY_036_037_AFTER_RESTORE"
 SOURCES = {
     "scripts/run-recovery-lab-schema-transition.py": "e2ba7f442b9b7fa2454e2597c5b1efe9eb0bee2757584678c1e59560baee4555",
     "scripts/deployment/lab-fenced-migration.sh": "94a68a12e1b9cf73d3567bd8ecd08c6195d37fdb1a90fc58b1076c1d2f918100",
-    "scripts/inspect-recovery-lab-external-paths.py": "c8b032bdea574f7adb487d01e2679f4f851024a893ac2e11fa3443b6f26b4e4b",
+    "scripts/inspect-recovery-lab-external-paths.py": "846a5d2941d21bafd30752b0bf3f6528e81e6ef5b4bfedaab815c72d4103474f",
     "scripts/run-recovery-lab-catalog-probe.py": "9da8198506d36eb79f83fbe350b9db34d56b0332e5c97f2df195411f225273da",
     "scripts/prepare-preview-v2-approval-transition.py": "6d0e119ed0c4ad137a82ef571e5aefdf376c36675895283f76fcf7f4cb3ca4d5",
     "scripts/deployment/run-approval-prerequisites-035-037-nonproduction-migration.sh": "248fad2079180ed751293a36709c4faf65f0872699576a651b8ab4c4d5340230",
@@ -435,8 +436,8 @@ def stop_restarted_lab():
     print("LAB_AUTOSTOP_POLICY_READBACK=NEVER", flush=True)
 
 
-def require_additional_network_isolation(root):
-    """Use a hash-pinned read-only helper; unavailable evidence fails closed."""
+def load_network_helper(root):
+    """Load the staged, hash-pinned helper for the fixed lab project."""
     path = root / "scripts/inspect-recovery-lab-external-paths.py"
     spec = importlib.util.spec_from_file_location("lab_external_paths", path)
     if spec is None or spec.loader is None:
@@ -445,11 +446,63 @@ def require_additional_network_isolation(root):
     spec.loader.exec_module(helper)
     if (helper.PROJECT != PROJECT or helper.SHELL_QUOTA_PROJECT != "khedma-dl-e409d"):
         raise Stop("LAB_NETWORK_HELPER_TARGET_MISMATCH")
+    return helper
+
+
+def enable_lab_network_apis(root):
+    """Enable the two lab APIs needed for live inventory, after bounded reads."""
+    helper = load_network_helper(root)
     try:
         access_token = helper.token()
-        helper.require_no_additional_network_paths(access_token)
+        counts = helper.snapshot(access_token)
+        if (not isinstance(counts, dict) or set(counts) != {"NCC", "CONNECTORS", "APP_ENGINE"}
+                or any(type(value) is not int or value != 0 for value in counts.values())):
+            raise Stop("LAB_NETWORK_ASSET_SNAPSHOT_NOT_EMPTY_OR_UNVERIFIED")
+        try:
+            helper.read_json(helper.APP, access_token)
+        except helper.Unavailable as exc:
+            if str(exc) != "HTTP_404":
+                raise
+        else:
+            raise Stop("LAB_APP_ENGINE_PRESENT")
+    except helper.Unavailable as exc:
+        raise Stop("LAB_NETWORK_PRECHECK_UNAVAILABLE:" + str(exc)) from exc
+
+    # The asset snapshot is only a conservative precheck. The subsequent
+    # direct NCC and connector inventories remain mandatory before restart.
+    require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
+    enabled = gcloud(["services", "list", "--enabled"], timeout=35, json_output=True)
+    if (not isinstance(enabled, list) or not all(
+            isinstance(item, dict) and isinstance(item.get("config"), dict)
+            and isinstance(item["config"].get("name"), str) for item in enabled)):
+        raise Stop("LAB_ENABLED_SERVICES_UNVERIFIED")
+    names = {item["config"]["name"] for item in enabled}
+    missing = [name for name in ("networkconnectivity.googleapis.com", "vpcaccess.googleapis.com")
+               if name not in names]
+    if missing:
+        print("LAB_NETWORK_API_ENABLE_REQUESTED=True", flush=True)
+        gcloud(["services", "enable", *missing], timeout=900)
+    print("LAB_NETWORK_APIS_ENABLED=True", flush=True)
+
+
+def require_additional_network_isolation(root, *, wait_for_enable=False):
+    """Use a hash-pinned read-only helper; unavailable evidence fails closed."""
+    helper = load_network_helper(root)
+    try:
+        access_token = helper.token()
     except helper.Unavailable as exc:
         raise Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED:" + str(exc)) from exc
+    for attempt in range(6 if wait_for_enable else 1):
+        try:
+            helper.require_no_additional_network_paths(access_token)
+            break
+        except helper.Unavailable as exc:
+            if wait_for_enable and str(exc).endswith("HTTP_403_SERVICE_DISABLED") and attempt < 5:
+                if attempt == 0:
+                    print("LAB_NETWORK_API_ACTIVATION_PENDING=True", flush=True)
+                time.sleep(5)
+                continue
+            raise Stop("LAB_ADDITIONAL_NETWORK_PATHS_UNVERIFIED:" + str(exc)) from exc
     print("LAB_LIVE_ADDITIONAL_NETWORK_PATHS=EMPTY", flush=True)
 
 
@@ -459,14 +512,15 @@ def main(argv=None):
     parser.add_argument("--diagnose", action="store_true", help="read-only state and Cloud Run response labels")
     parser.add_argument("--confirm", default="")
     parser.add_argument("--confirm-fence-plan", default="")
+    parser.add_argument("--enable-lab-network-apis", action="store_true")
     args = parser.parse_args(argv)
     if args.diagnose:
-        if args.inspect or args.confirm or args.confirm_fence_plan:
+        if args.inspect or args.confirm or args.confirm_fence_plan or args.enable_lab_network_apis:
             print("STOP: DIAGNOSE_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
             return 2
         return diagnose_blockers()
     if args.inspect:
-        if args.confirm or args.confirm_fence_plan:
+        if args.confirm or args.confirm_fence_plan or args.enable_lab_network_apis:
             print("STOP: INSPECT_CANNOT_BE_COMBINED_WITH_EXECUTION", flush=True)
             return 2
         problems = []
@@ -502,7 +556,9 @@ def main(argv=None):
             # require an actual stopped state, not only the NEVER policy.
             require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             reject_known_lab_writers()
-            require_additional_network_isolation(root)
+            if args.enable_lab_network_apis:
+                enable_lab_network_apis(root)
+            require_additional_network_isolation(root, wait_for_enable=args.enable_lab_network_apis)
             require_stopped_instance(gcloud(["sql", "instances", "describe", INSTANCE], json_output=True))
             print("LAB_RESTART_REQUESTED", flush=True)
             # Set before sending: a timed-out call may still start the lab.
