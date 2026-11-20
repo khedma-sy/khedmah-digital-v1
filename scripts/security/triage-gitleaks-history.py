@@ -62,8 +62,8 @@ def classify(filename: str, line: str | None) -> str:
     if filename == "docs/project-control/CURRENT-STATE.md":
         # A public Git commit SHA is not a credential. Accept as a *candidate*
         # only when a full 40-hex reference is in an explicit commit context.
-        if re.search(r"\\b[0-9a-f]{40}\\b", line, re.I) and re.search(
-            r"commit|revision|git(?:hub)?[./]|\\bsha\\b", line, re.I
+        if re.search(r"\b[0-9a-f]{40}\b", line, re.I) and re.search(
+            r"commit|revision|git(?:hub)?[./]|\bsha\b", line, re.I
         ):
             return "candidate_git_commit_reference"
 
