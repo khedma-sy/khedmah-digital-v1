@@ -34,10 +34,10 @@ def pinned_runner_retry_match(fragment):
     """Mirror the pinned runner's exact one-line retry predicate; report only a boolean."""
     email = PRINCIPAL
     principal = re.escape(email)
-    named = r'(?:\\[' + principal + r'\\]|"' + principal + r'"|\\x27' + principal + r'\\x27|' + principal + r')'
-    pattern = (r'\\s*ERROR:\\s*\\(gcloud\\.secrets\\.add-iam-policy-binding\\)\\s*'
-               r'INVALID_ARGUMENT:\\s*Service account\\s+' + named +
-               r'\\s+does not exist\\.?\\s*')
+    named = r'(?:\[' + principal + r'\]|"' + principal + r'"|\x27' + principal + r'\x27|' + principal + r')'
+    pattern = (r'\s*ERROR:\s*\(gcloud\.secrets\.add-iam-policy-binding\)\s*'
+               r'INVALID_ARGUMENT:\s*Service account\s+' + named +
+               r'\s+does not exist\.?\s*')
     return any(re.fullmatch(pattern, line, re.IGNORECASE)
                for line in fragment.splitlines())
 
