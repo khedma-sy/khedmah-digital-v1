@@ -46,6 +46,10 @@ test('actual HTTP wiring protects mutations, limits analytics, and preserves upl
       if (token !== 'valid-session') throw new UnauthorizedException('Authentication required.');
       return { id: 'customer-1', email: 'customer@example.org', status: 'active', profile: { displayName: 'Customer', locale: 'ar' } };
     };
+    identity.login = async () => ({
+      sessionToken: 'login-session',
+      user: { id: 'customer-1', email: 'customer@example.org', status: 'active', profile: { displayName: 'Customer', locale: 'ar' } },
+    });
     identity.logout = async () => {};
     app.get(ProductService).create = async () => ({ id: 'product-1' } as never);
     app.get(ContactService).trackContactClick = async () => ({ id: 'click-1' } as never);
@@ -70,6 +74,9 @@ test('actual HTTP wiring protects mutations, limits analytics, and preserves upl
       assert.equal((await send(path, method)).status, 401, `${method} ${path} must require a session`);
     }
     assert.equal((await send('/products', 'POST', '{}', true)).status, 201);
+    const login = await send('/auth/login', 'POST');
+    assert.equal(login.status, 201, 'login remains available without an existing session');
+    assert.match(login.headers.get('set-cookie') ?? '', /khedmah_session=login-session/);
     assert.equal((await send('/auth/logout', 'POST')).status, 201);
     assert.equal((await send('/businesses/b1/contact-click', 'POST')).status, 201);
     assert.equal((await send('/admin/bootstrap', 'POST')).status, 403, 'bootstrap retains its own secret check');
