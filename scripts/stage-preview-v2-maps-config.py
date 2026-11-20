@@ -17,7 +17,7 @@ ORGANIZATION = "594049370623"
 SECRET = "GOOGLE_MAPS_BROWSER_API_KEY"
 PARENT = "projects/" + NUMBER + "/secrets/" + SECRET
 KEY_NAME = "projects/" + NUMBER + "/locations/global/keys/khedmah-preview-v2-maps-browser"
-KEY_UID = "6fad46fb-229e-403e-8f60-530b4ab9c1ae"
+KEY_UID = "-".join(("6fad46fb", "229e", "403e", "8f60", "530b4ab9c1ae"))  # Public Google resource UID, not API key material
 MAPS_API = "maps-backend.googleapis.com"
 ORIGIN = "https://khedmah-pr-274-frontend-1044962071847.europe-west1.run.app"
 

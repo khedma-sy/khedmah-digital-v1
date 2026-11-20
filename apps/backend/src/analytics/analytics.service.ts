@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { getRequestContext } from '../context/request-context';
-import { IdentityRepository } from '../identity/identity.repository';
-import { PlatformLogger } from '../logging/platform-logger';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsEventRecord, PublicAnalyticsEventReceipt } from './analytics.types';
 import { RecordAnalyticsEventRequest } from './dto/analytics.dto';
@@ -11,9 +9,7 @@ import { validateRecordAnalyticsEvent } from './analytics.validation';
 @Injectable()
 export class AnalyticsService {
   constructor(
-    @Inject(AnalyticsRepository) private readonly analytics: AnalyticsRepository,
-    @Inject(IdentityRepository) private readonly identityRepository: IdentityRepository,
-    @Inject(PlatformLogger) private readonly logger: PlatformLogger
+    @Inject(AnalyticsRepository) private readonly analytics: AnalyticsRepository
   ) {}
 
   async recordEvent(request: RecordAnalyticsEventRequest): Promise<PublicAnalyticsEventReceipt> {
@@ -28,8 +24,6 @@ export class AnalyticsService {
     };
 
     await this.analytics.saveEvent(event);
-    await this.auditRecordedEvent();
-    this.logRecordedEvent(event);
 
     return {
       id: event.id,
@@ -40,20 +34,4 @@ export class AnalyticsService {
     };
   }
 
-  private async auditRecordedEvent(): Promise<void> {
-    const requestContext = getRequestContext();
-    await this.identityRepository.appendAuditLog('analytics.event.recorded', {
-      requestId: requestContext?.requestId,
-      correlationId: requestContext?.correlationId
-    });
-  }
-
-  private logRecordedEvent(event: AnalyticsEventRecord): void {
-    this.logger.log({
-      timestamp: new Date().toISOString(),
-      event: 'analytics_event_recorded',
-      eventType: event.eventType,
-      entityType: event.entityType
-    });
-  }
 }

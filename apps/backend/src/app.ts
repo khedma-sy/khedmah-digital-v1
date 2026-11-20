@@ -10,6 +10,7 @@ import { createRequestContextMiddleware } from './middleware/request-context.mid
 import { configuredOrigins, createCsrfOriginMiddleware } from './middleware/csrf-origin.middleware';
 import { createRateLimitMiddleware } from './middleware/rate-limit.middleware';
 import { createSecurityHeadersMiddleware } from './middleware/security-headers.middleware';
+import { createJsonBodyMiddleware } from './middleware/json-body.middleware';
 
 export async function createBackendApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -22,7 +23,6 @@ export async function createBackendApp() {
   app.useLogger(logger);
   app.getHttpAdapter().getInstance().disable('x-powered-by');
   app.use(createSecurityHeadersMiddleware());
-  app.useBodyParser('json', { limit: '7mb' });
   app.use(createRequestContextMiddleware(logger));
   app.use(createCsrfOriginMiddleware());
   app.enableCors({ origin: configuredOrigins(), credentials: true });
@@ -53,9 +53,23 @@ export async function createBackendApp() {
   app.use('/api/v1/food-promotions', createRateLimitMiddleware(rateLimitRepository, 'food-promotions', authWindowMs, authMax));
   app.use('/api/v1/search', createRateLimitMiddleware(rateLimitRepository, 'search', searchWindowMs, searchMax));
   app.use('/api/v1/contact', createRateLimitMiddleware(rateLimitRepository, 'contact', publicWindowMs, publicMax));
+  app.use('/api/v1/analytics/events', createRateLimitMiddleware(rateLimitRepository, 'analytics.events', publicWindowMs, publicMax));
+  app.use('/api/v1/media', createRateLimitMiddleware(rateLimitRepository, 'media', publicWindowMs, publicMax));
+  app.use('/api/v1/products', createRateLimitMiddleware(rateLimitRepository, 'products', publicWindowMs, publicMax));
+  app.use('/api/v1/admin/products', createRateLimitMiddleware(rateLimitRepository, 'products.admin', authWindowMs, authMax));
+  app.use('/api/v1/billing', createRateLimitMiddleware(rateLimitRepository, 'billing', publicWindowMs, publicMax));
+  app.use('/api/v1/admin/billing', createRateLimitMiddleware(rateLimitRepository, 'billing.admin', authWindowMs, authMax));
+  app.use('/api/v1/notifications', createRateLimitMiddleware(rateLimitRepository, 'notifications', publicWindowMs, publicMax));
+  app.use('/api/v1/admin/moderation', createRateLimitMiddleware(rateLimitRepository, 'moderation.admin', authWindowMs, authMax));
+  app.use('/api/v1/locations', createRateLimitMiddleware(rateLimitRepository, 'locations', publicWindowMs, publicMax));
+  app.use('/api/v1/users', createRateLimitMiddleware(rateLimitRepository, 'users', publicWindowMs, publicMax));
+  app.use('/api/v1/businesses', createRateLimitMiddleware(rateLimitRepository, 'businesses', publicWindowMs, publicMax));
+  app.use('/api/v1/professionals', createRateLimitMiddleware(rateLimitRepository, 'professionals', publicWindowMs, publicMax));
+  app.use('/api/v1/services', createRateLimitMiddleware(rateLimitRepository, 'services', publicWindowMs, publicMax));
   app.use('/api/v1/business-profiles', createRateLimitMiddleware(rateLimitRepository, 'business-profiles', publicWindowMs, publicMax));
   app.use('/api/v1/professional-profiles', createRateLimitMiddleware(rateLimitRepository, 'professional-profiles', publicWindowMs, publicMax));
 
+  app.use(createJsonBodyMiddleware());
   app.useGlobalPipes(new ValidationPipe({ forbidNonWhitelisted: true, transform: false, validationError: { target: false, value: false }, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   return app;

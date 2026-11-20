@@ -52,6 +52,15 @@ export class IdentityRepository {
     });
   }
 
+  async updatePasswordHashIfUnchanged(userId: string, oldHash: string, newHash: string): Promise<boolean> {
+    const rows = await this.db.query<{ user_identifier: string }>(
+      `UPDATE identity_credentials SET password_hash = $3, updated_at = NOW()
+       WHERE user_identifier = $1 AND password_hash = $2 RETURNING user_identifier`,
+      [userId, oldHash, newHash]
+    );
+    return rows.length === 1;
+  }
+
   async findProfile(userId: string): Promise<UserProfile | undefined> {
     const rows = await this.db.query<{
       user_identifier: string; display_name: string; locale: string;

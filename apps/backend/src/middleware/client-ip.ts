@@ -15,6 +15,21 @@ function normalizeAddress(value: string | undefined): string | undefined {
 }
 
 /**
+ * The number of forwarded addresses *appended by trusted proxy infrastructure*.
+ * Default remains one for the currently documented direct Cloud Run ingress.
+ * Never increase this merely to fix rate limiting: verify actual header traces,
+ * trusted ingress and prevention of direct backend bypass first.
+ * Invalid/unsupported configuration ignores the untrusted header.
+ */
+function trustedForwardHops(): number {
+  const value = process.env.RATE_LIMIT_TRUSTED_FORWARD_HOPS;
+  if (value === undefined) return 1;
+  if (!/^[0-9]+$/.test(value)) return 0;
+  const hops = Number(value);
+  return Number.isSafeInteger(hops) && hops <= 4 ? hops : 0;
+}
+
+/**
  * Resolve the rate-limit identity behind the current direct Cloud Run
  * deployment.
  *
@@ -24,17 +39,16 @@ function normalizeAddress(value: string | undefined): string | undefined {
 export function resolveRateLimitClientIp(request: Request): string {
   const forwarded = request.headers['x-forwarded-for'];
 
-  if (typeof forwarded === 'string') {
-    const addresses = forwarded
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    for (let index = addresses.length - 1; index >= 0; index -= 1) {
-      const forwardedIp = normalizeAddress(addresses[index]);
-      if (forwardedIp) {
-        return forwardedIp;
-      }
+  const trustedHops = trustedForwardHops();
+  if (trustedHops > 0 && typeof forwarded === 'string') {
+    const addresses = forwarded.split(',');
+    const firstTrusted = addresses.length - trustedHops;
+    // Never promote an arbitrary client-supplied prefix when the expected
+    // trusted suffix is absent or contains malformed values.
+    if (firstTrusted >= 0 &&
+        addresses.slice(firstTrusted).every(address => normalizeAddress(address) !== undefined)) {
+      const forwardedIp = normalizeAddress(addresses[firstTrusted]);
+      if (forwardedIp) return forwardedIp;
     }
   }
 

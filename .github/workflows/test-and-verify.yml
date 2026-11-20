@@ -126,10 +126,19 @@ jobs:
       - name: 🔐 Security audit
         run: npm audit --omit=dev --audit-level=high
 
-      - name: 🔐 Security audit (advisory, non-blocking)
+      - name: Full npm audit including dev dependencies (advisory evidence)
+        shell: bash
         run: |
-          echo "🔍 Running npm security audit..."
-          npm audit --production || echo "⚠️  Audit found issues — review before release. Not a blocking gate in this environment."
+          set +e
+          npm audit --audit-level=high --json > "$RUNNER_TEMP/npm-audit-full.json"
+          audit_status=$?
+          set -e
+          jq -r '.metadata.vulnerabilities // {} | "npm audit all dependencies — critical=\(.critical // 0) high=\(.high // 0) moderate=\(.moderate // 0) low=\(.low // 0)"' "$RUNNER_TEMP/npm-audit-full.json"
+          rm -f "$RUNNER_TEMP/npm-audit-full.json"
+          if [ "$audit_status" -ne 0 ]; then
+            echo 'Full dependency audit returned findings or an audit execution error; require review before release.'
+          fi
+          # Production runtime dependency HIGH issues remain a hard gate above.
 
   code-quality:
     name: Code Quality Checks
@@ -138,6 +147,11 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Full git history is required to detect historical leaked secrets.
+
+      - name: Validate read-only production gate script syntax
+        run: bash -n scripts/production-operator-live-validation.sh
 
       - name: 📦 Setup Node.js 24
         uses: actions/setup-node@v7
@@ -223,6 +237,151 @@ jobs:
           fi
 
           echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
+
+      - name: Verify secret-history classifier remains fail-closed
+        run: python3 -m unittest discover -s scripts/security -p 'test_triage_gitleaks_history.py'
+
+      - name: Scan full git history for exposed secrets (redacted)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse --is-shallow-repository | grep -Fx false
+          # No output of matched secret values; a finding blocks this PR.
+          # Generate a PRIVATE temporary report for reviewer metadata only.
+          # Do not upload the raw JSON: even redacted reports may contain sensitive context.
+          set +e
+          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP:/output" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            git --redact --log-opts="--all" --report-format=json \
+            --report-path=/output/khedmah-gitleaks-private.json /repo
+          scan_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-private.json" ]]; then
+            echo 'Historical potential secret findings by rule category only (no paths, commits or values):'
+            jq -r '[.[].RuleID] | group_by(.)[] | "rule=\(.[0]) count=\(length)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-private.json"
+            # Report only structural categories, never matched strings, source
+            # paths, commit IDs or original source lines.
+            python3 scripts/security/triage-gitleaks-history.py \
+              "$RUNNER_TEMP/khedmah-gitleaks-private.json"
+          fi
+          # Distinguish historical-only leaks from still-present source findings.
+          # Both reports remain on the ephemeral runner and are deleted.
+          set +e
+          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP:/output" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            dir --redact --report-format=json \
+            --report-path=/output/khedmah-gitleaks-worktree.json /repo
+          worktree_status=$?
+          set -e
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" ]]; then
+            jq -r 'length | "CURRENT_WORKTREE_POTENTIAL_FINDINGS=\(.)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+            # Anonymous grouping only; never print match, secret, file or commit.
+            jq -r '[.[] | (.File | ascii_downcase) |
+              if test("(^|/)(docs|documentation|examples?|samples?)(/|$)") then "documentation"
+              elif test("(^|/)(test|tests|fixtures?|__tests__)(/|$)|[.]test[.]|[.]spec[.]") then "test_or_fixture"
+              elif test("(^|/)([.]github|infra|scripts|cloudbuild)(/|$)") then "infrastructure"
+              elif test("(^|/)(apps|backend)(/|$)") then "application"
+              else "other" end] | group_by(.)[] |
+              "current_area=\(.[0]) count=\(length)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+            # One-way source-span IDs let a reviewer localize candidates against an
+            # independently held source checkout without logging matched values/paths.
+            # Never output matched contents, commit IDs, excerpts or line numbers.
+            python3 - "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" <<'PY'
+          import hashlib, json, sys
+          with open(sys.argv[1], encoding='utf-8') as stream:
+              records = json.load(stream)
+          if not isinstance(records, list):
+              raise SystemExit('STOP: unexpected secrets report format')
+          for record in records:
+              path = record.get('File')
+              if not isinstance(path, str) or not path.startswith('/repo/'):
+                  raise SystemExit('STOP: unexpected scanned file path')
+              line = record.get('StartLine')
+              if not isinstance(line, int) or line < 1:
+                  raise SystemExit('STOP: malformed secret match line number')
+              ident = hashlib.sha256((path.removeprefix('/repo/') + ':' + str(line)).encode()).hexdigest()[:20]
+              print('CURRENT_SCAN_SPAN_ID=' + ident)
+          PY
+          else
+            echo "CURRENT_WORKTREE_POTENTIAL_FINDINGS=0 (or scan failed; check exit status)"
+          fi
+          # Compare with the exact main merge-base on an ephemeral runner only.
+          # This is a COUNT comparison, not proof of identical leaked credentials.
+          baseline="$(git merge-base HEAD origin/main)"
+          test -n "$baseline" || { echo "Unable to verify main baseline"; exit 2; }
+          mkdir -p "$RUNNER_TEMP/khedmah-base-tree"
+          git archive "$baseline" | tar -xf - -C "$RUNNER_TEMP/khedmah-base-tree"
+          set +e
+          docker run --rm -v "$RUNNER_TEMP/khedmah-base-tree:/baseline:ro" \
+            -v "$RUNNER_TEMP:/output" -w /baseline \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            dir --redact --report-format=json \
+            --report-path=/output/khedmah-gitleaks-baseline.json /baseline
+          baseline_scan_status=$?
+          set -e
+          if [[ "$baseline_scan_status" != 0 && "$baseline_scan_status" != 1 ]]; then
+            echo "STOP: main baseline secrets scan did not finish"; exit "$baseline_scan_status"
+          fi
+          if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-baseline.json" ]]; then
+            jq -r 'length | "MAIN_BASELINE_CURRENT_FINDINGS=\(.)"' \
+              "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
+          else
+            echo 'MAIN_BASELINE_CURRENT_FINDINGS=0'
+          fi
+          # Privately compare exact matched source spans, not raw secrets,
+          # between main and PR. Only aggregate counts leave the runner.
+          python3 - "$RUNNER_TEMP/khedmah-gitleaks-worktree.json" \
+            "$RUNNER_TEMP/khedmah-gitleaks-baseline.json" \
+            "$PWD" "$RUNNER_TEMP/khedmah-base-tree" <<'PY'
+          import collections, hashlib, json, pathlib, sys
+          head_report, base_report, head_root, base_root = sys.argv[1:]
+          def findings(report, root, mount):
+              root = pathlib.Path(root).resolve()
+              with open(report, encoding='utf-8') as stream:
+                  records = json.load(stream)
+              records = records if isinstance(records, list) else []
+              result = collections.Counter()
+              for record in records:
+                  path = record.get('File')
+                  start, end = record.get('StartLine'), record.get('EndLine')
+                  rule = record.get('RuleID')
+                  if not isinstance(path, str) or not isinstance(start, int) or not isinstance(end, int) or not isinstance(rule, str):
+                      raise SystemExit('STOP: invalid Gitleaks report structure')
+                  path = path.replace('\\\\', '/')
+                  if path.startswith(mount + '/'):
+                      path = path[len(mount) + 1:]
+                  else:
+                      path = path.lstrip('/')
+                  source = (root / path).resolve()
+                  if not source.is_relative_to(root) or not source.is_file():
+                      raise SystemExit('STOP: unable to resolve scanned file safely')
+                  lines = source.read_bytes().splitlines()
+                  if not (1 <= start <= end <= len(lines)):
+                      raise SystemExit('STOP: invalid finding line range')
+                  span = b'\\n'.join(lines[start - 1:end])
+                  digest = hashlib.sha256(span).hexdigest()
+                  result[(path, rule, digest)] += 1
+              return result
+          head = findings(head_report, head_root, '/repo')
+          base = findings(base_report, base_root, '/baseline')
+          print('NEW_MATCHED_SPANS_ABOVE_MAIN=' + str(sum((head - base).values())))
+          print('UNCHANGED_MATCHED_SPANS_FROM_MAIN=' + str(sum((head & base).values())))
+          PY
+          rm -rf "$RUNNER_TEMP/khedmah-base-tree"
+          rm -f "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
+          rm -f "$RUNNER_TEMP/khedmah-gitleaks-private.json" "$RUNNER_TEMP/khedmah-gitleaks-worktree.json"
+          if [ "$scan_status" -ne 0 ]; then
+            echo "Historical secrets scan failed; classify findings privately before release."
+            exit "$scan_status"
+          fi
+          if [ "$worktree_status" -ne 0 ]; then
+            echo "Current source secrets scan failed; inspect before release."
+            exit "$worktree_status"
+          fi
+
 
   validate-pr:
     name: PR Validation

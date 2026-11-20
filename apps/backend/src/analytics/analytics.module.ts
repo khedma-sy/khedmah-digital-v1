@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
-import { IdentityModule } from '../identity/identity.module';
-import { PlatformLogger } from '../logging/platform-logger';
+import { DatabaseModule } from '../database/database.module';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsService } from './analytics.service';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [DatabaseModule],
   controllers: [AnalyticsController],
-  providers: [AnalyticsRepository, AnalyticsService, PlatformLogger],
+  providers: [AnalyticsRepository, AnalyticsService],
   exports: [AnalyticsRepository, AnalyticsService]
 })
 export class AnalyticsModule {}

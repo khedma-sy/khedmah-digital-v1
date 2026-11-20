@@ -7,8 +7,11 @@ function isHttpsDeployment(): boolean {
   return ['production', 'preview', 'staging'].includes(process.env.NODE_ENV ?? '');
 }
 
-function sessionCookieSameSite(): 'none' | 'strict' {
-  return isHttpsDeployment() ? 'none' : 'strict';
+function sessionCookieSameSite(): 'none' | 'strict' | 'lax' {
+  if (!isHttpsDeployment()) return 'strict';
+  // Cross-site Floot deployments still require None. Enable Lax only after
+  // the deployment routes all credentialed browser calls through one site.
+  return process.env.SESSION_COOKIE_SAME_SITE?.trim().toLowerCase() === 'lax' ? 'lax' : 'none';
 }
 
 export function readSessionToken(cookieHeader: string | undefined): string | undefined {

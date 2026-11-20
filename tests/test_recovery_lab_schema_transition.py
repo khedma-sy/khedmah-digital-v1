@@ -27,6 +27,15 @@ class Transition(unittest.TestCase):
         self.assertIn("LAB_PROBE_037_PRIVATE", sql)
         self.assertNotIn("khedmah-preview-v2-20261012", m.LAB)
 
+    def test_session_guard_is_before_lab_schema_changes_and_fails_closed_on_bad_anchor(self):
+        sql = m.candidate_sql()
+        self.assertEqual(sql.count("LAB_OTHER_DATABASE_SESSION_PRESENT"), 1)
+        self.assertLess(sql.index("BEGIN ISOLATION LEVEL"), sql.index("LAB_OTHER_DATABASE_SESSION_PRESENT"))
+        self.assertLess(sql.index("LAB_OTHER_DATABASE_SESSION_PRESENT"), sql.index("EXECUTE $migration036$"))
+        with patch.object(m.offline, "build_transition_sql", return_value="BEGIN; COMMIT;"):
+            with self.assertRaisesRegex(m.GuardStop, "SESSION_CHECK_INSERTION_POINT_UNVERIFIED"):
+                m.candidate_sql()
+
     def test_plan_is_read_only(self):
         calls = []
         with patch.object(m, "guarded_preflight", return_value="10.166.4.5"), \
@@ -184,7 +193,24 @@ class Transition(unittest.TestCase):
         self.assertFalse(any(c[:3] == ("sql", "users", "set-password") for c in calls))
         self.assertFalse(any(c[:3] == ("run", "jobs", "create") for c in calls))
         self.assertTrue(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
-        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 2)
+        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 3)
+
+    def test_uncertain_temporary_creation_is_reported_without_password_rotation(self):
+        for failing_prefix, expected in ((["secrets", "create"], "LAB_TEMP_SECRET_CREATION_OUTCOME_UNCERTAIN"),
+                                         (["iam", "service-accounts", "create"], "LAB_TEMP_IDENTITY_CREATION_OUTCOME_UNCERTAIN")):
+            calls, output = [], io.StringIO()
+            def fake(args, *, data=None, timeout=240, output_json=False):
+                calls.append(tuple(args))
+                if args[:len(failing_prefix)] == failing_prefix:
+                    raise m.GuardStop("GCLOUD_UNAVAILABLE_OR_TIMEOUT")
+                return ""
+            with self.subTest(prefix=failing_prefix), patch.object(m, "call", side_effect=fake), \
+                 contextlib.redirect_stdout(output):
+                with self.assertRaises(m.GuardStop):
+                    m.apply("10.166.1.9", "BEGIN;COMMIT;")
+            self.assertIn(expected, output.getvalue())
+            self.assertFalse(any(c[:3] == ("sql", "users", "set-password") for c in calls))
+            self.assertFalse(any(c[:3] == ("run", "jobs", "create") for c in calls))
 
     def test_migration_job_pins_private_network_and_migrator(self):
         calls = []
@@ -204,7 +230,7 @@ class Transition(unittest.TestCase):
              patch.object(m.catalog, "require_markers", return_value={}):
             self.assertEqual(m.apply("10.166.1.9", "BEGIN;COMMIT;"), 0)
         self.assertEqual([x.args[0] for x in bind.call_args_list],
-                         [m.SQL_SECRET, m.PASSWORD_SECRET])
+                         [m.SQL_SECRET, m.PASSWORD_SECRET, m.ADMIN_SECRET])
         line = " ".join(" ".join(str(x) for x in args) for args, _ in calls)
         self.assertIn("--project", "gcloud --project=" + m.LAB)
         self.assertIn("--vpc-egress=all-traffic", line)
@@ -212,7 +238,9 @@ class Transition(unittest.TestCase):
         self.assertIn("--subnet=" + m.SUB, line)
         self.assertIn("PGUSER=khedmah_migrator", line)
         self.assertIn("set-password khedmah_migrator", line)
-        self.assertIn("/run/transition/036-037.sql=", line)
+        self.assertIn("/run/transition/fenced-entrypoint.sh=", line)
+        self.assertIn("LAB_FENCE_ADMIN_PASSWORD=", line)
+        self.assertIn("set-password postgres", line)
         # catalog.run_job is mocked in this unit test: verify invocation via
         # the distinct catalog helper tests, not by assuming a gcloud call here.
         self.assertIn("run jobs create", line)
@@ -234,9 +262,9 @@ class Transition(unittest.TestCase):
                 m.apply("10.166.1.9", "BEGIN;COMMIT;")
         self.assertTrue(any(c[:3] == ("run", "jobs", "delete") for c in calls))
         self.assertTrue(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
-        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 2)
+        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 3)
 
-    def test_failed_execution_attempts_cleanup(self):
+    def test_uncertain_execution_preserves_resources_for_fence_recovery(self):
         calls = []
         def fake(args, *, data=None, timeout=240, output_json=False):
             calls.append(tuple(args))
@@ -247,12 +275,58 @@ class Transition(unittest.TestCase):
             return ""
         with patch.object(m, "call", side_effect=fake), \
              patch.object(m, "bind_temporary_secret_accessor"), \
-             patch.object(m.catalog, "run_job", side_effect=m.GuardStop("TEST_JOB_FAILED")):
+             patch.object(m.catalog, "run_job", side_effect=m.GuardStop("TEST_JOB_FAILED")), \
+             patch.object(m, "reconcile_fence_after_failure", return_value=False):
             with self.assertRaisesRegex(m.GuardStop, "TEST_JOB_FAILED"):
                 m.apply("10.166.1.9", "BEGIN;COMMIT;")
-        self.assertTrue(any(c[:3] == ("run", "jobs", "delete") for c in calls))
-        self.assertTrue(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
-        self.assertEqual(sum(c[:2] == ("secrets", "delete") for c in calls), 2)
+        self.assertFalse(any(c[:3] == ("run", "jobs", "delete") for c in calls))
+        self.assertFalse(any(c[:3] == ("iam", "service-accounts", "delete") for c in calls))
+        self.assertFalse(any(c[:2] == ("secrets", "delete") for c in calls))
+
+    def test_payload_is_pinned_and_cannot_embed_psql_commands(self):
+        sql = m.candidate_sql()
+        payload = m.fenced_payload(sql)
+        self.assertIn("LAB_FENCE_RESTORED=true", payload)
+        self.assertEqual(payload.count(sql), 1)
+        for value in ("\\! unsafe-shell-command\n", "  \\! unsafe-shell-command\n"):
+            with self.assertRaisesRegex(m.GuardStop, "TEMPLATE_OR_SQL_UNVERIFIED"):
+                m.fenced_payload(value)
+        with patch.object(m, "FENCE_TEMPLATE_SHA256", "wrong"):
+            with self.assertRaisesRegex(m.GuardStop, "TEMPLATE_OR_SQL_UNVERIFIED"):
+                m.fenced_payload(sql)
+
+    def test_recovery_only_after_completed_execution_and_baseline_evidence(self):
+        with patch.object(m, "completed_execution", side_effect=m.GuardStop("UNKNOWN")), \
+             patch.object(m, "call") as call:
+            self.assertFalse(m.reconcile_fence_after_failure("lab-job"))
+        call.assert_not_called()
+        with patch.object(m, "completed_execution", return_value="lab-job-first"), \
+             patch.object(m, "completed_fence_markers", return_value={"FENCE_NOT_ATTEMPTED": "true"}), \
+             patch.object(m, "call") as call:
+            self.assertTrue(m.reconcile_fence_after_failure("lab-job"))
+        call.assert_not_called()
+        with patch.object(m, "completed_execution", side_effect=["lab-job-first", "lab-job-recovery"]), \
+             patch.object(m, "completed_fence_markers", return_value={"FENCE_BASELINE_TRUE": "true"}), \
+             patch.object(m, "call") as call, \
+             patch.object(m.catalog, "job_logs_for_one_execution", return_value=[]), \
+             patch.object(m.catalog, "require_markers"):
+            self.assertTrue(m.reconcile_fence_after_failure("lab-job"))
+        command = call.call_args.args[0]
+        self.assertIn("--update-env-vars=LAB_FENCE_MODE=RECOVER", command)
+        self.assertEqual(command[:3], ["run", "jobs", "execute"])
+
+    def test_invalid_or_running_execution_cannot_trigger_recovery(self):
+        with patch.object(m, "call", return_value={"metadata": {"name": "lab-job-abc"},
+                                                    "status": {"runningCount": 1}}):
+            with self.assertRaisesRegex(m.GuardStop, "STILL_RUNNING_OR_UNKNOWN"):
+                m.completed_execution("lab-job")
+        with patch.object(m, "call", return_value={"metadata": {"name": "lab-job-abc"},
+                                                    "status": {"completionTime": "2026-11-16T10:00:00"}}):
+            with self.assertRaisesRegex(m.GuardStop, "STILL_RUNNING_OR_UNKNOWN"):
+                m.completed_execution("lab-job")
+        with patch.object(m, "call", return_value={"metadata": {"name": "lab-job-abc"},
+                                                    "status": {"completionTime": "2026-11-16T10:00:00Z"}}):
+            self.assertEqual(m.completed_execution("lab-job"), "lab-job-abc")
 
 if __name__ == "__main__":
     unittest.main()

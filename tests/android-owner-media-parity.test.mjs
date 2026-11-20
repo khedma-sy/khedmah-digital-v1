@@ -26,6 +26,9 @@ test('Android native session requests are CSRF-distinct without weakening browse
 
 test('backend explicitly accepts the bounded base64 media body', async () => {
   const app = await read('../apps/backend/src/app.ts');
+  const parser = await read('../apps/backend/src/middleware/json-body.middleware.ts');
   assert.match(app, /bodyParser: false/);
-  assert.match(app, /useBodyParser\('json', \{ limit: '7mb' \}\)/);
+  assert.match(app, /app\.use\(createJsonBodyMiddleware\(\)\)/);
+  assert.match(parser, /json\(\{ limit: '7mb' \}\)/);
+  assert.match(parser, /json\(\{ limit: '256kb' \}\)/);
 });

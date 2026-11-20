@@ -3,6 +3,7 @@ import { readSessionToken } from '../session-cookie';
 import { IdentityRepository } from '../identity.repository';
 import { IdentityService } from '../identity.service';
 import { EmailVerificationService } from './email-verification.service';
+import { AllowAnonymousMutation } from '../security/session-auth.guard';
 
 interface RequestVerificationBody {
   readonly email?: unknown;
@@ -21,6 +22,7 @@ export class EmailVerificationController {
   ) {}
 
   @Post('request')
+  @AllowAnonymousMutation()
   async request(
     @Headers('cookie') cookieHeader: string | undefined,
     @Body() body: RequestVerificationBody
@@ -43,6 +45,7 @@ export class EmailVerificationController {
   }
 
   @Post('confirm')
+  @AllowAnonymousMutation()
   async confirm(@Body() body: ConfirmVerificationBody): Promise<{ message: string; email: string }> {
     if (typeof body.token !== 'string' || body.token.length === 0) {
       throw new BadRequestException('token is required.');
