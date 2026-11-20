@@ -31,6 +31,27 @@ class DiagnosticTests(unittest.TestCase):
                 self.assertNotIn('sentinel-private-data', json.dumps(result))
                 self.assertNotIn(m.PRINCIPAL, json.dumps(result))
 
+
+    def test_pinned_runner_retry_shape_is_classified_without_exposing_log(self):
+        principal = m.PRINCIPAL
+        standard = ('ERROR: (gcloud.secrets.add-iam-policy-binding) '
+                    'INVALID_ARGUMENT: Service account [' + principal + '] does not exist.')
+        nonstandard = standard + ' Further details available.'
+        self.assertTrue(m.pinned_runner_retry_match(standard))
+        self.assertFalse(m.pinned_runner_retry_match(nonstandard))
+        with tempfile.TemporaryDirectory() as directory:
+            p = Path(directory) / 'failure.log'
+            p.write_text('gcloud.secrets.add-iam-policy-binding ' + m.SECRETS['SQL'] +
+                         '\\n' + nonstandard + ' sentinel-private-data')
+            status = m.scan_logs(Path(directory))
+            self.assertEqual(status['LOG_STATUS'], 'RECENT_MATCH')
+            self.assertTrue(status['EXACT_PRINCIPAL_MISSING'])
+            self.assertTrue(status['INVALID_ARGUMENT'])
+            self.assertTrue(status['GCLOUD_BIND_ERROR_PREFIX_PRESENT'])
+            self.assertFalse(status['PINNED_RUNNER_RETRY_PATTERN_MATCH'])
+            self.assertNotIn('sentinel-private-data', json.dumps(status))
+            self.assertNotIn(principal, json.dumps(status))
+
     def test_old_failure_is_not_presented_as_current(self):
         with tempfile.TemporaryDirectory() as directory:
             p = Path(directory) / 'failure.log'
