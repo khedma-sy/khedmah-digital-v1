@@ -89,7 +89,7 @@ def main() -> int:
                 raw = line or ""
                 hint = (
                     "google_api_key_format" if re.search(r"AIza[A-Za-z0-9_-]{25,}", raw) else
-                    "apparent_assignment" if re.search(r"(?:key|token|secret|password)\\s*[:=]", raw, re.I) else
+                    "apparent_assignment" if re.search(r"(?:key|token|secret|password)\s*[:=]", raw, re.I) else
                     "high_entropy_source_text" if re.search(r"[A-Za-z0-9+/=_-]{45,}", raw) else
                     "other_source_text"
                 )
