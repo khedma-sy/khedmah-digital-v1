@@ -8,9 +8,13 @@ tool does not start Cloud SQL or verify database sessions or future writers.
 """
 from concurrent.futures import ThreadPoolExecutor
 import json
+import random
 import re
+import socket
+import ssl
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -62,27 +66,46 @@ def read_json(url, access_token, quota_project=None):
         # Only the quota/consumer changes. Resource paths remain pinned to LAB.
         headers["x-goog-user-project"] = quota_project
     request = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=25) as response:
-            data = response.read(2_000_001)
-    except urllib.error.HTTPError as exc:
-        reason = ""
-        if exc.code == 403:
-            try:
-                payload = json.loads(exc.read(65537))
-                details = payload.get("error", {}).get("details", [])
-                matches = {x.get("reason") for x in details
-                           if isinstance(x, dict)
-                           and x.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo"
-                           and x.get("domain") == "googleapis.com"
-                           and x.get("reason") in REASONS}
-                if len(matches) == 1:
-                    reason = "_" + matches.pop()
-            except (ValueError, TypeError, AttributeError, OSError):
-                pass
-        raise Unavailable("HTTP_" + str(exc.code) + reason) from exc
-    except (OSError, ValueError) as exc:
-        raise Unavailable("UNAVAILABLE") from exc
+    for attempt in range(3):
+        try:
+            with urllib.request.build_opener(NoRedirect()).open(request, timeout=25) as response:
+                data = response.read(2_000_001)
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code in (408, 429, 500, 502, 503, 504) and attempt < 2:
+                time.sleep((30 if exc.code == 429 else 2 ** attempt) + random.random())
+                continue
+            reason = ""
+            if exc.code == 403:
+                try:
+                    payload = json.loads(exc.read(65537))
+                    details = payload.get("error", {}).get("details", [])
+                    matches = {x.get("reason") for x in details
+                               if isinstance(x, dict)
+                               and x.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo"
+                               and x.get("domain") == "googleapis.com"
+                               and x.get("reason") in REASONS}
+                    if len(matches) == 1:
+                        reason = "_" + matches.pop()
+                except (ValueError, TypeError, AttributeError, OSError):
+                    pass
+            raise Unavailable("HTTP_" + str(exc.code) + reason) from exc
+        except (OSError, ValueError) as exc:
+            cause = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+            if isinstance(cause, ssl.SSLError):
+                label = "TLS"
+            elif isinstance(cause, socket.timeout):
+                label = "TIMEOUT"
+            elif isinstance(cause, socket.gaierror):
+                label = "DNS"
+            elif isinstance(cause, ValueError):
+                label = "REQUEST_INVALID"
+            else:
+                label = "NETWORK"
+            if label not in ("TLS", "REQUEST_INVALID") and attempt < 2:
+                time.sleep(2 ** attempt + random.random())
+                continue
+            raise Unavailable("UNAVAILABLE_" + label) from exc
     if len(data) > 2_000_000:
         raise Unavailable("RESPONSE_TOO_LARGE")
     try:
@@ -120,7 +143,10 @@ def pages(url, field, access_token, params=(), quota_project=None):
 
 
 def connectors(access_token, quota_project=None):
-    locations = pages(VPC, "locations", access_token, quota_project=quota_project)
+    try:
+        locations = pages(VPC, "locations", access_token, quota_project=quota_project)
+    except Unavailable as exc:
+        raise Unavailable("LOCATIONS_" + str(exc)) from exc
     ids = [row.get("locationId") for row in locations]
     if (not ids or len(ids) > 200
             or not all(isinstance(x, str) and re.fullmatch(r"[a-z]+(?:-[a-z0-9]+)+[0-9]+", x)
@@ -128,10 +154,16 @@ def connectors(access_token, quota_project=None):
             or REGION not in ids or len(ids) != len(set(ids))):
         raise Unavailable("LOCATIONS_INVALID")
     def one(region):
-        return pages(VPC + "/" + region + "/connectors", "connectors", access_token,
-                     quota_project=quota_project)
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        return sum(len(rows) for rows in executor.map(one, ids))
+        try:
+            return pages(VPC + "/" + region + "/connectors", "connectors", access_token,
+                         quota_project=quota_project)
+        except Unavailable as exc:
+            raise Unavailable("REGION_" + region.upper().replace("-", "_") + "_" + str(exc)) from exc
+    count = 0
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        for start in range(0, len(ids), 4):
+            count += sum(len(rows) for rows in executor.map(one, ids[start:start + 4]))
+    return count
 
 
 def snapshot(access_token):

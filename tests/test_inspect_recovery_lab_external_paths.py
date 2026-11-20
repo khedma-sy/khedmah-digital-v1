@@ -82,8 +82,76 @@ class ExternalPaths(unittest.TestCase):
              contextlib.redirect_stdout(output):
             self.assertEqual(m.main(), 0)
         self.assertIn("LAB_GLOBAL_NCC_SPOKES=UNKNOWN_HTTP_403", output.getvalue())
-        self.assertIn("LAB_ALL_REGIONS_VPC_CONNECTORS=UNKNOWN_HTTP_403", output.getvalue())
+        self.assertIn("LAB_ALL_REGIONS_VPC_CONNECTORS=UNKNOWN_LOCATIONS_HTTP_403", output.getvalue())
         self.assertNotIn("=EMPTY", output.getvalue())
+
+    def test_transient_network_error_is_retried_then_returned_safely(self):
+        calls = []
+        class Opener:
+            def open(self, request, timeout):
+                calls.append(request)
+                if len(calls) < 3:
+                    raise urllib.error.URLError(TimeoutError("private network detail"))
+                return io.BytesIO(b'{"connectors": []}')
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()), \
+             patch.object(m.time, "sleep") as sleep, patch.object(m.random, "random", return_value=0):
+            self.assertEqual(m.read_json(m.VPC, "synthetic-secret"), {"connectors": []})
+        self.assertEqual(len(calls), 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+        with patch.object(m.urllib.request, "build_opener", return_value=Opener()), \
+             patch.object(m.time, "sleep"), patch.object(m.random, "random", return_value=0):
+            calls.clear()
+            with patch.object(Opener, "open", side_effect=urllib.error.URLError(TimeoutError("private detail"))):
+                with self.assertRaises(m.Unavailable) as error:
+                    m.read_json(m.VPC, "synthetic-secret")
+        self.assertEqual(str(error.exception), "UNAVAILABLE_TIMEOUT")
+        self.assertNotIn("private", str(error.exception))
+        self.assertNotIn("synthetic-secret", str(error.exception))
+
+    def test_transient_server_errors_retry_but_403_and_404_do_not(self):
+        class Opener:
+            def __init__(self, code): self.code, self.calls = code, 0
+            def open(self, request, timeout):
+                self.calls += 1
+                if self.code in (429, 503) and self.calls == 2: return io.BytesIO(b'{}')
+                raise urllib.error.HTTPError(request.full_url, self.code, "private", {}, io.BytesIO(b'{}'))
+        for code, delay in ((503, 1), (429, 30)):
+            transient = Opener(code)
+            with patch.object(m.urllib.request, "build_opener", return_value=transient), \
+                 patch.object(m.time, "sleep") as sleep, patch.object(m.random, "random", return_value=0):
+                self.assertEqual(m.read_json(m.VPC, "synthetic-secret"), {})
+            self.assertEqual(transient.calls, 2)
+            sleep.assert_called_once_with(delay)
+        for code in (403, 404):
+            denied = Opener(code)
+            with patch.object(m.urllib.request, "build_opener", return_value=denied), patch.object(m.time, "sleep") as sleep:
+                with self.assertRaisesRegex(m.Unavailable, "HTTP_" + str(code)):
+                    m.read_json(m.VPC, "synthetic-secret")
+            self.assertEqual(denied.calls, 1)
+            sleep.assert_not_called()
+
+    def test_connector_failure_reports_which_stage_failed(self):
+        with patch.object(m, "pages", side_effect=m.Unavailable("UNAVAILABLE_TIMEOUT")):
+            with self.assertRaisesRegex(m.Unavailable, "LOCATIONS_UNAVAILABLE_TIMEOUT"):
+                m.connectors("synthetic-secret")
+        def page(url, field, token, **kwargs):
+            if url == m.VPC: return [{"locationId": m.REGION}]
+            raise m.Unavailable("UNAVAILABLE_TIMEOUT")
+        with patch.object(m, "pages", side_effect=page):
+            with self.assertRaisesRegex(m.Unavailable, "REGION_EUROPE_WEST1_UNAVAILABLE_TIMEOUT"):
+                m.connectors("synthetic-secret")
+
+    def test_connector_inventory_checks_every_region_in_bounded_batches(self):
+        regions = [m.REGION, "us-central1", "us-west1", "asia-east1", "australia-southeast1"]
+        checked = []
+        def page(url, field, token, **kwargs):
+            if url == m.VPC: return [{"locationId": region} for region in regions]
+            region = url.removeprefix(m.VPC + "/").removesuffix("/connectors")
+            checked.append(region)
+            return [{}] if region == "australia-southeast1" else []
+        with patch.object(m, "pages", side_effect=page):
+            self.assertEqual(m.connectors("synthetic-secret"), 1)
+        self.assertCountEqual(checked, regions)
 
     def test_google_403_reason_is_allowlisted_without_private_details(self):
         class Opener:
