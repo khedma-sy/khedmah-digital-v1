@@ -5,7 +5,7 @@ import { LoginRequest, RegisterRequest, UpdateProfileRequest } from './dto/auth.
 import { IdentityRepository } from './identity.repository';
 import { PublicUserProfile, UserAccount, UserProfile } from './identity.types';
 import { EmailVerificationRequiredError, SafeAuthenticationError } from './identity.errors';
-import { hashPassword, passwordNeedsRehash, verifyPassword } from './security/password-security';
+import { hashPassword, passwordNeedsRehash, verifyLoginPassword, verifyPassword } from './security/password-security';
 import { SessionTokenService } from './security/session-token.service';
 import { validateLoginRequest, validateRegisterRequest, validateUpdateProfileRequest } from './identity.validation';
 
@@ -64,7 +64,9 @@ export class IdentityService {
     const input = validateLoginRequest(request);
     const account = await this.repository.findAccountByEmail(input.email);
 
-    if (!account || !verifyPassword(input.password, account.passwordHash)) {
+    // Deliberately run one PBKDF2 even when the account does not exist.
+    const passwordValid = verifyLoginPassword(input.password, account?.passwordHash);
+    if (!account || !passwordValid) {
       await this.audit('auth.login_failed');
       throw new SafeAuthenticationError();
     }
