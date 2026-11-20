@@ -76,3 +76,29 @@ test('anonymous mutation exception applies only to an explicitly decorated handl
   );
   assert.deepEqual(seenTokens, [undefined]);
 });
+
+test('class-level anonymous metadata cannot grant a blanket write exemption', async () => {
+  class MistakenlyDecoratedController {
+    publicWrite() {}
+    sensitiveWrite() {}
+  }
+  // Nest's SetMetadata can decorate a controller, but the security exception
+  // must only take effect when explicitly placed on the route handler.
+  AllowAnonymousMutation()(MistakenlyDecoratedController);
+
+  const publicDescriptor = Object.getOwnPropertyDescriptor(MistakenlyDecoratedController.prototype, 'publicWrite');
+  assert.ok(publicDescriptor);
+  AllowAnonymousMutation()(MistakenlyDecoratedController.prototype, 'publicWrite', publicDescriptor);
+
+  const { guard, seenTokens } = guardWithSessionFixture();
+  assert.equal(await guard.canActivate(context('POST', undefined,
+    MistakenlyDecoratedController.prototype.publicWrite, MistakenlyDecoratedController)), true);
+  await assert.rejects(
+    guard.canActivate(context('DELETE', undefined,
+      MistakenlyDecoratedController.prototype.sensitiveWrite, MistakenlyDecoratedController)),
+    UnauthorizedException
+  );
+  assert.equal(await guard.canActivate(context('DELETE', 'khedmah_session=valid-session',
+    MistakenlyDecoratedController.prototype.sensitiveWrite, MistakenlyDecoratedController)), true);
+  assert.deepEqual(seenTokens, [undefined, 'valid-session']);
+});
