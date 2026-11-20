@@ -138,6 +138,18 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Full git history is required to detect historical leaked secrets.
+
+      - name: Scan full git history for exposed secrets (redacted)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse --is-shallow-repository | grep -Fx false
+          # No output of matched secret values; a finding blocks this PR.
+          docker run --rm -v "$PWD:/repo:ro" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 \
+            git --redact --log-opts="--all" /repo
 
       - name: 📦 Setup Node.js 24
         uses: actions/setup-node@v7
