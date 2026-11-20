@@ -18,7 +18,8 @@ gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" --project "$GOOGLE_CL
 # A Secret Manager secret existing is different from a running revision binding it.
 gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" \
   --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
-  | jq -e '[.spec.template.spec.containers[]?.env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0' >/dev/null \
+  | jq -e '(.spec.template.spec.containers | type) == "array" and
+      ([.spec.template.spec.containers[]?.env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0)' >/dev/null \
   || { echo 'STOP: BOOTSTRAP_ADMIN_SECRET is still bound to backend runtime (or cannot be verified).' >&2; exit 31; }
 printf '%s\n' 'Production runtime BOOTSTRAP_ADMIN_SECRET binding: ABSENT (values not read).'
 
