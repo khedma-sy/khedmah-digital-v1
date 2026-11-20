@@ -29,6 +29,19 @@ PATTERNS = {
 }
 
 
+
+def pinned_runner_retry_match(fragment):
+    """Mirror the pinned runner's exact one-line retry predicate; report only a boolean."""
+    email = PRINCIPAL
+    principal = re.escape(email)
+    named = r'(?:\\[' + principal + r'\\]|"' + principal + r'"|\\x27' + principal + r'\\x27|' + principal + r')'
+    pattern = (r'\\s*ERROR:\\s*\\(gcloud\\.secrets\\.add-iam-policy-binding\\)\\s*'
+               r'INVALID_ARGUMENT:\\s*Service account\\s+' + named +
+               r'\\s+does not exist\\.?\\s*')
+    return any(re.fullmatch(pattern, line, re.IGNORECASE)
+               for line in fragment.splitlines())
+
+
 def scan_logs(directory, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     try:
@@ -58,6 +71,9 @@ def scan_logs(directory, now=None):
         out['LOG_SECRET_KIND'] = kinds[0] if len(kinds) == 1 else 'MULTIPLE'
         out['LOG_PROJECT_MARKER_PRESENT'] = PROJECT in text
         fragment = text[error.start():]
+        out['PINNED_RUNNER_RETRY_PATTERN_MATCH'] = pinned_runner_retry_match(fragment)
+        out['GCLOUD_BIND_ERROR_PREFIX_PRESENT'] = bool(re.search(
+            r'ERROR:\\s*\\(gcloud\\.secrets\\.add-iam-policy-binding\\)', fragment, re.I))
         out.update({name: bool(re.search(pattern, fragment, re.I)) for name, pattern in PATTERNS.items()})
         return out
     return {'LOG_STATUS': 'NO_MATCHING_FAILED_LOG'}
