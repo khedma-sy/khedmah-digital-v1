@@ -21,9 +21,9 @@ export class SessionAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     if (SAFE_METHODS.has(request.method.toUpperCase())) return true;
 
-    const anonymous = this.reflector.getAllAndOverride<boolean>(ANONYMOUS_MUTATION, [
-      context.getHandler(), context.getClass()
-    ]);
+    // Only the explicitly annotated route can bypass the mutation session guard.
+    // Class-level metadata would otherwise exempt every present and future write.
+    const anonymous = this.reflector.get<boolean>(ANONYMOUS_MUTATION, context.getHandler());
     if (anonymous === true) return true;
 
     await this.identity.getCurrentUser(readSessionToken(request.headers.cookie));
