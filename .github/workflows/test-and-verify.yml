@@ -141,6 +141,9 @@ jobs:
         with:
           fetch-depth: 0  # Full git history is required to detect historical leaked secrets.
 
+      - name: Validate read-only production gate script syntax
+        run: bash -n scripts/production-operator-live-validation.sh
+
       - name: Scan full git history for exposed secrets (redacted)
         shell: bash
         run: |
