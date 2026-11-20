@@ -126,10 +126,19 @@ jobs:
       - name: 🔐 Security audit
         run: npm audit --omit=dev --audit-level=high
 
-      - name: 🔐 Security audit (advisory, non-blocking)
+      - name: Full npm audit including dev dependencies (advisory evidence)
+        shell: bash
         run: |
-          echo "🔍 Running npm security audit..."
-          npm audit --production || echo "⚠️  Audit found issues — review before release. Not a blocking gate in this environment."
+          set +e
+          npm audit --audit-level=high --json > "$RUNNER_TEMP/npm-audit-full.json"
+          audit_status=$?
+          set -e
+          jq -r '.metadata.vulnerabilities // {} | "npm audit all dependencies — critical=\(.critical // 0) high=\(.high // 0) moderate=\(.moderate // 0) low=\(.low // 0)"' "$RUNNER_TEMP/npm-audit-full.json"
+          rm -f "$RUNNER_TEMP/npm-audit-full.json"
+          if [ "$audit_status" -ne 0 ]; then
+            echo 'Full dependency audit returned findings or an audit execution error; require review before release.'
+          fi
+          # Production runtime dependency HIGH issues remain a hard gate above.
 
   code-quality:
     name: Code Quality Checks
