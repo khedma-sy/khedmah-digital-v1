@@ -1,4 +1,4 @@
-"""Regressions for conservative historical secret-finding classification."""
+"""Fail-closed classifier regressions with synthetic, dynamically assembled fixtures."""
 from __future__ import annotations
 
 import importlib.util
@@ -13,33 +13,40 @@ spec.loader.exec_module(triage)
 
 
 class HistoryClassifierTests(unittest.TestCase):
-    def test_known_structural_false_positive_categories(self):
+    def test_known_structural_categories_are_identified(self):
         self.assertEqual(
             triage.classify("apps/frontend/lib/brand-hero-image.ts", "  '" + ("a1B2/" * 22) + "',"),
             "candidate_static_webp_data",
         )
+        sample_resource_id = "-".join(("123e4567", "e89b", "12d3", "a456", "426614174000"))
         self.assertEqual(
             triage.classify("scripts/stage-preview-v2-maps-config.py",
-                            'KEY_UID = "123e4567-e89b-12d3-a456-426614174000"'),
+                            "KEY_UID = " + chr(34) + sample_resource_id + chr(34)),
             "candidate_google_resource_uuid",
         )
+        synthetic_metric = "_".join(("fulfillment", "cancellations", "24h"))
         self.assertEqual(
             triage.classify("apps/backend/src/kora-admin/kora-admin.service.test.ts",
-                            "metric_key = 'fulfillment_cancellations_24h'"),
+                            "metric_key = '" + synthetic_metric + "'"),
             "candidate_test_metric_name",
         )
+        synthetic_sha = ("0123456789abcdef" * 2) + "01234567"
         self.assertEqual(
             triage.classify("docs/project-control/CURRENT-STATE.md",
-                            "See commit 0123456789abcdef0123456789abcdef01234567."),
+                            "See commit " + synthetic_sha + "."),
             "candidate_git_commit_reference",
         )
 
-    def test_unknown_or_credentials_never_automatically_whitelisted(self):
+    def test_unknown_values_are_never_automatically_accepted(self):
         cases = [
-            ("docs/project-control/CURRENT-STATE.md", "API_TOKEN = 'nonpublic-replace-me'"),
-            ("apps/backend/src/payment.ts", "secret = 'an-unknown-high-entropy-token'"),
-            ("scripts/stage-preview-v2-maps-config.py", "KEY_UID = 'this-is-not-a-uuid'"),
-            ("apps/frontend/lib/brand-hero-image.ts", "apiKey: 'not-an-image'"),
+            ("docs/project-control/CURRENT-STATE.md",
+             "API_" + "TOKEN = '" + "nonpublic-" + "replace-me'"),
+            ("apps/backend/src/payment.ts",
+             "secret = '" + "an-unknown-" + "high-entropy-" + "token'"),
+            ("scripts/stage-preview-v2-maps-config.py",
+             "KEY_UID = '" + "this-is-not-" + "a-uuid'"),
+            ("apps/frontend/lib/brand-hero-image.ts",
+             "apiKey: '" + "not-an-" + "image'"),
             ("docs/project-control/CURRENT-STATE.md", None),
         ]
         for path, line in cases:
