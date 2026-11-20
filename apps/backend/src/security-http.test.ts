@@ -15,13 +15,14 @@ import { MediaService } from './media/media.service';
 import { ProductService } from './products/product.service';
 
 test('actual HTTP wiring protects mutations, limits analytics, and preserves upload and public flows', async () => {
-  const envKeys = ['NODE_ENV', 'RATE_LIMIT_PUBLIC_MAX', 'RATE_LIMIT_AUTH_MAX', 'CLASSIFIEDS_ENABLED', 'CORS_ORIGIN'] as const;
+  const envKeys = ['NODE_ENV', 'RATE_LIMIT_PUBLIC_MAX', 'RATE_LIMIT_AUTH_MAX', 'CLASSIFIEDS_ENABLED', 'CORS_ORIGIN', 'OPERATIONS_PRODUCT_ROLE_BINDINGS'] as const;
   const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
   process.env.NODE_ENV = 'test';
   process.env.RATE_LIMIT_PUBLIC_MAX = '2';
   process.env.RATE_LIMIT_AUTH_MAX = '100';
   process.env.CLASSIFIEDS_ENABLED = 'false';
   process.env.CORS_ORIGIN = 'http://localhost:3000';
+  process.env.OPERATIONS_PRODUCT_ROLE_BINDINGS = '{}';
   const poolInit = DatabasePool.prototype.onModuleInit;
   const migratorInit = DatabaseMigrator.prototype.onModuleInit;
   DatabasePool.prototype.onModuleInit = () => {};
@@ -41,6 +42,7 @@ test('actual HTTP wiring protects mutations, limits analytics, and preserves upl
     let audits = 0;
     app.get(AnalyticsRepository).saveEvent = async () => { events += 1; };
     app.get(IdentityRepository).appendAuditLog = async () => { audits += 1; };
+    app.get(IdentityRepository).findAdminRoles = async () => [];
     const identity = app.get(IdentityService);
     identity.getCurrentUser = async token => {
       if (token !== 'valid-session') throw new UnauthorizedException('Authentication required.');
@@ -86,6 +88,10 @@ test('actual HTTP wiring protects mutations, limits analytics, and preserves upl
     ]) {
       const response = await fetch(base + path);
       assert.equal(response.status, 401, `GET ${path} must reject an anonymous reader`);
+    }
+    for (const path of ['/admin/billing/orders/pending', '/admin/operations-product/overview']) {
+      const response = await fetch(base + path, { headers: { cookie: 'khedmah_session=valid-session' } });
+      assert.equal(response.status, 403, `GET ${path} must reject an authenticated customer without admin roles`);
     }
     assert.equal((await send('/products', 'POST', '{}', true)).status, 201);
     const login = await send('/auth/login', 'POST');
