@@ -42,7 +42,7 @@ class DiagnosticTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             p = Path(directory) / 'failure.log'
             p.write_text('gcloud.secrets.add-iam-policy-binding ' + m.SECRETS['SQL'] +
-                         '\\n' + nonstandard + ' sentinel-private-data')
+                         '\n' + nonstandard + ' sentinel-private-data')
             status = m.scan_logs(Path(directory))
             self.assertEqual(status['LOG_STATUS'], 'RECENT_MATCH')
             self.assertTrue(status['EXACT_PRINCIPAL_MISSING'])
