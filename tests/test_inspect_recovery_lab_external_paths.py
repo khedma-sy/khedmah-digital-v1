@@ -164,9 +164,11 @@ class ExternalPaths(unittest.TestCase):
 
     def test_execution_gate_rejects_unknown_or_nonempty_network_paths(self):
         def app_absent(url, token, quota_project=None): raise m.Unavailable("HTTP_404")
-        with patch.object(m, "pages", return_value=[]), patch.object(m, "connectors", return_value=0), \
+        with patch.object(m, "pages", return_value=[]) as pages, patch.object(m, "connectors", return_value=0) as connectors, \
              patch.object(m, "read_json", side_effect=app_absent):
             self.assertTrue(m.require_no_additional_network_paths("token"))
+        pages.assert_called_once_with(m.NCC, "spokes", "token")
+        connectors.assert_called_once_with("token")
         with patch.object(m, "pages", return_value=[{}]), patch.object(m, "connectors") as con:
             with self.assertRaisesRegex(m.Unavailable, "NCC_SPOKES_PRESENT"):
                 m.require_no_additional_network_paths("token")

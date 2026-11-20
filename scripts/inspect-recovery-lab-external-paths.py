@@ -205,13 +205,13 @@ def quota_fallback():
 def require_no_additional_network_paths(access_token):
     """Require fresh live empty inventories before any isolated-lab restart."""
     try:
-        spokes = pages(NCC, "spokes", access_token, quota_project=SHELL_QUOTA_PROJECT)
+        spokes = pages(NCC, "spokes", access_token)
     except Unavailable as exc:
         raise Unavailable("LAB_NCC_UNVERIFIED_" + str(exc)) from exc
     if spokes:
         raise Unavailable("LAB_NCC_SPOKES_PRESENT")
     try:
-        count = connectors(access_token, quota_project=SHELL_QUOTA_PROJECT)
+        count = connectors(access_token)
     except Unavailable as exc:
         raise Unavailable("LAB_VPC_CONNECTORS_UNVERIFIED_" + str(exc)) from exc
     if count:
