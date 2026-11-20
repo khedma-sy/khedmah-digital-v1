@@ -300,7 +300,7 @@ jobs:
             echo "STOP: main baseline secrets scan did not finish"; exit "$baseline_scan_status"
           fi
           if [[ -s "$RUNNER_TEMP/khedmah-gitleaks-baseline.json" ]]; then
-            jq -r 'length | "MAIN_BASELINE_CURRENT_FINDINGS=\\(.)"' \
+            jq -r 'length | "MAIN_BASELINE_CURRENT_FINDINGS=\(.)"' \
               "$RUNNER_TEMP/khedmah-gitleaks-baseline.json"
           else
             echo 'MAIN_BASELINE_CURRENT_FINDINGS=0'
