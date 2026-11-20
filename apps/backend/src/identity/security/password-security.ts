@@ -8,6 +8,17 @@ const MAX_SALT_LENGTH = 128;
 const KEY_LENGTH = 64;
 const DIGEST = 'sha512';
 
+// Fixed, valid PBKDF2 credential used only to equalise login work when an
+// email is absent. It is not the hash of an account and cannot authenticate.
+const DUMMY_LOGIN_HASH = 'pbkdf2_sha512$220000$khedmah-dummy-credential-2026$TmLxxN3mbfojTcba22EnMvdkF8WLtHoQYo09X0e8DzNyDXJ9VQUnfP0ShdA12puYTD9o1LebhqPMwabwXxjmEg';
+
+/** Apply equivalent KDF work for missing accounts, always denying the dummy. */
+export function verifyLoginPassword(password: string, accountHash: string | undefined): boolean {
+  const matches = verifyPassword(password, accountHash ?? DUMMY_LOGIN_HASH);
+  return accountHash !== undefined && matches;
+}
+
+
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('base64url');
   const hash = pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, DIGEST).toString('base64url');
