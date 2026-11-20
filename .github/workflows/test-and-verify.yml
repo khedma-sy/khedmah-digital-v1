@@ -238,6 +238,9 @@ jobs:
 
           echo "✅ Boundary check completed with exact governed 026, 030 and 034 exceptions"
 
+      - name: Verify secret-history classifier remains fail-closed
+        run: python3 -m unittest discover -s scripts/security -p 'test_triage_gitleaks_history.py'
+
       - name: Scan full git history for exposed secrets (redacted)
         shell: bash
         run: |
