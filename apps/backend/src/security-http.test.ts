@@ -73,6 +73,20 @@ test('actual HTTP wiring protects mutations, limits analytics, and preserves upl
     for (const [path, method] of [['/products', 'POST'], ['/products/p1', 'PATCH'], ['/media/m1', 'DELETE']] as const) {
       assert.equal((await send(path, method)).status, 401, `${method} ${path} must require a session`);
     }
+    // Safe HTTP methods are not blanket public authorization: the protected
+    // account, billing, notification and admin GET routes must still enforce
+    // their service-level actor boundary before accessing user data.
+    for (const path of [
+      '/users/me',
+      '/notifications',
+      '/billing/me',
+      '/billing/promo/active',
+      '/admin/billing/orders/pending',
+      '/admin/operations-product/overview',
+    ]) {
+      const response = await fetch(base + path);
+      assert.equal(response.status, 401, `GET ${path} must reject an anonymous reader`);
+    }
     assert.equal((await send('/products', 'POST', '{}', true)).status, 201);
     const login = await send('/auth/login', 'POST');
     assert.equal(login.status, 201, 'login remains available without an existing session');
