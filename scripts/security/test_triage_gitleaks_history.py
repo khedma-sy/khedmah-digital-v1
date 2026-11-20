@@ -48,6 +48,10 @@ class HistoryClassifierTests(unittest.TestCase):
             triage.classify(path, "API_" + "TOKEN = '" + "nonpublic-" + "replace-me'"),
             "candidate_synthetic_test_fixture",
         )
+        self.assertEqual(
+            triage.classify(path, "secret = '" + "an-unknown-" + "high-entropy-" + "token'"),
+            "candidate_synthetic_test_fixture",
+        )
         self.assertTrue(triage.classify(path, "API_" + "TOKEN = 'unknown'").startswith("unresolved_"))
 
     def test_unknown_values_are_never_automatically_accepted(self):
