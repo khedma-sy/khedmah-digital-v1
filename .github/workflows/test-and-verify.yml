@@ -257,6 +257,10 @@ jobs:
             echo 'Historical potential secret findings by rule category only (no paths, commits or values):'
             jq -r '[.[].RuleID] | group_by(.)[] | "rule=\(.[0]) count=\(length)"' \
               "$RUNNER_TEMP/khedmah-gitleaks-private.json"
+            # Report only structural categories, never matched strings, source
+            # paths, commit IDs or original source lines.
+            python3 scripts/security/triage-gitleaks-history.py \
+              "$RUNNER_TEMP/khedmah-gitleaks-private.json"
           fi
           # Distinguish historical-only leaks from still-present source findings.
           # Both reports remain on the ephemeral runner and are deleted.
