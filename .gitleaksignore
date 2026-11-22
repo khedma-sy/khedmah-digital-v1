@@ -1,0 +1,4 @@
+# Historical test metric literal, verified in the original fixture.
+29b880a0b5ba38465057b3c7b020f9f0dd3fbe66:scripts/security/test_triage_gitleaks_history.py:generic-api-key:28
+# Historical ACL documentation prose, verified against the matched span.
+5060a23621afb93be49fbb18b8a2d24342a642a3:docs/project-control/CURRENT-STATE.md:generic-api-key:333
