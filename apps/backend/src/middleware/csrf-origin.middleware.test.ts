@@ -19,6 +19,8 @@ function runMiddleware(input: {
   cookie?: string;
   origin?: string;
   referer?: string;
+  nativeClient?: string;
+  fetchSite?: string;
   configuredOrigins?: string;
 }) {
   process.env.CORS_ORIGIN = input.configuredOrigins ?? allowedOrigin;
@@ -32,7 +34,9 @@ function runMiddleware(input: {
     headers: {
       ...(input.cookie ? { cookie: input.cookie } : {}),
       ...(input.origin ? { origin: input.origin } : {}),
-      ...(input.referer ? { referer: input.referer } : {})
+      ...(input.referer ? { referer: input.referer } : {}),
+      ...(input.nativeClient ? { 'x-khedmah-client': input.nativeClient } : {}),
+      ...(input.fetchSite ? { 'sec-fetch-site': input.fetchSite } : {})
     }
   } as Request;
 
@@ -125,4 +129,30 @@ test('local development has an explicit localhost origin fallback only', () => {
   process.env.NODE_ENV = 'development';
   delete process.env.CORS_ORIGIN;
   assert.deepEqual(configuredOrigins(), ['http://localhost:3000']);
+});
+
+test('native Android cookie request without browser Fetch Metadata retains its documented exception', () => {
+  const result = runMiddleware({ method: 'POST', cookie: 'khedmah_session=session-token', nativeClient: 'android' });
+  assert.equal(result.nextCalls, 1);
+  assert.equal(result.statusCode, undefined);
+});
+
+test('browser-originated request cannot spoof Android to bypass session CSRF checks', () => {
+  for (const fetchSite of ['cross-site', 'same-site', 'same-origin', 'none']) {
+    const result = runMiddleware({
+      method: 'POST', cookie: 'khedmah_session=session-token',
+      nativeClient: 'android', fetchSite
+    });
+    assert.equal(result.nextCalls, 0, fetchSite);
+    assert.equal(result.statusCode, 403, fetchSite);
+  }
+});
+
+test('Android-labelled request with untrusted Origin remains rejected', () => {
+  const result = runMiddleware({
+    method: 'PATCH', cookie: 'khedmah_session=session-token',
+    nativeClient: 'android', origin: 'https://evil.example'
+  });
+  assert.equal(result.nextCalls, 0);
+  assert.equal(result.statusCode, 403);
 });

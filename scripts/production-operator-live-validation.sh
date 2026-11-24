@@ -13,6 +13,46 @@ mkdir -p "$evidence"
 
 gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
   | jq '{name:.metadata.name,latestReadyRevision:.status.latestReadyRevisionName,traffic:.status.traffic}' > "$evidence/backend-service.json"
+
+# Verify effective backend environment bindings without ever printing their values.
+# A Secret Manager secret existing is different from a running revision binding it.
+gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" \
+  --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
+  | jq -e '(.spec.template.spec.containers | type) == "array" and
+      ([.spec.template.spec.containers[]?.env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0)' >/dev/null \
+  || { echo 'STOP: BOOTSTRAP_ADMIN_SECRET is still bound to backend runtime (or cannot be verified).' >&2; exit 31; }
+# Include tagged revisions because their tagged routes can serve requests.
+revisions="$(jq -er '
+  .traffic | select(type == "array" and length > 0)
+  | map(select((.percent // 0) > 0 or (.tag // "") != ""))
+  | select(length > 0 and all(.[]; .revisionName | type == "string" and test("^[a-z][a-z0-9-]+$")))
+  | map(.revisionName) | unique[]' "$evidence/backend-service.json")" || exit 31
+while IFS= read -r revision; do
+  gcloud run revisions describe "$revision" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
+    | jq -e '.spec.containers | type == "array" and length > 0 and
+        all(.[]; all(.env[]?; .name != "BOOTSTRAP_ADMIN_SECRET"))' >/dev/null \
+    || { echo 'STOP: serving revision bootstrap binding absent status unverified.' >&2; exit 31; }
+done <<<"$revisions"
+printf '%s\n' 'Production runtime BOOTSTRAP_ADMIN_SECRET binding: ABSENT (values not read).'
+
+# Read-only inspection of actual Production SQL instance; never infer PITR from
+# a Dockerfile, Terraform template, a Preview database, or a backup workflow.
+: "${OPERATIONS_DATABASE_INSTANCE:?STOP: OPERATIONS_DATABASE_INSTANCE is required for actual Production PITR verification}"
+gcloud sql instances describe "$OPERATIONS_DATABASE_INSTANCE" --project "$GOOGLE_CLOUD_PROJECT" --format=json \
+  | jq -e '{name,region,state,backupEnabled:.settings.backupConfiguration.enabled,
+      pitrEnabled:.settings.backupConfiguration.pointInTimeRecoveryEnabled,
+      logDays:.settings.backupConfiguration.transactionLogRetentionDays} 
+      | select(.backupEnabled == true and .pitrEnabled == true and (.logDays|tonumber) >= 1)' \
+  > "$evidence/production-pitr-policy.json" \
+  || { echo 'STOP: Production automated backup/PITR policy not proven. Do not deploy.' >&2; exit 32; }
+# A successful backup is NOT a recovery-drill receipt. Only a separately fenced
+# isolated restore with owner-approved scope can prove successful recovery.
+gcloud sql backups list --project "$GOOGLE_CLOUD_PROJECT" \
+  --instance "$OPERATIONS_DATABASE_INSTANCE" --limit=7 --format=json \
+  | jq -e '[.[] | select(.status == "SUCCESSFUL")] | length > 0' >/dev/null \
+  || { echo 'STOP: No successful Production backup verified in last seven listed backups.' >&2; exit 33; }
+printf '%s\n' 'Production PITR configuration and at least one successful backup: VERIFIED (restore drill remains separate).'
+
 gcloud run services describe "$OPERATIONS_FRONTEND_SERVICE" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
   | jq '{name:.metadata.name,latestReadyRevision:.status.latestReadyRevisionName,traffic:.status.traffic}' > "$evidence/frontend-service.json"
 gcloud artifacts repositories describe "$OPERATIONS_ARTIFACT_REPOSITORY" --project "$GOOGLE_CLOUD_PROJECT" --location "$GOOGLE_CLOUD_REGION" --format=json \

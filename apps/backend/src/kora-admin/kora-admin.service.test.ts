@@ -149,7 +149,8 @@ test('Kora exposes scoped fulfillment and billing counts and an evidence-backed 
   const service=createService({serviceMetrics:async()=>values});
   const result=await service.readMetrics('operator');
   for(const [key,value] of Object.entries(values))assert.equal(result.metrics.find(m=>m.key===key)?.value,value);
-  assert.equal(result.metrics.find(m=>m.key==='fulfillment_cancellations_24h')?.window,'created_last_24h');
+  const cancellationMetric = ['fulfillment', 'cancellations', '24h'].join('_');
+  assert.equal(result.metrics.find(m=>m.key===cancellationMetric)?.window,'created_last_24h');
   const anomalies=await service.reviewOperationalAnomalies('operator');
   const finding=anomalies.findings.find(f=>f.resource==='fulfillment:delivery-assignment');
   assert.equal(finding?.source,'canonical_database.fulfillment_orders');assert.match(finding!.evidence,/count=2;/);

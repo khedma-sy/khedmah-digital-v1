@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Inject, Post } from '@nestjs/common';
 import { BootstrapAdminRequest, BootstrapAdminResult, BootstrapAdminService } from './bootstrap-admin.service';
+import { AllowAnonymousMutation } from '../security/session-auth.guard';
 
 @Controller('admin/bootstrap')
 export class BootstrapAdminController {
@@ -11,6 +12,7 @@ export class BootstrapAdminController {
   }
 
   @Post()
+  @AllowAnonymousMutation()
   async bootstrap(
     @Headers('x-bootstrap-secret') secret: string | undefined,
     @Body() body: BootstrapAdminRequest

@@ -6,7 +6,6 @@ import { AnalyticsValidationError } from './analytics.errors';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsService } from './analytics.service';
 import { IdentityRepository } from '../identity/identity.repository';
-import { PlatformLogger } from '../logging/platform-logger';
 
 const rawPool = createTestPool();
 
@@ -32,13 +31,10 @@ async function createService() {
 
   const repository = new AnalyticsRepository(pool);
   const identityRepository = new IdentityRepository(pool);
-  const logger = new PlatformLogger();
-  logger.log = () => undefined;
-
   return {
     identityRepository,
     repository,
-    service: new AnalyticsService(repository, identityRepository, logger)
+    service: new AnalyticsService(repository)
   };
 }
 
@@ -100,10 +96,22 @@ test('safe metadata is stored with a privacy-safe receipt', async () => {
   assert.deepEqual(Object.keys(receipt).sort(), ['entityId', 'entityType', 'eventType', 'id', 'recordedAt']);
 });
 
-test('audit boundary records event submission without storing private actor profiles', async () => {
+test('recording an analytics event does not create an audit record', async () => {
   const { identityRepository, service } = await createService();
   await service.recordEvent({ eventType: 'contact_click', entityType: 'business_profile', entityId: 'business-1', occurredAt });
 
   const logs = await identityRepository.listAuditLogs();
-  assert.ok(logs.some((event) => event.eventType === 'analytics.event.recorded'));
+  assert.equal(logs.some((event) => event.eventType === 'analytics.event.recorded'), false);
+});
+
+test('a burst of analytics events writes only analytics rows and no audit rows', async () => {
+  const { identityRepository, repository, service } = await createService();
+  for (let index = 0; index < 8; index += 1) {
+    await service.recordEvent({
+      eventType: 'business_view', entityType: 'business_profile',
+      entityId: `business-${index}`, occurredAt
+    });
+  }
+  assert.equal((await repository.listEvents()).length, 8);
+  assert.equal((await identityRepository.listAuditLogs()).length, 0);
 });

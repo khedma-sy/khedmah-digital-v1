@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {clientPage,css,deferred,primitives,readSource} from './helpers/client-page-harness.mjs';
+import {clientPage,css,deferred,loadSource,primitives,readSource} from './helpers/client-page-harness.mjs';
 function fixture(kind) {
   let id='first';const calls=[];
   const request=(section)=>{const d={...deferred(),section,id};calls.push(d);return d.promise;};
@@ -9,7 +9,7 @@ function fixture(kind) {
   const api={businesses:provider,professionals:provider,services:{listForOwner:()=>request('services')}};
   const page=clientPage(readSource(`apps/frontend/app/${kind}-profiles/[id]/page.tsx`),{
     'next/link':{default:'Link'},'next/navigation':{useParams:()=>({id}),useRouter:()=>({back(){}})},
-    '../../../lib/api-client':{api},'../../../lib/use-syrian-cities':{useSyrianCities:()=>({cities:[]}),cityLabel:()=> 'دمشق'},'../../../lib/use-categories':{useCategories:()=>({categories:[]})},
+    '../../../lib/api-client':{api},'../../../lib/json-ld':loadSource(readSource('apps/frontend/lib/json-ld.ts'),{}),'../../../lib/use-syrian-cities':{useSyrianCities:()=>({cities:[]}),cityLabel:()=> 'دمشق'},'../../../lib/use-categories':{useCategories:()=>({categories:[]})},
     '../../../components/contact-inquiry-form':{ContactInquiryForm:'ContactInquiryForm'},'../../../components/provider-report-form':{ProviderReportForm:'ProviderReportForm'},'../../components/ui-primitives':primitives,'../../components/platform-icon':{PlatformIcon:'PlatformIcon'},'./provider-qr-action':{ProviderQrAction:'ProviderQrAction'},'./public-profile.module.css':{default:css},'./professional-profile.module.css':{default:css}
   });
   const empty={profile:{[kind==='business'?'business':'professional']:profile},services:{services:[]},media:{assets:[]},verification:{status:null},hours:{hours:[]},branches:{branches:[]},links:{links:[]}};

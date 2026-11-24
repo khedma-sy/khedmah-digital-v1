@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { pbkdf2Sync } from 'node:crypto';
 import { test } from 'node:test';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { DatabasePool } from '../database/database.pool';
@@ -6,6 +7,7 @@ import { createTestPool, resetCanonicalTestSchema } from '../database/test-pool'
 import { IdentityRepository } from './identity.repository';
 import { IdentityService } from './identity.service';
 import { SessionTokenService } from './security/session-token.service';
+import { verifyPassword } from './security/password-security';
 
 const rawPool = createTestPool();
 
@@ -74,6 +76,23 @@ test('login fails closed while email verification is pending and succeeds after 
   const logs = await repository.listAuditLogs();
   assert.ok(logs.some((event) => event.eventType === 'auth.login_failed'));
   assert.ok(logs.some((event) => event.eventType === 'auth.login_success'));
+});
+
+test('successful login upgrades a legacy password in the disposable PostgreSQL database', async () => {
+  const { repository, service, pool } = await setup();
+  const password = 'very-secure-password';
+  const registration = await service.register({ email: 'legacy@example.com', password, displayName: 'حساب تجريبي' });
+  await activate(pool, registration.user.id);
+  const salt = 'legacy-test-salt';
+  const legacy = `pbkdf2_sha512$120000$${salt}$${pbkdf2Sync(password, salt, 120_000, 64, 'sha512').toString('base64url')}`;
+  await pool.query('UPDATE identity_credentials SET password_hash = $1 WHERE user_identifier = $2', [legacy, registration.user.id]);
+  await service.login({ email: 'legacy@example.com', password });
+  const account = await repository.findAccountByEmail('legacy@example.com');
+  assert.ok(account);
+  assert.match(account.passwordHash, /^pbkdf2_sha512\$220000\$/);
+  assert.equal(verifyPassword(password, account.passwordHash), true);
+  assert.equal(await repository.updatePasswordHashIfUnchanged(registration.user.id, legacy, 'replacement'), false);
+  assert.equal((await repository.findAccountById(registration.user.id))?.passwordHash, account.passwordHash);
 });
 
 test('session lookup and protected current user access require a verified active login session', async () => {
