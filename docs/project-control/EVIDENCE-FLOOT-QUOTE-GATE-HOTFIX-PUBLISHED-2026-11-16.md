@@ -14,7 +14,7 @@
 - Floot checkpoint `cec78757-edfc-4bc9-8783-72d759c7d18d`.
 - Called Floot `publish_app` for WEB ONLY, with `include_made_with_floot=true` (free-plan constraint), `mobile=false`; job `35ec8b9e-6f39-41c8-b430-3834b49660d1` **succeeded**.
 - Independent `get_publish_status` returned `published=true`, live release `17948628681229648d552-0339-4bbc-9ff9-2d487adcae25`, `publishedAt=2026-11-16T21:01:04.055Z`, sourceDigest `bc7794c4b656fb09398b1068b499fe6e0b9146da1da677d4d2bca8f8406bde2b`, 1396 files, `laterFailedPublish=null`.
-- Post-publish read-only HTTP: `https://khedmah.uk/` -> `/platform` 200; `https://khedma-meeting.floot.app/` -> `/platform` 200; live upstream version still `f4f8ce2...` (expected: quote confirmation remains safely closed).
+- Post-publish read-only HTTP: `[public web origin]/` -> `/platform` 200; `[public web origin]/` -> `/platform` 200; live upstream version still `f4f8ce2...` (expected: quote confirmation remains safely closed).
 
 ## Outstanding operational acceptance
 - This is a **fail-closed safety hotfix**, not commercial order functionality acceptance: confirmation is unavailable until a tested compatible Backend is deployed and the version gate is updated/accepted.

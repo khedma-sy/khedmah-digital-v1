@@ -6,7 +6,7 @@
 - Floot project `5e271f43-96a6-40de-a634-ec3eae023a49`
 - Publish job `fe6d93bf-b0fb-49ae-a1e3-bf52eda30e6a`: `succeeded`
 - Independent publish-status readback `published=true`; current release `1795185426658cc00620c-adbb-413c-942e-d5ddfc24ed63`, `publishedAt=2026-11-20T14:37:00.745Z`, `sourceDigest=29808b87445952074c39b2c42a2aef2bf5b5e74a015956e692effaefc5d0bbb9`, 1397 source files, no later failed publish.
-- Live URL `https://khedma-meeting.floot.app/platform`. Read-only HTTP probe: root redirect-followed 200; GET anonymous order list 401; POST order creation `{}` without session 401.
+- Live URL `[public web origin]/platform`. Read-only HTTP probe: root redirect-followed 200; GET anonymous order list 401; POST order creation `{}` without session 401.
 - Floot checkpoint: `f046cf1c-61af-45af-995e-b063ca5b71d9`.
 
 ## Shipping change
@@ -22,7 +22,7 @@ Changed Floot editor:
 Quality: all **160/160** Floot Jasmine spec files passed in eight explicit batches (zero failures). Project shipment TypeScript `typecheck: clean`. No production DB test order was created. The gate is intentionally strict and **does not prove enabled Backend rollout configuration**; unlock only after a hosted test proves the expectedQuote persisted match and exact running revision.
 
 ## Release blockers
-- Floot's authoritative `get_publish_status`: `plan=free`, `customDomains=[]`. HTTP fetch from Floot VM to `https://khedmah.uk/` and `https://www.khedmah.uk/` failed. A direct request to set up custom domain returned `Custom domains are a paid-plan feature`. **User must change billing/setup** to restore own domain; .floot.app public origin remains live.
+- Floot's authoritative `get_publish_status`: `plan=free`, `customDomains=[]`. HTTP fetch from Floot VM to `[public web origin]/` and `[public web origin]/` failed. A direct request to set up custom domain returned `Custom domains are a paid-plan feature`. **User must change billing/setup** to restore own domain; .floot.app public origin remains live.
 - Backend Cloud Run Preview still on legacy `f4f8ce2...`, schema037 candidate not deployed there. Do NOT unlock order confirmation/creation or claim commercial readiness. No Cloud SQL/Production mutation was executed.
 - Floot scheduled jobs on free plan do not run; in-editor timed foreground alerts do not constitute background push.
 - Floot publish additionally flagged five no-internal-caller endpoints; inspect external usage before removal.

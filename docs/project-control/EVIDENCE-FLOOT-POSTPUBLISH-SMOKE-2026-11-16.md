@@ -1,13 +1,13 @@
 # Post-deployment smoke receipt — Floot web 2026-11-16
 
-Live release independently reconfirmed via Floot get_publish_status: `17948620376495ecb4a1f-0013-496c-9ce6-b198bcf08bc9`, published `2026-11-16T20:47:12.558Z`, no later failed publish. Domains attached `khedmah.uk`, `www.khedmah.uk`.
+Live release independently reconfirmed via Floot get_publish_status: `17948620376495ecb4a1f-0013-496c-9ce6-b198bcf08bc9`, published `2026-11-16T20:47:12.558Z`, no later failed publish. Domains attached `[public web origin]`, `[public web origin]`.
 
 Unauthenticated HTTP probes from Floot VM, no customer or operational data touched:
 
 | Request | Observed |
 | --- | --- |
-| GET `https://khedma-meeting.floot.app/` | 301 to `/platform`; redirects followed: 200 |
-| GET `https://khedmah.uk/` | 301 to `/platform`; redirects followed: 200 |
+| GET `[public web origin]/` | 301 to `/platform`; redirects followed: 200 |
+| GET `[public web origin]/` | 301 to `/platform`; redirects followed: 200 |
 | GET `/_api/integrations/khedmah_orders` | 401 JSON |
 | POST `/_api/integrations/khedmah_order_action` empty JSON | 403 JSON |
 | POST `/_api/integrations/khedmah_order` empty JSON | 403 JSON |

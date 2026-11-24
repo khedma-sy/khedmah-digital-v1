@@ -21,6 +21,18 @@ gcloud run services describe "$OPERATIONS_BACKEND_SERVICE" \
   | jq -e '(.spec.template.spec.containers | type) == "array" and
       ([.spec.template.spec.containers[]?.env[]? | select(.name == "BOOTSTRAP_ADMIN_SECRET")] | length == 0)' >/dev/null \
   || { echo 'STOP: BOOTSTRAP_ADMIN_SECRET is still bound to backend runtime (or cannot be verified).' >&2; exit 31; }
+# Include tagged revisions because their tagged routes can serve requests.
+revisions="$(jq -er '
+  .traffic | select(type == "array" and length > 0)
+  | map(select((.percent // 0) > 0 or (.tag // "") != ""))
+  | select(length > 0 and all(.[]; .revisionName | type == "string" and test("^[a-z][a-z0-9-]+$")))
+  | map(.revisionName) | unique[]' "$evidence/backend-service.json")" || exit 31
+while IFS= read -r revision; do
+  gcloud run revisions describe "$revision" --project "$GOOGLE_CLOUD_PROJECT" --region "$GOOGLE_CLOUD_REGION" --format=json \
+    | jq -e '.spec.containers | type == "array" and length > 0 and
+        all(.[]; all(.env[]?; .name != "BOOTSTRAP_ADMIN_SECRET"))' >/dev/null \
+    || { echo 'STOP: serving revision bootstrap binding absent status unverified.' >&2; exit 31; }
+done <<<"$revisions"
 printf '%s\n' 'Production runtime BOOTSTRAP_ADMIN_SECRET binding: ABSENT (values not read).'
 
 # Read-only inspection of actual Production SQL instance; never infer PITR from

@@ -1,7 +1,7 @@
 # Floot live anonymous HTTP boundary — 2026-11-16
 
 ## Live read-only / deliberately unauthenticated requests
-Executed via connected Floot VM against `https://khedma-meeting.floot.app`, no session token, no real customer data, no authenticated writes:
+Executed via connected Floot VM against `[public web origin]`, no session token, no real customer data, no authenticated writes:
 
 | Method | Path | HTTP |
 | --- | --- | --- |

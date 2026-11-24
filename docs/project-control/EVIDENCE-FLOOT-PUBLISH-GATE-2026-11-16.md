@@ -1,7 +1,7 @@
 # Floot republish gate — 2026-11-16
 
 ## Verified current state
-- Live release `17944528331124c03df28-23e1-4345-ad73-f248adfce602`, published `2026-11-12T03:07:07.733Z` at `https://khedma-meeting.floot.app`; custom domains `khedmah.uk` and `www.khedmah.uk` attached (Floot `get_publish_status`).
+- Live release `17944528331124c03df28-23e1-4345-ad73-f248adfce602`, published `2026-11-12T03:07:07.733Z` at `[public web origin]`; custom domains `[public web origin]` and `[public web origin]` attached (Floot `get_publish_status`).
 - Floot editor version observed: `1794784873909`.
 - Current editor project-wide TypeScript: **`typecheck: clean`**.
 - Three targeted Jasmine suites passed, zero failed: `helpers/khedmahReviewedQuoteConfirmation.spec.tsx`, `helpers/khedmahMerchantAlerts.spec.tsx`, `helpers/khedmahCustomerOrderAccountIsolation.spec.tsx`.
