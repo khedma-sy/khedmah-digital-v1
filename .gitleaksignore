@@ -2,3 +2,19 @@
 29b880a0b5ba38465057b3c7b020f9f0dd3fbe66:scripts/security/test_triage_gitleaks_history.py:generic-api-key:28
 # Historical ACL documentation prose, verified against the matched span.
 5060a23621afb93be49fbb18b8a2d24342a642a3:docs/project-control/CURRENT-STATE.md:generic-api-key:333
+# Synthetic fixture UUID
+29b880a0b5ba38465057b3c7b020f9f0dd3fbe66:scripts/security/test_triage_gitleaks_history.py:generic-api-key:23
+# Google resource UUID
+847b127acd990eb190d84f4f841a33937a60b94c:scripts/stage-preview-v2-firebase-server-config.py:generic-api-key:25
+# Google resource UUID
+18d09817627930da767ca98e021584912a0f5392:scripts/stage-preview-v2-maps-config.py:generic-api-key:20
+# Test metric
+c8cd52c334df4907ce2aaee524955cb6b815af5a:apps/backend/src/kora-admin/kora-admin.service.test.ts:generic-api-key:87
+# WebP image bytes
+b05fdabf193ec781f34a9ac2be966858290caed9:apps/frontend/lib/brand-hero-image.ts:generic-api-key:116
+# WebP image bytes
+b05fdabf193ec781f34a9ac2be966858290caed9:apps/frontend/lib/brand-hero-image.ts:generic-api-key:368
+# WebP image bytes
+11a64d636f153d7ce5ea2227fb3ca28a9cf6bac9:apps/frontend/lib/brand-hero-image.ts:generic-api-key:116
+# WebP image bytes
+11a64d636f153d7ce5ea2227fb3ca28a9cf6bac9:apps/frontend/lib/brand-hero-image.ts:generic-api-key:368
