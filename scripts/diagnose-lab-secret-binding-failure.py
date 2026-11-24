@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Read-only classification of the latest lab secret-binding failure and cleanup."""
+import argparse
 import datetime as dt
 import json
 import os
@@ -42,6 +43,77 @@ def pinned_runner_retry_match(fragment):
                for line in fragment.splitlines())
 
 
+def error_flags(fragment):
+    return {
+        'PINNED_RUNNER_RETRY_PATTERN_MATCH': pinned_runner_retry_match(fragment),
+        'GCLOUD_BIND_ERROR_PREFIX_PRESENT': bool(re.search(
+            r'ERROR:\s*\(gcloud\.secrets\.add-iam-policy-binding\)', fragment, re.I)),
+        **{name: bool(re.search(pattern, fragment, re.I)) for name, pattern in PATTERNS.items()},
+    }
+
+
+def receipt_second(value):
+    try:
+        return dt.datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=dt.timezone.utc)
+    except ValueError:
+        raise argparse.ArgumentTypeError('expected a UTC time such as 2026-11-20T14:38:16Z') from None
+
+
+def recorded_sql_log(directory, when):
+    """Match one historical receipt. Its timestamp describes file mtime, rounded down to seconds."""
+    second = int(when.timestamp())
+    result = None
+    try:
+        if not directory.is_dir():
+            return {'RECORDED_LOG_STATUS': 'UNAVAILABLE'}
+        for path in directory.rglob('*.log'):
+            if path.is_symlink() or not path.is_file():
+                continue
+            if path.stat().st_mtime_ns // 1_000_000_000 != second:
+                continue
+            with path.open('rb') as stream:
+                before = os.fstat(stream.fileno())
+                data = stream.read(2_000_001)
+                after = os.fstat(stream.fileno())
+            if (len(data) > 2_000_000 or before.st_mtime_ns != after.st_mtime_ns
+                    or after.st_mtime_ns // 1_000_000_000 != second or len(data) != after.st_size):
+                return {'RECORDED_LOG_STATUS': 'UNAVAILABLE'}
+            text = data.decode('utf-8', errors='replace')
+            if ('gcloud.secrets.add-iam-policy-binding' not in text
+                    or not re.search(r'(?<![\w@.-])' + re.escape(PROJECT) + r'(?![\w.-])', text)
+                    or not re.search(r'(?<![\w.-])' + re.escape(SECRETS['SQL']) + r'(?![\w.-])', text)):
+                continue
+            error = re.search(r'\bERROR\b|Traceback \(most recent call last\)', text, re.I)
+            if not error:
+                continue
+            if result is not None:
+                return {'RECORDED_LOG_STATUS': 'AMBIGUOUS'}
+            # Keep the original line prefix when comparing the anchored runner predicate.
+            fragment = text[text.rfind('\n', 0, error.start()) + 1:]
+            wording, layouts = set(), set()
+            for line in fragment.splitlines():
+                for match in re.finditer(PATTERNS['EXACT_PRINCIPAL_MISSING'], line, re.I):
+                    wording.add('NOT_FOUND' if match.group().lower().endswith('not found')
+                                else 'DOES_NOT_EXIST')
+                    header = line[:match.start()].strip().lower()
+                    if header == 'error: (gcloud.secrets.add-iam-policy-binding) invalid_argument:':
+                        layout = 'CLI_HEADER'
+                    elif 'invalid_argument' in header:
+                        layout = 'OTHER_HEADER_WITH_STATUS'
+                    else:
+                        layout = 'MESSAGE_ONLY_OR_OTHER_HEADER'
+                    if line[match.end():].strip() not in ('', '.'):
+                        layout += '_WITH_SUFFIX'
+                    layouts.add(layout)
+            result = {'RECORDED_LOG_STATUS': 'MATCH', 'LOG_MODIFIED_UTC': when.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                      'EXACT_PRINCIPAL_WORDING': ','.join(sorted(wording)) or 'NONE',
+                      'EXACT_PRINCIPAL_LINE_LAYOUTS': ','.join(sorted(layouts)) or 'NONE',
+                      **error_flags(fragment)}
+    except OSError:
+        return {'RECORDED_LOG_STATUS': 'UNAVAILABLE'}
+    return result if result is not None else {'RECORDED_LOG_STATUS': 'NO_MATCH'}
+
+
 def scan_logs(directory, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     try:
@@ -71,10 +143,7 @@ def scan_logs(directory, now=None):
         out['LOG_SECRET_KIND'] = kinds[0] if len(kinds) == 1 else 'MULTIPLE'
         out['LOG_PROJECT_MARKER_PRESENT'] = PROJECT in text
         fragment = text[error.start():]
-        out['PINNED_RUNNER_RETRY_PATTERN_MATCH'] = pinned_runner_retry_match(fragment)
-        out['GCLOUD_BIND_ERROR_PREFIX_PRESENT'] = bool(re.search(
-            r'ERROR:\s*\(gcloud\.secrets\.add-iam-policy-binding\)', fragment, re.I))
-        out.update({name: bool(re.search(pattern, fragment, re.I)) for name, pattern in PATTERNS.items()})
+        out.update(error_flags(fragment))
         return out
     return {'LOG_STATUS': 'NO_MATCHING_FAILED_LOG'}
 
@@ -133,13 +202,23 @@ def inspect_cloud():
     }
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--recorded-sql-log', type=receipt_second, metavar='UTC',
+                        help='inspect only the original Cloud Shell log at a recorded UTC second; no cloud calls')
+    args = parser.parse_args(argv)
     directory = Path(os.environ.get('CLOUDSDK_CONFIG') or (Path.home() / '.config/gcloud')).expanduser() / 'logs'
-    for name, value in {**scan_logs(directory), **inspect_cloud()}.items():
+    if args.recorded_sql_log:
+        result = recorded_sql_log(directory, args.recorded_sql_log)
+        result['CLOUD_CALLS'] = False
+    else:
+        result = {**scan_logs(directory), **inspect_cloud()}
+    for name, value in result.items():
         print(name + ':', value)
     print('RAW_LOG_OR_SECRET_PRINTED: False')
     print('READ_ONLY_NO_CLOUD_MUTATIONS: True')
+    return 2 if args.recorded_sql_log and result['RECORDED_LOG_STATUS'] != 'MATCH' else 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

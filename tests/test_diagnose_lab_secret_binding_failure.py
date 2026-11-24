@@ -102,9 +102,68 @@ class DiagnosticTests(unittest.TestCase):
             (logs / 'failure.log').write_text('gcloud.secrets.add-iam-policy-binding ' + m.SECRETS['PASSWORD'] + '\nERROR: PERMISSION_DENIED sentinel-private-data')
             output = io.StringIO()
             with patch.dict(os.environ, {'CLOUDSDK_CONFIG': directory}), patch.object(m, 'inspect_cloud', return_value={}), contextlib.redirect_stdout(output):
-                m.main()
+                m.main([])
             self.assertIn('PERMISSION_DENIED: True', output.getvalue())
             self.assertNotIn('sentinel-private-data', output.getvalue())
+
+    def test_recorded_mode_compares_original_lines_offline_and_ignores_newer_logs(self):
+        stamp = '2026-11-20T14:38:16Z'
+        when = m.receipt_second(stamp).timestamp()
+        command = 'gcloud.secrets.add-iam-policy-binding --project=' + m.PROJECT + ' ' + m.SECRETS['SQL']
+        header = 'ERROR: (gcloud.secrets.add-iam-policy-binding) INVALID_ARGUMENT: Service account '
+        with tempfile.TemporaryDirectory() as root:
+            logs = Path(root, 'logs')
+            logs.mkdir()
+            incident, newer = logs / 'incident.log', logs / 'newer.log'
+            newer.write_text(command + '\n' + header + m.PRINCIPAL + ' does not exist.')
+            os.utime(newer, (when + 90, when + 90))
+            for prefix, wording, tail, predicate, layout in [
+                ('', 'does not exist', '.', True, 'CLI_HEADER'),
+                ('archived-log-prefix ', 'does not exist', '.', False, 'OTHER_HEADER_WITH_STATUS'),
+                ('', 'not found', '. sentinel-private-data', False, 'CLI_HEADER_WITH_SUFFIX'),
+            ]:
+                with self.subTest(layout=layout):
+                    incident.write_text(command + '\n' + prefix + header + m.PRINCIPAL + ' ' + wording + tail)
+                    os.utime(incident, (when + .75, when + .75))
+                    output = io.StringIO()
+                    with patch.dict(os.environ, {'CLOUDSDK_CONFIG': root}), \
+                            patch.object(m.subprocess, 'run', side_effect=AssertionError('unexpected gcloud call')), \
+                            contextlib.redirect_stdout(output):
+                        status = m.main(['--recorded-sql-log', stamp])
+                    self.assertEqual(status, 0)
+                    receipt = output.getvalue()
+                    for label in ('RECORDED_LOG_STATUS: MATCH', 'CLOUD_CALLS: False',
+                                  'PINNED_RUNNER_RETRY_PATTERN_MATCH: ' + str(predicate),
+                                  'EXACT_PRINCIPAL_WORDING: ' + wording.upper().replace(' ', '_'),
+                                  'EXACT_PRINCIPAL_LINE_LAYOUTS: ' + layout):
+                        self.assertIn(label, receipt)
+                    for private in (m.PRINCIPAL, 'sentinel-private-data', str(incident)):
+                        self.assertNotIn(private, receipt)
+
+    def test_recorded_mode_refuses_missing_ambiguous_and_wrong_scope(self):
+        stamp = '2026-11-20T14:38:16Z'
+        when = m.receipt_second(stamp)
+        timestamp = when.timestamp()
+        with tempfile.TemporaryDirectory() as root:
+            logs = Path(root, 'logs')
+            self.assertEqual(m.recorded_sql_log(logs, when), {'RECORDED_LOG_STATUS': 'UNAVAILABLE'})
+            logs.mkdir()
+            def log(name, project, secret, second):
+                path = logs / name
+                path.write_text('gcloud.secrets.add-iam-policy-binding --project=' + project +
+                                ' ' + secret + '\nERROR: Service account ' + m.PRINCIPAL + ' not found.')
+                os.utime(path, (second, second))
+            log('wrong-project.log', 'another-project', m.SECRETS['SQL'], timestamp)
+            log('wrong-secret.log', m.PROJECT, m.SECRETS['SQL'] + '-other', timestamp)
+            log('wrong-time.log', m.PROJECT, m.SECRETS['SQL'], timestamp + 1)
+            self.assertEqual(m.recorded_sql_log(logs, when), {'RECORDED_LOG_STATUS': 'NO_MATCH'})
+            for name in ('one.log', 'two.log'):
+                log(name, m.PROJECT, m.SECRETS['SQL'], timestamp)
+            self.assertEqual(m.recorded_sql_log(logs, when), {'RECORDED_LOG_STATUS': 'AMBIGUOUS'})
+            with patch.dict(os.environ, {'CLOUDSDK_CONFIG': root}), \
+                    patch.object(m, 'inspect_cloud', side_effect=AssertionError('unexpected cloud inventory')), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(m.main(['--recorded-sql-log', stamp]), 2)
 
 
 if __name__ == '__main__':
