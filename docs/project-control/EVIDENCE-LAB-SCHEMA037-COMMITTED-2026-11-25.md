@@ -15,7 +15,7 @@
 
 ## Retained Backend archive verification
 
-The owner downloaded artifact `14182921183` in Cloud Shell and verified the SHA-256 of `backend-candidate-image.tar.gz`: `b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de`. The source commit is `40c1f847b09ddffe457399c25a4d30424d655c03`. The exact image ID asserted by the prior disposable CI test is `sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e`. The Cloud Shell receipt verifies the archive bytes; it does not establish a LAB Cloud Run revision or a live database connection.
+The owner downloaded artifact `14182921183` in Cloud Shell and verified the SHA-256 of `backend-candidate-image.tar.gz`: `b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de`. The source commit is `40c1f847b09ddffe457399c25a4d30424d655c03`. The exact image ID asserted by the prior disposable CI test is `sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e`. A subsequent owner Cloud Shell receipt verified the archive again, loaded it into local Docker and confirmed `BACKEND_IMAGE_ID_VERIFIED=sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e`. LAB Cloud Run revision, registry manifest digest and live database connectivity remain unverified.
 
 ## Next milestone
 
