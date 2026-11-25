@@ -13,6 +13,10 @@
 - The automated cleanup requested deletion of the temporary job, service account and three secrets. `LAB_AUTOSTOP_POLICY_READBACK=NEVER`. A separate post-run, read-only owner Cloud Shell check verified `LAB_STATE: STOPPED`, `LAB_ACTIVATION_POLICY: NEVER`, `TEMP_SECRETS_PRESENT: False`, `TEMP_SERVICE_ACCOUNT_PRESENT: False`, and `TEMP_TRANSITION_JOB_PRESENT: False`. The diagnostic reported `READ_ONLY_NO_CLOUD_MUTATIONS: True`.
 - `PREVIEW_MUTATION_REQUESTED=False`, `PRODUCTION_MUTATION_REQUESTED=False` and `RESTORE_REEXECUTED=False`.
 
+## Retained Backend archive verification
+
+The owner downloaded artifact `14182921183` in Cloud Shell and verified the SHA-256 of `backend-candidate-image.tar.gz`: `b9d6d7ffac8c67c4647d3b260e5a74613950360fb39ea94646a4e1cb5a9889de`. The source commit is `40c1f847b09ddffe457399c25a4d30424d655c03`. The exact image ID asserted by the prior disposable CI test is `sha256:40c1d61ad40ee31463d0de734061bf8fcd4a9c8b905e253a0916740ace366a2e`. The Cloud Shell receipt verifies the archive bytes; it does not establish a LAB Cloud Run revision or a live database connection.
+
 ## Next milestone
 
 B-01 in the [acceptance contract](BACKEND-SCHEMA037-FLOOT-ACCEPTANCE-2026-11-16.md): deploy the exact retained Backend image to a private isolated LAB Cloud Run revision after verifying runtime authorization and deployment prerequisites. Verify candidate identity by image digest, healthy startup, and timestamped runtime evidence. The [retained archive](https://github.com/khedma-sy/khedmah-digital-v1/actions/runs/43767079511/artifacts/14182921183) is available through 2026-12-15 22:04 UTC. The archive digest is distinct from the image digest. Backend has not been deployed to LAB in this receipt. Floot and production release acceptance remain open.
